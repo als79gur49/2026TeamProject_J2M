@@ -13,6 +13,7 @@ namespace Game.Feature.UI.Composition
         private readonly IAudioSettingsPort audioSettingsPort;
         private readonly IDisplaySettingsPort displaySettingsPort;
         private readonly IKeyboardBindingSettingsPort keyboardBindingSettingsPort;
+        private readonly IUiAudioPort uiAudioPort;
         private readonly DisplayPreviewSessionHost displayPreviewSessionHost;
         private readonly DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay;
         private DisplayStatusTransientRelay displayStatusTransientRelay;
@@ -41,7 +42,8 @@ namespace Game.Feature.UI.Composition
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             SettingsScreenPayload payload,
             double previewTimeoutSeconds,
-            DisplayStatusTransientRelay displayStatusTransientRelay = null)
+            DisplayStatusTransientRelay displayStatusTransientRelay = null,
+            IUiAudioPort uiAudioPort = null)
         {
             this.settingsScreenPrefab = settingsScreenPrefab != null
                 ? settingsScreenPrefab
@@ -53,6 +55,7 @@ namespace Game.Feature.UI.Composition
             this.audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             this.displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
             this.keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort));
+            this.uiAudioPort = uiAudioPort;
             this.popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
             this.displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             this.displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
@@ -82,7 +85,8 @@ namespace Game.Feature.UI.Composition
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             SettingsScreenPayload payload,
             double previewTimeoutSeconds,
-            DisplayStatusTransientRelay displayStatusTransientRelay = null)
+            DisplayStatusTransientRelay displayStatusTransientRelay = null,
+            IUiAudioPort uiAudioPort = null)
             : this(
                 settingsScreenPrefab,
                 settingsContentRoot,
@@ -95,7 +99,8 @@ namespace Game.Feature.UI.Composition
                 displaySettingsLifecycleRelay,
                 payload,
                 previewTimeoutSeconds,
-                displayStatusTransientRelay)
+                displayStatusTransientRelay,
+                uiAudioPort)
         {
         }
 
@@ -228,6 +233,7 @@ namespace Game.Feature.UI.Composition
             inputView.PushRebindRequested += HandleInputPushRebindRequested;
             inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
             inputView.ResetRequested += HandleInputResetRequested;
+            presenter.InputPresenter.RebindCompleted += HandleInputRebindCompleted;
             view.SectionSelected += HandleSectionSelected;
             view.BackRequested += HandleBackRequested;
             displaySettingsLifecycleRelay.ResyncRequested += HandleDisplayResyncRequested;
@@ -257,6 +263,11 @@ namespace Game.Feature.UI.Composition
                 inputView.PushRebindRequested -= HandleInputPushRebindRequested;
                 inputView.FlipRebindRequested -= HandleInputFlipRebindRequested;
                 inputView.ResetRequested -= HandleInputResetRequested;
+            }
+
+            if (presenter != null)
+            {
+                presenter.InputPresenter.RebindCompleted -= HandleInputRebindCompleted;
             }
 
             if (view != null)
@@ -300,16 +311,27 @@ namespace Game.Feature.UI.Composition
             presenter.InputPresenter.SetMovementScheme(useArrowKeys
                 ? KeyboardMovementScheme.ArrowKeys
                 : KeyboardMovementScheme.Wasd);
+            PlayLocalCue(UiAudioCueId.Toggle);
         }
 
         private void HandleInputPushRebindRequested()
         {
             presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+            PlayLocalCue(UiAudioCueId.Select);
         }
 
         private void HandleInputFlipRebindRequested()
         {
             presenter.InputPresenter.StartRebind(KeyboardBindableAction.Flip);
+            PlayLocalCue(UiAudioCueId.Select);
+        }
+
+        private void HandleInputRebindCompleted(KeyboardRebindResult result)
+        {
+            if (result.ValidationResult == KeyboardBindingValidationResult.Success)
+            {
+                PlayLocalCue(UiAudioCueId.Confirm);
+            }
         }
 
         private void HandleInputResetRequested()
@@ -464,6 +486,11 @@ namespace Game.Feature.UI.Composition
             {
                 throw new ObjectDisposedException(nameof(MainMenuSettingsRuntime));
             }
+        }
+
+        private void PlayLocalCue(UiAudioCueId cueId)
+        {
+            uiAudioPort?.Play(cueId);
         }
 
         private static void DestroyObject(UnityEngine.Object unityObject)

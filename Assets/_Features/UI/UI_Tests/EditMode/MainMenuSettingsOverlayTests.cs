@@ -130,6 +130,39 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuSettingsRuntime_InputChangeAndSuccessfulRebind_EmitSelectThenConfirmCues()
+        {
+            var keyboardPort = new ControllableKeyboardSettingsPort();
+            using var harness = new RuntimeHarness(keyboardPort);
+            harness.Runtime.Open();
+            harness.Runtime.View.ClickInputTab();
+            harness.UiAudioPort.Clear();
+
+            harness.Runtime.View.InputView.ClickPushChange();
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
+
+            harness.UiAudioPort.Clear();
+            keyboardPort.CompleteRebind(KeyboardBindingValidationResult.Success);
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_InputMovementSliderValueChange_EmitsToggleCue()
+        {
+            var keyboardPort = new ControllableKeyboardSettingsPort();
+            using var harness = new RuntimeHarness(keyboardPort);
+            harness.Runtime.Open();
+            harness.Runtime.View.ClickInputTab();
+            harness.UiAudioPort.Clear();
+
+            harness.Runtime.View.InputView.SetMovementUseArrowKeys(true);
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Toggle }));
+        }
+
+        [Test]
         public void MainMenuUiFlowInstaller_BackWithSettingsOverlayOpen_ClosesOverlayThroughSettingsPolicy()
         {
             using var harness = new OverlayHarness();
@@ -546,7 +579,8 @@ namespace Game.Feature.UI.Tests
                 PopupHarness = new PopupHarness(Root.transform);
                 AudioPort = new RecordingAudioSettingsPort();
                 DisplayPort = new RecordingDisplaySettingsPort();
-                Runtime = CreateRuntime(ContentRoot, PopupHarness, AudioPort, DisplayPort, keyboardBindingSettingsPort);
+                UiAudioPort = new RecordingUiAudioPort();
+                Runtime = CreateRuntime(ContentRoot, PopupHarness, AudioPort, DisplayPort, keyboardBindingSettingsPort, UiAudioPort);
             }
 
             public GameObject Root { get; }
@@ -558,6 +592,8 @@ namespace Game.Feature.UI.Tests
             public RecordingAudioSettingsPort AudioPort { get; }
 
             public RecordingDisplaySettingsPort DisplayPort { get; }
+
+            public RecordingUiAudioPort UiAudioPort { get; }
 
             public MainMenuSettingsRuntime Runtime { get; }
 
@@ -577,13 +613,14 @@ namespace Game.Feature.UI.Tests
                 PopupHarness = new PopupHarness(Root.transform);
                 AudioPort = new RecordingAudioSettingsPort();
                 DisplayPort = new RecordingDisplaySettingsPort();
+                UiAudioPort = new RecordingUiAudioPort();
                 OverlayController = new MainMenuSettingsOverlayController(
                     Root.transform,
                     PopupHarness.PopupLayerView.transform,
                     contentRoot =>
                     {
                         CreatedRuntimeCount++;
-                        CreatedRuntime = CreateRuntime(contentRoot, PopupHarness, AudioPort, DisplayPort);
+                        CreatedRuntime = CreateRuntime(contentRoot, PopupHarness, AudioPort, DisplayPort, uiAudioPort: UiAudioPort);
                         return CreatedRuntime;
                     });
             }
@@ -595,6 +632,8 @@ namespace Game.Feature.UI.Tests
             public RecordingAudioSettingsPort AudioPort { get; }
 
             public RecordingDisplaySettingsPort DisplayPort { get; }
+
+            public RecordingUiAudioPort UiAudioPort { get; }
 
             public MainMenuSettingsOverlayController OverlayController { get; }
 
@@ -666,7 +705,8 @@ namespace Game.Feature.UI.Tests
             PopupHarness popupHarness,
             RecordingAudioSettingsPort audioPort,
             RecordingDisplaySettingsPort displayPort,
-            IKeyboardBindingSettingsPort keyboardBindingSettingsPort = null)
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort = null,
+            RecordingUiAudioPort uiAudioPort = null)
         {
             return new MainMenuSettingsRuntime(
                 UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
@@ -680,7 +720,8 @@ namespace Game.Feature.UI.Tests
                 popupHarness.DisplayLifecycleRelay,
                 SettingsScreenPayload.Default,
                 15d,
-                popupHarness.TransientStatusRelay);
+                popupHarness.TransientStatusRelay,
+                uiAudioPort);
         }
 
         private static PopupLayerView CreatePopupLayer(Transform parent)
@@ -750,6 +791,10 @@ namespace Game.Feature.UI.Tests
 
         private sealed class ControllableKeyboardSettingsPort : IKeyboardBindingSettingsPort
         {
+            private Action<KeyboardRebindResult> completed;
+            private KeyboardBindableAction rebindingAction;
+            private KeyboardMovementScheme movementScheme = KeyboardMovementScheme.Wasd;
+
             public bool IsRebinding { get; private set; }
 
             public int CancelRebindCount { get; private set; }
@@ -761,9 +806,13 @@ namespace Game.Feature.UI.Tests
 
             public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
             {
-                return IsRebinding
-                    ? KeyboardBindingValidationResult.AlreadyRebinding
-                    : KeyboardBindingValidationResult.Success;
+                if (IsRebinding)
+                {
+                    return KeyboardBindingValidationResult.AlreadyRebinding;
+                }
+
+                movementScheme = scheme;
+                return KeyboardBindingValidationResult.Success;
             }
 
             public KeyboardRebindStartResult StartRebind(
@@ -779,6 +828,8 @@ namespace Game.Feature.UI.Tests
                 }
 
                 IsRebinding = true;
+                rebindingAction = action;
+                this.completed = completed;
                 return new KeyboardRebindStartResult(
                     true,
                     KeyboardBindingValidationResult.Success,
@@ -789,19 +840,41 @@ namespace Game.Feature.UI.Tests
             {
                 CancelRebindCount++;
                 IsRebinding = false;
+                completed = null;
             }
 
             public KeyboardBindingSettingsSnapshot ResetToDefaults()
             {
                 IsRebinding = false;
-                return BuildSnapshot(isRebinding: false);
+                movementScheme = KeyboardMovementScheme.Wasd;
+                return BuildSnapshot(movementScheme, isRebinding: false);
             }
 
-            private static KeyboardBindingSettingsSnapshot BuildSnapshot(bool isRebinding)
+            public void CompleteRebind(KeyboardBindingValidationResult result)
+            {
+                if (!IsRebinding)
+                {
+                    return;
+                }
+
+                IsRebinding = false;
+                var completion = completed;
+                completed = null;
+                completion?.Invoke(new KeyboardRebindResult(rebindingAction, result, BuildSnapshot(movementScheme, isRebinding: false)));
+            }
+
+            private KeyboardBindingSettingsSnapshot BuildSnapshot(bool isRebinding)
+            {
+                return BuildSnapshot(movementScheme, isRebinding);
+            }
+
+            private static KeyboardBindingSettingsSnapshot BuildSnapshot(
+                KeyboardMovementScheme movementScheme,
+                bool isRebinding)
             {
                 return new KeyboardBindingSettingsSnapshot(
-                    KeyboardMovementScheme.Wasd,
-                    "WASD",
+                    movementScheme,
+                    movementScheme == KeyboardMovementScheme.ArrowKeys ? "Arrow Keys" : "WASD",
                     "E",
                     "Q",
                     isRebinding,

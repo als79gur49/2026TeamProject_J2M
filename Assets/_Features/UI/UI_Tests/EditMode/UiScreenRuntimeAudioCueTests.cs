@@ -1,3 +1,4 @@
+using System;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
@@ -59,6 +60,44 @@ namespace Game.Feature.UI.Tests
             harness.UiAudioPort.Clear();
             view.ClickDisplayRevert();
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Cancel }));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsInputMovementSliderValueChange_EmitsToggleCue()
+        {
+            using var harness = UiAudioHarness.Create();
+
+            Assert.That(harness.Coordinator.OpenSettingsScreen(), Is.True);
+            var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
+            Assert.That(view, Is.Not.Null);
+            view.ClickInputTab();
+            harness.UiAudioPort.Clear();
+
+            view.InputView.SetMovementUseArrowKeys(true);
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Toggle }));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsInputChangeAndSuccessfulRebind_EmitSelectThenConfirmCues()
+        {
+            var keyboardPort = new CompletingKeyboardSettingsPort();
+            using var harness = UiAudioHarness.Create(keyboardPort);
+
+            Assert.That(harness.Coordinator.OpenSettingsScreen(), Is.True);
+            var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
+            Assert.That(view, Is.Not.Null);
+            view.ClickInputTab();
+            harness.UiAudioPort.Clear();
+
+            view.InputView.ClickPushChange();
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
+
+            harness.UiAudioPort.Clear();
+            keyboardPort.CompleteRebind(KeyboardBindingValidationResult.Success);
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
         }
 
         [Test]
@@ -225,7 +264,7 @@ namespace Game.Feature.UI.Tests
 
             public RecordingUiAudioPort UiAudioPort { get; }
 
-            public static UiAudioHarness Create()
+            public static UiAudioHarness Create(IKeyboardBindingSettingsPort keyboardBindingSettingsPort = null)
             {
                 var rootObject = new GameObject("UiScreenRuntimeAudioCueTests_Harness");
 
@@ -270,6 +309,7 @@ namespace Game.Feature.UI.Tests
                     new AccessibilitySettingsStore(),
                     new FakeAudioSettingsPort(),
                     new FakeDisplaySettingsPort(),
+                    keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance,
                     uiAudioPort,
                     previewSessionHost,
                     lifecycleRelay,
@@ -294,7 +334,69 @@ namespace Game.Feature.UI.Tests
                 Coordinator.Dispose();
                 ScreenController.Dispose();
                 PopupController.Dispose();
-                Object.DestroyImmediate(_rootObject);
+                UnityEngine.Object.DestroyImmediate(_rootObject);
+            }
+        }
+
+        private sealed class CompletingKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private Action<KeyboardRebindResult> completed;
+            private KeyboardBindableAction rebindingAction;
+
+            public bool IsRebinding { get; private set; }
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return BuildSnapshot(IsRebinding);
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                IsRebinding = true;
+                rebindingAction = action;
+                this.completed = completed;
+                return new KeyboardRebindStartResult(
+                    true,
+                    KeyboardBindingValidationResult.Success,
+                    BuildSnapshot(isRebinding: true));
+            }
+
+            public void CancelRebind()
+            {
+                IsRebinding = false;
+                completed = null;
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                IsRebinding = false;
+                return BuildSnapshot(isRebinding: false);
+            }
+
+            public void CompleteRebind(KeyboardBindingValidationResult result)
+            {
+                IsRebinding = false;
+                var completion = completed;
+                completed = null;
+                completion?.Invoke(new KeyboardRebindResult(rebindingAction, result, BuildSnapshot(isRebinding: false)));
+            }
+
+            private static KeyboardBindingSettingsSnapshot BuildSnapshot(bool isRebinding)
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    isRebinding,
+                    isRebinding ? (KeyboardBindableAction?)KeyboardBindableAction.Push : null);
             }
         }
     }
