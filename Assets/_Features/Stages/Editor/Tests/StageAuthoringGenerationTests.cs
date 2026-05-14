@@ -5,6 +5,7 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Objectives;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -204,6 +205,110 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void GeneratedStageDefinitionPreservesObjectiveConditionDisplayFields()
+        {
+            var fixture = CreateFixture(
+                Placement("player", StageAuthoringEntityKind.Player, 0, 0),
+                Placement("box", StageAuthoringEntityKind.Box, 2, 0));
+            var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
+            SetButtonConditionTileId(condition, 100);
+
+            try
+            {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 100,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        Kind = TileFeatureKind.Button,
+                        ActivationRule = TileFeatureActivationRule.ActiveFaceOnly,
+                        Direction = Direction2D.Right,
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                });
+                fixture.Authoring.SetObjective(new StageObjectiveAuthoring
+                {
+                    CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                    ConditionEntries = new[]
+                    {
+                        new StageObjectiveConditionEntry
+                        {
+                            Condition = condition,
+                            Required = true,
+                            Role = StageObjectiveConditionRole.SecondaryGoal,
+                            StableConditionId = "button-100",
+                            DisplayText = "Place a push box on the button",
+                            SortOrder = 10,
+                        },
+                    },
+                });
+
+                var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                var entry = fixture.Gameplay.Objective.ConditionEntries.Single();
+                Assert.That(entry.StableConditionId, Is.EqualTo("button-100"));
+                Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
+                Assert.That(entry.SortOrder, Is.EqualTo(10));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void GeneratedAssetWriterPreservesObjectiveTitleSummaryDisplayTextAndSortOrder()
+        {
+            var stage = ScriptableObject.CreateInstance<StageDefinition>();
+            var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
+            SetButtonConditionTileId(condition, 100);
+            var payload = new StageAuthoringGameplayWritePayload(
+                new StageBoardDefinition
+                {
+                    MinInclusive = Vector2Int.zero,
+                    MaxInclusive = new Vector2Int(2, 2),
+                    InitialBottomFace = FaceId.Floor,
+                },
+                new StageObjectiveAuthoring
+                {
+                    CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                    ObjectiveTitle = "Reach the Exit",
+                    ObjectiveSummary = "Clear every required condition.",
+                    ConditionEntries = new[]
+                    {
+                        new StageObjectiveConditionEntry
+                        {
+                            Condition = condition,
+                            Required = true,
+                            Role = StageObjectiveConditionRole.SecondaryGoal,
+                            StableConditionId = "button-100",
+                            DisplayText = "Place a push box on the button",
+                            SortOrder = 10,
+                        },
+                    },
+                },
+                Array.Empty<StageZoneDefinition>());
+
+            try
+            {
+                StageAuthoringGeneratedAssetWriter.ApplyGameplayOutput(stage, payload, recordUndo: false, markDirty: false);
+
+                Assert.That(stage.Objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
+                Assert.That(stage.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
+                var entry = stage.Objective.ConditionEntries.Single();
+                Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
+                Assert.That(entry.SortOrder, Is.EqualTo(10));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+                UnityEngine.Object.DestroyImmediate(stage);
             }
         }
 
@@ -571,6 +676,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 element.FindPropertyRelative("VisualPrefab").objectReferenceValue = bindings[i].VisualPrefab;
             }
 
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetButtonConditionTileId(ButtonActivatedConditionAsset condition, int tileId)
+        {
+            var serializedObject = new SerializedObject(condition);
+            serializedObject.FindProperty("tileId").intValue = tileId;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 

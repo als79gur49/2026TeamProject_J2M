@@ -196,6 +196,8 @@ namespace Game.Feature.Stages.Editor
         private static void SetObjective(SerializedProperty property, StageObjectiveAuthoring objective)
         {
             property.FindPropertyRelative("CompletionPolicy").intValue = (int)objective.CompletionPolicy;
+            property.FindPropertyRelative("ObjectiveTitle").stringValue = Normalize(objective.ObjectiveTitle);
+            property.FindPropertyRelative("ObjectiveSummary").stringValue = Normalize(objective.ObjectiveSummary);
             var entries = objective.GetConditionEntriesOrEmpty();
             var entriesProperty = property.FindPropertyRelative("ConditionEntries");
             entriesProperty.arraySize = entries.Length;
@@ -206,6 +208,8 @@ namespace Game.Feature.Stages.Editor
                 element.FindPropertyRelative("Required").boolValue = entries[i].Required;
                 element.FindPropertyRelative("Role").intValue = (int)entries[i].Role;
                 element.FindPropertyRelative("StableConditionId").stringValue = Normalize(entries[i].StableConditionId);
+                element.FindPropertyRelative("DisplayText").stringValue = Normalize(entries[i].DisplayText);
+                element.FindPropertyRelative("SortOrder").intValue = entries[i].SortOrder;
             }
         }
 
