@@ -15,6 +15,8 @@ MonoBehaviour:
   entries:
   - PresentationId: box_tutorial
     ViewPrefab: {fileID: 1140000000000000010, guid: 27c1fb8855a36e44b9ba1860d41c7f69, type: 3}
+  - PresentationId: box_metal
+    ViewPrefab: {fileID: 1140000000000000010, guid: 992e3d33d474d4543b1ae0c1c01b1b77, type: 3}
   - PresentationId: wall_tutorial
     ViewPrefab: {fileID: 1140000000000000010, guid: d88a1ebaf3e2422e9fe1cb9c438a0bc4, type: 3}
   - PresentationId: wall_bed_tutorial
