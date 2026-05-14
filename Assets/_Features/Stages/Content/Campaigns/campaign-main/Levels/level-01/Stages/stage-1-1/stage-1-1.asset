@@ -3249,7 +3249,7 @@ MonoBehaviour:
       x: 7
       y: 6
     Kind: 4
-    ActivationRule: 1
+    ActivationRule: 3
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
@@ -3260,7 +3260,7 @@ MonoBehaviour:
       x: 10
       y: 6
     Kind: 4
-    ActivationRule: 1
+    ActivationRule: 3
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
@@ -3271,7 +3271,7 @@ MonoBehaviour:
       x: 1
       y: 1
     Kind: 4
-    ActivationRule: 1
+    ActivationRule: 3
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0

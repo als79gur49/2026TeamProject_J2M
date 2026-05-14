@@ -3446,7 +3446,7 @@ MonoBehaviour:
       x: 7
       y: 6
     Kind: 4
-    ActivationRule: 1
+    ActivationRule: 3
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
@@ -3457,7 +3457,7 @@ MonoBehaviour:
       x: 10
       y: 6
     Kind: 4
-    ActivationRule: 1
+    ActivationRule: 3
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
@@ -3468,7 +3468,7 @@ MonoBehaviour:
       x: 1
       y: 1
     Kind: 4
-    ActivationRule: 1
+    ActivationRule: 3
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
@@ -3499,7 +3499,7 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the Eixt Zone
+      DisplayText: Reach the Exit Zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 36c5390f72989b04eb6f1b391ce99c95, type: 2}
       Required: 1
