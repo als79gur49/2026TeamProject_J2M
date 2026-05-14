@@ -2465,6 +2465,146 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAnimatorDriver_GlidePhaseSignals_RequestDedicatedAnimatorStates()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_GlidePhaseSignals_RequestDedicatedAnimatorStates");
+            var windupReferenceClip = CreateReferenceClip("GlideWindupReference", 1f);
+            var recoverReferenceClip = CreateReferenceClip("GlideRecoverReference", 1f);
+
+            try
+            {
+                rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: 0.25f,
+                    recoverAnimatorDurationSeconds: 0.25f,
+                    stateTransitionCrossFadeDurationSeconds: 0f,
+                    attackWindupReferenceClip: windupReferenceClip,
+                    recoverReferenceClip: recoverReferenceClip);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Chase,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.None,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false,
+                    glidePhase: EnemyGlidePhase.Windup,
+                    startedGlideWindupThisTick: true));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Fly_Start"));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.GlideWindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(GetPrivateInstanceField<int>(driver, "_windupTriggerDispatchCount"), Is.Zero);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Chase,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.None,
+                    isMoving: true,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false,
+                    glidePhase: EnemyGlidePhase.Active,
+                    startedGlideActiveThisTick: true));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Fly_Loop"));
+                Assert.That(driver.GlideActiveSignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 3,
+                    aiMode: EnemyAiMode.Chase,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.None,
+                    isMoving: true,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false,
+                    glidePhase: EnemyGlidePhase.Active));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Fly_Loop"));
+                Assert.That(driver.GlideActiveSignalCount, Is.EqualTo(1));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 4,
+                    aiMode: EnemyAiMode.Chase,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: true,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false,
+                    glidePhase: EnemyGlidePhase.Recovery,
+                    startedGlideRecoverThisTick: true));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Fly_Done"));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+                Assert.That(driver.GlideRecoverySignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(GetPrivateInstanceField<int>(driver, "_recoveryTriggerDispatchCount"), Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_ChargePhaseSignals_RequestWindupBeforeChargeActive()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_ChargePhaseSignals_RequestWindupBeforeChargeActive");

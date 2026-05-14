@@ -1379,6 +1379,17 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
+                if (!Enum.IsDefined(typeof(TileFeatureVisualFootprintMode), catalogEntry.FootprintMode))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.catalog.footprint-mode-invalid",
+                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid TileFeatureVisualFootprintMode value {(int)catalogEntry.FootprintMode}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
                 if (catalogEntry.IsDefaultForKind &&
                     !defaultKinds.Add(catalogEntry.Kind))
                 {
@@ -1570,6 +1581,7 @@ namespace Game.Feature.Stages
             var presentationPath = GetAssetPath(presentation, options);
             var directBindings = BuildDirectTileFeatureBindingsById(presentation);
             var replaceTileIdsByCell = new Dictionary<SurfaceCell, List<int>>();
+            var hasBoardBounds = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
             var tileFeatures = entry.GameplayDefinition.TileFeatures;
             for (var i = 0; i < tileFeatures.Length; i++)
             {
@@ -1584,6 +1596,7 @@ namespace Game.Feature.Stages
                         directBindings,
                         tileFeature,
                         out var placementMode,
+                        out var footprintMode,
                         out var visualPrefab))
                 {
                     continue;
@@ -1606,13 +1619,41 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
-                if (!replaceTileIdsByCell.TryGetValue(tileFeature.Cell, out var tileIds))
+                IReadOnlyList<SurfaceCell> suppressedCells = Array.Empty<SurfaceCell>();
+                if (hasBoardBounds &&
+                    !TryBuildReplaceBaseTileSuppressedCells(
+                        tileFeature,
+                        footprintMode,
+                        boardBounds,
+                        out suppressedCells,
+                        out var invalidCell))
                 {
-                    tileIds = new List<int>();
-                    replaceTileIdsByCell.Add(tileFeature.Cell, tileIds);
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.replace-base-tile.footprint-out-of-bounds",
+                        $"TileFeature TileId {tileFeature.TileId} ReplaceBaseTile footprint {footprintMode} includes out-of-bounds cell {invalidCell}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
                 }
 
-                tileIds.Add(tileFeature.TileId);
+                if (!hasBoardBounds)
+                {
+                    suppressedCells = new[] { tileFeature.Cell };
+                }
+
+                for (var cellIndex = 0; cellIndex < suppressedCells.Count; cellIndex++)
+                {
+                    var suppressedCell = suppressedCells[cellIndex];
+                    if (!replaceTileIdsByCell.TryGetValue(suppressedCell, out var tileIds))
+                    {
+                        tileIds = new List<int>();
+                        replaceTileIdsByCell.Add(suppressedCell, tileIds);
+                    }
+
+                    tileIds.Add(tileFeature.TileId);
+                }
             }
 
             foreach (var pair in replaceTileIdsByCell)
@@ -1625,10 +1666,58 @@ namespace Game.Feature.Stages
                 report.Add(
                     StageValidationSeverity.Error,
                     "presentation.tile-feature.replace-base-tile.cell-duplicate",
-                    $"SurfaceCell {pair.Key} has multiple ReplaceBaseTile TileFeatures: {string.Join(", ", pair.Value)}.",
+                    $"SurfaceCell {pair.Key} is suppressed by multiple ReplaceBaseTile TileFeatures: {string.Join(", ", pair.Value)}.",
                     presentation,
                     presentationPath,
                     options.Timing);
+            }
+        }
+
+        private static bool TryBuildReplaceBaseTileSuppressedCells(
+            StageTileFeatureDefinition tileFeature,
+            TileFeatureVisualFootprintMode footprintMode,
+            BoardBounds boardBounds,
+            out IReadOnlyList<SurfaceCell> cells,
+            out SurfaceCell invalidCell)
+        {
+            var result = new List<SurfaceCell>();
+            invalidCell = default;
+            switch (footprintMode)
+            {
+                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
+                    for (var yOffset = -1; yOffset <= 1; yOffset++)
+                    {
+                        for (var xOffset = -1; xOffset <= 1; xOffset++)
+                        {
+                            var candidate = new SurfaceCell(
+                                tileFeature.Cell.face,
+                                tileFeature.Cell.x + xOffset,
+                                tileFeature.Cell.y + yOffset);
+                            if (!boardBounds.Contains(candidate.PlanarPosition))
+                            {
+                                cells = Array.Empty<SurfaceCell>();
+                                invalidCell = candidate;
+                                return false;
+                            }
+
+                            result.Add(candidate);
+                        }
+                    }
+
+                    cells = result;
+                    return true;
+                case TileFeatureVisualFootprintMode.SingleCell:
+                default:
+                    if (!boardBounds.Contains(tileFeature.Cell.PlanarPosition))
+                    {
+                        cells = Array.Empty<SurfaceCell>();
+                        invalidCell = tileFeature.Cell;
+                        return false;
+                    }
+
+                    result.Add(tileFeature.Cell);
+                    cells = result;
+                    return true;
             }
         }
 
@@ -1663,9 +1752,11 @@ namespace Game.Feature.Stages
             IReadOnlyDictionary<int, TileFeaturePresentationBinding> directBindings,
             StageTileFeatureDefinition tileFeature,
             out TileFeatureVisualPlacementMode placementMode,
+            out TileFeatureVisualFootprintMode footprintMode,
             out GameObject visualPrefab)
         {
             placementMode = TileFeatureVisualPlacementMode.Overlay;
+            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
             visualPrefab = null;
             if (directBindings != null &&
                 directBindings.TryGetValue(tileFeature.TileId, out var directBinding))
@@ -1677,6 +1768,7 @@ namespace Game.Feature.Stages
                     catalog.TryGetEntry(presentationKey, out var keyedEntry))
                 {
                     placementMode = keyedEntry.PlacementMode;
+                    footprintMode = keyedEntry.FootprintMode;
                 }
 
                 return true;
@@ -1692,6 +1784,7 @@ namespace Game.Feature.Stages
                 catalog.TryGetEntry(key, out var keyedCatalogEntry))
             {
                 placementMode = keyedCatalogEntry.PlacementMode;
+                footprintMode = keyedCatalogEntry.FootprintMode;
                 visualPrefab = keyedCatalogEntry.VisualPrefab;
                 return true;
             }
@@ -1699,6 +1792,7 @@ namespace Game.Feature.Stages
             if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry))
             {
                 placementMode = defaultEntry.PlacementMode;
+                footprintMode = defaultEntry.FootprintMode;
                 visualPrefab = defaultEntry.VisualPrefab;
                 return true;
             }

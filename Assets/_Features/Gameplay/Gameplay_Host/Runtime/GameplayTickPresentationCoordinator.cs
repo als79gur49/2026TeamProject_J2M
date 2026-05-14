@@ -25,6 +25,8 @@ namespace Game.Feature.Gameplay.Host
             Array.Empty<GravityFieldPresentationRequest>();
         private static readonly IReadOnlyList<GravityFieldVisualState> EmptyGravityFieldVisualStates =
             Array.Empty<GravityFieldVisualState>();
+        private static readonly IReadOnlyList<TileFeatureVisualState> EmptyTileFeatureVisualStates =
+            Array.Empty<TileFeatureVisualState>();
 
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
         private readonly GameplayActionAudioRequestPlanner _actionAudioRequestPlanner = new();
@@ -73,8 +75,11 @@ namespace Game.Feature.Gameplay.Host
             EmptyGravityFieldPresentationRequests;
         private IReadOnlyList<GravityFieldVisualState> _currentGravityFieldVisualStates =
             EmptyGravityFieldVisualStates;
+        private IReadOnlyList<TileFeatureVisualState> _currentTileFeatureVisualStates =
+            EmptyTileFeatureVisualStates;
         private Action<string> _traceSink;
         private int _lastPresentedTickIndex;
+        private TileFeatureVisualPoseSynchronizer _tileFeatureVisualPoseSynchronizer;
 
         public GameplayTickPresentationCoordinator()
         {
@@ -114,6 +119,7 @@ namespace Game.Feature.Gameplay.Host
                 _poseResolver,
                 _exitPresentationController,
                 _entityPresentationApplier);
+            _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
         }
 
         public event Action<CubeTopologyState> TopologyCommitted;
@@ -147,6 +153,9 @@ namespace Game.Feature.Gameplay.Host
 
         public IReadOnlyList<GravityFieldVisualState> CurrentGravityFieldVisualStates =>
             _currentGravityFieldVisualStates;
+
+        public IReadOnlyList<TileFeatureVisualState> CurrentTileFeatureVisualStates =>
+            _currentTileFeatureVisualStates;
 
         internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
 
@@ -217,6 +226,7 @@ namespace Game.Feature.Gameplay.Host
             _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
+            _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
             _summonedEnemyPresentationResolver.Initialize(
                 boardRoot != null ? boardRoot.EntityRoot : viewBinder.SearchRoot,
                 viewBinder.ViewRegistry,
@@ -290,6 +300,7 @@ namespace Game.Feature.Gameplay.Host
                 _blockAudioRequestPlanner.BuildRequests(result, _timingProfile));
             RefreshTilePresentationRequests(result.PresentationData);
             RefreshGravityFieldPresentationRequests(result.PresentationData);
+            RefreshTileFeatureVisualStates(result.PresentationData);
             RefreshGravityFieldVisualStates(result.PresentationData);
             _tileFeatureAudioPresentationController.ReplacePendingPlan(
                 _tileFeatureAudioRequestPlanner.BuildRequests(_currentTilePresentationRequests));
@@ -298,6 +309,7 @@ namespace Game.Feature.Gameplay.Host
             _tileFeatureVisualPresentationController.PlayRequests(_currentTilePresentationRequests);
             _moonBlockEmergencePresentationController.QueueRequests(_currentTilePresentationRequests, result.TickIndex);
             _gravityFieldVisualPresentationController.PlayRequests(_currentGravityFieldPresentationRequests);
+            _tileFeatureVisualPresentationController.RefreshContinuousStates(_currentTileFeatureVisualStates);
             _summonedEnemyPresentationResolver.Reconcile(result);
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,
@@ -392,6 +404,7 @@ namespace Game.Feature.Gameplay.Host
             _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
+            _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
             _topologyTransitionController.Reset();
 
             _committedFrameBuilder.StoreCommittedFrame(
@@ -480,6 +493,11 @@ namespace Game.Feature.Gameplay.Host
             _tileFeatureVisualPresentationController.AttachRegistry(registry);
         }
 
+        internal void AttachTileFeatureVisualPoseSynchronizer(TileFeatureVisualPoseSynchronizer synchronizer)
+        {
+            _tileFeatureVisualPoseSynchronizer = synchronizer;
+        }
+
         internal void DetachGameplayAudioRuntime()
         {
             _actionAudioPresentationController.DetachRuntime();
@@ -551,6 +569,15 @@ namespace Game.Feature.Gameplay.Host
                     new List<GravityFieldPresentationRequest>(plannedRequests));
         }
 
+        private void RefreshTileFeatureVisualStates(TickPresentationData presentationData)
+        {
+            var visualStates = presentationData.TileFeatureVisualStates;
+            _currentTileFeatureVisualStates = visualStates.Count == 0
+                ? EmptyTileFeatureVisualStates
+                : new ReadOnlyCollection<TileFeatureVisualState>(
+                    new List<TileFeatureVisualState>(visualStates));
+        }
+
         private void RefreshGravityFieldVisualStates(TickPresentationData presentationData)
         {
             var visualStates = presentationData.GravityFieldVisualStates;
@@ -617,6 +644,11 @@ namespace Game.Feature.Gameplay.Host
                         _viewBinder != null ? _viewBinder.SearchRoot : null);
                 }
             }
+        }
+
+        private void HandleTopologyPresentationCompleted(CubeTopologyState topology)
+        {
+            _tileFeatureVisualPoseSynchronizer?.RefreshAll(topology);
         }
 
         private void RefreshPresentationMotionVfx(int tickIndex)

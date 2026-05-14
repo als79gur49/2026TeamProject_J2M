@@ -11,6 +11,12 @@ namespace Game.Feature.Stages
         ReplaceBaseTile = 1,
     }
 
+    public enum TileFeatureVisualFootprintMode
+    {
+        SingleCell = 0,
+        ThreeByThreeSameFace = 1,
+    }
+
     [Serializable]
     public sealed class TileFeaturePresentationCatalogEntry
     {
@@ -19,6 +25,7 @@ namespace Game.Feature.Stages
         [SerializeField] private TileFeatureKind kind = TileFeatureKind.Unknown;
         [SerializeField] private GameObject visualPrefab;
         [SerializeField] private TileFeatureVisualPlacementMode placementMode;
+        [SerializeField] private TileFeatureVisualFootprintMode footprintMode;
         [SerializeField] private Sprite icon;
         [SerializeField] private bool isDefaultForKind;
         [SerializeField] private Direction2D directionHint = Direction2D.None;
@@ -32,6 +39,8 @@ namespace Game.Feature.Stages
         public GameObject VisualPrefab => visualPrefab;
 
         public TileFeatureVisualPlacementMode PlacementMode => placementMode;
+
+        public TileFeatureVisualFootprintMode FootprintMode => footprintMode;
 
         public Sprite Icon => icon;
 

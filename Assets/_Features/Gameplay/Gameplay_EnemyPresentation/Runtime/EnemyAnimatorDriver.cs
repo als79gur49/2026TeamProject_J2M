@@ -26,6 +26,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string jumpAirborneStateName = "JumpAirborne";
         [SerializeField] private string chargeActiveStateName = "Charge";
         [SerializeField] private string recoveryStateName = "Recover";
+        [SerializeField] private string glideWindupStateName = "Fly_Start";
+        [SerializeField] private string glideActiveStateName = "Fly_Loop";
+        [SerializeField] private string glideRecoveryStateName = "Fly_Done";
         [SerializeField] private string windupTriggerName = "Windup";
         [SerializeField] private string jumpWindupTriggerName = "JumpWindup";
         [SerializeField] private string jumpAirborneTriggerName = "JumpAirborne";
@@ -57,6 +60,12 @@ namespace Game.Feature.Gameplay.Host
         public int JumpAirborneSignalCount { get; private set; }
 
         public int ChargeActiveSignalCount { get; private set; }
+
+        public int GlideWindupSignalCount { get; private set; }
+
+        public int GlideActiveSignalCount { get; private set; }
+
+        public int GlideRecoverySignalCount { get; private set; }
 
         public int UtilityWindupSignalCount { get; private set; }
 
@@ -136,10 +145,31 @@ namespace Game.Feature.Gameplay.Host
                 TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.ChargeActive);
             }
 
+            var handledGlideWindup = false;
+            if (state.StartedGlideWindupThisTick)
+            {
+                GlideWindupSignalCount++;
+                handledGlideWindup = TryApplyNamedStateCrossFade(
+                    targetAnimator,
+                    glideWindupStateName,
+                    requireOverride: true);
+            }
+
+            if (state.StartedGlideActiveThisTick ||
+                (state.GlidePhase == EnemyGlidePhase.Active && previousState.GlidePhase != EnemyGlidePhase.Active))
+            {
+                GlideActiveSignalCount++;
+                TryApplyNamedStateCrossFade(
+                    targetAnimator,
+                    glideActiveStateName,
+                    requireOverride: true);
+            }
+
             if (state.StartedWindupThisTick)
             {
                 WindupSignalCount++;
-                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup))
+                if (!handledGlideWindup &&
+                    !TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup))
                 {
                     DispatchWindupTrigger(targetAnimator);
                 }
@@ -156,10 +186,21 @@ namespace Game.Feature.Gameplay.Host
                 SetTrigger(targetAnimator, attackTriggerName);
             }
 
+            var handledGlideRecovery = false;
+            if (state.StartedGlideRecoverThisTick)
+            {
+                GlideRecoverySignalCount++;
+                handledGlideRecovery = TryApplyNamedStateCrossFade(
+                    targetAnimator,
+                    glideRecoveryStateName,
+                    requireOverride: true);
+            }
+
             if (state.StartedRecoveryThisTick)
             {
                 RecoverySignalCount++;
-                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Recovery))
+                if (!handledGlideRecovery &&
+                    !TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Recovery))
                 {
                     DispatchRecoveryTrigger(targetAnimator);
                 }
@@ -438,6 +479,15 @@ namespace Game.Feature.Gameplay.Host
                     return EnemyPresentationPhase.ChargeActive;
 
                 case EnemyChargePhase.Recover:
+                    return EnemyPresentationPhase.Recovery;
+            }
+
+            switch (state.GlidePhase)
+            {
+                case EnemyGlidePhase.Windup:
+                    return EnemyPresentationPhase.Windup;
+
+                case EnemyGlidePhase.Recovery:
                     return EnemyPresentationPhase.Recovery;
             }
 

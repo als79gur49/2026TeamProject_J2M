@@ -118,7 +118,8 @@ namespace Game.Feature.Stages
 
             if (expected.Kind == StageSpawnKind.Player ||
                 expected.Kind == StageSpawnKind.Enemy ||
-                expected.Kind == StageSpawnKind.Box)
+                expected.Kind == StageSpawnKind.Box ||
+                expected.Kind == StageSpawnKind.Wall)
             {
                 AddIfDifferent(issues, context, "GameplayDrift.SpawnFieldMismatch", "Facing", expected.Facing, actual.Facing, expected.EntityId, expected.StableGuid);
             }

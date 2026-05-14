@@ -23,23 +23,17 @@ MonoBehaviour:
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
   enemyPresentationBindings:
-  - EntityId: 54
-    PresentationId: black_eye
-  - EntityId: 55
-    PresentationId: startis
-  - EntityId: 56
-    PresentationId: sunwheel
-  - EntityId: 57
-    PresentationId: astreton
   - EntityId: 58
     PresentationId: rocket_face
   - EntityId: 59
     PresentationId: j_peter
-  staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
-  staticEntityPresentationBindings: []
+  staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
+  staticEntityPresentationBindings:
+  - EntityId: 201
+    PresentationId: box_tutorial
   boardTilePresentationCatalog: {fileID: 0}
   boardTilePresentationOverrides: []
-  tileFeaturePresentationCatalog: {fileID: 0}
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
   resultTitle: Stage Cleared
   resultSummaryText: 

@@ -397,6 +397,158 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ZoneMode_CreateSingleCellZone_UpdatesAuthoringDefinition()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.ZoneEditing);
+                    window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(1, 1));
+                    window.SetZoneCreateDraftForTests("goal", FaceId.Floor);
+
+                    var changed = window.AddSingleCellZoneAtTargetForTests();
+
+                    Assert.That(changed, Is.True);
+                    Assert.That(authoring.Zones, Has.Count.EqualTo(1));
+                    Assert.That(authoring.Zones[0].ZoneId, Is.EqualTo("goal"));
+                    Assert.That(authoring.Zones[0].Regions.Single().MinInclusive, Is.EqualTo(new Vector2Int(1, 1)));
+                    Assert.That(window.SelectedZoneIdForTests, Is.EqualTo("goal"));
+                });
+        }
+
+        [Test]
+        public void ZoneMode_CreateRectangleZone_UpdatesAuthoringDefinition()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 4, 4));
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.ZoneEditing);
+                    window.SetZoneCreateDraftForTests("room", FaceId.Front);
+                    window.SetZoneRectangleForTests(FaceId.Front, new Vector2Int(3, 3), new Vector2Int(1, 1));
+
+                    var changed = window.AddRectangleZoneForTests();
+
+                    Assert.That(changed, Is.True);
+                    var region = authoring.Zones.Single().Regions.Single();
+                    Assert.That(authoring.Zones.Single().FaceId, Is.EqualTo(FaceId.Front));
+                    Assert.That(region.MinInclusive, Is.EqualTo(new Vector2Int(1, 1)));
+                    Assert.That(region.MaxInclusive, Is.EqualTo(new Vector2Int(3, 3)));
+                });
+        }
+
+        [Test]
+        public void ZoneMode_SelectExistingZone_ShowsSelection()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetZones(new[]
+                    {
+                        Zone("a", FaceId.Floor, 0, 0, 0, 0),
+                        Zone("b", FaceId.Floor, 1, 1, 1, 1),
+                    });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.ZoneEditing);
+
+                    window.SelectZoneByIdForTests("b");
+
+                    Assert.That(window.ResolveSelectedZoneIndexForTests(), Is.EqualTo(1));
+                    Assert.That(window.SelectedZoneIdForTests, Is.EqualTo("b"));
+                });
+        }
+
+        [Test]
+        public void ZoneMode_DeleteSelectedZone_RemovesZone()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetZones(new[] { Zone("goal", FaceId.Floor, 0, 0, 0, 0) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.ZoneEditing);
+                    window.SelectZoneByIdForTests("goal");
+
+                    var changed = window.DeleteSelectedZoneForTests();
+
+                    Assert.That(changed, Is.True);
+                    Assert.That(authoring.Zones, Is.Empty);
+                    Assert.That(window.SelectedZoneIdForTests, Is.Empty);
+                });
+        }
+
+        [Test]
+        public void ZoneMode_DuplicateSelectedZone_CreatesNewZoneId()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 2, 2));
+                    authoring.SetZones(new[] { Zone("goal", FaceId.Floor, 0, 0, 1, 1) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.ZoneEditing);
+                    window.SelectZoneByIdForTests("goal");
+
+                    var changed = window.DuplicateSelectedZoneForTests("goal-copy");
+
+                    Assert.That(changed, Is.True);
+                    Assert.That(authoring.Zones, Has.Count.EqualTo(2));
+                    Assert.That(authoring.Zones[1].ZoneId, Is.EqualTo("goal-copy"));
+                    Assert.That(authoring.Zones[1].Regions.Single().MaxInclusive, Is.EqualTo(new Vector2Int(1, 1)));
+                });
+        }
+
+        [Test]
+        public void ZoneMode_UpdateSelectedZone_ChangesFirstRegion()
+        {
+            WithWindow(
+                System.Array.Empty<StagePlacedEntityAuthoring>(),
+                (window, authoring) =>
+                {
+                    authoring.SetBoard(Board(0, 0, 3, 3));
+                    authoring.SetZones(new[] { Zone("goal", FaceId.Floor, 0, 0, 0, 0) });
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.ZoneEditing);
+                    window.SelectZoneByIdForTests("goal");
+
+                    var changed = window.UpdateSelectedZoneFirstRegionForTests(
+                        "goal-renamed",
+                        FaceId.Front,
+                        new Vector2Int(1, 1),
+                        new Vector2Int(2, 2));
+
+                    Assert.That(changed, Is.True);
+                    var zone = authoring.Zones.Single();
+                    Assert.That(zone.ZoneId, Is.EqualTo("goal-renamed"));
+                    Assert.That(zone.FaceId, Is.EqualTo(FaceId.Front));
+                    Assert.That(zone.Regions.Single().MinInclusive, Is.EqualTo(new Vector2Int(1, 1)));
+                });
+        }
+
+        [Test]
+        public void ZoneMode_SelectionDoesNotCorruptPlacementOrTileFeatureSelection()
+        {
+            WithWindow(
+                new[] { Placement("p", FaceId.Floor, 0, 0) },
+                (window, authoring) =>
+                {
+                    authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
+                    authoring.SetZones(new[] { Zone("z", FaceId.Floor, 0, 0, 0, 0) });
+                    window.SelectCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                    window.SelectTileFeatureByIdForTests(1);
+                    window.SetEditModeForTests(StageAuthoringGridEditMode.ZoneEditing);
+
+                    window.SelectZoneByIdForTests("z");
+
+                    Assert.That(window.ResolveSelectedPlacementIndexForTests(), Is.EqualTo(0));
+                    Assert.That(window.ResolveSelectedTileFeatureIndexForTests(), Is.EqualTo(0));
+                    Assert.That(window.ResolveSelectedZoneIndexForTests(), Is.EqualTo(0));
+                });
+        }
+
+        [Test]
         public void TileFeatureMode_MoveSelectedHere_MovesSelectedTileFeatureToTargetAndPreservesData()
         {
             WithWindow(
@@ -846,6 +998,29 @@ namespace Game.Feature.Stages.Editor.Tests
                 Direction = Direction2D.None,
                 BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
                 PresentationKey = presentationKey,
+            };
+        }
+
+        private static StageZoneDefinition Zone(
+            string zoneId,
+            FaceId face,
+            int minX,
+            int minY,
+            int maxX,
+            int maxY)
+        {
+            return new StageZoneDefinition
+            {
+                ZoneId = zoneId,
+                FaceId = face,
+                Regions = new[]
+                {
+                    new StageZoneRegionDefinition
+                    {
+                        MinInclusive = new Vector2Int(minX, minY),
+                        MaxInclusive = new Vector2Int(maxX, maxY),
+                    },
+                },
             };
         }
 

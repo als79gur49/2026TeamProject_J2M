@@ -152,7 +152,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void NormalizedDrift_WallFacingAuthoringSupportDoesNotMakeFacingSemanticDrift()
+        public void NormalizedDrift_WallFacingAuthoringSupport_DetectsFacingSemanticDrift()
         {
             Assert.That(StageAuthoringKindRegistry.Wall.SupportsFacingAuthoring, Is.True);
 
@@ -174,8 +174,46 @@ namespace Game.Feature.Stages.Editor.Tests
                 issues.Any(issue =>
                     issue.Code == "GameplayDrift.SpawnFieldMismatch" &&
                     issue.FieldName == "Facing"),
-                Is.False,
+                Is.True,
                 FormatIssues(issues));
+        }
+
+        [Test]
+        public void NormalizedDrift_ZoneIdMismatch_ReportsGameplayDriftZoneMismatch()
+        {
+            var expected = CreateZoneSnapshot("goal", FaceId.Floor, new Vector2Int(0, 0), new Vector2Int(0, 0));
+            var actual = CreateZoneSnapshot("other", FaceId.Floor, new Vector2Int(0, 0), new Vector2Int(0, 0));
+
+            var issues = CompareGameplay(expected, actual, "zone-id");
+
+            Assert.That(issues.Any(issue => issue.Code == "GameplayDrift.ZoneMismatch"), Is.True, FormatIssues(issues));
+        }
+
+        [Test]
+        public void NormalizedDrift_ZoneRegionMismatch_ReportsGameplayDriftZoneMismatch()
+        {
+            var expected = CreateZoneSnapshot("goal", FaceId.Floor, new Vector2Int(0, 0), new Vector2Int(0, 0));
+            var actual = CreateZoneSnapshot("goal", FaceId.Floor, new Vector2Int(0, 0), new Vector2Int(1, 1));
+
+            var issues = CompareGameplay(expected, actual, "zone-region");
+
+            Assert.That(issues.Any(issue => issue.Code == "GameplayDrift.ZoneMismatch"), Is.True, FormatIssues(issues));
+        }
+
+        [Test]
+        public void NormalizedDrift_ZoneCountMismatch_ReportsGameplayDriftZoneMismatch()
+        {
+            var expected = CreateZoneSnapshot("goal", FaceId.Floor, new Vector2Int(0, 0), new Vector2Int(0, 0));
+            var actual = new StageAuthoringNormalizedGameplaySnapshot(
+                expected.Board,
+                expected.Spawns,
+                expected.TileFeatures,
+                Array.Empty<StageAuthoringNormalizedZone>(),
+                expected.Objective);
+
+            var issues = CompareGameplay(expected, actual, "zone-count");
+
+            Assert.That(issues.Any(issue => issue.Code == "GameplayDrift.ZoneMismatch"), Is.True, FormatIssues(issues));
         }
 
         [Test]
@@ -386,6 +424,52 @@ namespace Game.Feature.Stages.Editor.Tests
                 Array.Empty<StageAuthoringNormalizedTileFeature>(),
                 Array.Empty<StageAuthoringNormalizedZone>(),
                 StageAuthoringNormalizedObjective.Empty);
+        }
+
+        private static StageAuthoringNormalizedGameplaySnapshot CreateZoneSnapshot(
+            string zoneId,
+            FaceId face,
+            Vector2Int minInclusive,
+            Vector2Int maxInclusive)
+        {
+            return new StageAuthoringNormalizedGameplaySnapshot(
+                new StageBoardDefinition
+                {
+                    MinInclusive = new Vector2Int(0, 0),
+                    MaxInclusive = new Vector2Int(4, 4),
+                    InitialBottomFace = FaceId.Floor,
+                },
+                Array.Empty<StageAuthoringNormalizedSpawn>(),
+                Array.Empty<StageAuthoringNormalizedTileFeature>(),
+                new[]
+                {
+                    new StageAuthoringNormalizedZone(
+                        zoneId,
+                        face,
+                        new[]
+                        {
+                            new StageAuthoringNormalizedZoneRegion(minInclusive, maxInclusive),
+                        }),
+                },
+                StageAuthoringNormalizedObjective.Empty);
+        }
+
+        private static IReadOnlyList<StageValidationIssue> CompareGameplay(
+            StageAuthoringNormalizedGameplaySnapshot expected,
+            StageAuthoringNormalizedGameplaySnapshot actual,
+            string stageId)
+        {
+            return StageAuthoringDriftComparer.CompareGameplay(
+                expected,
+                actual,
+                new StageAuthoringDriftContext(
+                    StageValidationSeverity.Error,
+                    StageValidationTiming.TestOrCi,
+                    context: null,
+                    assetPath: string.Empty,
+                    stageId: stageId,
+                    authoringAssetName: string.Empty,
+                    outputAssetName: string.Empty));
         }
 
         private static void ReverseArray(UnityEngine.Object target, string fieldName)

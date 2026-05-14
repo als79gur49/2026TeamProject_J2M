@@ -31,8 +31,10 @@ MonoBehaviour:
       y: 3
     Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -46,8 +48,10 @@ MonoBehaviour:
       y: 4
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -61,8 +65,10 @@ MonoBehaviour:
       y: 1
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -76,8 +82,10 @@ MonoBehaviour:
       y: 6
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -91,8 +99,10 @@ MonoBehaviour:
       y: 6
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -106,8 +116,10 @@ MonoBehaviour:
       y: 4
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -121,8 +133,10 @@ MonoBehaviour:
       y: 4
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -136,8 +150,10 @@ MonoBehaviour:
       y: 2
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -151,8 +167,10 @@ MonoBehaviour:
       y: 1
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -166,8 +184,10 @@ MonoBehaviour:
       y: 5
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -181,8 +201,10 @@ MonoBehaviour:
       y: 4
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -196,8 +218,10 @@ MonoBehaviour:
       y: 1
     Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
@@ -211,8 +235,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -226,8 +252,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -241,8 +269,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -256,8 +286,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -271,8 +303,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -286,8 +320,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -301,8 +337,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -316,8 +354,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -331,8 +371,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -346,8 +388,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -361,8 +405,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -376,8 +422,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -391,8 +439,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -403,11 +453,13 @@ MonoBehaviour:
     Cell:
       face: 0
       x: 10
-      y: 2
+      y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -421,8 +473,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -436,8 +490,10 @@ MonoBehaviour:
       y: 6
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -451,8 +507,10 @@ MonoBehaviour:
       y: 5
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -466,8 +524,10 @@ MonoBehaviour:
       y: 5
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -481,8 +541,10 @@ MonoBehaviour:
       y: 5
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -496,8 +558,10 @@ MonoBehaviour:
       y: 5
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -511,8 +575,10 @@ MonoBehaviour:
       y: 5
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -526,8 +592,10 @@ MonoBehaviour:
       y: 5
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -541,8 +609,10 @@ MonoBehaviour:
       y: 3
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -556,8 +626,10 @@ MonoBehaviour:
       y: 2
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -571,8 +643,10 @@ MonoBehaviour:
       y: 2
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -586,8 +660,10 @@ MonoBehaviour:
       y: 2
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -601,23 +677,10 @@ MonoBehaviour:
       y: 2
     Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: stage-0-1:Box:58
-    DisplayName: Box 58
-    Kind: 2
-    Cell:
-      face: 2
-      x: 4
-      y: 6
-    Facing: 2
-    Hp: 1
-    UnitStackGroup: 
-    BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -631,42 +694,31 @@ MonoBehaviour:
       y: 6
     Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 9
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: stage-0-1:Box:60
-    DisplayName: Box 60
-    Kind: 2
-    Cell:
-      face: 2
-      x: 1
-      y: 3
-    Facing: 2
-    Hp: 1
-    UnitStackGroup: 
-    BoxCapabilities: 1
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: box_tutorial
   - StableGuid: stage-0-1:Box:61
     DisplayName: Box 61
-    Kind: 2
+    Kind: 3
     Cell:
       face: 2
       x: 2
       y: 3
-    Facing: 2
+    Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 1
+    BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
+    PresentationId: wall_tutorial
   - StableGuid: stage-0-1:Box:62
     DisplayName: Box 62
     Kind: 2
@@ -676,8 +728,10 @@ MonoBehaviour:
       y: 2
     Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 11
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -691,8 +745,10 @@ MonoBehaviour:
       y: 2
     Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 11
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -706,8 +762,10 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 11
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -721,8 +779,10 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 11
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -736,8 +796,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -751,8 +813,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -766,8 +830,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -781,8 +847,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -796,8 +864,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -811,8 +881,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -826,8 +898,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -841,8 +915,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -856,8 +932,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -871,8 +949,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -886,8 +966,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -901,8 +983,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -916,8 +1000,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -931,8 +1017,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -946,8 +1034,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -961,8 +1051,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -976,8 +1068,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -991,8 +1085,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1006,8 +1102,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1019,14 +1117,16 @@ MonoBehaviour:
       face: 0
       x: 10
       y: 5
-    Facing: 0
+    Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:221
     DisplayName: Wall 221
     Kind: 3
@@ -1034,14 +1134,16 @@ MonoBehaviour:
       face: 0
       x: 11
       y: 5
-    Facing: 0
+    Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:222
     DisplayName: Wall 222
     Kind: 3
@@ -1051,8 +1153,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1066,8 +1170,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1081,8 +1187,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1094,10 +1202,12 @@ MonoBehaviour:
       face: 0
       x: 5
       y: 4
-    Facing: 0
+    Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1109,10 +1219,12 @@ MonoBehaviour:
       face: 0
       x: 6
       y: 4
-    Facing: 0
+    Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1126,8 +1238,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1141,8 +1255,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1156,8 +1272,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1171,8 +1289,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1186,8 +1306,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1201,8 +1323,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1216,8 +1340,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1231,8 +1357,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1246,8 +1374,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1261,8 +1391,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1276,8 +1408,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1291,8 +1425,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1306,8 +1442,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1321,8 +1459,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1336,8 +1476,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1351,8 +1493,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1366,8 +1510,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1381,8 +1527,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1396,8 +1544,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1411,8 +1561,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1426,8 +1578,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1441,8 +1595,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1456,8 +1612,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1471,8 +1629,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1486,8 +1646,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1501,8 +1663,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1516,8 +1680,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1531,8 +1697,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1546,8 +1714,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1561,8 +1731,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1576,8 +1748,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1591,8 +1765,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1606,8 +1782,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1619,14 +1797,16 @@ MonoBehaviour:
       face: 1
       x: 7
       y: 5
-    Facing: 0
+    Facing: 3
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:261
     DisplayName: Wall 261
     Kind: 3
@@ -1636,8 +1816,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1651,8 +1833,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1664,14 +1848,16 @@ MonoBehaviour:
       face: 1
       x: 7
       y: 4
-    Facing: 0
+    Facing: 1
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:264
     DisplayName: Wall 264
     Kind: 3
@@ -1681,8 +1867,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1696,8 +1884,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1711,8 +1901,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1726,8 +1918,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1739,14 +1933,16 @@ MonoBehaviour:
       face: 1
       x: 10
       y: 3
-    Facing: 0
+    Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:269
     DisplayName: Wall 269
     Kind: 3
@@ -1754,14 +1950,16 @@ MonoBehaviour:
       face: 1
       x: 11
       y: 3
-    Facing: 0
+    Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:270
     DisplayName: Wall 270
     Kind: 3
@@ -1771,8 +1969,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1786,8 +1986,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1801,8 +2003,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1814,14 +2018,16 @@ MonoBehaviour:
       face: 1
       x: 5
       y: 2
-    Facing: 0
+    Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:274
     DisplayName: Wall 274
     Kind: 3
@@ -1829,14 +2035,16 @@ MonoBehaviour:
       face: 1
       x: 6
       y: 2
-    Facing: 0
+    Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:275
     DisplayName: Wall 275
     Kind: 3
@@ -1844,14 +2052,16 @@ MonoBehaviour:
       face: 1
       x: 9
       y: 2
-    Facing: 0
+    Facing: 2
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:276
     DisplayName: Wall 276
     Kind: 3
@@ -1859,14 +2069,16 @@ MonoBehaviour:
       face: 1
       x: 10
       y: 2
-    Facing: 0
+    Facing: 4
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - StableGuid: stage-0-1:Wall:277
     DisplayName: Wall 277
     Kind: 3
@@ -1876,8 +2088,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1891,8 +2105,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1906,8 +2122,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1921,8 +2139,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1936,8 +2156,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1951,8 +2173,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1966,8 +2190,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1981,8 +2207,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -1996,8 +2224,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2011,8 +2241,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2026,8 +2258,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2041,8 +2275,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2056,8 +2292,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2071,8 +2309,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2086,8 +2326,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2101,8 +2343,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2116,8 +2360,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2131,8 +2377,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2146,8 +2394,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2161,8 +2411,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2176,8 +2428,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2191,8 +2445,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2206,8 +2462,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2221,8 +2479,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2236,8 +2496,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2251,8 +2513,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2266,8 +2530,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2281,8 +2547,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2296,8 +2564,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2311,8 +2581,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2326,8 +2598,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2341,8 +2615,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2356,38 +2632,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: stage-0-1:Wall:310
-    DisplayName: Wall 310
-    Kind: 3
-    Cell:
-      face: 2
-      x: 0
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: stage-0-1:Wall:311
-    DisplayName: Wall 311
-    Kind: 3
-    Cell:
-      face: 2
-      x: 1
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2401,8 +2649,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2416,8 +2666,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2431,8 +2683,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2446,8 +2700,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2461,8 +2717,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2476,8 +2734,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2491,8 +2751,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2506,8 +2768,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2521,38 +2785,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: stage-0-1:Wall:321
-    DisplayName: Wall 321
-    Kind: 3
-    Cell:
-      face: 2
-      x: 0
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: stage-0-1:Wall:322
-    DisplayName: Wall 322
-    Kind: 3
-    Cell:
-      face: 2
-      x: 1
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2566,8 +2802,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2581,8 +2819,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2596,8 +2836,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2611,8 +2853,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2626,8 +2870,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2641,8 +2887,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2656,8 +2904,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2671,8 +2921,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2686,8 +2938,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2701,8 +2955,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2716,8 +2972,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2731,8 +2989,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2746,8 +3006,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2761,8 +3023,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2776,8 +3040,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2791,8 +3057,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2806,8 +3074,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2821,8 +3091,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2836,8 +3108,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2851,8 +3125,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2866,8 +3142,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2881,8 +3159,10 @@ MonoBehaviour:
       y: 7
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2896,8 +3176,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2911,8 +3193,10 @@ MonoBehaviour:
       y: 6
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2926,8 +3210,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2941,8 +3227,10 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2956,8 +3244,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2971,8 +3261,10 @@ MonoBehaviour:
       y: 4
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -2986,8 +3278,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -3001,8 +3295,10 @@ MonoBehaviour:
       y: 3
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -3016,8 +3312,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -3031,8 +3329,10 @@ MonoBehaviour:
       y: 2
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -3046,8 +3346,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -3061,8 +3363,10 @@ MonoBehaviour:
       y: 1
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -3076,8 +3380,10 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
@@ -3091,18 +3397,71 @@ MonoBehaviour:
       y: 0
     Facing: 0
     Hp: 1
+    UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 0
+    BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: wall_tutorial
+  - StableGuid: 00cc940f9b39421c8777f5d13a809658
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 2
+      x: 4
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: c24787a186cb4a1ebdeaff06429947cb
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 2
+      x: 3
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  tileFeatures:
+  - TileId: 1
+    Cell:
+      face: 3
+      x: 7
+      y: 7
+    Kind: 6
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: exit.1x1
   zones:
   - ZoneId: 3000
-    FaceId: 0
+    FaceId: 3
     Regions:
-    - MinInclusive: {x: 7, y: 5}
-      MaxInclusive: {x: 7, y: 5}
+    - MinInclusive: {x: 7, y: 7}
+      MaxInclusive: {x: 7, y: 7}
+  - ZoneId: zone
+    FaceId: 3
+    Regions:
+    - MinInclusive: {x: 7, y: 7}
+      MaxInclusive: {x: 7, y: 7}
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: 
@@ -3119,50 +3478,6 @@ MonoBehaviour:
     EntityId: 10
     Retired: 0
     LastKnownDisplayName: Player 10
-  - StableGuid: stage-0-1:Enemy:101
-    EntityId: 101
-    Retired: 0
-    LastKnownDisplayName: Enemy 101
-  - StableGuid: stage-0-1:Enemy:102
-    EntityId: 102
-    Retired: 0
-    LastKnownDisplayName: Enemy 102
-  - StableGuid: stage-0-1:Enemy:103
-    EntityId: 103
-    Retired: 0
-    LastKnownDisplayName: Enemy 103
-  - StableGuid: stage-0-1:Enemy:104
-    EntityId: 104
-    Retired: 0
-    LastKnownDisplayName: Enemy 104
-  - StableGuid: stage-0-1:Enemy:105
-    EntityId: 105
-    Retired: 0
-    LastKnownDisplayName: Enemy 105
-  - StableGuid: stage-0-1:Enemy:106
-    EntityId: 106
-    Retired: 0
-    LastKnownDisplayName: Enemy 106
-  - StableGuid: stage-0-1:Enemy:107
-    EntityId: 107
-    Retired: 0
-    LastKnownDisplayName: Enemy 107
-  - StableGuid: stage-0-1:Enemy:108
-    EntityId: 108
-    Retired: 0
-    LastKnownDisplayName: Enemy 108
-  - StableGuid: stage-0-1:Enemy:109
-    EntityId: 109
-    Retired: 0
-    LastKnownDisplayName: Enemy 109
-  - StableGuid: stage-0-1:Enemy:110
-    EntityId: 110
-    Retired: 0
-    LastKnownDisplayName: Enemy 110
-  - StableGuid: stage-0-1:Enemy:111
-    EntityId: 111
-    Retired: 0
-    LastKnownDisplayName: Enemy 111
   - StableGuid: stage-0-1:Box:31
     EntityId: 31
     Retired: 0
@@ -3273,7 +3588,7 @@ MonoBehaviour:
     LastKnownDisplayName: Box 57
   - StableGuid: stage-0-1:Box:58
     EntityId: 58
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Box 58
   - StableGuid: stage-0-1:Box:59
     EntityId: 59
@@ -3281,7 +3596,7 @@ MonoBehaviour:
     LastKnownDisplayName: Box 59
   - StableGuid: stage-0-1:Box:60
     EntityId: 60
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Box 60
   - StableGuid: stage-0-1:Box:61
     EntityId: 61
@@ -3303,6 +3618,50 @@ MonoBehaviour:
     EntityId: 65
     Retired: 0
     LastKnownDisplayName: Box 65
+  - StableGuid: stage-0-1:Enemy:101
+    EntityId: 101
+    Retired: 0
+    LastKnownDisplayName: Enemy 101
+  - StableGuid: stage-0-1:Enemy:102
+    EntityId: 102
+    Retired: 0
+    LastKnownDisplayName: Enemy 102
+  - StableGuid: stage-0-1:Enemy:103
+    EntityId: 103
+    Retired: 0
+    LastKnownDisplayName: Enemy 103
+  - StableGuid: stage-0-1:Enemy:104
+    EntityId: 104
+    Retired: 0
+    LastKnownDisplayName: Enemy 104
+  - StableGuid: stage-0-1:Enemy:105
+    EntityId: 105
+    Retired: 0
+    LastKnownDisplayName: Enemy 105
+  - StableGuid: stage-0-1:Enemy:106
+    EntityId: 106
+    Retired: 0
+    LastKnownDisplayName: Enemy 106
+  - StableGuid: stage-0-1:Enemy:107
+    EntityId: 107
+    Retired: 0
+    LastKnownDisplayName: Enemy 107
+  - StableGuid: stage-0-1:Enemy:108
+    EntityId: 108
+    Retired: 0
+    LastKnownDisplayName: Enemy 108
+  - StableGuid: stage-0-1:Enemy:109
+    EntityId: 109
+    Retired: 0
+    LastKnownDisplayName: Enemy 109
+  - StableGuid: stage-0-1:Enemy:110
+    EntityId: 110
+    Retired: 0
+    LastKnownDisplayName: Enemy 110
+  - StableGuid: stage-0-1:Enemy:111
+    EntityId: 111
+    Retired: 0
+    LastKnownDisplayName: Enemy 111
   - StableGuid: stage-0-1:Wall:201
     EntityId: 201
     Retired: 0
@@ -3741,11 +4100,11 @@ MonoBehaviour:
     LastKnownDisplayName: Wall 309
   - StableGuid: stage-0-1:Wall:310
     EntityId: 310
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Wall 310
   - StableGuid: stage-0-1:Wall:311
     EntityId: 311
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Wall 311
   - StableGuid: stage-0-1:Wall:312
     EntityId: 312
@@ -3785,11 +4144,11 @@ MonoBehaviour:
     LastKnownDisplayName: Wall 320
   - StableGuid: stage-0-1:Wall:321
     EntityId: 321
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Wall 321
   - StableGuid: stage-0-1:Wall:322
     EntityId: 322
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Wall 322
   - StableGuid: stage-0-1:Wall:323
     EntityId: 323
@@ -3935,4 +4294,12 @@ MonoBehaviour:
     EntityId: 358
     Retired: 0
     LastKnownDisplayName: Wall 358
+  - StableGuid: 00cc940f9b39421c8777f5d13a809658
+    EntityId: 359
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: c24787a186cb4a1ebdeaff06429947cb
+    EntityId: 360
+    Retired: 0
+    LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

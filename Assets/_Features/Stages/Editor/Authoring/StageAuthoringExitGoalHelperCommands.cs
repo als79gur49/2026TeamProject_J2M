@@ -81,6 +81,7 @@ namespace Game.Feature.Stages.Editor
         private const string PrimaryGoalConditionFileName = PrimaryGoalConditionAssetName + ".asset";
         private const string PrimaryGoalStableConditionId = "primary-goal";
         private const string DefaultPrimaryGoalZoneId = "exit";
+        private const string DefaultPrimaryGoalDisplayText = "Reach the Exit Zone";
 
         public static bool TryGetExitGoalZoneStatus(
             StageAuthoringDefinition authoring,
@@ -221,7 +222,7 @@ namespace Game.Feature.Stages.Editor
                     Required = true,
                     Role = StageObjectiveConditionRole.PrimaryGoal,
                     StableConditionId = PrimaryGoalStableConditionId,
-                    DisplayText = string.Empty,
+                    DisplayText = DefaultPrimaryGoalDisplayText,
                     SortOrder = 0,
                 }
             };

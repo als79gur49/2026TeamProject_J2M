@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host
@@ -54,6 +55,65 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 PlayRequest(request, target);
+            }
+        }
+
+        public void RefreshContinuousStates(IReadOnlyList<TileFeatureVisualState> visualStates)
+        {
+            if (visualStates == null)
+            {
+                throw new ArgumentNullException(nameof(visualStates));
+            }
+
+            if (_registry == null ||
+                visualStates.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < visualStates.Count; i++)
+            {
+                var visualState = visualStates[i];
+                if (!_registry.TryGetTileVisual(visualState.TileId, out var target) ||
+                    target == null)
+                {
+                    _diagnosticSink?.Invoke(
+                        $"{nameof(TileFeatureVisualPresentationController)} missing {visualState.TileFeatureKind} visual state target for tile {visualState.TileId}.");
+                    continue;
+                }
+
+                RefreshContinuousState(visualState, target);
+            }
+        }
+
+        private void RefreshContinuousState(TileFeatureVisualState visualState, ITileFeatureVisualTarget target)
+        {
+            switch (visualState.TileFeatureKind)
+            {
+                case TileFeatureKind.Barricade:
+                    if (target is IBarricadeActiveStateVisualTarget barricadeTarget)
+                    {
+                        barricadeTarget.SetBarricadeActiveImmediate(visualState.IsActive);
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported Barricade visual state target for tile {visualState.TileId}.");
+                    }
+
+                    return;
+                case TileFeatureKind.Exit:
+                    if (target is IExitOpenStateVisualTarget exitTarget)
+                    {
+                        exitTarget.SetExitOpenImmediate(visualState.IsActive);
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported Exit visual state target for tile {visualState.TileId}.");
+                    }
+
+                    return;
             }
         }
 

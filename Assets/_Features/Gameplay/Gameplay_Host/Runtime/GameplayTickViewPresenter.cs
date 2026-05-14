@@ -158,6 +158,11 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachTileFeatureVisualRegistry(registry);
         }
 
+        internal void AttachTileFeatureVisualPoseSynchronizer(TileFeatureVisualPoseSynchronizer synchronizer)
+        {
+            _presentationCoordinator.AttachTileFeatureVisualPoseSynchronizer(synchronizer);
+        }
+
         public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.AttachPresentationExtension(extension);

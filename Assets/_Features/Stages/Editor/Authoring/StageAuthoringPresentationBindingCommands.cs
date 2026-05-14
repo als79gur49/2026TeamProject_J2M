@@ -359,12 +359,8 @@ namespace Game.Feature.Stages.Editor
             for (var i = 0; i < features.Count; i++)
             {
                 var feature = features[i];
-                if (!feature.Cell.Equals(cell))
-                {
-                    continue;
-                }
-
-                if (ResolvesReplaceBaseTileWithVisual(presentation, feature))
+                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var footprintMode) &&
+                    ContainsSuppressedBaseTileCell(feature, footprintMode, authoring.Board, cell))
                 {
                     tileId = feature.TileId;
                     return true;
@@ -389,8 +385,8 @@ namespace Game.Feature.Stages.Editor
             for (var i = 0; i < features.Count; i++)
             {
                 var feature = features[i];
-                if (feature.Cell.Equals(cell) &&
-                    ResolvesReplaceBaseTileWithVisual(presentation, feature))
+                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var footprintMode) &&
+                    ContainsSuppressedBaseTileCell(feature, footprintMode, authoring.Board, cell))
                 {
                     count++;
                 }
@@ -608,8 +604,10 @@ namespace Game.Feature.Stages.Editor
 
         private static bool ResolvesReplaceBaseTileWithVisual(
             StagePresentationDefinition presentation,
-            StageTileFeatureDefinition feature)
+            StageTileFeatureDefinition feature,
+            out TileFeatureVisualFootprintMode footprintMode)
         {
+            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
             if (feature.TileId <= 0)
             {
                 return false;
@@ -619,10 +617,11 @@ namespace Game.Feature.Stages.Editor
             if (directBinding != null)
             {
                 return directBinding.VisualPrefab != null &&
-                       TryResolveCatalogKeyPlacementMode(
+                       TryResolveCatalogKeyPresentationModes(
                            presentation,
                            feature.PresentationKey,
-                           out var directPlacementMode) &&
+                           out var directPlacementMode,
+                           out footprintMode) &&
                        directPlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile;
             }
 
@@ -631,7 +630,8 @@ namespace Game.Feature.Stages.Editor
                        feature,
                        out var entry) &&
                    entry.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile &&
-                   entry.VisualPrefab != null;
+                   entry.VisualPrefab != null &&
+                   TrySetFootprintMode(entry, out footprintMode);
         }
 
         private static TileFeaturePresentationBinding FindDirectTileFeatureBinding(
@@ -657,12 +657,56 @@ namespace Game.Feature.Stages.Editor
             return null;
         }
 
-        private static bool TryResolveCatalogKeyPlacementMode(
+        private static bool TrySetFootprintMode(
+            TileFeaturePresentationCatalogEntry entry,
+            out TileFeatureVisualFootprintMode footprintMode)
+        {
+            footprintMode = entry != null
+                ? entry.FootprintMode
+                : TileFeatureVisualFootprintMode.SingleCell;
+            return entry != null;
+        }
+
+        private static bool ContainsSuppressedBaseTileCell(
+            StageTileFeatureDefinition feature,
+            TileFeatureVisualFootprintMode footprintMode,
+            StageBoardDefinition board,
+            SurfaceCell cell)
+        {
+            if (feature.Cell.face != cell.face)
+            {
+                return false;
+            }
+
+            if (board.MaxInclusive.x >= board.MinInclusive.x &&
+                board.MaxInclusive.y >= board.MinInclusive.y &&
+                (cell.x < board.MinInclusive.x ||
+                 cell.x > board.MaxInclusive.x ||
+                 cell.y < board.MinInclusive.y ||
+                 cell.y > board.MaxInclusive.y))
+            {
+                return false;
+            }
+
+            switch (footprintMode)
+            {
+                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
+                    return Math.Abs(cell.x - feature.Cell.x) <= 1 &&
+                           Math.Abs(cell.y - feature.Cell.y) <= 1;
+                case TileFeatureVisualFootprintMode.SingleCell:
+                default:
+                    return feature.Cell.Equals(cell);
+            }
+        }
+
+        private static bool TryResolveCatalogKeyPresentationModes(
             StagePresentationDefinition presentation,
             string presentationKey,
-            out TileFeatureVisualPlacementMode placementMode)
+            out TileFeatureVisualPlacementMode placementMode,
+            out TileFeatureVisualFootprintMode footprintMode)
         {
             placementMode = TileFeatureVisualPlacementMode.Overlay;
+            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
             var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
             var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
             if (catalog == null ||
@@ -673,6 +717,7 @@ namespace Game.Feature.Stages.Editor
             }
 
             placementMode = entry.PlacementMode;
+            footprintMode = entry.FootprintMode;
             return true;
         }
 

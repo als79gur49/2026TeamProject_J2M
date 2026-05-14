@@ -36,7 +36,10 @@ namespace Game.Feature.Gameplay.Objectives
             }
 
             _currentResult = _objectiveDefinition.HasObjective
-                ? CreateResult(goalReached: false, clearedThisTick: false)
+                ? CreateResult(
+                    goalReached: false,
+                    clearedThisTick: false,
+                    allConditionsSatisfied: AreAllRequiredEntriesSatisfied(primaryGoalAvailable: true))
                 : StageObjectiveTickResult.NoObjective;
         }
 
@@ -58,10 +61,13 @@ namespace Game.Feature.Gameplay.Objectives
                 _conditionEntries[i].Runtime.Advance(finalSnapshot, in tickFacts);
             }
 
-            var allConditionsSatisfied = AreAllRequiredEntriesSatisfied();
-            var goalReached = IsPrimaryGoalSatisfied();
             var hasRequiredNonPrimaryConditions = HasRequiredNonPrimaryConditions();
             var requiredNonPrimaryConditionsSatisfied = AreRequiredNonPrimaryConditionsSatisfied();
+            var primaryGoalAvailable =
+                !hasRequiredNonPrimaryConditions ||
+                requiredNonPrimaryConditionsSatisfied;
+            var goalReached = IsPrimaryGoalSatisfied(primaryGoalAvailable);
+            var allConditionsSatisfied = AreAllRequiredEntriesSatisfied(primaryGoalAvailable);
             var requiredNonPrimaryConditionsSatisfiedThisTick =
                 hasRequiredNonPrimaryConditions &&
                 _hasEvaluatedObjectiveTick &&
@@ -77,6 +83,8 @@ namespace Game.Feature.Gameplay.Objectives
             _currentResult = CreateResult(
                 goalReached,
                 clearedThisTick,
+                allConditionsSatisfied,
+                primaryGoalAvailable,
                 hasRequiredNonPrimaryConditions,
                 requiredNonPrimaryConditionsSatisfied,
                 requiredNonPrimaryConditionsSatisfiedThisTick);
@@ -85,7 +93,7 @@ namespace Game.Feature.Gameplay.Objectives
             return _currentResult;
         }
 
-        private bool AreAllRequiredEntriesSatisfied()
+        private bool AreAllRequiredEntriesSatisfied(bool primaryGoalAvailable)
         {
             if (_conditionEntries.Length == 0)
             {
@@ -94,6 +102,13 @@ namespace Game.Feature.Gameplay.Objectives
 
             for (var i = 0; i < _conditionEntries.Length; i++)
             {
+                if (_conditionEntries[i].Role == StageObjectiveConditionRole.PrimaryGoal &&
+                    _conditionEntries[i].Required &&
+                    !primaryGoalAvailable)
+                {
+                    return false;
+                }
+
                 if (_conditionEntries[i].Required &&
                     !_conditionEntries[i].Runtime.IsSatisfied)
                 {
@@ -104,8 +119,13 @@ namespace Game.Feature.Gameplay.Objectives
             return true;
         }
 
-        private bool IsPrimaryGoalSatisfied()
+        private bool IsPrimaryGoalSatisfied(bool primaryGoalAvailable)
         {
+            if (!primaryGoalAvailable)
+            {
+                return false;
+            }
+
             for (var i = 0; i < _conditionEntries.Length; i++)
             {
                 if (_conditionEntries[i].Role == StageObjectiveConditionRole.PrimaryGoal)
@@ -162,6 +182,8 @@ namespace Game.Feature.Gameplay.Objectives
         private StageObjectiveTickResult CreateResult(
             bool goalReached,
             bool clearedThisTick,
+            bool allConditionsSatisfied = false,
+            bool primaryGoalAvailable = true,
             bool hasRequiredNonPrimaryConditions = false,
             bool requiredNonPrimaryConditionsSatisfied = true,
             bool requiredNonPrimaryConditionsSatisfiedThisTick = false)
@@ -169,16 +191,16 @@ namespace Game.Feature.Gameplay.Objectives
             return new StageObjectiveTickResult(
                 hasObjective: true,
                 goalReached,
-                allConditionsSatisfied: AreAllRequiredEntriesSatisfied(),
+                allConditionsSatisfied,
                 clearedThisTick,
                 isCleared: _isCleared,
                 hasRequiredNonPrimaryConditions,
                 requiredNonPrimaryConditionsSatisfied,
                 requiredNonPrimaryConditionsSatisfiedThisTick,
-                conditionStatuses: BuildConditionStatuses());
+                conditionStatuses: BuildConditionStatuses(primaryGoalAvailable));
         }
 
-        private IReadOnlyList<StageConditionStatus> BuildConditionStatuses()
+        private IReadOnlyList<StageConditionStatus> BuildConditionStatuses(bool primaryGoalAvailable)
         {
             if (_conditionEntries.Length == 0)
             {
@@ -189,11 +211,30 @@ namespace Game.Feature.Gameplay.Objectives
             for (var i = 0; i < _conditionEntries.Length; i++)
             {
                 var entry = _conditionEntries[i];
-                statuses[i] = entry.Runtime.CreateStatus()
+                var status = entry.Runtime.CreateStatus()
                     .WithEntryMetadata(entry.StableConditionId, entry.Role, entry.Required);
+                statuses[i] = entry.Role == StageObjectiveConditionRole.PrimaryGoal && !primaryGoalAvailable
+                    ? MaskLockedPrimaryGoalStatus(status)
+                    : status;
             }
 
             return statuses;
+        }
+
+        private static StageConditionStatus MaskLockedPrimaryGoalStatus(StageConditionStatus status)
+        {
+            var details = string.IsNullOrWhiteSpace(status.Details)
+                ? "PrimaryGoalAvailable=0|LockedByRequiredNonPrimary=1"
+                : $"{status.Details}|PrimaryGoalAvailable=0|LockedByRequiredNonPrimary=1";
+
+            return new StageConditionStatus(
+                status.ConditionId,
+                status.DisplayName,
+                status.ConditionType,
+                isSatisfied: false,
+                details,
+                status.Role,
+                status.Required);
         }
     }
 }

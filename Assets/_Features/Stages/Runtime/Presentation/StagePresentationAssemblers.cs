@@ -11,7 +11,11 @@ namespace Game.Feature.Stages
     public readonly struct TileFeaturePresentationResolvedBinding
     {
         public TileFeaturePresentationResolvedBinding(int tileId, GameObject visualPrefab)
-            : this(tileId, visualPrefab, TileFeatureVisualPlacementMode.Overlay)
+            : this(
+                tileId,
+                visualPrefab,
+                TileFeatureVisualPlacementMode.Overlay,
+                TileFeatureVisualFootprintMode.SingleCell)
         {
         }
 
@@ -19,10 +23,20 @@ namespace Game.Feature.Stages
             int tileId,
             GameObject visualPrefab,
             TileFeatureVisualPlacementMode placementMode)
+            : this(tileId, visualPrefab, placementMode, TileFeatureVisualFootprintMode.SingleCell)
+        {
+        }
+
+        public TileFeaturePresentationResolvedBinding(
+            int tileId,
+            GameObject visualPrefab,
+            TileFeatureVisualPlacementMode placementMode,
+            TileFeatureVisualFootprintMode footprintMode)
         {
             TileId = tileId;
             VisualPrefab = visualPrefab;
             PlacementMode = placementMode;
+            FootprintMode = footprintMode;
         }
 
         public int TileId { get; }
@@ -30,6 +44,8 @@ namespace Game.Feature.Stages
         public GameObject VisualPrefab { get; }
 
         public TileFeatureVisualPlacementMode PlacementMode { get; }
+
+        public TileFeatureVisualFootprintMode FootprintMode { get; }
     }
 
     public sealed class StagePresentationResolvedData
@@ -440,13 +456,16 @@ namespace Game.Feature.Stages
 
                     if (directByTileId.TryGetValue(tileFeature.TileId, out var directBinding))
                     {
-                        var directPlacementMode = ResolveCatalogKeyPlacementMode(
+                        ResolveCatalogKeyPresentationModes(
                             catalog,
-                            tileFeature);
+                            tileFeature,
+                            out var directPlacementMode,
+                            out var directFootprintMode);
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             directBinding.TileId,
                             directBinding.VisualPrefab,
-                            directPlacementMode));
+                            directPlacementMode,
+                            directFootprintMode));
                         continue;
                     }
 
@@ -458,7 +477,8 @@ namespace Game.Feature.Stages
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             tileFeature.TileId,
                             catalogEntry.VisualPrefab,
-                            catalogEntry.PlacementMode));
+                            catalogEntry.PlacementMode,
+                            catalogEntry.FootprintMode));
                     }
                 }
             }
@@ -534,24 +554,32 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        private static TileFeatureVisualPlacementMode ResolveCatalogKeyPlacementMode(
+        private static void ResolveCatalogKeyPresentationModes(
             TileFeaturePresentationCatalog catalog,
-            StageTileFeatureDefinition tileFeature)
+            StageTileFeatureDefinition tileFeature,
+            out TileFeatureVisualPlacementMode placementMode,
+            out TileFeatureVisualFootprintMode footprintMode)
         {
+            placementMode = TileFeatureVisualPlacementMode.Overlay;
+            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
             if (catalog == null)
             {
-                return TileFeatureVisualPlacementMode.Overlay;
+                return;
             }
 
             var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
             if (string.IsNullOrEmpty(presentationKey))
             {
-                return TileFeatureVisualPlacementMode.Overlay;
+                return;
             }
 
-            return catalog.TryGetEntry(presentationKey, out var entry)
-                ? entry.PlacementMode
-                : TileFeatureVisualPlacementMode.Overlay;
+            if (!catalog.TryGetEntry(presentationKey, out var entry))
+            {
+                return;
+            }
+
+            placementMode = entry.PlacementMode;
+            footprintMode = entry.FootprintMode;
         }
 
         private static IReadOnlyList<SurfaceCell> BuildSuppressedBaseTileCells(
@@ -565,7 +593,7 @@ namespace Game.Feature.Stages
                 return Array.Empty<SurfaceCell>();
             }
 
-            var replaceTileIds = new HashSet<int>();
+            var replaceBindingsByTileId = new Dictionary<int, TileFeaturePresentationResolvedBinding>();
             for (var i = 0; i < bindings.Count; i++)
             {
                 var binding = bindings[i];
@@ -573,26 +601,35 @@ namespace Game.Feature.Stages
                     binding.VisualPrefab != null &&
                     binding.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile)
                 {
-                    replaceTileIds.Add(binding.TileId);
+                    replaceBindingsByTileId[binding.TileId] = binding;
                 }
             }
 
-            if (replaceTileIds.Count == 0)
+            if (replaceBindingsByTileId.Count == 0)
             {
                 return Array.Empty<SurfaceCell>();
             }
 
             var cells = new List<SurfaceCell>();
             var seenCells = new HashSet<SurfaceCell>();
+            var board = gameplayDefinition.Board;
+            if (board.MaxInclusive.x < board.MinInclusive.x ||
+                board.MaxInclusive.y < board.MinInclusive.y)
+            {
+                return Array.Empty<SurfaceCell>();
+            }
+
+            var boardBounds = new BoardBounds(board.MinInclusive, board.MaxInclusive);
             var tileFeatures = gameplayDefinition.TileFeatures;
             for (var i = 0; i < tileFeatures.Length; i++)
             {
                 var tileFeature = tileFeatures[i];
-                if (replaceTileIds.Contains(tileFeature.TileId) &&
-                    seenCells.Add(tileFeature.Cell))
+                if (!replaceBindingsByTileId.TryGetValue(tileFeature.TileId, out var binding))
                 {
-                    cells.Add(tileFeature.Cell);
+                    continue;
                 }
+
+                AddSuppressedBaseTileCells(tileFeature.Cell, binding.FootprintMode, boardBounds, seenCells, cells);
             }
 
             if (cells.Count == 0)
@@ -602,6 +639,46 @@ namespace Game.Feature.Stages
 
             cells.Sort(CompareSurfaceCells);
             return new ReadOnlyCollection<SurfaceCell>(cells);
+        }
+
+        private static void AddSuppressedBaseTileCells(
+            SurfaceCell center,
+            TileFeatureVisualFootprintMode footprintMode,
+            BoardBounds boardBounds,
+            HashSet<SurfaceCell> seenCells,
+            List<SurfaceCell> cells)
+        {
+            switch (footprintMode)
+            {
+                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
+                    for (var yOffset = -1; yOffset <= 1; yOffset++)
+                    {
+                        for (var xOffset = -1; xOffset <= 1; xOffset++)
+                        {
+                            var candidate = new SurfaceCell(center.face, center.x + xOffset, center.y + yOffset);
+                            AddSuppressedBaseTileCell(candidate, boardBounds, seenCells, cells);
+                        }
+                    }
+
+                    return;
+                case TileFeatureVisualFootprintMode.SingleCell:
+                default:
+                    AddSuppressedBaseTileCell(center, boardBounds, seenCells, cells);
+                    return;
+            }
+        }
+
+        private static void AddSuppressedBaseTileCell(
+            SurfaceCell cell,
+            BoardBounds boardBounds,
+            HashSet<SurfaceCell> seenCells,
+            List<SurfaceCell> cells)
+        {
+            if (boardBounds.Contains(cell.PlanarPosition) &&
+                seenCells.Add(cell))
+            {
+                cells.Add(cell);
+            }
         }
 
         private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)

@@ -98,6 +98,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void StageRuntimeBuilder_WallFacing_UsesAuthoredFacing()
+        {
+            var stage = CreateStage(
+                "WallFacing",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateSpawn(20, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, facing: Direction.Left),
+                CreateSpawn(21, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 2, 0), hp: 1, facing: Direction.None));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 20, out var authoredWall), Is.True);
+                Assert.That(authoredWall.type, Is.EqualTo(EntityType.None));
+                Assert.That(authoredWall.facing, Is.EqualTo(Direction.Left));
+                Assert.That(TryGetEntity(buildResult.InitialEntities, 21, out var defaultWall), Is.True);
+                Assert.That(defaultWall.type, Is.EqualTo(EntityType.None));
+                Assert.That(defaultWall.facing, Is.EqualTo(Direction.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageRuntimeBuilder_InitialTileFeatures_DefaultsToEmpty()
         {
             var stage = CreateStage(

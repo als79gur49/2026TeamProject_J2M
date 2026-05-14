@@ -271,6 +271,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 "Replace" + "BaseTile",
                 "TileFeature" + "Visual" + "PlacementMode",
+                "TileFeature" + "Visual" + "FootprintMode",
                 "Placement" + "Mode",
             };
             var sourcePaths = new[]
@@ -296,6 +297,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 "Replace" + "BaseTile",
                 "TileFeature" + "Visual" + "PlacementMode",
+                "TileFeature" + "Visual" + "FootprintMode",
             };
             var sourcePaths = Directory
                 .GetFiles("Assets/_Features/Gameplay/Gameplay_Loop", "*.cs", SearchOption.AllDirectories)

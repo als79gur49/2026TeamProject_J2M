@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1694413947926530904}
-  - component: {fileID: 1973374220910874260}
+  - component: {fileID: 4338433049514668751}
   m_Layer: 0
   m_Name: ModelRoot
   m_TagString: Untagged
@@ -26,14 +26,14 @@ Transform:
   m_GameObject: {fileID: 1225762992415310247}
   serializedVersion: 2
   m_LocalRotation: {x: -1, y: 0, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 1.1}
   m_LocalScale: {x: 0.4, y: 0.4, z: 0.4}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1218026971307301947}
   m_Father: {fileID: 1298099985630203817}
   m_LocalEulerAnglesHint: {x: -180, y: 0, z: 0}
---- !u!95 &1973374220910874260
+--- !u!95 &4338433049514668751
 Animator:
   serializedVersion: 7
   m_ObjectHideFlags: 0
@@ -42,9 +42,9 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1225762992415310247}
   m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: 2faa610713d3b3c439473daa55e8c60a, type: 3}
-  m_Controller: {fileID: 9100000, guid: 765230bf4a8129e4a8d267d7aecade3c, type: 2}
-  m_CullingMode: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 086aec4d1610b934c84a11e74061f8ef, type: 2}
+  m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
@@ -131,13 +131,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b6f35d89b0440b0a3897d9c5c63f8a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimatorDriver
-  animator: {fileID: 4001821175377060100}
+  animator: {fileID: 0}
   animationTimingAuthoring: {fileID: 2407586926128549279}
   windupStateName: Windup
   jumpWindupStateName: JumpWindup
   jumpAirborneStateName: JumpAirborne
   chargeActiveStateName: Charge
   recoveryStateName: Recover
+  glideWindupStateName: Fly_Start
+  glideActiveStateName: Fly_Loop
+  glideRecoveryStateName: Fly_Done
   windupTriggerName: Windup
   jumpWindupTriggerName: JumpWindup
   jumpAirborneTriggerName: JumpAirborne
@@ -178,7 +181,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
   profile: {fileID: 11400000, guid: 585a572c9a4d4f618d53c3bf6bc07241, type: 2}
 --- !u!1001 &1688274191991749584
@@ -199,7 +202,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 2.95
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
       propertyPath: m_LocalRotation.w
@@ -207,15 +210,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -233,43 +236,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: J
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 5866666021909216657, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 4001821175377060100}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
 --- !u!4 &1218026971307301947 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
   m_PrefabInstance: {fileID: 1688274191991749584}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1994142179440559745 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 11cf540d76eaf614392b81ed88c0c6be, type: 3}
-  m_PrefabInstance: {fileID: 1688274191991749584}
-  m_PrefabAsset: {fileID: 0}
---- !u!95 &4001821175377060100
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1994142179440559745}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 765230bf4a8129e4a8d267d7aecade3c, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0

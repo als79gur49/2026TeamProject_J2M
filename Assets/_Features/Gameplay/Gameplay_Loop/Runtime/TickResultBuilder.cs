@@ -1196,21 +1196,46 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < finalTileFeatures.Count; i++)
             {
                 var tileFeature = finalTileFeatures[i];
-                if (tileFeature.Kind != TileFeatureKind.Barricade ||
-                    !TryGetTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
-                    !TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology))
+                if (!TryGetTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition))
                 {
                     continue;
                 }
 
-                visualStates.Add(new TileFeatureVisualState(
-                    tileFeature.TileId,
-                    tileFeature.Cell,
-                    tileFeature.Kind,
-                    true,
-                    tileFeature.SourceEntityId,
-                    tileFeature.OwnerEntityId,
-                    tileFeature.TeamId));
+                if (tileFeature.Kind == TileFeatureKind.Barricade)
+                {
+                    if (!TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology))
+                    {
+                        continue;
+                    }
+
+                    visualStates.Add(new TileFeatureVisualState(
+                        tileFeature.TileId,
+                        tileFeature.Cell,
+                        tileFeature.Kind,
+                        true,
+                        tileFeature.SourceEntityId,
+                        tileFeature.OwnerEntityId,
+                        tileFeature.TeamId));
+                    continue;
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Exit)
+                {
+                    var exitOpen =
+                        context.ObjectiveResult != null &&
+                        context.ObjectiveResult.HasObjective &&
+                        context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied &&
+                        TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology);
+
+                    visualStates.Add(new TileFeatureVisualState(
+                        tileFeature.TileId,
+                        tileFeature.Cell,
+                        tileFeature.Kind,
+                        exitOpen,
+                        tileFeature.SourceEntityId,
+                        tileFeature.OwnerEntityId,
+                        tileFeature.TeamId));
+                }
             }
         }
 

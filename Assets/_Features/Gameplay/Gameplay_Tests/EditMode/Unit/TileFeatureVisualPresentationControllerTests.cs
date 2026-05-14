@@ -227,7 +227,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(target.DebugPlayExitOpenedCount, Is.EqualTo(1));
                 Assert.That(target.DebugPlayExitEnteredCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastExitEnteredPlayerEntityId, Is.EqualTo(10));
+                Assert.That(target.DebugExitOpen, Is.True);
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExitVisualState_WithSupportedTargetView_SyncsOpenStateImmediate()
+        {
+            var rootObject = new GameObject(nameof(ExitVisualState_WithSupportedTargetView_SyncsOpenStateImmediate));
+            var targetObject = new GameObject("ExitVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Exit,
+                        isActive: false,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+                Assert.That(target.DebugExitOpen, Is.False);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Exit,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+
+                Assert.That(target.DebugExitOpen, Is.True);
+                Assert.That(target.DebugPlayExitOpenedCount, Is.Zero);
+                Assert.That(target.DebugPlayExitEnteredCount, Is.Zero);
             }
             finally
             {
@@ -857,9 +911,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageTileFeatureVisualBinding_PoseResolveFailure_WarnsAndSkips()
+        public void StageTileFeatureVisualBinding_PoseResolveFailure_RegistersInactiveTarget()
         {
-            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_PoseResolveFailure_WarnsAndSkips));
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_PoseResolveFailure_RegistersInactiveTarget));
             var prefab = new GameObject("UnprojectableTileVisualPrefab");
 
             try
@@ -869,9 +923,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var cell = new SurfaceCell(FaceId.Ceiling, 0, 0);
 
-                LogAssert.Expect(
-                    LogType.Warning,
-                    "Skipping stage TileFeature visual binding for TileId 100; cell 'Ceiling(0,0)' could not resolve a presentation pose.");
                 InvokeStageTileFeatureVisualInstantiation(
                     new[]
                     {
@@ -885,13 +936,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     registry,
                     new FixedPoseResolver(false, default));
 
-                Assert.That(rootObject.transform.childCount, Is.Zero);
-                Assert.That(registry.TryGetTileVisual(100, out _), Is.False);
+                Assert.That(rootObject.transform.childCount, Is.EqualTo(1));
+                var instance = rootObject.transform.GetChild(0).gameObject;
+                Assert.That(instance.activeSelf, Is.False);
+                Assert.That(registry.TryGetTileVisual(100, out var target), Is.True);
+                Assert.That(target.TileId, Is.EqualTo(100));
+                Assert.That(target.Cell, Is.EqualTo(cell));
             }
             finally
             {
                 Object.DestroyImmediate(rootObject);
                 Object.DestroyImmediate(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureVisualPoseSynchronizer_RefreshAll_ReusesTargetsAndTogglesVisibility()
+        {
+            var rootObject = new GameObject(nameof(TileFeatureVisualPoseSynchronizer_RefreshAll_ReusesTargetsAndTogglesVisibility));
+            var floorObject = new GameObject("FloorTarget");
+            var ceilingObject = new GameObject("CeilingTarget");
+
+            try
+            {
+                floorObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                ceilingObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var floorCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var ceilingCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
+                var floorTarget = floorObject.AddComponent<TileFeatureVisualTargetView>();
+                var ceilingTarget = ceilingObject.AddComponent<TileFeatureVisualTargetView>();
+                floorTarget.ConfigureTileFeature(100, floorCell);
+                ceilingTarget.ConfigureTileFeature(101, ceilingCell);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var resolver = new MutablePoseResolver();
+                var floorPose = new SurfaceCellPresentationPose(
+                    new Vector3(1f, 2f, 3f),
+                    Quaternion.Euler(0f, 45f, 0f),
+                    Vector3.one);
+                var ceilingPose = new SurfaceCellPresentationPose(
+                    new Vector3(4f, 5f, 6f),
+                    Quaternion.Euler(90f, 0f, 0f),
+                    new Vector3(2f, 2f, 2f));
+                resolver.Set(floorCell, true, floorPose);
+                resolver.Set(ceilingCell, false, default);
+                var synchronizer = new TileFeatureVisualPoseSynchronizer(registry, resolver);
+
+                synchronizer.RefreshAll();
+
+                Assert.That(registry.Targets.Count, Is.EqualTo(2));
+                Assert.That(floorObject.activeSelf, Is.True);
+                Assert.That(ceilingObject.activeSelf, Is.False);
+                Assert.That(Vector3.Distance(floorObject.transform.localPosition, floorPose.LocalPosition), Is.LessThan(0.001f));
+
+                resolver.Set(floorCell, false, default);
+                resolver.Set(ceilingCell, true, ceilingPose);
+
+                synchronizer.RefreshAll();
+
+                Assert.That(registry.Targets.Count, Is.EqualTo(2));
+                Assert.That(floorObject.activeSelf, Is.False);
+                Assert.That(ceilingObject.activeSelf, Is.True);
+                Assert.That(Vector3.Distance(ceilingObject.transform.localPosition, ceilingPose.LocalPosition), Is.LessThan(0.001f));
+                Assert.That(ceilingObject.transform.localScale, Is.EqualTo(ceilingPose.LocalScale));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
             }
         }
 
@@ -1213,6 +1325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     parent,
                     registry,
                     poseResolver,
+                    null,
                 });
         }
 
@@ -1234,6 +1347,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RequestedCells.Add(cell);
                 pose = _canResolve ? _pose : default;
                 return _canResolve;
+            }
+        }
+
+        private sealed class MutablePoseResolver : ISurfaceCellPresentationPoseResolver
+        {
+            private readonly Dictionary<SurfaceCell, (bool CanResolve, SurfaceCellPresentationPose Pose)> _posesByCell = new();
+
+            public void Set(SurfaceCell cell, bool canResolve, SurfaceCellPresentationPose pose)
+            {
+                _posesByCell[cell] = (canResolve, pose);
+            }
+
+            public bool TryResolvePose(SurfaceCell cell, out SurfaceCellPresentationPose pose)
+            {
+                if (_posesByCell.TryGetValue(cell, out var result) &&
+                    result.CanResolve)
+                {
+                    pose = result.Pose;
+                    return true;
+                }
+
+                pose = default;
+                return false;
             }
         }
 
