@@ -244,6 +244,9 @@ namespace Game.Feature.Stages.Editor
                 case TileFeatureKind.Exit:
                     feature.ActivationRule = TileFeatureActivationRule.BottomFaceOnly;
                     break;
+                case TileFeatureKind.Entrance:
+                    feature.ActivationRule = TileFeatureActivationRule.BottomFaceOnly;
+                    break;
                 case TileFeatureKind.MoonBlockGenerator:
                     feature.ActivationRule = TileFeatureActivationRule.BottomFaceOnly;
                     feature.BoundEntityId = selectedBoundEntityId;
@@ -530,6 +533,29 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
+            if (feature.Kind == TileFeatureKind.Entrance)
+            {
+                if (authoring.TileFeatures.Any(existing =>
+                        existing.TileId != ignoredTileId &&
+                        existing.Kind == TileFeatureKind.Entrance))
+                {
+                    error = "Only one Entrance TileFeature is supported per stage.";
+                    return false;
+                }
+
+                if (!TryGetPlayerPlacementCell(authoring, out var playerCell))
+                {
+                    error = "Entrance requires exactly one player placement.";
+                    return false;
+                }
+
+                if (!feature.Cell.Equals(playerCell))
+                {
+                    error = $"Entrance cell must match the player placement cell {playerCell}.";
+                    return false;
+                }
+            }
+
             if (feature.Kind == TileFeatureKind.MoonBlockGenerator)
             {
                 if (authoring.TileFeatures.Any(existing =>
@@ -675,6 +701,17 @@ namespace Game.Feature.Stages.Editor
                     }
 
                     break;
+                case TileFeatureKind.Entrance:
+                    if (feature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly ||
+                        feature.Direction != Direction2D.None ||
+                        feature.BoxSelector != TileFeatureBoxSelector.None ||
+                        feature.BoundEntityId != 0)
+                    {
+                        error = "Entrance must use BottomFaceOnly, Direction None, BoxSelector None, and BoundEntityId 0.";
+                        return false;
+                    }
+
+                    break;
                 case TileFeatureKind.MoonBlockGenerator:
                     if (feature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly ||
                         feature.Direction != Direction2D.None ||
@@ -688,6 +725,32 @@ namespace Game.Feature.Stages.Editor
             }
 
             return true;
+        }
+
+        private static bool TryGetPlayerPlacementCell(StageAuthoringDefinition authoring, out SurfaceCell cell)
+        {
+            var found = false;
+            cell = default;
+            var placements = authoring.Placements;
+            for (var i = 0; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                if (placement == null ||
+                    placement.Kind != StageAuthoringEntityKind.Player)
+                {
+                    continue;
+                }
+
+                if (found)
+                {
+                    return false;
+                }
+
+                found = true;
+                cell = placement.Cell;
+            }
+
+            return found;
         }
 
         private static bool IsCardinalDirection(Direction2D direction)

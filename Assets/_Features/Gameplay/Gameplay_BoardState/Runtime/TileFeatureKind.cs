@@ -9,5 +9,6 @@ namespace Game.Feature.Gameplay.BoardState
         Button = 4,
         MoonBlockGenerator = 5,
         Exit = 6,
+        Entrance = 7,
     }
 }

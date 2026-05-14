@@ -112,8 +112,10 @@ namespace Game.Feature.Stages
             var barricadeCells = new HashSet<SurfaceCell>();
             var moonBlockGeneratorCells = new HashSet<SurfaceCell>();
             var exitCount = 0;
+            var entranceCount = 0;
             var moonBlockGeneratorCount = 0;
             var wallCells = BuildWallCells(spawnEntries);
+            var playerSpawnCell = GetPlayerSpawnCell(spawnEntries);
 
             for (var i = 0; i < tileFeatures.Count; i++)
             {
@@ -185,6 +187,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} Exit must use BottomFaceOnly activation.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Entrance &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Entrance must use BottomFaceOnly activation.");
+                }
+
                 if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
                     tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
                 {
@@ -217,6 +226,13 @@ namespace Game.Feature.Stages
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' {label} Exit must use Direction2D.None.");
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Entrance &&
+                    tileFeature.Direction != Direction2D.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Entrance must use Direction2D.None.");
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
@@ -253,6 +269,13 @@ namespace Game.Feature.Stages
                         $"Stage '{stageName}' {label} Exit must use TileFeatureBoxSelector.None.");
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Entrance &&
+                    tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {label} Entrance must use TileFeatureBoxSelector.None.");
+                }
+
                 if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
                     tileFeature.BoxSelector != TileFeatureBoxSelector.None)
                 {
@@ -281,6 +304,28 @@ namespace Game.Feature.Stages
                     {
                         throw new InvalidOperationException(
                             $"Stage '{stageName}' contains more than one Exit TileFeature. Exit MVP supports exactly one Exit when authored.");
+                    }
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Entrance)
+                {
+                    entranceCount++;
+                    if (entranceCount > 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' contains more than one Entrance TileFeature. Entrance MVP supports at most one Entrance when authored.");
+                    }
+
+                    if (!tileFeature.Cell.Equals(playerSpawnCell))
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' {label} Entrance cell must match the player spawn cell {playerSpawnCell}.");
+                    }
+
+                    if (tileFeature.BoundEntityId != 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage '{stageName}' {label} Entrance must use BoundEntityId 0.");
                     }
                 }
 
@@ -323,6 +368,20 @@ namespace Game.Feature.Stages
 
             Array.Sort(normalized, (left, right) => left.TileId.CompareTo(right.TileId));
             return normalized;
+        }
+
+        private static SurfaceCell GetPlayerSpawnCell(IReadOnlyList<ExplicitSpawnEntry> spawnEntries)
+        {
+            for (var i = 0; i < spawnEntries.Count; i++)
+            {
+                var spawn = spawnEntries[i].Spawn;
+                if (spawn.Kind == StageSpawnKind.Player)
+                {
+                    return spawn.Cell;
+                }
+            }
+
+            return default;
         }
 
         private static bool IsCardinalDirection(Direction2D direction)
