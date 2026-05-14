@@ -114,9 +114,9 @@ namespace Game.Feature.UI.Composition
             _mainMenuScreenView.ValidateAuthoredStructureOrThrow();
             BuildPopupModule();
             BuildSettingsModule();
+            BuildAudioFeedbackModule();
             BuildSaveSlotModule();
             BuildHubModule();
-            BuildAudioFeedbackModule();
             EnsureNavigationInputRouter();
             _mainMenuScreenView.SetVisible(true);
             _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);

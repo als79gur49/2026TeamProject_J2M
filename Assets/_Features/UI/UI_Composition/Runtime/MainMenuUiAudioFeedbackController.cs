@@ -13,6 +13,8 @@ namespace Game.Feature.UI.Composition
         private PopupController _popupController;
         private MainMenuSettingsOverlayController _settingsOverlayController;
         private SaveSlotPanelView _saveSlotPanelView;
+        private bool _suppressNextConfirmPopupOpenedCue;
+        private bool _suppressNextSettingsOpenedCue;
 
         public MainMenuUiAudioFeedbackController(IUiAudioPort uiAudioPort)
         {
@@ -57,7 +59,18 @@ namespace Game.Feature.UI.Composition
 
         internal void HandleCommandRequested(MainMenuCommandIntent intent)
         {
-            // Command-owned visible deltas are emitted by settings overlay and popup lifecycle events.
+            switch (intent.CommandKind)
+            {
+                case MainMenuCommandKind.OpenSettings:
+                    Play(UiAudioCueId.PrimaryMenuCommand);
+                    _suppressNextSettingsOpenedCue = true;
+                    break;
+
+                case MainMenuCommandKind.Quit:
+                    Play(UiAudioCueId.PrimaryMenuCommand);
+                    _suppressNextConfirmPopupOpenedCue = true;
+                    break;
+            }
         }
 
         internal void HandleNavigationRequested(MainMenuNavigationIntent intent)
@@ -67,7 +80,9 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            Play(UiAudioCueId.Select);
+            Play(intent.SectionId == MainMenuSectionId.SaveSlots
+                ? UiAudioCueId.PrimaryMenuCommand
+                : UiAudioCueId.Select);
         }
 
         internal void HandleSaveSlotIntentRequested(SaveSlotIntent intent)
@@ -82,13 +97,19 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            Play(UiAudioCueId.Select);
+            Play(UiAudioCueId.StageLaunch);
         }
 
         internal void HandlePopupOpened(PopupOpenedEvent openedEvent)
         {
             if (openedEvent.Entry.PopupId != PopupId.Confirm)
             {
+                return;
+            }
+
+            if (_suppressNextConfirmPopupOpenedCue)
+            {
+                _suppressNextConfirmPopupOpenedCue = false;
                 return;
             }
 
@@ -116,6 +137,12 @@ namespace Game.Feature.UI.Composition
 
         internal void HandleSettingsOpened()
         {
+            if (_suppressNextSettingsOpenedCue)
+            {
+                _suppressNextSettingsOpenedCue = false;
+                return;
+            }
+
             Play(UiAudioCueId.NavigateForward);
         }
 
@@ -159,6 +186,8 @@ namespace Game.Feature.UI.Composition
             _saveSlotPanelView = null;
             _popupController = null;
             _settingsOverlayController = null;
+            _suppressNextConfirmPopupOpenedCue = false;
+            _suppressNextSettingsOpenedCue = false;
         }
 
         private static bool IsNormalSaveSlotIntent(SaveSlotIntent intent)

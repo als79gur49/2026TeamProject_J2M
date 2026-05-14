@@ -30,6 +30,8 @@ namespace Game.Feature.UI.Tests
                     "LastChance",
                     "ObjectiveComplete",
                     "TopologyShift",
+                    "PrimaryMenuCommand",
+                    "StageLaunch",
                 }));
         }
 

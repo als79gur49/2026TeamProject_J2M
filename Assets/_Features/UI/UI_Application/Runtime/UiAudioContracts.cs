@@ -14,6 +14,8 @@ namespace Game.Feature.UI.Application
         LastChance = 9,
         ObjectiveComplete = 10,
         TopologyShift = 11,
+        PrimaryMenuCommand = 12,
+        StageLaunch = 13,
     }
 
     public interface IUiAudioPort

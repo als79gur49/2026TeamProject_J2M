@@ -12,6 +12,8 @@ namespace Game.Feature.UI.Tests
     {
         private const string ControllerSourcePath =
             "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiAudioFeedbackController.cs";
+        private const string InstallerSourcePath =
+            "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs";
 
         [Test]
         public void MainMenuUiAudioFeedback_UsesUiAudioPort_NotGameplayAudioMap()
@@ -25,14 +27,25 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuUiAudioFeedback_SaveSlotNormalSelect_PlaysSelectCue()
+        public void MainMenuUiAudioFeedback_SaveSlotContinue_PlaysStageLaunchCue()
         {
             var uiAudioPort = new RecordingUiAudioPort();
             var controller = new MainMenuUiAudioFeedbackController(uiAudioPort);
 
             controller.HandleSaveSlotIntentRequested(new SaveSlotIntent(1, SaveSlotIntentKind.Continue));
 
-            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageLaunch }));
+        }
+
+        [Test]
+        public void MainMenuUiAudioFeedback_SaveSlotNewGame_PlaysStageLaunchCue()
+        {
+            var uiAudioPort = new RecordingUiAudioPort();
+            var controller = new MainMenuUiAudioFeedbackController(uiAudioPort);
+
+            controller.HandleSaveSlotIntentRequested(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageLaunch }));
         }
 
         [Test]
@@ -56,6 +69,41 @@ namespace Game.Feature.UI.Tests
             controller.HandleSettingsOpened();
 
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
+        }
+
+        [Test]
+        public void MainMenuUiAudioFeedback_StartNavigation_PlaysPrimaryMenuCommandCue()
+        {
+            var uiAudioPort = new RecordingUiAudioPort();
+            var controller = new MainMenuUiAudioFeedbackController(uiAudioPort);
+
+            controller.HandleNavigationRequested(new MainMenuNavigationIntent(MainMenuSectionId.SaveSlots));
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.PrimaryMenuCommand }));
+        }
+
+        [Test]
+        public void MainMenuUiAudioFeedback_SettingsCommand_SuppressesFollowupSettingsOpenCue()
+        {
+            var uiAudioPort = new RecordingUiAudioPort();
+            var controller = new MainMenuUiAudioFeedbackController(uiAudioPort);
+
+            controller.HandleCommandRequested(new MainMenuCommandIntent(MainMenuCommandKind.OpenSettings));
+            controller.HandleSettingsOpened();
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.PrimaryMenuCommand }));
+        }
+
+        [Test]
+        public void MainMenuUiAudioFeedback_QuitCommand_SuppressesFollowupConfirmOpenCue()
+        {
+            var uiAudioPort = new RecordingUiAudioPort();
+            var controller = new MainMenuUiAudioFeedbackController(uiAudioPort);
+
+            controller.HandleCommandRequested(new MainMenuCommandIntent(MainMenuCommandKind.Quit));
+            controller.HandlePopupOpened(CreateConfirmPopupOpenedEvent());
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.PrimaryMenuCommand }));
         }
 
         [Test]
@@ -97,6 +145,19 @@ namespace Game.Feature.UI.Tests
             var source = ReadRepoFile(ControllerSourcePath);
 
             Assert.That(source, Does.Not.Contain("UIFlowCoordinator"));
+        }
+
+        [Test]
+        public void MainMenuAudioFeedback_InstallsBeforeCommandSideEffects()
+        {
+            var source = ReadRepoFile(InstallerSourcePath);
+
+            Assert.That(
+                source.IndexOf("BuildAudioFeedbackModule()", System.StringComparison.Ordinal),
+                Is.LessThan(source.IndexOf("BuildSaveSlotModule()", System.StringComparison.Ordinal)));
+            Assert.That(
+                source.IndexOf("BuildAudioFeedbackModule()", System.StringComparison.Ordinal),
+                Is.LessThan(source.IndexOf("BuildHubModule()", System.StringComparison.Ordinal)));
         }
 
         private static PopupOpenedEvent CreateConfirmPopupOpenedEvent()
