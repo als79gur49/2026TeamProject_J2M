@@ -9,9 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8c14f07c576143afad4fe046bc45aaca, type: 3}
-  m_Name: CampaignMain_Stage21_PrimaryGoal_PlayerAtAnyZone
-  m_EditorClassIdentifier: 
-  zoneIds:
-  - zone
-  requireAlive: 1
+  m_Script: {fileID: 11500000, guid: c45e92526796454e905da33fd8723c39, type: 3}
+  m_Name: CampaignMain_Stage21_ButtonActivated_Tile61
+  m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.ButtonActivatedConditionAsset
+  tileId: 61

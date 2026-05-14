@@ -101,14 +101,10 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 57
     PresentationId: box_tutorial
-  - EntityId: 58
-    PresentationId: box_tutorial
   - EntityId: 59
     PresentationId: box_tutorial
-  - EntityId: 60
-    PresentationId: box_tutorial
   - EntityId: 61
-    PresentationId: box_tutorial
+    PresentationId: wall_tutorial
   - EntityId: 62
     PresentationId: box_tutorial
   - EntityId: 63
@@ -156,9 +152,9 @@ MonoBehaviour:
   - EntityId: 219
     PresentationId: wall_tutorial
   - EntityId: 220
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 221
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 222
     PresentationId: wall_tutorial
   - EntityId: 223
@@ -236,13 +232,13 @@ MonoBehaviour:
   - EntityId: 259
     PresentationId: wall_tutorial
   - EntityId: 260
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 261
     PresentationId: wall_tutorial
   - EntityId: 262
     PresentationId: wall_tutorial
   - EntityId: 263
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 264
     PresentationId: wall_tutorial
   - EntityId: 265
@@ -252,9 +248,9 @@ MonoBehaviour:
   - EntityId: 267
     PresentationId: wall_tutorial
   - EntityId: 268
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 269
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 270
     PresentationId: wall_tutorial
   - EntityId: 271
@@ -262,13 +258,13 @@ MonoBehaviour:
   - EntityId: 272
     PresentationId: wall_tutorial
   - EntityId: 273
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 274
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 275
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 276
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 277
     PresentationId: wall_tutorial
   - EntityId: 278
@@ -335,10 +331,6 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 309
     PresentationId: wall_tutorial
-  - EntityId: 310
-    PresentationId: wall_tutorial
-  - EntityId: 311
-    PresentationId: wall_tutorial
   - EntityId: 312
     PresentationId: wall_tutorial
   - EntityId: 313
@@ -356,10 +348,6 @@ MonoBehaviour:
   - EntityId: 319
     PresentationId: wall_tutorial
   - EntityId: 320
-    PresentationId: wall_tutorial
-  - EntityId: 321
-    PresentationId: wall_tutorial
-  - EntityId: 322
     PresentationId: wall_tutorial
   - EntityId: 323
     PresentationId: wall_tutorial
@@ -433,9 +421,13 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 358
     PresentationId: wall_tutorial
+  - EntityId: 359
+    PresentationId: wall_tutorial
+  - EntityId: 360
+    PresentationId: wall_tutorial
   boardTilePresentationCatalog: {fileID: 0}
   boardTilePresentationOverrides: []
-  tileFeaturePresentationCatalog: {fileID: 0}
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
   resultTitle: Stage Cleared
   resultSummaryText: 
