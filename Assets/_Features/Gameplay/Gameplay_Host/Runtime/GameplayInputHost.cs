@@ -20,7 +20,9 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasBufferedUiFlip;
         private bool _hasBufferedUiPush;
         private bool _isInitialized;
+        private bool _isKeyboardMoveOrderTrackerActionChangeSubscribed;
         private bool _isPlayerRespawnDelayInputBlocked;
+        private bool _isRebuildingKeyboardMoveOrderTracker;
         private bool _isSimulationPaused;
         private bool _isTerminalHoldActive;
         private TickInputBuffer _inputBuffer;
@@ -419,11 +421,10 @@ namespace Game.Feature.Gameplay.Host
             _pushAction.started += OnPushStarted;
             _flipAction.started += OnFlipStarted;
             _flipAction.performed += OnFlipPerformed;
-            _keyboardMoveOrderTracker = KeyboardMoveOrderTracker.Create(_moveAction, _moveDeadzone);
-            _keyboardMoveOrderTracker.Enable();
 
             _areActionsBound = true;
-            SetRawMoveInput(_moveAction.ReadValue<Vector2>());
+            RebuildKeyboardMoveOrderTracker();
+            SubscribeMoveActionChanges();
         }
 
         private void EnsureInitialized()
@@ -461,6 +462,8 @@ namespace Game.Feature.Gameplay.Host
 
         private void UnbindActions()
         {
+            UnsubscribeMoveActionChanges();
+
             if (_moveAction != null)
             {
                 _moveAction.performed -= OnMovePerformed;
@@ -500,6 +503,73 @@ namespace Game.Feature.Gameplay.Host
             _sampledMoveInput = Vector2.zero;
             _keyboardMoveOrderTracker?.Reset();
             _moveIntentBuffer?.Reset();
+        }
+
+        private void SubscribeMoveActionChanges()
+        {
+            if (_isKeyboardMoveOrderTrackerActionChangeSubscribed)
+            {
+                return;
+            }
+
+            InputSystem.onActionChange += HandleInputActionChange;
+            _isKeyboardMoveOrderTrackerActionChangeSubscribed = true;
+        }
+
+        private void UnsubscribeMoveActionChanges()
+        {
+            if (!_isKeyboardMoveOrderTrackerActionChangeSubscribed)
+            {
+                return;
+            }
+
+            InputSystem.onActionChange -= HandleInputActionChange;
+            _isKeyboardMoveOrderTrackerActionChangeSubscribed = false;
+        }
+
+        private void HandleInputActionChange(object actionOrMapOrAsset, InputActionChange change)
+        {
+            if (!_areActionsBound ||
+                change != InputActionChange.BoundControlsChanged ||
+                !IsMoveBindingChange(actionOrMapOrAsset))
+            {
+                return;
+            }
+
+            RebuildKeyboardMoveOrderTracker();
+        }
+
+        private bool IsMoveBindingChange(object actionOrMapOrAsset)
+        {
+            if (_moveAction == null)
+            {
+                return false;
+            }
+
+            return ReferenceEquals(actionOrMapOrAsset, _moveAction) ||
+                   ReferenceEquals(actionOrMapOrAsset, _moveAction.actionMap) ||
+                   ReferenceEquals(actionOrMapOrAsset, _actions);
+        }
+
+        private void RebuildKeyboardMoveOrderTracker()
+        {
+            if (_moveAction == null || _isRebuildingKeyboardMoveOrderTracker)
+            {
+                return;
+            }
+
+            _isRebuildingKeyboardMoveOrderTracker = true;
+            try
+            {
+                _keyboardMoveOrderTracker?.Dispose();
+                _keyboardMoveOrderTracker = KeyboardMoveOrderTracker.Create(_moveAction, _moveDeadzone);
+                _keyboardMoveOrderTracker.Enable();
+                SetRawMoveInput(_moveAction.ReadValue<Vector2>());
+            }
+            finally
+            {
+                _isRebuildingKeyboardMoveOrderTracker = false;
+            }
         }
 
         private void ClearPendingPlayerInput()

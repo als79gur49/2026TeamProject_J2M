@@ -11,6 +11,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Shared.Input;
 using NUnit.Framework;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -544,6 +545,40 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return AssertKeyboardTurnDestination(_keyboard.wKey, _keyboard.aKey, "(-1,0)");
             yield return AssertKeyboardTurnDestination(_keyboard.dKey, _keyboard.wKey, "(0,1)");
             yield return AssertKeyboardTurnDestination(_keyboard.aKey, _keyboard.sKey, "(0,-1)");
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator PlayerMove_PlayMode_RuntimeMovementSchemeChange_RebuildsKeyboardOrderForArrowKeys()
+        {
+            var actions = CreateKeyboardMoveActions(includeArrowKeys: true);
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                actions: actions,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            using var service = new KeyboardBindingSettingsService(actions, new PlayModeKeyboardBindingStore());
+
+            var result = service.SetMovementScheme(KeyboardMovementScheme.ArrowKeys);
+
+            Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.Success));
+
+            Press(_keyboard.upArrowKey);
+            yield return null;
+            Press(_keyboard.rightArrowKey);
+            yield return null;
+
+            var firstTick = host.InputHost.RunSingleTick();
+
+            Assert.That(firstTick, Is.Not.Null);
+            Assert.That(firstTick.Trace.Text, Does.Contain("Movement.RawIntents"));
+            Assert.That(firstTick.Trace.Text, Does.Contain("Destination=(1,0)|Command=Move"));
+
+            Release(_keyboard.rightArrowKey);
+            Release(_keyboard.upArrowKey);
+            yield return DestroyHost(host, actions);
         }
 
         [UnityTest]
@@ -1536,7 +1571,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
         }
 
-        private static InputActionAsset CreateKeyboardMoveActions()
+        private static InputActionAsset CreateKeyboardMoveActions(bool includeArrowKeys = false)
         {
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
             var map = new InputActionMap("Player");
@@ -1548,6 +1583,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 .With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a")
                 .With("Right", "<Keyboard>/d");
+            if (includeArrowKeys)
+            {
+                move.AddCompositeBinding("2DVector")
+                    .With("Up", "<Keyboard>/upArrow")
+                    .With("Down", "<Keyboard>/downArrow")
+                    .With("Left", "<Keyboard>/leftArrow")
+                    .With("Right", "<Keyboard>/rightArrow");
+            }
+
             pushAction.AddBinding("<Keyboard>/e");
             flipAction.AddBinding("<Keyboard>/q");
             actions.AddActionMap(map);
@@ -1585,6 +1629,43 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     buffer.Add(RawAttackIntent.CreateFireProjectile(_sourceId, _priority));
                 }
+            }
+        }
+
+        private sealed class PlayModeKeyboardBindingStore : IKeyboardBindingStore
+        {
+            private KeyboardMovementScheme? _movementScheme;
+            private string _bindingOverridesJson;
+
+            public bool TryLoadMovementScheme(out KeyboardMovementScheme scheme)
+            {
+                scheme = _movementScheme ?? KeyboardMovementScheme.Wasd;
+                return _movementScheme.HasValue;
+            }
+
+            public void SaveMovementScheme(KeyboardMovementScheme scheme)
+            {
+                _movementScheme = scheme;
+            }
+
+            public bool TryLoadBindingOverridesJson(out string json)
+            {
+                json = _bindingOverridesJson;
+                return !string.IsNullOrWhiteSpace(json);
+            }
+
+            public void SaveBindingOverridesJson(string json)
+            {
+                _bindingOverridesJson = json;
+            }
+
+            public void ClearBindingOverridesJson()
+            {
+                _bindingOverridesJson = null;
+            }
+
+            public void Save()
+            {
             }
         }
     }

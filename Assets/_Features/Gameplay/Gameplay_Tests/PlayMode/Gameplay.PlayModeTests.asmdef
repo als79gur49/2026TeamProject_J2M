@@ -11,6 +11,7 @@
     "Game.Feature.Stages",
     "Game.Shared.Audio",
     "Game.Shared.Display",
+    "Game.Shared.Input",
     "Unity.Cinemachine",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",
