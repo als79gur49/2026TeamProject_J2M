@@ -401,6 +401,32 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuSettingsRuntime_DisplayResolutionChange_EmitsSelectCue()
+        {
+            using var harness = new RuntimeHarness();
+            harness.Runtime.Open();
+            harness.Runtime.View.ClickDisplayTab();
+            harness.UiAudioPort.Clear();
+
+            harness.Runtime.View.SelectDisplayResolution(1);
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
+        }
+
+        [Test]
+        public void MainMenuSettingsRuntime_DisplayResolutionSameValue_EmitsNoCue()
+        {
+            using var harness = new RuntimeHarness();
+            harness.Runtime.Open();
+            harness.Runtime.View.ClickDisplayTab();
+            harness.UiAudioPort.Clear();
+
+            harness.Runtime.View.SelectDisplayResolution(harness.Runtime.View.SelectedDisplayResolutionIndex);
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
+        }
+
+        [Test]
         public void MainMenuSettingsRuntime_DisplayConfirm_HidesTransientStatusAfterDelay()
         {
             using var harness = new RuntimeHarness();

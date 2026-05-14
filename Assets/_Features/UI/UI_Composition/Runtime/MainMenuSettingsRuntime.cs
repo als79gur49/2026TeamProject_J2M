@@ -376,6 +376,7 @@ namespace Game.Feature.UI.Composition
         {
             CancelDisplayStatusAutoHide();
             presenter.DisplayPresenter.StageResolution(modeIndex);
+            PlayLocalCue(UiAudioCueId.Select);
         }
 
         private void HandleDisplayFullscreenToggled(bool isFullscreen)

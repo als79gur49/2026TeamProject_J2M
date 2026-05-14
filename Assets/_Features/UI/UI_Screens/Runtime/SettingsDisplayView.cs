@@ -143,7 +143,12 @@ namespace Game.Feature.UI.Screens
 
         public void SelectResolution(int index)
         {
-            if (!_isVisible || _resolutionDropdown == null)
+            if (!_isVisible ||
+                _resolutionDropdown == null ||
+                _resolutionDropdown.options == null ||
+                index < 0 ||
+                index >= _resolutionDropdown.options.Count ||
+                _resolutionDropdown.value == index)
             {
                 return;
             }
