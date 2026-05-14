@@ -480,6 +480,31 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StagePresentationAssembler_EntranceFallsBackToKindDefault()
+        {
+            var prefab = CreateValidPrefab("EntranceDefaultPrefab");
+            var stage = CreateStage(CreateTileFeature(
+                100,
+                TileFeatureKind.Entrance,
+                string.Empty,
+                new SurfaceCell(FaceId.Floor, 0, 0)));
+            var catalog = CreateCatalog(Entry("entrance-default", TileFeatureKind.Entrance, prefab, isDefault: true));
+            var presentation = CreatePresentation(catalog);
+
+            try
+            {
+                var resolved = StagePresentationAssembler.Resolve(stage, presentation);
+
+                Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+            }
+            finally
+            {
+                DestroyObjects(stage, presentation, catalog, prefab);
+            }
+        }
+
+        [Test]
         public void StagePresentationAssembler_MissingCatalogLeavesDirectBindingPathIntact()
         {
             var prefab = CreateValidPrefab("DirectOnlyPrefab");

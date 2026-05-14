@@ -49,6 +49,18 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void GridMarker_EntranceTileFeatureBadge_UsesN()
+        {
+            var feature = new StageTileFeatureDefinition
+            {
+                TileId = 7,
+                Kind = TileFeatureKind.Entrance,
+            };
+
+            Assert.That(StageAuthoringGridMarkerBuilder.BuildTileFeatureBadge(feature), Is.EqualTo("N7"));
+        }
+
+        [Test]
         public void GridCellTint_Player_ReturnsPlayerTint()
         {
             Assert.That(StageAuthoringGridCellStyleUtility.TryGetTint(StageAuthoringEntityKind.Player, out var tint), Is.True);
