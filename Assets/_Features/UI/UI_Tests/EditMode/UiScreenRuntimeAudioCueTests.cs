@@ -41,6 +41,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(view, Is.Not.Null);
 
             view.SetAudioMuted(AudioSettingsChannel.Sfx, true);
+            view.BeginAudioInteraction(AudioSettingsChannel.Main);
+            view.SetAudioVolume(AudioSettingsChannel.Main, 0.25f);
             view.CommitAudioInteraction(AudioSettingsChannel.Main);
             view.ClickDisplayTab();
             view.SelectDisplayResolution(1);

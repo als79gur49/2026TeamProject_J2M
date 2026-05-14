@@ -9,6 +9,7 @@ namespace Game.Feature.UI.Screens
 {
     public sealed class SettingsAudioView : MonoBehaviour
     {
+        private const float VolumeComparisonEpsilon = 0.0001f;
         private const string MissingControlsMessage =
             "Settings audio section is missing required authored controls. Repair: open SettingsScreen.prefab and assign every SettingsAudioView serialized row reference.";
 
@@ -19,6 +20,10 @@ namespace Game.Feature.UI.Screens
         private readonly Dictionary<AudioSettingsChannel, AudioControlRowRefs> _audioControls = new();
         private readonly Dictionary<AudioSettingsChannel, UnityAction<float>> _sliderHandlers = new();
         private readonly Dictionary<AudioSettingsChannel, UnityAction<bool>> _toggleHandlers = new();
+        private readonly Dictionary<AudioSettingsChannel, Action> _interactionStartedHandlers = new();
+        private readonly Dictionary<AudioSettingsChannel, Action> _interactionCompletedHandlers = new();
+        private readonly Dictionary<AudioSettingsChannel, float> _interactionStartValues = new();
+        private readonly Dictionary<AudioSettingsChannel, float> _lastKnownValues = new();
         private bool _isVisible;
         private SettingsAudioViewModel _viewModel;
 
@@ -27,6 +32,22 @@ namespace Game.Feature.UI.Screens
         public event Action<AudioSettingsChannel, bool> MuteChanged;
 
         public event Action InteractionCompleted;
+
+        public void BeginInteraction(AudioSettingsChannel channel)
+        {
+            if (!_isVisible)
+            {
+                return;
+            }
+
+            if (_audioControls.TryGetValue(channel, out var widgets) && widgets.Slider != null)
+            {
+                if (!_interactionStartValues.ContainsKey(channel))
+                {
+                    _interactionStartValues[channel] = GetLastKnownValue(channel, widgets.Slider.value);
+                }
+            }
+        }
 
         public void Bind(SettingsAudioViewModel viewModel)
         {
@@ -66,10 +87,13 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
-            if (_audioControls.TryGetValue(channel, out var widgets) && widgets.InteractionRelay != null)
+            if (HasCommittedVolumeChange(channel))
             {
-                widgets.InteractionRelay.RaiseInteractionCompleted();
+                InteractionCompleted?.Invoke();
             }
+
+            CaptureCurrentValue(channel);
+            _interactionStartValues.Remove(channel);
         }
 
         public void SetIsVisible(bool isVisible)
@@ -128,6 +152,7 @@ namespace Game.Feature.UI.Screens
         private void OnDisable()
         {
             UnbindAudioControls();
+            _interactionStartValues.Clear();
         }
 
 #if UNITY_EDITOR
@@ -172,8 +197,13 @@ namespace Game.Feature.UI.Screens
 
             if (widgets.InteractionRelay != null)
             {
-                widgets.InteractionRelay.InteractionCompleted -= HandleAudioInteractionCompleted;
-                widgets.InteractionRelay.InteractionCompleted += HandleAudioInteractionCompleted;
+                BindInteractionRelay(channel, widgets.InteractionRelay);
+            }
+
+            var sliderRootRelay = GetSliderRootInteractionRelay(widgets, createIfMissing: true);
+            if (sliderRootRelay != null && sliderRootRelay != widgets.InteractionRelay)
+            {
+                BindInteractionRelay(channel, sliderRootRelay);
             }
         }
 
@@ -189,14 +219,14 @@ namespace Game.Feature.UI.Screens
             _audioControls[AudioSettingsChannel.Sfx] = _sfxRow;
         }
 
-        private void HandleAudioInteractionCompleted()
+        private void HandleAudioInteractionStarted(AudioSettingsChannel channel)
         {
-            if (!_isVisible)
-            {
-                return;
-            }
+            BeginInteraction(channel);
+        }
 
-            InteractionCompleted?.Invoke();
+        private void HandleAudioInteractionCompleted(AudioSettingsChannel channel)
+        {
+            CommitInteraction(channel);
         }
 
         private void HandleAudioSliderChanged(AudioSettingsChannel channel, float value)
@@ -206,7 +236,17 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
+            if (!_interactionStartValues.ContainsKey(channel))
+            {
+                var previousValue = GetLastKnownValue(channel, value);
+                if (Mathf.Abs(value - previousValue) > VolumeComparisonEpsilon)
+                {
+                    _interactionStartValues[channel] = previousValue;
+                }
+            }
+
             VolumeChanged?.Invoke(channel, value);
+            _lastKnownValues[channel] = value;
         }
 
         private void HandleAudioToggleChanged(AudioSettingsChannel channel, bool isMuted)
@@ -239,6 +279,7 @@ namespace Game.Feature.UI.Screens
             if (widgets.Slider != null)
             {
                 widgets.Slider.SetValueWithoutNotify(rowViewModel.NormalizedValue);
+                _lastKnownValues[channel] = widgets.Slider.value;
             }
 
             if (widgets.Toggle != null)
@@ -291,9 +332,60 @@ namespace Game.Feature.UI.Screens
 
                 if (widgets.InteractionRelay != null)
                 {
-                    widgets.InteractionRelay.InteractionCompleted -= HandleAudioInteractionCompleted;
+                    UnbindInteractionRelay(pair.Key, widgets.InteractionRelay);
+                }
+
+                var sliderRootRelay = GetSliderRootInteractionRelay(widgets, createIfMissing: false);
+                if (sliderRootRelay != null && sliderRootRelay != widgets.InteractionRelay)
+                {
+                    UnbindInteractionRelay(pair.Key, sliderRootRelay);
                 }
             }
+        }
+
+        private void BindInteractionRelay(AudioSettingsChannel channel, SettingsSliderInteractionRelay relay)
+        {
+            if (relay == null)
+            {
+                return;
+            }
+
+            var startedHandler = GetOrCreateInteractionStartedHandler(channel);
+            relay.InteractionStarted -= startedHandler;
+            relay.InteractionStarted += startedHandler;
+
+            var completedHandler = GetOrCreateInteractionCompletedHandler(channel);
+            relay.InteractionCompleted -= completedHandler;
+            relay.InteractionCompleted += completedHandler;
+        }
+
+        private void UnbindInteractionRelay(AudioSettingsChannel channel, SettingsSliderInteractionRelay relay)
+        {
+            if (relay == null)
+            {
+                return;
+            }
+
+            relay.InteractionStarted -= GetOrCreateInteractionStartedHandler(channel);
+            relay.InteractionCompleted -= GetOrCreateInteractionCompletedHandler(channel);
+        }
+
+        private SettingsSliderInteractionRelay GetSliderRootInteractionRelay(
+            AudioControlRowRefs widgets,
+            bool createIfMissing)
+        {
+            if (widgets == null || widgets.Slider == null)
+            {
+                return null;
+            }
+
+            var relay = widgets.Slider.GetComponent<SettingsSliderInteractionRelay>();
+            if (relay == null && createIfMissing)
+            {
+                relay = widgets.Slider.gameObject.AddComponent<SettingsSliderInteractionRelay>();
+            }
+
+            return relay;
         }
 
         private UnityAction<float> GetOrCreateSliderHandler(AudioSettingsChannel channel)
@@ -318,6 +410,57 @@ namespace Game.Feature.UI.Screens
             handler = value => HandleAudioToggleChanged(channel, value);
             _toggleHandlers[channel] = handler;
             return handler;
+        }
+
+        private Action GetOrCreateInteractionStartedHandler(AudioSettingsChannel channel)
+        {
+            if (_interactionStartedHandlers.TryGetValue(channel, out var handler))
+            {
+                return handler;
+            }
+
+            handler = () => HandleAudioInteractionStarted(channel);
+            _interactionStartedHandlers[channel] = handler;
+            return handler;
+        }
+
+        private Action GetOrCreateInteractionCompletedHandler(AudioSettingsChannel channel)
+        {
+            if (_interactionCompletedHandlers.TryGetValue(channel, out var handler))
+            {
+                return handler;
+            }
+
+            handler = () => HandleAudioInteractionCompleted(channel);
+            _interactionCompletedHandlers[channel] = handler;
+            return handler;
+        }
+
+        private bool HasCommittedVolumeChange(AudioSettingsChannel channel)
+        {
+            if (!_interactionStartValues.TryGetValue(channel, out var startValue) ||
+                !_audioControls.TryGetValue(channel, out var widgets) ||
+                widgets.Slider == null)
+            {
+                return false;
+            }
+
+            return Mathf.Abs(widgets.Slider.value - startValue) > VolumeComparisonEpsilon;
+        }
+
+        private float GetLastKnownValue(AudioSettingsChannel channel, float fallback)
+        {
+            return _lastKnownValues.TryGetValue(channel, out var value)
+                ? value
+                : fallback;
+        }
+
+        private void CaptureCurrentValue(AudioSettingsChannel channel)
+        {
+            if (_audioControls.TryGetValue(channel, out var widgets) && widgets.Slider != null)
+            {
+                _lastKnownValues[channel] = widgets.Slider.value;
+            }
         }
 
         private void ValidateRow(AudioControlRowRefs row, string rowName, List<string> issues)

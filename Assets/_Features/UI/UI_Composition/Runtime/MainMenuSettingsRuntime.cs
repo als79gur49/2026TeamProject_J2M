@@ -363,11 +363,13 @@ namespace Game.Feature.UI.Composition
         private void HandleAudioMuteChanged(AudioSettingsChannel channel, bool isMuted)
         {
             presenter.AudioPresenter.SetMuted(channel, isMuted);
+            PlayLocalCue(UiAudioCueId.Toggle);
         }
 
         private void HandleAudioInteractionCompleted()
         {
             presenter.AudioPresenter.Flush();
+            PlayLocalCue(UiAudioCueId.AdjustValueCommit);
         }
 
         private void HandleDisplayResolutionChanged(int modeIndex)

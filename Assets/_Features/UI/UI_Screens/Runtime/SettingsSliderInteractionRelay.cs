@@ -10,6 +10,8 @@ namespace Game.Feature.UI.Screens
         private bool _hasActiveGesture;
         private bool _hasEmittedCommitThisGesture;
 
+        public event Action InteractionStarted;
+
         public event Action InteractionCompleted;
 
         public void OnPointerDown(PointerEventData eventData)
@@ -45,8 +47,14 @@ namespace Game.Feature.UI.Screens
 
         private void BeginGesture()
         {
+            if (_hasActiveGesture)
+            {
+                return;
+            }
+
             _hasActiveGesture = true;
             _hasEmittedCommitThisGesture = false;
+            InteractionStarted?.Invoke();
         }
 
         private void EmitGestureCommit()

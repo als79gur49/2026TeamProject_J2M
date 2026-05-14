@@ -74,6 +74,7 @@ namespace Game.Feature.UI.Tests
                 var view = screenLayerView.FindScreenView<SettingsScreenView>();
                 Assert.That(view, Is.Not.Null);
 
+                view.BeginAudioInteraction(AudioSettingsChannel.Main);
                 view.SetAudioVolume(AudioSettingsChannel.Main, 0.25f);
                 Assert.That(audioPort.Read().Main.Volume, Is.EqualTo(0.25f).Within(0.0001f));
                 Assert.That(audioPort.FlushCallCount, Is.EqualTo(0));

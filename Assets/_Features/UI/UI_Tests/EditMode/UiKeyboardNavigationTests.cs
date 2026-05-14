@@ -1243,7 +1243,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsAudioSlider_EditSubmit_CommitsAndExitsEditMode()
+        public void SettingsAudioSlider_EditSubmitWithoutValueChange_ExitsEditModeWithoutCommit()
         {
             using var harness = CreateSettingsHarness();
             var commitCount = 0;
@@ -1254,6 +1254,24 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.HandleSubmit(), Is.True);
 
             Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(commitCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_EditSubmitAfterValueChange_CommitsAndExitsEditMode()
+        {
+            using var harness = CreateSettingsHarness();
+            var commitCount = 0;
+            harness.View.AudioView.InteractionCompleted += () => commitCount++;
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.GreaterThan(initialValue));
             Assert.That(commitCount, Is.EqualTo(1));
         }
 

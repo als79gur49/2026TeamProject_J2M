@@ -362,7 +362,9 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = new RuntimeHarness();
             harness.Runtime.Open();
+            harness.UiAudioPort.Clear();
 
+            harness.Runtime.View.BeginAudioInteraction(AudioSettingsChannel.Bgm);
             harness.Runtime.View.SetAudioVolume(AudioSettingsChannel.Bgm, 0.25f);
             harness.Runtime.View.SetAudioMuted(AudioSettingsChannel.Sfx, true);
             harness.Runtime.View.CommitAudioInteraction(AudioSettingsChannel.Bgm);
@@ -373,6 +375,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.AudioPort.SetMutedCount, Is.EqualTo(1));
             Assert.That(harness.AudioPort.LastMutedChannel, Is.EqualTo(AudioSettingsChannel.Sfx));
             Assert.That(harness.AudioPort.FlushCount, Is.EqualTo(1));
+            Assert.That(
+                harness.UiAudioPort.PlayedCueIds,
+                Is.EqualTo(new[]
+                {
+                    UiAudioCueId.Toggle,
+                    UiAudioCueId.AdjustValueCommit,
+                }));
         }
 
         [Test]

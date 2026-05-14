@@ -144,6 +144,27 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        public static void BeginEditedNode(SettingsScreenView view, string nodeId)
+        {
+            if (view == null)
+            {
+                return;
+            }
+
+            if (string.Equals(nodeId, AudioMainSliderNodeId, StringComparison.Ordinal))
+            {
+                view.BeginAudioInteraction(AudioSettingsChannel.Main);
+            }
+            else if (string.Equals(nodeId, AudioBgmSliderNodeId, StringComparison.Ordinal))
+            {
+                view.BeginAudioInteraction(AudioSettingsChannel.Bgm);
+            }
+            else if (string.Equals(nodeId, AudioSfxSliderNodeId, StringComparison.Ordinal))
+            {
+                view.BeginAudioInteraction(AudioSettingsChannel.Sfx);
+            }
+        }
+
         private static void AddAudioNodes(
             SettingsScreenView view,
             AudioSettingsChannel channel,
