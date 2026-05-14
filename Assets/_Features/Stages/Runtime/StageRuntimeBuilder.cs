@@ -252,7 +252,7 @@ namespace Game.Feature.Stages
                     };
 
                 case StageSpawnKind.Wall:
-                    return CreateWall(spawn.EntityId, spawn.Cell, spawn.Hp);
+                    return CreateWall(spawn.EntityId, spawn.Cell, spawn.Hp, spawn.Facing);
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(spawn.Kind), spawn.Kind, "Unknown stage spawn kind.");
@@ -496,7 +496,11 @@ namespace Game.Feature.Stages
             return $"entry-{entryIndex}-{runtimeDefinition.ConditionId}";
         }
 
-        private static EntityState CreateWall(int entityId, SurfaceCell position, int hp = 1)
+        private static EntityState CreateWall(
+            int entityId,
+            SurfaceCell position,
+            int hp = 1,
+            Direction facing = Direction.None)
         {
             return new EntityState
             {
@@ -508,7 +512,7 @@ namespace Game.Feature.Stages
                 type = EntityType.None,
                 unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
-                facing = Direction.None,
+                facing = ResolveFacing(facing, Direction.None),
             };
         }
 
