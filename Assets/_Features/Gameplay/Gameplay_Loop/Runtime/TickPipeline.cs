@@ -2226,7 +2226,8 @@ namespace Game.Feature.Gameplay.Loop
                     directionDelta,
                     delta,
                     _playerContinuousLocomotion.CollisionRadiusUnits,
-                    out var transition))
+                    out var transition,
+                    _tileFeatureDefinitions))
             {
                 if (ShouldRecordPlayerFree2DNativeTopologyReject(transition.RejectReason))
                 {
@@ -2307,6 +2308,7 @@ namespace Game.Feature.Gameplay.Loop
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid ||
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit ||
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByReservation ||
+                   reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature ||
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked ||
                    reason == Free2DTopologyTransitionRejectReason.RemapInvalid;
         }
@@ -2636,7 +2638,8 @@ namespace Game.Feature.Gameplay.Loop
                     entity.entityId,
                     delta,
                     _playerContinuousLocomotion.CollisionRadiusUnits,
-                    out var sweep))
+                    out var sweep,
+                    _tileFeatureDefinitions))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={entity.entityId}|Reason=Free2DContinuousSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
@@ -3481,7 +3484,8 @@ namespace Game.Feature.Gameplay.Loop
                 entity.entityId,
                 snapshot.Topology,
                 CubeRotationKind.None,
-                snapshot.Topology);
+                snapshot.Topology,
+                tileFeatureDefinitions: _tileFeatureDefinitions);
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
                 rejectedReasons.Add(
@@ -3500,7 +3504,8 @@ namespace Game.Feature.Gameplay.Loop
                     snapshot,
                     entity.entityId,
                     velocity,
-                    out var sweep) ||
+                    out var sweep,
+                    _tileFeatureDefinitions) ||
                 sweep.Blocked)
             {
                 rejectedReasons.Add(
@@ -3703,7 +3708,8 @@ namespace Game.Feature.Gameplay.Loop
                     entityId,
                     snapshot.Topology,
                     CubeRotationKind.None,
-                    snapshot.Topology);
+                    snapshot.Topology,
+                    tileFeatureDefinitions: _tileFeatureDefinitions);
                 if (anchorCommitLegality.Verdict != LegalityVerdict.Allowed)
                 {
                     rejectedReasons.Add(FormatEnemyKinematicContinuationBlockedReason(
@@ -4376,7 +4382,8 @@ namespace Game.Feature.Gameplay.Loop
                 entity.entityId,
                 snapshot.Topology,
                 CubeRotationKind.None,
-                updatedTopology);
+                updatedTopology,
+                tileFeatureDefinitions: _tileFeatureDefinitions);
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
                 rejectedReasons.Add(
@@ -4388,7 +4395,8 @@ namespace Game.Feature.Gameplay.Loop
                     snapshot,
                     entity.entityId,
                     velocity,
-                    out var sweep) ||
+                    out var sweep,
+                    _tileFeatureDefinitions) ||
                 sweep.Blocked)
             {
                 rejectedReasons.Add(
@@ -6813,7 +6821,8 @@ namespace Game.Feature.Gameplay.Loop
                             source.position,
                             lockedTarget.position,
                             movementSnapshot.Topology,
-                            TransitionRequirement.None));
+                            TransitionRequirement.None,
+                            tileFeatureDefinitions: _tileFeatureDefinitions));
                     if (traverseToLockedTarget.Verdict != LegalityVerdict.Allowed)
                     {
                         rejectionReason = "TraverseLockedTargetBlocked";
@@ -6827,7 +6836,8 @@ namespace Game.Feature.Gameplay.Loop
                                 lockedTarget.position,
                                 payload.DestinationCell,
                                 movementSnapshot.Topology,
-                                TransitionRequirement.None));
+                                TransitionRequirement.None,
+                                tileFeatureDefinitions: _tileFeatureDefinitions));
                         if (traverseToDestination.Verdict != LegalityVerdict.Allowed)
                         {
                             rejectionReason = "TraverseTerminalBlocked";

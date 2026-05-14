@@ -81,6 +81,7 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         source,
                         DirectionOrder[i],
+                        tileFeatureDefinitions,
                         out var candidate))
                 {
                     continue;

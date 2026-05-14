@@ -7,13 +7,17 @@ namespace Game.Feature.Gameplay.BoardState
             int entityId = 0,
             EntityType? entityType = null,
             SolidKind? solidKind = null,
-            TerrainFlags terrainFlags = TerrainFlags.None)
+            TerrainFlags terrainFlags = TerrainFlags.None,
+            int tileId = 0,
+            TileFeatureKind? tileFeatureKind = null)
         {
             Kind = kind;
             EntityId = entityId;
             EntityType = entityType;
             SolidKind = solidKind;
             TerrainFlags = terrainFlags;
+            TileId = tileId;
+            TileFeatureKind = tileFeatureKind;
         }
 
         public LegalityBlockerKind Kind { get; }
@@ -25,5 +29,9 @@ namespace Game.Feature.Gameplay.BoardState
         public SolidKind? SolidKind { get; }
 
         public TerrainFlags TerrainFlags { get; }
+
+        public int TileId { get; }
+
+        public TileFeatureKind? TileFeatureKind { get; }
     }
 }

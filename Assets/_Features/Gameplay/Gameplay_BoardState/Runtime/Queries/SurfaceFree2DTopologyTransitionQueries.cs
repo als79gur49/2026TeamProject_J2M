@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
@@ -21,6 +22,7 @@ namespace Game.Feature.Gameplay.BoardState
         TargetFaceFootprintBlocked = 12,
         RemapInvalid = 13,
         CrossingAxisDidNotReachSeam = 14,
+        TargetFaceBlockedByTileFeature = 15,
     }
 
     internal readonly struct Free2DTopologyTransitionResult
@@ -94,7 +96,8 @@ namespace Game.Feature.Gameplay.BoardState
             Vector2Int directionDelta,
             KinematicVelocity2 velocityDelta,
             int collisionRadiusUnits,
-            out Free2DTopologyTransitionResult result)
+            out Free2DTopologyTransitionResult result,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (snapshot == null)
             {
@@ -177,7 +180,8 @@ namespace Game.Feature.Gameplay.BoardState
                 entityId,
                 remap.UpdatedTopology,
                 remap.RotationKind,
-                remap.UpdatedTopology);
+                remap.UpdatedTopology,
+                tileFeatureDefinitions: tileFeatureDefinitions);
             if (targetLegality.Verdict != LegalityVerdict.Allowed)
             {
                 result = new Free2DTopologyTransitionResult(
@@ -223,7 +227,8 @@ namespace Game.Feature.Gameplay.BoardState
                     directionDelta,
                     updatedTopology,
                     out var footprintRejectReason,
-                    out targetLegality))
+                    out targetLegality,
+                    tileFeatureDefinitions))
             {
                 result = new Free2DTopologyTransitionResult(
                     false,
@@ -315,6 +320,7 @@ namespace Game.Feature.Gameplay.BoardState
                 LegalityBlockerKind.Unit => Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit,
                 LegalityBlockerKind.Solid => Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid,
                 LegalityBlockerKind.Reservation => Free2DTopologyTransitionRejectReason.TargetFaceBlockedByReservation,
+                LegalityBlockerKind.TileFeature => Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature,
                 _ => Free2DTopologyTransitionRejectReason.TargetFaceOutOfBounds,
             };
         }
@@ -331,7 +337,8 @@ namespace Game.Feature.Gameplay.BoardState
             Vector2Int entryDirectionDelta,
             CubeTopologyState targetTopology,
             out Free2DTopologyTransitionRejectReason rejectReason,
-            out LegalityResult legality)
+            out LegalityResult legality,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             rejectReason = Free2DTopologyTransitionRejectReason.None;
             legality = default;
@@ -342,14 +349,14 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             if (targetLocalOffset.X.RawValue + radius >= KinematicFixed.HalfCellUnits &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.right, targetTopology, out rejectReason, out legality))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.right, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
             }
 
             if (targetLocalOffset.X.RawValue - radius < KinematicFixed.MinLocalOffset &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.left, targetTopology, out rejectReason, out legality))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.left, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
@@ -358,7 +365,7 @@ namespace Game.Feature.Gameplay.BoardState
             var movingForward = entryDirectionDelta.y > 0;
             if (movingForward &&
                 targetLocalOffset.Y.RawValue + radius >= KinematicFixed.HalfCellUnits &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.up, targetTopology, out rejectReason, out legality))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.up, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
@@ -366,7 +373,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (!movingForward &&
                 targetLocalOffset.Y.RawValue - radius < KinematicFixed.MinLocalOffset &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.down, targetTopology, out rejectReason, out legality))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.down, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
@@ -381,7 +388,8 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell cell,
             CubeTopologyState targetTopology,
             out Free2DTopologyTransitionRejectReason rejectReason,
-            out LegalityResult legality)
+            out LegalityResult legality,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                 snapshot,
@@ -390,7 +398,8 @@ namespace Game.Feature.Gameplay.BoardState
                 entityId,
                 targetTopology,
                 CubeRotationKind.None,
-                targetTopology);
+                targetTopology,
+                tileFeatureDefinitions: tileFeatureDefinitions);
             if (legality.Verdict == LegalityVerdict.Allowed)
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.None;

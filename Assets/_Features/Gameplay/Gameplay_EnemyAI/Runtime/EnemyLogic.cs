@@ -1120,6 +1120,7 @@ namespace Game.Feature.Gameplay.Entities
                     source,
                     _commonSettings,
                     lockedStep,
+                    _tileFeatureDefinitions,
                     out var intent))
             {
                 if (snapshot.TryGetSolidSemanticAt(destination, out _))
@@ -2314,6 +2315,7 @@ namespace Game.Feature.Gameplay.Entities
                                 source,
                                 _commonSettings,
                                 patrolDelta,
+                                _tileFeatureDefinitions,
                                 out var patrolIntent))
                         {
                             return new GroundLocomotionResolution(

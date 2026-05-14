@@ -52,6 +52,17 @@ namespace Game.Feature.Gameplay.BoardState
             };
         }
 
+        public static IReadOnlyList<LegalityBlocker> CreateTileFeature(TileFeatureState tileFeature)
+        {
+            return new[]
+            {
+                new LegalityBlocker(
+                    LegalityBlockerKind.TileFeature,
+                    tileId: tileFeature.TileId,
+                    tileFeatureKind: tileFeature.Kind),
+            };
+        }
+
         public static string FormatKinds(IReadOnlyList<LegalityBlocker> blockers)
         {
             if (blockers == null || blockers.Count == 0)

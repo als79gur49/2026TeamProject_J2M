@@ -42,7 +42,8 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell candidateCell,
             CubeTopologyState evaluationTopology,
             TransitionRequirement transitionRequirement,
-            ReservationStatus reservationStatus = ReservationStatus.None)
+            ReservationStatus reservationStatus = ReservationStatus.None,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             Actor = actor;
@@ -51,6 +52,7 @@ namespace Game.Feature.Gameplay.BoardState
             EvaluationTopology = evaluationTopology;
             TransitionRequirement = transitionRequirement;
             ReservationStatus = reservationStatus;
+            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
         }
 
         public WorldSnapshot Snapshot { get; }
@@ -66,6 +68,8 @@ namespace Game.Feature.Gameplay.BoardState
         public TransitionRequirement TransitionRequirement { get; }
 
         public ReservationStatus ReservationStatus { get; }
+
+        public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
     }
 
     internal readonly struct SettlementContext

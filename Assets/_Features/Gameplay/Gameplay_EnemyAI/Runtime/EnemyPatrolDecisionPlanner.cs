@@ -51,7 +51,7 @@ namespace Game.Feature.Gameplay.Entities
             switch (patrolKind)
             {
                 case PatrolStrategyKind.Forward:
-                    proposal = BuildForwardProposal(snapshot, source, patrolSettings);
+                    proposal = BuildForwardProposal(snapshot, source, patrolSettings, tileFeatureDefinitions);
                     return true;
 
                 case PatrolStrategyKind.RandomWalk:
@@ -73,7 +73,8 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyPatrolDecisionProposal BuildForwardProposal(
             WorldSnapshot snapshot,
             in EntityState source,
-            in PatrolSettings patrolSettings)
+            in PatrolSettings patrolSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             var plannedFacing = source.facing;
             var forwardDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
@@ -87,7 +88,7 @@ namespace Game.Feature.Gameplay.Entities
                     shouldInitializeState: false);
             }
 
-            if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, forwardDelta.Value))
+            if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, forwardDelta.Value, tileFeatureDefinitions))
             {
                 return new EnemyPatrolDecisionProposal(
                     hasDirection: true,
@@ -111,7 +112,7 @@ namespace Game.Feature.Gameplay.Entities
             var backwardDelta = EnemyMovementStrategyShared.ResolveDelta(backwardDirection);
             if (backwardDirection == Direction.None ||
                 !backwardDelta.HasValue ||
-                !EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, backwardDelta.Value))
+                !EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, backwardDelta.Value, tileFeatureDefinitions))
             {
                 return new EnemyPatrolDecisionProposal(
                     hasDirection: false,

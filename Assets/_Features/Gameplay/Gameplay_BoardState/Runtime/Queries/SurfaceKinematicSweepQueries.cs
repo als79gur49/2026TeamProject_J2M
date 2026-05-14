@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Game.Feature.Gameplay.Entities;
 
@@ -74,7 +75,8 @@ namespace Game.Feature.Gameplay.BoardState
             WorldSnapshot snapshot,
             int entityId,
             KinematicVelocity2 delta,
-            out KinematicSweepResult result)
+            out KinematicSweepResult result,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (snapshot == null)
             {
@@ -136,7 +138,8 @@ namespace Game.Feature.Gameplay.BoardState
                 entityId,
                 snapshot.Topology,
                 CubeRotationKind.None,
-                snapshot.Topology);
+                snapshot.Topology,
+                tileFeatureDefinitions: tileFeatureDefinitions);
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
                 result = CreateClamped(entityId, pose, delta, anchorDelta, KinematicSweepRejectionReason.TraversalBlocked);

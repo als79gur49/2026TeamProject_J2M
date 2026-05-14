@@ -315,7 +315,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 destinationCell,
                 movementTopology,
                 rotationKind,
-                updatedTopology);
+                updatedTopology,
+                tileFeatureDefinitions);
             var movementLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(movementContext);
             if (movementLegality.Verdict == LegalityVerdict.Blocked)
             {
@@ -1228,7 +1229,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             SurfaceCell candidateCell,
             CubeTopologyState evaluationTopology,
             CubeRotationKind rotationKind,
-            CubeTopologyState updatedTopology)
+            CubeTopologyState updatedTopology,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             return new TraverseContext(
                 snapshot,
@@ -1238,7 +1240,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 evaluationTopology,
                 rotationKind == CubeRotationKind.None
                     ? TransitionRequirement.None
-                    : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology));
+                    : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology),
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static SettlementContext CreateSettlementContext(

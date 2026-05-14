@@ -10,5 +10,6 @@ namespace Game.Feature.Gameplay.BoardState
         Solid = 2,
         Unit = 3,
         Reservation = 4,
+        TileFeature = 5,
     }
 }

@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.BoardState
                     : "SpawnDestinationBlockedByEntity",
                 LegalityBlockerKind.Unit => "SpawnDestinationBlockedByEntity",
                 LegalityBlockerKind.Reservation => "SpawnDestinationBlockedByReservation",
+                LegalityBlockerKind.TileFeature => "SpawnDestinationBlockedByTileFeature",
                 _ => "SpawnDestinationBlocked",
             };
         }
@@ -52,6 +53,7 @@ namespace Game.Feature.Gameplay.BoardState
                 LegalityBlockerKind.Unit => "Entity",
                 LegalityBlockerKind.Solid => "Entity",
                 LegalityBlockerKind.Reservation => "Reservation",
+                LegalityBlockerKind.TileFeature => "TileFeature",
                 _ => blocker.Kind.ToString(),
             };
             var prefix =

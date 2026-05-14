@@ -212,7 +212,13 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            if (EnemyMovementStrategyShared.TryBuildMoveIntent(snapshot, source, commonSettings, forwardDelta.Value, out intent))
+            if (EnemyMovementStrategyShared.TryBuildMoveIntent(
+                    snapshot,
+                    source,
+                    commonSettings,
+                    forwardDelta.Value,
+                    tileFeatureDefinitions,
+                    out intent))
             {
                 return true;
             }
@@ -227,6 +233,7 @@ namespace Game.Feature.Gameplay.Entities
                 source,
                 commonSettings,
                 -forwardDelta.Value,
+                tileFeatureDefinitions,
                 out intent);
         }
     }
@@ -288,6 +295,7 @@ namespace Game.Feature.Gameplay.Entities
                 source,
                 commonSettings,
                 delta,
+                tileFeatureDefinitions,
                 out intent);
         }
     }
@@ -388,6 +396,7 @@ namespace Game.Feature.Gameplay.Entities
                 source,
                 commonSettings,
                 delta,
+                tileFeatureDefinitions,
                 out intent);
         }
 
@@ -453,10 +462,10 @@ namespace Game.Feature.Gameplay.Entities
             var primaryAxis = tryHorizontalFirst ? ChaseCandidateAxis.Horizontal : ChaseCandidateAxis.Vertical;
             var secondaryAxis = tryHorizontalFirst ? ChaseCandidateAxis.Vertical : ChaseCandidateAxis.Horizontal;
             var legalCandidates = new List<ChaseStepCandidate>(2);
-            AddLegalCandidate(snapshot, source, primary, primaryAxis, legalCandidates);
+            AddLegalCandidate(snapshot, source, primary, primaryAxis, tileFeatureDefinitions, legalCandidates);
             if (includeSecondaryAxis)
             {
-                AddLegalCandidate(snapshot, source, secondary, secondaryAxis, legalCandidates);
+                AddLegalCandidate(snapshot, source, secondary, secondaryAxis, tileFeatureDefinitions, legalCandidates);
             }
 
             if (legalCandidates.Count == 0)
@@ -499,9 +508,10 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             Vector2Int? candidate,
             ChaseCandidateAxis axis,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ChaseStepCandidate> legalCandidates)
         {
-            if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidate, out var delta))
+            if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidate, tileFeatureDefinitions, out var delta))
             {
                 legalCandidates.Add(new ChaseStepCandidate(delta, axis));
             }
@@ -525,7 +535,7 @@ namespace Game.Feature.Gameplay.Entities
                 var direction = LocalAvoidanceDirectionOrder[i];
                 if (!IsPerpendicularAvoidanceDirection(blockedAxis, direction) ||
                     !EnemyMovementStrategyShared.TryResolveDelta(direction, out var candidateDelta) ||
-                    !EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidateDelta) ||
+                    !EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidateDelta, tileFeatureDefinitions) ||
                     EvaluateCandidateRisk(snapshot, tileFeatureDefinitions, source, candidateDelta) != TileApproachRisk.Neutral)
                 {
                     continue;
@@ -679,9 +689,20 @@ namespace Game.Feature.Gameplay.Entities
             Vector2Int delta,
             out RawMovementIntent intent)
         {
+            return TryBuildMoveIntent(snapshot, source, commonSettings, delta, null, out intent);
+        }
+
+        public static bool TryBuildMoveIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            Vector2Int delta,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out RawMovementIntent intent)
+        {
             intent = default;
 
-            if (!CanTraverseStep(snapshot, source, delta))
+            if (!CanTraverseStep(snapshot, source, delta, tileFeatureDefinitions))
             {
                 return false;
             }
@@ -720,9 +741,19 @@ namespace Game.Feature.Gameplay.Entities
             Vector2Int? candidate,
             out Vector2Int delta)
         {
+            return CanTraverseStep(snapshot, source, candidate, null, out delta);
+        }
+
+        public static bool CanTraverseStep(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Vector2Int? candidate,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out Vector2Int delta)
+        {
             delta = Vector2Int.zero;
 
-            if (!candidate.HasValue || !CanTraverseStep(snapshot, source, candidate.Value))
+            if (!candidate.HasValue || !CanTraverseStep(snapshot, source, candidate.Value, tileFeatureDefinitions))
             {
                 return false;
             }
@@ -735,6 +766,15 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int delta)
+        {
+            return CanTraverseStep(snapshot, source, delta, null);
+        }
+
+        public static bool CanTraverseStep(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Vector2Int delta,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (!TryResolveStep(snapshot, source.position, delta, out var destinationCell, out var rotationKind, out var updatedTopology))
             {
@@ -751,7 +791,8 @@ namespace Game.Feature.Gameplay.Entities
                     evaluationTopology,
                     rotationKind == CubeRotationKind.None
                         ? TransitionRequirement.None
-                        : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology)));
+                        : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology),
+                    tileFeatureDefinitions: tileFeatureDefinitions));
             if (legality.Verdict != LegalityVerdict.Allowed ||
                 legality.TransitionRequirement.Kind != TransitionRequirementKind.None)
             {
@@ -847,12 +888,13 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             Direction direction,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out RandomWalkPatrolCandidate candidate)
         {
             candidate = default;
 
             if (!TryResolveDelta(direction, out var delta) ||
-                !CanTraverseStep(snapshot, source, delta) ||
+                !CanTraverseStep(snapshot, source, delta, tileFeatureDefinitions) ||
                 !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source, delta, out var destinationCell))
             {
                 return false;

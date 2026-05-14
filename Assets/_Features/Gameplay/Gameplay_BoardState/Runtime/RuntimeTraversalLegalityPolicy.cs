@@ -17,6 +17,17 @@ namespace Game.Feature.Gameplay.BoardState
                     context.Actor.EntityId,
                     out var blocker))
             {
+                if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
+                {
+                    return LegalityResult.Blocked(
+                        LegalityDomain.Traversal,
+                        context.CandidateCell,
+                        context.EvaluationTopology,
+                        RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                        context.ReservationStatus,
+                        context.TransitionRequirement);
+                }
+
                 return LegalityResult.Allowed(
                     LegalityDomain.Traversal,
                     context.CandidateCell,
@@ -28,6 +39,17 @@ namespace Game.Feature.Gameplay.BoardState
             var blockers = RuntimeLegalityBlockerFactory.Create(context.Snapshot.EntitiesById, blocker);
             if (ModifierQuery.IgnoresTraversalBlocker(capabilities, blockers[0]))
             {
+                if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
+                {
+                    return LegalityResult.Blocked(
+                        LegalityDomain.Traversal,
+                        context.CandidateCell,
+                        context.EvaluationTopology,
+                        RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                        context.ReservationStatus,
+                        context.TransitionRequirement);
+                }
+
                 return LegalityResult.Allowed(
                     LegalityDomain.Traversal,
                     context.CandidateCell,
@@ -53,7 +75,8 @@ namespace Game.Feature.Gameplay.BoardState
             CubeTopologyState evaluatedTopology,
             CubeRotationKind rotationKind,
             CubeTopologyState updatedTopology,
-            ReservationStatus reservationStatus = ReservationStatus.None)
+            ReservationStatus reservationStatus = ReservationStatus.None,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (snapshot == null)
             {
@@ -72,7 +95,8 @@ namespace Game.Feature.Gameplay.BoardState
                     transitionRequirement: rotationKind == CubeRotationKind.None
                         ? TransitionRequirement.None
                         : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology),
-                    reservationStatus: reservationStatus));
+                    reservationStatus: reservationStatus,
+                    tileFeatureDefinitions: tileFeatureDefinitions));
         }
 
         // Charge movement ignores overlapping units and only stops on hard board blockers.
@@ -129,6 +153,28 @@ namespace Game.Feature.Gameplay.BoardState
             EntityType entityType)
         {
             return StateQuery.BuildActorRef(snapshot, entityId, entityType);
+        }
+
+        private static bool TryGetUnitTileFeatureBlocker(
+            in TraverseContext context,
+            out TileFeatureState tileFeatureBlocker)
+        {
+            if (context.Actor.EntityType != EntityType.Unit)
+            {
+                tileFeatureBlocker = default;
+                return false;
+            }
+
+            var movementKind = context.TransitionRequirement.Kind == TransitionRequirementKind.TopologyUpdate
+                ? TileFeatureMovementKind.Free2DTopologyTransition
+                : TileFeatureMovementKind.GroundStep;
+            return TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                context.Snapshot,
+                context.TileFeatureDefinitions,
+                context.CandidateCell,
+                TileFeatureBlockerSubject.Unit,
+                movementKind,
+                out tileFeatureBlocker);
         }
     }
 }

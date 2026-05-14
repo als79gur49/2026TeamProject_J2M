@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
@@ -60,7 +61,8 @@ namespace Game.Feature.Gameplay.BoardState
             int entityId,
             KinematicVelocity2 delta,
             int collisionRadiusUnits,
-            out ContinuousLocomotionSweepResult result)
+            out ContinuousLocomotionSweepResult result,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (snapshot == null)
             {
@@ -101,7 +103,8 @@ namespace Game.Feature.Gameplay.BoardState
                         pose,
                         approachAnchorDelta,
                         out var approachCandidateAnchor,
-                        out var rejectionReason))
+                        out var rejectionReason,
+                        tileFeatureDefinitions))
                 {
                     result = CreateClamped(
                         entityId,
@@ -165,7 +168,8 @@ namespace Game.Feature.Gameplay.BoardState
                     pose,
                     anchorDelta,
                     out candidateAnchor,
-                    out var rejectedBy))
+                    out var rejectedBy,
+                    tileFeatureDefinitions))
             {
                 result = CreateClamped(entityId, pose, anchorDelta, collisionRadiusUnits, rejectedBy);
                 return true;
@@ -189,7 +193,8 @@ namespace Game.Feature.Gameplay.BoardState
             UnitContinuousLocomotionPose pose,
             Vector2Int anchorDelta,
             out SurfaceCell candidateAnchor,
-            out ContinuousLocomotionRejectionReason rejectedBy)
+            out ContinuousLocomotionRejectionReason rejectedBy,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             candidateAnchor = pose.AnchorCell + anchorDelta;
             if (candidateAnchor.face != pose.AnchorCell.face)
@@ -205,7 +210,8 @@ namespace Game.Feature.Gameplay.BoardState
                 entity.entityId,
                 snapshot.Topology,
                 CubeRotationKind.None,
-                snapshot.Topology);
+                snapshot.Topology,
+                tileFeatureDefinitions: tileFeatureDefinitions);
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
                 rejectedBy = ContinuousLocomotionRejectionReason.TraversalBlocked;
