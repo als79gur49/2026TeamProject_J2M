@@ -118,15 +118,19 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 ## Barricade Policy
 
-Barricade box-only blocker MVP is implemented. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.
+Barricade is a TileFeature movement blocker. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.
 
 - Barricade activation rule is `FrontFaceOnly`.
 - Barricade direction must be `None`.
 - Barricade selector must be `None`.
-- Barricade is a box-only movement blocker.
-- Unit/player/enemy traversal is not blocked.
+- Active Barricade blocks box movement paths that query TileFeature box blockers.
+- Active Barricade blocks Unit ground traversal, including player, enemy, and future NPC/friendly units.
+- Barricade does not occupy Unit, Solid, or Projectile layer.
+- Barricade does not invalidate existing Unit occupancy.
 - Projectile movement is not blocked.
-- Impact follow-through and topology relocation are not blocked by Barricade.
+- Airborne landing and jump settlement are not blocked unless a separate landing policy is added later.
+- Impact follow-through and topology relocation are not blocked by Barricade unless a separate policy is added later.
+- EnemyParticipationPolicy is unchanged; current enemy bottom-face participation remains unchanged.
 - Active Barricade blocks box push first step, sliding continuation entry, and flip landing entry.
 - Inactive Barricade does not block existing DestroyTile or SlideTile behavior.
 - Inactive Barricade does not block existing flip behavior.
