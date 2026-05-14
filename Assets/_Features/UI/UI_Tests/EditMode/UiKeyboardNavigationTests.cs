@@ -794,7 +794,7 @@ namespace Game.Feature.UI.Tests
                 "Display.Fullscreen.Toggle",
                 "Display.Apply.Button",
                 "Display.Revert.Button",
-                "Input.Movement.Toggle",
+                "Input.Movement.Slider",
                 "Input.Push.Change",
                 "Input.Flip.Change",
                 "Input.Reset",
@@ -1078,14 +1078,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsHeaderTabs_DownFromInput_EntersInputMovementToggle()
+        public void SettingsHeaderTabs_DownFromInput_EntersInputMovementSlider()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Input);
             MoveToCurrentHeaderTab(harness.View);
 
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
 
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Toggle"));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Slider"));
         }
 
         [Test]

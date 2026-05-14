@@ -11,11 +11,17 @@ namespace Game.Feature.UI.Screens
     {
         private const string MissingControlsMessage =
             "Settings input section is missing required authored controls. Repair: open SettingsScreen.prefab and assign every SettingsInputView serialized reference.";
+        private const float ActiveDisplayAlpha = 1f;
+        private const float InactiveDisplayAlpha = 0.3f;
 
         [SerializeField] private TMP_Text _movementLabel;
-        [SerializeField] private Toggle _movementToggle;
+        [SerializeField] private Slider _movementSlider;
         [SerializeField] private TMP_Text _movementToggleLabel;
         [SerializeField] private TMP_Text _movementCurrentText;
+        [SerializeField] private CanvasGroup _arrowKeyDisplayGroup;
+        [SerializeField] private CanvasGroup _wasdKeyDisplayGroup;
+        [SerializeField] private GameObject _arrowKeyActiveLight;
+        [SerializeField] private GameObject _wasdKeyActiveLight;
         [SerializeField] private TMP_Text _pushLabel;
         [SerializeField] private TMP_Text _pushCurrentText;
         [SerializeField] private TMP_Text _pushKeyDisplayLabel;
@@ -44,9 +50,9 @@ namespace Game.Feature.UI.Screens
 
         public string StatusText => _statusText != null ? _statusText.text : string.Empty;
 
-        public bool IsMovementToggleOn => _movementToggle != null && _movementToggle.isOn;
+        public bool IsMovementUsingArrowKeys => _movementSlider != null && _movementSlider.value >= 0.5f;
 
-        public bool IsMovementToggleInteractable => _movementToggle != null && _movementToggle.interactable;
+        public bool IsMovementSliderInteractable => _movementSlider != null && _movementSlider.interactable;
 
         public bool IsPushChangeInteractable => _pushChangeButton != null && _pushChangeButton.interactable;
 
@@ -76,9 +82,13 @@ namespace Game.Feature.UI.Screens
         {
             var issues = new List<string>();
             ValidateControl(_movementLabel, nameof(_movementLabel), issues);
-            ValidateControl(_movementToggle, nameof(_movementToggle), issues);
+            ValidateControl(_movementSlider, nameof(_movementSlider), issues);
             ValidateControl(_movementToggleLabel, nameof(_movementToggleLabel), issues);
             ValidateControl(_movementCurrentText, nameof(_movementCurrentText), issues);
+            ValidateControl(_arrowKeyDisplayGroup, nameof(_arrowKeyDisplayGroup), issues);
+            ValidateControl(_wasdKeyDisplayGroup, nameof(_wasdKeyDisplayGroup), issues);
+            ValidateControl(_arrowKeyActiveLight, nameof(_arrowKeyActiveLight), issues);
+            ValidateControl(_wasdKeyActiveLight, nameof(_wasdKeyActiveLight), issues);
             ValidateControl(_pushLabel, nameof(_pushLabel), issues);
             ValidateControl(_pushCurrentText, nameof(_pushCurrentText), issues);
             ValidateControl(_pushKeyDisplayLabel, nameof(_pushKeyDisplayLabel), issues);
@@ -107,12 +117,23 @@ namespace Game.Feature.UI.Screens
 
         public void SetMovementUseArrowKeys(bool useArrowKeys)
         {
-            if (!_isVisible || _movementToggle == null)
+            if (!_isVisible || _movementSlider == null)
             {
                 return;
             }
 
-            _movementToggle.isOn = useArrowKeys;
+            _movementSlider.value = useArrowKeys ? 1f : 0f;
+        }
+
+        public bool AdjustMovementScheme(int delta)
+        {
+            if (!_isVisible || _movementSlider == null || !_movementSlider.interactable || delta == 0)
+            {
+                return false;
+            }
+
+            SetMovementUseArrowKeys(delta > 0);
+            return true;
         }
 
         public void ClickPushChange()
@@ -160,9 +181,13 @@ namespace Game.Feature.UI.Screens
         private void OnValidate()
         {
             ValidateSerializedReference(_movementLabel, nameof(_movementLabel));
-            ValidateSerializedReference(_movementToggle, nameof(_movementToggle));
+            ValidateSerializedReference(_movementSlider, nameof(_movementSlider));
             ValidateSerializedReference(_movementToggleLabel, nameof(_movementToggleLabel));
             ValidateSerializedReference(_movementCurrentText, nameof(_movementCurrentText));
+            ValidateSerializedReference(_arrowKeyDisplayGroup, nameof(_arrowKeyDisplayGroup));
+            ValidateSerializedReference(_wasdKeyDisplayGroup, nameof(_wasdKeyDisplayGroup));
+            ValidateSerializedReference(_arrowKeyActiveLight, nameof(_arrowKeyActiveLight));
+            ValidateSerializedReference(_wasdKeyActiveLight, nameof(_wasdKeyActiveLight));
             ValidateSerializedReference(_pushLabel, nameof(_pushLabel));
             ValidateSerializedReference(_pushCurrentText, nameof(_pushCurrentText));
             ValidateSerializedReference(_pushKeyDisplayLabel, nameof(_pushKeyDisplayLabel));
@@ -189,14 +214,14 @@ namespace Game.Feature.UI.Screens
             UnbindControls();
         }
 
-        private void HandleMovementToggleChanged(bool useArrowKeys)
+        private void HandleMovementSliderChanged(float value)
         {
             if (!_isVisible || _isRefreshingControls)
             {
                 return;
             }
 
-            MovementSchemeToggleRequested?.Invoke(useArrowKeys);
+            MovementSchemeToggleRequested?.Invoke(value >= 0.5f);
         }
 
         private void HandleViewModelChanged()
@@ -228,11 +253,13 @@ namespace Game.Feature.UI.Screens
                 SetText(_statusText, _viewModel.StatusText);
                 SetText(_resetButtonLabel, _viewModel.ResetLabel);
 
-                if (_movementToggle != null)
+                if (_movementSlider != null)
                 {
-                    _movementToggle.SetIsOnWithoutNotify(_viewModel.UseArrowKeys);
-                    _movementToggle.interactable = _viewModel.AreControlsInteractable;
+                    _movementSlider.SetValueWithoutNotify(_viewModel.UseArrowKeys ? 1f : 0f);
+                    _movementSlider.interactable = _viewModel.AreControlsInteractable;
                 }
+
+                ApplyMovementDisplayState(_viewModel.UseArrowKeys);
 
                 ApplyRebindButtonState(
                     _pushChangeButton,
@@ -260,10 +287,10 @@ namespace Game.Feature.UI.Screens
 
         private void RebindControls()
         {
-            if (_movementToggle != null)
+            if (_movementSlider != null)
             {
-                _movementToggle.onValueChanged.RemoveListener(HandleMovementToggleChanged);
-                _movementToggle.onValueChanged.AddListener(HandleMovementToggleChanged);
+                _movementSlider.onValueChanged.RemoveListener(HandleMovementSliderChanged);
+                _movementSlider.onValueChanged.AddListener(HandleMovementSliderChanged);
             }
 
             RebindButton(_pushChangeButton, ClickPushChange);
@@ -273,9 +300,9 @@ namespace Game.Feature.UI.Screens
 
         private void UnbindControls()
         {
-            if (_movementToggle != null)
+            if (_movementSlider != null)
             {
-                _movementToggle.onValueChanged.RemoveListener(HandleMovementToggleChanged);
+                _movementSlider.onValueChanged.RemoveListener(HandleMovementSliderChanged);
             }
 
             UnbindButton(_pushChangeButton, ClickPushChange);
@@ -302,6 +329,34 @@ namespace Game.Feature.UI.Screens
             label.fontSizeMin = 9f;
             label.fontSizeMax = Mathf.Max(label.fontSizeMax, label.fontSize);
             label.text = text ?? string.Empty;
+        }
+
+        private void ApplyMovementDisplayState(bool useArrowKeys)
+        {
+            ApplyDisplayGroupState(_arrowKeyDisplayGroup, useArrowKeys);
+            ApplyDisplayGroupState(_wasdKeyDisplayGroup, !useArrowKeys);
+            SetActiveIfChanged(_arrowKeyActiveLight, useArrowKeys);
+            SetActiveIfChanged(_wasdKeyActiveLight, !useArrowKeys);
+        }
+
+        private static void ApplyDisplayGroupState(CanvasGroup group, bool isActive)
+        {
+            if (group == null)
+            {
+                return;
+            }
+
+            group.alpha = isActive ? ActiveDisplayAlpha : InactiveDisplayAlpha;
+            group.interactable = isActive;
+            group.blocksRaycasts = isActive;
+        }
+
+        private static void SetActiveIfChanged(GameObject target, bool isActive)
+        {
+            if (target != null && target.activeSelf != isActive)
+            {
+                target.SetActive(isActive);
+            }
         }
 
         private static void ApplyRebindButtonState(Button button, bool areControlsInteractable, bool isHighlighted)

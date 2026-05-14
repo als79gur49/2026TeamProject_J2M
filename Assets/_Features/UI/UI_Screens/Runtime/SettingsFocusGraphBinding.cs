@@ -18,7 +18,7 @@ namespace Game.Feature.UI.Screens
         private const string DisplayFullscreenToggleNodeId = "Display.Fullscreen.Toggle";
         private const string DisplayApplyButtonNodeId = "Display.Apply.Button";
         private const string DisplayRevertButtonNodeId = "Display.Revert.Button";
-        private const string InputMovementToggleNodeId = "Input.Movement.Toggle";
+        private const string InputMovementSliderNodeId = "Input.Movement.Slider";
         private const string InputPushChangeNodeId = "Input.Push.Change";
         private const string InputFlipChangeNodeId = "Input.Flip.Change";
         private const string InputResetNodeId = "Input.Reset";
@@ -88,14 +88,15 @@ namespace Game.Feature.UI.Screens
                 isInteractable: () => view.IsDisplayRevertInteractable);
 
             view.RegisterFocusNode(
-                InputMovementToggleNodeId,
+                InputMovementSliderNodeId,
                 UiFocusRegion.Input,
-                UiFocusNodeKind.Toggle,
+                UiFocusNodeKind.Slider,
                 0,
                 0,
                 () => view.InputView != null &&
-                      SettingsScreenView.InvokeAndReturnTrue(() => view.InputView.SetMovementUseArrowKeys(!view.InputView.IsMovementToggleOn)),
-                isInteractable: () => view.InputView != null && view.InputView.IsMovementToggleInteractable);
+                      SettingsScreenView.InvokeAndReturnTrue(() => view.InputView.SetMovementUseArrowKeys(!view.InputView.IsMovementUsingArrowKeys)),
+                adjust: delta => view.InputView != null && view.InputView.AdjustMovementScheme(delta),
+                isInteractable: () => view.InputView != null && view.InputView.IsMovementSliderInteractable);
             view.RegisterFocusNode(
                 InputPushChangeNodeId,
                 UiFocusRegion.Input,
