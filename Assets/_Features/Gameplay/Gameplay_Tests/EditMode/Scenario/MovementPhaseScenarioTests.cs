@@ -3027,6 +3027,85 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void Movement_MoveIntoItemBoxAcrossBottomFrontSharedEdge_IsRejectedAsCrossFaceInteraction()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Item),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "I=1",
+                    "Reason=InteractionCrossesFaceBoundary",
+                    "Command=Move",
+                    "From=(0,1)",
+                    "Cell=Front(0,0)",
+                    "Target=20"),
+                Is.True);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out var itemBox), Is.True);
+            Assert.That(itemBox.markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Movement_RawPushIntentAcrossBottomFrontSharedEdge_IsRejectedAsCrossFaceInteraction()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(0, 2), MovementCommandKind.Push)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "I=1",
+                    "Reason=InteractionCrossesFaceBoundary",
+                    "Command=Push",
+                    "From=(0,1)",
+                    "Cell=Front(0,0)",
+                    "Target=20"),
+                Is.True);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+        }
+
+        [Test]
         [Category("Full")]
         public void Movement_PushInputPushBox_ContinuesAcrossBottomFrontSharedEdge()
         {

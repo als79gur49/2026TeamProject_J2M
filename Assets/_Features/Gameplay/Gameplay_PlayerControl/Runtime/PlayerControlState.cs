@@ -430,6 +430,12 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
+            if (!IsSameFaceInteraction(player.position, targetCell))
+            {
+                target = default;
+                return false;
+            }
+
             if (!TryResolvePushBoxContact(snapshot, movementTopology, targetCell, out var entity))
             {
                 target = default;
@@ -530,6 +536,12 @@ namespace Game.Feature.Gameplay.PlayerControl
             var anchoredPlayer = player;
             anchoredPlayer.position = currentAnchor;
             if (!TryResolveTraversalStep(snapshot, anchoredPlayer, delta, out var targetCell, out var movementTopology))
+            {
+                contact = default;
+                return false;
+            }
+
+            if (!IsSameFaceInteraction(currentAnchor, targetCell))
             {
                 contact = default;
                 return false;
@@ -732,6 +744,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             bool checkLocks)
         {
             if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology) ||
+                !IsSameFaceInteraction(player.position, targetCell) ||
                 !snapshot.TryGetSolidSemanticAt(movementTopology, targetCell, out var targetSemantic) ||
                 targetSemantic.Kind != SolidKind.Box)
             {
@@ -796,6 +809,11 @@ namespace Game.Feature.Gameplay.PlayerControl
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
         {
             return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
+        }
+
+        private static bool IsSameFaceInteraction(SurfaceCell sourceCell, SurfaceCell targetCell)
+        {
+            return sourceCell.face == targetCell.face;
         }
 
         private static bool TryGetActiveBoxInteractionLock(

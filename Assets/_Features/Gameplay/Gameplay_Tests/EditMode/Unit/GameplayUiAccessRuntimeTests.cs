@@ -651,6 +651,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayUiAccess_PlayerHud_PushReadiness_CrossFaceCandidate_IsNotArmed()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_CrossFaceCandidate_IsNotArmed");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up),
+                        CreateBoxEntity(new SurfaceCell(FaceId.Front, 0, 0), BoxCapabilities.Push),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 1))));
+
+                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up).Accepted, Is.True);
+
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(playerHud.CanStartAnyActionThisTick, Is.True);
+                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush()
         {

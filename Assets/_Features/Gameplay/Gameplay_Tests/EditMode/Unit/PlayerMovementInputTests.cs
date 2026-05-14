@@ -513,6 +513,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PlayerControlStateLogic_PushPressedAcrossBottomFrontBoundary_DoesNotStartOrReportAdjacentTarget()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Up)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(updates, Has.None.Contains("ExplicitPushNotStartable"));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerControlStateLogic_PushPressedAgainstPushLockedBox_DoesNotStartPush()
         {
             var worldState = CreateWorldState(new[]
@@ -618,6 +646,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     expiresTickExclusive: 8,
                     blocksPush: true,
                     blocksFlip: false));
+            var logic = new PlayerControlStateLogic(entityId: 10);
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2),
+                worldState.CreateWriteContext(),
+                new List<string>(),
+                new List<PlayerActionTransition>());
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.nextMoveAllowedTick, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerControlStateLogic_PendingPushAcrossBottomFrontBoundary_CancelsBeforeExecute()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    actionSequenceCounter = 1,
+                    activeAction = new PlayerActionRuntimeState
+                    {
+                        kind = PlayerActionKind.Push,
+                        sequence = 1,
+                        direction = Direction.Up,
+                        targetEntityId = 20,
+                        startTick = 1,
+                        executeTick = 3,
+                        recoveryEndTick = 3,
+                        executionAttempted = false,
+                    },
+                });
             var logic = new PlayerControlStateLogic(entityId: 10);
 
             logic.CommitPreMovementState(
@@ -1288,6 +1358,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities, BoardBounds boardBounds)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                boardBounds,
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty);
         }
 
         private static EntityState CreateUnit(

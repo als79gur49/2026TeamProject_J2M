@@ -245,6 +245,34 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             if (hasTargetBox)
             {
+                if (!IsSameFaceInteraction(source.position, destinationCell) &&
+                    HasBoxCapability(targetBox, BoxCapabilities.Item))
+                {
+                    rejectedReasons.Add(
+                        BuildInteractionCrossesFaceBoundaryRejectedReason(
+                            intent.SourceId,
+                            intent.IntentId,
+                            intent.CommandKind,
+                            source.position,
+                            destinationCell,
+                            targetBox.entityId));
+                    return;
+                }
+
+                if (intent.CommandKind == MovementCommandKind.Push &&
+                    !IsSameFaceInteraction(source.position, destinationCell))
+                {
+                    rejectedReasons.Add(
+                        BuildInteractionCrossesFaceBoundaryRejectedReason(
+                            intent.SourceId,
+                            intent.IntentId,
+                            intent.CommandKind,
+                            source.position,
+                            destinationCell,
+                            targetBox.entityId));
+                    return;
+                }
+
                 if (intent.CommandKind == MovementCommandKind.Push &&
                     TryGetBlockingBoxInteractionLock(snapshot, targetBox.entityId, tickIndex, blocksPush: true, out var pushLockState))
                 {
@@ -1019,6 +1047,22 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
         {
             return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
+        }
+
+        private static bool IsSameFaceInteraction(SurfaceCell sourceCell, SurfaceCell targetCell)
+        {
+            return sourceCell.face == targetCell.face;
+        }
+
+        private static string BuildInteractionCrossesFaceBoundaryRejectedReason(
+            int sourceId,
+            int intentId,
+            MovementCommandKind commandKind,
+            SurfaceCell sourceCell,
+            SurfaceCell targetCell,
+            int targetEntityId)
+        {
+            return $"MovementRejected|Stage=Expand|Source={sourceId}|I={intentId}|Reason=InteractionCrossesFaceBoundary|Command={commandKind}|From={FormatCell(sourceCell)}|Cell={FormatCell(targetCell)}|Target={targetEntityId}";
         }
 
         private static bool TryGetBlockingBoxInteractionLock(
