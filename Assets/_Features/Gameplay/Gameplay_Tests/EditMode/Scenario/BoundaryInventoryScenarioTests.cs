@@ -965,6 +965,54 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void BoundaryInventory_Free2DTopologyNativeTransition_ActiveBarricadeRejectsWithoutMovingPlayer()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var blockedCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreatePlayer(10, sourceCell) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateTileFeature(100, blockedCell, TileFeatureKind.Barricade) });
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                10,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.FromRaw(256),
+                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                    velocity = KinematicVelocity2.Zero,
+                    facing = Direction.Right,
+                    lastMoveDirection = Direction.Right,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
+
+            var tick = CreatePipeline(
+                    worldState,
+                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                    GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled,
+                    new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly) })
+                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(finalSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(finalSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(sourceCell));
+            Assert.That(
+                tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
+                Is.False);
+            Assert.That(
+                tick.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("RejectedBy=TargetFaceBlockedByTileFeature")),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void Player_Free2D_TopologyHandoff_GridTransactionAllowedByPhase1()
         {
             var worldState = CreateWorldState(
@@ -3020,14 +3068,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static TickPipeline CreatePipeline(
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 entityLogics,
                 GameplayTimingProfile.CreateDefault(),
                 CreatePlayerTiming(),
-                runtimeFeatureFlags: runtimeFeatureFlags);
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerTiming()
@@ -3244,6 +3294,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static EnemyAiRuntimeDefinition CreatePhaseThroughLockedTargetDefinition()

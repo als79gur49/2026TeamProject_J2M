@@ -76,6 +76,132 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_UnitGroundTraversal_BlockedByActiveBarricade()
+        {
+            var originCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var unit = CreateUnit(10, originCell);
+            var barricade = CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade);
+            var definitions = new[]
+            {
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+            };
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    GameplayTimingProfile.CreateDefault(),
+                    new[] { barricade })
+                .CreateSnapshot();
+
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destinationCell,
+                ignoredEntityId: unit.entityId,
+                evaluatedTopology: snapshot.Topology,
+                rotationKind: CubeRotationKind.None,
+                updatedTopology: snapshot.Topology,
+                tileFeatureDefinitions: definitions);
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legality.Blockers.Count, Is.EqualTo(1));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.TileFeature));
+            Assert.That(legality.Blockers[0].TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(legality.Blockers[0].TileId, Is.EqualTo(100));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_InactiveBarricade_AllowsUnitTraversal()
+        {
+            var originCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var unit = CreateUnit(10, originCell);
+            var barricade = CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade);
+            var definitions = new[]
+            {
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+            };
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    GameplayTimingProfile.CreateDefault(),
+                    new[] { barricade })
+                .CreateSnapshot();
+
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destinationCell,
+                ignoredEntityId: unit.entityId,
+                evaluatedTopology: snapshot.Topology,
+                rotationKind: CubeRotationKind.None,
+                updatedTopology: snapshot.Topology,
+                tileFeatureDefinitions: definitions);
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+            Assert.That(legality.Blockers, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_FrontFaceUnit_BlockedAtPolicyLevel()
+        {
+            var originCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var unit = CreateUnit(10, originCell);
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 2)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    GameplayTimingProfile.CreateDefault(),
+                    new[] { CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade) })
+                .CreateSnapshot();
+
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                new TraverseContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, unit),
+                    originCell,
+                    destinationCell,
+                    snapshot.Topology,
+                    TransitionRequirement.None,
+                    tileFeatureDefinitions: new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly) }));
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.TileFeature));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeOverlay_DoesNotBecomeOccupancy_OrInvalidateExistingUnitOccupancy()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 0);
+            var unit = CreateUnit(10, cell);
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    GameplayTimingProfile.CreateDefault(),
+                    new[] { CreateTileFeature(100, cell, TileFeatureKind.Barricade) })
+                .CreateSnapshot();
+            var units = new List<EntityState>();
+
+            snapshot.EnumerateUnitsAt(cell, units);
+
+            Assert.That(units.Count, Is.EqualTo(1));
+            Assert.That(units[0].entityId, Is.EqualTo(unit.entityId));
+            Assert.That(snapshot.TryGetSolidSemanticAt(cell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_ConflictedReservation_ReturnsReservationBlocker()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -194,6 +320,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 type = EntityType.Unit,
                 facing = Direction.Right,
             };
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
     }
 }

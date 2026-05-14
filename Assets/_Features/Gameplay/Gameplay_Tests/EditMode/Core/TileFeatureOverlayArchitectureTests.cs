@@ -142,7 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void TileFeatureOverlayGate_DocumentsImplementedBarricadeBoxOnlyPolicy()
+        public void TileFeatureOverlayGate_DocumentsImplementedBarricadeMovementBlockerPolicy()
         {
             var document = File.ReadAllText(GetAbsolutePath(TileFeatureOverlayAdrPath));
             var requiredSnippets = new[]
@@ -192,9 +192,12 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "TileFeatureAudio is separate from core GameplayAudio, GameplayActionAudio, and UI audio lanes.",
                 "Only Sfx one-shot playback is allowed.",
                 "`StagePresentationDefinition` has no TileFeature audio binding.",
-                "Barricade box-only blocker MVP is implemented.",
+                "Barricade is a TileFeature movement blocker.",
                 "Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.",
-                "Unit/player/enemy traversal is not blocked.",
+                "Active Barricade blocks Unit ground traversal, including player, enemy, and future NPC/friendly units.",
+                "Barricade does not occupy Unit, Solid, or Projectile layer.",
+                "Barricade does not invalidate existing Unit occupancy.",
+                "EnemyParticipationPolicy is unchanged; current enemy bottom-face participation remains unchanged.",
                 "`BarricadeBlocked` is sourced from movement blocker facts",
                 "`BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`",
                 "Exit open is derived from required non-PrimaryGoal conditions complete plus active Exit.",
@@ -207,6 +210,21 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 Assert.That(document, Does.Contain(requiredSnippets[i]));
             }
+
+            Assert.That(document, Does.Not.Contain("Barricade box-only blocker MVP is implemented."));
+            Assert.That(document, Does.Not.Contain("Barricade is a box-only movement blocker."));
+            Assert.That(document, Does.Not.Contain("Unit/player/enemy traversal is not blocked."));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPipeline_DoesNotOwnBarricadeTraversalPolicy()
+        {
+            var source = File.ReadAllText(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"));
+
+            Assert.That(source, Does.Not.Contain("TileFeatureMovementBlockerQuery"));
+            Assert.That(source, Does.Not.Contain("TryGetActiveBarricadeBlocker"));
+            Assert.That(source, Does.Not.Contain("HasActiveBarricadeBlocker"));
         }
 
         [Test]

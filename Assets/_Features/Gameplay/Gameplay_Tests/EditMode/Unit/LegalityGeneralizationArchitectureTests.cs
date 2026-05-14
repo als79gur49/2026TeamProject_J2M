@@ -1,4 +1,5 @@
 using System.IO;
+using Game.Feature.Gameplay.BoardState;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -26,6 +27,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "LegalityBlockerKind.Unit =>",
             "LegalityBlockerKind.Solid =>",
             "LegalityBlockerKind.Reservation =>",
+            "LegalityBlockerKind.TileFeature =>",
             "new LegalityBlocker(",
         };
 
@@ -57,6 +59,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertContainsNoForbiddenTokens(
                 ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
                 BlockerCentralizationForbiddenTokens);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LegalityBlockerKind_IncludesTileFeatureVocabulary()
+        {
+            Assert.That(LegalityBlockerKind.TileFeature, Is.EqualTo((LegalityBlockerKind)5));
         }
 
         private static void AssertContainsNoForbiddenTokens(string source, string[] forbiddenTokens)

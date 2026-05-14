@@ -1734,10 +1734,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BarricadeQuery_ActiveFrontFaceOnlyReturnsBlockerWithoutCreatingSnapshot()
+        public void BarricadeMovementBlockerQuery_ActiveFrontFaceOnlyReturnsBlockerWithoutCreatingSnapshot()
         {
             var activeCell = new SurfaceCell(FaceId.Front, 2, 0);
             var inactiveCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var unrelatedCell = new SurfaceCell(FaceId.Front, 1, 0);
             var snapshot = CreateWorldState(
                     Array.Empty<EntityState>(),
                     new[]
@@ -1745,6 +1746,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateTileFeature(100, activeCell, TileFeatureKind.Barricade),
                         CreateTileFeature(101, inactiveCell, TileFeatureKind.Barricade),
                         CreateTileFeature(102, activeCell, TileFeatureKind.Destroy),
+                        CreateTileFeature(103, unrelatedCell, TileFeatureKind.Barricade),
                     })
                 .CreateSnapshot();
             var definitions = new[]
@@ -1752,39 +1754,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
                 CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
                 CreateDefinition(102, TileFeatureActivationRule.FrontFaceOnly),
+                CreateDefinition(103, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
             };
 
             SnapshotMaterializationCounts counts;
-            bool activeResult;
-            bool inactiveResult;
+            bool activeBoxResult;
+            bool activeUnitResult;
+            bool inactiveUnitResult;
+            bool unrelatedUnitResult;
             bool missingDefinitionResult;
             bool nonBarricadeResult;
             bool tryGetActiveResult;
             TileFeatureState activeBarricade;
             using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
             {
-                activeResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(snapshot, definitions, activeCell);
-                tryGetActiveResult = TileFeatureBoxBlockerQuery.TryGetActiveBarricadeBlocker(
+                activeBoxResult = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
                     snapshot,
                     definitions,
                     activeCell,
+                    TileFeatureBlockerSubject.Box,
+                    TileFeatureMovementKind.PushStart);
+                activeUnitResult = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
+                    snapshot,
+                    definitions,
+                    activeCell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.GroundStep);
+                tryGetActiveResult = TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                    snapshot,
+                    definitions,
+                    activeCell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.Free2DTopologyTransition,
                     out activeBarricade);
-                inactiveResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(snapshot, definitions, inactiveCell);
-                missingDefinitionResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(
+                inactiveUnitResult = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
+                    snapshot,
+                    definitions,
+                    inactiveCell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.GroundStep);
+                unrelatedUnitResult = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
+                    snapshot,
+                    definitions,
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.GroundStep);
+                missingDefinitionResult = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
                     snapshot,
                     new[] { definitions[1], definitions[2] },
-                    activeCell);
-                nonBarricadeResult = TileFeatureBoxBlockerQuery.HasActiveBarricadeBlocker(
+                    activeCell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.GroundStep);
+                nonBarricadeResult = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
                     snapshot,
                     new[] { definitions[2] },
-                    activeCell);
+                    activeCell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.GroundStep);
                 counts = capture.Counts;
             }
 
-            Assert.That(activeResult, Is.True);
+            Assert.That(activeBoxResult, Is.True);
+            Assert.That(activeUnitResult, Is.True);
             Assert.That(tryGetActiveResult, Is.True);
             Assert.That(activeBarricade.TileId, Is.EqualTo(100));
-            Assert.That(inactiveResult, Is.False);
+            Assert.That(inactiveUnitResult, Is.False);
+            Assert.That(unrelatedUnitResult, Is.False);
             Assert.That(missingDefinitionResult, Is.False);
             Assert.That(nonBarricadeResult, Is.False);
             Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
@@ -2021,7 +2056,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void Barricade_DoesNotAffectUnitEnemyOrProjectileMovement()
+        public void Barricade_BlocksUnitGroundTraversal_ButDoesNotAffectProjectileMovement()
         {
             var barricadeCell = new SurfaceCell(FaceId.Front, 1, 0);
             var playerWorldState = CreateWorldState(
@@ -2062,17 +2097,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     })
                 .RunTick(new TickInput(7));
 
-            Assert.That(playerResult.MovementPhaseResult.RejectedReasons, Is.Empty);
-            Assert.That(enemyResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(playerResult.MovementPhaseResult.RejectedReasons, Has.Count.EqualTo(1));
+            Assert.That(enemyResult.MovementPhaseResult.RejectedReasons, Has.Count.EqualTo(1));
             Assert.That(projectileResult.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(playerResult.MovementPhaseResult.RejectedReasons[0], Does.Contain("LegalityBlockerKinds=TileFeature"));
+            Assert.That(enemyResult.MovementPhaseResult.RejectedReasons[0], Does.Contain("LegalityBlockerKinds=TileFeature"));
             Assert.That(playerResult.PresentationData.TileEvents, Is.Empty);
             Assert.That(enemyResult.PresentationData.TileEvents, Is.Empty);
             Assert.That(projectileResult.PresentationData.TileEvents, Is.Empty);
             Assert.That(playerWorldState.CreateSnapshot().TryGetEntity(10, out var playerAfter), Is.True);
             Assert.That(enemyWorldState.CreateSnapshot().TryGetEntity(30, out var enemyAfter), Is.True);
             Assert.That(projectileWorldState.CreateSnapshot().TryGetEntity(40, out var projectileAfter), Is.True);
-            Assert.That(playerAfter.position, Is.EqualTo(barricadeCell));
-            Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
+            Assert.That(playerAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(enemyAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(projectileAfter.position, Is.EqualTo(barricadeCell));
         }
 

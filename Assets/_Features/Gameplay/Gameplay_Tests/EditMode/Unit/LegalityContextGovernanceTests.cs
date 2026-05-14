@@ -23,8 +23,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "EvaluationTopology",
                 "TransitionRequirement",
                 "ReservationStatus",
+                "TileFeatureDefinitions",
             }));
-            Assert.That(properties, Has.Length.EqualTo(7));
+            Assert.That(properties, Has.Length.EqualTo(8));
         }
 
         [Test]
@@ -56,6 +57,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "EntityId",
                 "EntityType",
                 "SpatialState",
+                "GlideState",
             }));
             Assert.That(typeof(LegalityActorRef).GetProperty("SpatialState")?.PropertyType, Is.EqualTo(typeof(ResolvedSpatialState)));
             Assert.That(properties.Any(property => property.PropertyType == typeof(EntityBoardPresence)), Is.False);
