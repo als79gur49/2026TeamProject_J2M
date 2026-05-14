@@ -97,6 +97,7 @@ GameObject:
   - component: {fileID: 114103}
   - component: {fileID: 8221439420504673377}
   - component: {fileID: 7807877710499334428}
+  - component: {fileID: 551367997664301074}
   m_Layer: 0
   m_Name: PauseButton
   m_TagString: Untagged
@@ -255,6 +256,25 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &551367997664301074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100102}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8d7bb75c1f9440bac6a0934ad301cb6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.UiHoverScaleEffect
+  _target: {fileID: 224102}
+  _hoverScale: 1.1
+  _pressedScale: 1.04
+  _durationSeconds: 0.12
+  _ease: 6
+  _useUnscaledTime: 1
+  _restoreOnDisable: 1
 --- !u!1 &100103
 GameObject:
   m_ObjectHideFlags: 0

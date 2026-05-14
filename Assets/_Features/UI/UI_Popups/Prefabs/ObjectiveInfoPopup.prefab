@@ -409,6 +409,7 @@ GameObject:
   - component: {fileID: 9072139327354705084}
   - component: {fileID: 7592982311909866283}
   - component: {fileID: 6294383268669704037}
+  - component: {fileID: 5615280836731427677}
   m_Layer: 0
   m_Name: CloseButton (1)
   m_TagString: Untagged
@@ -490,6 +491,25 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &5615280836731427677
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2334899312070565283}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8d7bb75c1f9440bac6a0934ad301cb6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.UiHoverScaleEffect
+  _target: {fileID: 712839950047665136}
+  _hoverScale: 1.1
+  _pressedScale: 1.04
+  _durationSeconds: 0.12
+  _ease: 6
+  _useUnscaledTime: 1
+  _restoreOnDisable: 1
 --- !u!1 &3458183554531106377
 GameObject:
   m_ObjectHideFlags: 0

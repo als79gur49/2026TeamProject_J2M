@@ -427,6 +427,7 @@ GameObject:
   - component: {fileID: 1267834394123645221}
   - component: {fileID: 1518574938171066654}
   - component: {fileID: 1389106076924343107}
+  - component: {fileID: 8969776883012131171}
   m_Layer: 0
   m_Name: ContinueButton
   m_TagString: Untagged
@@ -557,6 +558,25 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &8969776883012131171
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2367970023854485871}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8d7bb75c1f9440bac6a0934ad301cb6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.UiHoverScaleEffect
+  _target: {fileID: 1738684505373097490}
+  _hoverScale: 1.1
+  _pressedScale: 1.04
+  _durationSeconds: 0.12
+  _ease: 6
+  _useUnscaledTime: 1
+  _restoreOnDisable: 1
 --- !u!1 &2476461351921551317
 GameObject:
   m_ObjectHideFlags: 0
