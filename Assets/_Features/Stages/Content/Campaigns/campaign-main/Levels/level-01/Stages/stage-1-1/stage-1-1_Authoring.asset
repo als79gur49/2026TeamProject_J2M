@@ -3492,8 +3492,8 @@ MonoBehaviour:
       MaxInclusive: {x: 7, y: 3}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: 
-    ObjectiveSummary: 
+    ObjectiveTitle: Reach the Exit
+    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 65ef359c1009e38034d32c314bdff82e, type: 2}
       Required: 1

@@ -2608,8 +2608,8 @@ MonoBehaviour:
     PresentationKey: button.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: 
-    ObjectiveSummary: 
+    ObjectiveTitle: Reach the Exit
+    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 56c04cd3dd5348dd9aada10218b40f45, type: 2}
       Required: 1
