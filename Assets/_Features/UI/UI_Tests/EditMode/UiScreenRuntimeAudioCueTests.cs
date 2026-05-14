@@ -1,3 +1,4 @@
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
@@ -57,7 +58,80 @@ namespace Game.Feature.UI.Tests
 
             harness.UiAudioPort.Clear();
             view.ClickDisplayRevert();
-            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Cancel }));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_StageResultContinue_EmitsStageLaunchCue()
+        {
+            using var harness = UiAudioHarness.Create();
+            var request = CreateStageNavigationRequest(StageNavigationKind.NextStage);
+            var payload = new StageResultScreenPayload(
+                "Clear",
+                "Summary",
+                "Detail",
+                "Continue",
+                request,
+                StageNavigationRequest.None,
+                request);
+
+            Assert.That(
+                harness.ScreenController.Show(new ScreenRequest(ScreenId.StageResult, payload, "stage-result-audio")),
+                Is.True);
+            harness.UiAudioPort.Clear();
+
+            var view = harness.ScreenLayerView.FindScreenView<StageResultScreenView>();
+            Assert.That(view, Is.Not.Null);
+            view.ClickContinue();
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageLaunch }));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_LevelFailedRestart_EmitsStageLaunchCue()
+        {
+            using var harness = UiAudioHarness.Create();
+            var request = CreateStageNavigationRequest(StageNavigationKind.Retry);
+            var payload = new LevelFailedScreenPayload(
+                "Fail",
+                "Detail",
+                "Restart",
+                "Main",
+                request);
+
+            Assert.That(
+                harness.ScreenController.Show(new ScreenRequest(ScreenId.LevelFailed, payload, "level-failed-audio")),
+                Is.True);
+            harness.UiAudioPort.Clear();
+
+            var view = harness.ScreenLayerView.FindScreenView<LevelFailedScreenView>();
+            Assert.That(view, Is.Not.Null);
+            view.ClickRestartLevel();
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageLaunch }));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_LevelFailedMain_EmitsSelectCue()
+        {
+            using var harness = UiAudioHarness.Create();
+            var payload = new LevelFailedScreenPayload(
+                "Fail",
+                "Detail",
+                "Restart",
+                "Main",
+                CreateStageNavigationRequest(StageNavigationKind.Retry));
+
+            Assert.That(
+                harness.ScreenController.Show(new ScreenRequest(ScreenId.LevelFailed, payload, "level-failed-main-audio")),
+                Is.True);
+            harness.UiAudioPort.Clear();
+
+            var view = harness.ScreenLayerView.FindScreenView<LevelFailedScreenView>();
+            Assert.That(view, Is.Not.Null);
+            view.ClickMain();
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
         }
 
         [Test]
@@ -111,6 +185,14 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
             Assert.That(harness.Coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateBack));
+        }
+
+        private static StageNavigationRequest CreateStageNavigationRequest(StageNavigationKind navigationKind)
+        {
+            return new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-1-1"),
+                navigationKind,
+                "ui-audio-test");
         }
 
         private sealed class UiAudioHarness : System.IDisposable

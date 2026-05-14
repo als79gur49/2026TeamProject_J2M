@@ -575,6 +575,7 @@ namespace Game.Feature.UI.Composition
             {
                 CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.ResetStagedToCurrent();
+                PlayLocalCue(UiAudioCueId.Cancel);
             }
 
             private void HandleDisplayPreviewConfirmed()
@@ -708,6 +709,7 @@ namespace Game.Feature.UI.Composition
                         "Stage result continue requires a valid StageNavigationRequest payload.");
                 }
 
+                PlayLocalCue(UiAudioCueId.StageLaunch);
                 RaiseAction(ScreenAction.LaunchStage(_payload.ContinueStageRequest));
             }
         }
@@ -751,11 +753,13 @@ namespace Game.Feature.UI.Composition
                         "Level failed restart requires a valid StageNavigationRequest payload.");
                 }
 
+                PlayLocalCue(UiAudioCueId.StageLaunch);
                 RaiseAction(ScreenAction.LaunchStage(_payload.RestartLevelRequest));
             }
 
             private void HandleMainRequested()
             {
+                PlayLocalCue(UiAudioCueId.Select);
                 RaiseAction(ScreenAction.ReturnToMainMenu());
             }
         }
