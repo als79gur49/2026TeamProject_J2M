@@ -82,6 +82,9 @@ MonoBehaviour:
   jumpAirborneStateName: 
   chargeActiveStateName: 
   recoveryStateName: 
+  glideWindupStateName: Fly_Start
+  glideActiveStateName: Fly_Loop
+  glideRecoveryStateName: Fly_Done
   windupTriggerName: 
   jumpWindupTriggerName: 
   jumpAirborneTriggerName: 
@@ -115,6 +118,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4001000000000009002}
+  - component: {fileID: 3191573246195697018}
   m_Layer: 0
   m_Name: ModelRoot
   m_TagString: Untagged
@@ -138,6 +142,28 @@ Transform:
   - {fileID: 8891021226801611970}
   m_Father: {fileID: 4001000000000009001}
   m_LocalEulerAnglesHint: {x: -180, y: 0, z: 0}
+--- !u!95 &3191573246195697018
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1001000000000009002}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 87dbf2bc5ae1492c944a2de44af108a0, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1001 &9001000000000009001
 PrefabInstance:
   m_ObjectHideFlags: 0
