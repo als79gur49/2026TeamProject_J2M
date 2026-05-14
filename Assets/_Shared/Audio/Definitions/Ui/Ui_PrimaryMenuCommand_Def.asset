@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa7ae393f6850194aa4d0353dc3d6279, type: 3}
-  m_Name: Ui_NavigateBack_Def
+  m_Name: Ui_PrimaryMenuCommand_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.SingleAudioDefinition
   category: 3
   defaultVolumeTrim: 1
   pitchRange: {x: 1, y: 1}
   loop: 0
-  clip: {fileID: 8300000, guid: 27708307e787f8b4ba645917cdce9df7, type: 3}
+  clip: {fileID: 8300000, guid: 72ab20990be990e46b8caf7eb1a94568, type: 3}

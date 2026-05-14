@@ -56,6 +56,7 @@ namespace Game.Feature.UI.Composition
         private bool _wasKeyboardBindingRebinding;
         private MainMenuSettingsOverlayController _settingsOverlayController;
         private IMainMenuSettingsPort _settingsPort;
+        private IUiAudioPort _uiAudioPort;
         private MainMenuUiAudioFeedbackController _uiAudioFeedbackController;
 
         public MainMenuController Controller { get; private set; }
@@ -114,9 +115,9 @@ namespace Game.Feature.UI.Composition
             _mainMenuScreenView.ValidateAuthoredStructureOrThrow();
             BuildPopupModule();
             BuildSettingsModule();
+            BuildAudioFeedbackModule();
             BuildSaveSlotModule();
             BuildHubModule();
-            BuildAudioFeedbackModule();
             EnsureNavigationInputRouter();
             _mainMenuScreenView.SetVisible(true);
             _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
@@ -176,6 +177,7 @@ namespace Game.Feature.UI.Composition
             EnsureDisplaySettingsLifecycleRelay();
 
             var accessibilitySettingsStore = new AccessibilitySettingsStore();
+            var uiAudioPort = EnsureUiAudioPort();
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay,
@@ -195,7 +197,8 @@ namespace Game.Feature.UI.Composition
                     displayPreviewSessionHost,
                     _displaySettingsLifecycleRelay,
                     SettingsScreenPayload.Default,
-                    _settingsPreviewTimeoutSeconds));
+                    _settingsPreviewTimeoutSeconds,
+                    uiAudioPort: uiAudioPort));
             _settingsPort = new MainMenuSettingsPortAdapter(_settingsOverlayController);
         }
 
@@ -236,8 +239,7 @@ namespace Game.Feature.UI.Composition
 
         private void BuildAudioFeedbackModule()
         {
-            var uiAudioPort = CreateUiAudioPort();
-            _uiAudioFeedbackController = new MainMenuUiAudioFeedbackController(uiAudioPort);
+            _uiAudioFeedbackController = new MainMenuUiAudioFeedbackController(EnsureUiAudioPort());
             _uiAudioFeedbackController.Attach(
                 _mainMenuScreenView,
                 PopupController,
@@ -482,6 +484,11 @@ namespace Game.Feature.UI.Composition
             }
 
             return new UiAudioPortAdapter(audioRuntimeInstaller.AudioService, _uiAudioCueMap);
+        }
+
+        private IUiAudioPort EnsureUiAudioPort()
+        {
+            return _uiAudioPort ??= CreateUiAudioPort();
         }
 
         private IDisplaySettingsPort CreateDisplaySettingsPort()

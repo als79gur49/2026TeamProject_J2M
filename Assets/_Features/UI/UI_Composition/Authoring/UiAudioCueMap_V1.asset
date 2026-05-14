@@ -97,6 +97,20 @@ MonoBehaviour:
         id:
       policy:
         rid: -2
+  - cueId: 12
+    binding:
+      definition: {fileID: 11400000, guid: 1f7a8b9c0d2e4f5a8b6c7d8e9f0a1234, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 13
+    binding:
+      definition: {fileID: 11400000, guid: 2f7a8b9c0d2e4f5a8b6c7d8e9f0a1234, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
   references:
     version: 2
     RefIds:

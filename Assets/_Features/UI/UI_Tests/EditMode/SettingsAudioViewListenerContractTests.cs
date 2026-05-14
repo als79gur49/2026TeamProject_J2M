@@ -118,6 +118,55 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void SettingsAudioView_CommitInteractionWithoutValueChange_DoesNotCompleteInteraction()
+        {
+            var settingsView = InstantiateSettingsScreenView();
+            try
+            {
+                var audioView = settingsView.AudioView;
+                var viewModel = CreateViewModel(0.5f, false, 0.5f, false, 0.5f, false);
+                audioView.Bind(viewModel);
+                audioView.SetIsVisible(true);
+                var completedCount = 0;
+                audioView.InteractionCompleted += () => completedCount++;
+
+                audioView.BeginInteraction(AudioSettingsChannel.Main);
+                audioView.CommitInteraction(AudioSettingsChannel.Main);
+
+                Assert.That(completedCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(settingsView.gameObject);
+            }
+        }
+
+        [Test]
+        public void SettingsAudioView_CommitInteractionAfterValueChange_CompletesInteraction()
+        {
+            var settingsView = InstantiateSettingsScreenView();
+            try
+            {
+                var audioView = settingsView.AudioView;
+                var viewModel = CreateViewModel(0.5f, false, 0.5f, false, 0.5f, false);
+                audioView.Bind(viewModel);
+                audioView.SetIsVisible(true);
+                var completedCount = 0;
+                audioView.InteractionCompleted += () => completedCount++;
+
+                audioView.BeginInteraction(AudioSettingsChannel.Main);
+                audioView.SetVolume(AudioSettingsChannel.Main, 0.75f);
+                audioView.CommitInteraction(AudioSettingsChannel.Main);
+
+                Assert.That(completedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(settingsView.gameObject);
+            }
+        }
+
         private static SettingsScreenView InstantiateSettingsScreenView()
         {
             return Object.Instantiate(

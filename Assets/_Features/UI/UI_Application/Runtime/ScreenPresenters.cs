@@ -790,6 +790,8 @@ namespace Game.Feature.UI.Application
 
         public bool IsRebinding => _keyboardBindingSettingsPort.IsRebinding;
 
+        public event Action<KeyboardRebindResult> RebindCompleted;
+
         public void Apply(SettingsInputPresenterInput input)
         {
             _input = input;
@@ -836,6 +838,7 @@ namespace Game.Feature.UI.Application
         {
             _statusText = ToStatusText(result.ValidationResult, result.Action);
             RefreshViewModel(result.Snapshot);
+            RebindCompleted?.Invoke(result);
         }
 
         private void RefreshViewModel(KeyboardBindingSettingsSnapshot snapshot)

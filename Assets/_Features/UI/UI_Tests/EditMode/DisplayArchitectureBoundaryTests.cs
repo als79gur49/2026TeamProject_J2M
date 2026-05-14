@@ -81,7 +81,8 @@ namespace Game.Feature.UI.Tests
             var inputViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsInputView.cs");
 
             AssertViewSourceDoesNotRebuildAuthoredControls(audioViewSource);
-            AssertViewSourceDoesNotRebuildAuthoredControls(SanitizeRuntimeKeyboardResolutionList(displayViewSource));
+            AssertViewSourceDoesNotRebuildAuthoredControls(SanitizeNativeResolutionDropdownPopupAccess(displayViewSource));
+            Assert.That(displayViewSource, Does.Not.Contain("ResolutionKeyboardDropdownList"));
             AssertViewSourceDoesNotRebuildAuthoredControls(inputViewSource);
             Assert.That(audioViewSource, Does.Not.Contain("Label.text"));
             Assert.That(displayViewSource, Does.Not.Contain("DisplaySectionTitle"));
@@ -108,14 +109,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(viewSource, Does.Not.Contain("SetSiblingIndex("));
         }
 
-        private static string SanitizeRuntimeKeyboardResolutionList(string viewSource)
+        private static string SanitizeNativeResolutionDropdownPopupAccess(string viewSource)
         {
             return viewSource
-                .Replace("new GameObject(\"ResolutionKeyboardDropdownList\"", "RuntimeKeyboardList(")
-                .Replace("new GameObject(\"Viewport\"", "RuntimeKeyboardList(")
-                .Replace("new GameObject(\"Content\"", "RuntimeKeyboardList(")
-                .Replace("new GameObject($\"Option_{index:00}\"", "RuntimeKeyboardList(")
-                .Replace("new GameObject(\"Label\"", "RuntimeKeyboardList(");
+                .Replace("_resolutionDropdown.transform.Find(\"Dropdown List\")", "NativeTmpDropdownListLookup()")
+                .Replace("nativeList.GetComponentInChildren<ScrollRect>(true)", "NativeTmpDropdownScrollRect()")
+                .Replace("nativeList.GetComponentsInChildren<Toggle>(false)", "NativeTmpDropdownToggles()");
         }
 
         private static void AssertViewSourceHasNoScreenOrPrefsCalls(string viewSource)

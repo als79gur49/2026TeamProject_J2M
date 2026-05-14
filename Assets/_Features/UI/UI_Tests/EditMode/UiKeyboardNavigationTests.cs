@@ -410,6 +410,61 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitRestarts()
+        {
+            using var harness = CreateLevelFailedHarness();
+            var restartCount = 0;
+            var mainCount = 0;
+            harness.View.RestartLevelRequested += () => restartCount++;
+            harness.View.MainRequested += () => mainCount++;
+
+            var routerObject = new GameObject(nameof(LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitRestarts));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
+
+                Assert.That(harness.View, Is.InstanceOf<IUiNavigationTarget>());
+                AssertAllFramesHidden(harness.View, "_navigationGroup", isHidden: true);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(restartCount, Is.EqualTo(0));
+                Assert.That(mainCount, Is.EqualTo(0));
+                AssertAllFramesHidden(harness.View, "_navigationGroup", isHidden: false);
+
+                Assert.That(router.DispatchSubmit(), Is.True);
+                Assert.That(restartCount, Is.EqualTo(1));
+                Assert.That(mainCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
+        public void LevelFailedScreenView_DownThenSubmit_UsesMainClickPath()
+        {
+            using var harness = CreateLevelFailedHarness();
+            var restartCount = 0;
+            var mainCount = 0;
+            harness.View.RestartLevelRequested += () => restartCount++;
+            harness.View.MainRequested += () => mainCount++;
+
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(restartCount, Is.EqualTo(0));
+            Assert.That(mainCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void UiNavigationInputRouter_GameplayCurrentScreenTarget_ReceivesNavigation()
         {
             var target = new TrackingNavigationTarget();
@@ -638,6 +693,10 @@ namespace Game.Feature.UI.Tests
                 "_navigationGroup",
                 2);
             AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath),
+                "_navigationGroup",
+                2);
+            AssertButtonGroupFrames(
                 UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath),
                 "_navigationGroup",
                 4);
@@ -735,7 +794,7 @@ namespace Game.Feature.UI.Tests
                 "Display.Fullscreen.Toggle",
                 "Display.Apply.Button",
                 "Display.Revert.Button",
-                "Input.Movement.Toggle",
+                "Input.Movement.Slider",
                 "Input.Push.Change",
                 "Input.Flip.Change",
                 "Input.Reset",
@@ -1019,14 +1078,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsHeaderTabs_DownFromInput_EntersInputMovementToggle()
+        public void SettingsHeaderTabs_DownFromInput_EntersInputMovementSlider()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Input);
             MoveToCurrentHeaderTab(harness.View);
 
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
 
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Toggle"));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Slider"));
         }
 
         [Test]
@@ -1184,7 +1243,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsAudioSlider_EditSubmit_CommitsAndExitsEditMode()
+        public void SettingsAudioSlider_EditSubmitWithoutValueChange_ExitsEditModeWithoutCommit()
         {
             using var harness = CreateSettingsHarness();
             var commitCount = 0;
@@ -1195,6 +1254,24 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.HandleSubmit(), Is.True);
 
             Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(commitCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SettingsAudioSlider_EditSubmitAfterValueChange_CommitsAndExitsEditMode()
+        {
+            using var harness = CreateSettingsHarness();
+            var commitCount = 0;
+            harness.View.AudioView.InteractionCompleted += () => commitCount++;
+            harness.View.OnNavigationFocusGained();
+            var initialValue = harness.View.AudioView.GetVolume(AudioSettingsChannel.Main);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(harness.View.AudioView.GetVolume(AudioSettingsChannel.Main), Is.GreaterThan(initialValue));
             Assert.That(commitCount, Is.EqualTo(1));
         }
 
@@ -1312,7 +1389,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_OpensListBelowDropdown()
+        public void SettingsDisplayResolution_ListMode_OpensNativeTmpDropdownList()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
@@ -1320,9 +1397,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.HandleSubmit(), Is.True);
 
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
-            Assert.That(
-                harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List"),
-                Is.Not.Null);
+            var dropdownList = harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List");
+            Assert.That(dropdownList, Is.Not.Null);
+            var popupCanvas = dropdownList.GetComponent<Canvas>();
+            Assert.That(popupCanvas, Is.Not.Null);
+            Assert.That(popupCanvas.overrideSorting, Is.True);
+            Assert.That(popupCanvas.sortingOrder, Is.EqualTo(30000));
         }
 
         [Test]
@@ -1445,6 +1525,54 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(changedIndex, Is.EqualTo(1));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+        }
+
+        [Test]
+        public void SettingsDisplayResolution_ListMode_ReopensAfterSectionRoundTrip_AndSelectsOption()
+        {
+            var options = new[] { "800 x 600", "1280 x 720", "1920 x 1080" };
+            using var harness = CreateSettingsHarness(SettingsSectionId.Display, resolutionOptions: options);
+            var changedIndices = new List<int>();
+            harness.View.DisplayView.ResolutionChanged += index =>
+            {
+                changedIndices.Add(index);
+                harness.DisplayViewModel.SetContent(
+                    "Current",
+                    options,
+                    index,
+                    false,
+                    string.Empty,
+                    true,
+                    true,
+                    false,
+                    string.Empty,
+                    0f,
+                    false,
+                    isDisplayStatusVisible: false);
+            };
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var dropdownList = harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List");
+            Assert.That(dropdownList, Is.Not.Null);
+            Assert.That(dropdownList.GetComponent<Canvas>()?.overrideSorting, Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(changedIndices, Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
         }
 
@@ -1698,6 +1826,30 @@ namespace Game.Feature.UI.Tests
             root.SetActive(true);
             view.OnNavigationFocusLost();
             return new MainMenuHarness(root, view);
+        }
+
+        private static LevelFailedHarness CreateLevelFailedHarness()
+        {
+            var root = new GameObject("LevelFailedNavigationHarness", typeof(RectTransform));
+            root.SetActive(false);
+            var view = root.AddComponent<LevelFailedScreenView>();
+            var buttonRoot = new GameObject("ButtonRoot", typeof(RectTransform)).transform;
+            buttonRoot.SetParent(root.transform, false);
+            var restartButton = CreateButton("RestartLevelButton", buttonRoot);
+            var mainButton = CreateButton("MainButton", buttonRoot);
+
+            SetPrivateField(view, "_root", root);
+            SetPrivateField(view, "_restartLevelButton", restartButton);
+            SetPrivateField(view, "_mainButton", mainButton);
+            SetPrivateField(
+                view,
+                "_navigationGroup",
+                CreateNavigationGroup(restartButton, mainButton));
+
+            root.SetActive(true);
+            view.IsVisible = true;
+            view.OnNavigationFocusLost();
+            return new LevelFailedHarness(root, view);
         }
 
         private static MainMenuSaveSlotHarness CreateMainMenuSaveSlotHarness(params SaveSlotCardViewModel[] cardViewModels)
@@ -2011,6 +2163,24 @@ namespace Game.Feature.UI.Tests
             }
 
             public MainMenuScreenView View { get; }
+
+            public void Dispose()
+            {
+                UnityEngine.Object.DestroyImmediate(_root);
+            }
+        }
+
+        private sealed class LevelFailedHarness : IDisposable
+        {
+            private readonly GameObject _root;
+
+            public LevelFailedHarness(GameObject root, LevelFailedScreenView view)
+            {
+                _root = root;
+                View = view;
+            }
+
+            public LevelFailedScreenView View { get; }
 
             public void Dispose()
             {

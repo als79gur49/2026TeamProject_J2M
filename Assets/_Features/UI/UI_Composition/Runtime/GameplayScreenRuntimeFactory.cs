@@ -411,6 +411,7 @@ namespace Game.Feature.UI.Composition
                 _inputView.PushRebindRequested += HandleInputPushRebindRequested;
                 _inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
                 _inputView.ResetRequested += HandleInputResetRequested;
+                _presenter.InputPresenter.RebindCompleted += HandleInputRebindCompleted;
                 view.SectionSelected += HandleSectionSelected;
                 view.BackRequested += HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested += HandleDisplayResyncRequested;
@@ -440,6 +441,7 @@ namespace Game.Feature.UI.Composition
                 _inputView.PushRebindRequested -= HandleInputPushRebindRequested;
                 _inputView.FlipRebindRequested -= HandleInputFlipRebindRequested;
                 _inputView.ResetRequested -= HandleInputResetRequested;
+                _presenter.InputPresenter.RebindCompleted -= HandleInputRebindCompleted;
                 View.SectionSelected -= HandleSectionSelected;
                 View.BackRequested -= HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
@@ -498,6 +500,14 @@ namespace Game.Feature.UI.Composition
             {
                 _presenter.InputPresenter.StartRebind(KeyboardBindableAction.Flip);
                 PlayLocalCue(UiAudioCueId.Select);
+            }
+
+            private void HandleInputRebindCompleted(KeyboardRebindResult result)
+            {
+                if (result.ValidationResult == KeyboardBindingValidationResult.Success)
+                {
+                    PlayLocalCue(UiAudioCueId.Confirm);
+                }
             }
 
             private void HandleInputResetRequested()
@@ -575,6 +585,7 @@ namespace Game.Feature.UI.Composition
             {
                 CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.ResetStagedToCurrent();
+                PlayLocalCue(UiAudioCueId.Cancel);
             }
 
             private void HandleDisplayPreviewConfirmed()
@@ -708,6 +719,7 @@ namespace Game.Feature.UI.Composition
                         "Stage result continue requires a valid StageNavigationRequest payload.");
                 }
 
+                PlayLocalCue(UiAudioCueId.StageLaunch);
                 RaiseAction(ScreenAction.LaunchStage(_payload.ContinueStageRequest));
             }
         }
@@ -751,11 +763,13 @@ namespace Game.Feature.UI.Composition
                         "Level failed restart requires a valid StageNavigationRequest payload.");
                 }
 
+                PlayLocalCue(UiAudioCueId.StageLaunch);
                 RaiseAction(ScreenAction.LaunchStage(_payload.RestartLevelRequest));
             }
 
             private void HandleMainRequested()
             {
+                PlayLocalCue(UiAudioCueId.Select);
                 RaiseAction(ScreenAction.ReturnToMainMenu());
             }
         }

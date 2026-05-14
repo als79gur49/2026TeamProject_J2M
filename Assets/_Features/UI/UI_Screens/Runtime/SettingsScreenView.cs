@@ -193,6 +193,16 @@ namespace Game.Feature.UI.Screens
             AudioView.CommitInteraction(channel);
         }
 
+        public void BeginAudioInteraction(AudioSettingsChannel channel)
+        {
+            if (!IsVisible || AudioView == null)
+            {
+                return;
+            }
+
+            AudioView.BeginInteraction(channel);
+        }
+
         public void SelectDisplayResolution(int index)
         {
             if (!IsVisible || DisplayView == null)
@@ -264,6 +274,11 @@ namespace Game.Feature.UI.Screens
 
             var currentNode = _focusGraph.CurrentNodeId.Value;
             var result = _focusGraph.Submit();
+            if (result == UiFocusMoveResult.EnteredEditMode)
+            {
+                BeginEditedNode(currentNode);
+            }
+
             if (result == UiFocusMoveResult.ExitedEditMode)
             {
                 CommitEditedNode(currentNode);
@@ -549,7 +564,14 @@ namespace Game.Feature.UI.Screens
                 return false;
             }
 
-            SetAudioVolume(channel, Mathf.Clamp01(AudioView.GetVolume(channel) + delta * 0.05f));
+            var current = AudioView.GetVolume(channel);
+            var next = Mathf.Clamp01(current + delta * 0.05f);
+            if (Mathf.Approximately(current, next))
+            {
+                return false;
+            }
+
+            SetAudioVolume(channel, next);
             return true;
         }
 
@@ -571,6 +593,11 @@ namespace Game.Feature.UI.Screens
         private void CommitEditedNode(string nodeId)
         {
             SettingsFocusGraphBinding.CommitEditedNode(this, nodeId);
+        }
+
+        private void BeginEditedNode(string nodeId)
+        {
+            SettingsFocusGraphBinding.BeginEditedNode(this, nodeId);
         }
 
         private static UiFocusRegion ToFocusRegion(SettingsSectionId sectionId)
