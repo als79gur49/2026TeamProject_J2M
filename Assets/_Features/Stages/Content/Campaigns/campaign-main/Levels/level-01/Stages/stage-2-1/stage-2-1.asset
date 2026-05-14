@@ -2872,6 +2872,17 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: 
+  - TileId: 63
+    Cell:
+      face: 2
+      x: 7
+      y: 5
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: button.default
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: 
@@ -2901,4 +2912,10 @@ MonoBehaviour:
       StableConditionId: button-61
       DisplayText: Place a push box on the button
       SortOrder: 30
+    - Condition: {fileID: 11400000, guid: b16611be9a59f8c4a88c1ea5ba15007b, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-63
+      DisplayText: Place a push box on the button
+      SortOrder: 40
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}

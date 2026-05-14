@@ -3008,6 +3008,17 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: 
+  - TileId: 63
+    Cell:
+      face: 2
+      x: 7
+      y: 5
+    Kind: 4
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: button.default
   zones:
   - ZoneId: zone
     FaceId: 0
@@ -3043,6 +3054,12 @@ MonoBehaviour:
       StableConditionId: button-61
       DisplayText: Place a push box on the button
       SortOrder: 30
+    - Condition: {fileID: 11400000, guid: b16611be9a59f8c4a88c1ea5ba15007b, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-63
+      DisplayText: Place a push box on the button
+      SortOrder: 40
   entityIdMappings:
   - StableGuid: stage-2-1:Player:10
     EntityId: 10
