@@ -1268,6 +1268,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ExitPresentation_VisualStateStaysClosedUntilRequiredNonPrimaryCompletes()
+        {
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var objective = CreateExitObjectiveDefinitionWithTickPrerequisite(exitCell, prerequisiteSatisfiedTick: 8);
+            var tileFeatureDefinitions = CreateExitTileFeatureDefinitions();
+            var worldState = CreateExitWorldState(
+                exitCell,
+                new CubeTopologyState(FaceId.Floor),
+                CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+            var pipeline = CreatePipeline(worldState, objective, tileFeatureDefinitions);
+
+            var closedResult = pipeline.RunTick(new TickInput(7));
+            var openedResult = pipeline.RunTick(new TickInput(8));
+
+            var closedExitState = closedResult.PresentationData.TileFeatureVisualStates.Single(state =>
+                state.TileFeatureKind == TileFeatureKind.Exit);
+            var openedExitState = openedResult.PresentationData.TileFeatureVisualStates.Single(state =>
+                state.TileFeatureKind == TileFeatureKind.Exit);
+
+            Assert.That(closedExitState.TileId, Is.EqualTo(100));
+            Assert.That(closedExitState.IsActive, Is.False);
+            Assert.That(openedExitState.TileId, Is.EqualTo(100));
+            Assert.That(openedExitState.IsActive, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ExitPresentation_OpenedDoesNotEmitWhenExitInactive()
         {
             var exitCell = new SurfaceCell(FaceId.Front, 1, 1);

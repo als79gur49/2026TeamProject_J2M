@@ -62,6 +62,11 @@ namespace Game.Feature.Gameplay.Host
         void PlayExitEntered(int playerEntityId);
     }
 
+    public interface IExitOpenStateVisualTarget
+    {
+        void SetExitOpenImmediate(bool open);
+    }
+
     public interface IMoonBlockGeneratedVisualTarget
     {
         void PlayMoonBlockGenerated(int moonBlockEntityId);

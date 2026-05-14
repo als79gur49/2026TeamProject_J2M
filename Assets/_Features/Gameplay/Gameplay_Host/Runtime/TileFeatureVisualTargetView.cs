@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Host
         IBarricadeActiveStateVisualTarget,
         IExitOpenedVisualTarget,
         IExitEnteredVisualTarget,
+        IExitOpenStateVisualTarget,
         IMoonBlockGeneratedVisualTarget,
         IMoonBlockGeneratorBlockedVisualTarget,
         ITileFeatureVisualTargetConfigurator
@@ -38,6 +39,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string barricadeLoweredStateName = "LoweredIdle";
         [SerializeField] private string exitOpenedTriggerName = "ExitOpened";
         [SerializeField] private string exitEnteredTriggerName = "ExitEntered";
+        [SerializeField] private string exitOpenBoolName = "ExitOpen";
+        [SerializeField] private string exitOpenedStateName = "ExitOpenedIdle";
+        [SerializeField] private string exitClosedStateName = "ExitClosedIdle";
         [SerializeField] private string moonBlockGeneratedTriggerName = "MoonBlockGenerated";
         [SerializeField] private string moonBlockGeneratorBlockedTriggerName = "MoonBlockGeneratorBlocked";
         [SerializeField] private string moonBlockGeneratorBlockedUnitTriggerName;
@@ -79,6 +83,7 @@ namespace Game.Feature.Gameplay.Host
         private int _debugPlayBarricadeDeactivatedCount;
         private int _debugPlayExitOpenedCount;
         private int _debugPlayExitEnteredCount;
+        private bool _debugExitOpen;
         private int _debugPlayMoonBlockGeneratedCount;
         private int _debugPlayMoonBlockGeneratorBlockedCount;
         private int _debugMoonBlockGeneratorBlockedUnitCount;
@@ -118,6 +123,8 @@ namespace Game.Feature.Gameplay.Host
         public Animator DebugAnimator => animator;
 
         public int DebugPlayExitEnteredCount => _debugPlayExitEnteredCount;
+
+        public bool DebugExitOpen => _debugExitOpen;
 
         public int DebugPlayMoonBlockGeneratedCount => _debugPlayMoonBlockGeneratedCount;
 
@@ -293,6 +300,7 @@ namespace Game.Feature.Gameplay.Host
         public void PlayExitOpened()
         {
             _debugPlayExitOpenedCount++;
+            SetExitOpenImmediate(true);
 
             if (animator != null &&
                 animator.runtimeAnimatorController != null &&
@@ -307,6 +315,13 @@ namespace Game.Feature.Gameplay.Host
             }
 
             exitOpenedPlayed?.Invoke();
+        }
+
+        public void SetExitOpenImmediate(bool open)
+        {
+            _debugExitOpen = open;
+            SetAnimatorBool(exitOpenBoolName, open);
+            PlayAnimatorStateIfPresent(open ? exitOpenedStateName : exitClosedStateName);
         }
 
         public void PlayExitEntered(int playerEntityId)

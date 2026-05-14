@@ -227,7 +227,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(target.DebugPlayExitOpenedCount, Is.EqualTo(1));
                 Assert.That(target.DebugPlayExitEnteredCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastExitEnteredPlayerEntityId, Is.EqualTo(10));
+                Assert.That(target.DebugExitOpen, Is.True);
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExitVisualState_WithSupportedTargetView_SyncsOpenStateImmediate()
+        {
+            var rootObject = new GameObject(nameof(ExitVisualState_WithSupportedTargetView_SyncsOpenStateImmediate));
+            var targetObject = new GameObject("ExitVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Exit,
+                        isActive: false,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+                Assert.That(target.DebugExitOpen, Is.False);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Exit,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+
+                Assert.That(target.DebugExitOpen, Is.True);
+                Assert.That(target.DebugPlayExitOpenedCount, Is.Zero);
+                Assert.That(target.DebugPlayExitEnteredCount, Is.Zero);
             }
             finally
             {
