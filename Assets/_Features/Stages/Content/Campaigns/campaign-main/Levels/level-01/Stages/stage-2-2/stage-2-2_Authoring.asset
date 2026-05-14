@@ -2215,6 +2215,57 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
     PresentationId: black_eye
+  - StableGuid: 2f388b606e114110a3c9aaec480eb4e4
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 5
+      y: 1
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: nebulous
+  - StableGuid: 7837d91dfbda488b8c24bc7d87f92240
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 1
+      x: 3
+      y: 3
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: nebulous
+  - StableGuid: c4f5001fcb81472ba107c17926f161fa
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 2
+      x: 6
+      y: 1
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: nebulous
   tileFeatures:
   - TileId: 1
     Cell:
@@ -3319,6 +3370,18 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: 7d697045526a482f82493bd48350a670
     EntityId: 328
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 2f388b606e114110a3c9aaec480eb4e4
+    EntityId: 329
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7837d91dfbda488b8c24bc7d87f92240
+    EntityId: 330
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: c4f5001fcb81472ba107c17926f161fa
+    EntityId: 331
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

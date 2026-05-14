@@ -37,6 +37,12 @@ MonoBehaviour:
     PresentationId: rocket_face
   - EntityId: 328
     PresentationId: black_eye
+  - EntityId: 329
+    PresentationId: nebulous
+  - EntityId: 330
+    PresentationId: nebulous
+  - EntityId: 331
+    PresentationId: nebulous
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 201
