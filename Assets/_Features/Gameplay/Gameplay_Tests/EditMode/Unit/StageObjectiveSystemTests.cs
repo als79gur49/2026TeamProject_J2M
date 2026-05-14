@@ -204,7 +204,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1))),
                     StageObjectiveTickFacts.Empty);
 
-                Assert.That(result.GoalReached, Is.True);
+                Assert.That(result.GoalReached, Is.False);
                 Assert.That(result.AllConditionsSatisfied, Is.False);
                 Assert.That(result.IsCleared, Is.False);
             }
@@ -505,7 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
                         CreateEnemyEntity(20, new SurfaceCell(FaceId.Floor, 0, 0))),
                     CreateObjectiveTickFacts(1));
-                Assert.That(blocked.GoalReached, Is.True);
+                Assert.That(blocked.GoalReached, Is.False);
                 Assert.That(blocked.AllConditionsSatisfied, Is.False);
                 Assert.That(blocked.IsCleared, Is.False);
 
@@ -1069,10 +1069,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateExitSnapshot(exitCell, new CubeTopologyState(FaceId.Floor), CreatePlayerEntity(10, exitCell)),
                 CreateObjectiveTickFacts(1));
 
-            Assert.That(result.GoalReached, Is.True);
+            Assert.That(result.GoalReached, Is.False);
             Assert.That(result.AllConditionsSatisfied, Is.False);
             Assert.That(result.ClearedThisTick, Is.False);
             Assert.That(result.IsCleared, Is.False);
+            var primaryGoalStatus = result.ConditionStatuses.Single(status =>
+                status.Role == StageObjectiveConditionRole.PrimaryGoal);
+            Assert.That(primaryGoalStatus.IsSatisfied, Is.False);
+            Assert.That(primaryGoalStatus.Details, Does.Contain("LockedByRequiredNonPrimary=1"));
         }
 
         [Test]
