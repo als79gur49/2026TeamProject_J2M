@@ -265,6 +265,8 @@ namespace Game.Feature.Gameplay.Host
         public const float HoldEndTime = 0.48f;
         public const float SlamEndTime = 0.936f;
 
+        private const float LateralArcTravelFraction = 0.18f;
+
         public static GameplayEntityPose Sample(
             GameplayEntityPose startPose,
             GameplayEntityPose endPose,
@@ -282,6 +284,7 @@ namespace Game.Feature.Gameplay.Host
                 startPose.Position,
                 endPose.Position,
                 liftAxis,
+                flipAxis,
                 arcProgress,
                 peakHeightWorld);
 
@@ -319,6 +322,7 @@ namespace Game.Feature.Gameplay.Host
             Vector3 startPosition,
             Vector3 endPosition,
             Vector3 liftAxis,
+            Vector3 lateralAxis,
             float arcProgress,
             float peakHeightWorld)
         {
@@ -336,7 +340,11 @@ namespace Game.Feature.Gameplay.Host
             var arcAngle = Mathf.PI * clampedProgress;
             var alongTravel = -Mathf.Cos(arcAngle) * halfTravel;
             var lift = Mathf.Sin(arcAngle) * Mathf.Max(0f, peakHeightWorld);
-            return pivot + (travelDirection * alongTravel) + (liftAxis * lift);
+            var lateral = Mathf.Sin(arcAngle) * travelLength * LateralArcTravelFraction;
+            return pivot +
+                   (travelDirection * alongTravel) +
+                   (liftAxis * lift) +
+                   (lateralAxis.normalized * lateral);
         }
 
         private static float SampleArcProgress(float normalizedTime)

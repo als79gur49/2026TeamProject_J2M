@@ -52,7 +52,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BoxFlipSlamSampler_LiftsOverPivotHoldsThenSlamsTowardTarget()
+        public void BoxFlipSlamSampler_LiftsOverPivotWithLateralArcThenSlamsTowardTarget()
         {
             var startPose = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
             var endPose = new GameplayEntityPose(
@@ -61,6 +61,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             const float peakHeightWorld = 1.4f;
             var travelAxis = Vector3.right;
             var liftAxis = -Vector3.forward;
+            var sideAxis = Vector3.up;
             var previousSlamDuration = 0.86f - BoxFlipSlamSampler.HoldEndTime;
             var currentSlamDuration = BoxFlipSlamSampler.SlamEndTime - BoxFlipSlamSampler.HoldEndTime;
 
@@ -90,10 +91,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(ProjectTravelFraction(startPose.Position, endPose.Position, holdEnd.Position, travelAxis), Is.EqualTo(0.5f).Within(0.0001f));
             Assert.That(Vector3.Dot(liftEnd.Position - startPose.Position, liftAxis), Is.EqualTo(peakHeightWorld).Within(0.0001f));
             Assert.That(Vector3.Dot(holdEnd.Position - startPose.Position, liftAxis), Is.EqualTo(peakHeightWorld).Within(0.0001f));
+            Assert.That(Vector3.Dot(liftEnd.Position - startPose.Position, sideAxis), Is.EqualTo(0.36f).Within(0.0001f));
+            Assert.That(Vector3.Dot(holdEnd.Position - startPose.Position, sideAxis), Is.EqualTo(0.36f).Within(0.0001f));
             Assert.That(Quaternion.Angle(liftEnd.Rotation, Quaternion.AngleAxis(90f, Vector3.up)), Is.LessThanOrEqualTo(0.001f));
 
             Assert.That(ProjectTravelFraction(startPose.Position, endPose.Position, slamMidpoint.Position, travelAxis), Is.GreaterThan(0.75f));
             Assert.That(Vector3.Dot(slamMidpoint.Position - startPose.Position, liftAxis), Is.LessThan(peakHeightWorld * 0.2f));
+            Assert.That(Mathf.Abs(Vector3.Dot(slamContact.Position - startPose.Position, sideAxis)), Is.LessThanOrEqualTo(0.0001f));
             AssertPoseApproximately(endPose, slamContact, 0.0001f, 0.001f);
         }
 
