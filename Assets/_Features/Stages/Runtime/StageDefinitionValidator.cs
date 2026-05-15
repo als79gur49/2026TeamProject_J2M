@@ -163,7 +163,7 @@ namespace Game.Feature.Stages
                     !TileFeatureActivationQueries.IsSupportedDestroyActivation(tileFeature.ActivationRule))
                 {
                     throw new InvalidOperationException(
-                        $"Stage '{stageName}' {label} DestroyTile must use BottomFaceOnly or FrontFaceOnly activation.");
+                        $"Stage '{stageName}' {label} DestroyTile must use a FaceOnly activation rule.");
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.Slide &&

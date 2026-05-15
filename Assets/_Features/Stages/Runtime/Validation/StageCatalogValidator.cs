@@ -447,7 +447,7 @@ namespace Game.Feature.Stages
                     report.Add(
                         severity,
                         "authoring.tile-feature.destroy-activation-unsupported",
-                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use BottomFaceOnly or FrontFaceOnly activation.",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use a FaceOnly activation rule.",
                         authoring,
                         authoringPath,
                         options.Timing);

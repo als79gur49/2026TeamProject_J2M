@@ -645,7 +645,7 @@ namespace Game.Feature.Stages.Editor
                 case TileFeatureKind.Destroy:
                     if (!TileFeatureActivationQueries.IsSupportedDestroyActivation(feature.ActivationRule))
                     {
-                        error = "DestroyTile must use BottomFaceOnly or FrontFaceOnly activation.";
+                        error = "DestroyTile must use a FaceOnly activation rule.";
                         return false;
                     }
 
