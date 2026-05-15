@@ -120,6 +120,57 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void PlayerControl_MoveCooldown_TopologyChangingBoundaryMove_DoesNotConsumeMoveCooldown()
+        {
+            var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(
+                timingProfile,
+                playerMoveCooldownTicks: 3);
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 1)),
+                },
+                boardBounds,
+                timingProfile);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                timingProfile,
+                playerControlTiming);
+
+            var boundaryTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var boundarySnapshot = CreateSnapshot(worldState);
+            var followupTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
+            var followupSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(boundaryTick.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    boundaryTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=Front("),
+                Is.True);
+            Assert.That(boundarySnapshot.TryGetPlayerControlState(10, out var boundaryControlState), Is.True);
+            Assert.That(boundaryControlState.moveCooldownTicks, Is.Zero);
+            Assert.That(boundaryControlState.nextMoveAllowedTick, Is.Zero);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    followupTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10"),
+                Is.True);
+            Assert.That(followupSnapshot.TryGetPlayerControlState(10, out var followupControlState), Is.True);
+            Assert.That(followupControlState.moveCooldownTicks, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
@@ -695,6 +746,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayTimingProfile timingProfile)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, timingProfile);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTimingProfile timingProfile)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                boardBounds,
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                timingProfile);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

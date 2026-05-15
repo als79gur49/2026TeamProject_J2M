@@ -788,16 +788,15 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     continue;
                 }
 
-                PlayerControlState updatedState;
-                switch (intent.CommandKind)
+                if (!ShouldConsumePlayerMoveCooldown(intent, group))
                 {
-                    case MovementCommandKind.Move:
-                        updatedState = PlayerControlQueries.ConsumeMoveCooldown(controlState, _playerMoveCooldownTicks, tickIndex);
-                        break;
-
-                    default:
-                        continue;
+                    continue;
                 }
+
+                var updatedState = PlayerControlQueries.ConsumeMoveCooldown(
+                    controlState,
+                    _playerMoveCooldownTicks,
+                    tickIndex);
 
                 playerControlResolutions.Add(
                     new MovementPlayerControlResolutionRecord(
@@ -806,6 +805,20 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         updatedState));
             }
             return playerControlResolutions;
+        }
+
+        private static bool ShouldConsumePlayerMoveCooldown(MoveIntent intent, ActionGroup group)
+        {
+            return intent != null &&
+                   intent.CommandKind == MovementCommandKind.Move &&
+                   !HasTopologyChangingMove(group);
+        }
+
+        private static bool HasTopologyChangingMove(ActionGroup group)
+        {
+            return group != null &&
+                   group.GroupKind == ActionGroupKind.Move &&
+                   group.TopologyChanges.Count > 0;
         }
 
         internal bool TryResolveImpactSpaceSuccess(

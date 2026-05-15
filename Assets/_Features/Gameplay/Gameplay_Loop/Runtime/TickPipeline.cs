@@ -5482,8 +5482,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetPlayerControlState(group.SourceId, out var playerControlState))
                 {
                     var intent = FindMovementIntent(sortedIntents, group.IntentId);
-                    if (intent != null &&
-                        intent.CommandKind == Movement.MovementCommandKind.Move)
+                    if (ShouldConsumePlayerMoveCooldown(intent, group))
                     {
                         playerControlWrites.Add(
                             new PlayerControlWritePayload(
@@ -6154,6 +6153,20 @@ namespace Game.Feature.Gameplay.Loop
 
             entity = default;
             return false;
+        }
+
+        private static bool ShouldConsumePlayerMoveCooldown(MoveIntent intent, ActionGroup group)
+        {
+            return intent != null &&
+                   intent.CommandKind == Movement.MovementCommandKind.Move &&
+                   !HasTopologyChangingMove(group);
+        }
+
+        private static bool HasTopologyChangingMove(ActionGroup group)
+        {
+            return group != null &&
+                   group.GroupKind == ActionGroupKind.Move &&
+                   group.TopologyChanges.Count > 0;
         }
 
         private static bool TryResolveMovementSourceCell(
