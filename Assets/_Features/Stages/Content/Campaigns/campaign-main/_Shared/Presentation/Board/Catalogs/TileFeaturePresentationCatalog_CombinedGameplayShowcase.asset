@@ -21,6 +21,8 @@ MonoBehaviour:
     icon: {fileID: 0}
     isDefaultForKind: 1
     directionHint: 0
+    vfxStyleKey:
+      value: Green
   - presentationKey: button.moon-only
     displayName: Moon Button
     kind: 4
@@ -29,6 +31,8 @@ MonoBehaviour:
     icon: {fileID: 0}
     isDefaultForKind: 0
     directionHint: 0
+    vfxStyleKey:
+      value: Yellow
   - presentationKey: destroy.bottom
     displayName: Destroy Bottom
     kind: 2
