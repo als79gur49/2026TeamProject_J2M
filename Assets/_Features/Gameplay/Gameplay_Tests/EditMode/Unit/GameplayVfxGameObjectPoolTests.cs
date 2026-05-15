@@ -69,6 +69,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayTransient_PreservesAuthoredModelRootPoseUnderRuntimeAnchor()
+        {
+            var modelRoot = new GameObject("ModelRoot").transform;
+            modelRoot.SetParent(prefab.transform, worldPositionStays: false);
+            modelRoot.localPosition = new Vector3(0.1f, 0.2f, 0.3f);
+            modelRoot.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            modelRoot.localScale = new Vector3(1.1f, 1.2f, 1.3f);
+            var localPosition = new Vector3(0.25f, -0.5f, 0.75f);
+            var localRotation = Quaternion.Euler(15f, 25f, 35f);
+
+            var handle = pool.PlayTransient(CreateCommand(
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                resolvedLocalPosition: localPosition,
+                resolvedLocalRotation: localRotation));
+            var instance = root.OneShotRoot.GetChild(0);
+            var instanceModelRoot = instance.Find("ModelRoot");
+
+            Assert.That(handle, Is.Not.Null);
+            Assert.That(instance.localPosition, Is.EqualTo(localPosition));
+            Assert.That(Quaternion.Angle(instance.localRotation, localRotation), Is.LessThan(0.001f));
+            Assert.That(instanceModelRoot, Is.Not.Null);
+            Assert.That(instanceModelRoot.localPosition, Is.EqualTo(modelRoot.localPosition));
+            Assert.That(Quaternion.Angle(instanceModelRoot.localRotation, modelRoot.localRotation), Is.LessThan(0.001f));
+            Assert.That(instanceModelRoot.localScale, Is.EqualTo(modelRoot.localScale));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Release_ReturnsInstanceToPoolAndReusesIt()
         {
             var firstHandle = pool.PlayTransient(CreateCommand(VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration));

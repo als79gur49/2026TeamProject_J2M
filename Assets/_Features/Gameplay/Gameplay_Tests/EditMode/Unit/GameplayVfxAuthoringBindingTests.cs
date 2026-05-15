@@ -197,6 +197,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BindingAsset_RejectsPrefabWithoutModelRootContract()
+        {
+            var prefab = new GameObject("MissingModelRootBindingPrefab");
+            prefab.AddComponent<ParticleSystem>();
+            var binding = CreateBinding(
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                prefab);
+
+            try
+            {
+                var validation = binding.ValidateAuthoring();
+
+                Assert.That(validation.HasErrors, Is.True);
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_PREFAB_MODEL_ROOT_MISSING"));
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_PREFAB_ROOT_COMPONENT"));
+            }
+            finally
+            {
+                Destroy(binding);
+                Destroy(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BindingAsset_BuildsDiagnosticRequirementPolicy()
         {
             var prefab = new GameObject("DiagnosticVfxPrefab");

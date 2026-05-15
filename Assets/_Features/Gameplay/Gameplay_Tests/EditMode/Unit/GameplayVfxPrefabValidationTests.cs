@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxOutOfBoundsExitVfx.prefab",
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyOutOfBoundsExitVfx.prefab",
         };
+        private const string GameplayVfxPrefabRoot = "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs";
 
         [Test]
         [Category("Extended")]
@@ -88,6 +89,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty, path);
                 Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty, path);
                 Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty, path);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxPrefabs_UseRuntimeRootAndModelRootContract()
+        {
+            var guids = AssetDatabase.FindAssets("t:Prefab", new[] { GameplayVfxPrefabRoot });
+
+            Assert.That(guids, Is.Not.Empty);
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                Assert.That(prefab, Is.Not.Null, path);
+                var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
+                var modelRootValidation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(prefab);
+
+                Assert.That(validation.HasErrors, Is.False, $"{path}\n{string.Join("\n", validation.Messages)}");
+                Assert.That(modelRootValidation.HasErrors, Is.False, $"{path}\n{string.Join("\n", modelRootValidation.Messages)}");
+                Assert.That(prefab.transform.Find(VfxPrefabValidationDiagnostics.ModelRootName), Is.Not.Null, path);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PrefabModelRootContract_RequiresDirectModelRoot()
+        {
+            var prefab = new GameObject("MissingModelRootVfxPrefab");
+
+            try
+            {
+                var validation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(prefab);
+
+                Assert.That(validation.HasErrors, Is.True);
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_PREFAB_MODEL_ROOT_MISSING"));
+            }
+            finally
+            {
+                Destroy(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PrefabModelRootContract_RejectsVisualComponentsOnRuntimeRoot()
+        {
+            var prefab = new GameObject("RootParticleVfxPrefab");
+            prefab.AddComponent<ParticleSystem>();
+            var modelRoot = new GameObject(VfxPrefabValidationDiagnostics.ModelRootName);
+            modelRoot.transform.SetParent(prefab.transform, worldPositionStays: false);
+
+            try
+            {
+                var validation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(prefab);
+
+                Assert.That(validation.HasErrors, Is.True);
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_PREFAB_ROOT_COMPONENT"));
+            }
+            finally
+            {
+                Destroy(prefab);
             }
         }
 
