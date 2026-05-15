@@ -49,6 +49,22 @@ MonoBehaviour:
     icon: {fileID: 0}
     isDefaultForKind: 0
     directionHint: 0
+  - presentationKey: destroy.active
+    displayName: Destroy Active Face
+    kind: 2
+    visualPrefab: {fileID: 8989521553511816573, guid: 48735843b6acafa47822af253750e2c7, type: 3}
+    placementMode: 1
+    icon: {fileID: 0}
+    isDefaultForKind: 0
+    directionHint: 0
+  - presentationKey: destroy.inactive
+    displayName: Destroy Inactive Face
+    kind: 2
+    visualPrefab: {fileID: 8989521553511816573, guid: 4644dfb2af612484fbddc63a85574b98, type: 3}
+    placementMode: 1
+    icon: {fileID: 0}
+    isDefaultForKind: 0
+    directionHint: 0
   - presentationKey: slide.up
     displayName: Slide Up
     kind: 1
