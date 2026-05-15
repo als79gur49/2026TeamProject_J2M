@@ -411,6 +411,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_DestroyTileVisualStates_UseActivationRuleDesiredState()
+        {
+            var activeCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var inactiveCell = new SurfaceCell(FaceId.Back, 2, 1);
+            var activeDestroy = CreateTileFeature(
+                100,
+                activeCell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 10,
+                ownerEntityId: 20,
+                teamId: 1);
+            var inactiveDestroy = CreateTileFeature(
+                101,
+                inactiveCell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None);
+            var snapshot = CreateTileFeatureSnapshot(activeDestroy, inactiveDestroy);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.ActiveFaceOnly),
+                        CreateTileFeatureDefinition(101, TileFeatureActivationRule.ActiveFaceOnly),
+                    }));
+
+            var states = presentationData.TileFeatureVisualStates
+                .Where(state => state.TileFeatureKind == TileFeatureKind.Destroy)
+                .OrderBy(state => state.TileId)
+                .ToArray();
+            Assert.That(states, Has.Length.EqualTo(2));
+            Assert.That(states[0].TileId, Is.EqualTo(100));
+            Assert.That(states[0].Cell, Is.EqualTo(activeCell));
+            Assert.That(states[0].IsActive, Is.True);
+            Assert.That(states[0].SourceEntityId, Is.EqualTo(10));
+            Assert.That(states[0].OwnerEntityId, Is.EqualTo(20));
+            Assert.That(states[0].TeamId, Is.EqualTo(1));
+            Assert.That(states[1].TileId, Is.EqualTo(101));
+            Assert.That(states[1].Cell, Is.EqualTo(inactiveCell));
+            Assert.That(states[1].IsActive, Is.False);
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayWorldStateTestFactory_CreateBounded_WithTimingProfile_NormalizesPreExistingProjectileCadence()
         {

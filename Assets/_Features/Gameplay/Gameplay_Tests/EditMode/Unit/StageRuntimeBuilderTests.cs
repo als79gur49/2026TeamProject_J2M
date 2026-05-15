@@ -372,72 +372,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void StageRuntimeBuilder_DestroyTile_BottomFaceOnlyAccepted()
+        public void StageRuntimeBuilder_DestroyTile_FaceOnlyActivationAccepted()
         {
-            var stage = CreateStageWithTileFeatures(
-                "DestroyTileBottomFaceOnly",
-                new[]
-                {
-                    CreateTileFeature(
-                        100,
-                        new SurfaceCell(FaceId.Floor, 1, 1),
-                        TileFeatureKind.Destroy,
-                        TileFeatureActivationRule.BottomFaceOnly),
-                });
-
-            var buildResult = StageRuntimeBuilder.Build(stage);
-
-            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
-            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Destroy));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void StageRuntimeBuilder_DestroyTile_FrontFaceOnlyAccepted()
-        {
-            var stage = CreateStageWithTileFeatures(
-                "DestroyTileFrontFaceOnly",
-                new[]
-                {
-                    CreateTileFeature(
-                        100,
-                        new SurfaceCell(FaceId.Front, 1, 1),
-                        TileFeatureKind.Destroy,
-                        TileFeatureActivationRule.FrontFaceOnly),
-                });
-
-            var buildResult = StageRuntimeBuilder.Build(stage);
-
-            Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
-            Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Destroy));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void StageRuntimeBuilder_DestroyTile_UnsupportedActivationRejects()
-        {
-            var unsupportedRules = new[]
+            var acceptedRules = new[]
             {
-                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.BottomFaceOnly,
+                TileFeatureActivationRule.FrontFaceOnly,
                 TileFeatureActivationRule.ActiveFaceOnly,
                 TileFeatureActivationRule.InactiveFaceOnly,
             };
 
-            for (var i = 0; i < unsupportedRules.Length; i++)
+            for (var i = 0; i < acceptedRules.Length; i++)
             {
                 var stage = CreateStageWithTileFeatures(
-                    $"DestroyTileUnsupportedActivation{i}",
+                    $"DestroyTileFaceOnly{i}",
                     new[]
                     {
                         CreateTileFeature(
                             100,
                             new SurfaceCell(FaceId.Floor, 1, 1),
                             TileFeatureKind.Destroy,
-                            unsupportedRules[i]),
+                            acceptedRules[i]),
                     });
 
-                AssertBuildThrows(stage, "DestroyTile must use BottomFaceOnly or FrontFaceOnly activation");
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(acceptedRules[i]));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Destroy));
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_DestroyTile_AlwaysActivationRejects()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "DestroyTileAlwaysActivation",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        TileFeatureKind.Destroy,
+                        TileFeatureActivationRule.Always),
+                });
+
+            AssertBuildThrows(stage, "DestroyTile must use a FaceOnly activation rule");
         }
 
         [Test]

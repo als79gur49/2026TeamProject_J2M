@@ -755,6 +755,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DestroyTile_ActiveFaceOnly_DestroysMovingBoxOnActiveFace()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var destroyTile = CreateTileFeature(10, cell, TileFeatureKind.Destroy);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { destroyTile })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(10, TileFeatureActivationRule.ActiveFaceOnly));
+
+            Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.EntityOperations.Operations[1].EntityId, Is.EqualTo(20));
+            Assert.That(result.TileEvents.Single().EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_InactiveFaceOnly_DestroysMovingBoxOnInactiveFace()
+        {
+            var cell = new SurfaceCell(FaceId.Back, 1, 1);
+            var destroyTile = CreateTileFeature(10, cell, TileFeatureKind.Destroy);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { destroyTile })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(10, TileFeatureActivationRule.InactiveFaceOnly));
+
+            Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.EntityOperations.Operations[1].EntityId, Is.EqualTo(20));
+            Assert.That(result.TileEvents.Single().EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_InactiveFaceOnly_DoesNotDestroyMovingBoxOnActiveFace()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var destroyTile = CreateTileFeature(10, cell, TileFeatureKind.Destroy);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { destroyTile })
+                .CreateSnapshot();
+
+            var result = Resolve(
+                snapshot,
+                new[] { new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter) },
+                CreateDefinition(10, TileFeatureActivationRule.InactiveFaceOnly));
+
+            Assert.That(result.IsEmpty, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_ActiveBottomFace_DestroysMovingGroundUnit()
         {
             var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
