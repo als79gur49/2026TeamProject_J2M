@@ -17,5 +17,5 @@ MonoBehaviour:
   pitchRange: {x: 1, y: 1}
   loop: 1
   clips:
-  - Clip: {fileID: 8300000, guid: 26b69a77542b8e240b0e9dad43e966ae, type: 3}
+  - Clip: {fileID: 8300000, guid: 6b80bb29a500a454fb9c7bc11e680334, type: 3}
     Weight: 0
