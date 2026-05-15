@@ -420,10 +420,7 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
-                ShouldSuppressMovementForGlide(snapshot) ||
-                ShouldSuppressMovementForEnemyPhase(snapshot) ||
-                ShouldSuppressMovementForUtilityWindup(snapshot, source, input.TickIndex))
+            if (ShouldSuppressAutonomousMovementAndFacing(snapshot, source, input.TickIndex))
             {
                 return;
             }
@@ -545,7 +542,20 @@ namespace Game.Feature.Gameplay.Entities
                    jumpState.phase == EnemyJumpPhase.Airborne;
         }
 
-        private bool ShouldSuppressMovementForUtilityWindup(
+        private bool ShouldSuppressAutonomousMovementAndFacing(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex)
+        {
+            return ShouldSuppressMovementForJump(snapshot, tickIndex) ||
+                   ShouldSuppressMovementForGlide(snapshot) ||
+                   ShouldSuppressMovementForEnemyPhase(snapshot) ||
+                   ShouldSuppressMovementForUtility(snapshot, source, tickIndex) ||
+                   ShouldSuppressMovementForImminentUtilityWindup(snapshot, source, tickIndex) ||
+                   ShouldSuppressMovementForCharge(snapshot);
+        }
+
+        private bool ShouldSuppressMovementForUtility(
             WorldSnapshot snapshot,
             in EntityState source,
             int tickIndex)
@@ -557,19 +567,17 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            var effectCount = Math.Min(utilityState.EffectStates.Count, _utilityCapability.Effects.Count);
-            for (var effectIndex = 0; effectIndex < effectCount; effectIndex++)
+            if (!utilityState.HasEffectCount(_utilityCapability.Effects.Count))
+            {
+                return false;
+            }
+
+            for (var effectIndex = 0; effectIndex < _utilityCapability.Effects.Count; effectIndex++)
             {
                 var effectState = utilityState.EffectStates[effectIndex];
-                if (effectState.movementSuppressionUntilTickInclusive <= 0 ||
-                    tickIndex > effectState.movementSuppressionUntilTickInclusive)
-                {
-                    continue;
-                }
-
                 var effectRuntime = _utilityCapability.Effects[effectIndex];
                 if (effectState.effectKind != effectRuntime.Kind ||
-                    !SuppressesMovementForUtilityState(effectRuntime, effectState))
+                    !IsUtilityMovementSuppressionWindowActive(effectRuntime, effectState, tickIndex))
                 {
                     continue;
                 }
@@ -578,6 +586,79 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return false;
+        }
+
+        private bool ShouldSuppressMovementForImminentUtilityWindup(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex)
+        {
+            if (_utilityCapability == null ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, source))
+            {
+                return false;
+            }
+
+            var utilityState = GetUtilityStateForStartPrediction(snapshot);
+            for (var effectIndex = 0; effectIndex < _utilityCapability.Effects.Count; effectIndex++)
+            {
+                var effectRuntime = _utilityCapability.Effects[effectIndex];
+                var effectState = GetEffectStateForStartPrediction(utilityState, effectIndex, effectRuntime);
+
+                if (CanStartDelayedUtilityWindupThisTick(effectRuntime, effectState))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private EnemyUtilityRuntimeState GetUtilityStateForStartPrediction(WorldSnapshot snapshot)
+        {
+            return snapshot.TryGetEnemyUtilityState(_entityId, out var utilityState) &&
+                   utilityState.HasEffectCount(_utilityCapability.Effects.Count)
+                ? utilityState
+                : EnemyUtilityStateQueries.CreateInitialState(_utilityCapability);
+        }
+
+        private static EnemyUtilityEffectState GetEffectStateForStartPrediction(
+            EnemyUtilityRuntimeState utilityState,
+            int effectIndex,
+            EnemyUtilityEffectRuntime effectRuntime)
+        {
+            var effectState = utilityState.EffectStates[effectIndex];
+            return effectState.effectKind == effectRuntime.Kind
+                ? effectState
+                : CreateInitialUtilityEffectState(effectRuntime);
+        }
+
+        private static EnemyUtilityEffectState CreateInitialUtilityEffectState(EnemyUtilityEffectRuntime effectRuntime)
+        {
+            return new EnemyUtilityEffectState
+            {
+                effectKind = effectRuntime.Kind,
+                cooldownTicksRemaining = effectRuntime.InitialDelayTicks,
+            };
+        }
+
+        private static bool CanStartDelayedUtilityWindupThisTick(
+            EnemyUtilityEffectRuntime effectRuntime,
+            in EnemyUtilityEffectState effectState)
+        {
+            if (!UsesDelayedUtilityWindup(effectRuntime) ||
+                !SuppressesMovementDuringWindup(effectRuntime) ||
+                effectState.effectKind != effectRuntime.Kind ||
+                effectState.phase != EnemyUtilityEffectPhase.None ||
+                effectState.movementSuppressionUntilTickInclusive > 0)
+            {
+                return false;
+            }
+
+            var nextCooldownTicks = effectState.cooldownTicksRemaining > 0
+                ? Mathf.Max(0, effectState.cooldownTicksRemaining - 1)
+                : 0;
+            return nextCooldownTicks == 0;
         }
 
         private bool TryGetJumpState(WorldSnapshot snapshot, out EnemyJumpRuntimeState jumpState)
@@ -962,6 +1043,13 @@ namespace Game.Feature.Gameplay.Entities
 
             return glideState.Phase == EnemyGlidePhase.Windup ||
                    glideState.Phase == EnemyGlidePhase.Recovery;
+        }
+
+        private bool ShouldSuppressMovementForCharge(WorldSnapshot snapshot)
+        {
+            return TryGetChargeState(snapshot, out var chargeState) &&
+                   (chargeState.phase == EnemyChargePhase.Windup ||
+                    chargeState.phase == EnemyChargePhase.Recover);
         }
 
         private bool TryResolveLandingPendingEgressLocomotion(
@@ -1872,16 +1960,34 @@ namespace Game.Feature.Gameplay.Entities
             };
         }
 
-        private static bool SuppressesMovementForUtilityState(
+        private static bool IsUtilityMovementSuppressionWindowActive(
             EnemyUtilityEffectRuntime effectRuntime,
-            in EnemyUtilityEffectState state)
+            in EnemyUtilityEffectState state,
+            int tickIndex)
         {
+            if (state.movementSuppressionUntilTickInclusive <= 0 ||
+                tickIndex > state.movementSuppressionUntilTickInclusive)
+            {
+                return false;
+            }
+
             return state.phase switch
             {
                 EnemyUtilityEffectPhase.Windup => SuppressesMovementDuringWindup(effectRuntime),
-                EnemyUtilityEffectPhase.Recover => SuppressesMovementDuringRecover(effectRuntime),
-                _ => SuppressesMovementDuringWindup(effectRuntime) || SuppressesMovementDuringRecover(effectRuntime),
+                EnemyUtilityEffectPhase.Recover => SuppressesMovementDuringRecover(effectRuntime) ||
+                                                   IsWindupSuppressionWindowRemainder(effectRuntime, state, tickIndex),
+                EnemyUtilityEffectPhase.None => IsWindupSuppressionWindowRemainder(effectRuntime, state, tickIndex),
+                _ => false,
             };
+        }
+
+        private static bool IsWindupSuppressionWindowRemainder(
+            EnemyUtilityEffectRuntime effectRuntime,
+            in EnemyUtilityEffectState state,
+            int tickIndex)
+        {
+            return SuppressesMovementDuringWindup(effectRuntime) &&
+                   tickIndex == state.movementSuppressionUntilTickInclusive;
         }
 
         private static bool SuppressesMovementDuringWindup(EnemyUtilityEffectRuntime effectRuntime)
@@ -1901,6 +2007,19 @@ namespace Game.Feature.Gameplay.Entities
                 EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringRecover,
                 EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.SuppressMovementDuringRecover,
                 _ => false,
+            };
+        }
+
+        private static bool UsesDelayedUtilityWindup(EnemyUtilityEffectRuntime effectRuntime)
+        {
+            return effectRuntime.Kind switch
+            {
+                EnemyUtilityEffectKind.SummonMinion => true,
+                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.ActivationDelayTicks > 0,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(effectRuntime.Kind),
+                    effectRuntime.Kind,
+                    "Unhandled enemy utility effect kind."),
             };
         }
 
@@ -2557,6 +2676,11 @@ namespace Game.Feature.Gameplay.Entities
 
             if (decision.Mode != EnemyAiMode.Patrol ||
                 source.enemyLocomotionCooldownTicks > 0)
+            {
+                return null;
+            }
+
+            if (ShouldSuppressAutonomousMovementAndFacing(snapshot, source, tickIndex))
             {
                 return null;
             }

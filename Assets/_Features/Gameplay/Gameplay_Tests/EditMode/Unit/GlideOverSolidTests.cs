@@ -407,6 +407,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [TestCase(EnemyGlidePhase.Windup)]
+        [TestCase(EnemyGlidePhase.Recovery)]
+        [Category("Extended")]
+        public void EnemyLogic_GlideSuppression_TargetLostToPatrol_PreservesAutonomousPatrolFacing(EnemyGlidePhase phase)
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
+                PatrolSettings = PatrolSettings.CreateDefaultRandomWalk(),
+                MovementSkillStrategyKind = MovementSkillStrategyKind.GlideOverSolid,
+                GlideTimingSettings = EnemyGlideTimingAuthoringSettings.FromRuntimeSettings(
+                    new EnemyGlideTimingSettings(windupTicks: 3, durationTicks: 3, recoveryTicks: 3, cooldownTicks: 0),
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+            });
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(40, teamId: 2, sourceCell, EnemyAiMode.Patrol),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 1)),
+                GameplayTerrainData.Empty);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyPatrolState(
+                40,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 1,
+                    homeCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                    lastCommittedDirection = Direction.Right,
+                });
+            writeContext.SetEnemyGlideState(
+                40,
+                phase == EnemyGlidePhase.Windup
+                    ? CreateGlideState(EnemyGlidePhase.Windup, windupUntilTickExclusive: 5)
+                    : CreateGlideState(EnemyGlidePhase.Recovery, recoveryUntilTickExclusive: 5));
+
+            try
+            {
+                var pipeline = CreateGlideKinematicPipeline(profile, worldState);
+
+                var tick = pipeline.RunTick(new TickInput(2));
+                var enemy = tick.FinalEntities.Single(entity => entity.entityId == 40);
+
+                Assert.That(tick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Empty);
+                Assert.That(enemy.position, Is.EqualTo(sourceCell));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void BoxSlide_IgnoresOnlyActiveGlider()
