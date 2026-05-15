@@ -1224,15 +1224,23 @@ namespace Game.Feature.Stages.Editor
                 changed = true;
             }
 
-            if (draft.Kind == TileFeatureKind.Button)
+            if (draft.Kind == TileFeatureKind.Button ||
+                draft.Kind == TileFeatureKind.Destroy)
             {
                 EditorGUI.BeginChangeCheck();
-                draft.ActivationRule = (TileFeatureActivationRule)EditorGUILayout.EnumPopup(
-                    "Activation Rule",
-                    draft.ActivationRule);
-                draft.BoxSelector = (TileFeatureBoxSelector)EditorGUILayout.EnumPopup(
-                    "Box Selector",
-                    draft.BoxSelector);
+                draft.ActivationRule = draft.Kind == TileFeatureKind.Destroy
+                    ? DrawDestroyActivationRulePopup(draft.ActivationRule)
+                    : (TileFeatureActivationRule)EditorGUILayout.EnumPopup(
+                        "Activation Rule",
+                        draft.ActivationRule);
+
+                if (draft.Kind == TileFeatureKind.Button)
+                {
+                    draft.BoxSelector = (TileFeatureBoxSelector)EditorGUILayout.EnumPopup(
+                        "Box Selector",
+                        draft.BoxSelector);
+                }
+
                 changed |= EditorGUI.EndChangeCheck();
             }
             else if (draft.Kind == TileFeatureKind.Slide)
@@ -1247,6 +1255,31 @@ namespace Game.Feature.Stages.Editor
             }
 
             return changed;
+        }
+
+        private static TileFeatureActivationRule DrawDestroyActivationRulePopup(TileFeatureActivationRule current)
+        {
+            var rules = new[]
+            {
+                TileFeatureActivationRule.BottomFaceOnly,
+                TileFeatureActivationRule.FrontFaceOnly,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+            var labels = new[]
+            {
+                "Bottom Face Only",
+                "Front Face Only",
+                "Active Face Only",
+                "Inactive Face Only",
+            };
+            var selectedIndex = Array.IndexOf(rules, current);
+            if (selectedIndex < 0)
+            {
+                selectedIndex = 0;
+            }
+
+            return rules[EditorGUILayout.Popup("Activation Rule", selectedIndex, labels)];
         }
 
         private bool DrawTileFeaturePresentationKeyField(ref TileFeatureDraftState draft)
