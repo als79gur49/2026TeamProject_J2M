@@ -257,6 +257,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayMotionTimingResolver_FlipResultTurn_UsesFlipRecoveryDurationInsteadOfEntityFlipMotion()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayMotionTimingResolver_FlipResultTurn_UsesFlipRecoveryDurationInsteadOfEntityFlipMotion");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var motionAuthoring = rootObject.GetComponent<EntityMotionPresentationAuthoring>();
+                var animationAuthoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var stateStore = new GameplayPresentationStateStore();
+                var resolver = new GameplayMotionTimingResolver(stateStore, new GameplayPresentationTrackState());
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    motionAuthoring,
+                    "flipMotionDurationSeconds",
+                    2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    animationAuthoring,
+                    "flipWindupAnimatorDurationSeconds",
+                    0.38333333f);
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    animationAuthoring,
+                    "flipRecoveryAnimatorDurationSeconds",
+                    0.56666666f);
+                stateStore.ViewsByEntityId[10] = view;
+
+                Assert.That(
+                    resolver.ResolvePlayerMotionDurationSeconds(10, PlayerActionKind.Flip, timingProfile),
+                    Is.EqualTo(2f));
+                Assert.That(
+                    resolver.ResolvePlayerFlipResultTurnDurationSeconds(10, timingProfile),
+                    Is.EqualTo(0.56666666f).Within(0.0000001f));
+                Assert.That(
+                    resolver.ResolvePlayerFlipResultTurnDelaySeconds(10, timingProfile),
+                    Is.EqualTo(0.38333333f).Within(0.0000001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_PushStart_CrossFadesToWindup()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PushStart_CrossFadesToWindup");

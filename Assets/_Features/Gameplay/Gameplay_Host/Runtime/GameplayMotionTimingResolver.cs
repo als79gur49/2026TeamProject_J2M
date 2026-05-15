@@ -107,6 +107,26 @@ namespace Game.Feature.Gameplay.Host
             };
         }
 
+        public float ResolvePlayerFlipResultTurnDurationSeconds(
+            int entityId,
+            GameplayTimingProfile timingProfile)
+        {
+            return ResolvePlayerPresentationPhaseDurationSeconds(
+                entityId,
+                PlayerPresentationPhase.FlipRecovery,
+                timingProfile);
+        }
+
+        public float ResolvePlayerFlipResultTurnDelaySeconds(
+            int entityId,
+            GameplayTimingProfile timingProfile)
+        {
+            return ResolvePlayerPresentationPhaseDurationSeconds(
+                entityId,
+                PlayerPresentationPhase.FlipWindup,
+                timingProfile);
+        }
+
         public float ResolvePlayerPresentationPhaseDurationSeconds(
             int entityId,
             PlayerPresentationPhase phase,

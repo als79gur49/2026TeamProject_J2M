@@ -240,9 +240,11 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var durationSeconds = _motionTimingResolver.ResolvePlayerMotionDurationSeconds(
+                var durationSeconds = _motionTimingResolver.ResolvePlayerFlipResultTurnDurationSeconds(
                     signal.EntityId,
-                    PlayerActionKind.Flip,
+                    timingProfile);
+                var delaySeconds = _motionTimingResolver.ResolvePlayerFlipResultTurnDelaySeconds(
+                    signal.EntityId,
                     timingProfile);
                 if (durationSeconds <= 0f ||
                     Quaternion.Angle(contactPose.Rotation, resultPose.Rotation) <= 0.01f)
@@ -252,6 +254,11 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var track = new RotationTrack();
+                if (delaySeconds > 0.0001f)
+                {
+                    track.Append(RotationClip.Create(contactPose.Rotation, contactPose.Rotation, delaySeconds));
+                }
+
                 track.Append(RotationClip.Create(contactPose.Rotation, resultPose.Rotation, durationSeconds));
                 _trackState.PlayerFlipResultTurnTracks[signal.EntityId] = track;
             }
@@ -556,10 +563,7 @@ namespace Game.Feature.Gameplay.Host
                         motion.MotionKind,
                         startLocalPose,
                         endLocalPose,
-                        _motionTimingResolver.ResolveMotionDurationSeconds(
-                            motion.EntityId,
-                            motion.MotionKind,
-                            timingProfile),
+                        ResolveMotionDurationSeconds(presentationData, motion, timingProfile),
                         IsTopologyTransitionPresentation(presentationData.TopologyMotion),
                         ResolveFlipPeakHeightWorld(
                             presentationData,
@@ -574,6 +578,51 @@ namespace Game.Feature.Gameplay.Host
                     _stateStore.RetainedLocalTargetPoses[motion.EntityId] = endLocalPose;
                 }
             }
+        }
+
+        private float ResolveMotionDurationSeconds(
+            TickPresentationData presentationData,
+            TickEntityMotion motion,
+            GameplayTimingProfile timingProfile)
+        {
+            if (TryResolvePlayerFlipSlamSynchronizedDurationSeconds(
+                    presentationData,
+                    motion,
+                    timingProfile,
+                    out var synchronizedDurationSeconds))
+            {
+                return synchronizedDurationSeconds;
+            }
+
+            return _motionTimingResolver.ResolveMotionDurationSeconds(
+                motion.EntityId,
+                motion.MotionKind,
+                timingProfile);
+        }
+
+        private bool TryResolvePlayerFlipSlamSynchronizedDurationSeconds(
+            TickPresentationData presentationData,
+            TickEntityMotion motion,
+            GameplayTimingProfile timingProfile,
+            out float durationSeconds)
+        {
+            durationSeconds = 0f;
+            if (motion.MotionKind != TickEntityMotionKind.Flip ||
+                !TryResolveFlipSourcePlayerEntityId(presentationData, motion.EntityId, out var playerEntityId))
+            {
+                return false;
+            }
+
+            var recoveryDurationSeconds = _motionTimingResolver.ResolvePlayerFlipResultTurnDurationSeconds(
+                playerEntityId,
+                timingProfile);
+            if (recoveryDurationSeconds <= 0f || BoxFlipSlamSampler.SlamEndTime <= 0f)
+            {
+                return false;
+            }
+
+            durationSeconds = recoveryDurationSeconds / BoxFlipSlamSampler.SlamEndTime;
+            return durationSeconds > 0f;
         }
 
         private float ResolveFlipPeakHeightWorld(
@@ -665,6 +714,32 @@ namespace Game.Feature.Gameplay.Host
             out GameplayEntityView playerView)
         {
             playerView = null;
+            if (!TryResolveFlipSourcePlayerEntityId(presentationData, targetBoxEntityId, out var playerEntityId))
+            {
+                return false;
+            }
+
+            if (_stateStore.ViewsByEntityId.TryGetValue(playerEntityId, out playerView) &&
+                playerView != null)
+            {
+                return true;
+            }
+
+            playerView = null;
+            return false;
+        }
+
+        private static bool TryResolveFlipSourcePlayerEntityId(
+            TickPresentationData presentationData,
+            int targetBoxEntityId,
+            out int playerEntityId)
+        {
+            playerEntityId = 0;
+            if (presentationData == null)
+            {
+                return false;
+            }
+
             for (var i = 0; i < presentationData.PlayerActionSignals.Count; i++)
             {
                 var signal = presentationData.PlayerActionSignals[i];
@@ -675,14 +750,11 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (_stateStore.ViewsByEntityId.TryGetValue(signal.EntityId, out playerView) &&
-                    playerView != null)
-                {
-                    return true;
-                }
+                playerEntityId = signal.EntityId;
+                return playerEntityId > 0;
             }
 
-            playerView = null;
+            playerEntityId = 0;
             return false;
         }
 
