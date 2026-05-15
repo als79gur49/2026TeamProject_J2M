@@ -2095,7 +2095,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.MovementPhaseResult.CommitEvents,
                     "FacingCommitted",
                     "E=10",
-                    "Facing=Left"),
+                    "Facing=Right"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -2108,7 +2108,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
-            Assert.That(GetEntityFacing(worldState, 10), Is.EqualTo(Direction.Left));
+            Assert.That(GetEntityFacing(worldState, 10), Is.EqualTo(Direction.Right));
             Assert.That(GetEntityFacing(worldState, 30), Is.EqualTo(Direction.Right));
             CollectionAssert.AreEqual(
                 new[]
@@ -2459,7 +2459,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.MovementPhaseResult.CommitEvents,
                     "FacingCommitted",
                     "E=10",
-                    "Facing=Left"),
+                    "Facing=Right"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -3926,7 +3926,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.MovementPhaseResult.CommitEvents,
                     "FacingCommitted",
                     "E=10",
-                    "Facing=Right"),
+                    "Facing=Left"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(

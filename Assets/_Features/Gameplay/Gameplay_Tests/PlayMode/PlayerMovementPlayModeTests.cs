@@ -14,6 +14,7 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Shared.Input;
 using NUnit.Framework;
 using Unity.Cinemachine;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -28,6 +29,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     // cube projector plus board-root world transform instead of strip-space literals.
     public sealed class PlayerMovementPlayModeTests : InputTestFixture
     {
+        private const string PlayerS1PrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
         private Keyboard _keyboard;
 
         [SetUp]
@@ -809,6 +811,60 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_PlayMode_FlipLeft_RootEndsFacingRight()
+        {
+            var playerViewPrefab = LoadPlayerS1ViewPrefab();
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+                },
+                playerViewPrefabOverride: playerViewPrefab,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+
+            host.InputHost.SetRawMoveInput(Vector2.left);
+            host.InputHost.BufferFlip();
+
+            var startTick = host.InputHost.RunSingleTick();
+            var startSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(startTick.PresentationData.PlayerFlipResultTurnSignals, Has.Count.EqualTo(1));
+            Assert.That(startTick.PresentationData.PlayerFlipResultTurnSignals[0].ContactFacing, Is.EqualTo(Direction.Left));
+            Assert.That(startTick.PresentationData.PlayerFlipResultTurnSignals[0].ResultFacing, Is.EqualTo(Direction.Right));
+            Assert.That(startSnapshot.TryGetEntity(10, out var startPlayer), Is.True);
+            Assert.That(startPlayer.facing, Is.EqualTo(Direction.Left));
+
+            host.InputHost.SetRawMoveInput(Vector2.zero);
+            var executeTick = RunTicksUntil(
+                host,
+                result => result.Trace.Text.Contains("FlipResultFacingCommitted", StringComparison.Ordinal),
+                maxTicks: 64);
+            var executeSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(executeTick, Is.Not.Null, "Player_S1 Flip never reached the result-facing commit tick.");
+            Assert.That(executeSnapshot.TryGetEntity(10, out var executePlayer), Is.True);
+            Assert.That(executePlayer.facing, Is.EqualTo(Direction.Right));
+
+            var cleanupTick = RunTicksUntil(
+                host,
+                _ =>
+                {
+                    var snapshot = CaptureAuthoritativeSnapshot(host);
+                    return snapshot.TryGetPlayerControlState(10, out var controlState) &&
+                           controlState.activeAction.kind == PlayerActionKind.None;
+                },
+                maxTicks: 64);
+            Assert.That(cleanupTick, Is.Not.Null, "Player_S1 Flip action never completed cleanup.");
+            AdvancePresentation(host, host.TimingProfile.FlipMotionDurationSeconds + 5f);
+            AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Right);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_PushStartedEdgeOnly_HeldKeyDuringRecovery_DoesNotAutoRestartAfterCompletion()
         {
             var actions = CreateKeyboardMoveActions();
@@ -1241,23 +1297,31 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             PlayerControlTimingSettings playerControlTiming = null,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
             Camera viewCamera = null,
+            GameplayEntityView playerViewPrefabOverride = null,
             GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
-            var playerViewPrefabObject = new GameObject("PlayModeGameplaySceneHost_PlayerViewPrefab");
-            playerViewPrefabObject.transform.SetParent(hostObject.transform, worldPositionStays: false);
-            var playerViewPrefab = playerViewPrefabObject.AddComponent<GameplayEntityView>();
-            playerViewPrefab.Initialize(10);
-            var playerTimingAuthoring = playerViewPrefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
-            playerViewPrefabObject.AddComponent<PlayerAnimatorDriver>();
+            var playerViewPrefab = playerViewPrefabOverride;
+            PlayerAnimationTimingAuthoring playerTimingAuthoring = null;
+            if (playerViewPrefab == null)
+            {
+                var playerViewPrefabObject = new GameObject("PlayModeGameplaySceneHost_PlayerViewPrefab");
+                playerViewPrefabObject.transform.SetParent(hostObject.transform, worldPositionStays: false);
+                playerViewPrefab = playerViewPrefabObject.AddComponent<GameplayEntityView>();
+                playerViewPrefab.Initialize(10);
+                playerTimingAuthoring = playerViewPrefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
+                playerViewPrefabObject.AddComponent<PlayerAnimatorDriver>();
+            }
 
-            if (pushPresentationDurationSeconds > 0f)
+            if (playerTimingAuthoring != null &&
+                pushPresentationDurationSeconds > 0f)
             {
                 SetSerializedField(playerTimingAuthoring, "legacyPushAnimatorDurationSeconds", pushPresentationDurationSeconds);
             }
 
-            if (flipPresentationDurationSeconds > 0f)
+            if (playerTimingAuthoring != null &&
+                flipPresentationDurationSeconds > 0f)
             {
                 SetSerializedField(playerTimingAuthoring, "legacyFlipAnimatorDurationSeconds", flipPresentationDurationSeconds);
             }
@@ -1465,6 +1529,43 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return view.transform.position;
         }
 
+        private static GameplayEntityView LoadPlayerS1ViewPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(PlayerS1PrefabPath);
+            Assert.That(prefab, Is.Not.Null, $"Missing Player_S1 prefab at {PlayerS1PrefabPath}.");
+            return prefab;
+        }
+
+        private static TickResult RunTicksUntil(
+            GameplaySceneHost host,
+            Func<TickResult, bool> predicate,
+            int maxTicks)
+        {
+            for (var i = 0; i < maxTicks; i++)
+            {
+                var result = host.InputHost.RunSingleTick();
+                Assert.That(result, Is.Not.Null, $"Expected tick {i + 1} while waiting for playmode condition.");
+                if (predicate(result))
+                {
+                    return result;
+                }
+            }
+
+            return null;
+        }
+
+        private static void AdvancePresentation(GameplaySceneHost host, float durationSeconds)
+        {
+            var stepSeconds = Mathf.Max(host.TimingProfile.SimulationTickIntervalSeconds, 1f / 60f);
+            var elapsedSeconds = 0f;
+            while (elapsedSeconds < durationSeconds)
+            {
+                var deltaSeconds = Mathf.Min(stepSeconds, durationSeconds - elapsedSeconds);
+                host.Presenter.UpdatePresentation(deltaSeconds);
+                elapsedSeconds += deltaSeconds;
+            }
+        }
+
         private static void AssertViewMatchesProjectedState(GameplaySceneHost host, int entityId)
         {
             var snapshot = CaptureAuthoritativeSnapshot(host);
@@ -1480,6 +1581,22 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(
                 view.transform.position,
                 Is.EqualTo(host.BoardRoot.transform.TransformPoint(projectedPose.LocalPosition)));
+            Assert.That(
+                Quaternion.Angle(
+                    view.transform.rotation,
+                    host.BoardRoot.transform.rotation * projectedRotation),
+                Is.LessThan(0.1f));
+        }
+
+        private static void AssertViewFacing(GameplaySceneHost host, int entityId, Direction expectedFacing)
+        {
+            var snapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
+            var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
+            Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
+            Assert.That(
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, expectedFacing, out var projectedRotation),
+                Is.True);
             Assert.That(
                 Quaternion.Angle(
                     view.transform.rotation,

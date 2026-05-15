@@ -1237,6 +1237,170 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_NormalMoveDirectionChange_CommitsFacingImmediately()
+        {
+            var worldState = CreateWorldState(CreatePlayer(10, facing: Direction.Left));
+            var pipeline = CreateDefaultGameplayPipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Up));
+            Assert.That(result.PresentationData.PlayerFlipResultTurnSignals, Is.Empty);
+            Assert.That(
+                result.PresentationData.ContinuousLocomotionTracks.Any(track =>
+                    track.EntityId == 10 &&
+                    track.DestinationFacing == Direction.Up),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipLeft_StartsFacingLeftAndEndsFacingRight()
+        {
+            AssertImmediateFlipResultFacing(
+                Direction.Left,
+                Direction.Right,
+                new SurfaceCell(FaceId.Floor, -1, 0));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipRight_StartsFacingRightAndEndsFacingLeft()
+        {
+            AssertImmediateFlipResultFacing(
+                Direction.Right,
+                Direction.Left,
+                new SurfaceCell(FaceId.Floor, 1, 0));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipUp_StartsFacingUpAndEndsFacingDown()
+        {
+            AssertImmediateFlipResultFacing(
+                Direction.Up,
+                Direction.Down,
+                new SurfaceCell(FaceId.Floor, 0, 1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipDown_StartsFacingDownAndEndsFacingUp()
+        {
+            AssertImmediateFlipResultFacing(
+                Direction.Down,
+                Direction.Up,
+                new SurfaceCell(FaceId.Floor, 0, -1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_QueuedFlip_StartsFacingActionDirectionAndEndsFacingOpposite()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, facing: Direction.Left),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var queuedResult = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var settledTick = RunUntilSettledWithoutAction(pipeline, worldState, firstTick: 2);
+            var startTick = settledTick + 1;
+            var startResult = pipeline.RunTick(new TickInput(startTick, PlayerTickCommand.None));
+            var startSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(queuedResult.PresentationData.PlayerFlipResultTurnSignals, Is.Empty);
+            Assert.That(queuedResult.Trace.Text, Does.Contain("Free2DActionAssistQueued"));
+            Assert.That(startResult.Trace.Text, Does.Contain("Free2DActionAssistExecute"));
+            Assert.That(startSnapshot.TryGetEntity(10, out var startPlayer), Is.True);
+            Assert.That(startPlayer.facing, Is.EqualTo(Direction.Right));
+            AssertFlipResultTurn(
+                startResult,
+                Direction.Right,
+                Direction.Right,
+                Direction.Left,
+                PlayerFlipResultTurnStartReason.QueuedFlip);
+
+            var executeResult = pipeline.RunTick(new TickInput(startTick + 1, PlayerTickCommand.None));
+            Assert.That(executeResult.Trace.Text, Does.Contain("FlipResultFacingCommitted"));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out var executedPlayer), Is.True);
+            Assert.That(executedPlayer.facing, Is.EqualTo(Direction.Left));
+
+            pipeline.RunTick(new TickInput(startTick + 2, PlayerTickCommand.None));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out var completedPlayer), Is.True);
+            Assert.That(completedPlayer.facing, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipResultTurn_WithKpo_UsesKpoPositionAndResultTurnRotation()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, facing: Direction.Left),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip));
+            SetPlayerContinuousLocalOffset(worldState, localX: 512, localY: 0);
+            var pipeline = CreateActionAssistPipeline(worldState);
+
+            var queuedResult = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var settledTick = RunUntilSettledWithoutAction(pipeline, worldState, firstTick: 2);
+            var executeResult = pipeline.RunTick(new TickInput(settledTick + 1, PlayerTickCommand.None));
+
+            Assert.That(queuedResult.PresentationData.ContinuousLocomotionTracks, Is.Not.Empty);
+            Assert.That(executeResult.PresentationData.ContinuousLocomotionTracks, Is.Empty);
+            AssertFlipResultTurn(
+                executeResult,
+                Direction.Right,
+                Direction.Right,
+                Direction.Left,
+                PlayerFlipResultTurnStartReason.QueuedFlip);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_StationaryFlipWithoutDirection_DropsOrUsesConfiguredFallback()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, facing: Direction.Left),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, -1, 0), BoxCapabilities.Flip));
+            var pipeline = CreateDefaultGameplayPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.None));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerFlipResultTurnSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_PushLeft_DoesNotUseFlipOppositeFacingPolicy()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, facing: Direction.Up),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, -1, 0), BoxCapabilities.Push));
+            var pipeline = CreateDefaultGameplayPipeline(worldState);
+
+            var startResult = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Left)));
+            var startSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(startSnapshot.TryGetEntity(10, out var startPlayer), Is.True);
+            Assert.That(startPlayer.facing, Is.EqualTo(Direction.Left));
+            Assert.That(startResult.PresentationData.PlayerFlipResultTurnSignals, Is.Empty);
+            Assert.That(startResult.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
+
+            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            pipeline.RunTick(new TickInput(3, PlayerTickCommand.None));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(10, out var finalPlayer), Is.True);
+            Assert.That(finalPlayer.facing, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Free2DActionAssist_BoxRadiusClampThenPush()
         {
             var worldState = CreateWorldState(
@@ -2049,6 +2213,62 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return -1;
         }
 
+        private static void AssertImmediateFlipResultFacing(
+            Direction actionDirection,
+            Direction resultFacing,
+            SurfaceCell boxCell)
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10, facing: Direction.Up),
+                CreateBox(20, boxCell, BoxCapabilities.Flip));
+            var pipeline = CreateDefaultGameplayPipeline(worldState);
+
+            var startResult = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(actionDirection)));
+            var startSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(startSnapshot.TryGetEntity(10, out var startPlayer), Is.True);
+            Assert.That(startPlayer.facing, Is.EqualTo(actionDirection));
+            Assert.That(startResult.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            AssertFlipResultTurn(
+                startResult,
+                actionDirection,
+                actionDirection,
+                resultFacing,
+                PlayerFlipResultTurnStartReason.ImmediateFlip);
+
+            var executeResult = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            var executeSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(executeResult.Trace.Text, Does.Contain("FlipResultFacingCommitted"));
+            Assert.That(executeSnapshot.TryGetEntity(10, out var executedPlayer), Is.True);
+            Assert.That(executedPlayer.facing, Is.EqualTo(resultFacing));
+
+            pipeline.RunTick(new TickInput(3, PlayerTickCommand.None));
+            var completedSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(completedSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(completedSnapshot.TryGetEntity(10, out var completedPlayer), Is.True);
+            Assert.That(completedPlayer.facing, Is.EqualTo(resultFacing));
+        }
+
+        private static void AssertFlipResultTurn(
+            TickResult result,
+            Direction actionDirection,
+            Direction contactFacing,
+            Direction resultFacing,
+            PlayerFlipResultTurnStartReason reason)
+        {
+            Assert.That(result.PresentationData.PlayerFlipResultTurnSignals, Has.Count.EqualTo(1));
+            var signal = result.PresentationData.PlayerFlipResultTurnSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(10));
+            Assert.That(signal.ActionDirection, Is.EqualTo(actionDirection));
+            Assert.That(signal.ContactFacing, Is.EqualTo(contactFacing));
+            Assert.That(signal.ResultFacing, Is.EqualTo(resultFacing));
+            Assert.That(signal.StartTick, Is.EqualTo(result.TickIndex));
+            Assert.That(signal.Reason, Is.EqualTo(reason));
+        }
+
         private static IEntityLogic[] CreatePlayerLogics(params IEntityLogic[] extraLogics)
         {
             return new IEntityLogic[]
@@ -2086,12 +2306,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                           record.SourceKind == AttackSourceKind.PassiveContact);
         }
 
-        private static EntityState CreatePlayer(int entityId, int hp = 3)
+        private static EntityState CreatePlayer(int entityId, int hp = 3, Direction facing = Direction.Right)
         {
-            return CreatePlayer(entityId, new SurfaceCell(FaceId.Floor, 0, 0), hp);
+            return CreatePlayer(entityId, new SurfaceCell(FaceId.Floor, 0, 0), hp, facing);
         }
 
-        private static EntityState CreatePlayer(int entityId, SurfaceCell position, int hp = 3)
+        private static EntityState CreatePlayer(
+            int entityId,
+            SurfaceCell position,
+            int hp = 3,
+            Direction facing = Direction.Right)
         {
             return new EntityState
             {
@@ -2102,7 +2326,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 teamId = 1,
                 type = EntityType.Unit,
                 unitRole = UnitRole.Player,
-                facing = Direction.Right,
+                facing = facing,
                 boardPresence = EntityBoardPresence.Occupying,
             };
         }
