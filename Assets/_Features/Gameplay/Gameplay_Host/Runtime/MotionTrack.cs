@@ -265,9 +265,6 @@ namespace Game.Feature.Gameplay.Host
         public const float HoldEndTime = 0.48f;
         public const float SlamEndTime = 0.936f;
 
-        private const float HoldTravelFraction = 0.08f;
-        private const float HoldTumbleFraction = 0.25f;
-
         public static GameplayEntityPose Sample(
             GameplayEntityPose startPose,
             GameplayEntityPose endPose,
@@ -280,16 +277,17 @@ namespace Game.Feature.Gameplay.Host
                 return SampleFallback(startPose, endPose, t);
             }
 
-            var travelFraction = SampleTravelFraction(t);
-            var liftFraction = SampleLiftFraction(t);
-            var tumbleFraction = SampleTumbleFraction(t);
-            var position =
-                Vector3.LerpUnclamped(startPose.Position, endPose.Position, travelFraction) +
-                (liftAxis * (Mathf.Max(0f, peakHeightWorld) * liftFraction));
+            var arcProgress = SampleArcProgress(t);
+            var position = SamplePivotArcPosition(
+                startPose.Position,
+                endPose.Position,
+                liftAxis,
+                arcProgress,
+                peakHeightWorld);
 
             return new GameplayEntityPose(
                 t >= 1f ? endPose.Position : position,
-                SampleFlipRotation(startPose, endPose, tumbleFraction, flipAxis));
+                SampleFlipRotation(startPose, endPose, arcProgress, flipAxis));
         }
 
         private static GameplayEntityPose SampleFallback(
@@ -297,7 +295,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose endPose,
             float normalizedTime)
         {
-            var phaseTime = SampleTravelFraction(normalizedTime);
+            var phaseTime = SampleArcProgress(normalizedTime);
             return new GameplayEntityPose(
                 Vector3.LerpUnclamped(startPose.Position, endPose.Position, phaseTime),
                 Quaternion.SlerpUnclamped(startPose.Rotation, endPose.Rotation, phaseTime));
@@ -317,68 +315,47 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        private static float SampleTravelFraction(float normalizedTime)
+        private static Vector3 SamplePivotArcPosition(
+            Vector3 startPosition,
+            Vector3 endPosition,
+            Vector3 liftAxis,
+            float arcProgress,
+            float peakHeightWorld)
         {
-            var t = Mathf.Clamp01(normalizedTime);
-            if (t <= LiftEndTime)
+            var clampedProgress = Mathf.Clamp01(arcProgress);
+            var travelDelta = endPosition - startPosition;
+            var travelLength = travelDelta.magnitude;
+            if (travelLength <= 0.000001f)
             {
-                return HoldTravelFraction * EaseInQuad(t / LiftEndTime);
+                return Vector3.LerpUnclamped(startPosition, endPosition, clampedProgress);
             }
 
-            if (t <= HoldEndTime)
-            {
-                return HoldTravelFraction;
-            }
-
-            if (t <= SlamEndTime)
-            {
-                var slamTime = (t - HoldEndTime) / (SlamEndTime - HoldEndTime);
-                return Mathf.LerpUnclamped(HoldTravelFraction, 1f, EaseOutCubic(slamTime));
-            }
-
-            return 1f;
+            var travelDirection = travelDelta / travelLength;
+            var pivot = (startPosition + endPosition) * 0.5f;
+            var halfTravel = travelLength * 0.5f;
+            var arcAngle = Mathf.PI * clampedProgress;
+            var alongTravel = -Mathf.Cos(arcAngle) * halfTravel;
+            var lift = Mathf.Sin(arcAngle) * Mathf.Max(0f, peakHeightWorld);
+            return pivot + (travelDirection * alongTravel) + (liftAxis * lift);
         }
 
-        private static float SampleLiftFraction(float normalizedTime)
+        private static float SampleArcProgress(float normalizedTime)
         {
             var t = Mathf.Clamp01(normalizedTime);
             if (t <= LiftEndTime)
             {
-                return EaseInOutQuad(t / LiftEndTime);
+                return 0.5f * EaseOutSine(t / LiftEndTime);
             }
 
             if (t <= HoldEndTime)
             {
-                return 1f;
+                return 0.5f;
             }
 
             if (t <= SlamEndTime)
             {
                 var slamTime = (t - HoldEndTime) / (SlamEndTime - HoldEndTime);
-                return 1f - EaseOutCubic(slamTime);
-            }
-
-            return 0f;
-        }
-
-        private static float SampleTumbleFraction(float normalizedTime)
-        {
-            var t = Mathf.Clamp01(normalizedTime);
-            if (t <= LiftEndTime)
-            {
-                return HoldTumbleFraction * 0.6f * EaseInOutQuad(t / LiftEndTime);
-            }
-
-            if (t <= HoldEndTime)
-            {
-                var holdTime = (t - LiftEndTime) / (HoldEndTime - LiftEndTime);
-                return Mathf.LerpUnclamped(HoldTumbleFraction * 0.6f, HoldTumbleFraction, EaseOutQuad(holdTime));
-            }
-
-            if (t <= SlamEndTime)
-            {
-                var slamTime = (t - HoldEndTime) / (SlamEndTime - HoldEndTime);
-                return Mathf.LerpUnclamped(HoldTumbleFraction, 1f, EaseOutCubic(slamTime));
+                return Mathf.LerpUnclamped(0.5f, 1f, EaseInCubic(slamTime));
             }
 
             return 1f;
@@ -452,22 +429,21 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        private static float EaseInQuad(float t)
-        {
-            var clamped = Mathf.Clamp01(t);
-            return clamped * clamped;
-        }
-
-        private static float EaseOutQuad(float t)
-        {
-            var inverse = 1f - Mathf.Clamp01(t);
-            return 1f - (inverse * inverse);
-        }
-
         private static float EaseOutCubic(float t)
         {
             var inverse = 1f - Mathf.Clamp01(t);
             return 1f - (inverse * inverse * inverse);
+        }
+
+        private static float EaseInCubic(float t)
+        {
+            var clamped = Mathf.Clamp01(t);
+            return clamped * clamped * clamped;
+        }
+
+        private static float EaseOutSine(float t)
+        {
+            return Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI * 0.5f);
         }
 
         private static float EaseInOutQuad(float t)
@@ -483,8 +459,8 @@ namespace Game.Feature.Gameplay.Host
     {
         private static readonly Vector3 FlipPeakScale = new(1.1f, 1.1f, 1.08f);
         private static readonly Vector3 FlipPreImpactScale = new(0.96f, 0.96f, 0.96f);
-        private static readonly Vector3 FlipImpactSquashScale = new(1.13f, 1.13f, 0.82f);
-        private static readonly Vector3 FlipReboundScale = new(0.98f, 0.98f, 1.06f);
+        private static readonly Vector3 FlipImpactSquashScale = new(1.18f, 1.18f, 0.74f);
+        private static readonly Vector3 FlipReboundScale = new(0.95f, 0.95f, 1.10f);
 
         private static readonly Vector3 SlideXStretchScale = new(1.06f, 0.985f, 0.97f);
         private static readonly Vector3 SlideXBrakeScale = new(0.96f, 1.035f, 0.94f);

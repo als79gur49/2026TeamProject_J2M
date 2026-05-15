@@ -52,7 +52,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BoxFlipSlamSampler_LiftsHoldsThenSlamsTowardTarget()
+        public void BoxFlipSlamSampler_LiftsOverPivotHoldsThenSlamsTowardTarget()
         {
             var startPose = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
             var endPose = new GameplayEntityPose(
@@ -86,10 +86,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 peakHeightWorld);
 
             Assert.That(currentSlamDuration, Is.EqualTo(previousSlamDuration * 1.2f).Within(0.0001f));
-            Assert.That(ProjectTravelFraction(startPose.Position, endPose.Position, liftEnd.Position, travelAxis), Is.LessThanOrEqualTo(0.081f));
-            Assert.That(ProjectTravelFraction(startPose.Position, endPose.Position, holdEnd.Position, travelAxis), Is.LessThanOrEqualTo(0.081f));
+            Assert.That(ProjectTravelFraction(startPose.Position, endPose.Position, liftEnd.Position, travelAxis), Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(ProjectTravelFraction(startPose.Position, endPose.Position, holdEnd.Position, travelAxis), Is.EqualTo(0.5f).Within(0.0001f));
             Assert.That(Vector3.Dot(liftEnd.Position - startPose.Position, liftAxis), Is.EqualTo(peakHeightWorld).Within(0.0001f));
             Assert.That(Vector3.Dot(holdEnd.Position - startPose.Position, liftAxis), Is.EqualTo(peakHeightWorld).Within(0.0001f));
+            Assert.That(Quaternion.Angle(liftEnd.Rotation, Quaternion.AngleAxis(90f, Vector3.up)), Is.LessThanOrEqualTo(0.001f));
 
             Assert.That(ProjectTravelFraction(startPose.Position, endPose.Position, slamMidpoint.Position, travelAxis), Is.GreaterThan(0.75f));
             Assert.That(Vector3.Dot(slamMidpoint.Position - startPose.Position, liftAxis), Is.LessThan(peakHeightWorld * 0.2f));
