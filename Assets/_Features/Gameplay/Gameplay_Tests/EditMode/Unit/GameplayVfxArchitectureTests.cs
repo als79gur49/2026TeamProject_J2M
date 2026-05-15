@@ -593,6 +593,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 nameof(TickPresentationData),
                 nameof(CubeTopologyState),
                 nameof(GameplayTimingProfile),
+                "IReadOnlyList`1",
             }));
             Assert.That(properties, Does.Not.Contain("WorldState"));
             Assert.That(properties, Does.Not.Contain("WorldSnapshot"));

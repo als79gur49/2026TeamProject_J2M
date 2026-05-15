@@ -365,6 +365,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_ButtonActiveVisualStates_UseActivatedFlagDesiredState()
+        {
+            var activeCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var inactiveCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var activeButton = CreateTileFeature(
+                100,
+                activeCell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.Activated,
+                sourceEntityId: 10,
+                ownerEntityId: 20,
+                teamId: 1);
+            var inactiveButton = CreateTileFeature(
+                101,
+                inactiveCell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.None);
+            var snapshot = CreateTileFeatureSnapshot(activeButton, inactiveButton);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100),
+                        CreateTileFeatureDefinition(101),
+                    }));
+
+            var state = presentationData.TileFeatureVisualStates.Single();
+            Assert.That(state.TileId, Is.EqualTo(100));
+            Assert.That(state.Cell, Is.EqualTo(activeCell));
+            Assert.That(state.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+            Assert.That(state.IsActive, Is.True);
+            Assert.That(state.SourceEntityId, Is.EqualTo(10));
+            Assert.That(state.OwnerEntityId, Is.EqualTo(20));
+            Assert.That(state.TeamId, Is.EqualTo(1));
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayWorldStateTestFactory_CreateBounded_WithTimingProfile_NormalizesPreExistingProjectileCadence()
         {
