@@ -97,7 +97,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - `DestroyTileTriggered` is a resolver-origin event.
 - The same destroyed entity creates at most one event per tick.
 - Multiple destroyed entities may create multiple events.
-- DestroyTile supports `BottomFaceOnly` and `FrontFaceOnly` activation; default authoring remains `BottomFaceOnly`.
+- DestroyTile supports `BottomFaceOnly`, `FrontFaceOnly`, `ActiveFaceOnly`, and `InactiveFaceOnly` activation; default authoring remains `BottomFaceOnly`.
 - `DestroyTileTriggered` event `TargetEntityId` is the destroyed entity id.
 
 ## SlideTile Policy
