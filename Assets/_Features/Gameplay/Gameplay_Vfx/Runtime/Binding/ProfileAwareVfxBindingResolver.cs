@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.Vfx
                 && profileProvider != null
                 && profileProvider.TryResolveProfileForRequest(request, out var profile)
                 && profile != null
-                && profile.TryResolve(request.CueId, out policy))
+                && profile.TryResolve(request.CueId, request.StyleKey, out policy))
             {
                 return true;
             }
@@ -45,7 +45,7 @@ namespace Game.Feature.Gameplay.Vfx
 
             public bool TryResolve(in GameplayVfxRequest request, out VfxBindingRuntimePolicy policy)
             {
-                return map.TryResolve(request.CueId, out policy);
+                return map.TryResolve(request.CueId, request.StyleKey, out policy);
             }
         }
     }

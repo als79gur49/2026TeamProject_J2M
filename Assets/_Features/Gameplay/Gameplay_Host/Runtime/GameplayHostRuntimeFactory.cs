@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
@@ -168,7 +169,8 @@ namespace Game.Feature.Gameplay.Host
                 faceSeamGap,
                 enemyPresentationArchetypeRegistry,
                 configuration.EnemyPresentationCatalog,
-                configuration.EnemyPresentationBindings);
+                configuration.EnemyPresentationBindings,
+                BuildTileFeatureVfxStyleBindings(configuration.TileFeaturePresentationBindings));
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             presenter.AttachTileFeatureVisualPoseSynchronizer(tileFeatureVisualPoseSynchronizer);
             AttachPresentationExtensions(hostObject, presenter);
@@ -283,6 +285,24 @@ namespace Game.Feature.Gameplay.Host
                 configuration?.StaticEntityPresentationCatalog,
                 configuration?.StaticEntityPresentationBindings,
                 nameof(GameplaySceneHostConfiguration));
+        }
+
+        private static IReadOnlyList<TileFeatureVfxStyleBinding> BuildTileFeatureVfxStyleBindings(
+            IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings)
+        {
+            if (bindings == null || bindings.Count == 0)
+            {
+                return Array.Empty<TileFeatureVfxStyleBinding>();
+            }
+
+            var result = new TileFeatureVfxStyleBinding[bindings.Count];
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var binding = bindings[i];
+                result[i] = new TileFeatureVfxStyleBinding(binding.TileId, binding.VfxStyleKey);
+            }
+
+            return result;
         }
 
         private static void InstantiateStageTileFeatureVisuals(

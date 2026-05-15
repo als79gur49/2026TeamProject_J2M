@@ -2,6 +2,7 @@
   "name": "Game.Feature.Gameplay.Vfx.Authoring",
   "rootNamespace": "Game.Feature.Gameplay.Vfx.Authoring",
   "references": [
+    "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Vfx"
   ]
 }

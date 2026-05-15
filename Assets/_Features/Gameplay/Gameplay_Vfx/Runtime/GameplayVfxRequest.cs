@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay;
 
 namespace Game.Feature.Gameplay.Vfx
 {
@@ -12,7 +13,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxAnchor anchor,
             VfxTimingKind timing,
             bool isPersistent = false,
-            VfxPersistentKey persistentKey = default)
+            VfxPersistentKey persistentKey = default,
+            VfxStyleKey styleKey = default)
             : this(
                 tickIndex,
                 sequenceId,
@@ -22,7 +24,8 @@ namespace Game.Feature.Gameplay.Vfx
                 anchor,
                 timing,
                 isPersistent,
-                persistentKey)
+                persistentKey,
+                styleKey)
         {
         }
 
@@ -35,7 +38,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxAnchor anchor,
             VfxTimingKind timing,
             bool isPersistent = false,
-            VfxPersistentKey persistentKey = default)
+            VfxPersistentKey persistentKey = default,
+            VfxStyleKey styleKey = default)
         {
             TickIndex = tickIndex;
             SequenceId = sequenceId;
@@ -46,6 +50,7 @@ namespace Game.Feature.Gameplay.Vfx
             Timing = timing;
             IsPersistent = isPersistent;
             PersistentKey = persistentKey;
+            StyleKey = styleKey;
         }
 
         public int TickIndex { get; }
@@ -65,6 +70,8 @@ namespace Game.Feature.Gameplay.Vfx
         public bool IsPersistent { get; }
 
         public VfxPersistentKey PersistentKey { get; }
+
+        public VfxStyleKey StyleKey { get; }
 
         public int CompareTo(GameplayVfxRequest other)
         {
@@ -110,6 +117,12 @@ namespace Game.Feature.Gameplay.Vfx
                 return persistentKeyCompare;
             }
 
+            var styleCompare = StyleKey.CompareTo(other.StyleKey);
+            if (styleCompare != 0)
+            {
+                return styleCompare;
+            }
+
             var seedCompare = PresentationSeed.CompareTo(other.PresentationSeed);
             if (seedCompare != 0)
             {
@@ -132,7 +145,8 @@ namespace Game.Feature.Gameplay.Vfx
                 && Anchor.Equals(other.Anchor)
                 && Timing == other.Timing
                 && IsPersistent == other.IsPersistent
-                && PersistentKey.Equals(other.PersistentKey);
+                && PersistentKey.Equals(other.PersistentKey)
+                && StyleKey.Equals(other.StyleKey);
         }
 
         public override bool Equals(object obj)
@@ -153,6 +167,7 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ (int)Timing;
                 hash = (hash * 397) ^ IsPersistent.GetHashCode();
                 hash = (hash * 397) ^ PersistentKey.GetHashCode();
+                hash = (hash * 397) ^ StyleKey.GetHashCode();
                 return hash;
             }
         }
@@ -169,7 +184,8 @@ namespace Game.Feature.Gameplay.Vfx
                 $"{nameof(Anchor)}={Anchor}, " +
                 $"{nameof(Timing)}={Timing}, " +
                 $"{nameof(IsPersistent)}={IsPersistent}, " +
-                $"{nameof(PersistentKey)}={PersistentKey})";
+                $"{nameof(PersistentKey)}={PersistentKey}, " +
+                $"{nameof(StyleKey)}={StyleKey})";
         }
     }
 }

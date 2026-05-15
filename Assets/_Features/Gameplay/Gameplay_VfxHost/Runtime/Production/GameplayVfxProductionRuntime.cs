@@ -603,7 +603,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.Result.TickIndex,
                 context.Result.PresentationData,
                 context.Topology,
-                context.TimingProfile);
+                context.TimingProfile,
+                context.TileFeatureVfxStyleBindings);
             playerPlanner.Plan(planningContext, planBuilder);
             boxPlanner.Plan(planningContext, planBuilder);
             flipImpactBurstPlanner.Plan(planningContext, planBuilder);
@@ -2160,7 +2161,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     enemyProfileProvider.TryResolveProfileAssetForSourceEntity(
                         command.Request.SourceEntityId,
                         out var sourceProfile) &&
-                    sourceProfile.TryResolvePrefab(command.CueId, out prefab))
+                    sourceProfile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
                 {
                     return true;
                 }
@@ -2169,14 +2170,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 {
                     var profile = profiles[i];
                     if (profile != null &&
-                        profile.TryResolvePrefab(command.CueId, out prefab))
+                        profile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
                     {
                         return true;
                     }
                 }
 
                 if (hostDefaultMap != null &&
-                    hostDefaultMap.TryResolvePrefab(command.CueId, out prefab))
+                    hostDefaultMap.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
                 {
                     return true;
                 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using Game.Feature.Gameplay;
 
 namespace Game.Feature.Gameplay.Vfx.Authoring
 {
@@ -8,6 +9,7 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
 #pragma warning disable 0649
         [SerializeField] private GameplayVfxFamily family;
         [SerializeField] private int cueCode;
+        [SerializeField] private VfxStyleKey styleKey;
         [SerializeField] private GameObject prefab;
         [SerializeField] private VfxBindingRequirement requirement;
         [SerializeField] private VfxMissingAnchorPolicy missingAnchorPolicy;
@@ -20,6 +22,10 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
 #pragma warning restore 0649
 
         public GameplayVfxCueId CueId => new GameplayVfxCueId(family, cueCode);
+
+        public VfxStyleKey StyleKey => styleKey;
+
+        public VfxBindingKey BindingKey => new(CueId, styleKey);
 
         public GameObject Prefab => prefab;
 
@@ -65,7 +71,8 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 stopPolicy,
                 defaultLifetimeSeconds,
                 tailSeconds,
-                maxConcurrentInstances);
+                maxConcurrentInstances,
+                styleKey);
         }
 
         private void LogValidationMessages(VfxAuthoringValidationResult result)
@@ -75,11 +82,11 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 var message = result.Messages[i];
                 if (message.Severity == VfxAuthoringValidationSeverity.Error)
                 {
-                    Debug.LogError(message.ToString(), message.Context != null ? message.Context : this);
+                    UnityEngine.Debug.LogError(message.ToString(), message.Context != null ? message.Context : this);
                 }
                 else if (message.Severity == VfxAuthoringValidationSeverity.Warning)
                 {
-                    Debug.LogWarning(message.ToString(), message.Context != null ? message.Context : this);
+                    UnityEngine.Debug.LogWarning(message.ToString(), message.Context != null ? message.Context : this);
                 }
             }
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Shared.AudioContracts;
@@ -15,7 +16,8 @@ namespace Game.Feature.Stages
                 tileId,
                 visualPrefab,
                 TileFeatureVisualPlacementMode.Overlay,
-                TileFeatureVisualFootprintMode.SingleCell)
+                TileFeatureVisualFootprintMode.SingleCell,
+                VfxStyleKey.Default)
         {
         }
 
@@ -23,7 +25,7 @@ namespace Game.Feature.Stages
             int tileId,
             GameObject visualPrefab,
             TileFeatureVisualPlacementMode placementMode)
-            : this(tileId, visualPrefab, placementMode, TileFeatureVisualFootprintMode.SingleCell)
+            : this(tileId, visualPrefab, placementMode, TileFeatureVisualFootprintMode.SingleCell, VfxStyleKey.Default)
         {
         }
 
@@ -32,11 +34,22 @@ namespace Game.Feature.Stages
             GameObject visualPrefab,
             TileFeatureVisualPlacementMode placementMode,
             TileFeatureVisualFootprintMode footprintMode)
+            : this(tileId, visualPrefab, placementMode, footprintMode, VfxStyleKey.Default)
+        {
+        }
+
+        public TileFeaturePresentationResolvedBinding(
+            int tileId,
+            GameObject visualPrefab,
+            TileFeatureVisualPlacementMode placementMode,
+            TileFeatureVisualFootprintMode footprintMode,
+            VfxStyleKey vfxStyleKey)
         {
             TileId = tileId;
             VisualPrefab = visualPrefab;
             PlacementMode = placementMode;
             FootprintMode = footprintMode;
+            VfxStyleKey = vfxStyleKey;
         }
 
         public int TileId { get; }
@@ -46,6 +59,8 @@ namespace Game.Feature.Stages
         public TileFeatureVisualPlacementMode PlacementMode { get; }
 
         public TileFeatureVisualFootprintMode FootprintMode { get; }
+
+        public VfxStyleKey VfxStyleKey { get; }
     }
 
     public sealed class StagePresentationResolvedData
@@ -465,7 +480,8 @@ namespace Game.Feature.Stages
                             directBinding.TileId,
                             directBinding.VisualPrefab,
                             directPlacementMode,
-                            directFootprintMode));
+                            directFootprintMode,
+                            ResolveCatalogKeyVfxStyle(catalog, tileFeature)));
                         continue;
                     }
 
@@ -478,7 +494,8 @@ namespace Game.Feature.Stages
                             tileFeature.TileId,
                             catalogEntry.VisualPrefab,
                             catalogEntry.PlacementMode,
-                            catalogEntry.FootprintMode));
+                            catalogEntry.FootprintMode,
+                            catalogEntry.VfxStyleKey));
                     }
                 }
             }
@@ -580,6 +597,25 @@ namespace Game.Feature.Stages
 
             placementMode = entry.PlacementMode;
             footprintMode = entry.FootprintMode;
+        }
+
+        private static VfxStyleKey ResolveCatalogKeyVfxStyle(
+            TileFeaturePresentationCatalog catalog,
+            StageTileFeatureDefinition tileFeature)
+        {
+            if (catalog == null)
+            {
+                return VfxStyleKey.Default;
+            }
+
+            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+            if (string.IsNullOrEmpty(presentationKey) ||
+                !catalog.TryGetEntry(presentationKey, out var entry))
+            {
+                return VfxStyleKey.Default;
+            }
+
+            return entry.VfxStyleKey;
         }
 
         private static IReadOnlyList<SurfaceCell> BuildSuppressedBaseTileCells(

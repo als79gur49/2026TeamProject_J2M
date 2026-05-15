@@ -1201,6 +1201,24 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                if (tileFeature.Kind == TileFeatureKind.Button)
+                {
+                    if ((tileFeature.Flags & TileFeatureFlags.Activated) == 0)
+                    {
+                        continue;
+                    }
+
+                    visualStates.Add(new TileFeatureVisualState(
+                        tileFeature.TileId,
+                        tileFeature.Cell,
+                        tileFeature.Kind,
+                        true,
+                        tileFeature.SourceEntityId,
+                        tileFeature.OwnerEntityId,
+                        tileFeature.TeamId));
+                    continue;
+                }
+
                 if (tileFeature.Kind == TileFeatureKind.Barricade)
                 {
                     if (!TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology))

@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.Vfx
             var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
             if (request.IsPersistent)
             {
-                if (persistentRegistry.GetOrStart(command, pool) != null)
+                if (persistentRegistry.GetOrStart(command, pool, lifetimeRunner) != null)
                 {
                     persistentRegistry.MarkDesired(request.PersistentKey);
                 }
@@ -93,6 +93,12 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 CompatibilityFailureCount++;
                 throw new InvalidOperationException("Gameplay VFX binding cue does not match request cue.");
+            }
+
+            if (policy.StyleKey != request.StyleKey)
+            {
+                CompatibilityFailureCount++;
+                throw new InvalidOperationException("Gameplay VFX binding style does not match request style.");
             }
 
             if (request.IsPersistent)

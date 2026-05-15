@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay;
 
 namespace Game.Feature.Gameplay.Vfx
 {
@@ -12,9 +13,11 @@ namespace Game.Feature.Gameplay.Vfx
             VfxStopPolicy stopPolicy,
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
-            int maxConcurrentInstances = 0)
+            int maxConcurrentInstances = 0,
+            VfxStyleKey styleKey = default)
         {
             CueId = cueId;
+            StyleKey = styleKey;
             Requirement = requirement;
             MissingAnchorPolicy = missingAnchorPolicy;
             PlaybackMode = playbackMode;
@@ -25,6 +28,8 @@ namespace Game.Feature.Gameplay.Vfx
         }
 
         public GameplayVfxCueId CueId { get; }
+
+        public VfxStyleKey StyleKey { get; }
 
         public VfxBindingRequirement Requirement { get; }
 
@@ -49,7 +54,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.SkipOptional,
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
-            int maxConcurrentInstances = 0)
+            int maxConcurrentInstances = 0,
+            VfxStyleKey styleKey = default)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -59,7 +65,8 @@ namespace Game.Feature.Gameplay.Vfx
                 stopPolicy,
                 defaultLifetimeSeconds,
                 tailSeconds,
-                maxConcurrentInstances);
+                maxConcurrentInstances,
+                styleKey);
         }
 
         public static VfxBindingRuntimePolicy Required(
@@ -69,7 +76,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.FailFast,
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
-            int maxConcurrentInstances = 0)
+            int maxConcurrentInstances = 0,
+            VfxStyleKey styleKey = default)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -79,7 +87,8 @@ namespace Game.Feature.Gameplay.Vfx
                 stopPolicy,
                 defaultLifetimeSeconds,
                 tailSeconds,
-                maxConcurrentInstances);
+                maxConcurrentInstances,
+                styleKey);
         }
 
         public void ValidateOrThrow()
@@ -93,6 +102,7 @@ namespace Game.Feature.Gameplay.Vfx
         public bool Equals(VfxBindingRuntimePolicy other)
         {
             return CueId.Equals(other.CueId)
+                && StyleKey.Equals(other.StyleKey)
                 && Requirement == other.Requirement
                 && MissingAnchorPolicy == other.MissingAnchorPolicy
                 && PlaybackMode == other.PlaybackMode
@@ -112,6 +122,7 @@ namespace Game.Feature.Gameplay.Vfx
             unchecked
             {
                 var hash = CueId.GetHashCode();
+                hash = (hash * 397) ^ StyleKey.GetHashCode();
                 hash = (hash * 397) ^ (int)Requirement;
                 hash = (hash * 397) ^ (int)MissingAnchorPolicy;
                 hash = (hash * 397) ^ (int)PlaybackMode;

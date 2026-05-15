@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx.Authoring
@@ -28,6 +29,11 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
 
         public bool TryResolvePrefab(GameplayVfxCueId cueId, out GameObject prefab)
         {
+            return TryResolvePrefab(cueId, VfxStyleKey.Default, out prefab);
+        }
+
+        public bool TryResolvePrefab(GameplayVfxCueId cueId, VfxStyleKey styleKey, out GameObject prefab)
+        {
             if (cueId.Family != family)
             {
                 prefab = null;
@@ -36,7 +42,8 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
 
             foreach (var binding in GetOrderedBindings())
             {
-                if (binding.CueId == cueId)
+                if (binding.CueId == cueId &&
+                    binding.StyleKey == styleKey)
                 {
                     prefab = binding.Prefab;
                     return prefab != null;
@@ -72,7 +79,7 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         {
             return (bindings ?? Array.Empty<VfxBindingDefinitionAsset>())
                 .Where(binding => binding != null)
-                .OrderBy(binding => binding.CueId);
+                .OrderBy(binding => binding.BindingKey);
         }
 
         private void LogValidationMessages(VfxAuthoringValidationResult result)
@@ -82,11 +89,11 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 var message = result.Messages[i];
                 if (message.Severity == VfxAuthoringValidationSeverity.Error)
                 {
-                    Debug.LogError(message.ToString(), message.Context != null ? message.Context : this);
+                    UnityEngine.Debug.LogError(message.ToString(), message.Context != null ? message.Context : this);
                 }
                 else if (message.Severity == VfxAuthoringValidationSeverity.Warning)
                 {
-                    Debug.LogWarning(message.ToString(), message.Context != null ? message.Context : this);
+                    UnityEngine.Debug.LogWarning(message.ToString(), message.Context != null ? message.Context : this);
                 }
             }
         }

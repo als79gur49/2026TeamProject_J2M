@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.Vfx
     public sealed class VfxPersistentHandleRegistry
     {
         private readonly Dictionary<VfxPersistentKey, IVfxPlaybackHandle> activeHandles = new();
+        private readonly Dictionary<VfxPersistentKey, VfxBindingRuntimePolicy> activePolicies = new();
         private readonly Dictionary<VfxPersistentKey, VfxStopPolicy> stopPolicies = new();
         private readonly HashSet<VfxPersistentKey> desiredKeys = new();
 
@@ -19,7 +20,8 @@ namespace Game.Feature.Gameplay.Vfx
 
         public IVfxPlaybackHandle GetOrStart(
             in ResolvedVfxPlaybackCommand command,
-            IVfxPool pool)
+            IVfxPool pool,
+            VfxLifetimeRunner lifetimeRunner = null)
         {
             if (pool == null)
             {
@@ -27,6 +29,36 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             if (activeHandles.TryGetValue(command.PersistentKey, out var existing))
+            {
+                if (!IsSameBinding(command.PersistentKey, command.Policy))
+                {
+                    if (!CanStop(existing))
+                    {
+                        stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+                        return existing;
+                    }
+
+                    var oldStopPolicy = stopPolicies.TryGetValue(command.PersistentKey, out var storedPolicy)
+                        ? storedPolicy
+                        : VfxStopPolicy.StopEmittingThenRelease;
+                    if (lifetimeRunner == null)
+                    {
+                        throw new ArgumentNullException(nameof(lifetimeRunner));
+                    }
+
+                    lifetimeRunner.Stop(existing, oldStopPolicy);
+                    activeHandles.Remove(command.PersistentKey);
+                    activePolicies.Remove(command.PersistentKey);
+                    stopPolicies.Remove(command.PersistentKey);
+                }
+                else
+                {
+                    stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+                    return existing;
+                }
+            }
+
+            if (activeHandles.TryGetValue(command.PersistentKey, out existing))
             {
                 stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
                 return existing;
@@ -39,6 +71,7 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             activeHandles.Add(command.PersistentKey, handle);
+            activePolicies.Add(command.PersistentKey, command.Policy);
             stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
             return handle;
         }
@@ -82,6 +115,7 @@ namespace Game.Feature.Gameplay.Vfx
                     || pair.Value.State == VfxLifetimeState.HardCleanup)
                 {
                     activeHandles.Remove(pair.Key);
+                    activePolicies.Remove(pair.Key);
                     stopPolicies.Remove(pair.Key);
                 }
             }
@@ -104,8 +138,15 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             activeHandles.Clear();
+            activePolicies.Clear();
             stopPolicies.Clear();
             desiredKeys.Clear();
+        }
+
+        private bool IsSameBinding(VfxPersistentKey key, VfxBindingRuntimePolicy policy)
+        {
+            return activePolicies.TryGetValue(key, out var existingPolicy) &&
+                   existingPolicy == policy;
         }
 
         private static bool CanStop(IVfxPlaybackHandle handle)

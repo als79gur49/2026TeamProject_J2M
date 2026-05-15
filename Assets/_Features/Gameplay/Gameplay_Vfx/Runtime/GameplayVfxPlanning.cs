@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -23,12 +25,14 @@ namespace Game.Feature.Gameplay.Vfx
             int tickIndex,
             TickPresentationData presentationData,
             CubeTopologyState topology,
-            GameplayTimingProfile timingProfile = null)
+            GameplayTimingProfile timingProfile = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
         {
             TickIndex = tickIndex;
             PresentationData = presentationData;
             Topology = topology;
             TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? Array.Empty<TileFeatureVfxStyleBinding>();
         }
 
         public int TickIndex { get; }
@@ -38,6 +42,8 @@ namespace Game.Feature.Gameplay.Vfx
         public CubeTopologyState Topology { get; }
 
         public GameplayTimingProfile TimingProfile { get; }
+
+        public IReadOnlyList<TileFeatureVfxStyleBinding> TileFeatureVfxStyleBindings { get; }
     }
 
     public sealed class PlayerVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
@@ -738,8 +744,30 @@ namespace Game.Feature.Gameplay.Vfx
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation,
                         isPersistent: true,
-                        persistentKey: key));
+                        persistentKey: key,
+                        styleKey: ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId)));
             }
+        }
+
+        private static VfxStyleKey ResolveTileFeatureStyleKey(
+            IReadOnlyList<TileFeatureVfxStyleBinding> bindings,
+            int tileId)
+        {
+            if (bindings == null || tileId <= 0)
+            {
+                return VfxStyleKey.Default;
+            }
+
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var binding = bindings[i];
+                if (binding.TileId == tileId)
+                {
+                    return binding.StyleKey;
+                }
+            }
+
+            return VfxStyleKey.Default;
         }
 
         private static bool TryResolveActiveLoopCue(
@@ -748,6 +776,9 @@ namespace Game.Feature.Gameplay.Vfx
         {
             switch (kind)
             {
+                case TileFeatureKind.Button:
+                    cue = TileFeatureVfxCue.ButtonActiveLoop;
+                    return true;
                 case TileFeatureKind.Barricade:
                     cue = TileFeatureVfxCue.BarricadeActiveLoop;
                     return true;

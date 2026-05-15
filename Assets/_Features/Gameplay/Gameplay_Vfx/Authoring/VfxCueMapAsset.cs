@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx.Authoring
@@ -23,9 +24,15 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
 
         public bool TryResolvePrefab(GameplayVfxCueId cueId, out GameObject prefab)
         {
+            return TryResolvePrefab(cueId, VfxStyleKey.Default, out prefab);
+        }
+
+        public bool TryResolvePrefab(GameplayVfxCueId cueId, VfxStyleKey styleKey, out GameObject prefab)
+        {
             foreach (var binding in GetOrderedBindings())
             {
-                if (binding.CueId == cueId)
+                if (binding.CueId == cueId &&
+                    binding.StyleKey == styleKey)
                 {
                     prefab = binding.Prefab;
                     return prefab != null;
@@ -47,7 +54,7 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         {
             return (bindings ?? Array.Empty<VfxBindingDefinitionAsset>())
                 .Where(binding => binding != null)
-                .OrderBy(binding => binding.CueId);
+                .OrderBy(binding => binding.BindingKey);
         }
 
         internal static void AppendBindingArrayMessages(
@@ -62,7 +69,7 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 throw new ArgumentNullException(nameof(messages));
             }
 
-            var seen = new HashSet<GameplayVfxCueId>();
+            var seen = new HashSet<VfxBindingKey>();
             var entries = bindings ?? Array.Empty<VfxBindingDefinitionAsset>();
             for (var i = 0; i < entries.Count; i++)
             {
@@ -77,11 +84,12 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 }
 
                 var cueId = binding.CueId;
-                if (!cueId.IsNone && !seen.Add(cueId))
+                var bindingKey = binding.BindingKey;
+                if (!cueId.IsNone && !seen.Add(bindingKey))
                 {
                     messages.Add(VfxAuthoringValidationResult.Error(
                         "VFX_CUE_MAP_DUPLICATE_CUE",
-                        $"{ownerName ?? "VFX cue map"} contains duplicate VFX cue '{cueId}'.",
+                        $"{ownerName ?? "VFX cue map"} contains duplicate VFX binding '{bindingKey}'.",
                         binding));
                 }
 
@@ -106,11 +114,11 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 var message = result.Messages[i];
                 if (message.Severity == VfxAuthoringValidationSeverity.Error)
                 {
-                    Debug.LogError(message.ToString(), message.Context != null ? message.Context : this);
+                    UnityEngine.Debug.LogError(message.ToString(), message.Context != null ? message.Context : this);
                 }
                 else if (message.Severity == VfxAuthoringValidationSeverity.Warning)
                 {
-                    Debug.LogWarning(message.ToString(), message.Context != null ? message.Context : this);
+                    UnityEngine.Debug.LogWarning(message.ToString(), message.Context != null ? message.Context : this);
                 }
             }
         }

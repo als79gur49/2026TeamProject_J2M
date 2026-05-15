@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
@@ -13,7 +15,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayCubeProjector projector,
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
-            GameplayTimingProfile timingProfile = null)
+            GameplayTimingProfile timingProfile = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
         {
             Result = result;
             Topology = topology;
@@ -22,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog = enemyPresentationCatalog;
             EnemyPresentationBindings = enemyPresentationBindings ?? System.Array.Empty<EnemyPresentationBinding>();
             TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? System.Array.Empty<TileFeatureVfxStyleBinding>();
         }
 
         public TickResult Result { get; }
@@ -37,6 +41,8 @@ namespace Game.Feature.Gameplay.Host
         public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
 
         public GameplayTimingProfile TimingProfile { get; }
+
+        public IReadOnlyList<TileFeatureVfxStyleBinding> TileFeatureVfxStyleBindings { get; }
     }
 
     public interface IGameplayTickPresentationExtension

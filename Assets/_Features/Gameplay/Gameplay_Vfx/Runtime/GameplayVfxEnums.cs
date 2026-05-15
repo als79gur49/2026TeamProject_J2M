@@ -89,6 +89,7 @@ namespace Game.Feature.Gameplay.Vfx
         MoonBlockGenerated = 20,
         DestroyTileLaserActive = 21,
         BarricadeActiveLoop = 22,
+        ButtonActiveLoop = 23,
     }
 
     public enum GravityFieldVfxCue
