@@ -1814,6 +1814,41 @@ namespace Game.Feature.Gameplay.Loop
         public CubeTopologyState Topology { get; }
     }
 
+    public readonly struct TickPlayerFlipResultTurnSignal
+    {
+        public TickPlayerFlipResultTurnSignal(
+            int entityId,
+            int actionSequence,
+            Direction actionDirection,
+            Direction contactFacing,
+            Direction resultFacing,
+            int startTick,
+            PlayerFlipResultTurnStartReason reason)
+        {
+            EntityId = entityId;
+            ActionSequence = actionSequence;
+            ActionDirection = actionDirection;
+            ContactFacing = contactFacing;
+            ResultFacing = resultFacing;
+            StartTick = startTick;
+            Reason = reason;
+        }
+
+        public int EntityId { get; }
+
+        public int ActionSequence { get; }
+
+        public Direction ActionDirection { get; }
+
+        public Direction ContactFacing { get; }
+
+        public Direction ResultFacing { get; }
+
+        public int StartTick { get; }
+
+        public PlayerFlipResultTurnStartReason Reason { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
@@ -1856,6 +1891,7 @@ namespace Game.Feature.Gameplay.Loop
         private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
         private readonly ReadOnlyCollection<TickPlayerActionPresentationSignal> _playerActionSignals;
         private readonly ReadOnlyCollection<TickPlayerActionAttemptPresentationSignal> _playerActionAttemptSignals;
+        private readonly ReadOnlyCollection<TickPlayerFlipResultTurnSignal> _playerFlipResultTurnSignals;
         private readonly ReadOnlyCollection<TickPlayerDamagePresentationSignal> _playerDamageSignals;
         private readonly ReadOnlyCollection<TickPlayerDeathHoldPresentationSignal> _playerDeathHoldSignals;
         private readonly ReadOnlyCollection<TickPlayerDeathPresentationSignal> _playerDeathSignals;
@@ -2205,7 +2241,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
-            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
         {
             if (entityMotions == null)
             {
@@ -2303,6 +2340,9 @@ namespace Game.Feature.Gameplay.Loop
             _playerActionAttemptSignals = new ReadOnlyCollection<TickPlayerActionAttemptPresentationSignal>(
                 new List<TickPlayerActionAttemptPresentationSignal>(
                     playerActionAttemptSignals ?? Array.Empty<TickPlayerActionAttemptPresentationSignal>()));
+            _playerFlipResultTurnSignals = new ReadOnlyCollection<TickPlayerFlipResultTurnSignal>(
+                new List<TickPlayerFlipResultTurnSignal>(
+                    playerFlipResultTurnSignals ?? Array.Empty<TickPlayerFlipResultTurnSignal>()));
             _playerLocomotionSignals = new ReadOnlyCollection<TickPlayerLocomotionPresentationSignal>(
                 new List<TickPlayerLocomotionPresentationSignal>(playerLocomotionSignals));
             _playerDamageSignals = new ReadOnlyCollection<TickPlayerDamagePresentationSignal>(
@@ -2376,7 +2416,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
-            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2400,7 +2441,8 @@ namespace Game.Feature.Gameplay.Loop
                 enemyUtilitySignals: enemyUtilitySignals,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
-                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates)
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
+                playerFlipResultTurnSignals: playerFlipResultTurnSignals)
         {
         }
 
@@ -2466,7 +2508,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
-            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2494,7 +2537,8 @@ namespace Game.Feature.Gameplay.Loop
                 enemyUtilitySignals: enemyUtilitySignals,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
-                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates)
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
+                playerFlipResultTurnSignals: playerFlipResultTurnSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -2538,7 +2582,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
-            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null)
+            IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2567,7 +2612,8 @@ namespace Game.Feature.Gameplay.Loop
                 enemyUtilitySignals,
                 boxSlideStartSignals,
                 tileFeatureVisualStates,
-                tileFeatureActiveVisualStates)
+                tileFeatureActiveVisualStates,
+                playerFlipResultTurnSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -2616,6 +2662,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<TickPlayerActionAttemptPresentationSignal> PlayerActionAttemptSignals =>
             _playerActionAttemptSignals;
+
+        public IReadOnlyList<TickPlayerFlipResultTurnSignal> PlayerFlipResultTurnSignals =>
+            _playerFlipResultTurnSignals;
 
         public IReadOnlyList<TickPlayerLocomotionPresentationSignal> PlayerLocomotionSignals => _playerLocomotionSignals;
 

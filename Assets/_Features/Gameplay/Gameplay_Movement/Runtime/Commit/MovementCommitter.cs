@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.PlayerControl;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Movement.Commit
 {
@@ -1110,6 +1111,12 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             var delta = intent.Destination - source.position;
+            var actionDirection = ResolveFlipActionDirection(delta, group);
+            return DirectionUtility.Opposite(actionDirection);
+        }
+
+        private static Direction ResolveFlipActionDirection(Vector2Int delta, ActionGroup group)
+        {
             if (delta.x == 0 && delta.y == 1)
             {
                 return Direction.Up;

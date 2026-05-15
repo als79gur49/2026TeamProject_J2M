@@ -77,12 +77,74 @@ namespace Game.Feature.Gameplay.PlayerControl
         public Direction Direction { get; }
     }
 
+    public enum PlayerFlipResultTurnStartReason
+    {
+        None = 0,
+        ImmediateFlip = 1,
+        QueuedFlip = 2,
+    }
+
+    public readonly struct PlayerFlipResultTurnTransition
+    {
+        public PlayerFlipResultTurnTransition(
+            int entityId,
+            int actionSequence,
+            Direction actionDirection,
+            Direction contactFacing,
+            Direction resultFacing,
+            int startTick,
+            PlayerFlipResultTurnStartReason reason)
+        {
+            EntityId = entityId;
+            ActionSequence = actionSequence;
+            ActionDirection = actionDirection;
+            ContactFacing = contactFacing;
+            ResultFacing = resultFacing;
+            StartTick = startTick;
+            Reason = reason;
+        }
+
+        public int EntityId { get; }
+
+        public int ActionSequence { get; }
+
+        public Direction ActionDirection { get; }
+
+        public Direction ContactFacing { get; }
+
+        public Direction ResultFacing { get; }
+
+        public int StartTick { get; }
+
+        public PlayerFlipResultTurnStartReason Reason { get; }
+
+        public bool HasFlipResultTurn =>
+            EntityId > 0 &&
+            ActionSequence > 0 &&
+            DirectionUtility.IsCardinal(ActionDirection) &&
+            ContactFacing == ActionDirection &&
+            ResultFacing == DirectionUtility.Opposite(ActionDirection) &&
+            DirectionUtility.IsCardinal(ContactFacing) &&
+            DirectionUtility.IsCardinal(ResultFacing) &&
+            ContactFacing != ResultFacing &&
+            Reason != PlayerFlipResultTurnStartReason.None;
+    }
+
     public readonly struct PlayerActionTransition
     {
         public PlayerActionTransition(
             int entityId,
             in PlayerActionRuntimeState previousAction,
             in PlayerActionRuntimeState currentAction)
+            : this(entityId, previousAction, currentAction, default)
+        {
+        }
+
+        public PlayerActionTransition(
+            int entityId,
+            in PlayerActionRuntimeState previousAction,
+            in PlayerActionRuntimeState currentAction,
+            PlayerFlipResultTurnTransition flipResultTurnTransition)
         {
             EntityId = entityId;
             PreviousKind = previousAction.kind;
@@ -98,6 +160,12 @@ namespace Game.Feature.Gameplay.PlayerControl
             CanceledThisTick = previousAction.kind != PlayerActionKind.None &&
                                currentAction.kind == PlayerActionKind.None &&
                                !previousAction.executionAttempted;
+            FlipResultTurnTransition = flipResultTurnTransition.HasFlipResultTurn &&
+                                       currentAction.kind == PlayerActionKind.Flip &&
+                                       currentAction.sequence == flipResultTurnTransition.ActionSequence &&
+                                       StartedThisTick
+                ? flipResultTurnTransition
+                : default;
         }
 
         public int EntityId { get; }
@@ -115,6 +183,8 @@ namespace Game.Feature.Gameplay.PlayerControl
         public bool CompletedThisTick { get; }
 
         public bool CanceledThisTick { get; }
+
+        public PlayerFlipResultTurnTransition FlipResultTurnTransition { get; }
     }
 
     internal static class PlayerControlQueries

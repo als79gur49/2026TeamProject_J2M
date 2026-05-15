@@ -112,6 +112,7 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedLocalTargetPoses,
                 projector,
                 timingProfile);
+            RefreshPlayerFlipResultTurnTracks(result, projector, timingProfile);
             RefreshGlidePresentationOffsets(presentationData, projector);
             RefreshVisibilityTracks(
                 presentationData,
@@ -206,6 +207,53 @@ namespace Game.Feature.Gameplay.Host
                 var track = new RotationTrack();
                 track.Append(RotationClip.Create(startRotation, endRotation, durationSeconds));
                 _trackState.JumpWindupRotationTracks[signal.EntityId] = track;
+            }
+        }
+
+        private void RefreshPlayerFlipResultTurnTracks(
+            TickResult result,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile)
+        {
+            var signals = result.PresentationData.PlayerFlipResultTurnSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!TryGetFinalEntity(result.FinalEntities, signal.EntityId, out var entity) ||
+                    entity.boardPresence != EntityBoardPresence.Occupying ||
+                    !_poseResolver.TryResolveLocalPose(
+                        projector,
+                        signal.EntityId,
+                        entity.position,
+                        result.FinalTopology,
+                        signal.ContactFacing,
+                        out var contactPose) ||
+                    !_poseResolver.TryResolveLocalPose(
+                        projector,
+                        signal.EntityId,
+                        entity.position,
+                        result.FinalTopology,
+                        signal.ResultFacing,
+                        out var resultPose))
+                {
+                    _trackState.PlayerFlipResultTurnTracks.Remove(signal.EntityId);
+                    continue;
+                }
+
+                var durationSeconds = _motionTimingResolver.ResolvePlayerMotionDurationSeconds(
+                    signal.EntityId,
+                    PlayerActionKind.Flip,
+                    timingProfile);
+                if (durationSeconds <= 0f ||
+                    Quaternion.Angle(contactPose.Rotation, resultPose.Rotation) <= 0.01f)
+                {
+                    _trackState.PlayerFlipResultTurnTracks.Remove(signal.EntityId);
+                    continue;
+                }
+
+                var track = new RotationTrack();
+                track.Append(RotationClip.Create(contactPose.Rotation, resultPose.Rotation, durationSeconds));
+                _trackState.PlayerFlipResultTurnTracks[signal.EntityId] = track;
             }
         }
 

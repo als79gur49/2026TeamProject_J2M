@@ -62,6 +62,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.CompletedMotionVisualScaleEntityIds.Clear();
             _trackState.CompletedJumpTrackIds.Clear();
             _trackState.CompletedJumpWindupRotationTrackIds.Clear();
+            _trackState.CompletedPlayerFlipResultTurnTrackIds.Clear();
             _trackState.CompletedVisibilityTrackIds.Clear();
             _trackState.VisibleEntityIds.Clear();
             _stateStore.EnemyVisualFactsByEntityId.Clear();
@@ -162,6 +163,17 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
+                if (_trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var playerFlipResultTurnTrack) &&
+                    playerFlipResultTurnTrack.HasClips)
+                {
+                    var rotation = playerFlipResultTurnTrack.SampleAndAdvance(deltaTime, localPose.Rotation);
+                    localPose = new GameplayEntityPose(localPose.Position, rotation);
+                    if (!playerFlipResultTurnTrack.HasClips)
+                    {
+                        _trackState.CompletedPlayerFlipResultTurnTrackIds.Add(entityId);
+                    }
+                }
+
                 var hasActiveLocalMotion = _trackState.LocalMotionTracks.TryGetValue(
                     entityId,
                     out var activeMotionTrack) &&
@@ -232,6 +244,7 @@ namespace Game.Feature.Gameplay.Host
             CleanupCompletedOriginalViewMotionTracks();
             CleanupCompletedJumpTracks();
             CleanupCompletedJumpWindupRotationTracks();
+            CleanupCompletedPlayerFlipResultTurnTracks();
             CleanupCompletedVisibilityTracks();
             ApplyPendingFlipInteractionResets();
             ApplyFlipInteractionTracks(deltaTime);
@@ -280,6 +293,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             foreach (var pair in _trackState.PlayerDeathHoldPoses)
+            {
+                AddProcessingEntityId(pair.Key);
+            }
+
+            foreach (var pair in _trackState.PlayerFlipResultTurnTracks)
             {
                 AddProcessingEntityId(pair.Key);
             }
@@ -359,6 +377,14 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _trackState.CompletedJumpWindupRotationTrackIds.Count; i++)
             {
                 _trackState.JumpWindupRotationTracks.Remove(_trackState.CompletedJumpWindupRotationTrackIds[i]);
+            }
+        }
+
+        private void CleanupCompletedPlayerFlipResultTurnTracks()
+        {
+            for (var i = 0; i < _trackState.CompletedPlayerFlipResultTurnTrackIds.Count; i++)
+            {
+                _trackState.PlayerFlipResultTurnTracks.Remove(_trackState.CompletedPlayerFlipResultTurnTrackIds[i]);
             }
         }
 

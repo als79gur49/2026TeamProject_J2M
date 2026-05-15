@@ -723,6 +723,7 @@ namespace Game.Feature.Gameplay.Loop
             var frontFaceShieldWindupWarnings = new List<TickFrontFaceShieldWindupWarningSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerActionAttemptSignals = new List<TickPlayerActionAttemptPresentationSignal>();
+            var playerFlipResultTurnSignals = new List<TickPlayerFlipResultTurnSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
             var playerDeathHoldSignals = new List<TickPlayerDeathHoldPresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
@@ -757,6 +758,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildRespawnPresentation(context, visibilityChanges);
             BuildPlayerPresentation(context, playerActionSignals);
+            BuildPlayerFlipResultTurnPresentation(context, playerFlipResultTurnSignals);
             BuildPlayerActionAttemptPresentation(context, playerActionAttemptSignals);
             BuildPlayerDamagePresentation(context, playerDamageSignals);
             BuildPlayerDeathPresentation(context, playerDeathSignals);
@@ -792,6 +794,7 @@ namespace Game.Feature.Gameplay.Loop
                    boxSlideStartSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerActionAttemptSignals.Count == 0 &&
+                   playerFlipResultTurnSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
                    playerDeathHoldSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
@@ -841,7 +844,8 @@ namespace Game.Feature.Gameplay.Loop
                     enemyUtilitySignals,
                     boxSlideStartSignals,
                     tileFeatureVisualStates,
-                    tileFeatureActiveVisualStates);
+                    tileFeatureActiveVisualStates,
+                    playerFlipResultTurnSignals);
         }
 
         private static void BuildBoxSlideStartPresentation(
@@ -2678,6 +2682,33 @@ namespace Game.Feature.Gameplay.Loop
                         waitingForNextMoveCadence,
                         context.PlayerCommand.MoveDirection,
                         context.PlayerCommand.IsMoveBuffered));
+            }
+        }
+
+        private static void BuildPlayerFlipResultTurnPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals)
+        {
+            var actionTransitions = context.PreMovementStatePhaseResult.PlayerActionTransitions;
+            var emittedActionKeys = new HashSet<(int EntityId, int ActionSequence)>();
+            for (var i = 0; i < actionTransitions.Count; i++)
+            {
+                var flipResultTurn = actionTransitions[i].FlipResultTurnTransition;
+                if (!flipResultTurn.HasFlipResultTurn ||
+                    !emittedActionKeys.Add((flipResultTurn.EntityId, flipResultTurn.ActionSequence)))
+                {
+                    continue;
+                }
+
+                playerFlipResultTurnSignals.Add(
+                    new TickPlayerFlipResultTurnSignal(
+                        flipResultTurn.EntityId,
+                        flipResultTurn.ActionSequence,
+                        flipResultTurn.ActionDirection,
+                        flipResultTurn.ContactFacing,
+                        flipResultTurn.ResultFacing,
+                        flipResultTurn.StartTick,
+                        flipResultTurn.Reason));
             }
         }
 

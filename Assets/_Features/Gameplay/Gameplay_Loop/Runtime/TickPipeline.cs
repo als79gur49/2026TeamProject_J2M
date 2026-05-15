@@ -9125,6 +9125,12 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var delta = intent.Destination - source.position;
+            var actionDirection = ResolveFlipActionDirection(delta, group);
+            return DirectionUtility.Opposite(actionDirection);
+        }
+
+        private static Direction ResolveFlipActionDirection(Vector2Int delta, ActionGroup group)
+        {
             if (delta.x == 0 && delta.y == 1)
             {
                 return Direction.Up;

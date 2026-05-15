@@ -124,6 +124,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 !input.PlayerCommand.IsMoveBuffered ||
                 input.PlayerCommand.PushPressed ||
                 input.PlayerCommand.FlipPressed;
+            var flipResultTurnTransition = default(PlayerFlipResultTurnTransition);
 
             if (!previousAction.IsActive &&
                 canStartSettledAction &&
@@ -144,6 +145,11 @@ namespace Game.Feature.Gameplay.PlayerControl
                 else
                 {
                     nextState = PlayerControlQueries.AdvanceActiveAction(nextState, input.TickIndex);
+                    CommitFlipResultFacingOnExecute(
+                        previousAction,
+                        nextState.activeAction,
+                        writeContext,
+                        updates);
                 }
             }
             else if (PlayerControlQueries.HasQueuedFree2DAction(nextState))
@@ -168,9 +174,11 @@ namespace Game.Feature.Gameplay.PlayerControl
                              input.TickIndex,
                              writeContext,
                              updates,
+                             out var queuedFlipResultTurnTransition,
                              out var queuedStartState))
                 {
                     nextState = queuedStartState;
+                    flipResultTurnTransition = queuedFlipResultTurnTransition;
                 }
                 else
                 {
@@ -223,6 +231,9 @@ namespace Game.Feature.Gameplay.PlayerControl
                         input.TickIndex,
                         _flipWindupTicks,
                         _flipRecoveryTicks);
+                    flipResultTurnTransition = CreateFlipResultTurnTransition(
+                        nextState.activeAction,
+                        PlayerFlipResultTurnStartReason.ImmediateFlip);
                 }
                 else if (!isSettledAtAnchor)
                 {
@@ -238,7 +249,12 @@ namespace Game.Feature.Gameplay.PlayerControl
                 writeContext,
                 updates);
             writeContext.SetPlayerControlState(_entityId, nextState);
-            actionTransitions.Add(new PlayerActionTransition(_entityId, previousAction, nextState.activeAction));
+            actionTransitions.Add(
+                new PlayerActionTransition(
+                    _entityId,
+                    previousAction,
+                    nextState.activeAction,
+                    flipResultTurnTransition));
             updates.Add(
                 $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedKinematicTurn={nextState.queuedKinematicTurnDirection}|QueuedFree2DAction={nextState.queuedFree2DAction.kind}|QueuedFree2DActionDirection={nextState.queuedFree2DAction.direction}|QueuedFree2DActionTick={nextState.queuedFree2DAction.requestedTick}");
         }
@@ -250,9 +266,11 @@ namespace Game.Feature.Gameplay.PlayerControl
             int tickIndex,
             IPreMovementStateCommitContext writeContext,
             List<string> updates,
+            out PlayerFlipResultTurnTransition flipResultTurnTransition,
             out PlayerControlState nextState)
         {
             nextState = state;
+            flipResultTurnTransition = default;
             var queuedAction = state.queuedFree2DAction;
             switch (queuedAction.kind)
             {
@@ -298,6 +316,9 @@ namespace Game.Feature.Gameplay.PlayerControl
                         tickIndex,
                         _flipWindupTicks,
                         _flipRecoveryTicks);
+                    flipResultTurnTransition = CreateFlipResultTurnTransition(
+                        nextState.activeAction,
+                        PlayerFlipResultTurnStartReason.QueuedFlip);
                     updates.Add(
                         $"Free2DActionAssistExecute|Stage=PreMovement|Source={_entityId}|Kind=Flip|Direction={flipTarget.Direction}|Target={flipTarget.TargetEntityId}|RequestedTick={queuedAction.requestedTick}|ExecuteTick={tickIndex}");
                     return true;
@@ -305,6 +326,61 @@ namespace Game.Feature.Gameplay.PlayerControl
                 default:
                     return false;
             }
+        }
+
+        private PlayerFlipResultTurnTransition CreateFlipResultTurnTransition(
+            in PlayerActionRuntimeState action,
+            PlayerFlipResultTurnStartReason reason)
+        {
+            if (!action.IsActive ||
+                action.kind != PlayerActionKind.Flip ||
+                !DirectionUtility.IsCardinal(action.direction))
+            {
+                return default;
+            }
+
+            var contactFacing = action.direction;
+            var resultFacing = DirectionUtility.Opposite(action.direction);
+            if (!DirectionUtility.IsCardinal(resultFacing) ||
+                contactFacing == resultFacing)
+            {
+                return default;
+            }
+
+            return new PlayerFlipResultTurnTransition(
+                _entityId,
+                action.sequence,
+                action.direction,
+                contactFacing,
+                resultFacing,
+                action.startTick,
+                reason);
+        }
+
+        private void CommitFlipResultFacingOnExecute(
+            in PlayerActionRuntimeState previousAction,
+            in PlayerActionRuntimeState currentAction,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (previousAction.kind != PlayerActionKind.Flip ||
+                previousAction.executionAttempted ||
+                !currentAction.IsActive ||
+                currentAction.sequence != previousAction.sequence ||
+                !currentAction.executionAttempted)
+            {
+                return;
+            }
+
+            var resultFacing = DirectionUtility.Opposite(previousAction.direction);
+            if (!DirectionUtility.IsCardinal(resultFacing))
+            {
+                return;
+            }
+
+            writeContext.SetFacing(_entityId, resultFacing);
+            updates.Add(
+                $"FlipResultFacingCommitted|Stage=PreMovement|Source={_entityId}|ActionSeq={previousAction.sequence}|ActionDirection={previousAction.direction}|ResultFacing={resultFacing}");
         }
 
         private void UpdateMovementOwnedPhasedState(
