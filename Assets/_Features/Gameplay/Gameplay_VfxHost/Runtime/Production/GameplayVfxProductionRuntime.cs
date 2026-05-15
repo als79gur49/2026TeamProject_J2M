@@ -1598,10 +1598,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 throw new InvalidOperationException("Gameplay VFX binding cue does not match Box DestroySmoke request cue.");
             }
 
-            var anchor = VfxResolvedAnchor.ForCell(
-                signal.SourceCell,
-                signal.Topology,
-                VfxAnchorSlot.CellFloor);
+            var cellProjector = new GameplayVfxHostCellAnchorProjector(configuredProjector);
+            if (!cellProjector.TryResolveCell(
+                    signal.SourceCell,
+                    signal.Topology,
+                    VfxAnchorSlot.CellFloor,
+                    out var anchor) ||
+                !anchor.IsResolved)
+            {
+                return false;
+            }
+
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
             return pool.PlayTransient(playbackCommand) != null;
         }
