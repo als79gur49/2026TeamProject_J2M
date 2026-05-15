@@ -37,26 +37,40 @@ namespace Game.Feature.UI.HUD
 
         public bool HasObjective => IsVisible;
 
+        public string ObjectiveStableId { get; private set; } = string.Empty;
+
         public IReadOnlyList<ObjectiveConditionHudViewModel> Rows { get; private set; } = EmptyRows;
 
         public void SetState(
             bool isVisible,
             IReadOnlyList<ObjectiveConditionHudViewModel> rows)
         {
+            SetState(isVisible, string.Empty, rows);
+        }
+
+        public void SetState(
+            bool isVisible,
+            string objectiveStableId,
+            IReadOnlyList<ObjectiveConditionHudViewModel> rows)
+        {
             var nextRows = CopyRows(rows);
-            if (IsVisible == isVisible && RowsEqual(Rows, nextRows))
+            var nextObjectiveStableId = objectiveStableId ?? string.Empty;
+            if (IsVisible == isVisible &&
+                string.Equals(ObjectiveStableId, nextObjectiveStableId, StringComparison.Ordinal) &&
+                RowsEqual(Rows, nextRows))
             {
                 return;
             }
 
             IsVisible = isVisible;
+            ObjectiveStableId = nextObjectiveStableId;
             Rows = nextRows;
             Changed?.Invoke();
         }
 
         public void Reset()
         {
-            SetState(false, EmptyRows);
+            SetState(false, string.Empty, EmptyRows);
         }
 
         private static ObjectiveConditionHudViewModel[] CopyRows(

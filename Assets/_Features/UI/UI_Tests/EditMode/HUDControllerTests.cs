@@ -596,6 +596,173 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveHudView_NewObjectiveRow_PlaysInState()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_NewObjectiveRow_PlaysInState");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+
+                var runtimeItem = FindActiveObjectiveRuntimeItem(objectiveListRoot, itemTemplate);
+                var animator = runtimeItem.GetComponent<Animator>();
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("In"), Is.True);
+                Assert.That(animator.GetBool("Active"), Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_InitialRows_EnterSerially()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_InitialRows_EnterSerially");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+
+                var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                Assert.That(aRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"), Is.Null);
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"), Is.Null);
+
+                CompleteObjectiveEnter(aRow);
+
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"), Is.Null);
+
+                CompleteObjectiveEnter(bRow);
+
+                var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+                Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_JustSatisfiedRow_PlaysActiveAndHoldsOutGate()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_JustSatisfiedRow_PlaysActiveAndHoldsOutGate");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "reach-exit"));
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("reach-exit", "Reach the exit zone", true, true),
+                    });
+
+                var runtimeItem = FindActiveObjectiveRuntimeItem(objectiveListRoot, itemTemplate);
+                var animator = runtimeItem.GetComponent<Animator>();
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).IsName("Active"), Is.True);
+                Assert.That(animator.GetBool("Active"), Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_InsertingMiddleRow_UsesTargetSiblingPosition()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_InsertingMiddleRow_UsesTargetSiblingPosition");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+                var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+                CompleteObjectiveEnter(cRow);
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                Assert.That(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"), Is.SameAs(cRow));
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+                Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Idle));
+                Assert.That(aRow.transform.GetSiblingIndex(), Is.LessThan(bRow.transform.GetSiblingIndex()));
+                Assert.That(bRow.transform.GetSiblingIndex(), Is.LessThan(cRow.transform.GetSiblingIndex()));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
         public void ObjectiveHudView_HidesRootAndRuntimeItems_WhenNoObjective()
         {
             var rootObject = new GameObject("ObjectiveHudView_HidesRootAndRuntimeItems_WhenNoObjective");
@@ -626,6 +793,274 @@ namespace Game.Feature.UI.Tests
                 Assert.That(objectiveRoot.activeSelf, Is.False);
                 Assert.That(runtimeItems, Has.Length.EqualTo(1));
                 Assert.That(runtimeItems[0].gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_RemovingMiddleRow_KeepsLowerRowInstance()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_RemovingMiddleRow_KeepsLowerRowInstance");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"));
+                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"));
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                Assert.That(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"), Is.SameAs(cRow));
+                Assert.That(bRow.gameObject.activeSelf, Is.True);
+                Assert.That(bRow.transform.GetSiblingIndex(), Is.LessThan(cRow.transform.GetSiblingIndex()));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_CompletedMiddleRow_CollapsesLayoutHeightBeforePooling()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_CompletedMiddleRow_CollapsesLayoutHeightBeforePooling");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterSequence(objectiveListRoot, itemTemplate, "a", "b", "c");
+                var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveListRoot);
+
+                var initialGap = Mathf.Abs(
+                    ((RectTransform)cRow.transform).anchoredPosition.y -
+                    ((RectTransform)aRow.transform).anchoredPosition.y);
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", true, true),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+                bRow.Tick(0.0f);
+
+                var animator = bRow.GetComponent<Animator>();
+                Assert.That(animator, Is.Not.Null);
+                animator.Play("Out", 0, 1.0f);
+                animator.Update(1.0f);
+
+                bRow.Tick(0.0f);
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Collapsing));
+                bRow.Tick(0.1f);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(objectiveListRoot);
+
+                var bLayout = bRow.GetComponent<LayoutElement>();
+                var collapsedGap = Mathf.Abs(
+                    ((RectTransform)cRow.transform).anchoredPosition.y -
+                    ((RectTransform)aRow.transform).anchoredPosition.y);
+
+                Assert.That(bRow.gameObject.activeSelf, Is.True);
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Collapsing));
+                Assert.That(bLayout.preferredHeight, Is.GreaterThan(0.0f).And.LessThan(60.0f));
+                Assert.That(collapsedGap, Is.LessThan(initialGap));
+                Assert.That(bRow.transform.GetSiblingIndex(), Is.LessThan(cRow.transform.GetSiblingIndex()));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_MultipleRemovedRows_ExitSerially()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_MultipleRemovedRows_ExitSerially");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                        new ObjectiveConditionHudViewModel("d", "D", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterSequence(objectiveListRoot, itemTemplate, "a", "b", "c", "d");
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("d", "D", false, false),
+                    });
+
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+                Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Idle));
+
+                CompleteObjectiveDismiss(bRow);
+
+                cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+                Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_ExitQueueRunsBeforeEnterQueue()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_ExitQueueRunsBeforeEnterQueue");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterSequence(objectiveListRoot, itemTemplate, "a", "b", "c");
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("d", "D", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "d"), Is.Null);
+
+                CompleteObjectiveDismiss(bRow);
+
+                var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+                var dRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "d");
+                Assert.That(dRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+                Assert.That(aRow.transform.GetSiblingIndex(), Is.LessThan(dRow.transform.GetSiblingIndex()));
+                Assert.That(dRow.transform.GetSiblingIndex(), Is.LessThan(cRow.transform.GetSiblingIndex()));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_StalePendingEnter_IsSkipped()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_StalePendingEnter_IsSkipped");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                Assert.That(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"), Is.Not.Null);
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                    });
+
+                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"), Is.Null);
             }
             finally
             {
@@ -692,6 +1127,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(itemTemplate.parent, Is.SameAs(objectiveListRoot));
                 Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
                 Assert.That(itemTemplate.GetComponent<Animator>(), Is.Not.Null);
+                Assert.That(itemTemplate.GetComponent<LayoutElement>(), Is.Not.Null);
+                Assert.That(itemTemplate.GetComponent<ObjectiveHudRowView>(), Is.Not.Null);
+                var layoutGroup = objectiveListRoot.GetComponent<VerticalLayoutGroup>();
+                Assert.That(layoutGroup, Is.Not.Null);
+                Assert.That(layoutGroup.childControlHeight, Is.True);
+                Assert.That(layoutGroup.childForceExpandHeight, Is.False);
                 Assert.That(
                     itemTemplate.GetComponentsInChildren<TMP_Text>(true).Any(label => label.name == "Label_Objective"),
                     Is.True);
@@ -707,6 +1148,73 @@ namespace Game.Feature.UI.Tests
             return item
                 .GetComponentsInChildren<TMP_Text>(true)
                 .Single(label => label.name == "Label_Objective");
+        }
+
+        private static GameObject FindActiveObjectiveRuntimeItem(
+            RectTransform objectiveListRoot,
+            RectTransform itemTemplate)
+        {
+            return objectiveListRoot
+                .Cast<Transform>()
+                .Where(child => child != itemTemplate && child.gameObject.activeSelf)
+                .Single()
+                .gameObject;
+        }
+
+        private static ObjectiveHudRowView FindObjectiveRuntimeRow(
+            RectTransform objectiveListRoot,
+            RectTransform itemTemplate,
+            string stableId)
+        {
+            return objectiveListRoot
+                .Cast<Transform>()
+                .Where(child => child != itemTemplate)
+                .Select(child => child.GetComponent<ObjectiveHudRowView>())
+                .Single(row => row != null && row.gameObject.activeSelf && row.StableId == stableId);
+        }
+
+        private static ObjectiveHudRowView TryFindObjectiveRuntimeRow(
+            RectTransform objectiveListRoot,
+            RectTransform itemTemplate,
+            string stableId)
+        {
+            return objectiveListRoot
+                .Cast<Transform>()
+                .Where(child => child != itemTemplate)
+                .Select(child => child.GetComponent<ObjectiveHudRowView>())
+                .SingleOrDefault(row => row != null && row.gameObject.activeSelf && row.StableId == stableId);
+        }
+
+        private static void CompleteObjectiveEnterSequence(
+            RectTransform objectiveListRoot,
+            RectTransform itemTemplate,
+            params string[] stableIds)
+        {
+            for (var i = 0; i < stableIds.Length; i++)
+            {
+                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, stableIds[i]));
+            }
+        }
+
+        private static void CompleteObjectiveEnter(ObjectiveHudRowView rowView)
+        {
+            Assert.That(rowView, Is.Not.Null);
+            rowView.Tick(1.0f);
+            Assert.That(rowView.VisualState, Is.EqualTo(ObjectiveRowVisualState.Idle));
+        }
+
+        private static void CompleteObjectiveDismiss(ObjectiveHudRowView rowView)
+        {
+            Assert.That(rowView, Is.Not.Null);
+            rowView.Tick(0.0f);
+
+            var animator = rowView.GetComponent<Animator>();
+            Assert.That(animator, Is.Not.Null);
+            animator.Play("Out", 0, 1.0f);
+            animator.Update(1.0f);
+
+            rowView.Tick(0.0f);
+            rowView.Tick(1.0f);
         }
 
         [Test]
