@@ -626,6 +626,264 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_DetoursAroundBox()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var blockers = new[] { CreateBox(entityId: 30, position: new Vector2Int(3, 1)) };
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                blockers,
+                tickIndex: 9);
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Up));
+            Assert.That(plan.PlannedDirection, Is.Not.EqualTo(Direction.Left));
+
+            var simulatedCell = sourceCell;
+            var patrolState = new EnemyPatrolRuntimeState
+            {
+                sequence = 3,
+                homeCell = homeCell,
+                lastCommittedDirection = Direction.Right,
+            };
+            for (var i = 0; i < 8 && GetPlanarDistanceForTest(simulatedCell, homeCell) > settings.LeashRadius; i++)
+            {
+                var tickPlan = BuildRandomWalkPlan(
+                    simulatedCell,
+                    homeCell,
+                    settings,
+                    blockers,
+                    tickIndex: 20 + i,
+                    patrolState);
+                Assert.That(tickPlan.HasDirection, Is.True);
+                simulatedCell += ResolveDeltaForTest(tickPlan.PlannedDirection);
+                patrolState.lastCommittedDirection = tickPlan.PlannedDirection;
+            }
+
+            Assert.That(GetPlanarDistanceForTest(simulatedCell, homeCell), Is.LessThanOrEqualTo(settings.LeashRadius));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_DetoursAroundWall()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                new[] { CreateWall(entityId: 30, position: new Vector2Int(3, 1)) },
+                tickIndex: 9);
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Up));
+            Assert.That(plan.PlannedDirection, Is.Not.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_PrefersSafeDetourOverDestroyTile()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var riskyCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                Array.Empty<EntityState>(),
+                tickIndex: 9,
+                tileFeatures: new[] { CreateDestroyTile(100, riskyCell) },
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Up));
+            Assert.That(plan.PlannedDirection, Is.Not.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_UsesDestroyTileOnlyWhenNoSafeRoute()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var riskyCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                Array.Empty<EntityState>(),
+                new BoardBounds(new Vector2Int(0, 1), new Vector2Int(4, 1)),
+                tickIndex: 9,
+                tileFeatures: new[] { CreateDestroyTile(100, riskyCell) },
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            Assert.That(EnemyMovementStrategyShared.CanTraverseStep(
+                CreateWorldState(
+                    new[] { CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Left) },
+                    new BoardBounds(new Vector2Int(0, 1), new Vector2Int(4, 1)),
+                    new[] { CreateDestroyTile(100, riskyCell) }).CreateSnapshot(),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+                Vector2Int.left,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) }),
+                Is.True);
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_InsideLeash_KeepsExistingRandomWalkBehavior()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 3,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                new[] { CreateWall(entityId: 30, position: new Vector2Int(2, 0)) },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                tickIndex: 9);
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Left));
+            Assert.That(plan.CandidateMask, Is.EqualTo(GetCandidateMaskBit(Direction.Left)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_NoPath_IsDeterministic()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 0,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var blockers = new[]
+            {
+                CreateWall(entityId: 30, position: new Vector2Int(0, 1)),
+                CreateWall(entityId: 31, position: new Vector2Int(1, 2)),
+                CreateWall(entityId: 32, position: new Vector2Int(2, 1)),
+                CreateWall(entityId: 33, position: new Vector2Int(1, 0)),
+            };
+
+            var first = BuildRandomWalkPlan(sourceCell, homeCell, settings, blockers, tickIndex: 9);
+            var second = BuildRandomWalkPlan(sourceCell, homeCell, settings, blockers, tickIndex: 9);
+
+            Assert.That(first.HasDirection, Is.False);
+            Assert.That(first.PlannedDirection, Is.EqualTo(Direction.None));
+            Assert.That(first.CandidateMask, Is.Zero);
+            Assert.That(second.HasDirection, Is.EqualTo(first.HasDirection));
+            Assert.That(second.PlannedDirection, Is.EqualTo(first.PlannedDirection));
+            Assert.That(second.CandidateMask, Is.EqualTo(first.CandidateMask));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_EqualCostDetours_UsesCanonicalTieBreak()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+
+            for (var i = 0; i < 4; i++)
+            {
+                var plan = BuildRandomWalkPlan(
+                    sourceCell,
+                    homeCell,
+                    settings,
+                    new[] { CreateWall(entityId: 30, position: new Vector2Int(3, 1)) },
+                    tickIndex: 9 + i);
+
+                Assert.That(plan.HasDirection, Is.True);
+                Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Up));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_SearchDepthUsesCurrentDistance()
+        {
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+
+            var reachablePlan = BuildRandomWalkPlan(
+                new SurfaceCell(FaceId.Floor, 15, 0),
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                settings,
+                Array.Empty<EntityState>(),
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(15, 0)),
+                tickIndex: 9);
+            var cappedPlan = BuildRandomWalkPlan(
+                new SurfaceCell(FaceId.Floor, 60, 0),
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                settings,
+                Array.Empty<EntityState>(),
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(60, 0)),
+                tickIndex: 9);
+
+            Assert.That(reachablePlan.HasDirection, Is.True);
+            Assert.That(reachablePlan.PlannedDirection, Is.EqualTo(Direction.Left));
+            Assert.That(cappedPlan.HasDirection, Is.False);
+            Assert.That(cappedPlan.PlannedDirection, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyPatrolDecisionPlanner_RandomWalkAdapter_PreservesLegacyPlanFields()
         {
@@ -5617,6 +5875,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Direction.Left => 1 << 3,
                 _ => 0,
             };
+        }
+
+        private static EnemyRandomWalkPatrolPlan BuildRandomWalkPlan(
+            SurfaceCell sourceCell,
+            SurfaceCell homeCell,
+            PatrolSettings settings,
+            IEnumerable<EntityState> blockers,
+            int tickIndex,
+            EnemyPatrolRuntimeState? patrolState = null,
+            IEnumerable<TileFeatureState> tileFeatures = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+        {
+            return BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                blockers,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 2)),
+                tickIndex,
+                patrolState,
+                tileFeatures,
+                tileFeatureDefinitions);
+        }
+
+        private static EnemyRandomWalkPatrolPlan BuildRandomWalkPlan(
+            SurfaceCell sourceCell,
+            SurfaceCell homeCell,
+            PatrolSettings settings,
+            IEnumerable<EntityState> blockers,
+            BoardBounds boardBounds,
+            int tickIndex,
+            EnemyPatrolRuntimeState? patrolState = null,
+            IEnumerable<TileFeatureState> tileFeatures = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+        {
+            var entities = new List<EntityState>
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            };
+            entities.AddRange(blockers);
+            var worldState = tileFeatures == null
+                ? CreateWorldState(entities, boardBounds)
+                : CreateWorldState(entities, boardBounds, tileFeatures);
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var resolvedPatrolState = patrolState ?? new EnemyPatrolRuntimeState
+            {
+                sequence = 3,
+                homeCell = homeCell,
+                lastCommittedDirection = Direction.Right,
+            };
+
+            return EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex,
+                resolvedPatrolState,
+                settings,
+                tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>());
+        }
+
+        private static Vector2Int ResolveDeltaForTest(Direction direction)
+        {
+            Assert.That(EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta), Is.True);
+            return delta;
+        }
+
+        private static int GetPlanarDistanceForTest(SurfaceCell sourceCell, SurfaceCell targetCell)
+        {
+            return Math.Abs(sourceCell.x - targetCell.x) + Math.Abs(sourceCell.y - targetCell.y);
         }
 
         private static Direction ResolveOppositeDirection(Direction direction)
