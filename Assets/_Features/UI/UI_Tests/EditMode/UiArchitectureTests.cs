@@ -1141,6 +1141,111 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void UiComposition_DoesNotReadOrWriteGameplayAuthority()
+        {
+            var forbiddenTokens = new[]
+            {
+                "WorldState",
+                "CreateSnapshot(",
+                "TickRunner",
+                "TickPipeline",
+                "FinalizationBatch",
+                "WorldStateWriteContext",
+                "IWorldWriteContext",
+                "IWorldSnapshotWriter",
+                "ProjectedWorld",
+                "RecordingFinalizationContext",
+            };
+
+            AssertRuntimeSourcesDoNotContain(
+                new[] { "Assets/_Features/UI/UI_Composition/Runtime" },
+                forbiddenTokens);
+        }
+
+        [Test]
+        public void UiComposition_MayReferenceGameplaySceneHostOnlyAsCompositionBridge()
+        {
+            var compositionSources = ReadRuntimeSources(new[] { "Assets/_Features/UI/UI_Composition/Runtime" });
+            var installerSource = compositionSources.Single(source => source.RelativePath.EndsWith("GameplayUiFlowInstaller.cs", StringComparison.Ordinal));
+
+            Assert.That(installerSource.Source, Does.Contain("Install(GameplaySceneHost sceneHost)"));
+            Assert.That(installerSource.Source, Does.Contain("sceneHost.UiAccess"));
+            Assert.That(installerSource.Source, Does.Contain("_sceneHost.InputHost.Actions"));
+
+            var forbiddenAuthorityMemberTokens = new[]
+            {
+                ".WorldState",
+                ".TickRunner",
+                ".TickPipeline",
+                "CreateSnapshot(",
+            };
+            foreach (var source in compositionSources)
+            {
+                foreach (var token in forbiddenAuthorityMemberTokens)
+                {
+                    Assert.That(source.Source, Does.Not.Contain(token), $"{source.RelativePath} contains {token}");
+                }
+            }
+        }
+
+        [Test]
+        public void UiApplicationAndFlow_DoNotReferenceGameplayHostOrSimulationConcrete()
+        {
+            var forbiddenTokens = new[]
+            {
+                "GameplaySceneHost",
+                "Game.Feature.Gameplay.Host",
+                "WorldState",
+                "TickRunner",
+                "TickPipeline",
+                "FinalizationBatch",
+            };
+
+            AssertRuntimeSourcesDoNotContain(
+                new[]
+                {
+                    "Assets/_Features/UI/UI_Application/Runtime",
+                    "Assets/_Features/UI/UI_Flow/Runtime",
+                    "Assets/_Features/UI/UI_HUD/Runtime",
+                    "Assets/_Features/UI/UI_Screens/Runtime",
+                    "Assets/_Features/UI/UI_Popups/Runtime",
+                },
+                forbiddenTokens);
+        }
+
+        [Test]
+        public void UiViewsAndViewModels_ConsumeOnlyUiReadModels()
+        {
+            var forbiddenTokens = new[]
+            {
+                "GameplaySceneHost",
+                "WorldState",
+                "TickResult",
+                "TickPresentationData",
+                "StageRuntimeBuildResult",
+                "EntityState",
+            };
+            var sources = ReadRuntimeSources(new[]
+                {
+                    "Assets/_Features/UI/UI_HUD/Runtime",
+                    "Assets/_Features/UI/UI_Screens/Runtime",
+                    "Assets/_Features/UI/UI_Popups/Runtime",
+                })
+                .Where(source =>
+                    source.RelativePath.EndsWith("View.cs", StringComparison.Ordinal) ||
+                    source.RelativePath.EndsWith("ViewModel.cs", StringComparison.Ordinal))
+                .ToArray();
+
+            foreach (var source in sources)
+            {
+                foreach (var token in forbiddenTokens)
+                {
+                    Assert.That(source.Source, Does.Not.Contain(token), $"{source.RelativePath} contains {token}");
+                }
+            }
+        }
+
         private static Assembly[] GetRuntimeUiAssemblies()
         {
             return new[]
@@ -1152,6 +1257,57 @@ namespace Game.Feature.UI.Tests
                 typeof(PausePopupView).Assembly,
                 typeof(GameplayUiFlowInstaller).Assembly,
             }.Distinct().ToArray();
+        }
+
+        private static void AssertRuntimeSourcesDoNotContain(IEnumerable<string> rootRelativePaths, IEnumerable<string> forbiddenTokens)
+        {
+            foreach (var source in ReadRuntimeSources(rootRelativePaths))
+            {
+                foreach (var token in forbiddenTokens)
+                {
+                    Assert.That(source.Source, Does.Not.Contain(token), $"{source.RelativePath} contains {token}");
+                }
+            }
+        }
+
+        private static SourceFile[] ReadRuntimeSources(IEnumerable<string> rootRelativePaths)
+        {
+            var projectRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
+            return rootRelativePaths
+                .SelectMany(rootRelativePath =>
+                {
+                    var rootPath = Path.Combine(projectRoot, rootRelativePath);
+                    return Directory.GetFiles(rootPath, "*.cs", SearchOption.AllDirectories)
+                        .Select(path => new SourceFile(
+                            ToProjectRelativePath(projectRoot, path),
+                            File.ReadAllText(path)));
+                })
+                .OrderBy(source => source.RelativePath)
+                .ToArray();
+        }
+
+        private static string ToProjectRelativePath(string projectRoot, string path)
+        {
+            var fullPath = Path.GetFullPath(path);
+            var prefix = projectRoot.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                ? projectRoot
+                : projectRoot + Path.DirectorySeparatorChar;
+            return fullPath.StartsWith(prefix, StringComparison.Ordinal)
+                ? fullPath.Substring(prefix.Length).Replace(Path.DirectorySeparatorChar, '/')
+                : fullPath.Replace(Path.DirectorySeparatorChar, '/');
+        }
+
+        private readonly struct SourceFile
+        {
+            public SourceFile(string relativePath, string source)
+            {
+                RelativePath = relativePath;
+                Source = source;
+            }
+
+            public string RelativePath { get; }
+
+            public string Source { get; }
         }
 
         private static string[] GetConstructorSignatures(Type type)
