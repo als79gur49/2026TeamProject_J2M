@@ -1310,6 +1310,23 @@ MonoBehaviour:
   _lostRotationDegrees: -22
   _lostSlotStaggerSeconds: 0.05
   _emptySlotAlpha: 0.34
+  _lostImpactScalePunch: 0.14
+  _lostImpactDurationSeconds: 0.18
+  _lostImpactFlashAlpha: 0.9
+  _survivorPulseDelaySeconds: 0.08
+  _survivorPulseScalePunch: 0.07
+  _survivorPulseDurationSeconds: 0.22
+  _currentTextPulseScalePunch: 0.12
+  _currentTextPulseDurationSeconds: 0.24
+  _previousTextDimAlpha: 0.45
+  _previousTextDimDurationSeconds: 0.18
+  _useAllIn1LostImpactEffect: 1
+  _allIn1EffectMaterialTemplate: {fileID: 2100000, guid: 7ef34f26b8117334c8ecd9c27a45e2c6, type: 2}
+  _allIn1HitEffectColor: {r: 1, g: 0.18, b: 0.24, a: 1}
+  _allIn1HitEffectGlow: 3
+  _allIn1DistortAmount: 0.16
+  _allIn1DistortDurationSeconds: 0.26
+  _allIn1DistortTexSpeed: 4
   _useUnscaledTime: 1
 --- !u!114 &9177025413810036314
 MonoBehaviour:

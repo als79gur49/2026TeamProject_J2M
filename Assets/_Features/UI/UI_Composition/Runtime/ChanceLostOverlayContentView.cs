@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
 {
@@ -9,6 +10,15 @@ namespace Game.Feature.UI.Composition
     {
         private const string ChanceSlotNamePrefix = "ChanceSlotView";
         private const string TweenRootName = "LostChanceTweenRoot";
+        private const string AllIn1UiMaskShaderName = "AllIn1SpriteShader/AllIn1SpriteShaderUiMask";
+        private const string AllIn1HitEffectKeyword = "HITEFFECT_ON";
+        private const string AllIn1DistortKeyword = "DISTORT_ON";
+        private static readonly int HitEffectBlendId = Shader.PropertyToID("_HitEffectBlend");
+        private static readonly int HitEffectColorId = Shader.PropertyToID("_HitEffectColor");
+        private static readonly int HitEffectGlowId = Shader.PropertyToID("_HitEffectGlow");
+        private static readonly int DistortAmountId = Shader.PropertyToID("_DistortAmount");
+        private static readonly int DistortTexXSpeedId = Shader.PropertyToID("_DistortTexXSpeed");
+        private static readonly int DistortTexYSpeedId = Shader.PropertyToID("_DistortTexYSpeed");
 
         [SerializeField] private TMP_Text _previousChanceText;
         [SerializeField] private TMP_Text _currentChanceText;
@@ -24,18 +34,40 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private float _lostRotationDegrees = -22f;
         [SerializeField] private float _lostSlotStaggerSeconds = 0.05f;
         [SerializeField] private float _emptySlotAlpha = 0.34f;
+        [SerializeField] private float _lostImpactScalePunch = 0.14f;
+        [SerializeField] private float _lostImpactDurationSeconds = 0.18f;
+        [SerializeField] private float _lostImpactFlashAlpha = 0.9f;
+        [SerializeField] private float _survivorPulseDelaySeconds = 0.08f;
+        [SerializeField] private float _survivorPulseScalePunch = 0.07f;
+        [SerializeField] private float _survivorPulseDurationSeconds = 0.22f;
+        [SerializeField] private float _currentTextPulseScalePunch = 0.12f;
+        [SerializeField] private float _currentTextPulseDurationSeconds = 0.24f;
+        [SerializeField] private float _previousTextDimAlpha = 0.45f;
+        [SerializeField] private float _previousTextDimDurationSeconds = 0.18f;
+        [SerializeField] private bool _useAllIn1LostImpactEffect = true;
+        [SerializeField] private Material _allIn1EffectMaterialTemplate;
+        [SerializeField] private Color _allIn1HitEffectColor = new(1f, 0.18f, 0.24f, 1f);
+        [SerializeField] private float _allIn1HitEffectGlow = 3f;
+        [SerializeField] private float _allIn1DistortAmount = 0.16f;
+        [SerializeField] private float _allIn1DistortDurationSeconds = 0.26f;
+        [SerializeField] private float _allIn1DistortTexSpeed = 4f;
         [SerializeField] private bool _useUnscaledTime = true;
 
         private readonly List<SlotState> _slotStates = new();
         private readonly List<RectTransform> _resolvedSlots = new();
         private Sequence _lostChanceSequence;
         private SceneTransitionOverlayViewModel _boundModel;
+        private TextVisualState _previousChanceTextState;
+        private TextVisualState _currentChanceTextState;
+        private Shader _allIn1UiMaskShader;
         private bool _hasBoundModel;
+        private bool _hasResolvedAllIn1UiMaskShader;
 
         public override void Bind(SceneTransitionOverlayViewModel model)
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
+            RestoreChanceTextVisuals();
             base.Bind(model);
             _boundModel = model;
             _hasBoundModel = true;
@@ -64,6 +96,7 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
+            RestoreChanceTextVisuals();
             base.Hide();
         }
 
@@ -71,6 +104,7 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
+            RestoreChanceTextVisuals();
             _hasBoundModel = false;
             base.ResetView();
             ClearChanceTexts();
@@ -95,11 +129,13 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
+            RestoreChanceTextVisuals();
         }
 
         private void OnDestroy()
         {
             KillLostChanceAnimation();
+            RestoreChanceSlots();
         }
 
         internal int ActiveLostChanceAnimationCountForTests => _lostChanceSequence != null && _lostChanceSequence.IsActive() ? 1 : 0;
@@ -160,9 +196,13 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            CaptureChanceTextVisuals();
             _lostChanceSequence = DOTween.Sequence()
                 .SetUpdate(_useUnscaledTime)
                 .SetLink(gameObject, LinkBehaviour.KillOnDestroy);
+
+            InsertSurvivorPulseTweens(lostStart);
+            InsertChanceTextTweens();
 
             for (var i = lostStart; i < lostEndExclusive; i++)
             {
@@ -174,6 +214,7 @@ namespace Game.Feature.UI.Composition
                 var slotSequence = DOTween.Sequence()
                     .SetUpdate(_useUnscaledTime)
                     .AppendInterval((i - lostStart) * Mathf.Max(0f, _lostSlotStaggerSeconds))
+                    .Append(CreateLostImpactTween(state))
                     .Append(CreateHorizontalShakeTween(state))
                     .Append(CreateAnchorMoveTween(
                             state.TweenRect,
@@ -196,6 +237,209 @@ namespace Game.Feature.UI.Composition
                         .SetEase(Ease.InQuad));
 
                 _lostChanceSequence.Join(slotSequence);
+            }
+        }
+
+        private void InsertSurvivorPulseTweens(int survivorEndExclusive)
+        {
+            var delay = Mathf.Max(0f, _survivorPulseDelaySeconds);
+            var duration = Mathf.Max(0.01f, _survivorPulseDurationSeconds);
+            var scalePunch = Mathf.Max(0f, _survivorPulseScalePunch);
+            if (scalePunch <= 0f)
+            {
+                return;
+            }
+
+            for (var i = 0; i < survivorEndExclusive && i < _slotStates.Count; i++)
+            {
+                var state = _slotStates[i];
+                if (state.TweenRect == null || !state.Rect.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                _lostChanceSequence.Insert(
+                    delay,
+                    state.TweenRect
+                        .DOPunchScale(Vector3.one * scalePunch, duration, 8, 0.7f)
+                        .SetEase(Ease.OutQuad));
+            }
+        }
+
+        private void InsertChanceTextTweens()
+        {
+            if (_currentChanceText != null && _currentChanceText.rectTransform != null)
+            {
+                _lostChanceSequence.Insert(
+                    Mathf.Max(0f, _survivorPulseDelaySeconds),
+                    _currentChanceText.rectTransform
+                        .DOPunchScale(
+                            Vector3.one * Mathf.Max(0f, _currentTextPulseScalePunch),
+                            Mathf.Max(0.01f, _currentTextPulseDurationSeconds),
+                            8,
+                            0.7f)
+                        .SetEase(Ease.OutQuad));
+            }
+
+            if (_previousChanceText == null)
+            {
+                return;
+            }
+
+            var target = _previousChanceText.color;
+            target.a = Mathf.Clamp01(_previousTextDimAlpha);
+            _lostChanceSequence.Insert(
+                0f,
+                DOTween.To(
+                        () => _previousChanceText.color,
+                        value => _previousChanceText.color = value,
+                        target,
+                        Mathf.Max(0.01f, _previousTextDimDurationSeconds))
+                    .SetEase(Ease.OutQuad));
+        }
+
+        private Tween CreateLostImpactTween(SlotState state)
+        {
+            var impact = DOTween.Sequence().SetUpdate(_useUnscaledTime);
+            var duration = Mathf.Max(0.01f, _lostImpactDurationSeconds);
+            var scalePunch = Mathf.Max(0f, _lostImpactScalePunch);
+            if (state.TweenRect != null && scalePunch > 0f)
+            {
+                impact.Join(
+                    state.TweenRect
+                        .DOPunchScale(Vector3.one * scalePunch, duration, 8, 0.7f)
+                        .SetEase(Ease.OutQuad));
+            }
+
+            for (var i = 0; i < state.FlashImages.Count; i++)
+            {
+                var image = state.FlashImages[i];
+                if (image == null)
+                {
+                    continue;
+                }
+
+                var authoredColor = state.FlashImageColors[i];
+                var flashColor = authoredColor;
+                flashColor.a = Mathf.Max(authoredColor.a, Mathf.Clamp01(_lostImpactFlashAlpha));
+                var flash = DOTween.Sequence().SetUpdate(_useUnscaledTime)
+                    .Append(DOTween.To(
+                            () => image.color,
+                            value => image.color = value,
+                            flashColor,
+                            duration * 0.4f)
+                        .SetEase(Ease.OutQuad))
+                    .Append(DOTween.To(
+                            () => image.color,
+                            value => image.color = value,
+                            authoredColor,
+                            duration * 0.6f)
+                        .SetEase(Ease.InQuad));
+                impact.Join(flash);
+
+                var allIn1Material = PrepareAllIn1Material(state, i);
+                if (allIn1Material != null)
+                {
+                    impact.Join(CreateAllIn1LostImpactTween(allIn1Material, duration));
+                }
+            }
+
+            return impact;
+        }
+
+        private Material PrepareAllIn1Material(SlotState state, int flashImageIndex)
+        {
+            var shader = ResolveAllIn1UiMaskShader();
+            if (shader == null)
+            {
+                return null;
+            }
+
+            var material = state.GetOrCreateAllIn1Material(flashImageIndex, _allIn1EffectMaterialTemplate, shader);
+            if (material == null)
+            {
+                return null;
+            }
+
+            material.EnableKeyword(AllIn1HitEffectKeyword);
+            material.EnableKeyword(AllIn1DistortKeyword);
+            SetColorIfPresent(material, HitEffectColorId, _allIn1HitEffectColor);
+            SetFloatIfPresent(material, HitEffectGlowId, Mathf.Max(1f, _allIn1HitEffectGlow));
+            SetFloatIfPresent(material, HitEffectBlendId, 0f);
+            SetFloatIfPresent(material, DistortAmountId, 0f);
+            SetFloatIfPresent(material, DistortTexXSpeedId, _allIn1DistortTexSpeed);
+            SetFloatIfPresent(material, DistortTexYSpeedId, -_allIn1DistortTexSpeed);
+            return material;
+        }
+
+        private Tween CreateAllIn1LostImpactTween(Material material, float baseDuration)
+        {
+            var sequence = DOTween.Sequence().SetUpdate(_useUnscaledTime);
+            if (material.HasProperty(HitEffectBlendId))
+            {
+                var hitDuration = Mathf.Max(0.01f, baseDuration * 0.5f);
+                sequence.Join(
+                    DOTween.To(
+                            () => material != null ? material.GetFloat(HitEffectBlendId) : 0f,
+                            value => SetFloatIfPresent(material, HitEffectBlendId, value),
+                            1f,
+                            hitDuration)
+                        .SetEase(Ease.OutQuad)
+                        .SetLoops(2, LoopType.Yoyo));
+            }
+
+            if (material.HasProperty(DistortAmountId))
+            {
+                var distortDuration = Mathf.Max(0.01f, _allIn1DistortDurationSeconds * 0.5f);
+                sequence.Join(
+                    DOTween.To(
+                            () => material != null ? material.GetFloat(DistortAmountId) : 0f,
+                            value => SetFloatIfPresent(material, DistortAmountId, value),
+                            Mathf.Max(0f, _allIn1DistortAmount),
+                            distortDuration)
+                        .SetEase(Ease.OutQuad)
+                        .SetLoops(2, LoopType.Yoyo));
+            }
+
+            return sequence;
+        }
+
+        private Shader ResolveAllIn1UiMaskShader()
+        {
+            if (!_useAllIn1LostImpactEffect)
+            {
+                return null;
+            }
+
+            if (_allIn1EffectMaterialTemplate != null &&
+                _allIn1EffectMaterialTemplate.shader != null &&
+                _allIn1EffectMaterialTemplate.shader.name == AllIn1UiMaskShaderName)
+            {
+                return _allIn1EffectMaterialTemplate.shader;
+            }
+
+            if (!_hasResolvedAllIn1UiMaskShader)
+            {
+                _allIn1UiMaskShader = Shader.Find(AllIn1UiMaskShaderName);
+                _hasResolvedAllIn1UiMaskShader = true;
+            }
+
+            return _allIn1UiMaskShader;
+        }
+
+        private static void SetFloatIfPresent(Material material, int propertyId, float value)
+        {
+            if (material != null && material.HasProperty(propertyId))
+            {
+                material.SetFloat(propertyId, value);
+            }
+        }
+
+        private static void SetColorIfPresent(Material material, int propertyId, Color value)
+        {
+            if (material != null && material.HasProperty(propertyId))
+            {
+                material.SetColor(propertyId, value);
             }
         }
 
@@ -299,6 +543,32 @@ namespace Game.Feature.UI.Composition
             }
         }
 
+        private void CaptureChanceTextVisuals()
+        {
+            _previousChanceTextState = TextVisualState.Capture(_previousChanceText);
+            _currentChanceTextState = TextVisualState.Capture(_currentChanceText);
+        }
+
+        private void RestoreChanceTextVisuals()
+        {
+            RestoreTextVisualState(_previousChanceTextState);
+            RestoreTextVisualState(_currentChanceTextState);
+        }
+
+        private static void RestoreTextVisualState(TextVisualState state)
+        {
+            if (state?.Text == null)
+            {
+                return;
+            }
+
+            state.Text.color = state.Color;
+            if (state.Text.rectTransform != null)
+            {
+                state.Text.rectTransform.localScale = state.LocalScale;
+            }
+        }
+
         private static void RestoreSlot(SlotState state)
         {
             if (state?.Rect == null || state.CanvasGroup == null)
@@ -312,6 +582,8 @@ namespace Game.Feature.UI.Composition
                 state.TweenRect.localRotation = state.TweenLocalRotation;
                 state.TweenRect.localScale = state.TweenLocalScale;
             }
+
+            state.RestoreFlashImages();
 
             state.CanvasGroup.alpha = state.Alpha;
             state.Rect.gameObject.SetActive(state.ActiveSelf);
@@ -412,6 +684,10 @@ namespace Game.Feature.UI.Composition
                 TweenLocalScale = tweenRect != null ? tweenRect.localScale : Vector3.one;
                 Alpha = canvasGroup.alpha;
                 ActiveSelf = rect.gameObject.activeSelf;
+                FlashImages = ResolveFlashImages(rect);
+                FlashImageColors = CaptureFlashImageColors(FlashImages);
+                FlashImageMaterials = CaptureFlashImageMaterials(FlashImages);
+                _allIn1RuntimeMaterials = new Material[FlashImages.Count];
             }
 
             public RectTransform Rect { get; }
@@ -429,6 +705,141 @@ namespace Game.Feature.UI.Composition
             public float Alpha { get; }
 
             public bool ActiveSelf { get; }
+
+            public IReadOnlyList<Image> FlashImages { get; }
+
+            public IReadOnlyList<Color> FlashImageColors { get; }
+
+            public IReadOnlyList<Material> FlashImageMaterials { get; }
+
+            private Material[] _allIn1RuntimeMaterials { get; }
+
+            public Material GetOrCreateAllIn1Material(int imageIndex, Material template, Shader fallbackShader)
+            {
+                if (imageIndex < 0 || imageIndex >= FlashImages.Count || FlashImages[imageIndex] == null || fallbackShader == null)
+                {
+                    return null;
+                }
+
+                if (_allIn1RuntimeMaterials[imageIndex] != null)
+                {
+                    return _allIn1RuntimeMaterials[imageIndex];
+                }
+
+                var sourceMaterial = ResolveAllIn1SourceMaterial(template, FlashImageMaterials[imageIndex], fallbackShader);
+                var material = sourceMaterial != null ? new Material(sourceMaterial) : new Material(fallbackShader);
+                material.name = $"{FlashImages[imageIndex].name} Runtime AllIn1";
+                material.hideFlags = HideFlags.DontSave;
+                _allIn1RuntimeMaterials[imageIndex] = material;
+                FlashImages[imageIndex].material = material;
+                return material;
+            }
+
+            public void RestoreFlashImages()
+            {
+                for (var i = 0; i < FlashImages.Count; i++)
+                {
+                    if (FlashImages[i] != null)
+                    {
+                        FlashImages[i].color = FlashImageColors[i];
+                        FlashImages[i].material = FlashImageMaterials[i];
+                    }
+
+                    DestroyRuntimeMaterial(i);
+                }
+            }
+
+            private static IReadOnlyList<Image> ResolveFlashImages(RectTransform rect)
+            {
+                var resolved = new List<Image>();
+                var images = rect.GetComponentsInChildren<Image>(true);
+                for (var i = 0; i < images.Length; i++)
+                {
+                    if (images[i] != null && images[i].name == "Effect")
+                    {
+                        resolved.Add(images[i]);
+                    }
+                }
+
+                return resolved;
+            }
+
+            private static IReadOnlyList<Color> CaptureFlashImageColors(IReadOnlyList<Image> images)
+            {
+                var colors = new List<Color>(images.Count);
+                for (var i = 0; i < images.Count; i++)
+                {
+                    colors.Add(images[i] != null ? images[i].color : Color.white);
+                }
+
+                return colors;
+            }
+
+            private static IReadOnlyList<Material> CaptureFlashImageMaterials(IReadOnlyList<Image> images)
+            {
+                var materials = new List<Material>(images.Count);
+                for (var i = 0; i < images.Count; i++)
+                {
+                    materials.Add(images[i] != null ? images[i].material : null);
+                }
+
+                return materials;
+            }
+
+            private static Material ResolveAllIn1SourceMaterial(Material template, Material authoredMaterial, Shader fallbackShader)
+            {
+                if (template != null && template.shader != null && template.shader.name == AllIn1UiMaskShaderName)
+                {
+                    return template;
+                }
+
+                if (authoredMaterial != null && authoredMaterial.shader == fallbackShader)
+                {
+                    return authoredMaterial;
+                }
+
+                return null;
+            }
+
+            private void DestroyRuntimeMaterial(int imageIndex)
+            {
+                var material = _allIn1RuntimeMaterials[imageIndex];
+                if (material == null)
+                {
+                    return;
+                }
+
+                _allIn1RuntimeMaterials[imageIndex] = null;
+                if (UnityEngine.Application.isPlaying)
+                {
+                    UnityEngine.Object.Destroy(material);
+                }
+                else
+                {
+                    UnityEngine.Object.DestroyImmediate(material);
+                }
+            }
+        }
+
+        private sealed class TextVisualState
+        {
+            private TextVisualState(TMP_Text text)
+            {
+                Text = text;
+                Color = text.color;
+                LocalScale = text.rectTransform != null ? text.rectTransform.localScale : Vector3.one;
+            }
+
+            public TMP_Text Text { get; }
+
+            public Color Color { get; }
+
+            public Vector3 LocalScale { get; }
+
+            public static TextVisualState Capture(TMP_Text text)
+            {
+                return text != null ? new TextVisualState(text) : null;
+            }
         }
     }
 }
