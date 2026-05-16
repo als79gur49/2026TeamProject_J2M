@@ -10,32 +10,45 @@ namespace Game.Feature.UI.Composition
     {
         private const string ChanceSlotNamePrefix = "ChanceSlotView";
         private const string TweenRootName = "LostChanceTweenRoot";
+        private const string FilledIconName = "FilledIcon";
+        private const string EffectImageName = "Effect";
+        private const string CrackLineNamePrefix = "CrackLine";
         private const string AllIn1UiMaskShaderName = "AllIn1SpriteShader/AllIn1SpriteShaderUiMask";
         private const string AllIn1HitEffectKeyword = "HITEFFECT_ON";
         private const string AllIn1DistortKeyword = "DISTORT_ON";
+        private const string AllIn1FadeKeyword = "FADE_ON";
+        private const string AllIn1GreyscaleKeyword = "GREYSCALE_ON";
         private static readonly int HitEffectBlendId = Shader.PropertyToID("_HitEffectBlend");
         private static readonly int HitEffectColorId = Shader.PropertyToID("_HitEffectColor");
         private static readonly int HitEffectGlowId = Shader.PropertyToID("_HitEffectGlow");
         private static readonly int DistortAmountId = Shader.PropertyToID("_DistortAmount");
         private static readonly int DistortTexXSpeedId = Shader.PropertyToID("_DistortTexXSpeed");
         private static readonly int DistortTexYSpeedId = Shader.PropertyToID("_DistortTexYSpeed");
+        private static readonly int FadeAmountId = Shader.PropertyToID("_FadeAmount");
+        private static readonly int FadeBurnWidthId = Shader.PropertyToID("_FadeBurnWidth");
+        private static readonly int FadeBurnTransitionId = Shader.PropertyToID("_FadeBurnTransition");
+        private static readonly int FadeBurnColorId = Shader.PropertyToID("_FadeBurnColor");
+        private static readonly int FadeBurnGlowId = Shader.PropertyToID("_FadeBurnGlow");
+        private static readonly int GreyscaleBlendId = Shader.PropertyToID("_GreyscaleBlend");
+        private static readonly int GreyscaleTintColorId = Shader.PropertyToID("_GreyscaleTintColor");
+        private static readonly int GreyscaleLuminosityId = Shader.PropertyToID("_GreyscaleLuminosity");
 
         [SerializeField] private TMP_Text _previousChanceText;
         [SerializeField] private TMP_Text _currentChanceText;
         [SerializeField] private TMP_Text _totalChanceText;
         [SerializeField] private TMP_Text _deathCountText;
         [SerializeField] private RectTransform[] _chanceSlotRoots;
-        [SerializeField] private float _lostShakeDurationSeconds = 0.34f;
+        [SerializeField] private float _lostShakeDurationSeconds = 0.44f;
         [SerializeField] private float _lostShakeStrength = 20f;
         [SerializeField] private int _lostShakeVibrato = 18;
         [SerializeField] private float _lostFallDistance = 190f;
-        [SerializeField] private float _lostFallDurationSeconds = 0.44f;
-        [SerializeField] private float _lostFadeDurationSeconds = 0.34f;
+        [SerializeField] private float _lostFallDurationSeconds = 0.66f;
+        [SerializeField] private float _lostFadeDurationSeconds = 0.5f;
         [SerializeField] private float _lostRotationDegrees = -22f;
         [SerializeField] private float _lostSlotStaggerSeconds = 0.05f;
         [SerializeField] private float _emptySlotAlpha = 0.34f;
         [SerializeField] private float _lostImpactScalePunch = 0.14f;
-        [SerializeField] private float _lostImpactDurationSeconds = 0.18f;
+        [SerializeField] private float _lostImpactDurationSeconds = 0.24f;
         [SerializeField] private float _lostImpactFlashAlpha = 0.9f;
         [SerializeField] private float _survivorPulseDelaySeconds = 0.08f;
         [SerializeField] private float _survivorPulseScalePunch = 0.07f;
@@ -49,8 +62,16 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private Color _allIn1HitEffectColor = new(1f, 0.18f, 0.24f, 1f);
         [SerializeField] private float _allIn1HitEffectGlow = 3f;
         [SerializeField] private float _allIn1DistortAmount = 0.16f;
-        [SerializeField] private float _allIn1DistortDurationSeconds = 0.26f;
+        [SerializeField] private float _allIn1DistortDurationSeconds = 0.34f;
         [SerializeField] private float _allIn1DistortTexSpeed = 4f;
+        [SerializeField] private Color _lostFilledIconDecayColor = new(0.34f, 0.21f, 0.18f, 1f);
+        [SerializeField] private Color _lostFilledIconBurnColor = new(0.9f, 0.17f, 0.1f, 1f);
+        [SerializeField] private float _lostFilledIconFadeAmount = 0.64f;
+        [SerializeField] private float _lostFilledIconGreyscaleBlend = 0.85f;
+        [SerializeField] private float _lostFilledIconDistortAmount = 0.08f;
+        [SerializeField] private Color _crackLineColor = new(0.08f, 0.02f, 0.015f, 0.78f);
+        [SerializeField] private float _crackLineRevealDelaySeconds = 0.04f;
+        [SerializeField] private float _crackLineRevealDurationSeconds = 0.27f;
         [SerializeField] private bool _useUnscaledTime = true;
 
         private readonly List<SlotState> _slotStates = new();
@@ -234,7 +255,8 @@ namespace Game.Feature.UI.Composition
                             value => state.TweenRect.localEulerAngles = value,
                             new Vector3(0f, 0f, _lostRotationDegrees),
                             Mathf.Max(0.01f, _lostFallDurationSeconds))
-                        .SetEase(Ease.InQuad));
+                        .SetEase(Ease.InQuad))
+                    .Join(CreateFilledIconBreakTween(state, Mathf.Max(0.01f, _lostFallDurationSeconds)));
 
                 _lostChanceSequence.Join(slotSequence);
             }
@@ -370,6 +392,132 @@ namespace Game.Feature.UI.Composition
             SetFloatIfPresent(material, DistortTexXSpeedId, _allIn1DistortTexSpeed);
             SetFloatIfPresent(material, DistortTexYSpeedId, -_allIn1DistortTexSpeed);
             return material;
+        }
+
+        private Tween CreateFilledIconBreakTween(SlotState state, float duration)
+        {
+            var sequence = DOTween.Sequence().SetUpdate(_useUnscaledTime);
+            var decayColor = _lostFilledIconDecayColor;
+            var shader = ResolveAllIn1UiMaskShader();
+            for (var i = 0; i < state.FilledImages.Count; i++)
+            {
+                var image = state.FilledImages[i];
+                if (image == null)
+                {
+                    continue;
+                }
+
+                sequence.Join(
+                    DOTween.To(
+                            () => image.color,
+                            value => image.color = value,
+                            decayColor,
+                            duration * 0.72f)
+                        .SetEase(Ease.InQuad));
+
+                var material = shader != null
+                    ? state.GetOrCreateFilledIconMaterial(i, _allIn1EffectMaterialTemplate, shader)
+                    : null;
+                if (material != null)
+                {
+                    PrepareAllIn1FilledIconMaterial(material);
+                    sequence.Join(CreateFilledIconMaterialBreakTween(material, duration));
+                }
+            }
+
+            var crackDelay = Mathf.Max(0f, _crackLineRevealDelaySeconds);
+            var crackDuration = Mathf.Max(0.01f, _crackLineRevealDurationSeconds);
+            for (var i = 0; i < state.CrackLineImages.Count; i++)
+            {
+                var line = state.CrackLineImages[i];
+                if (line == null)
+                {
+                    continue;
+                }
+
+                var targetColor = _crackLineColor;
+                var transparentColor = targetColor;
+                transparentColor.a = 0f;
+                line.color = transparentColor;
+                sequence.Insert(
+                    crackDelay + i * 0.018f,
+                    DOTween.To(
+                            () => line.color,
+                            value => line.color = value,
+                            targetColor,
+                            crackDuration)
+                        .SetEase(Ease.OutQuad));
+
+                if (line.rectTransform != null)
+                {
+                    line.rectTransform.localScale = new Vector3(0.32f, 1f, 1f);
+                    sequence.Insert(
+                        crackDelay + i * 0.018f,
+                        line.rectTransform
+                            .DOScaleX(1f, crackDuration)
+                            .SetEase(Ease.OutBack));
+                }
+            }
+
+            return sequence;
+        }
+
+        private void PrepareAllIn1FilledIconMaterial(Material material)
+        {
+            material.EnableKeyword(AllIn1FadeKeyword);
+            material.EnableKeyword(AllIn1GreyscaleKeyword);
+            material.EnableKeyword(AllIn1DistortKeyword);
+            SetFloatIfPresent(material, FadeAmountId, -0.08f);
+            SetFloatIfPresent(material, FadeBurnWidthId, 0.035f);
+            SetFloatIfPresent(material, FadeBurnTransitionId, 0.08f);
+            SetColorIfPresent(material, FadeBurnColorId, _lostFilledIconBurnColor);
+            SetFloatIfPresent(material, FadeBurnGlowId, 2.4f);
+            SetFloatIfPresent(material, GreyscaleBlendId, 0f);
+            SetColorIfPresent(material, GreyscaleTintColorId, _lostFilledIconDecayColor);
+            SetFloatIfPresent(material, GreyscaleLuminosityId, -0.18f);
+            SetFloatIfPresent(material, DistortAmountId, 0f);
+            SetFloatIfPresent(material, DistortTexXSpeedId, _allIn1DistortTexSpeed * 0.45f);
+            SetFloatIfPresent(material, DistortTexYSpeedId, _allIn1DistortTexSpeed * 0.35f);
+        }
+
+        private Tween CreateFilledIconMaterialBreakTween(Material material, float duration)
+        {
+            var sequence = DOTween.Sequence().SetUpdate(_useUnscaledTime);
+            if (material.HasProperty(FadeAmountId))
+            {
+                sequence.Join(
+                    DOTween.To(
+                            () => material != null ? material.GetFloat(FadeAmountId) : -0.08f,
+                            value => SetFloatIfPresent(material, FadeAmountId, value),
+                            Mathf.Clamp(_lostFilledIconFadeAmount, -0.08f, 1f),
+                            duration)
+                        .SetEase(Ease.InQuad));
+            }
+
+            if (material.HasProperty(GreyscaleBlendId))
+            {
+                sequence.Join(
+                    DOTween.To(
+                            () => material != null ? material.GetFloat(GreyscaleBlendId) : 0f,
+                            value => SetFloatIfPresent(material, GreyscaleBlendId, value),
+                            Mathf.Clamp01(_lostFilledIconGreyscaleBlend),
+                            duration * 0.8f)
+                        .SetEase(Ease.OutQuad));
+            }
+
+            if (material.HasProperty(DistortAmountId))
+            {
+                sequence.Join(
+                    DOTween.To(
+                            () => material != null ? material.GetFloat(DistortAmountId) : 0f,
+                            value => SetFloatIfPresent(material, DistortAmountId, value),
+                            Mathf.Max(0f, _lostFilledIconDistortAmount),
+                            duration * 0.42f)
+                        .SetEase(Ease.OutQuad)
+                        .SetLoops(2, LoopType.Yoyo));
+            }
+
+            return sequence;
         }
 
         private Tween CreateAllIn1LostImpactTween(Material material, float baseDuration)
@@ -685,9 +833,16 @@ namespace Game.Feature.UI.Composition
                 Alpha = canvasGroup.alpha;
                 ActiveSelf = rect.gameObject.activeSelf;
                 FlashImages = ResolveFlashImages(rect);
-                FlashImageColors = CaptureFlashImageColors(FlashImages);
-                FlashImageMaterials = CaptureFlashImageMaterials(FlashImages);
+                FlashImageColors = CaptureImageColors(FlashImages);
+                FlashImageMaterials = CaptureImageMaterials(FlashImages);
+                FilledImages = ResolveFilledImages(rect);
+                FilledImageColors = CaptureImageColors(FilledImages);
+                FilledImageMaterials = CaptureImageMaterials(FilledImages);
+                CrackLineImages = ResolveCrackLineImages(tweenRect);
+                CrackLineColors = CaptureImageColors(CrackLineImages);
+                CrackLineLocalScales = CaptureImageLocalScales(CrackLineImages);
                 _allIn1RuntimeMaterials = new Material[FlashImages.Count];
+                _filledIconRuntimeMaterials = new Material[FilledImages.Count];
             }
 
             public RectTransform Rect { get; }
@@ -712,7 +867,21 @@ namespace Game.Feature.UI.Composition
 
             public IReadOnlyList<Material> FlashImageMaterials { get; }
 
+            public IReadOnlyList<Image> FilledImages { get; }
+
+            public IReadOnlyList<Color> FilledImageColors { get; }
+
+            public IReadOnlyList<Material> FilledImageMaterials { get; }
+
+            public IReadOnlyList<Image> CrackLineImages { get; }
+
+            public IReadOnlyList<Color> CrackLineColors { get; }
+
+            public IReadOnlyList<Vector3> CrackLineLocalScales { get; }
+
             private Material[] _allIn1RuntimeMaterials { get; }
+
+            private Material[] _filledIconRuntimeMaterials { get; }
 
             public Material GetOrCreateAllIn1Material(int imageIndex, Material template, Shader fallbackShader)
             {
@@ -735,6 +904,27 @@ namespace Game.Feature.UI.Composition
                 return material;
             }
 
+            public Material GetOrCreateFilledIconMaterial(int imageIndex, Material template, Shader fallbackShader)
+            {
+                if (imageIndex < 0 || imageIndex >= FilledImages.Count || FilledImages[imageIndex] == null || fallbackShader == null)
+                {
+                    return null;
+                }
+
+                if (_filledIconRuntimeMaterials[imageIndex] != null)
+                {
+                    return _filledIconRuntimeMaterials[imageIndex];
+                }
+
+                var sourceMaterial = ResolveAllIn1SourceMaterial(template, FilledImageMaterials[imageIndex], fallbackShader);
+                var material = sourceMaterial != null ? new Material(sourceMaterial) : new Material(fallbackShader);
+                material.name = $"{FilledImages[imageIndex].name} Runtime Break AllIn1";
+                material.hideFlags = HideFlags.DontSave;
+                _filledIconRuntimeMaterials[imageIndex] = material;
+                FilledImages[imageIndex].material = material;
+                return material;
+            }
+
             public void RestoreFlashImages()
             {
                 for (var i = 0; i < FlashImages.Count; i++)
@@ -747,6 +937,31 @@ namespace Game.Feature.UI.Composition
 
                     DestroyRuntimeMaterial(i);
                 }
+
+                for (var i = 0; i < FilledImages.Count; i++)
+                {
+                    if (FilledImages[i] != null)
+                    {
+                        FilledImages[i].color = FilledImageColors[i];
+                        FilledImages[i].material = FilledImageMaterials[i];
+                    }
+
+                    DestroyFilledIconRuntimeMaterial(i);
+                }
+
+                for (var i = 0; i < CrackLineImages.Count; i++)
+                {
+                    if (CrackLineImages[i] == null)
+                    {
+                        continue;
+                    }
+
+                    CrackLineImages[i].color = CrackLineColors[i];
+                    if (CrackLineImages[i].rectTransform != null)
+                    {
+                        CrackLineImages[i].rectTransform.localScale = CrackLineLocalScales[i];
+                    }
+                }
             }
 
             private static IReadOnlyList<Image> ResolveFlashImages(RectTransform rect)
@@ -755,7 +970,7 @@ namespace Game.Feature.UI.Composition
                 var images = rect.GetComponentsInChildren<Image>(true);
                 for (var i = 0; i < images.Length; i++)
                 {
-                    if (images[i] != null && images[i].name == "Effect")
+                    if (images[i] != null && images[i].name == EffectImageName)
                     {
                         resolved.Add(images[i]);
                     }
@@ -764,7 +979,80 @@ namespace Game.Feature.UI.Composition
                 return resolved;
             }
 
-            private static IReadOnlyList<Color> CaptureFlashImageColors(IReadOnlyList<Image> images)
+            private static IReadOnlyList<Image> ResolveFilledImages(RectTransform rect)
+            {
+                var resolved = new List<Image>();
+                var images = rect.GetComponentsInChildren<Image>(true);
+                for (var i = 0; i < images.Length; i++)
+                {
+                    if (images[i] != null && images[i].name == FilledIconName)
+                    {
+                        resolved.Add(images[i]);
+                    }
+                }
+
+                if (resolved.Count == 0 && rect.TryGetComponent<Image>(out var rootImage))
+                {
+                    resolved.Add(rootImage);
+                }
+
+                return resolved;
+            }
+
+            private static IReadOnlyList<Image> ResolveCrackLineImages(RectTransform tweenRect)
+            {
+                if (tweenRect == null)
+                {
+                    return System.Array.Empty<Image>();
+                }
+
+                var resolved = new List<Image>();
+                var images = tweenRect.GetComponentsInChildren<Image>(true);
+                for (var i = 0; i < images.Length; i++)
+                {
+                    if (images[i] != null && images[i].name.StartsWith(CrackLineNamePrefix, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolved.Add(images[i]);
+                    }
+                }
+
+                return resolved.Count > 0 ? resolved : CreateCrackLines(tweenRect);
+            }
+
+            private static IReadOnlyList<Image> CreateCrackLines(RectTransform parent)
+            {
+                var lineSpecs = new[]
+                {
+                    new CrackLineSpec(new Vector2(-1.5f, 2.5f), new Vector2(2f, 20f), -24f),
+                    new CrackLineSpec(new Vector2(2.5f, 1.5f), new Vector2(2f, 15f), 28f),
+                    new CrackLineSpec(new Vector2(-4.5f, -3.5f), new Vector2(2f, 13f), 42f),
+                    new CrackLineSpec(new Vector2(5.5f, -4.5f), new Vector2(2f, 12f), -38f),
+                    new CrackLineSpec(new Vector2(0f, -1f), new Vector2(2f, 18f), 4f),
+                };
+                var lines = new List<Image>(lineSpecs.Length);
+                for (var i = 0; i < lineSpecs.Length; i++)
+                {
+                    var lineObject = new GameObject($"{CrackLineNamePrefix} {i}", typeof(RectTransform), typeof(Image));
+                    lineObject.transform.SetParent(parent, false);
+                    var rect = lineObject.GetComponent<RectTransform>();
+                    rect.anchorMin = new Vector2(0.5f, 0.5f);
+                    rect.anchorMax = new Vector2(0.5f, 0.5f);
+                    rect.pivot = new Vector2(0.5f, 0.5f);
+                    rect.anchoredPosition = lineSpecs[i].AnchoredPosition;
+                    rect.sizeDelta = lineSpecs[i].SizeDelta;
+                    rect.localRotation = Quaternion.Euler(0f, 0f, lineSpecs[i].RotationDegrees);
+                    rect.localScale = new Vector3(0.32f, 1f, 1f);
+
+                    var image = lineObject.GetComponent<Image>();
+                    image.color = Color.clear;
+                    image.raycastTarget = false;
+                    lines.Add(image);
+                }
+
+                return lines;
+            }
+
+            private static IReadOnlyList<Color> CaptureImageColors(IReadOnlyList<Image> images)
             {
                 var colors = new List<Color>(images.Count);
                 for (var i = 0; i < images.Count; i++)
@@ -775,7 +1063,7 @@ namespace Game.Feature.UI.Composition
                 return colors;
             }
 
-            private static IReadOnlyList<Material> CaptureFlashImageMaterials(IReadOnlyList<Image> images)
+            private static IReadOnlyList<Material> CaptureImageMaterials(IReadOnlyList<Image> images)
             {
                 var materials = new List<Material>(images.Count);
                 for (var i = 0; i < images.Count; i++)
@@ -784,6 +1072,19 @@ namespace Game.Feature.UI.Composition
                 }
 
                 return materials;
+            }
+
+            private static IReadOnlyList<Vector3> CaptureImageLocalScales(IReadOnlyList<Image> images)
+            {
+                var scales = new List<Vector3>(images.Count);
+                for (var i = 0; i < images.Count; i++)
+                {
+                    scales.Add(images[i] != null && images[i].rectTransform != null
+                        ? images[i].rectTransform.localScale
+                        : Vector3.one);
+                }
+
+                return scales;
             }
 
             private static Material ResolveAllIn1SourceMaterial(Material template, Material authoredMaterial, Shader fallbackShader)
@@ -818,6 +1119,41 @@ namespace Game.Feature.UI.Composition
                 {
                     UnityEngine.Object.DestroyImmediate(material);
                 }
+            }
+
+            private void DestroyFilledIconRuntimeMaterial(int imageIndex)
+            {
+                var material = _filledIconRuntimeMaterials[imageIndex];
+                if (material == null)
+                {
+                    return;
+                }
+
+                _filledIconRuntimeMaterials[imageIndex] = null;
+                if (UnityEngine.Application.isPlaying)
+                {
+                    UnityEngine.Object.Destroy(material);
+                }
+                else
+                {
+                    UnityEngine.Object.DestroyImmediate(material);
+                }
+            }
+
+            private readonly struct CrackLineSpec
+            {
+                public CrackLineSpec(Vector2 anchoredPosition, Vector2 sizeDelta, float rotationDegrees)
+                {
+                    AnchoredPosition = anchoredPosition;
+                    SizeDelta = sizeDelta;
+                    RotationDegrees = rotationDegrees;
+                }
+
+                public Vector2 AnchoredPosition { get; }
+
+                public Vector2 SizeDelta { get; }
+
+                public float RotationDegrees { get; }
             }
         }
 

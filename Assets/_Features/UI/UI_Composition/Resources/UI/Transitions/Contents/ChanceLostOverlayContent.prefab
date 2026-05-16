@@ -1301,17 +1301,17 @@ MonoBehaviour:
   _totalChanceText: {fileID: 0}
   _deathCountText: {fileID: 0}
   _chanceSlotRoots: []
-  _lostShakeDurationSeconds: 0.34
+  _lostShakeDurationSeconds: 0.44
   _lostShakeStrength: 20
   _lostShakeVibrato: 18
   _lostFallDistance: 190
-  _lostFallDurationSeconds: 0.44
-  _lostFadeDurationSeconds: 0.34
+  _lostFallDurationSeconds: 0.66
+  _lostFadeDurationSeconds: 0.5
   _lostRotationDegrees: -22
   _lostSlotStaggerSeconds: 0.05
   _emptySlotAlpha: 0.34
   _lostImpactScalePunch: 0.14
-  _lostImpactDurationSeconds: 0.18
+  _lostImpactDurationSeconds: 0.24
   _lostImpactFlashAlpha: 0.9
   _survivorPulseDelaySeconds: 0.08
   _survivorPulseScalePunch: 0.07
@@ -1325,8 +1325,16 @@ MonoBehaviour:
   _allIn1HitEffectColor: {r: 1, g: 0.18, b: 0.24, a: 1}
   _allIn1HitEffectGlow: 3
   _allIn1DistortAmount: 0.16
-  _allIn1DistortDurationSeconds: 0.26
+  _allIn1DistortDurationSeconds: 0.34
   _allIn1DistortTexSpeed: 4
+  _lostFilledIconDecayColor: {r: 0.34, g: 0.21, b: 0.18, a: 1}
+  _lostFilledIconBurnColor: {r: 0.9, g: 0.17, b: 0.1, a: 1}
+  _lostFilledIconFadeAmount: 0.64
+  _lostFilledIconGreyscaleBlend: 0.85
+  _lostFilledIconDistortAmount: 0.08
+  _crackLineColor: {r: 0.08, g: 0.02, b: 0.015, a: 0.78}
+  _crackLineRevealDelaySeconds: 0.04
+  _crackLineRevealDurationSeconds: 0.27
   _useUnscaledTime: 1
 --- !u!114 &9177025413810036314
 MonoBehaviour:
