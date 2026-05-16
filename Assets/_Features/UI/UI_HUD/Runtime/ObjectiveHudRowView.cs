@@ -29,9 +29,16 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private TMP_Text _label;
         [SerializeField] private Animator _animator;
         [SerializeField] private LayoutElement _layoutElement;
+        [SerializeField] private Graphic _progressHighlightGraphic;
+        [SerializeField] private CanvasGroup _progressHighlightGroup;
+        [SerializeField] private Transform _progressPulseScaleTarget;
         [SerializeField] private float maxTransitionDeltaSeconds = 1.0f / 30.0f;
-        [SerializeField] private float progressPulseDuration = 0.18f;
-        [SerializeField] private float progressPulseScale = 1.08f;
+        [SerializeField] private bool _enableProgressPulse = true;
+        [SerializeField] private bool _enableProgressScalePulse = true;
+        [SerializeField] private float progressPulseDuration = 0.22f;
+        [SerializeField] private float progressPulseScale = 1.03f;
+        [SerializeField] private float _progressHighlightMaxAlpha = 0.35f;
+        [SerializeField] private Color _progressHighlightColor = new Color(1.0f, 0.92f, 0.55f, 1.0f);
         [SerializeField] private ObjectiveHudRowTransitionSettings _transitionSettings =
             new ObjectiveHudRowTransitionSettings();
 
@@ -47,8 +54,11 @@ namespace Game.Feature.UI.HUD
         private int _outStateHash;
         private bool _isProgressPulsePlaying;
         private float _progressPulseElapsed;
-        private Vector3 _restScale = Vector3.one;
-        private bool _hasRestScale;
+        private Vector3 _progressPulseBaseScale = Vector3.one;
+        private bool _hasProgressPulseBaseScale;
+        private Color _progressHighlightBaseColor = Color.white;
+        private bool _hasProgressHighlightBaseColor;
+        private bool _missingProgressHighlightWarningRaised;
 
         public event Action<ObjectiveHudRowView> DismissFinished;
         public event Action<ObjectiveHudRowView, ObjectiveRowTransitionKind> TransitionFinished;
@@ -60,13 +70,20 @@ namespace Game.Feature.UI.HUD
 
         internal int ProgressPulsePlayCount { get; private set; }
 
+        internal float ProgressHighlightAlphaForTests => GetProgressHighlightAlpha();
+
+        internal bool IsProgressPulsePlayingForTests => _isProgressPulsePlaying;
+
+        internal Transform ProgressPulseScaleTargetForTests => _progressPulseScaleTarget;
+
         public void Initialize()
         {
             ResolveReferences();
             ValidateAuthoredStructureOrThrow();
             _fullHeight = ResolveFullHeight();
             _outStateHash = Animator.StringToHash(Settings.OutStateName);
-            CaptureRestScaleIfNeeded();
+            CaptureProgressPulseBaseScaleIfNeeded();
+            CaptureProgressHighlightBaseColorIfNeeded();
         }
 
         public void Bind(ObjectiveConditionHudViewModel model)
@@ -156,6 +173,7 @@ namespace Game.Feature.UI.HUD
 
             Initialize();
             _wasSatisfied = true;
+            ResetProgressPulseState();
             SetAnimatorBool(true);
             PlayAnimatorState(Settings.ActiveStateName);
             VisualState = ObjectiveRowVisualState.Completing;
@@ -169,6 +187,7 @@ namespace Game.Feature.UI.HUD
             }
 
             Initialize();
+            ResetProgressPulseState();
             SetAnimatorBool(true);
             PlayAnimatorState(Settings.ActiveStateName);
             VisualState = ObjectiveRowVisualState.Completing;
@@ -176,19 +195,32 @@ namespace Game.Feature.UI.HUD
 
         public void PlayProgressPulse()
         {
-            if (VisualState == ObjectiveRowVisualState.Hidden ||
+            if (!_enableProgressPulse ||
+                VisualState != ObjectiveRowVisualState.Idle ||
                 IsDismissing ||
-                !gameObject.activeInHierarchy ||
-                _isProgressPulsePlaying)
+                !gameObject.activeInHierarchy)
             {
                 return;
             }
 
-            CaptureRestScaleIfNeeded();
+            if (!HasProgressHighlightTarget() &&
+                (!_enableProgressScalePulse || _progressPulseScaleTarget == null))
+            {
+                RaiseMissingProgressHighlightWarningOnce();
+                return;
+            }
+
+            CaptureProgressPulseBaseScaleIfNeeded();
+            CaptureProgressHighlightBaseColorIfNeeded();
             _isProgressPulsePlaying = true;
             _progressPulseElapsed = 0.0f;
             ProgressPulsePlayCount++;
-            SetProgressPulseScale(progressPulseScale);
+            SetProgressHighlightAlpha(_progressHighlightMaxAlpha);
+
+            if (_enableProgressScalePulse && _progressPulseScaleTarget != null)
+            {
+                SetProgressPulseScale(progressPulseScale);
+            }
         }
 
         public void ForceResetForPool()
@@ -302,6 +334,11 @@ namespace Game.Feature.UI.HUD
             Tick(Time.unscaledDeltaTime);
         }
 
+        private void OnDisable()
+        {
+            ResetProgressPulseState();
+        }
+
         private float ClampTransitionDelta(float deltaTime)
         {
             var safeDelta = Mathf.Max(0.0f, deltaTime);
@@ -332,24 +369,39 @@ namespace Game.Feature.UI.HUD
             }
         }
 
-        private void CaptureRestScaleIfNeeded()
+        private void CaptureProgressPulseBaseScaleIfNeeded()
         {
-            if (_hasRestScale)
+            if (_hasProgressPulseBaseScale)
             {
                 return;
             }
 
-            _restScale = transform.localScale;
-            _hasRestScale = true;
+            _progressPulseBaseScale = _progressPulseScaleTarget != null
+                ? _progressPulseScaleTarget.localScale
+                : Vector3.one;
+            _hasProgressPulseBaseScale = true;
+        }
+
+        private void CaptureProgressHighlightBaseColorIfNeeded()
+        {
+            if (_hasProgressHighlightBaseColor || _progressHighlightGraphic == null)
+            {
+                return;
+            }
+
+            _progressHighlightBaseColor = _progressHighlightGraphic.color;
+            _hasProgressHighlightBaseColor = true;
         }
 
         private void ResetProgressPulseState()
         {
             _isProgressPulsePlaying = false;
             _progressPulseElapsed = 0.0f;
-            if (_hasRestScale)
+            SetProgressHighlightAlpha(0.0f);
+
+            if (_hasProgressPulseBaseScale && _progressPulseScaleTarget != null)
             {
-                transform.localScale = _restScale;
+                _progressPulseScaleTarget.localScale = _progressPulseBaseScale;
             }
         }
 
@@ -369,8 +421,14 @@ namespace Game.Feature.UI.HUD
 
             _progressPulseElapsed += Mathf.Max(0.0f, deltaTime);
             var progress = Mathf.Clamp01(_progressPulseElapsed / duration);
-            var scale = Mathf.Lerp(Mathf.Max(1.0f, progressPulseScale), 1.0f, progress);
-            SetProgressPulseScale(scale);
+            var remaining = 1.0f - EaseOutQuad(progress);
+            SetProgressHighlightAlpha(_progressHighlightMaxAlpha * remaining);
+
+            if (_enableProgressScalePulse && _progressPulseScaleTarget != null)
+            {
+                var scale = Mathf.Lerp(Mathf.Max(1.0f, progressPulseScale), 1.0f, progress);
+                SetProgressPulseScale(scale);
+            }
 
             if (progress >= 1.0f)
             {
@@ -380,8 +438,72 @@ namespace Game.Feature.UI.HUD
 
         private void SetProgressPulseScale(float scale)
         {
-            CaptureRestScaleIfNeeded();
-            transform.localScale = _restScale * Mathf.Max(0.0f, scale);
+            if (_progressPulseScaleTarget == null)
+            {
+                return;
+            }
+
+            CaptureProgressPulseBaseScaleIfNeeded();
+            _progressPulseScaleTarget.localScale = _progressPulseBaseScale * Mathf.Max(0.0f, scale);
+        }
+
+        private bool HasProgressHighlightTarget()
+        {
+            return _progressHighlightGroup != null || _progressHighlightGraphic != null;
+        }
+
+        private float GetProgressHighlightAlpha()
+        {
+            if (_progressHighlightGroup != null)
+            {
+                return _progressHighlightGroup.alpha;
+            }
+
+            return _progressHighlightGraphic != null ? _progressHighlightGraphic.color.a : 0.0f;
+        }
+
+        private void SetProgressHighlightAlpha(float alpha)
+        {
+            var clampedAlpha = Mathf.Clamp01(alpha);
+            if (_progressHighlightGroup != null)
+            {
+                _progressHighlightGroup.alpha = clampedAlpha;
+            }
+
+            if (_progressHighlightGraphic == null)
+            {
+                return;
+            }
+
+            var color = _progressHighlightColor;
+            if (color.a <= 0.0f && _hasProgressHighlightBaseColor)
+            {
+                color = _progressHighlightBaseColor;
+            }
+
+            color.a = _progressHighlightGroup != null
+                ? Mathf.Clamp01(color.a)
+                : clampedAlpha;
+            _progressHighlightGraphic.color = color;
+        }
+
+        private static float EaseOutQuad(float value)
+        {
+            var clamped = Mathf.Clamp01(value);
+            return 1.0f - (1.0f - clamped) * (1.0f - clamped);
+        }
+
+        private void RaiseMissingProgressHighlightWarningOnce()
+        {
+            if (_missingProgressHighlightWarningRaised)
+            {
+                return;
+            }
+
+            _missingProgressHighlightWarningRaised = true;
+            Debug.LogWarning(
+                $"{nameof(ObjectiveHudRowView)} on '{name}' is missing a prefab-authored progress highlight reference.",
+                this);
         }
 
         private void BeginHeightTween(
@@ -565,6 +687,20 @@ namespace Game.Feature.UI.HUD
             if (_layoutElement == null)
             {
                 Debug.LogWarning($"{nameof(ObjectiveHudRowView)} on '{name}' is missing serialized reference '{nameof(_layoutElement)}'.", this);
+            }
+
+            if (_progressHighlightGraphic == null && _progressHighlightGroup == null)
+            {
+                Debug.LogWarning(
+                    $"{nameof(ObjectiveHudRowView)} on '{name}' is missing serialized reference '{nameof(_progressHighlightGraphic)}' or '{nameof(_progressHighlightGroup)}'.",
+                    this);
+            }
+
+            if (_progressHighlightGraphic != null && _progressHighlightGraphic.raycastTarget)
+            {
+                Debug.LogWarning(
+                    $"{nameof(ObjectiveHudRowView)} on '{name}' progress highlight must have Raycast Target disabled.",
+                    _progressHighlightGraphic);
             }
         }
 #endif
