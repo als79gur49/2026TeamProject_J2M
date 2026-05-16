@@ -991,8 +991,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var sourceIsSolid = snapshot.TryGetSolidSemanticAt(source.position, out _);
-            var pendingCellIsSolid = snapshot.TryGetSolidSemanticAt(glideState.LandingPendingCell, out _);
-            if (!sourceIsSolid && !pendingCellIsSolid)
+            if (!sourceIsSolid)
             {
                 return false;
             }
@@ -1031,8 +1030,7 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            var destination = new SurfaceCell(source.position.face, egressIntent.Destination.x, egressIntent.Destination.y);
-            if (snapshot.TryGetSolidSemanticAt(destination, out _))
+            if (!IsLandingPendingEgressIntentLegal(snapshot, source, egressIntent))
             {
                 return false;
             }
@@ -1092,7 +1090,12 @@ namespace Game.Feature.Gameplay.Entities
                     out _) ||
                 rotationKind != CubeRotationKind.None ||
                 destination.face != source.position.face ||
-                snapshot.TryGetSolidSemanticAt(destination, out _))
+                !IsLandingPendingEgressDestinationLegal(
+                    snapshot,
+                    source,
+                    destination,
+                    rotationKind,
+                    snapshot.Topology))
             {
                 return false;
             }
@@ -1102,6 +1105,73 @@ namespace Game.Feature.Gameplay.Entities
                 _commonSettings.MovementPriority,
                 destination.PlanarPosition);
             return true;
+        }
+
+        private bool IsLandingPendingEgressIntentLegal(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in RawMovementIntent intent)
+        {
+            if (intent.CommandKind != MovementCommandKind.Move)
+            {
+                return false;
+            }
+
+            var step = intent.Destination - source.position.PlanarPosition;
+            if (Math.Abs(step.x) + Math.Abs(step.y) != 1 ||
+                !snapshot.TryResolveUnitStep(
+                    source.position,
+                    step,
+                    out var destination,
+                    out var rotationKind,
+                    out var updatedTopology) ||
+                destination.face != source.position.face ||
+                destination.PlanarPosition != intent.Destination)
+            {
+                return false;
+            }
+
+            return IsLandingPendingEgressDestinationLegal(
+                snapshot,
+                source,
+                destination,
+                rotationKind,
+                updatedTopology);
+        }
+
+        private bool IsLandingPendingEgressDestinationLegal(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            SurfaceCell destination,
+            CubeRotationKind rotationKind,
+            CubeTopologyState updatedTopology)
+        {
+            if (rotationKind != CubeRotationKind.None ||
+                destination.face != source.position.face)
+            {
+                return false;
+            }
+
+            var traversalLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destination,
+                source.entityId,
+                snapshot.Topology,
+                rotationKind,
+                updatedTopology,
+                tileFeatureDefinitions: _tileFeatureDefinitions);
+            if (traversalLegality.Verdict != LegalityVerdict.Allowed)
+            {
+                return false;
+            }
+
+            var settlementLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                snapshot,
+                EntityType.Unit,
+                destination,
+                source.entityId);
+            return settlementLegality.Verdict == LegalityVerdict.Allowed;
         }
 
         private static bool TryResolveSolidBoundGlideKinematicTerminal(

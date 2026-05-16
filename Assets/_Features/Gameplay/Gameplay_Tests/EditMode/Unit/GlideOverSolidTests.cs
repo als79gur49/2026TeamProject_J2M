@@ -290,9 +290,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Chase),
             });
             var logic = new EnemyLogic(40, profile);
-            var writeContext = worldState.CreateWriteContext();
-            writeContext.SetEnemyGlideState(40, CreateActiveGlide(activeUntilTickExclusive: 2, durationTicks: 1, cooldownTicks: 0, recoveryTicks: 1));
-            writeContext.MoveEntity(40, solidCell);
+            MoveGliderOntoSolidWithActiveAllowance(
+                worldState,
+                40,
+                solidCell,
+                CreateActiveGlide(activeUntilTickExclusive: 2, durationTicks: 1, cooldownTicks: 0, recoveryTicks: 1, lockedStepX: -1, lockedStepY: 0));
 
             try
             {
@@ -796,6 +798,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Glider_LandingPending_DoesNotReceiveActiveDetectionSolidIgnore()
+        {
+            var profile = CreateCrossLineGlideChaserProfile(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var losBlockerCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new Vector2Int(3, 0), EnemyAiMode.None),
+                CreateWall(30, wallCell),
+                CreateWall(31, losBlockerCell),
+                CreateUnit(40, teamId: 2, new Vector2Int(0, 1), EnemyAiMode.Chase),
+            });
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: wallCell),
+                wallCell);
+
+            try
+            {
+                var tick = CreateGlideKinematicPipeline(profile, worldState).RunTick(new TickInput(4));
+
+                Assert.That(tick.FinalEntities.Single(entity => entity.entityId == 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BoxSlide_IgnoresOnlyActiveGlider()
         {
             var origin = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -908,11 +951,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWall(31, nextWallCell),
                 CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
             });
-            var writeContext = worldState.CreateWriteContext();
-            writeContext.SetEnemyGlideState(
+            MoveGliderOntoSolidWithActiveAllowance(
+                worldState,
                 40,
+                currentWallCell,
                 CreateActiveGlide(activeUntilTickExclusive: 2, durationTicks: 1, cooldownTicks: 1));
-            writeContext.MoveEntity(40, currentWallCell);
 
             foreach (var glideState in new[]
                      {
@@ -959,12 +1002,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWall(31, nextWallCell),
                 CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
             });
-            var writeContext = worldState.CreateWriteContext();
-            writeContext.SetEnemyGlideState(
+            MoveGliderOntoSolidWithActiveAllowance(
+                worldState,
                 40,
+                currentWallCell,
                 CreateActiveGlide(activeUntilTickExclusive: 3, durationTicks: 3, cooldownTicks: 1));
-            writeContext.MoveEntity(40, currentWallCell);
-            writeContext.SetEnemyGlideState(
+            worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateGlideState(
                     EnemyGlidePhase.Recovery,
@@ -1204,12 +1247,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWall(30, wallCell),
                 CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
             });
-            var writeContext = worldState.CreateWriteContext();
-            writeContext.SetEnemyGlideState(
-                40,
-                CreateActiveGlide(activeUntilTickExclusive: 3, durationTicks: 3, cooldownTicks: 0, recoveryTicks: 1));
-            writeContext.MoveEntity(40, wallCell);
-            writeContext.SetEnemyGlideState(
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
                 40,
                 CreateGlideState(
                     EnemyGlidePhase.LandingPending,
@@ -1220,7 +1259,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     landingPendingCell: wallCell,
                     hasLockedStep: true,
                     lockedStepX: 1,
-                    lockedStepY: 0));
+                    lockedStepY: 0),
+                wallCell);
 
             try
             {
@@ -1240,20 +1280,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideLandingPendingEgress_IgnoresUnitDestination()
+        public void GlideLandingPendingEgress_AllowsUnitStackDestination_WhenOrdinaryUnitAllows()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
-            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var wallCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var egressCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var worldState = CreateWorldState(new[]
             {
                 CreateWall(30, wallCell),
                 CreateUnit(41, teamId: 2, egressCell, EnemyAiMode.None),
-                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Patrol),
             });
-            var writeContext = worldState.CreateWriteContext();
-            writeContext.SetEnemyGlideState(
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
                 40,
                 CreateGlideState(
                     EnemyGlidePhase.LandingPending,
@@ -1264,6 +1304,122 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     landingPendingCell: wallCell,
                     hasLockedStep: true,
                     lockedStepX: 0,
+                    lockedStepY: 1),
+                wallCell);
+
+            try
+            {
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(
+                    RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                        snapshot,
+                        EntityType.Unit,
+                        egressCell,
+                        40,
+                        snapshot.Topology,
+                        CubeRotationKind.None,
+                        snapshot.Topology).Verdict,
+                    Is.EqualTo(LegalityVerdict.Allowed));
+                Assert.That(
+                    RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                        snapshot,
+                        EntityType.Unit,
+                        egressCell,
+                        40).Verdict,
+                    Is.EqualTo(LegalityVerdict.Allowed));
+
+                var tick = CreateGlideKinematicPipeline(profile, worldState).RunTick(new TickInput(4));
+
+                Assert.That(
+                    tick.MovementPhaseResult.RawIntents.Any(intent =>
+                        intent.SourceId == 40 &&
+                        intent.Destination == egressCell.PlanarPosition),
+                    Is.True);
+                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(tick, 40), Is.True);
+
+                var updatedSnapshot = worldState.CreateSnapshot();
+                Assert.That(updatedSnapshot.TryGetEntity(40, out var glider), Is.True);
+                Assert.That(glider.position, Is.EqualTo(egressCell));
+                var occupants = new List<EntityState>();
+                updatedSnapshot.EnumerateUnitsAt(egressCell, occupants);
+                CollectionAssert.AreEqual(new[] { 40, 41 }, occupants.Select(unit => unit.entityId).ToArray());
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingEgress_BlocksTerrainDestination()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(30, wallCell),
+                    CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Patrol),
+                },
+                new GameplayTerrainData(new[]
+                {
+                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                }));
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: wallCell,
+                    hasLockedStep: true,
+                    lockedStepX: 0,
+                    lockedStepY: 1),
+                wallCell);
+
+            try
+            {
+                var logic = new EnemyLogic(40, profile);
+                var intents = new List<RawMovementIntent>();
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
+
+                Assert.That(intents, Is.Empty);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingEgress_StalePendingCellDoesNotCreateEgressIntent()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var stalePendingCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(30, stalePendingCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: stalePendingCell,
+                    hasLockedStep: true,
+                    lockedStepX: 0,
                     lockedStepY: 1));
 
             try
@@ -1272,11 +1428,276 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var intents = new List<RawMovementIntent>();
                 logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
 
+                Assert.That(intents, Is.Empty);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingEgress_BlocksBoardEdge()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(30, wallCell),
+                    CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Patrol),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: wallCell,
+                    hasLockedStep: true,
+                    lockedStepX: -1,
+                    lockedStepY: 0),
+                wallCell);
+
+            try
+            {
+                var logic = new EnemyLogic(40, profile);
+                var intents = new List<RawMovementIntent>();
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
+
+                Assert.That(intents, Is.Empty);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingEgress_BlocksInactiveFaceTopology()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var inactiveWallCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
+            var inactiveSourceCell = new SurfaceCell(FaceId.Ceiling, 0, 1);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateWall(30, inactiveWallCell),
+                    CreateUnit(40, teamId: 2, inactiveSourceCell, EnemyAiMode.Patrol),
+                },
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: inactiveWallCell,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0));
+
+            try
+            {
+                var logic = new EnemyLogic(40, profile);
+                var intents = new List<RawMovementIntent>();
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
+
+                Assert.That(worldState.CreateSnapshot().Topology.IsFaceActive(inactiveWallCell.face), Is.False);
+                Assert.That(intents, Is.Empty);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingEgress_DoesNotEnterAnotherSolid()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var nextWallCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var legalCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 1, 3), EnemyAiMode.None),
+                CreateWall(30, wallCell),
+                CreateWall(31, nextWallCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+            });
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: wallCell,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0),
+                wallCell);
+
+            try
+            {
+                var logic = new EnemyLogic(40, profile);
+                var intents = new List<RawMovementIntent>();
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
+
+                Assert.That(intents.Any(intent => intent.Destination == nextWallCell.PlanarPosition), Is.False);
+                Assert.That(intents.Single(intent => intent.SourceId == 40).Destination, Is.EqualTo(legalCell.PlanarPosition));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingEgress_NoEgress_IsDeterministicAndSafe()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var rightWallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(30, wallCell),
+                    CreateWall(31, rightWallCell),
+                    CreateUnit(41, teamId: 2, new SurfaceCell(FaceId.Floor, -1, 1), EnemyAiMode.None),
+                    CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, -1, 0), EnemyAiMode.Patrol),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 1)),
+                new GameplayTerrainData(new[]
+                {
+                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                }));
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: wallCell,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0),
+                wallCell);
+            worldState.CreateWriteContext().MoveEntity(41, new SurfaceCell(FaceId.Floor, -1, 0));
+
+            try
+            {
+                var logic = new EnemyLogic(40, profile);
+                var first = new List<RawMovementIntent>();
+                var second = new List<RawMovementIntent>();
+
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), first);
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), second);
+                CommitPreMovement(logic, worldState, tickIndex: 4);
+
+                Assert.That(first, Is.Empty);
+                Assert.That(second, Is.Empty);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
+                Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(wallCell));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingEgress_BlocksReservationConflict()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var leftWall = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destination = new SurfaceCell(FaceId.Floor, 2, 0);
+            var rightWall = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(30, leftWall),
+                CreateWall(31, rightWall),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
+                CreateUnit(41, teamId: 2, new SurfaceCell(FaceId.Floor, 4, 0), EnemyAiMode.Patrol),
+            });
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: leftWall,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0),
+                leftWall);
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                41,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: rightWall,
+                    hasLockedStep: true,
+                    lockedStepX: -1,
+                    lockedStepY: 0),
+                rightWall);
+
+            try
+            {
+                var tick = CreateGlideKinematicPipeline(profile, worldState).RunTick(new TickInput(4));
+
                 Assert.That(
-                    intents.Any(intent =>
-                        intent.SourceId == 40 &&
-                        intent.Destination == egressCell.PlanarPosition),
-                    Is.True);
+                    tick.MovementPhaseResult.RawIntents.Count(intent => intent.Destination == destination.PlanarPosition),
+                    Is.EqualTo(2));
+                var reservationBook = new MovementReservationBook();
+                reservationBook.ReserveJumpLanding(99, destination);
+                var reservationStatus = reservationBook.GetCellStatus(destination);
+                Assert.That(
+                    reservationStatus,
+                    Is.EqualTo(ReservationStatus.Conflicted));
+                Assert.That(
+                    RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                        worldState.CreateSnapshot(),
+                        EntityType.Unit,
+                        destination,
+                        41,
+                        reservationStatus).Verdict,
+                    Is.EqualTo(LegalityVerdict.Blocked));
             }
             finally
             {
@@ -1411,14 +1832,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideActive_BlocksSameTeamUnitDestination()
+        public void GlideActive_MovementUsesSameUnitStackingContractAsOrdinaryMove_SameTeam()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 6, recoveryTicks: 1, cooldownTicks: 0));
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
-                CreateUnit(41, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.None),
+                CreateUnit(41, teamId: 2, destination, EnemyAiMode.None),
             });
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -1426,15 +1848,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(
+                    RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                        snapshot,
+                        EntityType.Unit,
+                        destination,
+                        40,
+                        snapshot.Topology,
+                        CubeRotationKind.None,
+                        snapshot.Topology).Verdict,
+                    Is.EqualTo(LegalityVerdict.Allowed));
                 var pipeline = CreateGlideKinematicPipeline(profile, worldState);
 
                 var tick = pipeline.RunTick(new TickInput(1));
 
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var state), Is.True);
                 Assert.That(state.Phase, Is.EqualTo(EnemyGlidePhase.Active));
-                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.True);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var glider), Is.True);
-                Assert.That(glider.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(glider.position, Is.EqualTo(destination));
             }
             finally
             {
@@ -1444,14 +1877,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideActive_BlocksNonPlayerUnitDestination()
+        public void GlideActive_MovementUsesSameUnitStackingContractAsOrdinaryMove_NonPlayer()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 6, recoveryTicks: 1, cooldownTicks: 0));
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
-                CreateUnit(41, teamId: 3, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.None),
+                CreateUnit(41, teamId: 3, destination, EnemyAiMode.None),
             });
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -1459,13 +1893,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
+                var snapshot = worldState.CreateSnapshot();
+                Assert.That(
+                    RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                        snapshot,
+                        EntityType.Unit,
+                        destination,
+                        40,
+                        snapshot.Topology,
+                        CubeRotationKind.None,
+                        snapshot.Topology).Verdict,
+                    Is.EqualTo(LegalityVerdict.Allowed));
                 var pipeline = CreateGlideKinematicPipeline(profile, worldState);
 
                 var tick = pipeline.RunTick(new TickInput(1));
 
-                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.True);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var glider), Is.True);
-                Assert.That(glider.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(glider.position, Is.EqualTo(destination));
             }
             finally
             {
@@ -1832,9 +2277,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWall(30, landingCell),
                 CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.Chase),
             });
-            var writeContext = worldState.CreateWriteContext();
-            writeContext.SetEnemyGlideState(40, CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1));
-            writeContext.MoveEntity(40, landingCell);
+            MoveGliderOntoSolidWithActiveAllowance(
+                worldState,
+                40,
+                landingCell,
+                CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1, lockedStepX: -1, lockedStepY: 0));
 
             AssertFlipCreatesImpactOnTarget(worldState, 40);
 
@@ -2077,6 +2524,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lockedStepX,
                 lockedStepY,
                 lockedTargetEntityId: lockedTargetEntityId);
+        }
+
+        private static void MoveGliderOntoSolidWithActiveAllowance(
+            WorldState worldState,
+            int entityId,
+            SurfaceCell solidCell,
+            EnemyGlideRuntimeState activeGlideState)
+        {
+            worldState.CreateWriteContext().SetEnemyGlideState(entityId, activeGlideState);
+            worldState.CreateWriteContext().MoveEntity(entityId, solidCell);
+        }
+
+        private static void MoveGliderOntoSolidAsLandingPending(
+            WorldState worldState,
+            int entityId,
+            EnemyGlideRuntimeState landingPendingState,
+            SurfaceCell solidCell)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
+            var lockedStep = solidCell.PlanarPosition - entity.position.PlanarPosition;
+            Assert.That(Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y), Is.EqualTo(1));
+
+            MoveGliderOntoSolidWithActiveAllowance(
+                worldState,
+                entityId,
+                solidCell,
+                CreateActiveGlide(
+                    activeUntilTickExclusive: landingPendingState.ActiveUntilTickExclusive,
+                    durationTicks: landingPendingState.DurationTicks,
+                    cooldownTicks: landingPendingState.CooldownTicks,
+                    recoveryTicks: landingPendingState.RecoveryTicks,
+                    lockedStepX: lockedStep.x,
+                    lockedStepY: lockedStep.y));
+            worldState.CreateWriteContext().SetEnemyGlideState(entityId, landingPendingState);
         }
 
         private static void AssertBoxSlideBlockedBy(WorldState worldState, SurfaceCell origin, int expectedBlockerEntityId)
