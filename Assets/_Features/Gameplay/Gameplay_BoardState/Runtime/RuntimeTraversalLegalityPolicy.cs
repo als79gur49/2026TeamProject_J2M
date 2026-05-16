@@ -17,6 +17,17 @@ namespace Game.Feature.Gameplay.BoardState
                     context.Actor.EntityId,
                     out var blocker))
             {
+                if (TryGetActiveGlideUnitBlocker(context, out var unitBlocker))
+                {
+                    return LegalityResult.Blocked(
+                        LegalityDomain.Traversal,
+                        context.CandidateCell,
+                        context.EvaluationTopology,
+                        RuntimeLegalityBlockerFactory.Create(unitBlocker),
+                        context.ReservationStatus,
+                        context.TransitionRequirement);
+                }
+
                 if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
                 {
                     return LegalityResult.Blocked(
@@ -39,6 +50,17 @@ namespace Game.Feature.Gameplay.BoardState
             var blockers = RuntimeLegalityBlockerFactory.Create(context.Snapshot.EntitiesById, blocker);
             if (ModifierQuery.IgnoresTraversalBlocker(capabilities, blockers[0]))
             {
+                if (TryGetActiveGlideUnitBlocker(context, out var unitBlocker))
+                {
+                    return LegalityResult.Blocked(
+                        LegalityDomain.Traversal,
+                        context.CandidateCell,
+                        context.EvaluationTopology,
+                        RuntimeLegalityBlockerFactory.Create(unitBlocker),
+                        context.ReservationStatus,
+                        context.TransitionRequirement);
+                }
+
                 if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
                 {
                     return LegalityResult.Blocked(
@@ -153,6 +175,37 @@ namespace Game.Feature.Gameplay.BoardState
             EntityType entityType)
         {
             return StateQuery.BuildActorRef(snapshot, entityId, entityType);
+        }
+
+        private static bool TryGetActiveGlideUnitBlocker(
+            in TraverseContext context,
+            out EntityState blocker)
+        {
+            if (context.Actor.EntityType != EntityType.Unit ||
+                !context.Actor.GlideState.IsActive)
+            {
+                blocker = default;
+                return false;
+            }
+
+            var occupants = new List<EntityState>();
+            context.Snapshot.EnumerateUnitsAt(context.EvaluationTopology, context.CandidateCell, occupants);
+            for (var i = 0; i < occupants.Count; i++)
+            {
+                var candidate = occupants[i];
+                if (candidate.entityId == context.Actor.EntityId ||
+                    !context.Snapshot.TryGetResolvedSpatialState(candidate.entityId, out var spatialState) ||
+                    !ModifierQuery.ShouldParticipateInTraversalBlocking(spatialState))
+                {
+                    continue;
+                }
+
+                blocker = candidate;
+                return true;
+            }
+
+            blocker = default;
+            return false;
         }
 
         private static bool TryGetUnitTileFeatureBlocker(

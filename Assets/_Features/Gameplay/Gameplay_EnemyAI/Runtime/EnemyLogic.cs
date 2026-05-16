@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings);
@@ -48,59 +49,6 @@ namespace Game.Feature.Gameplay.Entities
             public int CooldownTicks { get; }
 
             public int OrdinaryKinematicMoveTicks { get; }
-        }
-
-        private enum EnemyGlideAdvanceVerdict
-        {
-            CanAdvance,
-            BlockedBoundary,
-            BlockedTopology,
-            BlockedTraversal,
-            MissingLockedStep,
-        }
-
-        private readonly struct EnemyGlideAdvanceResolution
-        {
-            public EnemyGlideAdvanceResolution(
-                EnemyGlideAdvanceVerdict verdict,
-                SurfaceCell destination,
-                RawMovementIntent intent)
-            {
-                Verdict = verdict;
-                Destination = destination;
-                Intent = intent;
-            }
-
-            public EnemyGlideAdvanceVerdict Verdict { get; }
-
-            public SurfaceCell Destination { get; }
-
-            public RawMovementIntent Intent { get; }
-
-            public bool IsTerminal =>
-                Verdict == EnemyGlideAdvanceVerdict.BlockedBoundary ||
-                Verdict == EnemyGlideAdvanceVerdict.BlockedTopology ||
-                Verdict == EnemyGlideAdvanceVerdict.BlockedTraversal ||
-                Verdict == EnemyGlideAdvanceVerdict.MissingLockedStep;
-
-            public string DebugReason => Verdict switch
-            {
-                EnemyGlideAdvanceVerdict.CanAdvance => "IntentCreated",
-                EnemyGlideAdvanceVerdict.BlockedBoundary => "GlideAdvanceBlockedBoundary",
-                EnemyGlideAdvanceVerdict.BlockedTopology => "GlideAdvanceBlockedTopology",
-                EnemyGlideAdvanceVerdict.BlockedTraversal => "GlideAdvanceBlockedTraversal",
-                EnemyGlideAdvanceVerdict.MissingLockedStep => "NoLockedStep",
-                _ => "GlideAdvanceBlockedTraversal",
-            };
-
-            public string RecoveryLabel => Verdict switch
-            {
-                EnemyGlideAdvanceVerdict.BlockedBoundary => "EnterRecoveryBlockedBoundary",
-                EnemyGlideAdvanceVerdict.BlockedTopology => "EnterRecoveryBlockedTopology",
-                EnemyGlideAdvanceVerdict.BlockedTraversal => "EnterRecoveryBlockedTraversal",
-                EnemyGlideAdvanceVerdict.MissingLockedStep => "EnterRecoveryMissingLockedStep",
-                _ => "EnterRecoveryBlockedTraversal",
-            };
         }
 
         private readonly int _entityId;
@@ -219,6 +167,7 @@ namespace Game.Feature.Gameplay.Entities
                 stage,
                 _detectionStrategy,
                 _combatCapability,
+                _movementSkillCapability,
                 _commonSettings,
                 _chargeTimingSettings,
                 _detectionSettings);
@@ -247,7 +196,7 @@ namespace Game.Feature.Gameplay.Entities
                     writeContext.SetFacing(source.entityId, resolvedFacing.Value);
                 }
 
-                if (ShouldLogUnchangedChargeDecision(source, decision))
+                if (ShouldLogUnchangedDecision(source, decision))
                 {
                     transitions.Add(
                         $"EnemyAiTransition|Stage={stage}|E={source.entityId}|From={source.aiMode}|FromTimer={source.aiStateTimer}|To={decision.Mode}|ToTimer={decision.Timer}|Reason={decision.Reason}|Facing={(resolvedFacing.HasValue ? resolvedFacing.Value.ToString() : source.facing.ToString())}");
@@ -400,21 +349,6 @@ namespace Game.Feature.Gameplay.Entities
                         egressLocomotion.Intent,
                         egressLocomotion.CooldownTicks,
                         egressLocomotion.OrdinaryKinematicMoveTicks));
-                }
-
-                return;
-            }
-
-            if (HasGlideMovementSkill() &&
-                snapshot.TryGetEnemyGlideState(_entityId, out movementGlideState) &&
-                movementGlideState.Phase == EnemyGlidePhase.Active)
-            {
-                if (TryResolveActiveGlideLockedLocomotion(snapshot, source, movementGlideState, out var activeGlideLocomotion))
-                {
-                    buffer.Add(ApplyMovementTiming(
-                        activeGlideLocomotion.Intent,
-                        activeGlideLocomotion.CooldownTicks,
-                        activeGlideLocomotion.OrdinaryKinematicMoveTicks));
                 }
 
                 return;
@@ -815,7 +749,8 @@ namespace Game.Feature.Gameplay.Entities
                     nextState,
                     input.TickIndex,
                     _movementSkillCapability.GlideTimingSettings,
-                    lockedStep);
+                    lockedStep,
+                    chaseTarget.entityId);
                 hasPreviousState = true;
                 changed = true;
                 AppendGlideUpdate(updates, _entityId, "Start", nextState);
@@ -860,16 +795,6 @@ namespace Game.Feature.Gameplay.Entities
                         continue;
 
                     case EnemyGlidePhase.Active:
-                        if (input.TickIndex < nextState.ActiveUntilTickExclusive &&
-                            TryResolveActiveGlideTerminalBlock(snapshot, source, nextState, out var terminalResolution))
-                        {
-                            nextState = EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
-                            hasPreviousState = true;
-                            changed = true;
-                            AppendGlideUpdate(updates, _entityId, terminalResolution.RecoveryLabel, nextState);
-                            continue;
-                        }
-
                         if (input.TickIndex < nextState.ActiveUntilTickExclusive)
                         {
                             return changed;
@@ -1117,123 +1042,6 @@ namespace Game.Feature.Gameplay.Entities
                 egressIntent,
                 _locomotionTimingSettings.MoveCooldownTicks,
                 _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
-            return true;
-        }
-
-        private bool TryResolveActiveGlideLockedLocomotion(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EnemyGlideRuntimeState glideState,
-            out GroundLocomotionResolution locomotion)
-        {
-            locomotion = default;
-            if (source.enemyLocomotionCooldownTicks > 0 ||
-                !TryResolveActiveGlideAdvance(snapshot, source, glideState, out var advance) ||
-                advance.Verdict != EnemyGlideAdvanceVerdict.CanAdvance)
-            {
-                return false;
-            }
-
-            locomotion = new GroundLocomotionResolution(
-                hasIntent: true,
-                advance.Intent,
-                _locomotionTimingSettings.MoveCooldownTicks,
-                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
-            return true;
-        }
-
-        private bool TryResolveActiveGlideTerminalBlock(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EnemyGlideRuntimeState glideState,
-            out EnemyGlideAdvanceResolution terminalResolution)
-        {
-            terminalResolution = default;
-            if (source.enemyLocomotionCooldownTicks > 0 ||
-                HasUnsettledVoluntaryKinematicPose(snapshot, source.entityId) ||
-                !TryResolveActiveGlideAdvance(snapshot, source, glideState, out var advance) ||
-                !advance.IsTerminal)
-            {
-                return false;
-            }
-
-            terminalResolution = advance;
-            return true;
-        }
-
-        private bool TryResolveActiveGlideAdvance(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EnemyGlideRuntimeState glideState,
-            out EnemyGlideAdvanceResolution resolution)
-        {
-            resolution = default;
-            if (!TryGetLockedGlideStep(glideState, out var lockedStep))
-            {
-                resolution = new EnemyGlideAdvanceResolution(
-                    EnemyGlideAdvanceVerdict.MissingLockedStep,
-                    default,
-                    default);
-                return true;
-            }
-
-            var expectedDestination = source.position.PlanarPosition + lockedStep;
-            if (!snapshot.TryResolveUnitStep(
-                    source.position,
-                    lockedStep,
-                    out var destination,
-                    out var rotationKind,
-                    out _))
-            {
-                resolution = new EnemyGlideAdvanceResolution(
-                    EnemyGlideAdvanceVerdict.BlockedBoundary,
-                    default,
-                    default);
-                return true;
-            }
-
-            if (rotationKind != CubeRotationKind.None ||
-                destination.face != source.position.face ||
-                destination.PlanarPosition != expectedDestination)
-            {
-                resolution = new EnemyGlideAdvanceResolution(
-                    EnemyGlideAdvanceVerdict.BlockedTopology,
-                    destination,
-                    default);
-                return true;
-            }
-
-            if (!EnemyMovementStrategyShared.TryBuildMoveIntent(
-                    snapshot,
-                    source,
-                    _commonSettings,
-                    lockedStep,
-                    _tileFeatureDefinitions,
-                    out var intent))
-            {
-                if (snapshot.TryGetSolidSemanticAt(destination, out _))
-                {
-                    resolution = new EnemyGlideAdvanceResolution(
-                        EnemyGlideAdvanceVerdict.CanAdvance,
-                        destination,
-                        new RawMovementIntent(
-                            source.entityId,
-                            _commonSettings.MovementPriority,
-                            expectedDestination));
-                    return true;
-                }
-
-                resolution = new EnemyGlideAdvanceResolution(
-                    EnemyGlideAdvanceVerdict.BlockedTraversal,
-                    destination,
-                    default);
-                return true;
-            }
-
-            resolution = new EnemyGlideAdvanceResolution(
-                EnemyGlideAdvanceVerdict.CanAdvance,
-                destination,
-                intent);
             return true;
         }
 
@@ -2279,7 +2087,7 @@ namespace Game.Feature.Gameplay.Entities
             return source.enemyLocomotionCooldownTicks <= 1;
         }
 
-        private bool ShouldLogUnchangedChargeDecision(in EntityState source, in EnemyAiTransitionDecision decision)
+        private bool ShouldLogUnchangedDecision(in EntityState source, in EnemyAiTransitionDecision decision)
         {
             return _usesChargeStateResolver &&
                    !string.IsNullOrEmpty(decision.Reason) &&
@@ -2372,7 +2180,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(
-                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}");
+                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}|LockedTarget={state.LockedTargetEntityId}");
         }
 
         private static bool AreEqual(
@@ -2397,7 +2205,8 @@ namespace Game.Feature.Gameplay.Entities
                    left.LandingPendingCell == right.LandingPendingCell &&
                    left.HasLockedStep == right.HasLockedStep &&
                    left.LockedStepX == right.LockedStepX &&
-                   left.LockedStepY == right.LockedStepY;
+                   left.LockedStepY == right.LockedStepY &&
+                   left.LockedTargetEntityId == right.LockedTargetEntityId;
         }
 
         private static string FormatLockedGlideStep(in EnemyGlideRuntimeState state)
@@ -2465,7 +2274,12 @@ namespace Game.Feature.Gameplay.Entities
                     return default;
 
                 case EnemyAiMode.Chase:
-                    if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
+                    if (!_detectionStrategy.TryFindTarget(
+                            snapshot,
+                            source,
+                            _detectionSettings,
+                            out var chaseTarget,
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, _movementSkillCapability)))
                     {
                         return default;
                     }
@@ -2917,6 +2731,30 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    internal static class EnemyDetectionQueryOptionResolver
+    {
+        public static EnemyDetectionQueryOptions Resolve(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (movementSkillCapability == null ||
+                movementSkillCapability.Kind != MovementSkillStrategyKind.GlideOverSolid ||
+                !snapshot.TryGetEnemyGlideState(source.entityId, out var glideState) ||
+                glideState.Phase != EnemyGlidePhase.Active)
+            {
+                return EnemyDetectionQueryOptions.Default;
+            }
+
+            return new EnemyDetectionQueryOptions(LineOfSightSolidBlockerPolicy.IgnoreSolid);
+        }
+    }
+
     public sealed class DefaultEnemyAiStateResolver : IEnemyAiStateResolver
     {
         public static readonly DefaultEnemyAiStateResolver Instance = new();
@@ -2928,6 +2766,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings)
@@ -2950,10 +2789,10 @@ namespace Game.Feature.Gameplay.Entities
             switch (stage)
             {
                 case EnemyAiTransitionStage.BeforeMovement:
-                    return ResolveBeforeMovement(snapshot, source, detectionStrategy, combatCapability, commonSettings, detectionSettings);
+                    return ResolveBeforeMovement(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.BeforeAttack:
-                    return ResolveBeforeAttack(snapshot, source, detectionStrategy, combatCapability, commonSettings, detectionSettings);
+                    return ResolveBeforeAttack(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.AfterAttack:
                     return ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings);
@@ -2968,6 +2807,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in DetectionSettings detectionSettings)
         {
@@ -2985,6 +2825,7 @@ namespace Game.Feature.Gameplay.Entities
                         source,
                         detectionStrategy,
                         combatCapability,
+                        movementSkillCapability,
                         detectionSettings,
                         EnemyAiMode.Patrol);
 
@@ -2997,7 +2838,12 @@ namespace Game.Feature.Gameplay.Entities
                             "RecoverTick");
                     }
 
-                    if (detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out _))
+                    if (detectionStrategy.TryFindTarget(
+                            snapshot,
+                            source,
+                            detectionSettings,
+                            out _,
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "RecoverComplete");
                     }
@@ -3014,6 +2860,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in DetectionSettings detectionSettings)
         {
@@ -3026,6 +2873,7 @@ namespace Game.Feature.Gameplay.Entities
                         source,
                         detectionStrategy,
                         combatCapability,
+                        movementSkillCapability,
                         detectionSettings,
                         EnemyAiMode.Patrol);
 
@@ -3064,6 +2912,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings,
             EnemyAiMode patrolFallback)
         {
@@ -3090,7 +2939,12 @@ namespace Game.Feature.Gameplay.Entities
                     "LockedTargetLost");
             }
 
-            if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
+            if (!detectionStrategy.TryFindTarget(
+                    snapshot,
+                    source,
+                    detectionSettings,
+                    out var target,
+                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
             {
                 return new EnemyAiTransitionDecision(patrolFallback, 0, "NoTarget");
             }
@@ -3137,6 +2991,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings)
@@ -3164,6 +3019,7 @@ namespace Game.Feature.Gameplay.Entities
                     tickIndex,
                     detectionStrategy,
                     combatCapability,
+                    movementSkillCapability,
                     chargeTimingSettings,
                     detectionSettings),
                 EnemyAiTransitionStage.BeforeAttack => ResolveBeforeAttack(
@@ -3171,6 +3027,7 @@ namespace Game.Feature.Gameplay.Entities
                     source,
                     detectionStrategy,
                     combatCapability,
+                    movementSkillCapability,
                     detectionSettings),
                 EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage."),
@@ -3221,6 +3078,7 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings)
         {
@@ -3231,7 +3089,12 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "Disabled");
 
                 case EnemyAiMode.Patrol:
-                    if (detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out _))
+                    if (detectionStrategy.TryFindTarget(
+                            snapshot,
+                            source,
+                            detectionSettings,
+                            out _,
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
                     }
@@ -3239,7 +3102,7 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
 
                 case EnemyAiMode.Chase:
-                    return ResolveChase(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
+                    return ResolveChase(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
 
                 case EnemyAiMode.Charge:
                     return ResolveChargeBeforeMovement(
@@ -3252,7 +3115,7 @@ namespace Game.Feature.Gameplay.Entities
                         detectionSettings);
 
                 case EnemyAiMode.Attack:
-                    return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
+                    return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
 
                 case EnemyAiMode.Recover:
                     if (IsChargeOwnedRecover(snapshot, source.entityId, out var chargeRecoverState))
@@ -3271,7 +3134,12 @@ namespace Game.Feature.Gameplay.Entities
                         return new EnemyAiTransitionDecision(EnemyAiMode.Recover, genericRecoverCountdown - 1, "RecoverTick");
                     }
 
-                    return detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out _)
+                    return detectionStrategy.TryFindTarget(
+                            snapshot,
+                            source,
+                            detectionSettings,
+                            out _,
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability))
                         ? new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "RecoverComplete")
                         : new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "RecoverCompleteNoTarget");
 
@@ -3285,6 +3153,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings)
         {
             if (source.aiMode == EnemyAiMode.Charge)
@@ -3311,7 +3180,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.aiMode == EnemyAiMode.Chase || source.aiMode == EnemyAiMode.Attack)
             {
-                return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
+                return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
             }
 
             return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoBeforeAttackTransition");
@@ -3322,9 +3191,15 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings)
         {
-            if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
+            if (!detectionStrategy.TryFindTarget(
+                    snapshot,
+                    source,
+                    detectionSettings,
+                    out var target,
+                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
             }
@@ -3348,6 +3223,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings)
         {
             if (source.aiMode == EnemyAiMode.Attack &&
@@ -3373,7 +3249,12 @@ namespace Game.Feature.Gameplay.Entities
                     "LockedTargetLost");
             }
 
-            if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
+            if (!detectionStrategy.TryFindTarget(
+                    snapshot,
+                    source,
+                    detectionSettings,
+                    out var target,
+                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
             }
