@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
@@ -9,9 +10,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
     internal sealed class EnemyMotionAttachedVfxFollowerPlanner
     {
         private readonly List<AttachedVfxFollowerDesiredState> desiredFollowers = new();
+        private readonly List<AttachedVfxFollowerKey> explicitStopKeys = new();
+        private readonly HashSet<AttachedVfxFollowerKey> desiredFollowerKeys = new();
+        private readonly HashSet<AttachedVfxFollowerKey> explicitStopKeySet = new();
         private readonly HashSet<int> removedEntityIds = new();
 
         public IReadOnlyList<AttachedVfxFollowerDesiredState> DesiredFollowers => desiredFollowers;
+
+        public IReadOnlyList<AttachedVfxFollowerKey> ExplicitStopKeys => explicitStopKeys;
 
         public void Build(
             int tickIndex,
@@ -19,9 +25,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             bool enableGlideWindTrail,
             bool enableChargeBoosterTrail,
             bool enableBoxSlideFollowLoop,
-            bool enableEnemyJumpWindupLoop)
+            bool enableEnemyJumpWindupLoop,
+            IReadOnlyList<EntityState> finalEntities = null)
         {
             desiredFollowers.Clear();
+            explicitStopKeys.Clear();
+            desiredFollowerKeys.Clear();
+            explicitStopKeySet.Clear();
             removedEntityIds.Clear();
 
             if (presentationData == null ||
@@ -37,6 +47,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (enableBoxSlideFollowLoop)
             {
+                AddBoxSlideExplicitStopKeys(presentationData, finalEntities);
                 AddBoxSlideFollowers(tickIndex, presentationData);
             }
 
@@ -59,12 +70,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Clear()
         {
             desiredFollowers.Clear();
+            explicitStopKeys.Clear();
+            desiredFollowerKeys.Clear();
+            explicitStopKeySet.Clear();
             removedEntityIds.Clear();
         }
 
         public void RemoveCue(GameplayVfxCueId cueId)
         {
             desiredFollowers.RemoveAll(state => state.CueId == cueId);
+            desiredFollowerKeys.RemoveWhere(key => key.CueId.Equals(cueId));
+            explicitStopKeys.RemoveAll(key => key.CueId.Equals(cueId));
+            explicitStopKeySet.RemoveWhere(key => key.CueId.Equals(cueId));
         }
 
         private void AddGlideFollowers(TickPresentationData presentationData)
@@ -84,7 +101,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                desiredFollowers.Add(
+                AddDesiredFollower(
                     new AttachedVfxFollowerDesiredState(
                         cueId,
                         signal.EntityId,
@@ -99,6 +116,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
             int tickIndex,
             TickPresentationData presentationData)
         {
+            var startSignals = presentationData.BoxSlideStartSignals;
+            for (var i = 0; i < startSignals.Count; i++)
+            {
+                var signal = startSignals[i];
+                if (signal.BoxEntityId <= 0 ||
+                    removedEntityIds.Contains(signal.BoxEntityId))
+                {
+                    continue;
+                }
+
+                AddBoxSlideFollower(signal.BoxEntityId);
+            }
+
             var motions = presentationData.EntityMotions;
             for (var i = 0; i < motions.Count; i++)
             {
@@ -110,15 +140,81 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                desiredFollowers.Add(
-                    new AttachedVfxFollowerDesiredState(
-                        GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop),
-                        motion.EntityId,
-                        AttachedVfxFollowerStateKind.BoxSlideFollow,
-                        BoxSlideTrailVfxCommandBuilder.ComputeSequenceId(tickIndex, motion),
-                        Vector3.zero,
-                        Quaternion.identity));
+                AddBoxSlideFollower(motion.EntityId);
             }
+        }
+
+        private void AddBoxSlideFollower(int entityId)
+        {
+            var desiredState = new AttachedVfxFollowerDesiredState(
+                GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop),
+                entityId,
+                AttachedVfxFollowerStateKind.BoxSlideFollow,
+                entityId,
+                Vector3.zero,
+                Quaternion.identity,
+                AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop);
+
+            if (explicitStopKeySet.Contains(desiredState.Key))
+            {
+                return;
+            }
+
+            AddDesiredFollower(desiredState);
+        }
+
+        private void AddBoxSlideExplicitStopKeys(
+            TickPresentationData presentationData,
+            IReadOnlyList<EntityState> finalEntities)
+        {
+            var stopSignals = presentationData.BoxSlideStopSignals;
+            for (var i = 0; i < stopSignals.Count; i++)
+            {
+                AddBoxSlideExplicitStopKey(stopSignals[i].BoxEntityId);
+            }
+
+            foreach (var entityId in removedEntityIds)
+            {
+                AddBoxSlideExplicitStopKey(entityId);
+            }
+
+            if (finalEntities == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                if (entity.entityId <= 0 ||
+                    entity.type != EntityType.Box)
+                {
+                    continue;
+                }
+
+                if (entity.hp <= 0 ||
+                    entity.markedForDeath ||
+                    entity.boardPresence == EntityBoardPresence.Detached ||
+                    entity.state != EntityPhaseState.Sliding)
+                {
+                    AddBoxSlideExplicitStopKey(entity.entityId);
+                }
+            }
+        }
+
+        private void AddBoxSlideExplicitStopKey(int entityId)
+        {
+            if (entityId <= 0)
+            {
+                return;
+            }
+
+            AddExplicitStopKey(
+                new AttachedVfxFollowerKey(
+                    GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop),
+                    entityId,
+                    AttachedVfxFollowerStateKind.BoxSlideFollow,
+                    entityId));
         }
 
         private void AddJumpWindupFollowers(TickPresentationData presentationData)
@@ -134,7 +230,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                desiredFollowers.Add(
+                AddDesiredFollower(
                     new AttachedVfxFollowerDesiredState(
                         GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop),
                         signal.EntityId,
@@ -158,7 +254,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                desiredFollowers.Add(
+                AddDesiredFollower(
                     new AttachedVfxFollowerDesiredState(
                         GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail),
                         signal.EntityId,
@@ -211,6 +307,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 {
                     removedEntityIds.Add(change.EntityId);
                 }
+            }
+        }
+
+        private void AddDesiredFollower(AttachedVfxFollowerDesiredState desiredState)
+        {
+            if (desiredFollowerKeys.Add(desiredState.Key))
+            {
+                desiredFollowers.Add(desiredState);
+            }
+        }
+
+        private void AddExplicitStopKey(AttachedVfxFollowerKey key)
+        {
+            if (explicitStopKeySet.Add(key))
+            {
+                explicitStopKeys.Add(key);
             }
         }
     }

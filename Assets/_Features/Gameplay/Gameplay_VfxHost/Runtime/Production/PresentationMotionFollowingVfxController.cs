@@ -10,8 +10,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         private readonly Dictionary<PresentationMotionInstanceKey, IVfxPlaybackHandle> activeMotionHandlesByKey = new();
         private readonly Dictionary<AttachedVfxFollowerKey, IVfxPlaybackHandle> activeAttachedHandlesByKey = new();
+        private readonly Dictionary<AttachedVfxFollowerKey, AttachedVfxFollowerRetentionPolicy> activeAttachedRetentionPoliciesByKey = new();
         private readonly HashSet<PresentationMotionInstanceKey> desiredMotionKeys = new();
         private readonly HashSet<AttachedVfxFollowerKey> desiredAttachedKeys = new();
+        private readonly HashSet<AttachedVfxFollowerKey> explicitAttachedStopKeys = new();
         private readonly HashSet<PresentationMotionInstanceKey> missingMotionBindingKeys = new();
         private readonly HashSet<PresentationMotionInstanceKey> missingMotionOwnerViewKeys = new();
         private readonly HashSet<AttachedVfxFollowerKey> missingAttachedBindingKeys = new();
@@ -47,6 +49,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             IVfxBindingResolver bindingResolver,
             bool enabled,
             IReadOnlyList<AttachedVfxFollowerDesiredState> attachedDesiredStates = null,
+            IReadOnlyList<AttachedVfxFollowerKey> explicitAttachedStopStates = null,
             bool attachedFollowersEnabled = false)
         {
             PlannedAttachCount = 0;
@@ -83,6 +86,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 RefreshAttachedFollowers(
                     tickIndex,
                     attachedDesiredStates,
+                    explicitAttachedStopStates,
                     stateStore,
                     pool,
                     bindingResolver);
@@ -118,6 +122,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             activeMotionHandlesByKey.Clear();
             activeAttachedHandlesByKey.Clear();
+            activeAttachedRetentionPoliciesByKey.Clear();
             ClearMissingKeyState();
             PlannedAttachCount = 0;
         }
@@ -249,7 +254,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             parent = null;
             if (stateStore == null ||
                 !stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) ||
-                view == null)
+                view == null ||
+                !view.isActiveAndEnabled ||
+                !view.gameObject.activeInHierarchy)
             {
                 return false;
             }
@@ -261,21 +268,39 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private void RefreshAttachedFollowers(
             int tickIndex,
             IReadOnlyList<AttachedVfxFollowerDesiredState> attachedDesiredStates,
+            IReadOnlyList<AttachedVfxFollowerKey> explicitStopStates,
             GameplayPresentationStateStore stateStore,
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver)
         {
             desiredAttachedKeys.Clear();
+            explicitAttachedStopKeys.Clear();
+            if (explicitStopStates != null)
+            {
+                for (var i = 0; i < explicitStopStates.Count; i++)
+                {
+                    var key = explicitStopStates[i];
+                    explicitAttachedStopKeys.Add(key);
+                    StopAttached(key, tail: true);
+                }
+            }
+
             if (attachedDesiredStates != null)
             {
                 for (var i = 0; i < attachedDesiredStates.Count; i++)
                 {
                     var desiredState = attachedDesiredStates[i];
                     var key = desiredState.Key;
+                    if (explicitAttachedStopKeys.Contains(key))
+                    {
+                        continue;
+                    }
+
                     desiredAttachedKeys.Add(key);
                     if (activeAttachedHandlesByKey.TryGetValue(key, out var existingHandle) &&
                         IsHandleLive(existingHandle))
                     {
+                        activeAttachedRetentionPoliciesByKey[key] = desiredState.RetentionPolicy;
                         if (!TryResolveAttachParent(stateStore, desiredState.SourceEntityId, out _))
                         {
                             CountMissingAttachedOwnerOnce(key);
@@ -286,6 +311,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     }
 
                     activeAttachedHandlesByKey.Remove(key);
+                    activeAttachedRetentionPoliciesByKey.Remove(key);
                     if (!TryResolveAttachParent(stateStore, desiredState.SourceEntityId, out var parent))
                     {
                         CountMissingAttachedOwnerOnce(key);
@@ -301,6 +327,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                             out var handle))
                     {
                         activeAttachedHandlesByKey[key] = handle;
+                        activeAttachedRetentionPoliciesByKey[key] = desiredState.RetentionPolicy;
                         missingAttachedBindingKeys.Remove(key);
                         missingAttachedOwnerViewKeys.Remove(key);
                         PlannedAttachCount++;
@@ -308,7 +335,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
             }
 
-            StopStaleAttachedHandles();
+            StopStaleAttachedHandles(stateStore);
         }
 
         private bool TryStartAttachedFollower(
@@ -380,16 +407,38 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        private void StopStaleAttachedHandles()
+        private void StopStaleAttachedHandles(GameplayPresentationStateStore stateStore)
         {
             attachedStopBuffer.Clear();
             foreach (var pair in activeAttachedHandlesByKey)
             {
-                if (!desiredAttachedKeys.Contains(pair.Key) ||
-                    !IsHandleLive(pair.Value))
+                var key = pair.Key;
+                if (!IsHandleLive(pair.Value))
                 {
-                    attachedStopBuffer.Add(pair.Key);
+                    attachedStopBuffer.Add(key);
+                    continue;
                 }
+
+                if (desiredAttachedKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                activeAttachedRetentionPoliciesByKey.TryGetValue(
+                    key,
+                    out var retentionPolicy);
+                if (retentionPolicy == AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop)
+                {
+                    if (!TryResolveAttachParent(stateStore, key.SourceEntityId, out _))
+                    {
+                        CountMissingAttachedOwnerOnce(key);
+                        attachedStopBuffer.Add(key);
+                    }
+
+                    continue;
+                }
+
+                attachedStopBuffer.Add(key);
             }
 
             for (var i = 0; i < attachedStopBuffer.Count; i++)
@@ -447,10 +496,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             if (!activeAttachedHandlesByKey.TryGetValue(key, out var handle))
             {
+                activeAttachedRetentionPoliciesByKey.Remove(key);
                 return;
             }
 
             activeAttachedHandlesByKey.Remove(key);
+            activeAttachedRetentionPoliciesByKey.Remove(key);
             StopHandle(handle, tail);
         }
 
@@ -526,6 +577,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             missingAttachedOwnerViewKeys.Clear();
             motionStopBuffer.Clear();
             attachedStopBuffer.Clear();
+            explicitAttachedStopKeys.Clear();
         }
 
         private static bool IsHandleLive(IVfxPlaybackHandle handle)
