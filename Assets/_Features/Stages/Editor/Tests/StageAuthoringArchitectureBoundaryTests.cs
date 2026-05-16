@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
-using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
 
 namespace Game.Feature.Stages.Editor.Tests
@@ -119,6 +118,42 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.That(source, Does.Contain(nameof(EnemyAiProfileOverride)));
+        }
+
+        [Test]
+        public void StageRuntimeBuilder_DoesNotReferenceGameplayHostNamespace()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs");
+            var forbiddenTokens = new[]
+            {
+                "using Game.Feature.Gameplay.Host;",
+                "Game.Feature.Gameplay.Host.",
+                "EnemyPresentationBinding",
+                "StaticEntityPresentationBinding",
+                "TileFeaturePresentationBinding",
+                "VisualPrefab",
+                "PresentationCatalog",
+                "BackgroundPrefab",
+                "PreviewSprite",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(
+                    source.Contains(token, StringComparison.Ordinal),
+                    Is.False,
+                    $"StageRuntimeBuilder must remain gameplay-only and must not reference host/presentation token '{token}'.");
+            }
+
+            Assert.That(source, Does.Contain(nameof(EnemyAiProfileOverride)));
+        }
+
+        [Test]
+        public void EnemyAiProfileOverride_LivesInGameplayEntitiesNamespace()
+        {
+            Assert.That(
+                typeof(EnemyAiProfileOverride).Namespace,
+                Is.EqualTo("Game.Feature.Gameplay.Entities"));
         }
 
         [Test]
@@ -629,6 +664,10 @@ namespace Game.Feature.Stages.Editor.Tests
 
             if (type == typeof(EnemyAiProfileOverride))
             {
+                Assert.That(
+                    type.Namespace,
+                    Is.EqualTo("Game.Feature.Gameplay.Entities"),
+                    $"{description} may expose EnemyAiProfileOverride only from the gameplay entities namespace.");
                 return;
             }
 

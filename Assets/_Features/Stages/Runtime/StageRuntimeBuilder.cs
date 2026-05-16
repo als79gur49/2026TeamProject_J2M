@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
-using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Objectives;
 
 namespace Game.Feature.Stages

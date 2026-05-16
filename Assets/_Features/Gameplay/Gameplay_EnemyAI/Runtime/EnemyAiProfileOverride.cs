@@ -1,7 +1,6 @@
 using System;
-using Game.Feature.Gameplay.Entities;
 
-namespace Game.Feature.Gameplay.Host
+namespace Game.Feature.Gameplay.Entities
 {
     [Serializable]
     public struct EnemyAiProfileOverride
