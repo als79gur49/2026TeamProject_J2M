@@ -3259,15 +3259,26 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: exit.1x1
+  - TileId: 2
+    Cell:
+      face: 0
+      x: 5
+      y: 3
+    Kind: 7
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: ac8ca2e07c03c44874f7730d0782b6c3, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the exit zone
+      DisplayText: 
       SortOrder: 0
   enemyUnitArchetypeCatalog: {fileID: 0}

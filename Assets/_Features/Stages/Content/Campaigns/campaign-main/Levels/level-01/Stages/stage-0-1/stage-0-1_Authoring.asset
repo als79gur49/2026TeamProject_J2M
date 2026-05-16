@@ -3451,6 +3451,17 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: exit.1x1
+  - TileId: 2
+    Cell:
+      face: 0
+      x: 5
+      y: 3
+    Kind: 7
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: entrance.default
   zones:
   - ZoneId: 3000
     FaceId: 3
