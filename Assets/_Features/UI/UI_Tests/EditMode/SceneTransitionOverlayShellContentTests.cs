@@ -146,8 +146,11 @@ namespace Game.Feature.UI.Tests
             var lostSlot = content.ChanceSlots[1];
             var startPosition = lostSlot.anchoredPosition;
             var effectImage = FindEffectImage(lostSlot);
+            var filledIcon = FindImage(lostSlot, "FilledIcon");
             var authoredEffectColor = effectImage.color;
             var authoredEffectMaterial = effectImage.material;
+            var authoredFilledIconColor = filledIcon.color;
+            var authoredFilledIconMaterial = filledIcon.material;
 
             view.Bind(new SceneTransitionOverlayViewModel(
                 StageTransitionKind.DeathRetryChanceLost,
@@ -174,6 +177,7 @@ namespace Game.Feature.UI.Tests
             if (allIn1Shader != null)
             {
                 Assert.That(effectImage.material.shader, Is.SameAs(allIn1Shader));
+                Assert.That(filledIcon.material.shader, Is.SameAs(allIn1Shader));
             }
 
             view.ResetView();
@@ -183,6 +187,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(lostTweenRoot.localScale, Is.EqualTo(Vector3.one));
             Assert.That(effectImage.color, Is.EqualTo(authoredEffectColor));
             Assert.That(effectImage.material, Is.SameAs(authoredEffectMaterial));
+            Assert.That(filledIcon.color, Is.EqualTo(authoredFilledIconColor));
+            Assert.That(filledIcon.material, Is.SameAs(authoredFilledIconMaterial));
+            Assert.That(CountCrackLines(lostTweenRoot), Is.EqualTo(5));
             Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(lostSlot.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
         }
@@ -255,16 +262,36 @@ namespace Game.Feature.UI.Tests
 
         private static Image FindEffectImage(RectTransform slot)
         {
+            return FindImage(slot, "Effect");
+        }
+
+        private static Image FindImage(RectTransform slot, string name)
+        {
             var images = slot.GetComponentsInChildren<Image>(true);
             for (var i = 0; i < images.Length; i++)
             {
-                if (images[i].name == "Effect")
+                if (images[i].name == name)
                 {
                     return images[i];
                 }
             }
 
-            throw new AssertionException("Expected chance slot to contain an Effect image.");
+            throw new AssertionException($"Expected chance slot to contain a {name} image.");
+        }
+
+        private static int CountCrackLines(RectTransform root)
+        {
+            var images = root.GetComponentsInChildren<Image>(true);
+            var count = 0;
+            for (var i = 0; i < images.Length; i++)
+            {
+                if (images[i].name.StartsWith("CrackLine", StringComparison.OrdinalIgnoreCase))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private sealed class ShellHandle : IDisposable
@@ -421,7 +448,7 @@ namespace Game.Feature.UI.Tests
                     slot.transform.SetParent(row.transform, false);
                     var rect = slot.GetComponent<RectTransform>();
                     rect.anchoredPosition = new Vector2((i + 1) * 48f, 0f);
-                    var visual = new GameObject("Visual", typeof(RectTransform), typeof(Image));
+                    var visual = new GameObject("FilledIcon", typeof(RectTransform), typeof(Image));
                     visual.transform.SetParent(slot.transform, false);
                     var effect = new GameObject("Effect", typeof(RectTransform), typeof(Image));
                     effect.transform.SetParent(slot.transform, false);
