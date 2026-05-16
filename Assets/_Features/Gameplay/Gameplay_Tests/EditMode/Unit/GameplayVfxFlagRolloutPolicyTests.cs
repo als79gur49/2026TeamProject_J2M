@@ -189,7 +189,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             new(
                 "EnableGameplayVfxGravityFieldEvents",
                 "enableGameplayVfxGravityFieldEvents",
-                "GravityFieldVfxCue.Activated / GravityFieldVfxCue.Expired",
+                "GravityFieldVfxCue.ChargeStarted / GravityFieldVfxCue.ActiveStarted",
                 "Migration / VFX request lane",
                 "Tier 2",
                 "targeted planner/runtime regression + visual spot check"),

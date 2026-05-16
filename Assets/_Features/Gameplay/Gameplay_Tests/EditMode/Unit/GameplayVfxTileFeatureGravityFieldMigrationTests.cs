@@ -323,12 +323,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Authoring_DefaultCueMapContainsExitSliderAndGravityOneShotBindings()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
+            var slideUpBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedUp_Binding.asset");
+            var slideRightBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedRight_Binding.asset");
+            var slideDownBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedDown_Binding.asset");
+            var slideLeftBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedLeft_Binding.asset");
+            var exitOpenedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitOpened_Binding.asset");
+            var exitObjectiveClearedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitObjectiveCleared_Binding.asset");
+            var gravityChargeStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ChargeStarted_Binding.asset");
+            var gravityActiveStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ActiveStarted_Binding.asset");
+
+            Assert.That(cueMap, Is.Not.Null);
+            AssertOneShotBinding(slideUpBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), 16);
+            AssertOneShotBinding(slideRightBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), 16);
+            AssertOneShotBinding(slideDownBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), 16);
+            AssertOneShotBinding(slideLeftBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), 16);
+            AssertOneShotBinding(exitOpenedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), 8);
+            AssertOneShotBinding(exitObjectiveClearedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), 8);
+            AssertOneShotBinding(gravityChargeStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), 8);
+            AssertOneShotBinding(gravityActiveStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), 8);
+
+            var runtimeMap = cueMap.BuildRuntimeMap();
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Authoring_ButtonActiveLoopPrefabs_AreLoopingPlayOnAwakeAndNotPrefabLocalOnButtons()
         {
             AssertLoopingPlayOnAwake(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeatureButtonActivatedVfx.prefab");
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_ButtonActivatedVfx.prefab");
             AssertLoopingPlayOnAwake(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeatureMoonBlockButtonActivatedVfx.prefab");
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_MoonBlockButtonActivatedVfx.prefab");
 
             var defaultButtonPrefab = ReadRepoFile(
                 "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_Default.prefab");
@@ -349,6 +393,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.TailSeconds, Is.EqualTo(0.3f));
             Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
             Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(32));
+        }
+
+        private static void AssertOneShotBinding(
+            VfxBindingDefinitionAsset binding,
+            GameplayVfxCueId expectedCueId,
+            int maxConcurrentInstances)
+        {
+            Assert.That(binding, Is.Not.Null, expectedCueId.ToString());
+            Assert.That(binding.CueId, Is.EqualTo(expectedCueId));
+            Assert.That(binding.StyleKey, Is.EqualTo(VfxStyleKey.Default));
+            Assert.That(binding.Prefab, Is.Not.Null);
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(binding.TailSeconds, Is.GreaterThan(0f));
+            Assert.That(binding.InitialPoolSize, Is.GreaterThan(0));
+            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(maxConcurrentInstances));
         }
 
         private static void AssertLoopingPlayOnAwake(string prefabPath)

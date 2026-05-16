@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -25,6 +26,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab";
         private const string UtilityWindupBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyUtilityWindupTelegraph_Binding.asset";
+        private const string UtilitySummonSpawnBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyUtilitySummonSpawn_Binding.asset";
         private const string VfxPlanningPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string VfxProductionRuntimePath =
@@ -89,6 +92,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateSummonWindupWarningSignal(0, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
                 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_SummonedEnemySpawn_EmitsUtilitySummonSpawnOneshot()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Back, 1, 2);
+            var topology = new CubeTopologyState(FaceId.Back);
+            var plan = PlanUtilityWindupRequests(CreatePresentationData(
+                visibilityChanges: new[]
+                {
+                    new TickVisibilityChange(60, TickVisibilityChangeKind.Spawn, spawnCell, topology, Direction.Left),
+                },
+                summonedEnemyPresentationBindings: new[]
+                {
+                    new TickSummonedEnemyPresentationBinding(60, hasEnemyDefinitionBinding: true, archetypeId: default),
+                }));
+
+            var request = plan.Requests.Single();
+
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)));
+            Assert.That(request.SourceEntityId, Is.EqualTo(60));
+            Assert.That(request.IsPersistent, Is.False);
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
+            Assert.That(request.Anchor.Cell, Is.EqualTo(spawnCell));
+            Assert.That(request.Anchor.Topology, Is.EqualTo(topology));
         }
 
         [Test]
@@ -528,6 +558,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void UtilitySummonSpawnBinding_ValidatesAndIsOneShot()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(UtilitySummonSpawnBindingPath);
+
+            Assert.That(binding, Is.Not.Null, UtilitySummonSpawnBindingPath);
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)));
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void UtilityWindupPrefab_PassesVfxPrefabValidation()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UtilityWindupPrefabPath);
@@ -652,12 +695,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickPresentationData CreatePresentationData(
             IReadOnlyList<TickSummonWindupWarningSignal> summonWindupWarnings = null,
-            IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals = null)
+            IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals = null,
+            IReadOnlyList<TickVisibilityChange> visibilityChanges = null,
+            IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
                 topologyMotion: null,
-                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                visibilityChanges: visibilityChanges ?? Array.Empty<TickVisibilityChange>(),
                 transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
                 playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
                 playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
@@ -670,7 +715,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityExitSignals: entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
                 impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
-                summonedEnemyPresentationBindings: Array.Empty<TickSummonedEnemyPresentationBinding>(),
+                summonedEnemyPresentationBindings: summonedEnemyPresentationBindings ?? Array.Empty<TickSummonedEnemyPresentationBinding>(),
                 summonWindupWarnings: summonWindupWarnings ?? Array.Empty<TickSummonWindupWarningSignal>());
         }
 

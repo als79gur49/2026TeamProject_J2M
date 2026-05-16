@@ -9,6 +9,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         None = 0,
         EnemyGlideActive = 1,
         EnemyChargeActive = 2,
+        BoxSlideFollow = 3,
+        EnemyJumpWindup = 4,
+        EnemyGlideWindup = 5,
+        EnemyGlideRecover = 6,
     }
 
     internal readonly struct AttachedVfxFollowerKey : IEquatable<AttachedVfxFollowerKey>

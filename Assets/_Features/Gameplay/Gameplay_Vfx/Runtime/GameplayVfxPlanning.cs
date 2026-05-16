@@ -528,6 +528,34 @@ namespace Game.Feature.Gameplay.Vfx
                         persistentKey: VfxPersistentKey.None));
             }
 
+            var visibilityChanges = presentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var signal = visibilityChanges[i];
+                if (signal.ChangeKind != TickVisibilityChangeKind.Spawn ||
+                    signal.EntityId <= 0 ||
+                    !IsSummonedEnemyPresentationEntity(presentationData, signal.EntityId))
+                {
+                    continue;
+                }
+
+                var seed = ResolveUtilitySummonSpawnSeed(context.TickIndex, signal);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: seed,
+                        presentationSeed: seed,
+                        sourceEntityId: signal.EntityId,
+                        cueId: GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn),
+                        anchor: VfxAnchor.ForCell(
+                            signal.Cell,
+                            signal.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
+            }
+
             var jumpSignals = presentationData.EnemyJumpSignals;
             for (var i = 0; i < jumpSignals.Count; i++)
             {
@@ -544,6 +572,22 @@ namespace Game.Feature.Gameplay.Vfx
                             cueId: GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
                             anchor: VfxAnchor.ForCell(
                                 signal.PresentationTargetCell,
+                                context.Topology,
+                                VfxAnchorSlot.CellFloor),
+                            timing: VfxTimingKind.ImmediateOnTickPresentation));
+                }
+
+                if (IsJumperJumpStartCueSource(signal))
+                {
+                    builder.Add(
+                        new GameplayVfxRequest(
+                            tickIndex: context.TickIndex,
+                            sequenceId: ResolveSequenceId(signal),
+                            presentationSeed: signal.EntityId,
+                            sourceEntityId: signal.EntityId,
+                            cueId: GameplayVfxCueId.From(EnemyVfxCue.JumperJumpStart),
+                            anchor: VfxAnchor.ForCell(
+                                signal.SourceCell,
                                 context.Topology,
                                 VfxAnchorSlot.CellFloor),
                             timing: VfxTimingKind.ImmediateOnTickPresentation));
@@ -573,6 +617,12 @@ namespace Game.Feature.Gameplay.Vfx
                    signal.Outcome == TickEnemyJumpPresentationOutcome.WindupStarted;
         }
 
+        private static bool IsJumperJumpStartCueSource(in TickEnemyJumpPresentationSignal signal)
+        {
+            return signal.StartedAirborneThisTick ||
+                   signal.Outcome == TickEnemyJumpPresentationOutcome.AirborneStarted;
+        }
+
         private static bool IsJumperLandingDustCueSource(in TickEnemyJumpPresentationSignal signal)
         {
             return signal.Outcome == TickEnemyJumpPresentationOutcome.Landed ||
@@ -587,6 +637,37 @@ namespace Game.Feature.Gameplay.Vfx
         private static int ResolveSequenceId(in TickEnemyJumpPresentationSignal signal)
         {
             return signal.Sequence > 0 ? signal.Sequence : signal.EntityId;
+        }
+
+        private static bool IsSummonedEnemyPresentationEntity(
+            TickPresentationData presentationData,
+            int entityId)
+        {
+            var bindings = presentationData.SummonedEnemyPresentationBindings;
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                if (bindings[i].EntityId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int ResolveUtilitySummonSpawnSeed(
+            int tickIndex,
+            in TickVisibilityChange signal)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ signal.EntityId;
+                hash = (hash * 397) ^ (int)EnemyVfxCue.UtilitySummonSpawn;
+                hash = (hash * 397) ^ signal.Cell.GetHashCode();
+                hash = (hash * 397) ^ signal.Topology.GetHashCode();
+                return hash != 0 ? hash : signal.EntityId;
+            }
         }
 
         private static bool DidEnemyExitThisTick(TickPresentationData presentationData, int entityId)
@@ -810,6 +891,9 @@ namespace Game.Feature.Gameplay.Vfx
                 case TilePresentationEventKind.ExitOpened:
                     cue = TileFeatureVfxCue.ExitOpened;
                     return true;
+                case TilePresentationEventKind.ExitObjectiveCleared:
+                    cue = TileFeatureVfxCue.ExitObjectiveCleared;
+                    return true;
                 case TilePresentationEventKind.ExitEntered:
                     cue = TileFeatureVfxCue.ExitEntered;
                     return true;
@@ -951,25 +1035,33 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < events.Count; i++)
             {
                 var fieldEvent = events[i];
-                if (!TryResolveCue(fieldEvent.EventKind, out var cue))
+                if (TryResolveCue(fieldEvent.EventKind, out var cue))
                 {
-                    continue;
+                    AddEventRequest(context, builder, fieldEvent, i, cue);
                 }
-
-                var sequenceId = ResolveEventSequenceId(context.TickIndex, i, fieldEvent);
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: sequenceId,
-                        presentationSeed: sequenceId,
-                        sourceEntityId: fieldEvent.EmitterEntityId,
-                        cueId: GameplayVfxCueId.From(cue),
-                        anchor: VfxAnchor.ForCell(
-                            fieldEvent.Cell,
-                            context.Topology,
-                            VfxAnchorSlot.CellCenter),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation));
             }
+        }
+
+        private static void AddEventRequest(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            in GravityFieldPresentationEvent fieldEvent,
+            int eventIndex,
+            GravityFieldVfxCue cue)
+        {
+            var sequenceId = ResolveEventSequenceId(context.TickIndex, eventIndex, fieldEvent, cue);
+            builder.Add(
+                new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: fieldEvent.EmitterEntityId,
+                    cueId: GameplayVfxCueId.From(cue),
+                    anchor: VfxAnchor.ForCell(
+                        fieldEvent.Cell,
+                        context.Topology,
+                        VfxAnchorSlot.CellCenter),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation));
         }
 
         private static void PlanVisualStates(
@@ -1078,10 +1170,10 @@ namespace Game.Feature.Gameplay.Vfx
             switch (kind)
             {
                 case GravityFieldPresentationEventKind.Activated:
-                    cue = GravityFieldVfxCue.Activated;
+                    cue = GravityFieldVfxCue.ActiveStarted;
                     return true;
                 case GravityFieldPresentationEventKind.Expired:
-                    cue = GravityFieldVfxCue.Expired;
+                    cue = GravityFieldVfxCue.ChargeStarted;
                     return true;
                 default:
                     cue = default;
@@ -1114,13 +1206,15 @@ namespace Game.Feature.Gameplay.Vfx
         private static int ResolveEventSequenceId(
             int tickIndex,
             int eventIndex,
-            in GravityFieldPresentationEvent fieldEvent)
+            in GravityFieldPresentationEvent fieldEvent,
+            GravityFieldVfxCue cue)
         {
             unchecked
             {
                 var hash = tickIndex;
                 hash = (hash * 397) ^ eventIndex;
                 hash = (hash * 397) ^ (int)fieldEvent.EventKind;
+                hash = (hash * 397) ^ (int)cue;
                 hash = (hash * 397) ^ fieldEvent.EmitterEntityId;
                 hash = (hash * 397) ^ fieldEvent.Cell.GetHashCode();
                 hash = (hash * 397) ^ fieldEvent.TargetEntityId;

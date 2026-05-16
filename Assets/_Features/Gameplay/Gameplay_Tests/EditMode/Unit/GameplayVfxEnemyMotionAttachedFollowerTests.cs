@@ -26,6 +26,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideWindTrail_Binding.asset";
         private const string ChargeBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ChargeBoosterTrail_Binding.asset";
+        private const string BoxSlideFollowBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideFollowLoop_Binding.asset";
+        private const string JumperWindupBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperWindupLoop_Binding.asset";
+        private const string GlideWindupBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideWindupLoop_Binding.asset";
+        private const string GlideRecoverBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideRecoverLoop_Binding.asset";
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
         private const string ProductionRuntimePath =
@@ -39,9 +47,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var planner = new EnemyMotionAttachedVfxFollowerPlanner();
             planner.Build(
-                CreatePresentationData(chargeSignals: new[] { CreateChargeSignal(EnemyChargePhase.Active) }),
+                tickIndex: 12,
+                presentationData: CreatePresentationData(chargeSignals: new[] { CreateChargeSignal(EnemyChargePhase.Active) }),
                 enableGlideWindTrail: true,
-                enableChargeBoosterTrail: true);
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
 
             Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
             Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)));
@@ -53,9 +64,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var planner = new EnemyMotionAttachedVfxFollowerPlanner();
             planner.Build(
-                CreatePresentationData(chargeSignals: new[] { CreateChargeSignal(EnemyChargePhase.Windup) }),
+                tickIndex: 12,
+                presentationData: CreatePresentationData(chargeSignals: new[] { CreateChargeSignal(EnemyChargePhase.Windup) }),
                 enableGlideWindTrail: true,
-                enableChargeBoosterTrail: true);
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
 
             Assert.That(planner.DesiredFollowers, Is.Empty);
         }
@@ -86,9 +100,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var planner = new EnemyMotionAttachedVfxFollowerPlanner();
             planner.Build(
-                CreatePresentationData(glideSignals: new[] { CreateGlideSignal(EnemyGlidePhase.Active) }),
+                tickIndex: 12,
+                presentationData: CreatePresentationData(glideSignals: new[] { CreateGlideSignal(EnemyGlidePhase.Active) }),
                 enableGlideWindTrail: true,
-                enableChargeBoosterTrail: true);
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
 
             Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
             Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
@@ -96,26 +113,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideWindupRecoveryOrLandingPending_DoesNotAttachWindTrail()
+        public void GlideWindupAndRecovery_AttachPhaseSpecificLoops()
         {
             var planner = new EnemyMotionAttachedVfxFollowerPlanner();
-            var phases = new[]
-            {
-                EnemyGlidePhase.Windup,
-                EnemyGlidePhase.LandingPending,
-                EnemyGlidePhase.Recovery,
-                EnemyGlidePhase.Cooldown,
-            };
+            planner.Build(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(glideSignals: new[]
+                {
+                    CreateGlideSignal(EnemyGlidePhase.Windup, sequence: 10),
+                    CreateGlideSignal(EnemyGlidePhase.Recovery, entityId: 42, sequence: 11),
+                }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
 
-            for (var i = 0; i < phases.Length; i++)
-            {
-                planner.Build(
-                    CreatePresentationData(glideSignals: new[] { CreateGlideSignal(phases[i]) }),
-                    enableGlideWindTrail: true,
-                    enableChargeBoosterTrail: true);
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(2));
+            Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop)));
+            Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideWindup));
+            Assert.That(planner.DesiredFollowers[1].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)));
+            Assert.That(planner.DesiredFollowers[1].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideRecover));
+        }
 
-                Assert.That(planner.DesiredFollowers, Is.Empty, phases[i].ToString());
-            }
+        [Test]
+        [Category("Extended")]
+        public void GlideLandingPendingOrCooldown_DoesNotAttachWindTrail()
+        {
+            var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+            planner.Build(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(glideSignals: new[]
+                {
+                    CreateGlideSignal(EnemyGlidePhase.LandingPending),
+                    CreateGlideSignal(EnemyGlidePhase.Cooldown, entityId: 42),
+                }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+
+            Assert.That(planner.DesiredFollowers, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlide_AttachesFollowLoop()
+        {
+            var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+            planner.Build(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(entityMotions: new[] { CreateBoxSlideMotion() }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+            Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)));
+            Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.BoxSlideFollow));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void JumpWindup_AttachesPersistentWindupLoop()
+        {
+            var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+            planner.Build(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(jumpSignals: new[] { CreateJumpSignal(EnemyJumpPhase.Windup) }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+            Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop)));
+            Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyJumpWindup));
         }
 
         [Test]
@@ -361,13 +434,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var planner = new EnemyMotionAttachedVfxFollowerPlanner();
             planner.Build(
-                CreatePresentationData(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(
+                    entityMotions: new[] { CreateBoxSlideMotion(42) },
+                    jumpSignals: new[] { CreateJumpSignal(EnemyJumpPhase.Windup, entityId: 43) },
                     chargeSignals: new[] { CreateChargeSignal(EnemyChargePhase.Active) },
                     glideSignals: new[] { CreateGlideSignal(EnemyGlidePhase.Active) },
                     exitSignals: new[] { CreateExitSignal(40) },
-                    visibilityChanges: new[] { CreateRemoveVisibilityChange(41) }),
+                    visibilityChanges: new[]
+                    {
+                        CreateRemoveVisibilityChange(41),
+                        CreateRemoveVisibilityChange(42),
+                        CreateRemoveVisibilityChange(43),
+                    }),
                 enableGlideWindTrail: true,
-                enableChargeBoosterTrail: true);
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
 
             Assert.That(planner.DesiredFollowers, Is.Empty);
         }
@@ -484,16 +567,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(composition.Succeeded, Is.True, string.Join("\n", composition.Validation.Messages));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail));
+            AssertResolves(composition.Resolver, GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop));
+            AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
+            AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop));
+            AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NewPersistentFollowBindings_Validate()
+        {
+            AssertFollowBinding(BoxSlideFollowBindingPath, GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop));
+            AssertFollowBinding(JumperWindupBindingPath, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
+            AssertFollowBinding(GlideWindupBindingPath, GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop));
+            AssertFollowBinding(GlideRecoverBindingPath, GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop));
         }
 
         private static TickPresentationData CreatePresentationData(
+            IEnumerable<TickEntityMotion> entityMotions = null,
+            IEnumerable<TickEnemyJumpPresentationSignal> jumpSignals = null,
             IEnumerable<TickEnemyChargePresentationSignal> chargeSignals = null,
             IEnumerable<TickEnemyGlidePresentationSignal> glideSignals = null,
             IEnumerable<TickEntityExitPresentationSignal> exitSignals = null,
             IEnumerable<TickVisibilityChange> visibilityChanges = null)
         {
             return new TickPresentationData(
-                Array.Empty<TickEntityMotion>(),
+                entityMotions ?? Array.Empty<TickEntityMotion>(),
                 null,
                 visibilityChanges ?? Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
@@ -503,7 +602,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickPlayerDeathPresentationSignal>(),
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(),
-                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                jumpSignals ?? Array.Empty<TickEnemyJumpPresentationSignal>(),
                 chargeSignals ?? Array.Empty<TickEnemyChargePresentationSignal>(),
                 exitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<TickImpactTransientPresentationSignal>(),
@@ -545,6 +644,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isAirborneVisual: phase == EnemyGlidePhase.Active,
                 isLandingPending: phase == EnemyGlidePhase.LandingPending,
                 isTerminalZero: false);
+        }
+
+        private static TickEntityMotion CreateBoxSlideMotion(
+            int entityId = 42)
+        {
+            return new TickEntityMotion(
+                entityId,
+                TickEntityMotionKind.BoxSlide,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0));
+        }
+
+        private static TickEnemyJumpPresentationSignal CreateJumpSignal(
+            EnemyJumpPhase phase,
+            int entityId = 43,
+            int sequence = 11)
+        {
+            return new TickEnemyJumpPresentationSignal(
+                entityId,
+                sequence,
+                phase,
+                startedWindupThisTick: phase == EnemyJumpPhase.Windup,
+                startedAirborneThisTick: phase == EnemyJumpPhase.Airborne,
+                landedThisTick: false,
+                retryThisTick: false,
+                sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                lockedTargetCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                presentationTargetCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                facing: Direction.Right,
+                landingTick: 14);
         }
 
         private static TickEntityExitPresentationSignal CreateExitSignal(int entityId)
@@ -658,6 +787,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
             Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
             Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+        }
+
+        private static void AssertFollowBinding(string path, GameplayVfxCueId cueId)
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(path);
+
+            Assert.That(binding, Is.Not.Null, path);
+            Assert.That(binding.CueId, Is.EqualTo(cueId));
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Follow));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.DetachThenStopEmittingThenRelease));
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
         }
 
         private static void AssertResolves(IVfxBindingResolver resolver, GameplayVfxCueId cueId)
