@@ -30,6 +30,8 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private Animator _animator;
         [SerializeField] private LayoutElement _layoutElement;
         [SerializeField] private float maxTransitionDeltaSeconds = 1.0f / 30.0f;
+        [SerializeField] private float progressPulseDuration = 0.18f;
+        [SerializeField] private float progressPulseScale = 1.08f;
         [SerializeField] private ObjectiveHudRowTransitionSettings _transitionSettings =
             new ObjectiveHudRowTransitionSettings();
 
@@ -43,6 +45,10 @@ namespace Game.Feature.UI.HUD
         private bool _enterFinishedRaised;
         private bool _dismissFinishedRaised;
         private int _outStateHash;
+        private bool _isProgressPulsePlaying;
+        private float _progressPulseElapsed;
+        private Vector3 _restScale = Vector3.one;
+        private bool _hasRestScale;
 
         public event Action<ObjectiveHudRowView> DismissFinished;
         public event Action<ObjectiveHudRowView, ObjectiveRowTransitionKind> TransitionFinished;
@@ -52,12 +58,15 @@ namespace Game.Feature.UI.HUD
         public ObjectiveRowVisualState VisualState { get; private set; } =
             ObjectiveRowVisualState.Hidden;
 
+        internal int ProgressPulsePlayCount { get; private set; }
+
         public void Initialize()
         {
             ResolveReferences();
             ValidateAuthoredStructureOrThrow();
             _fullHeight = ResolveFullHeight();
             _outStateHash = Animator.StringToHash(Settings.OutStateName);
+            CaptureRestScaleIfNeeded();
         }
 
         public void Bind(ObjectiveConditionHudViewModel model)
@@ -81,6 +90,7 @@ namespace Game.Feature.UI.HUD
             _dismissFinishedRaised = false;
             _label.text = model.Text;
             _layoutElement.ignoreLayout = false;
+            ResetProgressPulseState();
             SetAnimatorBool(false);
             PlayAnimatorState(Settings.InStateName);
             BeginHeightTween(0.0f, _fullHeight, Settings.EnterDuration, ObjectiveRowVisualState.Entering);
@@ -164,6 +174,23 @@ namespace Game.Feature.UI.HUD
             VisualState = ObjectiveRowVisualState.Completing;
         }
 
+        public void PlayProgressPulse()
+        {
+            if (VisualState == ObjectiveRowVisualState.Hidden ||
+                IsDismissing ||
+                !gameObject.activeInHierarchy ||
+                _isProgressPulsePlaying)
+            {
+                return;
+            }
+
+            CaptureRestScaleIfNeeded();
+            _isProgressPulsePlaying = true;
+            _progressPulseElapsed = 0.0f;
+            ProgressPulsePlayCount++;
+            SetProgressPulseScale(progressPulseScale);
+        }
+
         public void ForceResetForPool()
         {
             ResolveReferences();
@@ -174,6 +201,8 @@ namespace Game.Feature.UI.HUD
             _heightDuration = 0.0f;
             _enterFinishedRaised = false;
             _dismissFinishedRaised = false;
+            ResetProgressPulseState();
+            ProgressPulsePlayCount = 0;
 
             if (_layoutElement != null)
             {
@@ -186,6 +215,8 @@ namespace Game.Feature.UI.HUD
 
         public void Tick(float deltaTime)
         {
+            AdvanceProgressPulse(deltaTime);
+
             switch (VisualState)
             {
                 case ObjectiveRowVisualState.Entering:
@@ -299,6 +330,58 @@ namespace Game.Feature.UI.HUD
             {
                 _layoutElement = GetComponent<LayoutElement>();
             }
+        }
+
+        private void CaptureRestScaleIfNeeded()
+        {
+            if (_hasRestScale)
+            {
+                return;
+            }
+
+            _restScale = transform.localScale;
+            _hasRestScale = true;
+        }
+
+        private void ResetProgressPulseState()
+        {
+            _isProgressPulsePlaying = false;
+            _progressPulseElapsed = 0.0f;
+            if (_hasRestScale)
+            {
+                transform.localScale = _restScale;
+            }
+        }
+
+        private void AdvanceProgressPulse(float deltaTime)
+        {
+            if (!_isProgressPulsePlaying)
+            {
+                return;
+            }
+
+            var duration = Mathf.Max(0.0f, progressPulseDuration);
+            if (duration <= 0.0f)
+            {
+                ResetProgressPulseState();
+                return;
+            }
+
+            _progressPulseElapsed += Mathf.Max(0.0f, deltaTime);
+            var progress = Mathf.Clamp01(_progressPulseElapsed / duration);
+            var scale = Mathf.Lerp(Mathf.Max(1.0f, progressPulseScale), 1.0f, progress);
+            SetProgressPulseScale(scale);
+
+            if (progress >= 1.0f)
+            {
+                ResetProgressPulseState();
+            }
+        }
+
+        private void SetProgressPulseScale(float scale)
+        {
+            CaptureRestScaleIfNeeded();
+            transform.localScale = _restScale * Mathf.Max(0.0f, scale);
         }
 
         private void BeginHeightTween(

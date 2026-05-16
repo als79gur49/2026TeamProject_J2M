@@ -63,6 +63,8 @@ namespace Game.Feature.UI.HUD
             new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<string, bool> _previousTargetSatisfiedByStableId =
             new Dictionary<string, bool>(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _lastVisibleCompletedCountsByStableId =
+            new Dictionary<string, int>(StringComparer.Ordinal);
 
         private readonly List<string> _scratchStableIds = new List<string>();
         private ObjectiveHudViewModel _viewModel;
@@ -77,7 +79,7 @@ namespace Game.Feature.UI.HUD
         private bool _isForceClearing;
         private bool _isDestroyedOrDisabled;
 
-        [SerializeField] private float collectionTransitionGapSeconds = 0.1f;
+        [SerializeField] private float collectionTransitionGapSeconds = 0.05f;
 
         public ObjectiveHudViewModel ViewModel => _viewModel;
 
@@ -297,6 +299,11 @@ namespace Game.Feature.UI.HUD
                     {
                         _completedDismissRequestedStableIds.Add(stableId);
                     }
+                    else if (!_activeRowsByStableId.ContainsKey(stableId))
+                    {
+                        _dismissedCompletedStableIds.Add(stableId);
+                        _completedDismissRequestedStableIds.Remove(stableId);
+                    }
 
                     if (_dismissedCompletedStableIds.Contains(stableId))
                     {
@@ -365,7 +372,44 @@ namespace Game.Feature.UI.HUD
                 }
 
                 rowView.Refresh(target);
+                UpdateProgressFeedback(stableId, rowView, target);
             }
+        }
+
+        private void UpdateProgressFeedback(
+            string stableId,
+            ObjectiveHudRowView rowView,
+            ObjectiveConditionHudViewModel target)
+        {
+            var currentCompletedCount = Mathf.Max(0, target.CompletedCount);
+            if (!_lastVisibleCompletedCountsByStableId.TryGetValue(stableId, out var previousCompletedCount))
+            {
+                _lastVisibleCompletedCountsByStableId[stableId] = currentCompletedCount;
+                return;
+            }
+
+            if (ShouldPlayProgressPulse(rowView, target, previousCompletedCount, currentCompletedCount))
+            {
+                rowView.PlayProgressPulse();
+            }
+
+            _lastVisibleCompletedCountsByStableId[stableId] = currentCompletedCount;
+        }
+
+        private static bool ShouldPlayProgressPulse(
+            ObjectiveHudRowView rowView,
+            ObjectiveConditionHudViewModel target,
+            int previousCompletedCount,
+            int currentCompletedCount)
+        {
+            return rowView != null &&
+                   rowView.VisualState == ObjectiveRowVisualState.Idle &&
+                   target != null &&
+                   target.IsGrouped &&
+                   !target.IsSatisfied &&
+                   target.RequiredCount > 1 &&
+                   currentCompletedCount > previousCompletedCount &&
+                   currentCompletedCount < target.RequiredCount;
         }
 
         private void RebuildPendingQueues()
@@ -512,8 +556,9 @@ namespace Game.Feature.UI.HUD
 
         private bool IsValidEnter(string stableId)
         {
-            return _targetRowsByStableId.ContainsKey(stableId) &&
+            return _targetRowsByStableId.TryGetValue(stableId, out var target) &&
                    !_dismissedCompletedStableIds.Contains(stableId) &&
+                   !target.IsSatisfied &&
                    !_activeRowsByStableId.ContainsKey(stableId) &&
                    !_pendingExitSet.Contains(stableId) &&
                    !IsTransitioningStableId(stableId);
@@ -554,6 +599,7 @@ namespace Game.Feature.UI.HUD
             var siblingIndex = CalculateTargetInsertSiblingIndex(stableId);
             _activeRowsByStableId[stableId] = rowView;
             rowView.transform.SetSiblingIndex(siblingIndex);
+            _lastVisibleCompletedCountsByStableId[stableId] = Mathf.Max(0, target.CompletedCount);
 
             _transitioningStableId = stableId;
             _transitioningKind = ObjectiveHudCollectionTransitionKind.Enter;
@@ -621,6 +667,7 @@ namespace Game.Feature.UI.HUD
                 ReferenceEquals(activeRow, rowView))
             {
                 rowView.Refresh(target);
+                _lastVisibleCompletedCountsByStableId[stableId] = Mathf.Max(0, target.CompletedCount);
             }
 
             RequestTransitionAdvance(collectionTransitionGapSeconds);
@@ -658,6 +705,7 @@ namespace Game.Feature.UI.HUD
             }
 
             _completedDismissRequestedStableIds.Remove(stableId);
+            _lastVisibleCompletedCountsByStableId.Remove(stableId);
 
             ClearTransition();
 
@@ -796,6 +844,7 @@ namespace Game.Feature.UI.HUD
             _activeExitReasonsByStableId.Clear();
             _completedDismissRequestedStableIds.Clear();
             _previousTargetSatisfiedByStableId.Clear();
+            _lastVisibleCompletedCountsByStableId.Clear();
             ClearTransition();
 
             if (clearDismissed)
