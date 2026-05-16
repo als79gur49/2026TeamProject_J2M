@@ -656,16 +656,345 @@ namespace Game.Feature.UI.Tests
                 Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"), Is.Null);
                 Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"), Is.Null);
 
-                CompleteObjectiveEnter(aRow);
+                CompleteObjectiveEnter(objectiveView, aRow);
 
                 var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
                 Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
                 Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"), Is.Null);
 
-                CompleteObjectiveEnter(bRow);
+                CompleteObjectiveEnter(objectiveView, bRow);
 
                 var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
                 Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_EnterFinished_DoesNotStartNextEnterSynchronously()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_EnterFinished_DoesNotStartNextEnterSynchronously");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterWithoutScheduler(
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"), Is.Null);
+                Assert.That(GetPrivateField<bool>(objectiveView, "_transitionAdvanceRequested"), Is.True);
+                Assert.That(GetPrivateField<string>(objectiveView, "_transitioningStableId"), Is.Empty);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_UpdateAfterEnterFinished_StartsNextEnter()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_UpdateAfterEnterFinished_StartsNextEnter");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterWithoutScheduler(
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+
+                ForceObjectiveSchedulerDue(objectiveView);
+
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+                Assert.That(GetPrivateField<string>(objectiveView, "_transitioningStableId"), Is.EqualTo("b"));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_CollectionTransitionGap_IsRespected()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_CollectionTransitionGap_IsRespected");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterWithoutScheduler(
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+
+                var allowedAt = GetPrivateField<float>(objectiveView, "_nextTransitionAllowedAt");
+                InvokeObjectiveScheduler(objectiveView, allowedAt - 0.001f);
+
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"), Is.Null);
+
+                InvokeObjectiveScheduler(objectiveView, allowedAt);
+
+                Assert.That(
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b").VisualState,
+                    Is.EqualTo(ObjectiveRowVisualState.Entering));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_DismissFinished_DoesNotStartNextTransitionSynchronously()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_DismissFinished_DoesNotStartNextTransitionSynchronously");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                        new ObjectiveConditionHudViewModel("c", "C", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterSequence(objectiveView, objectiveListRoot, itemTemplate, "a", "b", "c");
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                    });
+
+                var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
+                var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
+                Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+
+                CompleteObjectiveDismissWithoutScheduler(bRow);
+
+                Assert.That(cRow.gameObject.activeSelf, Is.True);
+                Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Idle));
+                Assert.That(GetPrivateField<bool>(objectiveView, "_transitionAdvanceRequested"), Is.True);
+                Assert.That(GetPrivateField<string>(objectiveView, "_transitioningStableId"), Is.Empty);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudRowView_EnterTween_ClampsLargeDelta()
+        {
+            var rootObject = new GameObject("ObjectiveHudRowView_EnterTween_ClampsLargeDelta");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                var finished = false;
+                row.TransitionFinished += (_, kind) => finished |= kind == ObjectiveRowTransitionKind.Enter;
+
+                row.Tick(1.0f);
+
+                var layout = row.GetComponent<LayoutElement>();
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+                Assert.That(finished, Is.False);
+                Assert.That(layout.preferredHeight, Is.GreaterThan(0.0f).And.LessThan(60.0f));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudRowView_CollapseTween_ClampsLargeDelta()
+        {
+            var rootObject = new GameObject("ObjectiveHudRowView_CollapseTween_ClampsLargeDelta");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                CompleteObjectiveEnter(objectiveView, row);
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", true, true),
+                    });
+
+                row.Tick(0.0f);
+                var animator = row.GetComponent<Animator>();
+                Assert.That(animator, Is.Not.Null);
+                animator.Play("Out", 0, 1.0f);
+                animator.Update(1.0f);
+                row.Tick(0.0f);
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Collapsing));
+
+                var finished = false;
+                row.TransitionFinished += (_, kind) => finished |= kind == ObjectiveRowTransitionKind.Dismiss;
+                row.Tick(1.0f);
+
+                var layout = row.GetComponent<LayoutElement>();
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Collapsing));
+                Assert.That(finished, Is.False);
+                Assert.That(layout.preferredHeight, Is.GreaterThan(0.0f).And.LessThan(60.0f));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudRowView_ForceResetForPool_InactiveObject_DoesNotTouchAnimator()
+        {
+            var rootObject = new GameObject("ObjectiveHudRowView_ForceResetForPool_InactiveObject_DoesNotTouchAnimator");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                row.gameObject.SetActive(false);
+
+                row.ForceResetForPool();
+
+                LogAssert.NoUnexpectedReceived();
+                var layout = row.GetComponent<LayoutElement>();
+                Assert.That(row.StableId, Is.Empty);
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Hidden));
+                Assert.That(layout.ignoreLayout, Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_ForceClear_CancelsPendingAdvance()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_ForceClear_CancelsPendingAdvance");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        new ObjectiveConditionHudViewModel("b", "B", false, false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnterWithoutScheduler(
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+                Assert.That(GetPrivateField<bool>(objectiveView, "_transitionAdvanceRequested"), Is.True);
+
+                viewModel.Reset();
+                ForceObjectiveSchedulerDue(objectiveView);
+
+                Assert.That(GetPrivateField<bool>(objectiveView, "_transitionAdvanceRequested"), Is.False);
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"), Is.Null);
             }
             finally
             {
@@ -693,7 +1022,9 @@ namespace Game.Feature.UI.Tests
                     });
 
                 objectiveView.Bind(viewModel);
-                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "reach-exit"));
+                CompleteObjectiveEnter(
+                    objectiveView,
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "reach-exit"));
                 viewModel.SetState(
                     true,
                     new[]
@@ -734,9 +1065,9 @@ namespace Game.Feature.UI.Tests
                     });
 
                 objectiveView.Bind(viewModel);
-                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+                CompleteObjectiveEnter(objectiveView, FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
                 var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
-                CompleteObjectiveEnter(cRow);
+                CompleteObjectiveEnter(objectiveView, cRow);
 
                 viewModel.SetState(
                     true,
@@ -823,9 +1154,9 @@ namespace Game.Feature.UI.Tests
                     });
 
                 objectiveView.Bind(viewModel);
-                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
-                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"));
-                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"));
+                CompleteObjectiveEnter(objectiveView, FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+                CompleteObjectiveEnter(objectiveView, FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"));
+                CompleteObjectiveEnter(objectiveView, FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c"));
                 var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
                 var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
 
@@ -871,7 +1202,7 @@ namespace Game.Feature.UI.Tests
                     });
 
                 objectiveView.Bind(viewModel);
-                CompleteObjectiveEnterSequence(objectiveListRoot, itemTemplate, "a", "b", "c");
+                CompleteObjectiveEnterSequence(objectiveView, objectiveListRoot, itemTemplate, "a", "b", "c");
                 var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
                 var bRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b");
                 var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
@@ -945,7 +1276,7 @@ namespace Game.Feature.UI.Tests
                     });
 
                 objectiveView.Bind(viewModel);
-                CompleteObjectiveEnterSequence(objectiveListRoot, itemTemplate, "a", "b", "c", "d");
+                CompleteObjectiveEnterSequence(objectiveView, objectiveListRoot, itemTemplate, "a", "b", "c", "d");
 
                 viewModel.SetState(
                     true,
@@ -961,7 +1292,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
                 Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Idle));
 
-                CompleteObjectiveDismiss(bRow);
+                CompleteObjectiveDismiss(objectiveView, bRow);
 
                 cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
                 Assert.That(cRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
@@ -995,7 +1326,7 @@ namespace Game.Feature.UI.Tests
                     });
 
                 objectiveView.Bind(viewModel);
-                CompleteObjectiveEnterSequence(objectiveListRoot, itemTemplate, "a", "b", "c");
+                CompleteObjectiveEnterSequence(objectiveView, objectiveListRoot, itemTemplate, "a", "b", "c");
 
                 viewModel.SetState(
                     true,
@@ -1011,7 +1342,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(bRow.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
                 Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "d"), Is.Null);
 
-                CompleteObjectiveDismiss(bRow);
+                CompleteObjectiveDismiss(objectiveView, bRow);
 
                 var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
                 var cRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "c");
@@ -1058,7 +1389,7 @@ namespace Game.Feature.UI.Tests
                         new ObjectiveConditionHudViewModel("a", "A", false, false),
                     });
 
-                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
+                CompleteObjectiveEnter(objectiveView, FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a"));
 
                 Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "b"), Is.Null);
             }
@@ -1125,6 +1456,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(objectiveListRoot.name, Is.EqualTo("Objective_List"));
                 Assert.That(itemTemplate, Is.Not.Null);
                 Assert.That(itemTemplate.parent, Is.SameAs(objectiveListRoot));
+                Assert.That(objectiveListRoot.childCount, Is.EqualTo(1));
                 Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
                 Assert.That(itemTemplate.GetComponent<Animator>(), Is.Not.Null);
                 Assert.That(itemTemplate.GetComponent<LayoutElement>(), Is.Not.Null);
@@ -1186,24 +1518,47 @@ namespace Game.Feature.UI.Tests
         }
 
         private static void CompleteObjectiveEnterSequence(
+            ObjectiveHudView objectiveView,
             RectTransform objectiveListRoot,
             RectTransform itemTemplate,
             params string[] stableIds)
         {
             for (var i = 0; i < stableIds.Length; i++)
             {
-                CompleteObjectiveEnter(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, stableIds[i]));
+                CompleteObjectiveEnter(
+                    objectiveView,
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, stableIds[i]));
             }
         }
 
-        private static void CompleteObjectiveEnter(ObjectiveHudRowView rowView)
+        private static void CompleteObjectiveEnter(ObjectiveHudView objectiveView, ObjectiveHudRowView rowView)
+        {
+            Assert.That(objectiveView, Is.Not.Null);
+            Assert.That(rowView, Is.Not.Null);
+            CompleteObjectiveEnterWithoutScheduler(rowView);
+            ForceObjectiveSchedulerDue(objectiveView);
+        }
+
+        private static void CompleteObjectiveEnterWithoutScheduler(ObjectiveHudRowView rowView)
         {
             Assert.That(rowView, Is.Not.Null);
-            rowView.Tick(1.0f);
+            for (var i = 0; i < 16 && rowView.VisualState == ObjectiveRowVisualState.Entering; i++)
+            {
+                rowView.Tick(1.0f);
+            }
+
             Assert.That(rowView.VisualState, Is.EqualTo(ObjectiveRowVisualState.Idle));
         }
 
-        private static void CompleteObjectiveDismiss(ObjectiveHudRowView rowView)
+        private static void CompleteObjectiveDismiss(ObjectiveHudView objectiveView, ObjectiveHudRowView rowView)
+        {
+            Assert.That(objectiveView, Is.Not.Null);
+            Assert.That(rowView, Is.Not.Null);
+            CompleteObjectiveDismissWithoutScheduler(rowView);
+            ForceObjectiveSchedulerDue(objectiveView);
+        }
+
+        private static void CompleteObjectiveDismissWithoutScheduler(ObjectiveHudRowView rowView)
         {
             Assert.That(rowView, Is.Not.Null);
             rowView.Tick(0.0f);
@@ -1214,7 +1569,25 @@ namespace Game.Feature.UI.Tests
             animator.Update(1.0f);
 
             rowView.Tick(0.0f);
-            rowView.Tick(1.0f);
+            for (var i = 0; i < 16 && rowView.VisualState == ObjectiveRowVisualState.Collapsing; i++)
+            {
+                rowView.Tick(1.0f);
+            }
+        }
+
+        private static void ForceObjectiveSchedulerDue(ObjectiveHudView objectiveView)
+        {
+            SetPrivateField(objectiveView, "_nextTransitionAllowedAt", 0.0f);
+            InvokeObjectiveScheduler(objectiveView, 0.0f);
+        }
+
+        private static void InvokeObjectiveScheduler(ObjectiveHudView objectiveView, float now)
+        {
+            var processMethod = typeof(ObjectiveHudView).GetMethod(
+                "ProcessTransitionAdvance",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(processMethod, Is.Not.Null);
+            processMethod.Invoke(objectiveView, new object[] { now });
         }
 
         [Test]
@@ -1466,6 +1839,26 @@ namespace Game.Feature.UI.Tests
             var reference = property.objectReferenceValue as TReference;
             Assert.That(reference, Is.Not.Null, fieldName);
             return reference;
+        }
+
+        private static TValue GetPrivateField<TValue>(object target, string fieldName)
+        {
+            Assert.That(target, Is.Not.Null);
+            var field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            return (TValue)field.GetValue(target);
+        }
+
+        private static void SetPrivateField<TValue>(object target, string fieldName, TValue value)
+        {
+            Assert.That(target, Is.Not.Null);
+            var field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            field.SetValue(target, value);
         }
 
         private static void AssertSerializedReference(

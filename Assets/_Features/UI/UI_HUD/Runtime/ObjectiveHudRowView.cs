@@ -29,6 +29,7 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private TMP_Text _label;
         [SerializeField] private Animator _animator;
         [SerializeField] private LayoutElement _layoutElement;
+        [SerializeField] private float maxTransitionDeltaSeconds = 1.0f / 30.0f;
         [SerializeField] private ObjectiveHudRowTransitionSettings _transitionSettings =
             new ObjectiveHudRowTransitionSettings();
 
@@ -173,11 +174,6 @@ namespace Game.Feature.UI.HUD
             _heightDuration = 0.0f;
             _enterFinishedRaised = false;
             _dismissFinishedRaised = false;
-            SetAnimatorBool(false);
-            if (_animator != null)
-            {
-                PlayAnimatorState(Settings.InactiveStateName);
-            }
 
             if (_layoutElement != null)
             {
@@ -193,7 +189,7 @@ namespace Game.Feature.UI.HUD
             switch (VisualState)
             {
                 case ObjectiveRowVisualState.Entering:
-                    AdvanceHeightTween(deltaTime, ObjectiveRowVisualState.Idle);
+                    AdvanceHeightTween(ClampTransitionDelta(deltaTime), ObjectiveRowVisualState.Idle);
                     if (VisualState == ObjectiveRowVisualState.Idle)
                     {
                         RaiseEnterFinished();
@@ -222,7 +218,7 @@ namespace Game.Feature.UI.HUD
                     break;
 
                 case ObjectiveRowVisualState.Collapsing:
-                    AdvanceHeightTween(deltaTime, ObjectiveRowVisualState.Hidden);
+                    AdvanceHeightTween(ClampTransitionDelta(deltaTime), ObjectiveRowVisualState.Hidden);
                     if (VisualState == ObjectiveRowVisualState.Hidden)
                     {
                         RaiseDismissFinished();
@@ -273,6 +269,14 @@ namespace Game.Feature.UI.HUD
         private void Update()
         {
             Tick(Time.unscaledDeltaTime);
+        }
+
+        private float ClampTransitionDelta(float deltaTime)
+        {
+            var safeDelta = Mathf.Max(0.0f, deltaTime);
+            return maxTransitionDeltaSeconds > 0.0f
+                ? Mathf.Min(safeDelta, maxTransitionDeltaSeconds)
+                : safeDelta;
         }
 
         private void ResolveReferences()
@@ -396,6 +400,7 @@ namespace Game.Feature.UI.HUD
         private void SetAnimatorBool(bool value)
         {
             if (_animator == null ||
+                !gameObject.activeInHierarchy ||
                 string.IsNullOrWhiteSpace(Settings.ActiveBoolParameter) ||
                 !HasAnimatorBoolParameter(Settings.ActiveBoolParameter))
             {
@@ -422,7 +427,9 @@ namespace Game.Feature.UI.HUD
 
         private void PlayAnimatorState(string stateName)
         {
-            if (_animator == null || string.IsNullOrWhiteSpace(stateName))
+            if (_animator == null ||
+                !gameObject.activeInHierarchy ||
+                string.IsNullOrWhiteSpace(stateName))
             {
                 return;
             }

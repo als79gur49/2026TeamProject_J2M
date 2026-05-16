@@ -71,8 +71,20 @@ namespace Game.Feature.UI.HUD
             ObjectiveHudCollectionTransitionKind.None;
         private string _currentObjectiveStableId;
         private int _createdRowCount;
+        private bool _transitionAdvanceRequested;
+        private float _nextTransitionAllowedAt;
+        private bool _isProcessingTransitionAdvance;
+        private bool _isForceClearing;
+        private bool _isDestroyedOrDisabled;
+
+        [SerializeField] private float collectionTransitionGapSeconds = 0.1f;
 
         public ObjectiveHudViewModel ViewModel => _viewModel;
+
+        private void Awake()
+        {
+            HideAuthoredListChildren();
+        }
 
         public void Bind(ObjectiveHudViewModel viewModel)
         {
@@ -140,11 +152,13 @@ namespace Game.Feature.UI.HUD
 
         private void OnEnable()
         {
+            _isDestroyedOrDisabled = false;
             RefreshView();
         }
 
         private void OnDisable()
         {
+            _isDestroyedOrDisabled = true;
             ForceClearAllRows(clearDismissed: true);
             _currentObjectiveStableId = null;
         }
@@ -160,6 +174,7 @@ namespace Game.Feature.UI.HUD
 
         private void OnDestroy()
         {
+            _isDestroyedOrDisabled = true;
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -172,6 +187,11 @@ namespace Game.Feature.UI.HUD
         private void HandleViewModelChanged()
         {
             RefreshView();
+        }
+
+        private void Update()
+        {
+            ProcessTransitionAdvance(Time.unscaledTime);
         }
 
         private void RefreshView()
@@ -203,7 +223,52 @@ namespace Game.Feature.UI.HUD
             UpdateTargetRows(rows);
             RefreshIdleActiveRows();
             RebuildPendingQueues();
+            if (_transitionAdvanceRequested && !_isProcessingTransitionAdvance)
+            {
+                return;
+            }
+
             TryStartNextTransition();
+        }
+
+        private void RequestTransitionAdvance(float delaySeconds)
+        {
+            _transitionAdvanceRequested = true;
+            _nextTransitionAllowedAt = Time.unscaledTime + Mathf.Max(0.0f, delaySeconds);
+        }
+
+        private void CancelTransitionAdvanceRequest()
+        {
+            _transitionAdvanceRequested = false;
+            _nextTransitionAllowedAt = 0.0f;
+        }
+
+        private void ProcessTransitionAdvance(float now)
+        {
+            if (!_transitionAdvanceRequested ||
+                now < _nextTransitionAllowedAt)
+            {
+                return;
+            }
+
+            _transitionAdvanceRequested = false;
+            if (_isDestroyedOrDisabled ||
+                _isForceClearing ||
+                _viewModel == null ||
+                !_viewModel.IsVisible)
+            {
+                return;
+            }
+
+            _isProcessingTransitionAdvance = true;
+            try
+            {
+                ReconcileRows(_viewModel.Rows);
+            }
+            finally
+            {
+                _isProcessingTransitionAdvance = false;
+            }
         }
 
         private void UpdateTargetRows(IReadOnlyList<ObjectiveConditionHudViewModel> rows)
@@ -544,13 +609,12 @@ namespace Game.Feature.UI.HUD
 
         private void HandleRowEnterFinished(ObjectiveHudRowView rowView)
         {
-            var stableId = rowView.StableId ?? string.Empty;
-            if (!string.Equals(_transitioningStableId, stableId, StringComparison.Ordinal) ||
-                _transitioningKind != ObjectiveHudCollectionTransitionKind.Enter)
+            if (!IsCurrentTransition(rowView, ObjectiveHudCollectionTransitionKind.Enter))
             {
                 return;
             }
 
+            var stableId = rowView.StableId ?? string.Empty;
             ClearTransition();
             if (_targetRowsByStableId.TryGetValue(stableId, out var target) &&
                 _activeRowsByStableId.TryGetValue(stableId, out var activeRow) &&
@@ -559,15 +623,12 @@ namespace Game.Feature.UI.HUD
                 rowView.Refresh(target);
             }
 
-            if (_viewModel != null && _viewModel.IsVisible)
-            {
-                ReconcileRows(_viewModel.Rows);
-            }
+            RequestTransitionAdvance(collectionTransitionGapSeconds);
         }
 
         private void HandleRowDismissFinished(ObjectiveHudRowView rowView)
         {
-            if (rowView == null)
+            if (!IsCurrentTransition(rowView, ObjectiveHudCollectionTransitionKind.Exit))
             {
                 return;
             }
@@ -598,17 +659,34 @@ namespace Game.Feature.UI.HUD
 
             _completedDismissRequestedStableIds.Remove(stableId);
 
-            if (string.Equals(_transitioningStableId, stableId, StringComparison.Ordinal) &&
-                _transitioningKind == ObjectiveHudCollectionTransitionKind.Exit)
-            {
-                ClearTransition();
-            }
+            ClearTransition();
 
             ReturnRowToPool(rowView);
-            if (_viewModel != null && _viewModel.IsVisible)
+            RequestTransitionAdvance(collectionTransitionGapSeconds);
+        }
+
+        private bool IsCurrentTransition(
+            ObjectiveHudRowView rowView,
+            ObjectiveHudCollectionTransitionKind expectedKind)
+        {
+            if (_isDestroyedOrDisabled ||
+                _isForceClearing ||
+                rowView == null ||
+                expectedKind == ObjectiveHudCollectionTransitionKind.None)
             {
-                ReconcileRows(_viewModel.Rows);
+                return false;
             }
+
+            var stableId = rowView.StableId ?? string.Empty;
+            if (string.IsNullOrEmpty(stableId) ||
+                !string.Equals(_transitioningStableId, stableId, StringComparison.Ordinal) ||
+                _transitioningKind != expectedKind)
+            {
+                return false;
+            }
+
+            return _activeRowsByStableId.TryGetValue(stableId, out var activeRow) &&
+                   ReferenceEquals(activeRow, rowView);
         }
 
         private void ApplyFinalSiblingOrderIfSafe()
@@ -686,6 +764,8 @@ namespace Game.Feature.UI.HUD
 
         private void ForceClearAllRows(bool clearDismissed)
         {
+            _isForceClearing = true;
+            CancelTransitionAdvanceRequest();
             _scratchStableIds.Clear();
             foreach (var pair in _activeRowsByStableId)
             {
@@ -722,6 +802,8 @@ namespace Game.Feature.UI.HUD
             {
                 _dismissedCompletedStableIds.Clear();
             }
+
+            _isForceClearing = false;
         }
 
         private void HideAuthoredListChildren()
