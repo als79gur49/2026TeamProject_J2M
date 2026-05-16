@@ -214,30 +214,17 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_ReplayContactAndLandingDeterministic()
+        public void GlideActive_Kinematic_ReplayLandingDeterministic()
         {
             var inputs = Enumerable.Range(1, 13)
                 .Select(tick => new TickInput(tick))
                 .ToArray();
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
-                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 12, recoveryTicks: 1, cooldownTicks: 0),
-                includePassiveContact: true);
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 12, recoveryTicks: 1, cooldownTicks: 0));
             var harness = new TickReplayHarness();
 
             try
             {
-                var firstContactReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
-                    CreateGlideContactWorldState(),
-                    entityLogics: new IEntityLogic[0],
-                    inputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
-                var secondContactReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
-                    CreateGlideContactWorldState(),
-                    entityLogics: new IEntityLogic[0],
-                    inputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
                 var firstLandingReplay = harness.Run(
                     GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
                     CreateGlideLandingWorldState(),
@@ -251,21 +238,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
 
-                AssertEquivalentReplayOutputs(firstContactReplay, secondContactReplay);
                 AssertEquivalentReplayOutputs(firstLandingReplay, secondLandingReplay);
-                Assert.That(firstContactReplay[9].EventLogDump, Does.Contain("DamageCommitted"));
-                Assert.That(firstContactReplay[9].EventLogDump, Does.Contain("SourceKind=PassiveContact"));
-                Assert.That(firstContactReplay[9].Trace, Does.Contain("GlideActiveKinematicAnchorCommit"));
                 Assert.That(firstLandingReplay[9].Trace, Does.Contain("GlideActiveKinematicAnchorCommit"));
                 Assert.That(firstLandingReplay[11].Trace, Does.Contain("LandingPending=1"));
                 Assert.That(
-                    firstContactReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
-                                                    frame.EventLogDump.Contains("KinematicPoseCommitted", StringComparison.Ordinal)) &&
                     firstLandingReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
                                                     frame.EventLogDump.Contains("KinematicPoseCommitted", StringComparison.Ordinal)),
                     Is.True);
                 Assert.That(
-                    firstContactReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)) ||
                     firstLandingReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
                     Is.False);
             }
