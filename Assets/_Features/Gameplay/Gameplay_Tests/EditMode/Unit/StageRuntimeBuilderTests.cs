@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -1756,6 +1757,286 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void StageRuntimeBuilder_OutputUnchanged_WhenPresentationIdsExist()
+        {
+            var withoutPresentation = CreateStage(
+                "NoPresentationBindings",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3),
+                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 2), hp: 2, enemyAiMode: EnemyAiMode.Patrol),
+                CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 2), hp: 1),
+                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 3, 3), hp: 1));
+            var withPresentation = CreateStage(
+                "WithPresentationBindings",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, presentationId: "player-view"),
+                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 2), hp: 2, enemyAiMode: EnemyAiMode.Patrol, presentationId: "enemy-view"),
+                CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 2), hp: 1, presentationId: "box-view"),
+                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 3, 3), hp: 1, presentationId: "wall-view"));
+
+            try
+            {
+                var expected = StageRuntimeBuilder.Build(withoutPresentation);
+                var actual = StageRuntimeBuilder.Build(withPresentation);
+
+                AssertRuntimeBuildResultsMatch(expected, actual);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(withPresentation);
+                UnityEngine.Object.DestroyImmediate(withoutPresentation);
+            }
+        }
+
+        [Test]
+        public void StagePresentationBindings_AreDeterministicallyOrderedByEntityId()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var enemyBindings = new[]
+            {
+                new EnemyPresentationBinding { EntityId = 30, PresentationId = "enemy-30" },
+                new EnemyPresentationBinding { EntityId = 10, PresentationId = "enemy-10" },
+                new EnemyPresentationBinding { EntityId = 20, PresentationId = "enemy-20" },
+            };
+            var staticBindings = new[]
+            {
+                new StaticEntityPresentationBinding { EntityId = 50, PresentationId = "static-50" },
+                new StaticEntityPresentationBinding { EntityId = 40, PresentationId = "static-40" },
+                new StaticEntityPresentationBinding { EntityId = 60, PresentationId = "static-60" },
+            };
+
+            try
+            {
+                SetPrivateField(presentation, "enemyPresentationBindings", enemyBindings);
+                SetPrivateField(presentation, "staticEntityPresentationBindings", staticBindings);
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+
+                Assert.That(resolved.EnemyPresentationBindings, Is.Not.SameAs(enemyBindings));
+                Assert.That(resolved.StaticEntityPresentationBindings, Is.Not.SameAs(staticBindings));
+                CollectionAssert.AreEqual(
+                    new[] { 10, 20, 30 },
+                    Array.ConvertAll(resolved.EnemyPresentationBindings, binding => binding.EntityId));
+                CollectionAssert.AreEqual(
+                    new[] { 40, 50, 60 },
+                    Array.ConvertAll(resolved.StaticEntityPresentationBindings, binding => binding.EntityId));
+                Assert.That(resolved.EnemyPresentationBindings[0].PresentationId, Is.EqualTo("enemy-10"));
+                Assert.That(resolved.StaticEntityPresentationBindings[0].PresentationId, Is.EqualTo("static-40"));
+
+                enemyBindings[1].PresentationId = "mutated";
+                staticBindings[1].PresentationId = "mutated";
+
+                Assert.That(resolved.EnemyPresentationBindings[0].PresentationId, Is.EqualTo("enemy-10"));
+                Assert.That(resolved.StaticEntityPresentationBindings[0].PresentationId, Is.EqualTo("static-40"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        public void StagePresentationTileFeatureDirectBindings_AreClonedAndPreserveAuthoredOrder()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var firstPrefab = new GameObject("TileFeatureVisualPrefab_300");
+            var secondPrefab = new GameObject("TileFeatureVisualPrefab_100");
+            var replacementPrefab = new GameObject("TileFeatureVisualPrefab_Replacement");
+            var directBindings = new[]
+            {
+                new TileFeaturePresentationBinding
+                {
+                    TileId = 300,
+                    VisualPrefab = firstPrefab,
+                },
+                new TileFeaturePresentationBinding
+                {
+                    TileId = 100,
+                    VisualPrefab = secondPrefab,
+                },
+            };
+
+            try
+            {
+                SetPrivateField(presentation, "tileFeaturePresentationBindings", directBindings);
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+
+                Assert.That(resolved.TileFeatureBindings, Is.InstanceOf<ReadOnlyCollection<TileFeaturePresentationResolvedBinding>>());
+                CollectionAssert.AreEqual(
+                    new[] { 300, 100 },
+                    ToTileIds(resolved.TileFeatureBindings));
+                Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(firstPrefab));
+                Assert.That(resolved.TileFeatureBindings[1].VisualPrefab, Is.SameAs(secondPrefab));
+
+                directBindings[0].TileId = 10;
+                directBindings[0].VisualPrefab = replacementPrefab;
+
+                CollectionAssert.AreEqual(
+                    new[] { 300, 100 },
+                    ToTileIds(resolved.TileFeatureBindings));
+                Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(firstPrefab));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(replacementPrefab);
+                UnityEngine.Object.DestroyImmediate(secondPrefab);
+                UnityEngine.Object.DestroyImmediate(firstPrefab);
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        public void StagePresentationAssembler_ResolveOverloads_UseSameBindingNormalizationPolicy()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "ResolveOverloadParity",
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                    CreateTileFeature(200, new SurfaceCell(FaceId.Floor, 2, 1), TileFeatureKind.Button),
+                });
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var firstPrefab = new GameObject("TileFeatureVisualPrefab_100");
+            var secondPrefab = new GameObject("TileFeatureVisualPrefab_200");
+            var enemyBindings = new[]
+            {
+                new EnemyPresentationBinding { EntityId = 30, PresentationId = "enemy-30" },
+                new EnemyPresentationBinding { EntityId = 10, PresentationId = "enemy-10" },
+                new EnemyPresentationBinding { EntityId = 20, PresentationId = "enemy-20" },
+            };
+            var staticBindings = new[]
+            {
+                new StaticEntityPresentationBinding { EntityId = 50, PresentationId = "static-50" },
+                new StaticEntityPresentationBinding { EntityId = 40, PresentationId = "static-40" },
+            };
+            var tileBindings = new[]
+            {
+                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = firstPrefab },
+                new TileFeaturePresentationBinding { TileId = 200, VisualPrefab = secondPrefab },
+            };
+
+            try
+            {
+                SetPrivateField(presentation, "enemyPresentationBindings", enemyBindings);
+                SetPrivateField(presentation, "staticEntityPresentationBindings", staticBindings);
+                SetPrivateField(presentation, "tileFeaturePresentationBindings", tileBindings);
+
+                var directOnly = StagePresentationAssembler.Resolve(presentation);
+                var gameplayAware = StagePresentationAssembler.Resolve(stage, presentation);
+
+                CollectionAssert.AreEqual(
+                    ToEnemyBindingPairs(directOnly.EnemyPresentationBindings),
+                    ToEnemyBindingPairs(gameplayAware.EnemyPresentationBindings));
+                CollectionAssert.AreEqual(
+                    ToStaticBindingPairs(directOnly.StaticEntityPresentationBindings),
+                    ToStaticBindingPairs(gameplayAware.StaticEntityPresentationBindings));
+                CollectionAssert.AreEqual(
+                    ToTileIds(directOnly.TileFeatureBindings),
+                    ToTileIds(gameplayAware.TileFeatureBindings));
+                Assert.That(directOnly.EnemyPresentationBindings, Is.Not.SameAs(enemyBindings));
+                Assert.That(gameplayAware.EnemyPresentationBindings, Is.Not.SameAs(enemyBindings));
+                Assert.That(directOnly.StaticEntityPresentationBindings, Is.Not.SameAs(staticBindings));
+                Assert.That(gameplayAware.StaticEntityPresentationBindings, Is.Not.SameAs(staticBindings));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(secondPrefab);
+                UnityEngine.Object.DestroyImmediate(firstPrefab);
+                UnityEngine.Object.DestroyImmediate(presentation);
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        public void StagePresentationAssembler_GameplayAwareResolve_OrdersTileFeatureBindingsByTileId()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "GameplayAwareTileFeatureOrdering",
+                new[]
+                {
+                    CreateTileFeature(300, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Button),
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Floor, 2, 1), TileFeatureKind.Button),
+                    CreateTileFeature(200, new SurfaceCell(FaceId.Floor, 3, 1), TileFeatureKind.Button),
+                });
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var prefab = new GameObject("TileFeatureVisualPrefab");
+
+            try
+            {
+                SetPrivateField(
+                    presentation,
+                    "tileFeaturePresentationBindings",
+                    new[]
+                    {
+                        new TileFeaturePresentationBinding { TileId = 300, VisualPrefab = prefab },
+                        new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = prefab },
+                        new TileFeaturePresentationBinding { TileId = 200, VisualPrefab = prefab },
+                    });
+
+                var resolved = StagePresentationAssembler.Resolve(stage, presentation);
+
+                CollectionAssert.AreEqual(
+                    new[] { 100, 200, 300 },
+                    ToTileIds(resolved.TileFeatureBindings));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(presentation);
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        public void StagePresentationAssembler_GeneratedBindings_AreNormalizedByPresentationLane()
+        {
+            var spawns = new[]
+            {
+                CreateSpawn(30, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 3, 0), hp: 2, presentationId: "enemy-30"),
+                CreateSpawn(50, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 4, 0), hp: 1, presentationId: "static-50"),
+                CreateSpawn(10, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 0), hp: 2, presentationId: "enemy-10"),
+                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 2, 0), hp: 1, presentationId: "static-40"),
+                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 0, 1), hp: 2, presentationId: "enemy-20"),
+            };
+            var stage = CreateStage(
+                "GeneratedPresentationBindings",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                new[]
+                {
+                    CreateSpawn(1, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    spawns[0],
+                    spawns[1],
+                    spawns[2],
+                    spawns[3],
+                    spawns[4],
+                });
+
+            try
+            {
+                var enemyBindings = InvokeBuildEnemyBindings(spawns);
+                var staticBindings = InvokeBuildStaticBindings(spawns);
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                CollectionAssert.AreEqual(
+                    new[] { 10, 20, 30 },
+                    Array.ConvertAll(enemyBindings, binding => binding.EntityId));
+                CollectionAssert.AreEqual(
+                    new[] { 40, 50 },
+                    Array.ConvertAll(staticBindings, binding => binding.EntityId));
+                Assert.That(
+                    typeof(StageRuntimeBuildResult).GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+                        .Any(member => member.Name.Contains("PresentationBinding", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(buildResult.InitialEntities.Any(entity => entity.entityId == 10), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void StagePresentationDefinition_DefaultsTileFeaturePresentationBindingsToEmpty()
         {
@@ -1849,6 +2130,104 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(copy);
                 UnityEngine.Object.DestroyImmediate(source);
             }
+        }
+
+        private static void AssertRuntimeBuildResultsMatch(
+            StageRuntimeBuildResult expected,
+            StageRuntimeBuildResult actual)
+        {
+            Assert.That(actual.BoardBounds.IsBounded, Is.EqualTo(expected.BoardBounds.IsBounded));
+            Assert.That(actual.BoardBounds.MinInclusive, Is.EqualTo(expected.BoardBounds.MinInclusive));
+            Assert.That(actual.BoardBounds.MaxInclusive, Is.EqualTo(expected.BoardBounds.MaxInclusive));
+            Assert.That(actual.InitialTopology, Is.EqualTo(expected.InitialTopology));
+            CollectionAssert.AreEqual(expected.InitialEntities, actual.InitialEntities);
+            Assert.That(actual.InitialTerrain, Is.SameAs(expected.InitialTerrain));
+            CollectionAssert.AreEqual(expected.InitialTileFeatures, actual.InitialTileFeatures);
+            CollectionAssert.AreEqual(expected.TileFeatureDefinitions, actual.TileFeatureDefinitions);
+            CollectionAssert.AreEqual(expected.MoonBlockRespawnDefinitions, actual.MoonBlockRespawnDefinitions);
+            Assert.That(actual.PlayerEntityId, Is.EqualTo(expected.PlayerEntityId));
+            AssertObjectiveRuntimeDefinitionsMatch(
+                expected.ObjectiveRuntimeDefinition,
+                actual.ObjectiveRuntimeDefinition);
+            Assert.That(actual.EnemyAiProfileOverrides.Length, Is.EqualTo(expected.EnemyAiProfileOverrides.Length));
+            for (var i = 0; i < expected.EnemyAiProfileOverrides.Length; i++)
+            {
+                Assert.That(
+                    actual.EnemyAiProfileOverrides[i].EntityId,
+                    Is.EqualTo(expected.EnemyAiProfileOverrides[i].EntityId));
+                Assert.That(
+                    actual.EnemyAiProfileOverrides[i].Profile,
+                    Is.SameAs(expected.EnemyAiProfileOverrides[i].Profile));
+            }
+        }
+
+        private static void AssertObjectiveRuntimeDefinitionsMatch(
+            StageObjectiveRuntimeDefinition expected,
+            StageObjectiveRuntimeDefinition actual)
+        {
+            Assert.That(actual.CompletionPolicy, Is.EqualTo(expected.CompletionPolicy));
+            Assert.That(actual.PlayerEntityId, Is.EqualTo(expected.PlayerEntityId));
+            Assert.That(actual.Zones.Count, Is.EqualTo(expected.Zones.Count));
+            Assert.That(actual.ConditionEntries.Count, Is.EqualTo(expected.ConditionEntries.Count));
+            Assert.That(actual.DisplayMetadata.ObjectiveTitle, Is.EqualTo(expected.DisplayMetadata.ObjectiveTitle));
+            Assert.That(actual.DisplayMetadata.ObjectiveSummary, Is.EqualTo(expected.DisplayMetadata.ObjectiveSummary));
+            Assert.That(
+                actual.DisplayMetadata.ConditionEntries.Count,
+                Is.EqualTo(expected.DisplayMetadata.ConditionEntries.Count));
+        }
+
+        private static int[] ToTileIds(IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings)
+        {
+            var tileIds = new int[bindings.Count];
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                tileIds[i] = bindings[i].TileId;
+            }
+
+            return tileIds;
+        }
+
+        private static string[] ToEnemyBindingPairs(IReadOnlyList<EnemyPresentationBinding> bindings)
+        {
+            var pairs = new string[bindings.Count];
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                pairs[i] = $"{bindings[i].EntityId}:{bindings[i].PresentationId}";
+            }
+
+            return pairs;
+        }
+
+        private static string[] ToStaticBindingPairs(IReadOnlyList<StaticEntityPresentationBinding> bindings)
+        {
+            var pairs = new string[bindings.Count];
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                pairs[i] = $"{bindings[i].EntityId}:{bindings[i].PresentationId}";
+            }
+
+            return pairs;
+        }
+
+        private static EnemyPresentationBinding[] InvokeBuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)
+        {
+            return InvokeAssemblerBindingBuilder<EnemyPresentationBinding>("BuildEnemyBindings", spawns);
+        }
+
+        private static StaticEntityPresentationBinding[] InvokeBuildStaticBindings(IReadOnlyList<StageSpawnDefinition> spawns)
+        {
+            return InvokeAssemblerBindingBuilder<StaticEntityPresentationBinding>("BuildStaticBindings", spawns);
+        }
+
+        private static TBinding[] InvokeAssemblerBindingBuilder<TBinding>(
+            string methodName,
+            IReadOnlyList<StageSpawnDefinition> spawns)
+        {
+            var method = typeof(StagePresentationAssembler).GetMethod(
+                methodName,
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, $"Missing StagePresentationAssembler.{methodName}.");
+            return (TBinding[])method.Invoke(null, new object[] { spawns });
         }
 
         private static StageDefinition CreateStage(
