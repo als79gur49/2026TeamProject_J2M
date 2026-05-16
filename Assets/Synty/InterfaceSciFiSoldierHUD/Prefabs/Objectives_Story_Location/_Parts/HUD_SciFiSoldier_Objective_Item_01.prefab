@@ -320,6 +320,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 7624109843051701111}
   - {fileID: 8604674514569426435}
   - {fileID: 7249507948044967527}
   m_Father: {fileID: 4630125618690325947}
@@ -575,6 +576,16 @@ MonoBehaviour:
   _label: {fileID: 3420556218193743673, guid: a9e8e826ab2a7be4e82b2feedda52835, type: 3}
   _animator: {fileID: 6113379571524663058}
   _layoutElement: {fileID: 8192219805100011001}
+  _progressHighlightGraphic: {fileID: 7624109843051701113}
+  _progressHighlightGroup: {fileID: 7624109843051701114}
+  _progressPulseScaleTarget: {fileID: 2938426107074832073}
+  maxTransitionDeltaSeconds: 0.033333335
+  _enableProgressPulse: 1
+  _enableProgressScalePulse: 1
+  progressPulseDuration: 0.22
+  progressPulseScale: 1.03
+  _progressHighlightMaxAlpha: 0.35
+  _progressHighlightColor: {r: 1, g: 0.92, b: 0.55, a: 1}
   _transitionSettings:
     EnterDuration: 0.2
     CollapseDuration: 0.2
@@ -584,6 +595,94 @@ MonoBehaviour:
     ActiveStateName: Active
     OutStateName: Out
     InactiveStateName: Inactive
+--- !u!1 &7624109843051701110
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7624109843051701111}
+  - component: {fileID: 7624109843051701112}
+  - component: {fileID: 7624109843051701113}
+  - component: {fileID: 7624109843051701114}
+  m_Layer: 5
+  m_Name: ProgressHighlightOverlay
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &7624109843051701111
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7624109843051701110}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2938426107074832073}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 45, y: 0}
+  m_SizeDelta: {x: -90, y: -8}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &7624109843051701112
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7624109843051701110}
+  m_CullTransparentMesh: 1
+--- !u!114 &7624109843051701113
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7624109843051701110}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 0.92, b: 0.55, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 0
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!225 &7624109843051701114
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7624109843051701110}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &7730110662729485017
 GameObject:
   m_ObjectHideFlags: 0

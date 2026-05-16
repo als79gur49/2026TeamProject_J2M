@@ -14,6 +14,8 @@ namespace Game.Feature.UI.Composition
         private const string ContentsRoot = TransitionRoot + "/Contents";
         private const string ShellPrefabPath = TransitionRoot + "/SceneTransitionOverlayShell.prefab";
         private const string CatalogPath = TransitionRoot + "/SceneTransitionOverlayContentCatalog.asset";
+        private const string AllIn1UiStencilMaterialPath = "Assets/Plugins/AllIn1SpriteShader/Materials/UIStencil.mat";
+        private const string FilledIconName = "FilledIcon";
 
         [MenuItem("Game/UI/Rebuild Scene Transition Overlay Assets")]
         public static void CreateTransitionOverlayAssets()
@@ -189,6 +191,9 @@ namespace Game.Feature.UI.Composition
                     {
                         chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue = chanceSlots[i];
                     }
+
+                    serialized.FindProperty("_allIn1EffectMaterialTemplate").objectReferenceValue =
+                        AssetDatabase.LoadAssetAtPath<Material>(AllIn1UiStencilMaterialPath);
                 }
 
                 if (view is LevelFailedRestartOverlayContentView)
@@ -233,8 +238,24 @@ namespace Game.Feature.UI.Composition
                 rect.anchoredPosition = new Vector2((i - 1) * 54f, 0f);
 
                 var image = slot.GetComponent<Image>();
-                image.color = new Color(0.95f, 0.22f, 0.18f, 1f);
+                image.color = new Color(0.25f, 0.29f, 0.36f, 0.75f);
                 image.raycastTarget = false;
+
+                var filledIcon = new GameObject(FilledIconName, typeof(RectTransform), typeof(Image));
+                filledIcon.transform.SetParent(slot.transform, false);
+                var filledIconRect = filledIcon.GetComponent<RectTransform>();
+                UiCanvasElementFactory.Stretch(filledIconRect);
+                filledIconRect.sizeDelta = new Vector2(-4f, -4f);
+                var filledIconImage = filledIcon.GetComponent<Image>();
+                filledIconImage.color = new Color(0.95f, 0.22f, 0.18f, 1f);
+                filledIconImage.raycastTarget = false;
+
+                var effect = new GameObject("Effect", typeof(RectTransform), typeof(Image));
+                effect.transform.SetParent(slot.transform, false);
+                UiCanvasElementFactory.Stretch(effect.GetComponent<RectTransform>());
+                var effectImage = effect.GetComponent<Image>();
+                effectImage.color = new Color(1f, 0.12f, 0.12f, 0.12f);
+                effectImage.raycastTarget = false;
                 slots[i] = rect;
             }
 
