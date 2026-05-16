@@ -24,7 +24,10 @@
 - Canonical rule:
   - `Movement / Attack / Cleanup / Respawn`는 gameplay flow 설명에 사용한다.
   - `Plan / Resolve / Finalize / Cleanup / Respawn`는 pipeline execution stage 설명에만 사용한다.
+  - semantic axis와 execution-stage axis는 분리한다.
   - `TickPhase`는 현재 코드에서 runtime stage enum이다. gameplay phase의 대표 명칭으로 승격하지 않는다.
+  - `MovementPhaseResult`와 `AttackPhaseResult`는 semantic result carrier다. `Plan / Resolve / Finalize` execution-stage vocabulary와 합쳐서 canonical phase list로 만들지 않는다.
+  - `PreMovementState`는 historical/runtime-internal carrier 이름이다. public canonical phase vocabulary로 승격하지 않는다.
 
 ## Core Invariants
 - 시뮬레이션은 fixed tick deterministic model이다.
@@ -203,9 +206,14 @@
 - `Plan`과 `Resolve`는 phase-entry snapshot과 published reservation read model만 읽는다.
 - `Finalize`만 `WorldState`를 mutate할 수 있다.
 - `Finalize`는 legality를 재평가하거나 target을 다시 고르지 않는다.
+- `Finalize`는 `FinalizationBatch.ApplyTo` 기반 apply-only stage다. `CanPlace`, `CanTraverse`, `CanSettle`, placement/traversal/settlement policy evaluation, target picking 같은 legality recheck를 추가하지 않는다.
 - semantic slice handoff는 오직 두 가지다.
   - 이전 slice `Finalize` 이후의 새 snapshot
   - 이전 slice가 publish한 finalized reservation output
+- Cleanup/Respawn direct write path는 current bounded exception이다.
+  - 허용된 direct write entrypoint는 `CleanupProcessor.Process`, `ExpireBoxInteractionLocks`, `RespawnProcessor.Process`, `MoonBlockGeneratorRespawnProcessor.Process`다.
+  - 이 예외는 current contract를 문서화한 것이며, 장기적으로 유지/삭제/`FinalizationBatch` 통합 여부는 별도 architecture decision 대상이다.
+  - SRP 작업 중 몰래 `FinalizationBatch`로 옮기지 않는다. 이동은 ordering, event log, hash, presentation evidence를 동반한 별도 설계 변경으로만 다룬다.
 - phased ordering contract:
   - projected snapshot은 `base snapshot + ordered finalization ops replay`의 canonical preview다.
   - authoritative final world는 같은 ordered ops를 `WorldState`에 apply한 결과와 observationally 동일해야 한다.
@@ -216,6 +224,15 @@
   - 허용 seam은 `WorldState`/`WorldSnapshot` carrier path, `IPhasedStateCommitContext`, `FinalizationBatch`/`ProjectedWorld`, trace/hash/docs/tests까지만이다.
   - public query/command/authoring/debug API, reservation export schema, serialized/import/save schema, finalize legality recomputation은 이번 단계에서 건드리지 않는다.
   - current wall-pass enemy가 성공해도 generalized phase movement, pathfinding expansion, terminal phase settle, non-claim occupancy의 evidence가 되지 않는다.
+
+## Refactor Guardrails
+- `TickPipeline` runtime orchestration 중앙집중은 현재 허용 구조다. 파일 크기만으로 `TickPipeline`을 쪼개지 않는다.
+- `TickPipeline`의 실제 SRP pressure는 movement/attack handoff, projection snapshot 재물질화, finalization materialization, ordering policy 응집이다. production refactor 없이 guard/doc hardening을 먼저 유지한다.
+- 첫 번째 저위험 분리 후보는 phase-private carrier다.
+- finalization materializer와 movement/attack handoff carrier는 high-risk 영역이다. behavior, event/hash/presentation ordering, replay determinism guard 없이 먼저 분리하지 않는다.
+- `TickResultBuilder` 분리는 event/hash/presentation ordering guard 이후에만 진행한다.
+  - guard 후보는 EventLog order, presentation signal count/order, finalization operation order, reservation order, deterministic hash input canonical dump section order다.
+  - projection helper 분리 뒤에 golden을 처음 잡으면 이미 바뀐 ordering을 기준으로 삼을 수 있으므로, 분리 직전에 golden을 추가한다.
 
 ## Correlation Contract
 - post-plan runtime/canonical carrier의 plan-level correlation key는 `ActionPlanId`다.
