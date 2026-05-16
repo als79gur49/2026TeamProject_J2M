@@ -7,7 +7,9 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool IsSupportedDestroyActivation(TileFeatureActivationRule activationRule)
         {
             return activationRule == TileFeatureActivationRule.BottomFaceOnly ||
-                   activationRule == TileFeatureActivationRule.FrontFaceOnly;
+                   activationRule == TileFeatureActivationRule.FrontFaceOnly ||
+                   activationRule == TileFeatureActivationRule.ActiveFaceOnly ||
+                   activationRule == TileFeatureActivationRule.InactiveFaceOnly;
         }
 
         public static bool IsActive(

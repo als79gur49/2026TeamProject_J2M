@@ -1182,6 +1182,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             AddExitOpenedEvents(context, finalTileFeatures, tileEvents);
+            AddExitObjectiveClearedEvents(context, finalTileFeatures, tileEvents);
             AddExitEnteredEvents(context, finalTileFeatures, tileEvents);
 
             tileEvents.Sort(CompareTilePresentationEvents);
@@ -1202,6 +1203,37 @@ namespace Game.Feature.Gameplay.Loop
                 var tileFeature = finalTileFeatures[i];
                 if (!TryGetTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition))
                 {
+                    continue;
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Button)
+                {
+                    if ((tileFeature.Flags & TileFeatureFlags.Activated) == 0)
+                    {
+                        continue;
+                    }
+
+                    visualStates.Add(new TileFeatureVisualState(
+                        tileFeature.TileId,
+                        tileFeature.Cell,
+                        tileFeature.Kind,
+                        true,
+                        tileFeature.SourceEntityId,
+                        tileFeature.OwnerEntityId,
+                        tileFeature.TeamId));
+                    continue;
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Destroy)
+                {
+                    visualStates.Add(new TileFeatureVisualState(
+                        tileFeature.TileId,
+                        tileFeature.Cell,
+                        tileFeature.Kind,
+                        TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology),
+                        tileFeature.SourceEntityId,
+                        tileFeature.OwnerEntityId,
+                        tileFeature.TeamId));
                     continue;
                 }
 
@@ -1383,6 +1415,32 @@ namespace Game.Feature.Gameplay.Loop
                     TilePresentationEventKind.ExitEntered,
                     exit,
                     playerEntityId));
+            }
+        }
+
+        private static void AddExitObjectiveClearedEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.ClearedThisTick)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(CreateExitTilePresentationEvent(
+                    TilePresentationEventKind.ExitObjectiveCleared,
+                    exit,
+                    targetEntityId: 0));
             }
         }
 

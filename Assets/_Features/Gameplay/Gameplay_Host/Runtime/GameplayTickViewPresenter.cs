@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
@@ -75,7 +76,8 @@ namespace Game.Feature.Gameplay.Host
             float faceSeamGap = -1f,
             EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null,
             EnemyPresentationCatalog enemyPresentationCatalog = null,
-            EnemyPresentationBinding[] enemyPresentationBindings = null)
+            EnemyPresentationBinding[] enemyPresentationBindings = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,
@@ -90,7 +92,8 @@ namespace Game.Feature.Gameplay.Host
                 faceSeamGap,
                 enemyPresentationArchetypeRegistry,
                 enemyPresentationCatalog,
-                enemyPresentationBindings);
+                enemyPresentationBindings,
+                tileFeatureVfxStyleBindings);
             CapturePresentationState();
         }
 

@@ -379,7 +379,9 @@ namespace Game.Feature.Stages
             var barricadeCells = new HashSet<SurfaceCell>();
             var moonBlockGeneratorCells = new HashSet<SurfaceCell>();
             var exitCount = 0;
+            var entranceCount = 0;
             var moonBlockGeneratorCount = 0;
+            var playerCell = FindAuthoringPlayerCell(authoring);
             var tileFeatures = authoring.TileFeatures;
             for (var i = 0; i < tileFeatures.Count; i++)
             {
@@ -445,7 +447,7 @@ namespace Game.Feature.Stages
                     report.Add(
                         severity,
                         "authoring.tile-feature.destroy-activation-unsupported",
-                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use BottomFaceOnly or FrontFaceOnly activation.",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] DestroyTile must use a FaceOnly activation rule.",
                         authoring,
                         authoringPath,
                         options.Timing);
@@ -482,6 +484,18 @@ namespace Game.Feature.Stages
                         severity,
                         "authoring.tile-feature.exit-activation-unsupported",
                         $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Exit must use BottomFaceOnly activation.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Entrance &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.entrance-activation-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Entrance must use BottomFaceOnly activation.",
                         authoring,
                         authoringPath,
                         options.Timing);
@@ -542,6 +556,17 @@ namespace Game.Feature.Stages
                         authoringPath,
                         options.Timing);
                 }
+                else if (tileFeature.Kind == TileFeatureKind.Entrance &&
+                         tileFeature.Direction != Direction2D.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.entrance-direction-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Entrance must use Direction2D.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
                 else if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
                          tileFeature.Direction != Direction2D.None)
                 {
@@ -597,6 +622,17 @@ namespace Game.Feature.Stages
                         authoringPath,
                         options.Timing);
                 }
+                else if (tileFeature.Kind == TileFeatureKind.Entrance &&
+                         tileFeature.BoxSelector != TileFeatureBoxSelector.None)
+                {
+                    report.Add(
+                        severity,
+                        "authoring.tile-feature.entrance-box-selector-unsupported",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Entrance must use TileFeatureBoxSelector.None.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
                 else if (tileFeature.Kind == TileFeatureKind.MoonBlockGenerator &&
                          tileFeature.BoxSelector != TileFeatureBoxSelector.None)
                 {
@@ -642,6 +678,44 @@ namespace Game.Feature.Stages
                             severity,
                             "authoring.tile-feature.exit-duplicate",
                             $"StageAuthoringDefinition '{authoring.name}' contains more than one Exit TileFeature.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+                }
+
+                if (tileFeature.Kind == TileFeatureKind.Entrance)
+                {
+                    entranceCount++;
+                    if (entranceCount > 1)
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.entrance-duplicate",
+                            $"StageAuthoringDefinition '{authoring.name}' contains more than one Entrance TileFeature.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+
+                    if (playerCell.HasValue &&
+                        !tileFeature.Cell.Equals(playerCell.Value))
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.entrance-player-cell-mismatch",
+                            $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Entrance cell must match the player placement cell {playerCell.Value}.",
+                            authoring,
+                            authoringPath,
+                            options.Timing);
+                    }
+
+                    if (tileFeature.BoundEntityId != 0)
+                    {
+                        report.Add(
+                            severity,
+                            "authoring.tile-feature.entrance-bound-id-unsupported",
+                            $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Entrance must use BoundEntityId 0.",
                             authoring,
                             authoringPath,
                             options.Timing);
@@ -696,6 +770,22 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
             }
+        }
+
+        private static SurfaceCell? FindAuthoringPlayerCell(StageAuthoringDefinition authoring)
+        {
+            var placements = authoring.Placements;
+            for (var i = 0; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                if (placement != null &&
+                    placement.Kind == StageAuthoringEntityKind.Player)
+                {
+                    return placement.Cell;
+                }
+            }
+
+            return null;
         }
 
         private static bool IsCardinalDirection(Direction2D direction)

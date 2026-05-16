@@ -191,8 +191,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new TilePresentationEvent(TilePresentationEventKind.BarricadeBlocked, 10, cell, TileFeatureKind.Barricade, 10, 0, 1, direction: Direction.Left),
                 new TilePresentationEvent(TilePresentationEventKind.BarricadeCrushed, 11, cell, TileFeatureKind.Barricade, 10, 0, 1),
                 new TilePresentationEvent(TilePresentationEventKind.ExitOpened, 12, cell, TileFeatureKind.Exit, 10, 0, 1),
-                new TilePresentationEvent(TilePresentationEventKind.ExitEntered, 13, cell, TileFeatureKind.Exit, 10, 0, 1, targetEntityId: 20),
-                new TilePresentationEvent(TilePresentationEventKind.MoonBlockGenerated, 14, cell, TileFeatureKind.MoonBlockGenerator, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.ExitObjectiveCleared, 13, cell, TileFeatureKind.Exit, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.ExitEntered, 14, cell, TileFeatureKind.Exit, 10, 0, 1, targetEntityId: 20),
+                new TilePresentationEvent(TilePresentationEventKind.MoonBlockGenerated, 15, cell, TileFeatureKind.MoonBlockGenerator, 10, 0, 1),
             };
 
             var plan = PlanTileFeature(topology, events);
@@ -211,6 +212,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeBlockedLeft),
                 GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeCrushed),
                 GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened),
+                GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared),
                 GameplayVfxCueId.From(TileFeatureVfxCue.ExitEntered),
                 GameplayVfxCueId.From(TileFeatureVfxCue.MoonBlockGenerated),
             }));
@@ -317,8 +319,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(plan.Requests.Select(request => request.CueId).ToArray(), Is.EquivalentTo(new[]
             {
-                GameplayVfxCueId.From(GravityFieldVfxCue.Activated),
-                GameplayVfxCueId.From(GravityFieldVfxCue.Expired),
+                GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted),
+                GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted),
                 GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea),
                 GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea),
                 GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget),

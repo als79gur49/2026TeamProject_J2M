@@ -40,6 +40,7 @@ namespace Game.Feature.Gameplay.Vfx
         OutOfBoundsExit = 12,
         FlipImpactStayTrail = 13,
         BoxSlideSolidStop = 14,
+        BoxSlideFollowLoop = 15,
     }
 
     public enum EnemyVfxCue
@@ -63,6 +64,11 @@ namespace Game.Feature.Gameplay.Vfx
         OutOfBoundsExit = 17,
         GlideWindTrail = 18,
         ChargeBoosterTrail = 19,
+        UtilitySummonSpawn = 20,
+        JumperJumpStart = 21,
+        JumperWindupLoop = 22,
+        GlideWindupLoop = 23,
+        GlideRecoverLoop = 24,
     }
 
     public enum TileFeatureVfxCue
@@ -89,6 +95,8 @@ namespace Game.Feature.Gameplay.Vfx
         MoonBlockGenerated = 20,
         DestroyTileLaserActive = 21,
         BarricadeActiveLoop = 22,
+        ButtonActiveLoop = 23,
+        ExitObjectiveCleared = 24,
     }
 
     public enum GravityFieldVfxCue
@@ -98,6 +106,8 @@ namespace Game.Feature.Gameplay.Vfx
         ChargingArea = 3,
         ActiveArea = 4,
         LockedTarget = 5,
+        ChargeStarted = 6,
+        ActiveStarted = 7,
     }
 
     public enum TerrainVfxCue

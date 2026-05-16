@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
@@ -200,6 +201,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeaturePlanner_ActivatedButtonState_CreatesStyledPersistentButtonActiveLoop()
+        {
+            var planner = new TileFeatureVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var presentationData = CreatePresentationData(
+                tileFeatureVisualStates: new[]
+                {
+                    new TileFeatureVisualState(
+                        901,
+                        cell,
+                        TileFeatureKind.Button,
+                        true,
+                        sourceEntityId: 10,
+                        ownerEntityId: 0,
+                        teamId: 1),
+                });
+            var context = new GameplayVfxPlanningContext(
+                12,
+                presentationData,
+                new CubeTopologyState(FaceId.Floor),
+                tileFeatureVfxStyleBindings: new[]
+                {
+                    new TileFeatureVfxStyleBinding(901, VfxStyleKey.Green),
+                });
+
+            planner.Plan(context, builder);
+            var plan = builder.Build();
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            var request = plan.Requests[0];
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
+            Assert.That(request.IsPersistent, Is.True);
+            Assert.That(request.PersistentKey.TileId, Is.EqualTo(901));
+            Assert.That(request.StyleKey, Is.EqualTo(VfxStyleKey.Green));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Coordinator_DoesNotReferencePr28VisualControllersOrVfxController()
         {
             var coordinator = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs");
@@ -245,25 +285,145 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeatureDestroyLaserActive_Binding.asset");
             var barricadeBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_BarricadeActiveLoop_Binding.asset");
+            var greenButtonBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ButtonActiveLoop_Green_Binding.asset");
+            var yellowButtonBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ButtonActiveLoop_Yellow_Binding.asset");
 
             Assert.That(cueMap, Is.Not.Null);
             Assert.That(sparkBinding, Is.Not.Null);
             Assert.That(laserBinding, Is.Not.Null);
             Assert.That(barricadeBinding, Is.Not.Null);
+            Assert.That(greenButtonBinding, Is.Not.Null);
+            Assert.That(yellowButtonBinding, Is.Not.Null);
             Assert.That(sparkBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered)));
             Assert.That(laserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
             Assert.That(barricadeBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop)));
+            Assert.That(greenButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
+            Assert.That(yellowButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
+            Assert.That(greenButtonBinding.StyleKey, Is.EqualTo(VfxStyleKey.Green));
+            Assert.That(yellowButtonBinding.StyleKey, Is.EqualTo(VfxStyleKey.Yellow));
             Assert.That(sparkBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(sparkBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
             Assert.That(laserBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
             Assert.That(laserBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             Assert.That(barricadeBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
             Assert.That(barricadeBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            AssertButtonActiveLoopBinding(greenButtonBinding);
+            AssertButtonActiveLoopBinding(yellowButtonBinding);
 
             var runtimeMap = cueMap.BuildRuntimeMap();
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Green, out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Yellow, out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Default, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Authoring_DefaultCueMapContainsExitSliderAndGravityOneShotBindings()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
+            var slideUpBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedUp_Binding.asset");
+            var slideRightBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedRight_Binding.asset");
+            var slideDownBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedDown_Binding.asset");
+            var slideLeftBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedLeft_Binding.asset");
+            var exitOpenedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitOpened_Binding.asset");
+            var exitObjectiveClearedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitObjectiveCleared_Binding.asset");
+            var gravityChargeStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ChargeStarted_Binding.asset");
+            var gravityActiveStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ActiveStarted_Binding.asset");
+
+            Assert.That(cueMap, Is.Not.Null);
+            AssertOneShotBinding(slideUpBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), 16);
+            AssertOneShotBinding(slideRightBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), 16);
+            AssertOneShotBinding(slideDownBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), 16);
+            AssertOneShotBinding(slideLeftBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), 16);
+            AssertOneShotBinding(exitOpenedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), 8);
+            AssertOneShotBinding(exitObjectiveClearedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), 8);
+            AssertOneShotBinding(gravityChargeStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), 8);
+            AssertOneShotBinding(gravityActiveStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), 8);
+
+            var runtimeMap = cueMap.BuildRuntimeMap();
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Authoring_ButtonActiveLoopPrefabs_AreLoopingPlayOnAwakeAndNotPrefabLocalOnButtons()
+        {
+            AssertLoopingPlayOnAwake(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_ButtonActivatedVfx.prefab");
+            AssertLoopingPlayOnAwake(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_MoonBlockButtonActivatedVfx.prefab");
+
+            var defaultButtonPrefab = ReadRepoFile(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_Default.prefab");
+            var moonButtonPrefab = ReadRepoFile(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_MoonOnly.prefab");
+
+            Assert.That(defaultButtonPrefab, Does.Contain("buttonActivatedParticles: {fileID: 0}"));
+            Assert.That(moonButtonPrefab, Does.Contain("buttonActivatedParticles: {fileID: 0}"));
+            Assert.That(defaultButtonPrefab, Does.Not.Contain("guid: 751080a0ee13c914f9b17bd4ab9d198b"));
+            Assert.That(moonButtonPrefab, Does.Not.Contain("guid: d7184659b8b2d0740a0898761e0bde6b"));
+        }
+
+        private static void AssertButtonActiveLoopBinding(VfxBindingDefinitionAsset binding)
+        {
+            Assert.That(binding.Prefab, Is.Not.Null);
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            Assert.That(binding.TailSeconds, Is.EqualTo(0.3f));
+            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
+            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(32));
+        }
+
+        private static void AssertOneShotBinding(
+            VfxBindingDefinitionAsset binding,
+            GameplayVfxCueId expectedCueId,
+            int maxConcurrentInstances)
+        {
+            Assert.That(binding, Is.Not.Null, expectedCueId.ToString());
+            Assert.That(binding.CueId, Is.EqualTo(expectedCueId));
+            Assert.That(binding.StyleKey, Is.EqualTo(VfxStyleKey.Default));
+            Assert.That(binding.Prefab, Is.Not.Null);
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(binding.TailSeconds, Is.GreaterThan(0f));
+            Assert.That(binding.InitialPoolSize, Is.GreaterThan(0));
+            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(maxConcurrentInstances));
+        }
+
+        private static void AssertLoopingPlayOnAwake(string prefabPath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            var particleSystems = prefab.GetComponentsInChildren<ParticleSystem>(true);
+            Assert.That(particleSystems, Is.Not.Empty, prefabPath);
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                var main = particleSystems[i].main;
+                Assert.That(main.loop, Is.True, $"{prefabPath} particle[{i}] loop");
+                Assert.That(main.playOnAwake, Is.True, $"{prefabPath} particle[{i}] playOnAwake");
+            }
         }
 
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(TickPresentationData presentationData)

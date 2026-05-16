@@ -72,6 +72,12 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
             {
                 messages.Add(prefabValidation.Messages[i]);
             }
+
+            var modelRootValidation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(binding.Prefab, binding);
+            for (var i = 0; i < modelRootValidation.Messages.Count; i++)
+            {
+                messages.Add(modelRootValidation.Messages[i]);
+            }
         }
     }
 }

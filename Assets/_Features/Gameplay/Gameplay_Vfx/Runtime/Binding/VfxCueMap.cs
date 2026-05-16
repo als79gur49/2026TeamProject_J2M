@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay;
 
 namespace Game.Feature.Gameplay.Vfx
 {
@@ -7,7 +8,7 @@ namespace Game.Feature.Gameplay.Vfx
     {
         public static readonly VfxCueMap Empty = new VfxCueMap(Array.Empty<VfxBindingRuntimePolicy>());
 
-        private readonly Dictionary<GameplayVfxCueId, VfxBindingRuntimePolicy> policies;
+        private readonly Dictionary<VfxBindingKey, VfxBindingRuntimePolicy> policies;
 
         public VfxCueMap(IEnumerable<VfxBindingRuntimePolicy> policies)
         {
@@ -16,32 +17,43 @@ namespace Game.Feature.Gameplay.Vfx
                 throw new ArgumentNullException(nameof(policies));
             }
 
-            this.policies = new Dictionary<GameplayVfxCueId, VfxBindingRuntimePolicy>();
+            this.policies = new Dictionary<VfxBindingKey, VfxBindingRuntimePolicy>();
             foreach (var policy in policies)
             {
                 policy.ValidateOrThrow();
-                if (this.policies.ContainsKey(policy.CueId))
+                var key = new VfxBindingKey(policy.CueId, policy.StyleKey);
+                if (this.policies.ContainsKey(key))
                 {
-                    throw new InvalidOperationException($"VFX cue map contains duplicate cue '{policy.CueId}'.");
+                    throw new InvalidOperationException($"VFX cue map contains duplicate binding '{key}'.");
                 }
 
-                this.policies.Add(policy.CueId, policy);
+                this.policies.Add(key, policy);
             }
         }
 
         public bool TryResolve(GameplayVfxCueId cueId, out VfxBindingRuntimePolicy policy)
         {
-            return policies.TryGetValue(cueId, out policy);
+            return TryResolve(cueId, VfxStyleKey.Default, out policy);
+        }
+
+        public bool TryResolve(GameplayVfxCueId cueId, VfxStyleKey styleKey, out VfxBindingRuntimePolicy policy)
+        {
+            return policies.TryGetValue(new VfxBindingKey(cueId, styleKey), out policy);
         }
 
         public VfxBindingRuntimePolicy ResolveOrThrow(GameplayVfxCueId cueId)
         {
-            if (TryResolve(cueId, out var policy))
+            return ResolveOrThrow(cueId, VfxStyleKey.Default);
+        }
+
+        public VfxBindingRuntimePolicy ResolveOrThrow(GameplayVfxCueId cueId, VfxStyleKey styleKey)
+        {
+            if (TryResolve(cueId, styleKey, out var policy))
             {
                 return policy;
             }
 
-            throw new InvalidOperationException($"VFX cue map is missing cue '{cueId}'.");
+            throw new InvalidOperationException($"VFX cue map is missing binding '{new VfxBindingKey(cueId, styleKey)}'.");
         }
     }
 }

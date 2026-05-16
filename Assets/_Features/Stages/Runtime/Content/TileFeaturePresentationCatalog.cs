@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -29,6 +30,7 @@ namespace Game.Feature.Stages
         [SerializeField] private Sprite icon;
         [SerializeField] private bool isDefaultForKind;
         [SerializeField] private Direction2D directionHint = Direction2D.None;
+        [SerializeField] private VfxStyleKey vfxStyleKey;
 
         public string PresentationKey => TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
 
@@ -47,6 +49,8 @@ namespace Game.Feature.Stages
         public bool IsDefaultForKind => isDefaultForKind;
 
         public Direction2D DirectionHint => directionHint;
+
+        public VfxStyleKey VfxStyleKey => vfxStyleKey;
     }
 
     [CreateAssetMenu(

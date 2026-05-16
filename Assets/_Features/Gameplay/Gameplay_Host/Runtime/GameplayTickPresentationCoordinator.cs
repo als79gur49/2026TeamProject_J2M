@@ -67,6 +67,8 @@ namespace Game.Feature.Gameplay.Host
         private GameplayCubeProjector _projector;
         private EnemyPresentationBinding[] _enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         private EnemyPresentationCatalog _enemyPresentationCatalog;
+        private IReadOnlyList<TileFeatureVfxStyleBinding> _tileFeatureVfxStyleBindings =
+            Array.Empty<TileFeatureVfxStyleBinding>();
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
         private Camera _outputCamera;
@@ -184,7 +186,8 @@ namespace Game.Feature.Gameplay.Host
             float faceSeamGap = -1f,
             EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null,
             EnemyPresentationCatalog enemyPresentationCatalog = null,
-            EnemyPresentationBinding[] enemyPresentationBindings = null)
+            EnemyPresentationBinding[] enemyPresentationBindings = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
         {
             if (viewBinder == null)
             {
@@ -196,6 +199,7 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
             _enemyPresentationCatalog = enemyPresentationCatalog;
             _enemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
+            _tileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? Array.Empty<TileFeatureVfxStyleBinding>();
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
@@ -610,7 +614,8 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _enemyPresentationCatalog,
                 _enemyPresentationBindings,
-                _timingProfile);
+                _timingProfile,
+                _tileFeatureVfxStyleBindings);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);

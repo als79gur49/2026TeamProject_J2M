@@ -335,6 +335,82 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void AddEntrance_DefaultsBottomFaceNoneSelectorNone()
+        {
+            var feature = StageAuthoringPlacementCommands.CreateTileFeaturePreset(
+                TileFeatureKind.Entrance,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                TileFeatureActivationRule.Always,
+                Direction2D.Left,
+                TileFeatureBoxSelector.AnyPushableBox,
+                99,
+                string.Empty);
+
+            Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
+            Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
+            Assert.That(feature.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(feature.BoundEntityId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AddEntrance_RequiresPlayerPlacementCell()
+        {
+            WithAuthoring(authoring =>
+            {
+                var entrance = CreateFeature(0, TileFeatureKind.Entrance, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                var added = StageAuthoringPlacementCommands.TryAddTileFeature(
+                    authoring,
+                    entrance.Cell,
+                    entrance,
+                    out _);
+
+                Assert.That(added, Is.False);
+            });
+        }
+
+        [Test]
+        public void AddEntrance_RejectsMismatchedPlayerPlacementCell()
+        {
+            WithAuthoring(authoring =>
+            {
+                authoring.SetPlacements(new[] { CreatePlayerPlacement(new SurfaceCell(FaceId.Floor, 0, 0)) });
+                var entrance = CreateFeature(0, TileFeatureKind.Entrance, new SurfaceCell(FaceId.Floor, 1, 0));
+
+                var added = StageAuthoringPlacementCommands.TryAddTileFeature(
+                    authoring,
+                    entrance.Cell,
+                    entrance,
+                    out var error);
+
+                Assert.That(added, Is.False);
+                Assert.That(error, Does.Contain("player placement cell"));
+            });
+        }
+
+        [Test]
+        public void AddEntrance_RejectsSecondEntrance()
+        {
+            WithAuthoring(authoring =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+                authoring.SetPlacements(new[] { CreatePlayerPlacement(cell) });
+                authoring.SetTileFeatures(new[]
+                {
+                    CreateFeature(1, TileFeatureKind.Entrance, cell),
+                });
+
+                var added = StageAuthoringPlacementCommands.TryAddTileFeature(
+                    authoring,
+                    cell,
+                    CreateFeature(0, TileFeatureKind.Entrance, cell),
+                    out _);
+
+                Assert.That(added, Is.False);
+            });
+        }
+
+        [Test]
         public void AddMoonBlockGenerator_RequiresMoonBoundEntity()
         {
             WithAuthoring(authoring =>
@@ -525,6 +601,27 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(duplicated, Is.False);
                 Assert.That(authoring.TileFeatures, Has.Count.EqualTo(1));
+            });
+
+            WithAuthoring(authoring =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+                authoring.SetPlacements(new[] { CreatePlayerPlacement(cell) });
+                authoring.SetTileFeatures(new[]
+                {
+                    CreateFeature(1, TileFeatureKind.Entrance, cell),
+                    CreateFeature(2, TileFeatureKind.MoonBlockGenerator, new SurfaceCell(FaceId.Floor, 1, 0)),
+                });
+
+                var duplicated = StageAuthoringPlacementCommands.TryDuplicateSelectedTileFeatureToTarget(
+                    authoring,
+                    cell,
+                    0,
+                    out _,
+                    out _);
+
+                Assert.That(duplicated, Is.False);
+                Assert.That(authoring.TileFeatures, Has.Count.EqualTo(2));
             });
 
             WithAuthoring(authoring =>
@@ -724,6 +821,19 @@ namespace Game.Feature.Stages.Editor.Tests
                 BoxSelector = kind == TileFeatureKind.Button ? TileFeatureBoxSelector.AnyPushableBox : TileFeatureBoxSelector.None,
                 BoundEntityId = kind == TileFeatureKind.MoonBlockGenerator ? 100 : 0,
                 PresentationKey = string.Empty,
+            };
+        }
+
+        private static StagePlacedEntityAuthoring CreatePlayerPlacement(SurfaceCell cell)
+        {
+            return new StagePlacedEntityAuthoring
+            {
+                StableGuid = "player",
+                DisplayName = "Player",
+                Kind = StageAuthoringEntityKind.Player,
+                Cell = cell,
+                Facing = Direction.Right,
+                Hp = 1,
             };
         }
 

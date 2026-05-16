@@ -97,6 +97,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 enableEnemyJumpTargetVfx = value;
+                if (!value)
+                {
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop), tail: true);
+                }
+
                 ResetIfNoEnemyJumpVfxEnabled();
             }
         }
@@ -290,9 +295,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enableGameplayVfxGlideWindTrail = value;
                 if (!value)
                 {
-                    var cueId = GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail);
-                    enemyMotionAttachedFollowerPlanner.RemoveCue(cueId);
-                    motionFollowingVfxController.StopAttachedFollowersForCue(cueId, tail: true);
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail), tail: true);
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop), tail: true);
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop), tail: true);
                 }
 
                 ResetIfNoGameplayVfxEnabled();
@@ -332,6 +337,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 enableGameplayVfxBoxSlideTrail = value;
+                if (!value)
+                {
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop), tail: true);
+                }
+
                 ResetIfNoGameplayVfxEnabled();
             }
         }
@@ -595,15 +605,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
             enemyMotionAttachedFollowerPlanner.Build(
+                context.Result.TickIndex,
                 context.Result.PresentationData,
                 enableGameplayVfxGlideWindTrail,
-                enableGameplayVfxChargeBoosterTrail);
+                enableGameplayVfxChargeBoosterTrail,
+                enableGameplayVfxBoxSlideTrail,
+                enableEnemyJumpTargetVfx);
             planBuilder.Clear();
             var planningContext = new GameplayVfxPlanningContext(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
                 context.Topology,
-                context.TimingProfile);
+                context.TimingProfile,
+                context.TileFeatureVfxStyleBindings);
             playerPlanner.Plan(planningContext, planBuilder);
             boxPlanner.Plan(planningContext, planBuilder);
             flipImpactBurstPlanner.Plan(planningContext, planBuilder);
@@ -721,7 +735,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 bindingResolver,
                 enabled: enableGameplayVfxFlipImpactStayTrail,
                 enemyMotionAttachedFollowerPlanner.DesiredFollowers,
-                attachedFollowersEnabled: enableGameplayVfxGlideWindTrail || enableGameplayVfxChargeBoosterTrail);
+                attachedFollowersEnabled: enableGameplayVfxGlideWindTrail ||
+                                          enableGameplayVfxChargeBoosterTrail ||
+                                          enableGameplayVfxBoxSlideTrail ||
+                                          enableEnemyJumpTargetVfx);
             flipImpactStayTrailMissingBindingCount = motionFollowingVfxController.MotionMissingBindingCount;
             flipImpactStayTrailMissingOwnerViewCount = motionFollowingVfxController.MotionMissingOwnerViewCount;
             enemyMotionAttachedMissingBindingCount = motionFollowingVfxController.AttachedMissingBindingCount;
@@ -928,16 +945,28 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxFlipDestroySelfMotionMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)) ||
                    (enableGameplayVfxFlipImpactStayTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)) ||
+                   (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop)) ||
+                   (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)) ||
                    (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
+                   (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)) ||
                    (enableGameplayVfxBoxSlideSolidStop && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)) ||
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit)) ||
                    (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)) ||
                    (enableGameplayVfxTileFeatureLane && cueId.Family == GameplayVfxFamily.TileFeature) ||
                    IsGravityFieldCueEnabled(cueId) ||
+                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
+                   (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperJumpStart)) ||
+                   (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
+        }
+
+        private void StopAttachedFollowerCue(GameplayVfxCueId cueId, bool tail)
+        {
+            enemyMotionAttachedFollowerPlanner.RemoveCue(cueId);
+            motionFollowingVfxController.StopAttachedFollowersForCue(cueId, tail);
         }
 
         private bool IsGravityFieldCueEnabled(GameplayVfxCueId cueId)
@@ -948,8 +977,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             if (enableGameplayVfxGravityFieldEvents &&
-                (cueId == GameplayVfxCueId.From(GravityFieldVfxCue.Activated) ||
-                 cueId == GameplayVfxCueId.From(GravityFieldVfxCue.Expired)))
+                (cueId == GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted) ||
+                 cueId == GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted)))
             {
                 return true;
             }
@@ -1597,10 +1626,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 throw new InvalidOperationException("Gameplay VFX binding cue does not match Box DestroySmoke request cue.");
             }
 
-            var anchor = VfxResolvedAnchor.ForCell(
-                signal.SourceCell,
-                signal.Topology,
-                VfxAnchorSlot.CellFloor);
+            var cellProjector = new GameplayVfxHostCellAnchorProjector(configuredProjector);
+            if (!cellProjector.TryResolveCell(
+                    signal.SourceCell,
+                    signal.Topology,
+                    VfxAnchorSlot.CellFloor,
+                    out var anchor) ||
+                !anchor.IsResolved)
+            {
+                return false;
+            }
+
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
             return pool.PlayTransient(playbackCommand) != null;
         }
@@ -2160,7 +2196,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     enemyProfileProvider.TryResolveProfileAssetForSourceEntity(
                         command.Request.SourceEntityId,
                         out var sourceProfile) &&
-                    sourceProfile.TryResolvePrefab(command.CueId, out prefab))
+                    sourceProfile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
                 {
                     return true;
                 }
@@ -2169,14 +2205,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 {
                     var profile = profiles[i];
                     if (profile != null &&
-                        profile.TryResolvePrefab(command.CueId, out prefab))
+                        profile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
                     {
                         return true;
                     }
                 }
 
                 if (hostDefaultMap != null &&
-                    hostDefaultMap.TryResolvePrefab(command.CueId, out prefab))
+                    hostDefaultMap.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
                 {
                     return true;
                 }

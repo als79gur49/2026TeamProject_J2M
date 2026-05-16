@@ -43,22 +43,35 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d4188397f39405b8cef1259ab54d190, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualTargetView
   tileId: 0
   cell:
     face: 0
     x: 0
     y: 0
+  presentationRoot: {fileID: 0}
   animator: {fileID: 0}
   buttonActivatedTriggerName: ButtonActivated
   destroyTileTriggeredTriggerName: DestroyTileTriggered
   slideTileRedirectedTriggerName: SlideTileRedirected
   barricadeBlockedTriggerName: BarricadeBlocked
   barricadeCrushedTriggerName: BarricadeCrushed
+  barricadeActivatedTriggerName: BarricadeActivated
+  barricadeDeactivatedTriggerName: BarricadeDeactivated
+  barricadeActiveBoolName: BarricadeActive
+  barricadeRaisedStateName: RaisedIdle
+  barricadeLoweredStateName: LoweredIdle
   exitOpenedTriggerName: ExitOpened
   exitEnteredTriggerName: ExitEntered
+  exitOpenBoolName: ExitOpen
+  exitOpenedStateName: ExitOpenedIdle
+  exitClosedStateName: ExitClosedIdle
   moonBlockGeneratedTriggerName: MoonBlockGenerated
+  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
+  moonBlockGeneratorBlockedUnitTriggerName: 
+  moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
+  moonBlockGeneratorBlockedPlacementTriggerName: 
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -67,6 +80,10 @@ MonoBehaviour:
   exitOpenedParticles: {fileID: 0}
   exitEnteredParticles: {fileID: 0}
   moonBlockGeneratedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
+  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
+  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
   buttonActivatedPlayed:
     m_PersistentCalls:
       m_Calls: []
@@ -82,6 +99,12 @@ MonoBehaviour:
   barricadeCrushedPlayed:
     m_PersistentCalls:
       m_Calls: []
+  barricadeActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeDeactivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
   exitOpenedPlayed:
     m_PersistentCalls:
       m_Calls: []
@@ -89,6 +112,18 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   moonBlockGeneratedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedUnitPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedWallLikeSolidPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlacementPlayed:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &8874340381937526926

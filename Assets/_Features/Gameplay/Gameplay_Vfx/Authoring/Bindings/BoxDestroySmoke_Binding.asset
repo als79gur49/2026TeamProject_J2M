@@ -11,15 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
   m_Name: BoxDestroySmoke_Binding
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   family: 2
   cueCode: 6
+  styleKey:
+    value: 
   prefab: {fileID: 100000, guid: ce626101e1101f681ddac2c0503bae27, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 0
   stopPolicy: 1
-  defaultLifetimeSeconds: 0.18
-  tailSeconds: 0.25
+  defaultLifetimeSeconds: 0.25
+  tailSeconds: 1
   initialPoolSize: 4
   maxConcurrentInstances: 12

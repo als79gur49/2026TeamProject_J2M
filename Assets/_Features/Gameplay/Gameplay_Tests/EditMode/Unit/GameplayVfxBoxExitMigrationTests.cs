@@ -472,6 +472,78 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void Coordinator_AfterEntityMotionDestroySmoke_UsesProjectedExitCellAnchor()
+        {
+            var scenario = CreatePresenterScenario("AfterMotionSmokeProjectedAnchor");
+            var vfxPrefab = new GameObject("AfterMotionSmokeProjectedAnchor_VfxPrefab");
+            VfxBindingDefinitionAsset smokeBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
+                cueMap = CreateCueMap(smokeBinding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+
+                var sourceCell = scenario.BoxCell;
+                var destroyCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                var motion = new TickEntityMotion(
+                    20,
+                    TickEntityMotionKind.Push,
+                    sourceCell,
+                    destroyCell,
+                    scenario.Topology,
+                    scenario.Topology,
+                    Direction.Right,
+                    Direction.Right);
+                var exitSignal = CreateExitSignal(
+                    20,
+                    TickEntityExitCause.BoxDestroy,
+                    destroyCell,
+                    scenario.Topology,
+                    timing: EntityExitPresentationTiming.AfterEntityMotion);
+
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(20, sourceCell) },
+                    scenario.Topology);
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(
+                        new[] { exitSignal },
+                        entityMotions: new[] { motion }),
+                    scenario.Topology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+
+                scenario.Presenter.UpdatePresentation(GameplayTimingProfile.DefaultPushMotionDurationSeconds + 0.01f);
+
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                var oneShotRoot = scenario.Root.transform.Find("GameplayVfxRuntimeRoot/OneShot");
+                Assert.That(oneShotRoot, Is.Not.Null);
+                Assert.That(oneShotRoot.childCount, Is.EqualTo(1));
+                var smokeInstance = oneShotRoot.GetChild(0);
+                var projector = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                    1f);
+                Assert.That(
+                    projector.TryProjectSurfaceCell(destroyCell, scenario.Topology, out var projectedPose),
+                    Is.True);
+                var expectedPosition = projectedPose.LocalPosition - projectedPose.Normal * projector.SurfaceTileThickness;
+                Assert.That(Vector3.Distance(smokeInstance.localPosition, expectedPosition), Is.LessThanOrEqualTo(0.0001f));
+                Assert.That(Vector3.Distance(smokeInstance.localPosition, Vector3.zero), Is.GreaterThan(0.0001f));
+            }
+            finally
+            {
+                Destroy(cueMap, smokeBinding, vfxPrefab);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect()
         {
             var scenario = CreatePresenterScenario("ShrinkOnSmokeOff");
@@ -868,11 +940,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickPresentationData CreatePresentationData(
             TickEntityExitPresentationSignal[] exitSignals,
+            TickEntityMotion[] entityMotions = null,
             TickImpactTransientPresentationSignal[] impactTransientSignals = null,
             FlipImpactPresentationSignal[] flipImpactSignals = null)
         {
             return new TickPresentationData(
-                Array.Empty<TickEntityMotion>(),
+                entityMotions ?? Array.Empty<TickEntityMotion>(),
                 topologyMotion: null,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
@@ -893,7 +966,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell cell = default,
             CubeTopologyState topology = default,
             EntityType entityType = EntityType.Box,
-            int presentationSeed = 8831)
+            int presentationSeed = 8831,
+            EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate)
         {
             var resolvedCell = cell.Equals(default(SurfaceCell))
                 ? new SurfaceCell(FaceId.Floor, 1, 1)
@@ -909,7 +983,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Direction.Right,
                 entityType,
                 sourceActorEntityId: 10,
-                presentationSeed: presentationSeed);
+                presentationSeed: presentationSeed,
+                timing: timing);
         }
 
         private static EntityState CreateBox(int entityId, SurfaceCell position)

@@ -90,6 +90,18 @@ namespace Game.Feature.Gameplay.Host
         {
             switch (visualState.TileFeatureKind)
             {
+                case TileFeatureKind.Destroy:
+                    if (target is IDestroyTileActiveStateVisualTarget destroyTileTarget)
+                    {
+                        destroyTileTarget.SetDestroyTileActiveImmediate(visualState.IsActive);
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTile visual state target for tile {visualState.TileId}.");
+                    }
+
+                    return;
                 case TileFeatureKind.Barricade:
                     if (target is IBarricadeActiveStateVisualTarget barricadeTarget)
                     {
@@ -133,6 +145,30 @@ namespace Game.Feature.Gameplay.Host
                     {
                         _diagnosticSink?.Invoke(
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileTriggered visual target for tile {request.TileId}.");
+                    }
+
+                    return;
+                case TilePresentationRequestKind.DestroyTileActivated:
+                    if (target is IDestroyTileActivatedVisualTarget destroyTileActivatedTarget)
+                    {
+                        destroyTileActivatedTarget.PlayDestroyTileActivated();
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileActivated visual target for tile {request.TileId}.");
+                    }
+
+                    return;
+                case TilePresentationRequestKind.DestroyTileDeactivated:
+                    if (target is IDestroyTileDeactivatedVisualTarget destroyTileDeactivatedTarget)
+                    {
+                        destroyTileDeactivatedTarget.PlayDestroyTileDeactivated();
+                    }
+                    else
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileDeactivated visual target for tile {request.TileId}.");
                     }
 
                     return;
@@ -252,6 +288,8 @@ namespace Game.Feature.Gameplay.Host
         {
             return requestKind == TilePresentationRequestKind.ButtonActivated ||
                    requestKind == TilePresentationRequestKind.DestroyTileTriggered ||
+                   requestKind == TilePresentationRequestKind.DestroyTileActivated ||
+                   requestKind == TilePresentationRequestKind.DestroyTileDeactivated ||
                    requestKind == TilePresentationRequestKind.SlideTileRedirected ||
                    requestKind == TilePresentationRequestKind.BarricadeBlocked ||
                    requestKind == TilePresentationRequestKind.BarricadeCrushed ||

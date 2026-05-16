@@ -1473,8 +1473,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 330
     Kind: 1
     Cell:
@@ -1489,8 +1489,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   - EntityId: 331
     Kind: 1
     Cell:
@@ -1505,8 +1505,8 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId:
-    UnitStackGroup:
+    PresentationId: 
+    UnitStackGroup: 
   wallSpawns:
   - EntityId: 229
     Kind: 3
@@ -2606,10 +2606,21 @@ MonoBehaviour:
     BoxSelector: 3
     BoundEntityId: 0
     PresentationKey: button.default
+  - TileId: 43
+    Cell:
+      face: 0
+      x: 0
+      y: 6
+    Kind: 7
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 56c04cd3dd5348dd9aada10218b40f45, type: 2}
       Required: 1

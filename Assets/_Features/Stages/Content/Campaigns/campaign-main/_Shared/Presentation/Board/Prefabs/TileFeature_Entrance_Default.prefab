@@ -1,0 +1,222 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &752876420291739325
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5931309531571908367}
+  - component: {fileID: 7952550434661719388}
+  m_Layer: 0
+  m_Name: TileFeature_Entrance_Default
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5931309531571908367
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 752876420291739325}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2902687685136549078}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7952550434661719388
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 752876420291739325}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d4188397f39405b8cef1259ab54d190, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualTargetView
+  tileId: 0
+  cell:
+    face: 0
+    x: 0
+    y: 0
+  presentationRoot: {fileID: 0}
+  animator: {fileID: 0}
+  buttonActivatedTriggerName: ButtonActivated
+  destroyTileTriggeredTriggerName: DestroyTileTriggered
+  slideTileRedirectedTriggerName: SlideTileRedirected
+  barricadeBlockedTriggerName: BarricadeBlocked
+  barricadeCrushedTriggerName: BarricadeCrushed
+  barricadeActivatedTriggerName: BarricadeActivated
+  barricadeDeactivatedTriggerName: BarricadeDeactivated
+  barricadeActiveBoolName: BarricadeActive
+  barricadeRaisedStateName: RaisedIdle
+  barricadeLoweredStateName: LoweredIdle
+  exitOpenedTriggerName: ExitOpened
+  exitEnteredTriggerName: ExitEntered
+  exitOpenBoolName: ExitOpen
+  exitOpenedStateName: ExitOpenedIdle
+  exitClosedStateName: ExitClosedIdle
+  moonBlockGeneratedTriggerName: MoonBlockGenerated
+  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
+  moonBlockGeneratorBlockedUnitTriggerName: 
+  moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
+  moonBlockGeneratorBlockedPlacementTriggerName: 
+  buttonActivatedParticles: {fileID: 0}
+  destroyTileTriggeredParticles: {fileID: 0}
+  slideTileRedirectedParticles: {fileID: 0}
+  barricadeBlockedParticles: {fileID: 0}
+  barricadeCrushedParticles: {fileID: 0}
+  exitOpenedParticles: {fileID: 0}
+  exitEnteredParticles: {fileID: 0}
+  moonBlockGeneratedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
+  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
+  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
+  buttonActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileTriggeredPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  slideTileRedirectedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeCrushedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  barricadeDeactivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  exitOpenedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  exitEnteredPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedUnitPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedWallLikeSolidPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlacementPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!1 &6334397824199343897
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2902687685136549078}
+  m_Layer: 0
+  m_Name: ModelRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2902687685136549078
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6334397824199343897}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0.675}
+  m_LocalScale: {x: 7, y: 7, z: 7}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7891389863521206164}
+  m_Father: {fileID: 5931309531571908367}
+  m_LocalEulerAnglesHint: {x: -180, y: 0, z: 180}
+--- !u!1001 &7640744037551560831
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2902687685136549078}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+      propertyPath: m_Name
+      value: SpawnPoint
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+--- !u!4 &7891389863521206164 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 3b564c3295493ea4c936a7498b5ed6d0, type: 3}
+  m_PrefabInstance: {fileID: 7640744037551560831}
+  m_PrefabAsset: {fileID: 0}

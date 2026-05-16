@@ -2225,7 +2225,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2242,7 +2242,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2259,7 +2259,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 1
-    UnitStackGroup:
+    UnitStackGroup: 
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
@@ -2729,6 +2729,17 @@ MonoBehaviour:
     BoxSelector: 3
     BoundEntityId: 0
     PresentationKey: button.default
+  - TileId: 43
+    Cell:
+      face: 0
+      x: 0
+      y: 6
+    Kind: 7
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: entrance.default
   zones:
   - ZoneId: zone
     FaceId: 2

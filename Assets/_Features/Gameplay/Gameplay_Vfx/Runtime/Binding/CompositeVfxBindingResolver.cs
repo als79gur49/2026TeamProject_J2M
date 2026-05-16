@@ -21,12 +21,12 @@ namespace Game.Feature.Gameplay.Vfx
         {
             if (familyProfiles.TryGetValue(request.CueId.Family, out var profile)
                 && profile != null
-                && profile.TryResolve(request.CueId, out policy))
+                && profile.TryResolve(request.CueId, request.StyleKey, out policy))
             {
                 return true;
             }
 
-            return hostDefaultMap.TryResolve(request.CueId, out policy);
+            return hostDefaultMap.TryResolve(request.CueId, request.StyleKey, out policy);
         }
     }
 }

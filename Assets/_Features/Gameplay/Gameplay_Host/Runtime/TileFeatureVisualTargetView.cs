@@ -10,6 +10,9 @@ namespace Game.Feature.Gameplay.Host
         MonoBehaviour,
         ITileFeatureVisualTarget,
         IDestroyTileVisualTarget,
+        IDestroyTileActivatedVisualTarget,
+        IDestroyTileDeactivatedVisualTarget,
+        IDestroyTileActiveStateVisualTarget,
         ISlideTileVisualTarget,
         IBarricadeBlockedVisualTarget,
         IBarricadeCrushedVisualTarget,
@@ -29,6 +32,11 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private Animator animator;
         [SerializeField] private string buttonActivatedTriggerName = "ButtonActivated";
         [SerializeField] private string destroyTileTriggeredTriggerName = "DestroyTileTriggered";
+        [SerializeField] private string destroyTileActivatedTriggerName = "DestroyTileActivated";
+        [SerializeField] private string destroyTileDeactivatedTriggerName = "DestroyTileDeactivated";
+        [SerializeField] private string destroyTileActiveBoolName = "DestroyTileActive";
+        [SerializeField] private string destroyTileActiveStateName = "DestroyTileActiveIdle";
+        [SerializeField] private string destroyTileInactiveStateName = "DestroyTileInactiveIdle";
         [SerializeField] private string slideTileRedirectedTriggerName = "SlideTileRedirected";
         [SerializeField] private string barricadeBlockedTriggerName = "BarricadeBlocked";
         [SerializeField] private string barricadeCrushedTriggerName = "BarricadeCrushed";
@@ -61,6 +69,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private ParticleSystem moonBlockGeneratorBlockedPlacementParticles;
         [SerializeField] private UnityEvent buttonActivatedPlayed;
         [SerializeField] private UnityEvent destroyTileTriggeredPlayed;
+        [SerializeField] private UnityEvent destroyTileActivatedPlayed;
+        [SerializeField] private UnityEvent destroyTileDeactivatedPlayed;
         [SerializeField] private UnityEvent slideTileRedirectedPlayed;
         [SerializeField] private UnityEvent barricadeBlockedPlayed;
         [SerializeField] private UnityEvent barricadeCrushedPlayed;
@@ -76,6 +86,9 @@ namespace Game.Feature.Gameplay.Host
 
         private int _debugPlayButtonActivatedCount;
         private int _debugPlayDestroyTileTriggeredCount;
+        private int _debugPlayDestroyTileActivatedCount;
+        private int _debugPlayDestroyTileDeactivatedCount;
+        private bool _debugDestroyTileActive;
         private int _debugPlaySlideTileRedirectedCount;
         private int _debugPlayBarricadeBlockedCount;
         private int _debugPlayBarricadeCrushedCount;
@@ -107,6 +120,12 @@ namespace Game.Feature.Gameplay.Host
         public int DebugPlayButtonActivatedCount => _debugPlayButtonActivatedCount;
 
         public int DebugPlayDestroyTileTriggeredCount => _debugPlayDestroyTileTriggeredCount;
+
+        public int DebugPlayDestroyTileActivatedCount => _debugPlayDestroyTileActivatedCount;
+
+        public int DebugPlayDestroyTileDeactivatedCount => _debugPlayDestroyTileDeactivatedCount;
+
+        public bool DebugDestroyTileActive => _debugDestroyTileActive;
 
         public int DebugPlaySlideTileRedirectedCount => _debugPlaySlideTileRedirectedCount;
 
@@ -211,6 +230,29 @@ namespace Game.Feature.Gameplay.Host
             }
 
             destroyTileTriggeredPlayed?.Invoke();
+        }
+
+        public void PlayDestroyTileActivated()
+        {
+            _debugPlayDestroyTileActivatedCount++;
+            SetDestroyTileActiveImmediate(true);
+            SetAnimatorTrigger(destroyTileActivatedTriggerName);
+            destroyTileActivatedPlayed?.Invoke();
+        }
+
+        public void PlayDestroyTileDeactivated()
+        {
+            _debugPlayDestroyTileDeactivatedCount++;
+            SetDestroyTileActiveImmediate(false);
+            SetAnimatorTrigger(destroyTileDeactivatedTriggerName);
+            destroyTileDeactivatedPlayed?.Invoke();
+        }
+
+        public void SetDestroyTileActiveImmediate(bool active)
+        {
+            _debugDestroyTileActive = active;
+            SetAnimatorBool(destroyTileActiveBoolName, active);
+            PlayAnimatorStateIfPresent(active ? destroyTileActiveStateName : destroyTileInactiveStateName);
         }
 
         public void PlaySlideTileRedirected(Direction direction, int targetEntityId)

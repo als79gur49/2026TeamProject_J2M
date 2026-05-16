@@ -22,6 +22,21 @@ namespace Game.Feature.Gameplay.Host
         void PlayDestroyTileTriggered();
     }
 
+    public interface IDestroyTileActivatedVisualTarget
+    {
+        void PlayDestroyTileActivated();
+    }
+
+    public interface IDestroyTileDeactivatedVisualTarget
+    {
+        void PlayDestroyTileDeactivated();
+    }
+
+    public interface IDestroyTileActiveStateVisualTarget
+    {
+        void SetDestroyTileActiveImmediate(bool active);
+    }
+
     public interface ISlideTileVisualTarget
     {
         void PlaySlideTileRedirected(Direction direction, int targetEntityId);

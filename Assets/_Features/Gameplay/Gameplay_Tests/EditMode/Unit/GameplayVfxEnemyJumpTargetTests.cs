@@ -20,6 +20,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string JumperJumpStartBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperJumpStart_Binding.asset";
         private const string CombinedGameplayShowcaseScenePath =
             "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string GameplayVfxProductionRuntimeScriptGuid = "77f98ca183bf441ba81f70f521126c17";
@@ -80,10 +82,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyPlanner_AirborneSignal_DoesNotEmitLandingTarget()
         {
-            AssertNoRequests(CreateJumpSignal(
+            AssertNoCueRequests(
+                EnemyVfxCue.JumperLandingTarget,
+                CreateJumpSignal(
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    startedAirborne: true,
+                    phase: EnemyJumpPhase.Airborne));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPlanner_AirborneStarted_EmitsJumperJumpStartRequest()
+        {
+            var request = PlanSingleRequest(CreateJumpSignal(
                 new SurfaceCell(FaceId.Floor, 1, 1),
                 startedAirborne: true,
                 phase: EnemyJumpPhase.Airborne));
+
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperJumpStart)));
+            Assert.That(request.SourceEntityId, Is.EqualTo(40));
+            Assert.That(request.IsPersistent, Is.False);
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
+            Assert.That(request.Anchor.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
         }
 
         [Test]
@@ -422,6 +443,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(owner);
                 UnityEngine.Object.DestroyImmediate(otherRoot);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void JumperJumpStartBinding_ValidatesAndHostDefaultMapResolves()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(JumperJumpStartBindingPath);
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+
+            Assert.That(binding, Is.Not.Null, JumperJumpStartBindingPath);
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperJumpStart)));
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+            Assert.That(
+                cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.JumperJumpStart), out var policy),
+                Is.True);
+            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
         }
 
         [Test]

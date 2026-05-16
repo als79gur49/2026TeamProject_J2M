@@ -8,7 +8,7 @@
 
 TileFeature is a `SurfaceCell`-based gameplay overlay layer.
 
-TileFeature is not Unit/Solid/Projectile occupancy. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as Projectile occupancy. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
+TileFeature is not Unit/Solid/Projectile occupancy. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as Projectile occupancy. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, Entrance, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
 
 TileFeature is not a `TerrainFlags` effect semantic. Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`; non-blocker overlay behavior belongs to TileFeature or a future ADR-approved layer.
 
@@ -97,7 +97,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - `DestroyTileTriggered` is a resolver-origin event.
 - The same destroyed entity creates at most one event per tick.
 - Multiple destroyed entities may create multiple events.
-- DestroyTile supports `BottomFaceOnly` and `FrontFaceOnly` activation; default authoring remains `BottomFaceOnly`.
+- DestroyTile supports `BottomFaceOnly`, `FrontFaceOnly`, `ActiveFaceOnly`, and `InactiveFaceOnly` activation; default authoring remains `BottomFaceOnly`.
 - `DestroyTileTriggered` event `TargetEntityId` is the destroyed entity id.
 
 ## SlideTile Policy
@@ -179,6 +179,21 @@ Exit presentation is presentation-only.
 - A stage with no required non-primary conditions is initially open and emits no `ExitOpened`.
 - `ExitEntered` source is objective clear tick plus player occupancy at active Exit center.
 - Same-tick open and enter emits both events, ordered `ExitOpened` before `ExitEntered`.
+
+## Entrance Policy
+
+- Entrance is a TileFeature overlay.
+- Entrance is not `EntityType.Entrance`.
+- Entrance is not `TerrainFlags.Entrance`.
+- Entrance activation rule is `BottomFaceOnly`.
+- Entrance direction must be `None`.
+- Entrance selector must be `None`.
+- A stage may have at most one Entrance.
+- Entrance is optional for existing content.
+- When authored, Entrance cell must match the single player spawn cell.
+- Player spawn remains the gameplay authority for entity id, HP, facing, mobility, initial placement, and respawn template.
+- Entrance does not create spawn or respawn authority.
+- Entrance presentation is static TileFeature presentation only in v1; start/respawn VFX is a separate future slice.
 - Exit events do not directly enter the canonical determinism hash.
 - UI/HUD, `StageResult`, and `ObjectiveStatus` are not changed by this TileFeature pass.
 

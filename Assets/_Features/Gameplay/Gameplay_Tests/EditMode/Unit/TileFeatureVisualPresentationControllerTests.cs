@@ -74,6 +74,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void DestroyTileActiveStateRequests_WithSupportedTargetView_CallActiveStateHooks()
+        {
+            var rootObject = new GameObject(nameof(DestroyTileActiveStateRequests_WithSupportedTargetView_CallActiveStateHooks));
+            var targetObject = new GameObject("DestroyTileVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.PlayRequests(new[]
+                {
+                    CreateDestroyActivatedRequest(100, cell),
+                    CreateDestroyDeactivatedRequest(100, cell),
+                });
+
+                Assert.That(target.DebugPlayDestroyTileActivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugPlayDestroyTileDeactivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugDestroyTileActive, Is.False);
+                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SlideTileRedirectedRequest_WithSupportedTargetView_CallsPlaySlideTileRedirectedOnce()
         {
             var rootObject = new GameObject(nameof(SlideTileRedirectedRequest_WithSupportedTargetView_CallsPlaySlideTileRedirectedOnce));
@@ -291,6 +326,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void DestroyTileVisualState_WithSupportedTargetView_SyncsActiveStateImmediate()
+        {
+            var rootObject = new GameObject(nameof(DestroyTileVisualState_WithSupportedTargetView_SyncsActiveStateImmediate));
+            var targetObject = new GameObject("DestroyTileVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Destroy,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+                Assert.That(target.DebugDestroyTileActive, Is.True);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Destroy,
+                        isActive: false,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+
+                Assert.That(target.DebugDestroyTileActive, Is.False);
+                Assert.That(target.DebugPlayDestroyTileActivatedCount, Is.Zero);
+                Assert.That(target.DebugPlayDestroyTileDeactivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void MoonBlockGeneratedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratedOnce()
         {
             var rootObject = new GameObject(nameof(MoonBlockGeneratedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratedOnce));
@@ -428,6 +516,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.PlayCount, Is.Zero);
             Assert.That(diagnostics, Has.Count.EqualTo(1));
             Assert.That(diagnostics[0], Does.Contain("unsupported DestroyTileTriggered"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DestroyTileActiveStateRequests_UnsupportedTarget_NoOpsWithOptionalDiagnostics()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.PlayRequests(new[]
+            {
+                CreateDestroyActivatedRequest(100, cell),
+                CreateDestroyDeactivatedRequest(100, cell),
+            });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(2));
+            Assert.That(diagnostics[0], Does.Contain("unsupported DestroyTileActivated"));
+            Assert.That(diagnostics[1], Does.Contain("unsupported DestroyTileDeactivated"));
         }
 
         [Test]
@@ -1079,6 +1190,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ownerEntityId: tileId + 2,
                 teamId: tileId + 3,
                 targetEntityId: tileId + 4);
+        }
+
+        private static TilePresentationRequest CreateDestroyActivatedRequest(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.DestroyTileActivated,
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3);
+        }
+
+        private static TilePresentationRequest CreateDestroyDeactivatedRequest(int tileId, SurfaceCell cell)
+        {
+            return new TilePresentationRequest(
+                TilePresentationRequestKind.DestroyTileDeactivated,
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: tileId + 1,
+                ownerEntityId: tileId + 2,
+                teamId: tileId + 3);
         }
 
         private static TilePresentationRequest CreateSlideRequest(

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
@@ -260,6 +261,27 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StagePresentationAssembler_ResolvesTileFeatureVfxStyleFromCatalogEntry()
+        {
+            var prefab = CreateValidPrefab("CatalogVfxStylePrefab");
+            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button"));
+            var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab, vfxStyleKey: VfxStyleKey.Green));
+            var presentation = CreatePresentation(catalog);
+
+            try
+            {
+                var resolved = StagePresentationAssembler.Resolve(stage, presentation);
+
+                Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(resolved.TileFeatureBindings[0].VfxStyleKey, Is.EqualTo(VfxStyleKey.Green));
+            }
+            finally
+            {
+                DestroyObjects(stage, presentation, catalog, prefab);
+            }
+        }
+
+        [Test]
         public void StagePresentationAssembler_ResolvesTileFeaturePlacementModeFromCatalog()
         {
             var prefab = CreateValidPrefab("CatalogPlacementModePrefab");
@@ -464,6 +486,31 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("DefaultPrefab");
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
             var catalog = CreateCatalog(Entry("button-default", TileFeatureKind.Button, prefab, isDefault: true));
+            var presentation = CreatePresentation(catalog);
+
+            try
+            {
+                var resolved = StagePresentationAssembler.Resolve(stage, presentation);
+
+                Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+            }
+            finally
+            {
+                DestroyObjects(stage, presentation, catalog, prefab);
+            }
+        }
+
+        [Test]
+        public void StagePresentationAssembler_EntranceFallsBackToKindDefault()
+        {
+            var prefab = CreateValidPrefab("EntranceDefaultPrefab");
+            var stage = CreateStage(CreateTileFeature(
+                100,
+                TileFeatureKind.Entrance,
+                string.Empty,
+                new SurfaceCell(FaceId.Floor, 0, 0)));
+            var catalog = CreateCatalog(Entry("entrance-default", TileFeatureKind.Entrance, prefab, isDefault: true));
             var presentation = CreatePresentation(catalog);
 
             try
@@ -1094,9 +1141,10 @@ namespace Game.Feature.Stages.Editor.Tests
             bool isDefault = false,
             Direction2D directionHint = Direction2D.None,
             TileFeatureVisualPlacementMode placementMode = TileFeatureVisualPlacementMode.Overlay,
-            TileFeatureVisualFootprintMode footprintMode = TileFeatureVisualFootprintMode.SingleCell)
+            TileFeatureVisualFootprintMode footprintMode = TileFeatureVisualFootprintMode.SingleCell,
+            VfxStyleKey vfxStyleKey = default)
         {
-            return CreateEntry(presentationKey, kind, visualPrefab, isDefault, directionHint, placementMode, footprintMode);
+            return CreateEntry(presentationKey, kind, visualPrefab, isDefault, directionHint, placementMode, footprintMode, vfxStyleKey);
         }
 
         private static TileFeaturePresentationCatalogEntry CreateEntry(
@@ -1106,7 +1154,8 @@ namespace Game.Feature.Stages.Editor.Tests
             bool isDefault = false,
             Direction2D directionHint = Direction2D.None,
             TileFeatureVisualPlacementMode placementMode = TileFeatureVisualPlacementMode.Overlay,
-            TileFeatureVisualFootprintMode footprintMode = TileFeatureVisualFootprintMode.SingleCell)
+            TileFeatureVisualFootprintMode footprintMode = TileFeatureVisualFootprintMode.SingleCell,
+            VfxStyleKey vfxStyleKey = default)
         {
             var entry = new TileFeaturePresentationCatalogEntry();
             SetPrivateField(entry, "presentationKey", presentationKey);
@@ -1117,6 +1166,7 @@ namespace Game.Feature.Stages.Editor.Tests
             SetPrivateField(entry, "footprintMode", footprintMode);
             SetPrivateField(entry, "isDefaultForKind", isDefault);
             SetPrivateField(entry, "directionHint", directionHint);
+            SetPrivateField(entry, "vfxStyleKey", vfxStyleKey);
             return entry;
         }
 
@@ -1260,6 +1310,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     new CubeTopologyState(FaceId.Floor),
                     parent,
                     registry,
+                    null,
                     null,
                 });
         }

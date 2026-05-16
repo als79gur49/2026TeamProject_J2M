@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay;
 
 namespace Game.Feature.Gameplay.Vfx
 {
@@ -39,13 +40,18 @@ namespace Game.Feature.Gameplay.Vfx
 
         public bool TryResolve(GameplayVfxCueId cueId, out VfxBindingRuntimePolicy policy)
         {
+            return TryResolve(cueId, VfxStyleKey.Default, out policy);
+        }
+
+        public bool TryResolve(GameplayVfxCueId cueId, VfxStyleKey styleKey, out VfxBindingRuntimePolicy policy)
+        {
             if (cueId.Family != Family)
             {
                 policy = default;
                 return false;
             }
 
-            return cueMap.TryResolve(cueId, out policy);
+            return cueMap.TryResolve(cueId, styleKey, out policy);
         }
     }
 }

@@ -42,6 +42,7 @@ namespace Game.Feature.Stages.Editor
                 TileFeatureKind.Slide => "S",
                 TileFeatureKind.Barricade => "X",
                 TileFeatureKind.Exit => "E",
+                TileFeatureKind.Entrance => "N",
                 TileFeatureKind.MoonBlockGenerator => "G",
                 _ => "?",
             };
