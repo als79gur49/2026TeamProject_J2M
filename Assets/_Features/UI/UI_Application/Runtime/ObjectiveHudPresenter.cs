@@ -9,6 +9,7 @@ namespace Game.Feature.UI.Application
         private readonly Dictionary<string, bool> _previousSatisfiedByStableId =
             new Dictionary<string, bool>(StringComparer.Ordinal);
         private bool _hasPrevious;
+        private string _previousObjectiveStableId = string.Empty;
 
         public ObjectiveHudViewModel ViewModel { get; } = new();
 
@@ -19,11 +20,19 @@ namespace Game.Feature.UI.Application
                 ViewModel.Reset();
                 _previousSatisfiedByStableId.Clear();
                 _hasPrevious = false;
+                _previousObjectiveStableId = string.Empty;
                 return;
             }
 
+            var objectiveStableId = objective.ObjectiveStableId ?? string.Empty;
+            if (!string.Equals(_previousObjectiveStableId, objectiveStableId, StringComparison.Ordinal))
+            {
+                _previousSatisfiedByStableId.Clear();
+                _hasPrevious = false;
+            }
+
             var rows = BuildRows(objective);
-            ViewModel.SetState(true, rows);
+            ViewModel.SetState(true, objectiveStableId, rows);
 
             _previousSatisfiedByStableId.Clear();
             for (var i = 0; i < rows.Count; i++)
@@ -32,6 +41,7 @@ namespace Game.Feature.UI.Application
             }
 
             _hasPrevious = true;
+            _previousObjectiveStableId = objectiveStableId;
         }
 
         private IReadOnlyList<ObjectiveConditionHudViewModel> BuildRows(UIObjectiveSlice objective)

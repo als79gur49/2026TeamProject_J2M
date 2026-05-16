@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
@@ -278,7 +279,7 @@ namespace Game.Feature.UI.Application
             var stage = new UIStageSlice(
                 refreshInput.StageId,
                 refreshInput.StageDisplayName);
-            var objective = MapObjective(refreshInput.Objective);
+            var objective = MapObjective(refreshInput.Objective, refreshInput.StageId);
             var topology = MapTopology(tick, refreshInput);
             var player = new UIPlayerActionSlice(
                 refreshInput.PlayerEntityId,
@@ -403,7 +404,9 @@ namespace Game.Feature.UI.Application
             }
         }
 
-        private static UIObjectiveSlice MapObjective(GameplayObjectiveReadModel objective)
+        private static UIObjectiveSlice MapObjective(
+            GameplayObjectiveReadModel objective,
+            StageId stageId)
         {
             if (!objective.HasObjective)
             {
@@ -427,12 +430,43 @@ namespace Game.Feature.UI.Application
 
             return new UIObjectiveSlice(
                 objective.HasObjective,
+                BuildObjectiveStableId(objective, stageId),
                 objective.ObjectiveTitle,
                 objective.ObjectiveSummary,
                 objective.GoalReached,
                 objective.AllConditionsSatisfied,
                 objective.IsCleared,
                 conditions);
+        }
+
+        private static string BuildObjectiveStableId(
+            GameplayObjectiveReadModel objective,
+            StageId stageId)
+        {
+            var builder = new StringBuilder();
+            builder.Append(stageId.IsValid ? stageId.Value : string.Empty);
+            builder.Append('|');
+            builder.Append(objective.ObjectiveTitle ?? string.Empty);
+            builder.Append('|');
+            builder.Append(objective.ObjectiveSummary ?? string.Empty);
+
+            var conditions = objective.Conditions ?? Array.Empty<GameplayObjectiveConditionReadModel>();
+            for (var i = 0; i < conditions.Count; i++)
+            {
+                var condition = conditions[i];
+                builder.Append('|');
+                builder.Append(condition.SortOrder);
+                builder.Append(':');
+                builder.Append(condition.Role);
+                builder.Append(':');
+                builder.Append(condition.Required ? "required" : "optional");
+                builder.Append(':');
+                builder.Append(condition.StableId ?? string.Empty);
+                builder.Append(':');
+                builder.Append(condition.TitleText ?? string.Empty);
+            }
+
+            return builder.ToString();
         }
 
         private static UITopologySlice MapTopology(

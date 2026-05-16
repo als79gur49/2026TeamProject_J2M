@@ -489,6 +489,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4630125618690325947}
   - component: {fileID: 6113379571524663058}
+  - component: {fileID: 8192219805100011001}
+  - component: {fileID: 8192219805100011002}
   m_Layer: 5
   m_Name: HUD_SciFiSoldier_Objective_Item_01
   m_TagString: Untagged
@@ -538,6 +540,50 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &8192219805100011001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7427035178405880933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: 60
+  m_PreferredWidth: -1
+  m_PreferredHeight: 60
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
+--- !u!114 &8192219805100011002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7427035178405880933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5c796218c2c4a2eaf729eaf9f72351f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _label: {fileID: 3420556218193743673, guid: a9e8e826ab2a7be4e82b2feedda52835, type: 3}
+  _animator: {fileID: 6113379571524663058}
+  _layoutElement: {fileID: 8192219805100011001}
+  _transitionSettings:
+    EnterDuration: 0.2
+    CollapseDuration: 0.2
+    FullHeight: 60
+    ActiveBoolParameter: Active
+    InStateName: In
+    ActiveStateName: Active
+    OutStateName: Out
+    InactiveStateName: Inactive
 --- !u!1 &7730110662729485017
 GameObject:
   m_ObjectHideFlags: 0

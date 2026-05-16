@@ -366,6 +366,7 @@ namespace Game.Feature.UI.Application
             false,
             string.Empty,
             string.Empty,
+            string.Empty,
             false,
             false,
             false,
@@ -375,6 +376,7 @@ namespace Game.Feature.UI.Application
 
         public UIObjectiveSlice(
             bool hasObjective,
+            string objectiveStableId,
             string title,
             string summary,
             bool goalReached,
@@ -383,6 +385,7 @@ namespace Game.Feature.UI.Application
             IEnumerable<UIObjectiveConditionSlice> conditions)
         {
             HasObjective = hasObjective;
+            ObjectiveStableId = objectiveStableId ?? string.Empty;
             Title = title ?? string.Empty;
             Summary = summary ?? string.Empty;
             GoalReached = goalReached;
@@ -393,6 +396,8 @@ namespace Game.Feature.UI.Application
         }
 
         public bool HasObjective { get; }
+
+        public string ObjectiveStableId { get; }
 
         public string Title { get; }
 
@@ -411,6 +416,7 @@ namespace Game.Feature.UI.Application
         public bool Equals(UIObjectiveSlice other)
         {
             if (HasObjective != other.HasObjective ||
+                !string.Equals(ObjectiveStableId, other.ObjectiveStableId, StringComparison.Ordinal) ||
                 !string.Equals(Title, other.Title, StringComparison.Ordinal) ||
                 !string.Equals(Summary, other.Summary, StringComparison.Ordinal) ||
                 GoalReached != other.GoalReached ||
@@ -445,7 +451,8 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            var hash = HashCode.Combine(HasObjective, Title, Summary, GoalReached, AllConditionsSatisfied, IsCleared);
+            var hash = HashCode.Combine(HasObjective, ObjectiveStableId, Title, Summary);
+            hash = HashCode.Combine(hash, GoalReached, AllConditionsSatisfied, IsCleared);
             var conditions = Conditions;
             for (var i = 0; i < conditions.Count; i++)
             {

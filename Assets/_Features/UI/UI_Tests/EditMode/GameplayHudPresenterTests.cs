@@ -248,6 +248,7 @@ namespace Game.Feature.UI.Tests
             presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
 
             Assert.That(presenter.ViewModel.IsVisible, Is.True);
+            Assert.That(presenter.ViewModel.ObjectiveStableId, Is.EqualTo("test-objective|Reach the Exit|Move to the exit zone."));
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
             Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Reach the exit zone"));
             Assert.That(presenter.ViewModel.Rows[0].IsSatisfied, Is.False);
@@ -689,6 +690,7 @@ namespace Game.Feature.UI.Tests
         {
             return new UIObjectiveSlice(
                 hasObjective: true,
+                objectiveStableId: $"test-objective|{title}|{summary}",
                 title,
                 summary,
                 goalReached: false,
