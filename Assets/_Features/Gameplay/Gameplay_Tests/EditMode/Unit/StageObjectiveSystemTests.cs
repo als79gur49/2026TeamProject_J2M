@@ -1268,6 +1268,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ExitPresentation_ObjectiveClearedEmitsAtActiveExit()
+        {
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var objective = CreateExitObjectiveDefinitionWithTickPrerequisite(exitCell, prerequisiteSatisfiedTick: 8);
+            var tileFeatureDefinitions = CreateExitTileFeatureDefinitions();
+            var worldState = CreateExitWorldState(
+                exitCell,
+                new CubeTopologyState(FaceId.Floor),
+                CreatePlayerEntity(10, exitCell));
+            var pipeline = CreatePipeline(worldState, objective, tileFeatureDefinitions);
+
+            var incompleteResult = pipeline.RunTick(new TickInput(7));
+            var clearedResult = pipeline.RunTick(new TickInput(8));
+            var laterResult = pipeline.RunTick(new TickInput(9));
+
+            Assert.That(incompleteResult.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitObjectiveCleared), Is.False);
+            var objectiveCleared = clearedResult.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitObjectiveCleared);
+            Assert.That(objectiveCleared.TileId, Is.EqualTo(100));
+            Assert.That(objectiveCleared.Cell, Is.EqualTo(exitCell));
+            Assert.That(objectiveCleared.TileFeatureKind, Is.EqualTo(TileFeatureKind.Exit));
+            Assert.That(objectiveCleared.TargetEntityId, Is.Zero);
+            Assert.That(clearedResult.ObjectiveResult.ClearedThisTick, Is.True);
+            Assert.That(laterResult.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitObjectiveCleared), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ExitPresentation_VisualStateStaysClosedUntilRequiredNonPrimaryCompletes()
         {
             var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);

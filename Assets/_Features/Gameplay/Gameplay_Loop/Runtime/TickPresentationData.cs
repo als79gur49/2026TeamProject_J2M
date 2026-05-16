@@ -48,6 +48,7 @@ namespace Game.Feature.Gameplay.Loop
         MoonBlockGeneratorBlocked = 11,
         DestroyTileActivated = 12,
         DestroyTileDeactivated = 13,
+        ExitObjectiveCleared = 14,
     }
 
     public enum MoonBlockGeneratorBlockedReason

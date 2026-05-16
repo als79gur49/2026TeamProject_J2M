@@ -1178,6 +1178,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             AddExitOpenedEvents(context, finalTileFeatures, tileEvents);
+            AddExitObjectiveClearedEvents(context, finalTileFeatures, tileEvents);
             AddExitEnteredEvents(context, finalTileFeatures, tileEvents);
 
             tileEvents.Sort(CompareTilePresentationEvents);
@@ -1410,6 +1411,32 @@ namespace Game.Feature.Gameplay.Loop
                     TilePresentationEventKind.ExitEntered,
                     exit,
                     playerEntityId));
+            }
+        }
+
+        private static void AddExitObjectiveClearedEvents(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            List<TilePresentationEvent> tileEvents)
+        {
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.ClearedThisTick)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit))
+                {
+                    continue;
+                }
+
+                tileEvents.Add(CreateExitTilePresentationEvent(
+                    TilePresentationEventKind.ExitObjectiveCleared,
+                    exit,
+                    targetEntityId: 0));
             }
         }
 
