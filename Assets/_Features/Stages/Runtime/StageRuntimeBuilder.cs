@@ -536,24 +536,5 @@ namespace Game.Feature.Stages
             }
         }
 
-        private sealed class EnemyPresentationBindingComparer : IComparer<EnemyPresentationBinding>
-        {
-            public static readonly EnemyPresentationBindingComparer Instance = new();
-
-            public int Compare(EnemyPresentationBinding left, EnemyPresentationBinding right)
-            {
-                return left.EntityId.CompareTo(right.EntityId);
-            }
-        }
-
-        private sealed class StaticEntityPresentationBindingComparer : IComparer<StaticEntityPresentationBinding>
-        {
-            public static readonly StaticEntityPresentationBindingComparer Instance = new();
-
-            public int Compare(StaticEntityPresentationBinding left, StaticEntityPresentationBinding right)
-            {
-                return left.EntityId.CompareTo(right.EntityId);
-            }
-        }
     }
 }
