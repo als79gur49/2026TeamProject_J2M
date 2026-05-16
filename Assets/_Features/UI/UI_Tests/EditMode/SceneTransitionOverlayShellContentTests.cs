@@ -145,6 +145,9 @@ namespace Game.Feature.UI.Tests
             var view = (ChanceLostOverlayContentView)content.View;
             var lostSlot = content.ChanceSlots[1];
             var startPosition = lostSlot.anchoredPosition;
+            var effectImage = FindEffectImage(lostSlot);
+            var authoredEffectColor = effectImage.color;
+            var authoredEffectMaterial = effectImage.material;
 
             view.Bind(new SceneTransitionOverlayViewModel(
                 StageTransitionKind.DeathRetryChanceLost,
@@ -166,12 +169,49 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.EqualTo(1));
             Assert.That(lostSlot.anchoredPosition, Is.EqualTo(startPosition));
             Assert.That(lostSlot.Find("LostChanceTweenRoot"), Is.Not.Null);
+            var lostTweenRoot = (RectTransform)lostSlot.Find("LostChanceTweenRoot");
+            var allIn1Shader = Shader.Find("AllIn1SpriteShader/AllIn1SpriteShaderUiMask");
+            if (allIn1Shader != null)
+            {
+                Assert.That(effectImage.material.shader, Is.SameAs(allIn1Shader));
+            }
 
             view.ResetView();
 
             Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.Zero);
             Assert.That(lostSlot.anchoredPosition, Is.EqualTo(startPosition));
+            Assert.That(lostTweenRoot.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(effectImage.color, Is.EqualTo(authoredEffectColor));
+            Assert.That(effectImage.material, Is.SameAs(authoredEffectMaterial));
+            Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(lostSlot.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContent_ShowWithoutChanceLost_DoesNotAnimate()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
+            var view = (ChanceLostOverlayContentView)content.View;
+
+            view.Bind(new SceneTransitionOverlayViewModel(
+                StageTransitionKind.DeathRetryChanceLost,
+                TransitionOverlayKind.ChanceLost,
+                "Chance Lost",
+                "Retrying.",
+                blockInput: true,
+                showProgress: true,
+                progress01: 0.25f,
+                hasChanceLost: false,
+                previousRemainingChances: 1,
+                currentRemainingChances: 1,
+                totalChances: 3,
+                deathCount: 4));
+
+            view.Show();
+
+            Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.Zero);
+            Assert.That(content.CurrentChanceText.text, Is.Empty);
+            Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
         }
 
         [Test]
@@ -211,6 +251,20 @@ namespace Game.Feature.UI.Tests
                 currentRemainingChances: 0,
                 totalChances: 0,
                 deathCount: 0);
+        }
+
+        private static Image FindEffectImage(RectTransform slot)
+        {
+            var images = slot.GetComponentsInChildren<Image>(true);
+            for (var i = 0; i < images.Length; i++)
+            {
+                if (images[i].name == "Effect")
+                {
+                    return images[i];
+                }
+            }
+
+            throw new AssertionException("Expected chance slot to contain an Effect image.");
         }
 
         private sealed class ShellHandle : IDisposable
@@ -369,6 +423,9 @@ namespace Game.Feature.UI.Tests
                     rect.anchoredPosition = new Vector2((i + 1) * 48f, 0f);
                     var visual = new GameObject("Visual", typeof(RectTransform), typeof(Image));
                     visual.transform.SetParent(slot.transform, false);
+                    var effect = new GameObject("Effect", typeof(RectTransform), typeof(Image));
+                    effect.transform.SetParent(slot.transform, false);
+                    effect.GetComponent<Image>().color = new Color(1f, 0.1f, 0.1f, 0.12f);
                     slots[i] = rect;
                 }
 
