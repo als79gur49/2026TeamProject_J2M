@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private bool hasLockedStep;
         [SerializeField] private int lockedStepX;
         [SerializeField] private int lockedStepY;
+        [SerializeField] private int lockedTargetEntityId;
 
         public EnemyGlidePhase Phase => ResolvePhase();
 
@@ -74,6 +75,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public int LockedStepY => lockedStepY;
 
+        public int LockedTargetEntityId => lockedTargetEntityId;
+
         public bool HasAuthoritativeRecord =>
             Phase != EnemyGlidePhase.Ready ||
             isActive ||
@@ -92,7 +95,8 @@ namespace Game.Feature.Gameplay.Entities
             initialDelayTicksRemaining != 0 ||
             hasLockedStep ||
             lockedStepX != 0 ||
-            lockedStepY != 0;
+            lockedStepY != 0 ||
+            lockedTargetEntityId != 0;
 
         internal static EnemyGlideRuntimeState Create(
             bool isActive,
@@ -108,7 +112,8 @@ namespace Game.Feature.Gameplay.Entities
             int lockedStepX = 0,
             int lockedStepY = 0,
             bool initialDelayInitialized = false,
-            int initialDelayTicksRemaining = 0)
+            int initialDelayTicksRemaining = 0,
+            int lockedTargetEntityId = 0)
         {
             var phase = isActive
                 ? EnemyGlidePhase.Active
@@ -132,7 +137,8 @@ namespace Game.Feature.Gameplay.Entities
                 lockedStepX,
                 lockedStepY,
                 initialDelayInitialized,
-                initialDelayTicksRemaining);
+                initialDelayTicksRemaining,
+                lockedTargetEntityId);
         }
 
         internal static EnemyGlideRuntimeState Create(
@@ -152,7 +158,8 @@ namespace Game.Feature.Gameplay.Entities
             int lockedStepX = 0,
             int lockedStepY = 0,
             bool initialDelayInitialized = false,
-            int initialDelayTicksRemaining = 0)
+            int initialDelayTicksRemaining = 0,
+            int lockedTargetEntityId = 0)
         {
             return new EnemyGlideRuntimeState
             {
@@ -175,6 +182,7 @@ namespace Game.Feature.Gameplay.Entities
                 hasLockedStep = hasLockedStep,
                 lockedStepX = lockedStepX,
                 lockedStepY = lockedStepY,
+                lockedTargetEntityId = lockedTargetEntityId,
             };
         }
 
@@ -213,7 +221,8 @@ namespace Game.Feature.Gameplay.Entities
             in EnemyGlideRuntimeState previousState,
             int tickIndex,
             in EnemyGlideTimingSettings timingSettings,
-            Vector2Int lockedStep)
+            Vector2Int lockedStep,
+            int lockedTargetEntityId)
         {
             timingSettings.Validate(nameof(timingSettings));
 
@@ -234,7 +243,8 @@ namespace Game.Feature.Gameplay.Entities
                 lockedStepX: lockedStep.x,
                 lockedStepY: lockedStep.y,
                 initialDelayInitialized: previousState.InitialDelayInitialized,
-                initialDelayTicksRemaining: 0);
+                initialDelayTicksRemaining: 0,
+                lockedTargetEntityId: lockedTargetEntityId);
         }
 
         public static EnemyGlideRuntimeState TickInitialDelay(
@@ -290,7 +300,8 @@ namespace Game.Feature.Gameplay.Entities
                 lockedStepX: state.LockedStepX,
                 lockedStepY: state.LockedStepY,
                 initialDelayInitialized: state.InitialDelayInitialized,
-                initialDelayTicksRemaining: state.InitialDelayTicksRemaining);
+                initialDelayTicksRemaining: state.InitialDelayTicksRemaining,
+                lockedTargetEntityId: state.LockedTargetEntityId);
         }
 
         public static EnemyGlideRuntimeState EndActiveToLandingPending(
@@ -315,7 +326,8 @@ namespace Game.Feature.Gameplay.Entities
                 lockedStepX: state.LockedStepX,
                 lockedStepY: state.LockedStepY,
                 initialDelayInitialized: state.InitialDelayInitialized,
-                initialDelayTicksRemaining: state.InitialDelayTicksRemaining);
+                initialDelayTicksRemaining: state.InitialDelayTicksRemaining,
+                lockedTargetEntityId: state.LockedTargetEntityId);
         }
 
         public static EnemyGlideRuntimeState BeginRecovery(
@@ -339,7 +351,8 @@ namespace Game.Feature.Gameplay.Entities
                 lockedStepX: state.LockedStepX,
                 lockedStepY: state.LockedStepY,
                 initialDelayInitialized: state.InitialDelayInitialized,
-                initialDelayTicksRemaining: state.InitialDelayTicksRemaining);
+                initialDelayTicksRemaining: state.InitialDelayTicksRemaining,
+                lockedTargetEntityId: state.LockedTargetEntityId);
         }
 
         public static EnemyGlideRuntimeState EndRecoveryToCooldown(
@@ -363,7 +376,8 @@ namespace Game.Feature.Gameplay.Entities
                 lockedStepX: state.LockedStepX,
                 lockedStepY: state.LockedStepY,
                 initialDelayInitialized: state.InitialDelayInitialized,
-                initialDelayTicksRemaining: state.InitialDelayTicksRemaining);
+                initialDelayTicksRemaining: state.InitialDelayTicksRemaining,
+                lockedTargetEntityId: state.LockedTargetEntityId);
         }
 
         public static EnemyGlideRuntimeState Clear()

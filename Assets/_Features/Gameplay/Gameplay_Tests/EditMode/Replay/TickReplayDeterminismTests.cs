@@ -1518,6 +1518,61 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(glideResult.DeterminismHash));
             Assert.That(glideResult.Trace.Text, Does.Contain("Final.EnemyGlides"));
             Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Phase=Active|Active=1|LandingPending=0|Seq=2|WindupUntil=0|ActiveUntil=8|RecoveryUntil=0|CooldownUntil=0|Windup=1|Duration=3|Recovery=1|Cooldown=2|LastExited=0"));
+            Assert.That(glideResult.Trace.Text, Does.Contain("LockedTarget=0"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DeterminismHash_EnemyGlideLockedTarget_IsIncludedInCanonicalState()
+        {
+            var firstWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+            var secondWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+
+            firstWorldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Active,
+                    sequence: 2,
+                    windupUntilTickExclusive: 0,
+                    activeUntilTickExclusive: 8,
+                    recoveryUntilTickExclusive: 0,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 1,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 2,
+                    lastExitedTick: 0,
+                    landingPendingCell: default,
+                    lockedTargetEntityId: 10));
+            secondWorldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Active,
+                    sequence: 2,
+                    windupUntilTickExclusive: 0,
+                    activeUntilTickExclusive: 8,
+                    recoveryUntilTickExclusive: 0,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 1,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 2,
+                    lastExitedTick: 0,
+                    landingPendingCell: default,
+                    lockedTargetEntityId: 20));
+
+            var firstResult = GameplayCompositionRoot.CreateTickPipeline(firstWorldState).RunTick(new TickInput(1));
+            var secondResult = GameplayCompositionRoot.CreateTickPipeline(secondWorldState).RunTick(new TickInput(1));
+
+            Assert.That(firstResult.DeterminismHash, Is.Not.EqualTo(secondResult.DeterminismHash));
+            Assert.That(firstResult.Trace.Text, Does.Contain("LockedTarget=10"));
+            Assert.That(secondResult.Trace.Text, Does.Contain("LockedTarget=20"));
         }
 
         [Test]

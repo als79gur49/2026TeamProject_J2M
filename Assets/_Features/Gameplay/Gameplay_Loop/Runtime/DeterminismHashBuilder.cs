@@ -804,7 +804,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.InitialDelayTicksRemaining).Append('|')
                     .Append((int)entry.State.LandingPendingCell.face).Append('|')
                     .Append(entry.State.LandingPendingCell.x).Append('|')
-                    .Append(entry.State.LandingPendingCell.y).Append('\n');
+                    .Append(entry.State.LandingPendingCell.y).Append('|')
+                    .Append(entry.State.LockedTargetEntityId).Append('\n');
             }
         }
 

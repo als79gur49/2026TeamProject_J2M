@@ -3813,13 +3813,6 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            if (glideKinematicKind == EnemyGlideKinematicKind.Active &&
-                !MatchesLockedGlideStep(snapshot, entity.entityId, delta))
-            {
-                isGlideDirectionMismatch = true;
-                return false;
-            }
-
             if (!snapshot.TryResolveUnitStep(
                     entity.position,
                     delta,
@@ -4013,8 +4006,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             if (!snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
-                glideState.Phase != EnemyGlidePhase.Active ||
-                !HasValidLockedGlideStep(glideState))
+                glideState.Phase != EnemyGlidePhase.Active)
             {
                 return false;
             }
@@ -4168,18 +4160,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return false;
-        }
-
-        private static bool MatchesLockedGlideStep(WorldSnapshot snapshot, int entityId, Vector2Int delta)
-        {
-            return snapshot.TryGetEnemyGlideState(entityId, out var glideState) &&
-                   TryGetLockedGlideStep(glideState, out var lockedStep) &&
-                   delta == lockedStep;
-        }
-
-        private static bool HasValidLockedGlideStep(in EnemyGlideRuntimeState glideState)
-        {
-            return TryGetLockedGlideStep(glideState, out _);
         }
 
         private static bool TryGetLockedGlideStep(

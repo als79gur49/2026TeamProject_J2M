@@ -51,7 +51,27 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             in DetectionSettings settings,
-            out EntityState target);
+            out EntityState target,
+            EnemyDetectionQueryOptions options = default);
+    }
+
+    public enum LineOfSightSolidBlockerPolicy
+    {
+        BlockSolid,
+        IgnoreSolid,
+    }
+
+    public readonly struct EnemyDetectionQueryOptions
+    {
+        public EnemyDetectionQueryOptions(LineOfSightSolidBlockerPolicy solidBlockerPolicy)
+        {
+            SolidBlockerPolicy = solidBlockerPolicy;
+        }
+
+        public LineOfSightSolidBlockerPolicy SolidBlockerPolicy { get; }
+
+        public static EnemyDetectionQueryOptions Default =>
+            new EnemyDetectionQueryOptions(LineOfSightSolidBlockerPolicy.BlockSolid);
     }
 
     public sealed class NoDetectionStrategy : IDetectionStrategy
@@ -62,7 +82,8 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             in DetectionSettings settings,
-            out EntityState target)
+            out EntityState target,
+            EnemyDetectionQueryOptions options = default)
         {
             if (snapshot == null)
             {
@@ -82,7 +103,8 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             in DetectionSettings settings,
-            out EntityState target)
+            out EntityState target,
+            EnemyDetectionQueryOptions options = default)
         {
             if (snapshot == null)
             {
@@ -142,7 +164,8 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             in DetectionSettings settings,
-            out EntityState target)
+            out EntityState target,
+            EnemyDetectionQueryOptions options = default)
         {
             if (snapshot == null)
             {
@@ -156,33 +179,18 @@ namespace Game.Feature.Gameplay.Entities
             var orderedEntities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
-            var sourceCell = source.position;
             var bestDistance = int.MaxValue;
             for (var i = 0; i < orderedEntities.Count; i++)
             {
                 var candidate = orderedEntities[i];
-                if (!EnemyDetectionTargetRules.IsValidTarget(snapshot, source, candidate, settings))
-                {
-                    continue;
-                }
-
-                var targetCell = candidate.position;
-                if (targetCell.face != sourceCell.face)
-                {
-                    continue;
-                }
-
-                var dx = targetCell.x - sourceCell.x;
-                var dy = targetCell.y - sourceCell.y;
-                if (dx != 0 && dy != 0)
-                {
-                    continue;
-                }
-
-                var distance = Math.Abs(dx) + Math.Abs(dy);
-                if (distance > settings.SenseRange ||
-                    distance >= bestDistance ||
-                    IsLineOfSightBlocked(snapshot, sourceCell, targetCell))
+                if (!TryValidateCandidate(
+                        snapshot,
+                        source,
+                        candidate,
+                        settings,
+                        options.SolidBlockerPolicy,
+                        out var distance) ||
+                    distance >= bestDistance)
                 {
                     continue;
                 }
@@ -192,6 +200,73 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return bestDistance != int.MaxValue;
+        }
+
+        internal static bool TryValidateSpecificTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in DetectionSettings settings,
+            int requiredTargetEntityId,
+            out EntityState target,
+            EnemyDetectionQueryOptions options = default)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            settings.Validate(nameof(settings));
+
+            target = default;
+            if (requiredTargetEntityId <= 0 ||
+                !snapshot.TryGetEntity(requiredTargetEntityId, out var candidate) ||
+                !TryValidateCandidate(
+                    snapshot,
+                    source,
+                    candidate,
+                    settings,
+                    options.SolidBlockerPolicy,
+                    out _))
+            {
+                return false;
+            }
+
+            target = candidate;
+            return true;
+        }
+
+        private static bool TryValidateCandidate(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState candidate,
+            in DetectionSettings settings,
+            LineOfSightSolidBlockerPolicy solidBlockerPolicy,
+            out int distance)
+        {
+            distance = 0;
+            if (!EnemyDetectionTargetRules.IsValidTarget(snapshot, source, candidate, settings))
+            {
+                return false;
+            }
+
+            var sourceCell = source.position;
+            var targetCell = candidate.position;
+            if (targetCell.face != sourceCell.face)
+            {
+                return false;
+            }
+
+            var dx = targetCell.x - sourceCell.x;
+            var dy = targetCell.y - sourceCell.y;
+            if (dx != 0 && dy != 0)
+            {
+                return false;
+            }
+
+            distance = Math.Abs(dx) + Math.Abs(dy);
+            return distance <= settings.SenseRange &&
+                   (solidBlockerPolicy == LineOfSightSolidBlockerPolicy.IgnoreSolid ||
+                    !IsLineOfSightBlocked(snapshot, sourceCell, targetCell));
         }
 
         private static bool IsLineOfSightBlocked(
