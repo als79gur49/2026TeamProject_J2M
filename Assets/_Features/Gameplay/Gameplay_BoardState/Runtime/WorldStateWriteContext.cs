@@ -43,6 +43,16 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyActionState(entityId, state);
         }
 
+        public void AddPendingCellImpact(PendingCellImpact impact)
+        {
+            _port.AddPendingCellImpact(impact);
+        }
+
+        public void RemovePendingCellImpact(int impactId)
+        {
+            _port.RemovePendingCellImpact(impactId);
+        }
+
         public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
         {
             _port.SetEnemyPatrolState(entityId, state);

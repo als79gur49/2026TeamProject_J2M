@@ -397,6 +397,7 @@ namespace Game.Feature.Gameplay.Entities
             if (_combatCapability != null &&
                 !ShouldSuppressCombatAttackForJump(snapshot) &&
                 snapshot.TryGetEnemyActionState(_entityId, out var actionState) &&
+                actionState.kind == EnemyActionKind.Melee &&
                 EnemyActionQueries.CanExecute(actionState, input.TickIndex) &&
                 EnemyActionStateTargeting.TryResolveLockedTarget(
                     snapshot,
@@ -406,6 +407,11 @@ namespace Game.Feature.Gameplay.Entities
                     _detectionSettings,
                     _combatCapability.AttackDecisionSettings,
                     out var combatTarget) &&
+                WindupMeleeCombatPoseQueries.CanExecuteHitFromLockedCombatAnchor(
+                    snapshot,
+                    actionState,
+                    combatTarget,
+                    _combatCapability.AttackDecisionSettings) &&
                 _combatCapability.AttackDecisionStrategy.TryBuildAttackIntent(
                     snapshot,
                     source,
@@ -2354,6 +2360,11 @@ namespace Game.Feature.Gameplay.Entities
                         return default;
                     }
 
+                    if (ShouldHoldWindupMeleeMovementForAttackerTransition(snapshot, source, chaseTarget))
+                    {
+                        return default;
+                    }
+
                     if (_chaseStrategy.TryBuildMovementIntent(
                             snapshot,
                             source,
@@ -2366,6 +2377,19 @@ namespace Game.Feature.Gameplay.Entities
                         return new GroundLocomotionResolution(
                             hasIntent: true,
                             chaseIntent,
+                            _locomotionTimingSettings.MoveCooldownTicks,
+                            _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+                    }
+
+                    if (TryBuildWindupMeleeSimulationApproachIntent(
+                            snapshot,
+                            source,
+                            chaseTarget,
+                            out var windupApproachIntent))
+                    {
+                        return new GroundLocomotionResolution(
+                            hasIntent: true,
+                            windupApproachIntent,
                             _locomotionTimingSettings.MoveCooldownTicks,
                             _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
                     }
@@ -2394,6 +2418,80 @@ namespace Game.Feature.Gameplay.Entities
                 default:
                     return default;
             }
+        }
+
+        private bool TryBuildWindupMeleeSimulationApproachIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            out RawMovementIntent intent)
+        {
+            intent = default;
+            if (_combatCapability == null)
+            {
+                return false;
+            }
+
+            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability);
+            if (!startQuery.ShouldApproach)
+            {
+                return false;
+            }
+
+            var approachSettings = new ChaseSettings(
+                _chaseSettings.AxisPriority,
+                _chaseSettings.TrySecondaryAxisWhenBlocked,
+                desiredChaseDistance: 0);
+            return _chaseStrategy.TryBuildMovementIntent(
+                snapshot,
+                source,
+                target,
+                _commonSettings,
+                approachSettings,
+                _tileFeatureDefinitions,
+                out intent);
+        }
+
+        private bool ShouldHoldWindupMeleeMovementForAttackerTransition(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target)
+        {
+            if (_combatCapability == null)
+            {
+                return false;
+            }
+
+            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability);
+            return startQuery.BlockReason == WindupMeleeStartBlockReason.SevereTransition &&
+                   WindupMeleeCombatPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
+        }
+
+        private static WindupMeleeStartQueryResult QueryCombatWindupStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            EnemyCombatCapabilityRuntime combatCapability)
+        {
+            if (combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
+            {
+                return WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                    snapshot,
+                    source,
+                    target,
+                    combatCapability.AttackDecisionStrategy,
+                    combatCapability.AttackDecisionSettings,
+                    combatCapability.WindupForwardCellProjectileSettings,
+                    out _);
+            }
+
+            return WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                snapshot,
+                source,
+                target,
+                combatCapability.AttackDecisionStrategy,
+                combatCapability.AttackDecisionSettings,
+                combatCapability.WindupMeleeSettings);
         }
 
         private bool TryResolveScheduledJumpStart(
@@ -2859,10 +2957,10 @@ namespace Game.Feature.Gameplay.Entities
             switch (stage)
             {
                 case EnemyAiTransitionStage.BeforeMovement:
-                    return ResolveBeforeMovement(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
+                    return ResolveBeforeMovement(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.BeforeAttack:
-                    return ResolveBeforeAttack(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
+                    return ResolveBeforeAttack(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.AfterAttack:
                     return ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings);
@@ -2875,6 +2973,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveBeforeMovement(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
@@ -2893,6 +2992,7 @@ namespace Game.Feature.Gameplay.Entities
                     return TryResolveCombatReadiness(
                         snapshot,
                         source,
+                        tickIndex,
                         detectionStrategy,
                         combatCapability,
                         movementSkillCapability,
@@ -2928,6 +3028,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveBeforeAttack(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
@@ -2941,6 +3042,7 @@ namespace Game.Feature.Gameplay.Entities
                     return TryResolveCombatReadiness(
                         snapshot,
                         source,
+                        tickIndex,
                         detectionStrategy,
                         combatCapability,
                         movementSkillCapability,
@@ -2980,6 +3082,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision TryResolveCombatReadiness(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
@@ -2990,6 +3093,12 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
                 actionState.IsActive)
             {
+                if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
+                    actionState.hasLockedForwardCellImpact)
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                }
+
                 if (combatCapability != null &&
                     EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
@@ -3022,7 +3131,30 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange");
+                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                    snapshot,
+                    source,
+                    target,
+                    combatCapability,
+                    out _);
+                if (startQuery.CanStart &&
+                    source.position.Equals(target.position) &&
+                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                {
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        "TargetInRangeButWindupApproachInProgress");
+                }
+
+                return startQuery.CanStart
+                    ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange")
+                    : new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        startQuery.ShouldApproach
+                            ? "TargetInRangeButSimulationStartRangeOutside"
+                            : "TargetInRangeButCombatPoseNotReady");
             }
 
             return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
@@ -3095,6 +3227,7 @@ namespace Game.Feature.Gameplay.Entities
                 EnemyAiTransitionStage.BeforeAttack => ResolveBeforeAttack(
                     snapshot,
                     source,
+                    tickIndex,
                     detectionStrategy,
                     combatCapability,
                     movementSkillCapability,
@@ -3172,7 +3305,7 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
 
                 case EnemyAiMode.Chase:
-                    return ResolveChase(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
+                    return ResolveChase(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
 
                 case EnemyAiMode.Charge:
                     return ResolveChargeBeforeMovement(
@@ -3185,7 +3318,7 @@ namespace Game.Feature.Gameplay.Entities
                         detectionSettings);
 
                 case EnemyAiMode.Attack:
-                    return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
+                    return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
 
                 case EnemyAiMode.Recover:
                     if (IsChargeOwnedRecover(snapshot, source.entityId, out var chargeRecoverState))
@@ -3221,6 +3354,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveBeforeAttack(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
@@ -3250,7 +3384,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.aiMode == EnemyAiMode.Chase || source.aiMode == EnemyAiMode.Attack)
             {
-                return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
+                return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
             }
 
             return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoBeforeAttackTransition");
@@ -3259,6 +3393,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveChase(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
@@ -3277,7 +3412,30 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange");
+                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                    snapshot,
+                    source,
+                    target,
+                    combatCapability,
+                    out _);
+                if (startQuery.CanStart &&
+                    source.position.Equals(target.position) &&
+                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                {
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        "TargetInRangeButWindupApproachInProgress");
+                }
+
+                return startQuery.CanStart
+                    ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange")
+                    : new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        startQuery.ShouldApproach
+                            ? "TargetInRangeButSimulationStartRangeOutside"
+                            : "TargetInRangeButCombatPoseNotReady");
             }
 
             if (EnemyChargeStrategyShared.TryResolveChargeStart(snapshot, source, target, out var chargeFacing, out _))
@@ -3291,6 +3449,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveAttackOrFallback(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
@@ -3300,6 +3459,12 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
                 actionState.IsActive)
             {
+                if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
+                    actionState.hasLockedForwardCellImpact)
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                }
+
                 if (combatCapability != null &&
                     EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
@@ -3329,10 +3494,36 @@ namespace Game.Feature.Gameplay.Entities
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
             }
 
-            return combatCapability != null &&
-                   combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings)
-                ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange")
-                : new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
+            if (combatCapability != null &&
+                combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
+            {
+                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                    snapshot,
+                    source,
+                    target,
+                    combatCapability,
+                    out _);
+                if (startQuery.CanStart &&
+                    source.position.Equals(target.position) &&
+                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                {
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        "TargetInRangeButWindupApproachInProgress");
+                }
+
+                return startQuery.CanStart
+                    ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange")
+                    : new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        startQuery.ShouldApproach
+                            ? "TargetInRangeButSimulationStartRangeOutside"
+                            : "TargetInRangeButCombatPoseNotReady");
+            }
+
+            return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
         }
 
         private static EnemyAiTransitionDecision ResolvePostCharge(

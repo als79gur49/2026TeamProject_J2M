@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -65,6 +66,25 @@ namespace Game.Feature.Gameplay.Loop
         public PlayerDamageState PlayerDamageState { get; }
     }
 
+    public readonly struct PendingCellImpactResolutionRecord
+    {
+        public PendingCellImpactResolutionRecord(
+            PendingCellImpact impact,
+            bool hit,
+            int targetEntityId)
+        {
+            Impact = impact;
+            Hit = hit;
+            TargetEntityId = targetEntityId;
+        }
+
+        public PendingCellImpact Impact { get; }
+
+        public bool Hit { get; }
+
+        public int TargetEntityId { get; }
+    }
+
     internal sealed class AttackPhaseResult
     {
         public static readonly AttackPhaseResult Empty = new(
@@ -88,6 +108,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly FrozenMovementReservationExport _frozenMovementReservationExport;
         private readonly ReadOnlyCollection<MotionInterruptRecord> _motionInterruptRecords;
+        private readonly ReadOnlyCollection<PendingCellImpactResolutionRecord> _pendingCellImpactResolutions;
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _queuedDelayedAttackEffects;
         private readonly ReadOnlyCollection<RawAttackIntent> _rawIntents;
         private readonly ReadOnlyCollection<string> _rejectedReasons;
@@ -105,7 +126,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> commitEvents,
             IEnumerable<string> eventLogEntries,
             IEnumerable<string> rejectedReasons,
-            IEnumerable<MotionInterruptRecord> motionInterruptRecords = null)
+            IEnumerable<MotionInterruptRecord> motionInterruptRecords = null,
+            IEnumerable<PendingCellImpactResolutionRecord> pendingCellImpactResolutions = null)
             : this(
                 rawIntents,
                 drainedImpactReservations,
@@ -118,7 +140,8 @@ namespace Game.Feature.Gameplay.Loop
                 eventLogEntries,
                 rejectedReasons,
                 FrozenMovementReservationExport.Empty,
-                motionInterruptRecords)
+                motionInterruptRecords,
+                pendingCellImpactResolutions)
         {
         }
 
@@ -134,7 +157,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> eventLogEntries,
             IEnumerable<string> rejectedReasons,
             FrozenMovementReservationExport frozenMovementReservationExport,
-            IEnumerable<MotionInterruptRecord> motionInterruptRecords = null)
+            IEnumerable<MotionInterruptRecord> motionInterruptRecords = null,
+            IEnumerable<PendingCellImpactResolutionRecord> pendingCellImpactResolutions = null)
         {
             if (rawIntents == null)
             {
@@ -205,6 +229,9 @@ namespace Game.Feature.Gameplay.Loop
             _motionInterruptRecords = new ReadOnlyCollection<MotionInterruptRecord>(
                 new List<MotionInterruptRecord>(
                     motionInterruptRecords ?? Array.Empty<MotionInterruptRecord>()));
+            _pendingCellImpactResolutions = new ReadOnlyCollection<PendingCellImpactResolutionRecord>(
+                new List<PendingCellImpactResolutionRecord>(
+                    pendingCellImpactResolutions ?? Array.Empty<PendingCellImpactResolutionRecord>()));
         }
 
         public IReadOnlyList<RawAttackIntent> RawIntents => _rawIntents;
@@ -230,5 +257,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> RejectedReasons => _rejectedReasons;
 
         public IReadOnlyList<MotionInterruptRecord> MotionInterruptRecords => _motionInterruptRecords;
+
+        public IReadOnlyList<PendingCellImpactResolutionRecord> PendingCellImpactResolutions =>
+            _pendingCellImpactResolutions;
     }
 }

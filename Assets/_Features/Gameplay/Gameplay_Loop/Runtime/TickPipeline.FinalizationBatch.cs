@@ -64,6 +64,8 @@ namespace Game.Feature.Gameplay.Loop
         SetUnitKinematicState = 25,
         SetUnitContinuousLocomotionState = 26,
         SetGravityFieldState = 27,
+        AddPendingCellImpact = 28,
+        RemovePendingCellImpact = 29,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -237,7 +239,8 @@ namespace Game.Feature.Gameplay.Loop
             SummonedEntityState spawnedEntitySummonedState = default,
             bool hasSpawnedEntityEnemyDefinitionBindingState = false,
             EnemyDefinitionBindingState spawnedEntityEnemyDefinitionBindingState = default,
-            DelayedAttackEffectRecord delayedAttackEffect = default)
+            DelayedAttackEffectRecord delayedAttackEffect = default,
+            PendingCellImpact pendingCellImpact = default)
         {
             Sequence = sequence;
             Bucket = bucket;
@@ -278,6 +281,7 @@ namespace Game.Feature.Gameplay.Loop
             HasSpawnedEntityEnemyDefinitionBindingState = hasSpawnedEntityEnemyDefinitionBindingState;
             SpawnedEntityEnemyDefinitionBindingState = spawnedEntityEnemyDefinitionBindingState;
             DelayedAttackEffect = delayedAttackEffect;
+            PendingCellImpact = pendingCellImpact;
         }
 
         public long Sequence { get; }
@@ -321,6 +325,8 @@ namespace Game.Feature.Gameplay.Loop
         public int EnemyAiStateTimer { get; }
 
         public EnemyActionRuntimeState EnemyActionState { get; }
+
+        public PendingCellImpact PendingCellImpact { get; }
 
         public EnemyPatrolRuntimeState EnemyPatrolState { get; }
 
@@ -399,7 +405,8 @@ namespace Game.Feature.Gameplay.Loop
                 SpawnedEntitySummonedState,
                 HasSpawnedEntityEnemyDefinitionBindingState,
                 SpawnedEntityEnemyDefinitionBindingState,
-                DelayedAttackEffect);
+                DelayedAttackEffect,
+                PendingCellImpact);
         }
 
         public static FinalizationOperation MoveEntity(long sequence, int entityId, SurfaceCell destination, FinalizationOperationMetadata metadata = default)
@@ -528,6 +535,26 @@ namespace Game.Feature.Gameplay.Loop
                 metadata,
                 entityId: entityId,
                 enemyActionState: enemyActionState);
+        }
+
+        public static FinalizationOperation AddPendingCellImpact(long sequence, PendingCellImpact pendingCellImpact, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.AddPendingCellImpact,
+                metadata,
+                pendingCellImpact: pendingCellImpact);
+        }
+
+        public static FinalizationOperation RemovePendingCellImpact(long sequence, int impactId, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.Destroy,
+                FinalizationOperationKind.RemovePendingCellImpact,
+                metadata,
+                entityId: impactId);
         }
 
         public static FinalizationOperation SetEnemyPatrolState(long sequence, int entityId, EnemyPatrolRuntimeState enemyPatrolState, FinalizationOperationMetadata metadata = default)
@@ -805,6 +832,16 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyActionState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void AddPendingCellImpact(PendingCellImpact impact, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.AddPendingCellImpact(_nextSequence++, impact, metadata));
+        }
+
+        public void RemovePendingCellImpact(int impactId, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.RemovePendingCellImpact(_nextSequence++, impactId, metadata));
+        }
+
         public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetEnemyPatrolState(_nextSequence++, entityId, state, metadata));
@@ -1045,6 +1082,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IEnemyActionCommitContext)writeContext).SetEnemyActionState(operation.EntityId, operation.EnemyActionState);
                         break;
 
+                    case FinalizationOperationKind.AddPendingCellImpact:
+                        ((IEnemyActionCommitContext)writeContext).AddPendingCellImpact(operation.PendingCellImpact);
+                        break;
+
                     case FinalizationOperationKind.SetEnemyPatrolState:
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyPatrolState(operation.EntityId, operation.EnemyPatrolState);
                         break;
@@ -1118,6 +1159,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IAttackCommitContext)writeContext).MarkDestroy(operation.EntityId);
                         break;
 
+                    case FinalizationOperationKind.RemovePendingCellImpact:
+                        ((IAttackCommitContext)writeContext).RemovePendingCellImpact(operation.EntityId);
+                        break;
+
                     case FinalizationOperationKind.EnqueueDelayedAttackEffect:
                         if (delayedAttackEffectSink != null)
                         {
@@ -1179,6 +1224,16 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             _batch.SetEnemyActionState(entityId, state);
+        }
+
+        public void AddPendingCellImpact(PendingCellImpact impact)
+        {
+            _batch.AddPendingCellImpact(impact);
+        }
+
+        public void RemovePendingCellImpact(int impactId)
+        {
+            _batch.RemovePendingCellImpact(impactId);
         }
 
         public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)

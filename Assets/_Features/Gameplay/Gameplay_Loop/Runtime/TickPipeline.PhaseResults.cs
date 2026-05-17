@@ -322,13 +322,15 @@ namespace Game.Feature.Gameplay.Loop
             List<ActionGroup> expandedCandidates,
             Dictionary<int, AttackActionPlanPayload> actionPlanPayloads,
             List<int> orderedActionPlanIds,
-            List<string> rejectedReasons)
+            List<string> rejectedReasons,
+            List<PendingCellImpactResolutionRecord> pendingCellImpactResolutions = null)
         {
             RawAttackIntents = rawAttackIntents ?? throw new ArgumentNullException(nameof(rawAttackIntents));
             ExpandedCandidates = expandedCandidates ?? throw new ArgumentNullException(nameof(expandedCandidates));
             ActionPlanPayloads = actionPlanPayloads ?? throw new ArgumentNullException(nameof(actionPlanPayloads));
             OrderedActionPlanIds = orderedActionPlanIds ?? throw new ArgumentNullException(nameof(orderedActionPlanIds));
             RejectedReasons = rejectedReasons ?? throw new ArgumentNullException(nameof(rejectedReasons));
+            PendingCellImpactResolutions = pendingCellImpactResolutions ?? new List<PendingCellImpactResolutionRecord>();
         }
 
         public List<RawAttackIntent> RawAttackIntents { get; }
@@ -340,6 +342,8 @@ namespace Game.Feature.Gameplay.Loop
         public List<int> OrderedActionPlanIds { get; }
 
         public List<string> RejectedReasons { get; }
+
+        public List<PendingCellImpactResolutionRecord> PendingCellImpactResolutions { get; }
     }
 
     internal sealed class EnemyUtilityResolveResult
