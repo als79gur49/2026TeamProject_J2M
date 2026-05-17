@@ -19,7 +19,7 @@ MonoBehaviour:
   previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 0}
   bgmReference:
-    bgmKey: Stage1-1
+    bgmKey: stage-1-1
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
   enemyPresentationBindings:

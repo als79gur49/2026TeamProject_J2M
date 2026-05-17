@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: CampaignMain_StageBgmProfileCatalog
   m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.StageBgmProfileCatalog
   entries:
-  - key: Stage0-1
+  - key: stage-0-1
     profile: {fileID: 11400000, guid: a95e994cd90ff2942b890c9c19654ac4, type: 2}
-  - key: Stage1-1
+  - key: stage-1-1
     profile: {fileID: 11400000, guid: 07d5cfc4776d91242b1e9ba1c47265a4, type: 2}
-  - key: Stage2-1
+  - key: stage-2-1
     profile: {fileID: 11400000, guid: 0c8b12e0b929c0848904eab15e018f36, type: 2}
-  - key: Stage3-1
+  - key: stage-3-1
     profile: {fileID: 11400000, guid: 6d47e4f53a785f04a93fdaa0863cd09b, type: 2}
-  - key: Stage4-1
+  - key: stage-4-1
     profile: {fileID: 11400000, guid: d9a2d5fd6fc26b54197c7271b8c39374, type: 2}
