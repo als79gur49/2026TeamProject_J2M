@@ -355,6 +355,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+
+                runtime.UpdatePresentation(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds);
+
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
             }
             finally
