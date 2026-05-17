@@ -52,6 +52,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<DelayedBoxDestroyExitVfxKey> scheduledDelayedBoxDestroyExitVfxKeys = new();
         private readonly List<DelayedBoxDestroyExitVfx> pendingDelayedBoxDestroyExitVfx = new();
         private readonly List<DelayedBoxDestroyExitVfx> readyDelayedBoxDestroyExitVfx = new();
+        private readonly HashSet<DelayedEnemyDeathMotionVfxKey> scheduledDelayedEnemyDeathMotionVfxKeys = new();
+        private readonly List<DelayedEnemyDeathMotionVfx> pendingDelayedEnemyDeathMotionVfx = new();
+        private readonly List<DelayedEnemyDeathMotionVfx> readyDelayedEnemyDeathMotionVfx = new();
         private readonly EnemyMotionAttachedVfxFollowerPlanner enemyMotionAttachedFollowerPlanner = new();
         private readonly PresentationMotionFollowingVfxController motionFollowingVfxController = new();
 
@@ -575,6 +578,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             playedBoxSlideSolidStopKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
+            scheduledDelayedBoxDestroyExitVfxKeys.Clear();
+            pendingDelayedBoxDestroyExitVfx.Clear();
+            readyDelayedBoxDestroyExitVfx.Clear();
+            scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
+            pendingDelayedEnemyDeathMotionVfx.Clear();
+            readyDelayedEnemyDeathMotionVfx.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
             motionFollowingVfxController.ResetSession();
             controller?.HardCleanupAll();
@@ -701,6 +710,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void UpdatePresentation(float deltaTime)
         {
             AdvanceDelayedBoxDestroyExitVfx(deltaTime);
+            AdvanceDelayedEnemyDeathMotionVfx(deltaTime);
+            controller?.Update(deltaTime);
             pool?.Advance(deltaTime);
         }
 
@@ -733,6 +744,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enemyMotionAttachedMissingBindingCount = motionFollowingVfxController.AttachedMissingBindingCount;
             enemyMotionAttachedMissingOwnerViewCount = motionFollowingVfxController.AttachedMissingOwnerViewCount;
             PlayReadyDelayedBoxDestroyExitVfx();
+            PlayReadyDelayedEnemyDeathMotionVfx();
         }
 
         public void HardCleanup()
@@ -746,6 +758,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             scheduledDelayedBoxDestroyExitVfxKeys.Clear();
             pendingDelayedBoxDestroyExitVfx.Clear();
             readyDelayedBoxDestroyExitVfx.Clear();
+            scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
+            pendingDelayedEnemyDeathMotionVfx.Clear();
+            readyDelayedEnemyDeathMotionVfx.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
         }
 
@@ -1209,10 +1224,65 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 plannedCommandCount++;
+                if (signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                    signal.VisualContactNormalizedTime > 0f)
+                {
+                    var key = DelayedEnemyDeathMotionVfxKey.Create(context.Result.TickIndex, command);
+                    if (!scheduledDelayedEnemyDeathMotionVfxKeys.Add(key))
+                    {
+                        continue;
+                    }
+
+                    pendingDelayedEnemyDeathMotionVfx.Add(
+                        new DelayedEnemyDeathMotionVfx(
+                            context.Result.TickIndex,
+                            command,
+                            context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime));
+                    continue;
+                }
+
                 TryPlayEnemyDeathMotionCommand(context.Result.TickIndex, command);
             }
 
             return plannedCommandCount;
+        }
+
+        private void AdvanceDelayedEnemyDeathMotionVfx(float deltaTime)
+        {
+            if (pendingDelayedEnemyDeathMotionVfx.Count == 0)
+            {
+                return;
+            }
+
+            var advanceSeconds = Mathf.Max(0f, deltaTime);
+            for (var i = pendingDelayedEnemyDeathMotionVfx.Count - 1; i >= 0; i--)
+            {
+                var pending = pendingDelayedEnemyDeathMotionVfx[i].Advance(advanceSeconds);
+                if (pending.RemainingSeconds > 0.0001f)
+                {
+                    pendingDelayedEnemyDeathMotionVfx[i] = pending;
+                    continue;
+                }
+
+                pendingDelayedEnemyDeathMotionVfx.RemoveAt(i);
+                readyDelayedEnemyDeathMotionVfx.Add(pending);
+            }
+        }
+
+        private void PlayReadyDelayedEnemyDeathMotionVfx()
+        {
+            if (readyDelayedEnemyDeathMotionVfx.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < readyDelayedEnemyDeathMotionVfx.Count; i++)
+            {
+                var delayed = readyDelayedEnemyDeathMotionVfx[i];
+                TryPlayEnemyDeathMotionCommand(delayed.TickIndex, delayed.Command);
+            }
+
+            readyDelayedEnemyDeathMotionVfx.Clear();
         }
 
         private bool TryPlayEnemyDeathMotionCommand(
@@ -2045,6 +2115,76 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     PlaySmoke,
                     PlayShrink,
                     TimingProfile);
+            }
+        }
+
+        private readonly struct DelayedEnemyDeathMotionVfxKey : IEquatable<DelayedEnemyDeathMotionVfxKey>
+        {
+            private DelayedEnemyDeathMotionVfxKey(int tickIndex, int entityId, int presentationSeed)
+            {
+                TickIndex = tickIndex;
+                EntityId = entityId;
+                PresentationSeed = presentationSeed;
+            }
+
+            private int TickIndex { get; }
+
+            private int EntityId { get; }
+
+            private int PresentationSeed { get; }
+
+            public bool Equals(DelayedEnemyDeathMotionVfxKey other)
+            {
+                return TickIndex == other.TickIndex &&
+                       EntityId == other.EntityId &&
+                       PresentationSeed == other.PresentationSeed;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is DelayedEnemyDeathMotionVfxKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(TickIndex, EntityId, PresentationSeed);
+            }
+
+            public static DelayedEnemyDeathMotionVfxKey Create(
+                int tickIndex,
+                in EnemyDeathMotionVfxCommand command)
+            {
+                return new DelayedEnemyDeathMotionVfxKey(
+                    tickIndex,
+                    command.EntityId,
+                    command.PresentationSeed);
+            }
+        }
+
+        private readonly struct DelayedEnemyDeathMotionVfx
+        {
+            public DelayedEnemyDeathMotionVfx(
+                int tickIndex,
+                EnemyDeathMotionVfxCommand command,
+                float remainingSeconds)
+            {
+                TickIndex = tickIndex;
+                Command = command;
+                RemainingSeconds = Mathf.Max(0f, remainingSeconds);
+            }
+
+            public int TickIndex { get; }
+
+            public EnemyDeathMotionVfxCommand Command { get; }
+
+            public float RemainingSeconds { get; }
+
+            public DelayedEnemyDeathMotionVfx Advance(float deltaTime)
+            {
+                return new DelayedEnemyDeathMotionVfx(
+                    TickIndex,
+                    Command,
+                    RemainingSeconds - Mathf.Max(0f, deltaTime));
             }
         }
 

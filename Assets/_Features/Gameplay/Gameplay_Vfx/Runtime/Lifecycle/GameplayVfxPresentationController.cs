@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 
 namespace Game.Feature.Gameplay.Vfx
 {
     public sealed class GameplayVfxPresentationController
     {
+        private readonly List<ScheduledGameplayVfxRequest> delayedRequests = new();
         private readonly IVfxPool pool;
         private readonly IVfxAnchorResolver anchorResolver;
         private readonly IVfxBindingResolver bindingResolver;
@@ -48,11 +50,44 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void HardCleanupAll()
         {
+            delayedRequests.Clear();
             persistentRegistry.HardCleanupAll(pool);
             pool.HardCleanupAll();
         }
 
+        public void Update(float deltaTime)
+        {
+            if (deltaTime < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            for (var i = delayedRequests.Count - 1; i >= 0; i--)
+            {
+                var scheduled = delayedRequests[i].Advance(deltaTime);
+                if (scheduled.RemainingSeconds > 0f)
+                {
+                    delayedRequests[i] = scheduled;
+                    continue;
+                }
+
+                delayedRequests.RemoveAt(i);
+                ProcessNow(scheduled.Request);
+            }
+        }
+
         private void Process(in GameplayVfxRequest request)
+        {
+            if (request.DelaySeconds > 0f && !request.IsPersistent)
+            {
+                delayedRequests.Add(new ScheduledGameplayVfxRequest(request, request.DelaySeconds));
+                return;
+            }
+
+            ProcessNow(request);
+        }
+
+        private void ProcessNow(in GameplayVfxRequest request)
         {
             if (!bindingResolver.TryResolve(request, out var policy))
             {
@@ -165,6 +200,24 @@ namespace Game.Feature.Gameplay.Vfx
                 default:
                     anchor = VfxResolvedAnchor.Unresolved(policy.MissingAnchorPolicy);
                     return false;
+            }
+        }
+
+        private readonly struct ScheduledGameplayVfxRequest
+        {
+            public ScheduledGameplayVfxRequest(GameplayVfxRequest request, float remainingSeconds)
+            {
+                Request = request;
+                RemainingSeconds = Math.Max(0f, remainingSeconds);
+            }
+
+            public GameplayVfxRequest Request { get; }
+
+            public float RemainingSeconds { get; }
+
+            public ScheduledGameplayVfxRequest Advance(float deltaTime)
+            {
+                return new ScheduledGameplayVfxRequest(Request, RemainingSeconds - Math.Max(0f, deltaTime));
             }
         }
     }

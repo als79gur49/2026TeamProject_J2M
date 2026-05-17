@@ -1,5 +1,4 @@
 using System;
-using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
 
@@ -22,45 +21,45 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            var flipImpactSignals = presentationData.FlipImpactSignals;
-            for (var i = 0; i < flipImpactSignals.Count; i++)
+            var flipFloorImpactSignals = presentationData.FlipFloorImpactSignals;
+            for (var i = 0; i < flipFloorImpactSignals.Count; i++)
             {
-                var signal = flipImpactSignals[i];
-                if (!FlipImpactContactVfxAnchorBuilder.TryBuild(
-                        signal,
-                        context.TimingProfile,
-                        out var contactAnchor))
-                {
-                    continue;
-                }
-
-                AddFlipImpactBurstRequest(context, builder, contactAnchor);
+                AddFlipImpactBurstRequest(context, builder, flipFloorImpactSignals[i]);
             }
         }
 
         private static void AddFlipImpactBurstRequest(
             GameplayVfxPlanningContext context,
             GameplayVfxRequestPlanBuilder builder,
-            in FlipImpactContactVfxAnchor contactAnchor)
+            in FlipFloorImpactPresentationSignal signal)
         {
-            var correlationId = contactAnchor.SourceActionPlanId > 0
-                ? contactAnchor.SourceActionPlanId
-                : contactAnchor.BoxEntityId;
+            if (signal.BoxEntityId <= 0)
+            {
+                return;
+            }
+
+            var correlationId = signal.SourceActionPlanId > 0
+                ? signal.SourceActionPlanId
+                : signal.BoxEntityId;
+            var delaySeconds = context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
 
             builder.Add(
                 new GameplayVfxRequest(
                     tickIndex: context.TickIndex,
                     sequenceId: correlationId,
                     presentationSeed: correlationId,
-                    sourceEntityId: contactAnchor.BoxEntityId,
+                    sourceEntityId: signal.BoxEntityId,
                     cueId: GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst),
                     anchor: VfxAnchor.ForCell(
-                        contactAnchor.ImpactCell,
-                        contactAnchor.Topology,
+                        signal.ContactCell,
+                        signal.Topology,
                         VfxAnchorSlot.CellFloor),
-                    timing: VfxTimingKind.ImmediateOnTickPresentation,
+                    timing: delaySeconds > 0f
+                        ? VfxTimingKind.Delayed
+                        : VfxTimingKind.ImmediateOnTickPresentation,
                     isPersistent: false,
-                    persistentKey: VfxPersistentKey.None));
+                    persistentKey: VfxPersistentKey.None,
+                    delaySeconds: delaySeconds));
         }
     }
 }

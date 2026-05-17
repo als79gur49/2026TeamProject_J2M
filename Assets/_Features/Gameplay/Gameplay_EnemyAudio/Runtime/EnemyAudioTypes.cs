@@ -19,11 +19,13 @@ namespace Game.Feature.Gameplay.EnemyAudio
         public EnemyAudioRequest(
             int ownerEntityId,
             EnemyAudioCue cue,
-            in AudioPlaybackContext context)
+            in AudioPlaybackContext context,
+            float delaySeconds = 0f)
         {
             OwnerEntityId = ownerEntityId;
             Cue = cue;
             Context = context;
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public int OwnerEntityId { get; }
@@ -31,6 +33,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
         public EnemyAudioCue Cue { get; }
 
         public AudioPlaybackContext Context { get; }
+
+        public float DelaySeconds { get; }
     }
 
     public static class EnemyAudioCueCatalog

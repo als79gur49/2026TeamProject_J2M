@@ -297,9 +297,9 @@ namespace Game.Feature.Gameplay.Host
             var previousCommittedTopology = _stateStore.CommittedTopology;
 
             TraceStep("RefreshAudioPlan");
-            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
+            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result, _timingProfile));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
-            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result));
+            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result, _timingProfile));
             _blockAudioPresentationController.ReplacePendingPlan(
                 _blockAudioRequestPlanner.BuildRequests(result, _timingProfile));
             RefreshTilePresentationRequests(result.PresentationData);
@@ -441,6 +441,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
+            _audioPresentationController.Update(deltaTime);
+            _enemyAudioPresentationController.Update(_lastPresentedTickIndex, deltaTime);
             _blockAudioPresentationController.Update(deltaTime);
             _playerLocomotionAudioPresentationController.Update(deltaTime);
             _frontFaceShieldVfxPresenter.Update(deltaTime);
@@ -453,6 +455,7 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile);
             _exitPresentationController.CompleteDeferredEntityExits();
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
+            _exitPresentationController.AdvanceContactDelayedEntityExits(deltaTime);
         }
 
         internal void AttachGameplayAudioRuntime(
@@ -536,9 +539,9 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(result));
             }
 
-            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
+            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result, _timingProfile));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
-            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result));
+            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result, _timingProfile));
         }
 
         internal void SetTraceSink(Action<string> traceSink)

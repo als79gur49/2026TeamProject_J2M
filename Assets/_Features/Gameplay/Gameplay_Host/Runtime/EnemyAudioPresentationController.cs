@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class EnemyAudioPresentationController
     {
         private readonly EnemyMoveCadenceGate _moveCadenceGate = new();
-        private readonly List<EnemyAudioRequest> _pendingRequests = new();
+        private readonly List<ScheduledEnemyAudioRequest> _pendingRequests = new();
         private readonly GameplayPresentationStateStore _stateStore;
 
         private IGameplayAudioPlaybackPort _playbackPort;
@@ -52,14 +52,30 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(plannedRequests));
             }
 
-            ClearPendingPlan();
+            RemoveImmediatePendingRequests();
             for (var i = 0; i < plannedRequests.Count; i++)
             {
-                _pendingRequests.Add(plannedRequests[i]);
+                var request = plannedRequests[i];
+                _pendingRequests.Add(new ScheduledEnemyAudioRequest(request, request.DelaySeconds));
             }
         }
 
         public void PlayPlannedAudio(int tickIndex)
+        {
+            PlayReadyAudio(tickIndex, 0f);
+        }
+
+        public void Update(int tickIndex, float deltaTime)
+        {
+            if (deltaTime < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            PlayReadyAudio(tickIndex, deltaTime);
+        }
+
+        private void PlayReadyAudio(int tickIndex, float deltaTime)
         {
             if (_playbackPort == null)
             {
@@ -67,22 +83,39 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            try
+            var retainedCount = 0;
+            for (var i = 0; i < _pendingRequests.Count; i++)
             {
-                for (var i = 0; i < _pendingRequests.Count; i++)
+                var scheduled = _pendingRequests[i].Advance(deltaTime);
+                if (scheduled.RemainingSeconds > 0f)
                 {
-                    PlayRequest(_pendingRequests[i], tickIndex);
+                    _pendingRequests[retainedCount++] = scheduled;
+                    continue;
                 }
+
+                PlayRequest(scheduled.Request, tickIndex);
             }
-            finally
+
+            if (retainedCount < _pendingRequests.Count)
             {
-                ClearPendingPlan();
+                _pendingRequests.RemoveRange(retainedCount, _pendingRequests.Count - retainedCount);
             }
         }
 
         public void ClearPendingPlan()
         {
             _pendingRequests.Clear();
+        }
+
+        private void RemoveImmediatePendingRequests()
+        {
+            for (var i = _pendingRequests.Count - 1; i >= 0; i--)
+            {
+                if (_pendingRequests[i].RemainingSeconds <= 0f)
+                {
+                    _pendingRequests.RemoveAt(i);
+                }
+            }
         }
 
         private void PlayRequest(in EnemyAudioRequest request, int tickIndex)
@@ -126,6 +159,24 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return true;
+        }
+
+        private readonly struct ScheduledEnemyAudioRequest
+        {
+            public ScheduledEnemyAudioRequest(EnemyAudioRequest request, float remainingSeconds)
+            {
+                Request = request;
+                RemainingSeconds = Math.Max(0f, remainingSeconds);
+            }
+
+            public EnemyAudioRequest Request { get; }
+
+            public float RemainingSeconds { get; }
+
+            public ScheduledEnemyAudioRequest Advance(float deltaTime)
+            {
+                return new ScheduledEnemyAudioRequest(Request, RemainingSeconds - Math.Max(0f, deltaTime));
+            }
         }
     }
 }

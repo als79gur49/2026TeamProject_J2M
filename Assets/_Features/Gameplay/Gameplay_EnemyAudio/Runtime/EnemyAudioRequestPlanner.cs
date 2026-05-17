@@ -9,13 +9,16 @@ namespace Game.Feature.Gameplay.EnemyAudio
 {
     public sealed class EnemyAudioRequestPlanner
     {
-        public IReadOnlyList<EnemyAudioRequest> BuildRequests(TickResult result)
+        public IReadOnlyList<EnemyAudioRequest> BuildRequests(
+            TickResult result,
+            GameplayTimingProfile timingProfile = null)
         {
             if (result == null)
             {
                 throw new ArgumentNullException(nameof(result));
             }
 
+            timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             var enemyEntityIds = BuildEnemyEntityIdSet(result.FinalEntities);
             var requests = new List<EnemyAudioRequest>();
             BuildMoveRequests(result.PresentationData, result.TickIndex, enemyEntityIds, requests);
@@ -23,7 +26,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
             BuildUtilityRequests(result.PresentationData, requests);
             BuildSummonRequests(result.PresentationData, requests);
             BuildJumpRequests(result.PresentationData, requests);
-            BuildDeathRequests(result.PresentationData, requests);
+            BuildDeathRequests(result.PresentationData, timingProfile, requests);
             return requests;
         }
 
@@ -170,6 +173,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
         private static void BuildDeathRequests(
             TickPresentationData presentationData,
+            GameplayTimingProfile timingProfile,
             ICollection<EnemyAudioRequest> requests)
         {
             var signals = presentationData.EntityExitSignals;
@@ -182,7 +186,10 @@ namespace Game.Feature.Gameplay.EnemyAudio
                     continue;
                 }
 
-                AddRequest(signal.ExitedEntityId, EnemyAudioCue.Death, requests);
+                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime
+                    ? timingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime
+                    : 0f;
+                AddRequest(signal.ExitedEntityId, EnemyAudioCue.Death, requests, delaySeconds);
             }
         }
 
@@ -203,14 +210,16 @@ namespace Game.Feature.Gameplay.EnemyAudio
         private static void AddRequest(
             int ownerEntityId,
             EnemyAudioCue cue,
-            ICollection<EnemyAudioRequest> requests)
+            ICollection<EnemyAudioRequest> requests,
+            float delaySeconds = 0f)
         {
             requests.Add(new EnemyAudioRequest(
                 ownerEntityId,
                 cue,
                 new AudioPlaybackContext(
                     ownerEntityId: ownerEntityId,
-                    debugTag: EnemyAudioCueCatalog.Format(cue))));
+                    debugTag: EnemyAudioCueCatalog.Format(cue)),
+                delaySeconds));
         }
     }
 }

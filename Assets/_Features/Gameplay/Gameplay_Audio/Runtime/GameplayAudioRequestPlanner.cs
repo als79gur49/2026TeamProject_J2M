@@ -9,16 +9,19 @@ namespace Game.Feature.Gameplay.Audio
     {
         public IReadOnlyList<GameplayAudioSemanticId> RequiredSemantics => GameplayAudioSemanticCatalog.RequiredOneShotV1;
 
-        public IReadOnlyList<GameplayAudioRequest> BuildRequests(TickResult result)
+        public IReadOnlyList<GameplayAudioRequest> BuildRequests(
+            TickResult result,
+            GameplayTimingProfile timingProfile = null)
         {
             if (result == null)
             {
                 throw new ArgumentNullException(nameof(result));
             }
 
+            timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             var requests = new List<GameplayAudioRequest>();
             BuildDamageRequests(result.PresentationData, requests);
-            BuildExitRequests(result.PresentationData, requests);
+            BuildExitRequests(result.PresentationData, timingProfile, requests);
             return requests;
         }
 
@@ -53,6 +56,7 @@ namespace Game.Feature.Gameplay.Audio
 
         private static void BuildExitRequests(
             TickPresentationData presentationData,
+            GameplayTimingProfile timingProfile,
             ICollection<GameplayAudioRequest> requests)
         {
             // v1 gameplay audio intentionally excludes locomotion, windup/recovery, UI, and BGM.
@@ -67,20 +71,25 @@ namespace Game.Feature.Gameplay.Audio
                     continue;
                 }
 
-                requests.Add(CreateRequest(semanticId, signal.ExitedEntityId));
+                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime
+                    ? timingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime
+                    : 0f;
+                requests.Add(CreateRequest(semanticId, signal.ExitedEntityId, delaySeconds));
             }
         }
 
         private static GameplayAudioRequest CreateRequest(
             GameplayAudioSemanticId semanticId,
-            int ownerEntityId)
+            int ownerEntityId,
+            float delaySeconds = 0f)
         {
             return new GameplayAudioRequest(
                 semanticId,
                 ownerEntityId,
                 new AudioPlaybackContext(
                     ownerEntityId: ownerEntityId,
-                    debugTag: GameplayAudioSemanticCatalog.Format(semanticId)));
+                    debugTag: GameplayAudioSemanticCatalog.Format(semanticId)),
+                delaySeconds);
         }
     }
 }

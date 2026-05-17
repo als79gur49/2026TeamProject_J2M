@@ -380,6 +380,9 @@ namespace Game.Feature.Gameplay.Vfx
                     continue;
                 }
 
+                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime
+                    ? context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime
+                    : 0f;
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
@@ -391,9 +394,12 @@ namespace Game.Feature.Gameplay.Vfx
                             signal.SourceCell,
                             signal.Topology,
                             VfxAnchorSlot.CellCenter),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        timing: delaySeconds > 0f
+                            ? VfxTimingKind.Delayed
+                            : VfxTimingKind.ImmediateOnTickPresentation,
                         isPersistent: false,
-                        persistentKey: VfxPersistentKey.None));
+                        persistentKey: VfxPersistentKey.None,
+                        delaySeconds: delaySeconds));
             }
 
             var summonWindupWarnings = presentationData.SummonWindupWarnings;
