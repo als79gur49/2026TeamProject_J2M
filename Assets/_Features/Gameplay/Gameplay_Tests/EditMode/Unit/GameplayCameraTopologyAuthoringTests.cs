@@ -1330,7 +1330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 "Assets/Scenes/CombinedGameplayShowcase.unity" => StageId.CreateOrThrow("combined-gameplay-showcase"),
                 "Assets/Scenes/TutorialScene.unity" => StageId.CreateOrThrow("tutorial-scene"),
-                "Assets/Scenes/UIAudioScene.unity" => StageId.CreateOrThrow("tutorial-scene"),
+                "Assets/Scenes/UIAudioScene.unity" => StageId.CreateOrThrow("stage-1-1"),
                 _ => StageId.None,
             };
         }

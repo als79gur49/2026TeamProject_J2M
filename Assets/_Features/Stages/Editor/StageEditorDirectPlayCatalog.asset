@@ -21,4 +21,4 @@ MonoBehaviour:
       value: tutorial-scene
   - ScenePath: Assets/Scenes/UIAudioScene.unity
     StageId:
-      value: tutorial-scene
+      value: stage-1-1

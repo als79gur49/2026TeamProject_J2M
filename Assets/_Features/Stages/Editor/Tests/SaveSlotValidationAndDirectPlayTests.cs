@@ -27,7 +27,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     out var stageId),
                 Is.True);
 
-            Assert.That(stageId.Value, Is.EqualTo("tutorial-scene"));
+            Assert.That(stageId.Value, Is.EqualTo("stage-1-1"));
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out var context), Is.True);
             Assert.That(context.Mode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
             Assert.That(context.SuppressCampaignFlow, Is.True);

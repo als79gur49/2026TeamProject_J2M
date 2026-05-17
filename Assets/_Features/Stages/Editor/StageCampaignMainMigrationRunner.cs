@@ -603,7 +603,7 @@ namespace Game.Feature.Stages.Editor
             {
                 CreateDirectPlayEntry("Assets/Scenes/CombinedGameplayShowcase.unity", "combined-gameplay-showcase"),
                 CreateDirectPlayEntry("Assets/Scenes/TutorialScene.unity", "tutorial-scene"),
-                CreateDirectPlayEntry("Assets/Scenes/UIAudioScene.unity", "tutorial-scene"),
+                CreateDirectPlayEntry("Assets/Scenes/UIAudioScene.unity", "stage-1-1"),
             };
 
             if (DirectPlayEntriesEqual(directPlayCatalog.Entries, entries))
