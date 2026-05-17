@@ -190,14 +190,14 @@ namespace Game.Feature.UI.Composition
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
-            var topologyHudPresenter = new TopologyHudPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var notificationPresenter = new NotificationPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
-                topologyHudPresenter,
+                surfaceBeltIndicatorPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -219,14 +219,13 @@ namespace Game.Feature.UI.Composition
                 stageInfoPresenter.ViewModel,
                 objectiveHudPresenter.ViewModel,
                 chancePanelPresenter.ViewModel,
-                topologyHudPresenter.ViewModel,
+                surfaceBeltIndicatorPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 notificationPresenter.ViewModel);
             _hudUiAudioFeedbackController = new HudUiAudioFeedbackController(
                 uiAudioPort,
                 chancePanelPresenter.ViewModel,
-                objectiveHudPresenter.ViewModel,
-                topologyHudPresenter.ViewModel);
+                objectiveHudPresenter.ViewModel);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
                 ScreenController,

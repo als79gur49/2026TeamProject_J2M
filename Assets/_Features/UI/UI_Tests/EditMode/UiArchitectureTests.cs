@@ -16,6 +16,7 @@ using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Shared.Display;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Feature.UI.Tests
 {
@@ -334,7 +335,7 @@ namespace Game.Feature.UI.Tests
                     typeof(StageInfoPresenter),
                     typeof(ObjectiveHudPresenter),
                     typeof(ChancePanelPresenter),
-                    typeof(TopologyHudPresenter),
+                    typeof(SurfaceBeltIndicatorPresenter),
                     typeof(PlayerStatusPresenter),
                     typeof(NotificationPresenter),
                 }));
@@ -447,7 +448,7 @@ namespace Game.Feature.UI.Tests
                     "PlayerStatusViewModel",
                     "RootViewModel",
                     "StageInfoViewModel",
-                    "SurfaceIndicatorViewModel",
+                    "SurfaceBeltViewModel",
                 }));
 
             var methodNames = typeof(HUDController)
@@ -468,7 +469,7 @@ namespace Game.Feature.UI.Tests
                 typeof(StageInfoPresenter),
                 typeof(ObjectiveHudPresenter),
                 typeof(ChancePanelPresenter),
-                typeof(TopologyHudPresenter),
+                typeof(SurfaceBeltIndicatorPresenter),
                 typeof(PlayerStatusPresenter),
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),
@@ -499,10 +500,37 @@ namespace Game.Feature.UI.Tests
             AssertViewBindSignature(typeof(HUDRootView), typeof(HUDRootViewModel));
             AssertViewBindSignature(typeof(ObjectiveHudView), typeof(ObjectiveHudViewModel));
             AssertViewBindSignature(typeof(ChancePanelView), typeof(ChancePanelViewModel));
-            AssertViewBindSignature(typeof(SurfaceIndicatorView), typeof(SurfaceIndicatorViewModel));
+            AssertViewBindSignature(typeof(SurfaceBeltIndicatorView), typeof(SurfaceBeltViewModel));
             AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
             AssertViewBindSignature(typeof(ActionBarView), typeof(ActionBarViewModel));
             AssertViewBindSignature(typeof(NotificationView), typeof(NotificationViewModel));
+        }
+
+        [Test]
+        public void SurfaceBeltViewModels_DoNotExposeUnityRenderingTypes()
+        {
+            var forbiddenTypes = new[]
+            {
+                typeof(Color),
+                typeof(Sprite),
+                typeof(RectTransform),
+            };
+            var modelTypes = new[]
+            {
+                typeof(SurfaceBeltViewModel),
+                typeof(SurfaceBeltCellViewModel),
+            };
+
+            foreach (var modelType in modelTypes)
+            {
+                foreach (var memberType in GetPublicMemberTypes(modelType))
+                {
+                    Assert.That(
+                        forbiddenTypes.Contains(memberType),
+                        Is.False,
+                        $"{modelType.FullName} exposes {memberType.FullName}");
+                }
+            }
         }
 
         [Test]
@@ -513,7 +541,7 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootView),
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
-                typeof(SurfaceIndicatorView),
+                typeof(SurfaceBeltIndicatorView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),
@@ -537,7 +565,7 @@ namespace Game.Feature.UI.Tests
                 typeof(HUDRootView),
                 typeof(ObjectiveHudView),
                 typeof(ChancePanelView),
-                typeof(SurfaceIndicatorView),
+                typeof(SurfaceBeltIndicatorView),
                 typeof(PlayerStatusView),
                 typeof(ActionBarView),
                 typeof(NotificationView),
@@ -1387,6 +1415,25 @@ namespace Game.Feature.UI.Tests
             Assert.That(bindMethods, Has.Length.EqualTo(1), viewType.FullName);
             Assert.That(bindMethods[0].GetParameters().Select(parameter => parameter.ParameterType).ToArray(), Is.EqualTo(new[] { expectedViewModelType }));
             Assert.That(TypeDependsOn(viewType, typeof(UIPresentationSnapshot)), Is.False, viewType.FullName);
+        }
+
+        private static IEnumerable<Type> GetPublicMemberTypes(Type type)
+        {
+            foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            {
+                foreach (var surfacedType in ExpandType(property.PropertyType))
+                {
+                    yield return surfacedType;
+                }
+            }
+
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            {
+                foreach (var surfacedType in ExpandType(field.FieldType))
+                {
+                    yield return surfacedType;
+                }
+            }
         }
 
         private static IEnumerable<Type> ExpandType(Type type)

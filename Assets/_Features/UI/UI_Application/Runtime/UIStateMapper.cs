@@ -4,6 +4,7 @@ using System.Text;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
+using Game.Feature.UI.HUD;
 
 namespace Game.Feature.UI.Application
 {
@@ -255,6 +256,7 @@ namespace Game.Feature.UI.Application
                 next.Objective,
                 next.Chance,
                 next.Topology,
+                next.SurfaceBelt,
                 next.Player,
                 new UINotificationLedgerSlice(notifications));
 
@@ -281,6 +283,7 @@ namespace Game.Feature.UI.Application
                 refreshInput.StageDisplayName);
             var objective = MapObjective(refreshInput.Objective, refreshInput.StageId);
             var topology = MapTopology(tick, refreshInput);
+            var surfaceBelt = MapSurfaceBelt(tick, refreshInput);
             var player = new UIPlayerActionSlice(
                 refreshInput.PlayerEntityId,
                 refreshInput.CurrentHp,
@@ -312,6 +315,7 @@ namespace Game.Feature.UI.Application
                     refreshInput.RemainingChances,
                     refreshInput.MaxChances),
                 topology,
+                surfaceBelt,
                 player,
                 previous.Notifications);
         }
@@ -330,6 +334,7 @@ namespace Game.Feature.UI.Application
                         snapshot.Objective,
                         snapshot.Chance,
                         snapshot.Topology,
+                        snapshot.SurfaceBelt,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -360,6 +365,7 @@ namespace Game.Feature.UI.Application
                         snapshot.Objective,
                         snapshot.Chance,
                         snapshot.Topology,
+                        snapshot.SurfaceBelt,
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
@@ -396,6 +402,10 @@ namespace Game.Feature.UI.Application
                         UITopologySlice.FromTopology(
                             snapshot.Tick.FinalTopology,
                             snapshot.Tick.IsTopologyTransitionActive),
+                        SurfaceBeltSnapshot.FromTopology(
+                            snapshot.Tick.FinalTopology,
+                            snapshot.Tick.IsTopologyTransitionActive,
+                            snapshot.SurfaceBelt.TransitionSequenceId),
                         snapshot.Player,
                         snapshot.Notifications);
 
@@ -488,6 +498,68 @@ namespace Game.Feature.UI.Application
                 tick.FinalTopology,
                 refreshInput.IsTopologyTransitionActive,
                 progress01: refreshInput.IsTopologyTransitionActive ? 0.0f : 1.0f);
+        }
+
+        private static SurfaceBeltSnapshot MapSurfaceBelt(
+            UITickSlice tick,
+            UIStateRefreshInput refreshInput)
+        {
+            if (refreshInput.TopologyPresentation.HasValue)
+            {
+                var topology = refreshInput.TopologyPresentation.Value;
+                var direction = MapSurfaceBeltDirection(topology.RotationKind);
+                return SurfaceBeltSnapshot.FromTopology(
+                    tick.FinalTopology,
+                    refreshInput.IsTopologyTransitionActive,
+                    BuildSurfaceBeltTransitionSequenceId(
+                        refreshInput.TickIndex,
+                        topology.SourceTopology,
+                        topology.DestinationTopology,
+                        direction),
+                    topology.SourceTopology,
+                    topology.DestinationTopology,
+                    direction);
+            }
+
+            return SurfaceBeltSnapshot.FromTopology(
+                tick.FinalTopology,
+                refreshInput.IsTopologyTransitionActive,
+                0);
+        }
+
+        private static SurfaceBeltDirection MapSurfaceBeltDirection(GameplayUiRotationKind rotationKind)
+        {
+            switch (rotationKind)
+            {
+                case GameplayUiRotationKind.Forward:
+                    return SurfaceBeltDirection.Forward;
+
+                case GameplayUiRotationKind.Backward:
+                    return SurfaceBeltDirection.Backward;
+
+                case GameplayUiRotationKind.None:
+                default:
+                    return SurfaceBeltDirection.None;
+            }
+        }
+
+        private static int BuildSurfaceBeltTransitionSequenceId(
+            int tickIndex,
+            GameplayUiTopology sourceTopology,
+            GameplayUiTopology destinationTopology,
+            SurfaceBeltDirection direction)
+        {
+            if (direction == SurfaceBeltDirection.None)
+            {
+                return 0;
+            }
+
+            var source = SurfaceBeltSnapshot.ToSlotIndex(sourceTopology);
+            var destination = SurfaceBeltSnapshot.ToSlotIndex(destinationTopology);
+            return ((Math.Max(0, tickIndex) + 1) * 1000) +
+                   (source * 100) +
+                   (destination * 10) +
+                   (int)direction;
         }
 
         private static UIObjectiveConditionRole MapObjectiveRole(GameplayObjectiveConditionRole role)

@@ -76,14 +76,14 @@ namespace Game.Feature.UI.Tests
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
-                var topologyHudPresenter = new TopologyHudPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    topologyHudPresenter,
+                    surfaceBeltIndicatorPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
@@ -91,7 +91,7 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    topologyHudPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -161,14 +161,14 @@ namespace Game.Feature.UI.Tests
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
-                var topologyHudPresenter = new TopologyHudPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    topologyHudPresenter,
+                    surfaceBeltIndicatorPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
@@ -176,7 +176,7 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    topologyHudPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -199,11 +199,11 @@ namespace Game.Feature.UI.Tests
                 AssertOwnedBy(objectiveListRoot, topLeftStack);
                 AssertOwnedBy(GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel").transform, topRightStack);
                 AssertOwnedBy(GetSerializedReference<Button>(hudView, "_pauseButton").transform, topRightStack);
-                AssertOwnedBy(hudView.SurfaceIndicatorView.transform, topRightStack);
+                AssertOwnedBy(hudView.SurfaceBeltIndicatorView.transform, topRightStack);
                 AssertOwnedBy(hudView.NotificationView.transform, bottomRightStack);
                 AssertOwnedBy(hudView.ChancePanelView.transform, bottomRightStack);
                 Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
-                Assert.That(hudView.SurfaceIndicatorView.ViewModel, Is.SameAs(topologyHudPresenter.ViewModel));
+                Assert.That(hudView.SurfaceBeltIndicatorView.ViewModel, Is.SameAs(surfaceBeltIndicatorPresenter.ViewModel));
             }
             finally
             {
@@ -235,14 +235,14 @@ namespace Game.Feature.UI.Tests
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
-                var topologyHudPresenter = new TopologyHudPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    topologyHudPresenter,
+                    surfaceBeltIndicatorPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
@@ -250,7 +250,7 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    topologyHudPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -303,14 +303,14 @@ namespace Game.Feature.UI.Tests
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
-                var topologyHudPresenter = new TopologyHudPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    topologyHudPresenter,
+                    surfaceBeltIndicatorPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
@@ -318,7 +318,7 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    topologyHudPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -337,7 +337,7 @@ namespace Game.Feature.UI.Tests
 
                 LayoutRebuilder.ForceRebuildLayoutImmediate(hudRect);
                 LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.ChancePanelView.transform);
-                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.SurfaceIndicatorView.transform);
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)hudView.SurfaceBeltIndicatorView.transform);
                 Canvas.ForceUpdateCanvases();
 
                 var chancePanel = (RectTransform)hudView.ChancePanelView.transform;
@@ -346,10 +346,13 @@ namespace Game.Feature.UI.Tests
                 AssertWorldRectContains(chancePanel, slotContainer);
                 AssertWorldRectContains(chancePanel, floatingFeedbackRoot);
 
-                var cubeMapView = GetSerializedReference<SurfaceCubeMapView>(hudView.SurfaceIndicatorView, "_cubeMapView");
-                AssertOwnedBy(cubeMapView.transform, hudView.transform);
-                Assert.That(cubeMapView.PreviewImage, Is.Not.Null);
-                AssertCubeMapPreviewHasRenderableLayoutContract(cubeMapView);
+                var beltView = hudView.SurfaceBeltIndicatorView;
+                var maskRoot = GetSerializedReference<RectTransform>(beltView, "_maskRoot");
+                var beltContent = GetSerializedReference<RectTransform>(beltView, "_beltContent");
+                AssertOwnedBy(maskRoot, (RectTransform)beltView.transform);
+                AssertOwnedBy(beltContent, maskRoot);
+                Assert.That(maskRoot.GetComponent<RectMask2D>(), Is.Not.Null);
+                Assert.That(beltView.Cells.Length, Is.EqualTo(7));
             }
             finally
             {
@@ -358,25 +361,25 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void HUDPrefab_AuthorsChanceAndSurfaceIndicatorModulesInPrefabHierarchy()
+        public void HUDPrefab_AuthorsChanceAndSurfaceBeltIndicatorModulesInPrefabHierarchy()
         {
             var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
             var serializedChancePanel = GetSerializedReference<ChancePanelView>(hudPrefab, "_chancePanelView");
-            var serializedSurfaceIndicator = GetSerializedReference<SurfaceIndicatorView>(hudPrefab, "_surfaceIndicatorView");
+            var serializedSurfaceBeltIndicator = GetSerializedReference<SurfaceBeltIndicatorView>(hudPrefab, "_surfaceBeltIndicatorView");
 
             var chancePanels = hudPrefab.GetComponentsInChildren<ChancePanelView>(true);
             Assert.That(chancePanels.Length, Is.EqualTo(1));
             Assert.That(chancePanels[0], Is.SameAs(serializedChancePanel));
 
-            var surfaceIndicators = hudPrefab.GetComponentsInChildren<SurfaceIndicatorView>(true);
+            var surfaceIndicators = hudPrefab.GetComponentsInChildren<SurfaceBeltIndicatorView>(true);
             Assert.That(surfaceIndicators.Length, Is.EqualTo(1));
-            Assert.That(surfaceIndicators[0], Is.SameAs(serializedSurfaceIndicator));
+            Assert.That(surfaceIndicators[0], Is.SameAs(serializedSurfaceBeltIndicator));
 
             var topRightStack = FindRequiredRect(hudPrefab.transform, "HudTopRightStack");
             var bottomRightStack = FindRequiredRect(hudPrefab.transform, "HudBottomRightStack");
             AssertOwnedBy(GetSerializedReference<TMP_Text>(hudPrefab, "_stageNameLabel").transform, topRightStack);
             AssertOwnedBy(GetSerializedReference<Button>(hudPrefab, "_pauseButton").transform, topRightStack);
-            AssertOwnedBy(serializedSurfaceIndicator.transform, topRightStack);
+            AssertOwnedBy(serializedSurfaceBeltIndicator.transform, topRightStack);
             AssertOwnedBy(serializedChancePanel.transform, bottomRightStack);
 
             var slotContainer = FindRequiredRect(serializedChancePanel.transform, "SlotContainer");
@@ -394,75 +397,56 @@ namespace Game.Feature.UI.Tests
                 AssertSerializedReferenceIsAssigned(slot, "_canvasGroup");
             }
 
-            var cubeMapView = GetSerializedReference<SurfaceCubeMapView>(serializedSurfaceIndicator, "_cubeMapView");
-            AssertOwnedBy(cubeMapView.transform, hudPrefab.transform);
-            AssertSerializedReference(serializedSurfaceIndicator, "_cubeMapView", cubeMapView);
-            AssertSerializedReferenceIsAssigned(cubeMapView, "_previewImage");
-            AssertSerializedReferenceIsAssigned(cubeMapView, "_cubeMapPrefab");
-            AssertCubeMapPreviewHasRenderableLayoutContract(cubeMapView);
+            var maskRoot = GetSerializedReference<RectTransform>(serializedSurfaceBeltIndicator, "_maskRoot");
+            var beltContent = GetSerializedReference<RectTransform>(serializedSurfaceBeltIndicator, "_beltContent");
+            AssertOwnedBy(maskRoot, serializedSurfaceBeltIndicator.transform);
+            AssertOwnedBy(beltContent, maskRoot);
+            Assert.That(maskRoot.GetComponent<RectMask2D>(), Is.Not.Null);
+            AssertSerializedArrayCount(serializedSurfaceBeltIndicator, "_cells", 7);
+            AssertSerializedReferenceIsAssigned(serializedSurfaceBeltIndicator, "_styleProfile");
+            Assert.That(hudPrefab.GetComponentsInChildren<SurfaceCubeMapView>(true), Is.Empty);
+            Assert.That(hudPrefab.GetComponentsInChildren<RawImage>(true), Is.Empty);
         }
 
         [Test]
-        public void SurfaceCubeMapView_ResolvesCubeMapFaces_FromLocalPositions()
+        public void HUDPrefab_SurfaceBeltCenterHighlight_ReservesSpacingForAuthoredOutline()
         {
-            Assert.That(
-                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, -0.2f, 0.0f), out var floorRole),
-                Is.True);
-            Assert.That(floorRole, Is.EqualTo(SurfaceCubeMapFaceRole.Floor));
-            Assert.That(
-                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, 0.0f, 0.2f), out var frontRole),
-                Is.True);
-            Assert.That(frontRole, Is.EqualTo(SurfaceCubeMapFaceRole.Front));
-            Assert.That(
-                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, 0.2f, 0.0f), out var ceilingRole),
-                Is.True);
-            Assert.That(ceilingRole, Is.EqualTo(SurfaceCubeMapFaceRole.Ceiling));
-            Assert.That(
-                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.0f, 0.0f, -0.2f), out var backRole),
-                Is.True);
-            Assert.That(backRole, Is.EqualTo(SurfaceCubeMapFaceRole.Back));
-            Assert.That(
-                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(-0.2f, 0.0f, 0.0f), out var leftRole),
-                Is.True);
-            Assert.That(leftRole, Is.EqualTo(SurfaceCubeMapFaceRole.Left));
-            Assert.That(SurfaceCubeMapView.IsSelectableFace(leftRole), Is.False);
-            Assert.That(
-                SurfaceCubeMapView.TryResolveFaceRole(new Vector3(0.2f, 0.0f, 0.0f), out var rightRole),
-                Is.True);
-            Assert.That(rightRole, Is.EqualTo(SurfaceCubeMapFaceRole.Right));
-            Assert.That(SurfaceCubeMapView.IsSelectableFace(rightRole), Is.False);
-        }
+            var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
+            var surfaceBeltIndicator = GetSerializedReference<SurfaceBeltIndicatorView>(hudPrefab, "_surfaceBeltIndicatorView");
+            var indicatorRoot = (RectTransform)surfaceBeltIndicator.transform;
+            var indicatorLayout = surfaceBeltIndicator.GetComponent<LayoutElement>();
+            var maskRoot = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_maskRoot");
+            var beltContent = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_beltContent");
+            var cells = surfaceBeltIndicator.Cells;
 
-        [Test]
-        public void SurfaceCubeMapPreviewLayer_IsExcludedFromGameplayMainCameras()
-        {
-            var previewLayer = LayerMask.NameToLayer(SurfaceCubeMapView.PreviewLayerName);
-            Assert.That(previewLayer, Is.GreaterThanOrEqualTo(0));
+            Assert.That(indicatorRoot.sizeDelta, Is.EqualTo(new Vector2(252.0f, 104.0f)));
+            Assert.That(indicatorLayout, Is.Not.Null);
+            Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(252.0f));
+            Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(104.0f));
+            Assert.That(maskRoot.sizeDelta, Is.EqualTo(new Vector2(232.0f, 52.0f)));
+            Assert.That(maskRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(beltContent.sizeDelta, Is.EqualTo(new Vector2(320.0f, 52.0f)));
+            Assert.That(cells.Length, Is.EqualTo(7));
 
-            var previewMask = 1 << previewLayer;
-            var scenePaths = new[]
+            var left = (RectTransform)cells[2].transform;
+            var center = (RectTransform)cells[3].transform;
+            var right = (RectTransform)cells[4].transform;
+
+            Assert.That(center.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(center.sizeDelta.x, Is.GreaterThan(left.sizeDelta.x));
+            Assert.That(center.sizeDelta.y, Is.GreaterThan(left.sizeDelta.y));
+            Assert.That(right.sizeDelta, Is.EqualTo(left.sizeDelta));
+
+            for (var i = 0; i < cells.Length - 1; i++)
             {
-                "Assets/Scenes/CombinedGameplayShowcase.unity",
-                "Assets/Scenes/TutorialScene.unity",
-                "Assets/Scenes/UIAudioScene.unity",
-            };
+                var current = (RectTransform)cells[i].transform;
+                var next = (RectTransform)cells[i + 1].transform;
+                var visualGap = GetAuthoredVisualLeft(next) - GetAuthoredVisualRight(current);
 
-            foreach (var scenePath in scenePaths)
-            {
-                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-                var mainCameras = scene.GetRootGameObjects()
-                    .SelectMany(root => root.GetComponentsInChildren<Camera>(true))
-                    .Where(camera => camera.CompareTag("MainCamera"))
-                    .ToArray();
-
-                Assert.That(mainCameras, Is.Not.Empty, scenePath);
-                foreach (var mainCamera in mainCameras)
-                {
-                    Assert.That(
-                        mainCamera.cullingMask & previewMask,
-                        Is.EqualTo(0),
-                        $"{scenePath} MainCamera '{mainCamera.name}' must not render {SurfaceCubeMapView.PreviewLayerName}.");
-                }
+                Assert.That(
+                    visualGap,
+                    Is.EqualTo(0.0f).Within(0.01f),
+                    $"{current.name} should touch {next.name} without overlap or authored spacing.");
             }
         }
 
@@ -484,14 +468,14 @@ namespace Game.Feature.UI.Tests
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
-                var topologyHudPresenter = new TopologyHudPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    topologyHudPresenter,
+                    surfaceBeltIndicatorPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
@@ -499,7 +483,7 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    topologyHudPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -526,14 +510,14 @@ namespace Game.Feature.UI.Tests
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
-                var topologyHudPresenter = new TopologyHudPresenter();
+                var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
-                    topologyHudPresenter,
+                    surfaceBeltIndicatorPresenter,
                     playerStatusPresenter,
                     notificationPresenter);
                 using var controller = new HUDController(
@@ -541,7 +525,7 @@ namespace Game.Feature.UI.Tests
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
-                    topologyHudPresenter.ViewModel,
+                    surfaceBeltIndicatorPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     notificationPresenter.ViewModel);
 
@@ -2333,6 +2317,28 @@ namespace Game.Feature.UI.Tests
                 && firstRect.yMax > secondRect.yMin;
 
             Assert.That(overlaps, Is.False, $"{first.name} overlaps {second.name}.");
+        }
+
+        private static float GetAuthoredVisualHalfWidth(RectTransform rectTransform)
+        {
+            var halfWidth = rectTransform.sizeDelta.x * Mathf.Abs(rectTransform.localScale.x) * 0.5f;
+            var outline = rectTransform.GetComponent<Outline>();
+            if (outline != null && outline.enabled)
+            {
+                halfWidth += Mathf.Abs(outline.effectDistance.x) * Mathf.Abs(rectTransform.localScale.x);
+            }
+
+            return halfWidth;
+        }
+
+        private static float GetAuthoredVisualLeft(RectTransform rectTransform)
+        {
+            return rectTransform.anchoredPosition.x - GetAuthoredVisualHalfWidth(rectTransform);
+        }
+
+        private static float GetAuthoredVisualRight(RectTransform rectTransform)
+        {
+            return rectTransform.anchoredPosition.x + GetAuthoredVisualHalfWidth(rectTransform);
         }
 
         private static TReference GetSerializedReference<TReference>(
