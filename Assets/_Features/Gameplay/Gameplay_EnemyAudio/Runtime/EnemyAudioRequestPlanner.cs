@@ -115,8 +115,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                AddRequestIf(signal.EntityId, EnemyAudioCue.Act, signal.StartedThisTick, requests);
-                AddRequestIf(signal.EntityId, EnemyAudioCue.Plasma, signal.ExecutedThisTick, requests);
+                AddRequestIf(signal.EntityId, EnemyAudioCue.Windup, signal.StartedThisTick, requests);
+                AddRequestIf(signal.EntityId, EnemyAudioCue.Active, signal.ExecutedThisTick, requests);
             }
         }
 
@@ -130,12 +130,12 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 var signal = signals[i];
                 AddRequestIf(
                     signal.EntityId,
-                    EnemyAudioCue.Act,
+                    EnemyAudioCue.Windup,
                     signal.Phase == EnemyUtilityPresentationPhase.WindupStarted,
                     requests);
                 AddRequestIf(
                     signal.EntityId,
-                    EnemyAudioCue.GravityField,
+                    EnemyAudioCue.Recover,
                     signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes &&
                     signal.Phase == EnemyUtilityPresentationPhase.RecoverStarted,
                     requests);
@@ -152,11 +152,48 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 var signal = signals[i];
                 AddRequestIf(
                     signal.SourceEntityId,
-                    EnemyAudioCue.Act,
+                    EnemyAudioCue.Windup,
                     signal.SourceEntityId > 0 &&
                     signal.TickIndex == signal.WindupStartTick,
                     requests);
             }
+
+            var visibilityChanges = presentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var visibilityChange = visibilityChanges[i];
+                if (visibilityChange.ChangeKind != TickVisibilityChangeKind.Spawn ||
+                    !TryResolveSummonSourceEntityId(
+                        presentationData,
+                        visibilityChange.EntityId,
+                        out var sourceEntityId))
+                {
+                    continue;
+                }
+
+                AddRequest(sourceEntityId, EnemyAudioCue.Active, requests);
+            }
+        }
+
+        private static bool TryResolveSummonSourceEntityId(
+            TickPresentationData presentationData,
+            int summonedEntityId,
+            out int sourceEntityId)
+        {
+            var bindings = presentationData.SummonedEnemyPresentationBindings;
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var binding = bindings[i];
+                if (binding.EntityId == summonedEntityId &&
+                    binding.SourceEntityId > 0)
+                {
+                    sourceEntityId = binding.SourceEntityId;
+                    return true;
+                }
+            }
+
+            sourceEntityId = 0;
+            return false;
         }
 
         private static void BuildJumpRequests(

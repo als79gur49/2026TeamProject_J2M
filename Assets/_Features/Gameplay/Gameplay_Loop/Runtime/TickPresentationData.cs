@@ -774,11 +774,13 @@ namespace Game.Feature.Gameplay.Loop
         public TickSummonedEnemyPresentationBinding(
             int entityId,
             bool hasEnemyDefinitionBinding,
-            EnemyUnitArchetypeId archetypeId)
+            EnemyUnitArchetypeId archetypeId,
+            int sourceEntityId = 0)
         {
             EntityId = entityId;
             HasEnemyDefinitionBinding = hasEnemyDefinitionBinding;
             ArchetypeId = archetypeId;
+            SourceEntityId = sourceEntityId;
         }
 
         public int EntityId { get; }
@@ -786,6 +788,8 @@ namespace Game.Feature.Gameplay.Loop
         public bool HasEnemyDefinitionBinding { get; }
 
         public EnemyUnitArchetypeId ArchetypeId { get; }
+
+        public int SourceEntityId { get; }
     }
 
     public readonly struct TickSummonWindupWarningSignal

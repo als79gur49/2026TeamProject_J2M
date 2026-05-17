@@ -117,11 +117,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(new[]
                 {
                     (20, EnemyAudioCue.Move),
-                    (20, EnemyAudioCue.Act),
-                    (20, EnemyAudioCue.Plasma),
-                    (21, EnemyAudioCue.Act),
-                    (21, EnemyAudioCue.GravityField),
-                    (22, EnemyAudioCue.Act),
+                    (20, EnemyAudioCue.Windup),
+                    (20, EnemyAudioCue.Active),
+                    (21, EnemyAudioCue.Windup),
+                    (21, EnemyAudioCue.Recover),
+                    (22, EnemyAudioCue.Windup),
                     (23, EnemyAudioCue.Landing),
                     (24, EnemyAudioCue.Death),
                 }));
@@ -418,7 +418,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
                 new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()),
-                new EnemyAudioEntrySpec(EnemyAudioCue.Act, CreateDefinitionSpec()));
+                new EnemyAudioEntrySpec(EnemyAudioCue.Windup, CreateDefinitionSpec()));
             try
             {
                 var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
@@ -450,7 +450,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "Move", "Act", "Act" }));
+                    Is.EqualTo(new[] { "Move", "Windup", "Windup" }));
             }
             finally
             {
@@ -499,7 +499,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAudioRequestPlanner_SummonWindupStartTick_EmitsSingleActCue()
+        public void EnemyAudioRequestPlanner_SummonWindupStartTick_EmitsSingleWindupCue()
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -524,12 +524,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
-                Is.EqualTo(new[] { (22, EnemyAudioCue.Act) }));
+                Is.EqualTo(new[] { (22, EnemyAudioCue.Windup) }));
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyAudioRequestPlanner_SummonWindupActiveTick_DoesNotEmitActCue()
+        public void EnemyAudioRequestPlanner_SummonWindupActiveTick_DoesNotEmitWindupCue()
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -553,6 +553,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var requests = planner.BuildRequests(result);
 
             Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_SummonedEnemySpawn_EmitsActiveCueForSourceSummoner()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var spawnCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                visibilityChanges: new[]
+                {
+                    new TickVisibilityChange(
+                        entityId: 60,
+                        TickVisibilityChangeKind.Spawn,
+                        spawnCell,
+                        topology,
+                        Direction.Left),
+                },
+                summonedEnemyPresentationBindings: new[]
+                {
+                    new TickSummonedEnemyPresentationBinding(
+                        entityId: 60,
+                        hasEnemyDefinitionBinding: true,
+                        archetypeId: default,
+                        sourceEntityId: 22),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (22, EnemyAudioCue.Active) }));
         }
 
         [Test]
@@ -659,18 +692,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_BlackEye.prefab",
                     EnemyAudioCue.Move,
-                    EnemyAudioCue.Act,
-                    EnemyAudioCue.Plasma,
+                    EnemyAudioCue.Windup,
+                    EnemyAudioCue.Active,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_DrSaturn.prefab",
                     EnemyAudioCue.Move,
-                    EnemyAudioCue.Act,
-                    EnemyAudioCue.GravityField,
+                    EnemyAudioCue.Windup,
+                    EnemyAudioCue.Recover,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_JPeter.prefab",
-                    EnemyAudioCue.Act,
+                    EnemyAudioCue.Windup,
+                    EnemyAudioCue.Active,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_Startis.prefab",
@@ -739,12 +773,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
             IReadOnlyList<TickSummonWindupWarningSignal> summonWindupWarnings = null,
             IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals = null,
-            IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks = null)
+            IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks = null,
+            IReadOnlyList<TickVisibilityChange> visibilityChanges = null,
+            IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
                 topologyMotion: null,
-                Array.Empty<TickVisibilityChange>(),
+                visibilityChanges ?? Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),
                 Array.Empty<TickPlayerLocomotionPresentationSignal>(),
@@ -755,7 +791,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyJumpSignals ?? Array.Empty<TickEnemyJumpPresentationSignal>(),
                 Array.Empty<TickEnemyChargePresentationSignal>(),
                 entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
-                Array.Empty<FlipImpactPresentationSignal>(),
+                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                summonedEnemyPresentationBindings: summonedEnemyPresentationBindings ?? Array.Empty<TickSummonedEnemyPresentationBinding>(),
                 summonWindupWarnings: summonWindupWarnings ?? Array.Empty<TickSummonWindupWarningSignal>(),
                 kinematicMotionTracks: kinematicMotionTracks ?? Array.Empty<TickKinematicMotionTrack>(),
                 enemyUtilitySignals: enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>());

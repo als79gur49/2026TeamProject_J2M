@@ -2716,7 +2716,8 @@ namespace Game.Feature.Gameplay.Loop
                     new TickSummonedEnemyPresentationBinding(
                         summonedEntry.EntityId,
                         hasBinding,
-                        hasBinding ? bindingState.ArchetypeId : EnemyUnitArchetypeId.None));
+                        hasBinding ? bindingState.ArchetypeId : EnemyUnitArchetypeId.None,
+                        summonedEntry.State.SourceEntityId));
             }
         }
 
