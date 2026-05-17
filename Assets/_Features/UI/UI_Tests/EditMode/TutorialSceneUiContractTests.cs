@@ -50,6 +50,41 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
+        public void UiAudioScene_UsesStageBgmPath_WithoutSceneDefaultBgmOverride()
+        {
+            var scene = EditorSceneManager.OpenScene(UiAudioScenePath, OpenSceneMode.Single);
+
+            try
+            {
+                var rootObjects = scene.GetRootGameObjects();
+                var bootstrapRoot = rootObjects.Single(root => root.name == "UIAudioSceneBootstrapRoot");
+                var showcaseInstaller = bootstrapRoot.GetComponent<CombinedGameplayShowcaseInstaller>();
+                var bgmBootstrap = bootstrapRoot.GetComponent<GlobalAudioFlowBootstrap>();
+                var requestSource = rootObjects
+                    .SelectMany(root => root.GetComponentsInChildren<SceneBgmRequestSource>(true))
+                    .SingleOrDefault();
+
+                Assert.That(showcaseInstaller, Is.Not.Null);
+                Assert.That(bgmBootstrap, Is.Not.Null);
+                Assert.That(requestSource, Is.Not.Null);
+                Assert.That(requestSource.enabled, Is.False);
+
+                var serializedShowcaseInstaller = new SerializedObject(showcaseInstaller);
+                Assert.That(
+                    serializedShowcaseInstaller.FindProperty("stageBgmProfileCatalog").objectReferenceValue,
+                    Is.Not.Null);
+                Assert.That(
+                    serializedShowcaseInstaller.FindProperty("globalAudioFlowBootstrap").objectReferenceValue,
+                    Is.SameAs(bgmBootstrap));
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CombinedGameplayShowcaseScene_UsesCoLocatedUiAudioDisplayBootstrap_OnCanonicalBootstrapRoot()
         {
             AssertCanonicalBootstrapScene(
