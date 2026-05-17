@@ -1142,7 +1142,8 @@ namespace Game.Feature.Gameplay.Entities
                     attackKind,
                     attackDecisionSettings,
                     attackTimingSettings,
-                    attackDecisionStrategy);
+                    attackDecisionStrategy,
+                    WindupMeleeSettings.CreateDefault());
             }
 
             EnemyMovementSkillCapabilityRuntime movementSkill = null;

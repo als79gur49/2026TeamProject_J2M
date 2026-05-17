@@ -377,6 +377,464 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyAi_WindupMelee_SimulationDistanceOutsideSlack_BlocksWindup()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -KinematicFixed.HalfCellUnits, localY: 0);
+            var profile = CreateEnemyProfile(windupTicks: 1);
+
+            try
+            {
+                var result = CreateEnemyPipeline(worldState, profile, GameplayRuntimeFeatureFlags.None).RunTick(new TickInput(1));
+
+                var snapshot = worldState.CreateSnapshot();
+                if (snapshot.TryGetEnemyActionState(40, out var actionState))
+                {
+                    Assert.That(actionState.IsActive, Is.False);
+                }
+
+                Assert.That(result.PresentationData.EnemyActionSignals, Is.Empty);
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_SimulationDistanceInsideSlack_StartsWindupAndLocksAnchor()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -256, localY: 0);
+            var profile = CreateEnemyProfile(windupTicks: 1);
+
+            try
+            {
+                CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+                var actionState = GetEnemyActionState(worldState, 40);
+
+                Assert.That(actionState.IsActive, Is.True);
+                Assert.That(actionState.hasLockedCombatAnchor, Is.True);
+                Assert.That(actionState.lockedCombatAnchor.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(actionState.lockedCombatAnchor.LocalOffset.X.RawValue, Is.EqualTo(-256));
+                Assert.That(actionState.lockedCombatAnchor.TileSpaceX, Is.EqualTo(-256));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_StartHold_PreservesLogicCellAndOccupancy()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            SetUnitContinuousLocomotionState(
+                worldState,
+                40,
+                localX: -256,
+                localY: 0,
+                velocityX: 128,
+                velocityY: 0,
+                mode: ContinuousLocomotionMode.Moving);
+            var profile = CreateEnemyProfile(windupTicks: 1);
+
+            try
+            {
+                CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(sourceCell));
+                Assert.That(snapshot.TryGetPrimaryUnitAt(sourceCell, out var occupant), Is.True);
+                Assert.That(occupant.entityId, Is.EqualTo(40));
+                Assert.That(snapshot.TryGetUnitContinuousLocomotionState(40, out var heldState), Is.True);
+                Assert.That(heldState.localOffset.X.RawValue, Is.EqualTo(-256));
+                Assert.That(heldState.velocity.IsZero, Is.True);
+                Assert.That(heldState.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_PlayerMovesOutsideLockedShape_ExecuteMisses()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            var profile = CreateEnemyProfile(windupTicks: 1);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                SetUnitContinuousLocomotionState(worldState, 10, localX: 0, localY: KinematicFixed.MaxPositiveLocalOffset);
+                var executeTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(
+                    executeTick.AttackPhaseResult.DamageResolutions.Any(record =>
+                        record.Accepted &&
+                        record.SourceId == 40 &&
+                        record.TargetId == 10 &&
+                        record.SourceKind == AttackSourceKind.Combat),
+                    Is.False);
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+                Assert.That(GetEnemyActionState(worldState, 40).executionAttempted, Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_PlayerStaysInsideLockedShape_ExecuteHits()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            var profile = CreateEnemyProfile(windupTicks: 1);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                SetUnitContinuousLocomotionState(worldState, 10, localX: 0, localY: 256);
+                var executeTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(
+                    executeTick.AttackPhaseResult.DamageResolutions.Any(record =>
+                        record.Accepted &&
+                        record.SourceId == 40 &&
+                        record.TargetId == 10 &&
+                        record.SourceKind == AttackSourceKind.Combat),
+                    Is.True);
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_RecoverComplete_ReleasesKinematicHoldWithoutSnap()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            SetUnitKinematicLocomotionState(worldState, 40, localX: 256, localY: 0, stepDirectionX: 1, stepDirectionY: 0);
+            var profile = CreateEnemyProfile(windupTicks: 1);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out var heldState), Is.True);
+                Assert.That(heldState.mode, Is.EqualTo(MotionMode.Held));
+                var heldAnchorCell = GetEnemyActionState(worldState, 40).lockedCombatAnchor.AnchorCell;
+                var heldOffsetX = heldState.localOffset.X.RawValue;
+                var heldOffsetY = heldState.localOffset.Y.RawValue;
+                var expectedReleasedOffsetX = heldOffsetX + (heldState.stepDirectionX * KinematicFixed.UnitsPerCell / heldState.totalTicks);
+                var expectedReleasedOffsetY = heldOffsetY + (heldState.stepDirectionY * KinematicFixed.UnitsPerCell / heldState.totalTicks);
+
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 5, 0));
+                pipeline.RunTick(new TickInput(4));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitKinematicState(40, out var releasedState), Is.True);
+                Assert.That(releasedState.mode, Is.EqualTo(MotionMode.Voluntary));
+                Assert.That(releasedState.localOffset.X.RawValue, Is.EqualTo(expectedReleasedOffsetX));
+                Assert.That(releasedState.localOffset.Y.RawValue, Is.EqualTo(expectedReleasedOffsetY));
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(heldAnchorCell));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_SevereTransition_BlocksWindup()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            worldState.CreateWriteContext().SetUnitKinematicState(
+                40,
+                new UnitKinematicRuntimeState
+                {
+                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
+                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                    mode = MotionMode.Forced,
+                    forcedOp = ForcedMotionOp.Knockback,
+                    sequenceId = 1,
+                });
+            var profile = CreateEnemyProfile(windupTicks: 1);
+
+            try
+            {
+                CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_PlayerAtDeadZoneRange_ApproachesInsteadOfIdling()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -KinematicFixed.HalfCellUnits, localY: 0);
+
+            try
+            {
+                var beforeSnapshot = worldState.CreateSnapshot();
+                Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
+                var logicRange = MeleeAttackDecisionStrategy.Instance.IsTargetInRange(
+                    enemy,
+                    player,
+                    AttackDecisionSettings.CreateDefaultMelee());
+                var query = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                    beforeSnapshot,
+                    enemy,
+                    player,
+                    MeleeAttackDecisionStrategy.Instance,
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    WindupMeleeSettings.CreateDefault());
+
+                var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+                var enemyAfterTick = GetEntity(worldState, 40);
+
+                Assert.That(logicRange, Is.True, BuildWindupStartGateDebug(logicRange, query, result));
+                Assert.That(query.CanStart, Is.False, BuildWindupStartGateDebug(logicRange, query, result));
+                Assert.That(query.ShouldApproach, Is.True, BuildWindupStartGateDebug(logicRange, query, result));
+                Assert.That(query.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.OutsideSimulationStartRange));
+                Assert.That(query.DistanceFixedUnits, Is.GreaterThan(query.ThresholdFixedUnits));
+                Assert.That(
+                    result.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40),
+                    Is.Empty,
+                    BuildWindupStartGateDebug(logicRange, query, result));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState) && actionState.IsActive, Is.False);
+                Assert.That(enemyAfterTick.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(
+                    result.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40),
+                    Is.True,
+                    BuildWindupStartGateDebug(logicRange, query, result));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_PlayerAtStartThreshold_StartsWindup()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 1);
+            var windupSettings = WindupMeleeSettings.CreateDefault();
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -windupSettings.VisualRangeSlackUnits, localY: 0);
+
+            try
+            {
+                var beforeSnapshot = worldState.CreateSnapshot();
+                Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
+                var query = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                    beforeSnapshot,
+                    enemy,
+                    player,
+                    MeleeAttackDecisionStrategy.Instance,
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    windupSettings);
+
+                var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+                var actionState = GetEnemyActionState(worldState, 40);
+
+                Assert.That(query.CanStart, Is.True, BuildWindupStartGateDebug(true, query, result));
+                Assert.That(query.DistanceFixedUnits, Is.EqualTo(query.ThresholdFixedUnits));
+                Assert.That(actionState.IsActive, Is.True);
+                Assert.That(actionState.hasLockedCombatAnchor, Is.True);
+                Assert.That(actionState.lockedCombatAnchor.LocalOffset.X.RawValue, Is.EqualTo(-windupSettings.VisualRangeSlackUnits));
+                Assert.That(result.PresentationData.EnemyActionSignals.Any(signal => signal.EntityId == 40 && signal.StartedThisTick), Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_OutsideSimulationRange_DoesNotConsumeCombatActionAsHandled()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -KinematicFixed.HalfCellUnits, localY: 0);
+
+            try
+            {
+                var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+
+                Assert.That(result.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40), Is.Empty);
+                Assert.That(result.AttackPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Empty);
+                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(result.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState) && actionState.IsActive, Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_SlackDoesNotExpandExecuteHitRange()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                SetUnitContinuousLocomotionState(
+                    worldState,
+                    10,
+                    localX: 0,
+                    localY: KinematicFixed.UnitsPerCell / 4);
+                var executeTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(
+                    executeTick.AttackPhaseResult.DamageResolutions.Any(record =>
+                        record.Accepted &&
+                        record.SourceId == 40 &&
+                        record.TargetId == 10 &&
+                        record.SourceKind == AttackSourceKind.Combat),
+                    Is.False);
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+                Assert.That(WindupMeleeSettings.CreateDefault().VisualRangeSlackUnits, Is.LessThanOrEqualTo(Mathf.RoundToInt(WindupMeleeSettings.MaxVisualRangeSlackCells * KinematicFixed.UnitsPerCell)));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupMelee_SevereTransition_DoesNotApproachAsDistanceFallback()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            worldState.CreateWriteContext().SetUnitKinematicState(
+                40,
+                new UnitKinematicRuntimeState
+                {
+                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
+                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                    mode = MotionMode.Forced,
+                    forcedOp = ForcedMotionOp.Knockback,
+                    sequenceId = 1,
+                });
+
+            try
+            {
+                var beforeSnapshot = worldState.CreateSnapshot();
+                Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
+                var query = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                    beforeSnapshot,
+                    enemy,
+                    player,
+                    MeleeAttackDecisionStrategy.Instance,
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    WindupMeleeSettings.CreateDefault());
+
+                var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+
+                Assert.That(query.CanStart, Is.False, BuildWindupStartGateDebug(true, query, result));
+                Assert.That(query.ShouldApproach, Is.False);
+                Assert.That(query.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.SevereTransition));
+                Assert.That(result.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Empty);
+                Assert.That(result.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40), Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyUtilitySummon_InitializesCooldown_TriggersAndResetsThroughCanonicalState()
         {
             var profile = CreateUtilitySummonProfile(initialDelayTicks: 2, cooldownTicks: 3, windupTicks: 1);
@@ -6177,6 +6635,79 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
+        private static void SetUnitContinuousLocomotionState(
+            WorldState worldState,
+            int entityId,
+            int localX,
+            int localY,
+            int velocityX = 0,
+            int velocityY = 0,
+            ContinuousLocomotionMode mode = ContinuousLocomotionMode.Idle)
+        {
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                entityId,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.FromRaw(localX),
+                        KinematicFixed.FromRaw(localY)),
+                    velocity = new KinematicVelocity2(
+                        KinematicFixed.FromRaw(velocityX),
+                        KinematicFixed.FromRaw(velocityY)),
+                    mode = mode,
+                    facing = Direction.Right,
+                    speedUnitsPerTick = Math.Max(Math.Abs(velocityX), Math.Abs(velocityY)),
+                    sequenceId = 1,
+                });
+        }
+
+        private static string BuildWindupStartGateDebug(
+            bool logicRange,
+            in WindupMeleeStartQueryResult query,
+            TickResult result)
+        {
+            var movementSources = string.Join(
+                ",",
+                result.MovementPhaseResult.RawIntents.Select(intent => $"{intent.SourceId}:{intent.Destination}"));
+            var actionSignals = string.Join(
+                ",",
+                result.PresentationData.EnemyActionSignals.Select(signal => $"{signal.EntityId}:Start={signal.StartedThisTick}:Execute={signal.ExecutedThisTick}"));
+
+            return $"LogicRange={logicRange}|CanStart={query.CanStart}|ShouldApproach={query.ShouldApproach}|Reason={query.BlockReason}|Distance={query.DistanceFixedUnits}|Threshold={query.ThresholdFixedUnits}|Slack={WindupMeleeSettings.CreateDefault().VisualRangeSlackUnits}|Movement=[{movementSources}]|Signals=[{actionSignals}]|Trace={result.Trace.Text}";
+        }
+
+        private static void SetUnitKinematicLocomotionState(
+            WorldState worldState,
+            int entityId,
+            int localX,
+            int localY,
+            int stepDirectionX,
+            int stepDirectionY)
+        {
+            worldState.CreateWriteContext().SetUnitKinematicState(
+                entityId,
+                new UnitKinematicRuntimeState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.FromRaw(localX),
+                        KinematicFixed.FromRaw(localY)),
+                    velocity = new KinematicVelocity2(
+                        KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.UnitsPerCell / 4),
+                        KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.UnitsPerCell / 4)),
+                    mode = MotionMode.Voluntary,
+                    remainingDistanceUnits = KinematicFixed.UnitsPerCell - Math.Abs(localX) - Math.Abs(localY),
+                    remainingTicks = 3,
+                    speedScalePermille = 1000,
+                    sequenceId = 1,
+                    elapsedTicks = 1,
+                    totalTicks = 4,
+                    commitTick = 4,
+                    startedTick = 1,
+                    stepDirectionX = stepDirectionX,
+                    stepDirectionY = stepDirectionY,
+                });
+        }
+
         private static EnemyAiProfile CreateEnemyProfile(
             int windupTicks,
             int moveCooldownTicks = 0,
@@ -7494,6 +8025,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int executeTick)
         {
             var writeContext = worldState.CreateWriteContext();
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
+            var anchor = new CombatOriginAnchor(
+                entity.position,
+                KinematicOffset2.Zero,
+                entity.position.x * KinematicFixed.UnitsPerCell,
+                entity.position.y * KinematicFixed.UnitsPerCell,
+                Direction.Left);
             writeContext.SetEnemyActionState(
                 entityId,
                 new EnemyActionRuntimeState
@@ -7505,6 +8044,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     startTick = Math.Max(0, executeTick - 1),
                     executeTick = executeTick,
                     executionAttempted = false,
+                    hasLockedCombatAnchor = true,
+                    lockedCombatAnchor = anchor,
                 });
         }
 

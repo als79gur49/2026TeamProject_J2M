@@ -122,6 +122,7 @@ namespace Game.Feature.Gameplay.Entities
                 workingAction.executionAttempted &&
                 workingAction.executeTick < tickIndex)
             {
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
                 workingAction = EnemyActionQueries.Clear(workingAction);
             }
 
@@ -129,6 +130,7 @@ namespace Game.Feature.Gameplay.Entities
                 workingAction.IsActive &&
                 workingAction.executionAttempted)
             {
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
                 workingAction = EnemyActionQueries.Clear(workingAction);
             }
 
@@ -141,6 +143,14 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.aiMode != EnemyAiMode.Attack)
             {
+                if (source.aiMode == EnemyAiMode.Recover &&
+                    workingAction.IsActive &&
+                    workingAction.executionAttempted)
+                {
+                    return workingAction;
+                }
+
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
                 return EnemyActionQueries.Clear(workingAction);
             }
 
@@ -164,6 +174,7 @@ namespace Game.Feature.Gameplay.Entities
                 }
 
                 ApplyCancelFallback(snapshot, source, writeContext);
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
                 return EnemyActionQueries.Clear(workingAction);
             }
 
@@ -181,9 +192,26 @@ namespace Game.Feature.Gameplay.Entities
                 return EnemyActionQueries.Clear(previousAction);
             }
 
-            if (!CanStartCombatActionThisTick(snapshot, tickIndex))
+            if (!CanStartCombatActionThisTick(snapshot, source, tickIndex))
             {
                 return workingAction;
+            }
+
+            var startQuery = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                    snapshot,
+                    source,
+                    target,
+                    _combatCapability.AttackDecisionStrategy,
+                    _combatCapability.AttackDecisionSettings,
+                    _combatCapability.WindupMeleeSettings);
+            if (!startQuery.CanStart)
+            {
+                if (startQuery.BlockReason != WindupMeleeStartBlockReason.OutsideSimulationStartRange)
+                {
+                    ApplyCancelFallback(snapshot, source, writeContext);
+                }
+
+                return EnemyActionQueries.Clear(previousAction);
             }
 
             var nextAction = EnemyActionQueries.StartAction(
@@ -192,8 +220,10 @@ namespace Game.Feature.Gameplay.Entities
                 target.entityId,
                 direction,
                 tickIndex,
-                _combatCapability.AttackTimingSettings.WindupTicks);
+                _combatCapability.AttackTimingSettings.WindupTicks,
+                startQuery.EnemyOrigin);
             writeContext.SetFacing(_entityId, direction);
+            HoldCombatLocomotionAtCurrentPose(snapshot, source, writeContext);
             return nextAction;
         }
 
@@ -236,17 +266,86 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
+        private void HoldCombatLocomotionAtCurrentPose(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            IEnemyActionCommitContext writeContext)
+        {
+            if (snapshot.TryGetUnitContinuousLocomotionPose(source.entityId, out var continuousPose) &&
+                continuousPose.HasAuthoritativeState &&
+                (!continuousPose.State.velocity.IsZero ||
+                 continuousPose.Mode != ContinuousLocomotionMode.Idle))
+            {
+                writeContext.SetUnitContinuousLocomotionState(
+                    source.entityId,
+                    UnitContinuousLocomotionState.CreateIdleFreeze(continuousPose.State));
+            }
+
+            if (snapshot.TryGetUnitKinematicPose(source.entityId, out var kinematicPose) &&
+                kinematicPose.HasAuthoritativeState &&
+                kinematicPose.Mode == MotionMode.Voluntary)
+            {
+                writeContext.SetUnitKinematicState(
+                    source.entityId,
+                    UnitKinematicRuntimeState.CreateHeldFreeze(kinematicPose.State));
+            }
+        }
+
+        private void ReleaseCombatLocomotionHoldIfNeeded(
+            WorldSnapshot snapshot,
+            in EnemyActionRuntimeState actionState,
+            IEnemyActionCommitContext writeContext)
+        {
+            if (!actionState.hasLockedCombatAnchor ||
+                !snapshot.TryGetUnitKinematicPose(_entityId, out var pose) ||
+                !pose.HasAuthoritativeState ||
+                pose.Mode != MotionMode.Held ||
+                !TryResolveHeldResumeVelocity(pose.State, out var velocity))
+            {
+                return;
+            }
+
+            writeContext.SetUnitKinematicState(
+                _entityId,
+                UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(pose.State, velocity));
+        }
+
+        private static bool TryResolveHeldResumeVelocity(
+            in UnitKinematicRuntimeState state,
+            out KinematicVelocity2 velocity)
+        {
+            velocity = default;
+            if (state.totalTicks <= 0 ||
+                (state.stepDirectionX == 0 && state.stepDirectionY == 0))
+            {
+                return false;
+            }
+
+            velocity = new KinematicVelocity2(
+                KinematicFixed.FromRaw(state.stepDirectionX * KinematicFixed.UnitsPerCell / state.totalTicks),
+                KinematicFixed.FromRaw(state.stepDirectionY * KinematicFixed.UnitsPerCell / state.totalTicks));
+            return true;
+        }
+
         private bool UsesReceiverOwnedContactCadence()
         {
             return _combatCapability != null &&
                    _combatCapability.AttackDecisionStrategy is ContactSameCellAttackDecisionStrategy;
         }
 
-        private bool CanStartCombatActionThisTick(WorldSnapshot snapshot, int tickIndex)
+        private bool CanStartCombatActionThisTick(WorldSnapshot snapshot, in EntityState source, int tickIndex)
         {
             if (snapshot.CanStartAction(_entityId, tickIndex))
             {
                 return true;
+            }
+
+            if (_combatCapability != null &&
+                _combatCapability.AttackTimingSettings.WindupTicks > 0 &&
+                source.aiMode != EnemyAiMode.Attack &&
+                WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, _entityId, tickIndex))
+            {
+                return false;
             }
 
             if (CanStartExecutionLockedWindupCombat(snapshot, tickIndex))
@@ -303,7 +402,9 @@ namespace Game.Feature.Gameplay.Entities
                    left.direction == right.direction &&
                    left.startTick == right.startTick &&
                    left.executeTick == right.executeTick &&
-                   left.executionAttempted == right.executionAttempted;
+                   left.executionAttempted == right.executionAttempted &&
+                   left.hasLockedCombatAnchor == right.hasLockedCombatAnchor &&
+                   left.lockedCombatAnchor.Equals(right.lockedCombatAnchor);
         }
     }
 

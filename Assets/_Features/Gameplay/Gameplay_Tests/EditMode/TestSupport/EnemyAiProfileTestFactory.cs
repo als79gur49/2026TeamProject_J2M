@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Tests
         public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
         public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateDefaultMelee();
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
+        public WindupMeleeSettings WindupMeleeSettings = WindupMeleeSettings.CreateDefault();
         public bool IncludePassiveContact;
         public MovementSkillStrategyKind MovementSkillStrategyKind = MovementSkillStrategyKind.None;
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
@@ -415,6 +416,7 @@ namespace Game.Feature.Gameplay.Tests
                     var melee = CreateHiddenAsset<MeleeCombatCapabilityAsset>("Test_MeleeCombatCapability");
                     SetSerializedField(melee, "attackDecisionSettings", spec.AttackDecisionSettings);
                     SetSerializedField(melee, "attackTimingSettings", spec.AttackTimingSettings);
+                    SetSerializedField(melee, "windupMeleeSettings", spec.WindupMeleeSettings);
                     yield return melee;
                     break;
                 }

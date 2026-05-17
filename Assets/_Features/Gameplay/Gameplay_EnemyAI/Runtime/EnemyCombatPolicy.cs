@@ -31,6 +31,41 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    [Serializable]
+    public struct WindupMeleeSettings
+    {
+        public const float DefaultVisualRangeSlackCells = 0.10f;
+        public const float MaxVisualRangeSlackCells = 0.15f;
+
+        [SerializeField] private float visualRangeSlackCells;
+
+        public WindupMeleeSettings(float visualRangeSlackCells)
+        {
+            this.visualRangeSlackCells = visualRangeSlackCells;
+        }
+
+        public float VisualRangeSlackCells => visualRangeSlackCells;
+
+        public int VisualRangeSlackUnits =>
+            Mathf.RoundToInt(Mathf.Clamp(visualRangeSlackCells, 0f, MaxVisualRangeSlackCells) * KinematicFixed.UnitsPerCell);
+
+        public void Validate(string paramName)
+        {
+            if (visualRangeSlackCells < 0f ||
+                visualRangeSlackCells > MaxVisualRangeSlackCells)
+            {
+                throw new ArgumentException(
+                    $"WindupMelee visual range slack must be between 0 and {MaxVisualRangeSlackCells} cells.",
+                    paramName);
+            }
+        }
+
+        public static WindupMeleeSettings CreateDefault()
+        {
+            return new WindupMeleeSettings(DefaultVisualRangeSlackCells);
+        }
+    }
+
     public interface IAttackDecisionStrategy
     {
         bool TryBuildAttackIntent(

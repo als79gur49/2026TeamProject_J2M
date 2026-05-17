@@ -9,6 +9,60 @@ namespace Game.Feature.Gameplay.Entities
         Melee = 1,
     }
 
+    public readonly struct CombatOriginAnchor : IEquatable<CombatOriginAnchor>
+    {
+        public CombatOriginAnchor(
+            SurfaceCell anchorCell,
+            KinematicOffset2 localOffset,
+            int tileSpaceX,
+            int tileSpaceY,
+            Direction facing)
+        {
+            AnchorCell = anchorCell;
+            LocalOffset = localOffset;
+            TileSpaceX = tileSpaceX;
+            TileSpaceY = tileSpaceY;
+            Facing = facing;
+        }
+
+        public SurfaceCell AnchorCell { get; }
+
+        public KinematicOffset2 LocalOffset { get; }
+
+        public int TileSpaceX { get; }
+
+        public int TileSpaceY { get; }
+
+        public Direction Facing { get; }
+
+        public bool Equals(CombatOriginAnchor other)
+        {
+            return AnchorCell.Equals(other.AnchorCell) &&
+                   LocalOffset.Equals(other.LocalOffset) &&
+                   TileSpaceX == other.TileSpaceX &&
+                   TileSpaceY == other.TileSpaceY &&
+                   Facing == other.Facing;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is CombatOriginAnchor other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = AnchorCell.GetHashCode();
+                hashCode = (hashCode * 397) ^ LocalOffset.GetHashCode();
+                hashCode = (hashCode * 397) ^ TileSpaceX;
+                hashCode = (hashCode * 397) ^ TileSpaceY;
+                hashCode = (hashCode * 397) ^ (int)Facing;
+                return hashCode;
+            }
+        }
+    }
+
     public struct EnemyActionRuntimeState
     {
         public EnemyActionKind kind;
@@ -18,6 +72,8 @@ namespace Game.Feature.Gameplay.Entities
         public int startTick;
         public int executeTick;
         public bool executionAttempted;
+        public bool hasLockedCombatAnchor;
+        public CombatOriginAnchor lockedCombatAnchor;
 
         public bool IsActive => kind != EnemyActionKind.None;
     }
@@ -78,7 +134,8 @@ namespace Game.Feature.Gameplay.Entities
             int lockedTargetEntityId,
             Direction direction,
             int startTick,
-            int windupTicks)
+            int windupTicks,
+            CombatOriginAnchor? lockedCombatAnchor = null)
         {
             if (kind == EnemyActionKind.None)
             {
@@ -99,6 +156,8 @@ namespace Game.Feature.Gameplay.Entities
                 startTick = startTick,
                 executeTick = startTick + windupTicks,
                 executionAttempted = false,
+                hasLockedCombatAnchor = lockedCombatAnchor.HasValue,
+                lockedCombatAnchor = lockedCombatAnchor.GetValueOrDefault(),
             };
         }
 
