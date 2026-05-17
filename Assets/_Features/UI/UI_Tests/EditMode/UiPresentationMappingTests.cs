@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.HUD;
 using NUnit.Framework;
 
 namespace Game.Feature.UI.Tests
@@ -147,6 +148,55 @@ namespace Game.Feature.UI.Tests
             Assert.That(refreshResult.Snapshot.Interaction.IsUiGameplayInputBlocked, Is.True);
             Assert.That(refreshResult.Snapshot.Player.TookDamageThisTick, Is.True);
             Assert.That(refreshResult.Snapshot.Notifications.ActiveNotifications.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void UIStateMapper_ReduceRefresh_PreservesTopologyRotationKindInSurfaceBeltSnapshot()
+        {
+            var mapper = new UIStateMapper();
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    tickIndex: 12,
+                    shouldUpdateTickIndex: true,
+                    finalFace: GameplayUiFace.Front,
+                    shouldUpdateFinalTopology: true,
+                    isTopologyTransitionActive: true,
+                    topologyPresentation: new GameplayTopologyPresentationSlice(
+                        new GameplayUiTopology(GameplayUiFace.Floor),
+                        new GameplayUiTopology(GameplayUiFace.Front),
+                        GameplayUiRotationKind.Forward)));
+
+            Assert.That(result.Snapshot.SurfaceBelt.SourceSlotIndex, Is.EqualTo(0));
+            Assert.That(result.Snapshot.SurfaceBelt.DestinationSlotIndex, Is.EqualTo(1));
+            Assert.That(result.Snapshot.SurfaceBelt.CurrentSlotIndex, Is.EqualTo(1));
+            Assert.That(result.Snapshot.SurfaceBelt.Direction, Is.EqualTo(SurfaceBeltDirection.Forward));
+            Assert.That(result.Snapshot.SurfaceBelt.IsTransitioning, Is.True);
+            Assert.That(result.Snapshot.SurfaceBelt.TransitionSequenceId, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void UIStateMapper_ReduceRefresh_MapsMissingRotationKindToNoSurfaceBeltDirection()
+        {
+            var mapper = new UIStateMapper();
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    tickIndex: 13,
+                    shouldUpdateTickIndex: true,
+                    finalFace: GameplayUiFace.Front,
+                    shouldUpdateFinalTopology: true,
+                    isTopologyTransitionActive: true,
+                    topologyPresentation: new GameplayTopologyPresentationSlice(
+                        new GameplayUiTopology(GameplayUiFace.Floor),
+                        new GameplayUiTopology(GameplayUiFace.Front),
+                        GameplayUiRotationKind.None)));
+
+            Assert.That(result.Snapshot.SurfaceBelt.Direction, Is.EqualTo(SurfaceBeltDirection.None));
+            Assert.That(result.Snapshot.SurfaceBelt.SourceSlotIndex, Is.EqualTo(0));
+            Assert.That(result.Snapshot.SurfaceBelt.DestinationSlotIndex, Is.EqualTo(1));
         }
 
         [Test]
@@ -593,7 +643,8 @@ namespace Game.Feature.UI.Tests
             int maxChances = 0,
             StageId stageId = default,
             string stageDisplayName = "",
-            GameplayObjectiveReadModel objective = default)
+            GameplayObjectiveReadModel objective = default,
+            GameplayTopologyPresentationSlice? topologyPresentation = null)
         {
             return new UIStateRefreshInput(
                 tickIndex,
@@ -620,7 +671,8 @@ namespace Game.Feature.UI.Tests
                 maxChances: maxChances,
                 stageId: stageId,
                 stageDisplayName: stageDisplayName,
-                objective: objective);
+                objective: objective,
+                topologyPresentation: topologyPresentation);
         }
 
         private static GameplayObjectiveReadModel CreateObjectiveReadModel(bool isSatisfied)

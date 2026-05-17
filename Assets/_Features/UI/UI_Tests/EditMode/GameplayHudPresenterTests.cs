@@ -69,14 +69,14 @@ namespace Game.Feature.UI.Tests
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
-            var topologyHudPresenter = new TopologyHudPresenter();
+            var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
-                topologyHudPresenter,
+                surfaceBeltIndicatorPresenter,
                 playerStatusPresenter,
                 notificationPresenter);
 
@@ -99,7 +99,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(playerStatusPresenter.ViewModel.HasRemainingChances, Is.False);
             Assert.That(playerStatusPresenter.ViewModel.MaxChances, Is.EqualTo(0));
             Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.False);
-            Assert.That(topologyHudPresenter.ViewModel.CurrentFaceLabel, Is.EqualTo("Front"));
+            Assert.That(surfaceBeltIndicatorPresenter.ViewModel.CenterSlotIndex, Is.EqualTo(1));
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
             Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(1));
         }
@@ -200,33 +200,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TopologyHudPresenter_MapsCurrentFaceToFourStateIndex()
+        public void SurfaceBeltIndicatorPresenter_MapsCurrentFaceToSevenAuthoredCells()
         {
-            var presenter = new TopologyHudPresenter();
+            var presenter = new SurfaceBeltIndicatorPresenter();
 
-            presenter.Apply(UITopologySlice.FromTopology(new GameplayUiTopology(GameplayUiFace.Ceiling), false));
+            presenter.Apply(new SurfaceBeltSnapshot(
+                currentSlotIndex: 2,
+                sourceSlotIndex: 2,
+                destinationSlotIndex: 2,
+                SurfaceBeltDirection.None,
+                isTransitioning: false,
+                transitionSequenceId: 0));
 
-            Assert.That(presenter.ViewModel.CurrentFaceLabel, Is.EqualTo("Ceiling"));
-            Assert.That(presenter.ViewModel.CurrentFaceIndex, Is.EqualTo(2));
-            Assert.That(presenter.ViewModel.Chips, Has.Length.EqualTo(4));
-            Assert.That(presenter.ViewModel.Chips[2].IsActive, Is.True);
+            Assert.That(presenter.ViewModel.CenterSlotIndex, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.Cells, Has.Length.EqualTo(7));
+            Assert.That(presenter.ViewModel.Cells.Single(cell => cell.IsCurrent).SlotIndex, Is.EqualTo(2));
         }
 
         [Test]
-        public void TopologyHudPresenter_ShowsTransitionActiveState()
+        public void SurfaceBeltIndicatorPresenter_PreservesTransitionState()
         {
-            var presenter = new TopologyHudPresenter();
+            var presenter = new SurfaceBeltIndicatorPresenter();
 
-            presenter.Apply(new UITopologySlice(
-                "Front",
-                1,
-                true,
-                "Floor",
-                "Front",
-                0.0f));
+            presenter.Apply(new SurfaceBeltSnapshot(
+                currentSlotIndex: 1,
+                sourceSlotIndex: 0,
+                destinationSlotIndex: 1,
+                SurfaceBeltDirection.Forward,
+                isTransitioning: true,
+                transitionSequenceId: 42));
 
-            Assert.That(presenter.ViewModel.IsTransitionActive, Is.True);
-            Assert.That(presenter.ViewModel.SurfaceStateText, Is.EqualTo("Floor -> Front"));
+            Assert.That(presenter.ViewModel.IsTransitioning, Is.True);
+            Assert.That(presenter.ViewModel.Direction, Is.EqualTo(SurfaceBeltDirection.Forward));
+            Assert.That(presenter.ViewModel.TransitionSequenceId, Is.EqualTo(42));
+            Assert.That(presenter.ViewModel.CenterSlotIndex, Is.EqualTo(0));
         }
 
         [Test]
