@@ -1562,7 +1562,8 @@ namespace Game.Feature.Gameplay.Loop
             int sourceActorEntityId,
             EntityExitPresentationTiming timing,
             string boundaryReason,
-            bool hasExplicitAnchor)
+            bool hasExplicitAnchor,
+            float visualContactNormalizedTime = 0f)
         {
             EntityId = entityId;
             ExitCause = exitCause;
@@ -1574,6 +1575,7 @@ namespace Game.Feature.Gameplay.Loop
             Timing = timing;
             BoundaryReason = boundaryReason ?? string.Empty;
             HasExplicitAnchor = hasExplicitAnchor;
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
         }
 
         public int EntityId { get; }
@@ -1595,6 +1597,18 @@ namespace Game.Feature.Gameplay.Loop
         public string BoundaryReason { get; }
 
         public bool HasExplicitAnchor { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
     }
 
     // Exit signals transfer visual ownership away from the authoritative entity view.
@@ -1612,7 +1626,8 @@ namespace Game.Feature.Gameplay.Loop
             int? sourceActorEntityId = null,
             int? anchorEntityId = null,
             int presentationSeed = 0,
-            EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate)
+            EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate,
+            float visualContactNormalizedTime = 0f)
         {
             ExitedEntityId = exitedEntityId;
             ExitCause = exitCause;
@@ -1624,6 +1639,7 @@ namespace Game.Feature.Gameplay.Loop
             AnchorEntityId = anchorEntityId;
             PresentationSeed = presentationSeed;
             Timing = timing;
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
         }
 
         public int ExitedEntityId { get; }
@@ -1645,6 +1661,18 @@ namespace Game.Feature.Gameplay.Loop
         public int PresentationSeed { get; }
 
         public EntityExitPresentationTiming Timing { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
     }
 
     // Presentation-only transient for current Flip nonlethal destroy-self impact.
@@ -1688,6 +1716,71 @@ namespace Game.Feature.Gameplay.Loop
     {
         DestroySelf = 1,
         Stay = 2,
+    }
+
+    public enum FlipFloorImpactPresentationKind
+    {
+        Landing = 1,
+        FollowThrough = 2,
+        Stay = 3,
+        DestroySelf = 4,
+    }
+
+    public readonly struct FlipFloorImpactPresentationSignal
+    {
+        public FlipFloorImpactPresentationSignal(
+            int sourceActionPlanId,
+            int boxEntityId,
+            int actorEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell contactCell,
+            CubeTopologyState topology,
+            Direction sourceFacing,
+            Direction contactFacing,
+            FlipFloorImpactPresentationKind kind,
+            float visualContactNormalizedTime = GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime)
+        {
+            SourceActionPlanId = sourceActionPlanId;
+            BoxEntityId = boxEntityId;
+            ActorEntityId = actorEntityId;
+            SourceCell = sourceCell;
+            ContactCell = contactCell;
+            Topology = topology;
+            SourceFacing = sourceFacing;
+            ContactFacing = contactFacing;
+            Kind = kind;
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+        }
+
+        public int SourceActionPlanId { get; }
+
+        public int BoxEntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell ContactCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction SourceFacing { get; }
+
+        public Direction ContactFacing { get; }
+
+        public FlipFloorImpactPresentationKind Kind { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
     }
 
     public readonly struct FlipImpactPresentationSignal
@@ -1872,6 +1965,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<BoxSlideStopPresentationSignal> _boxSlideStopSignals;
         private readonly ReadOnlyCollection<BoxSlideStartPresentationSignal> _boxSlideStartSignals;
         private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
+        private readonly ReadOnlyCollection<FlipFloorImpactPresentationSignal> _flipFloorImpactSignals;
         private readonly ReadOnlyCollection<FlipImpactPresentationSignal> _flipImpactSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
         private readonly ReadOnlyCollection<TickEnemyDamagePresentationSignal> _enemyDamageSignals;
@@ -2243,7 +2337,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null)
         {
             if (entityMotions == null)
             {
@@ -2377,6 +2472,9 @@ namespace Game.Feature.Gameplay.Loop
                     boxSlideStartSignals ?? Array.Empty<BoxSlideStartPresentationSignal>()));
             _flipImpactSignals = new ReadOnlyCollection<FlipImpactPresentationSignal>(
                 new List<FlipImpactPresentationSignal>(flipImpactSignals));
+            _flipFloorImpactSignals = new ReadOnlyCollection<FlipFloorImpactPresentationSignal>(
+                new List<FlipFloorImpactPresentationSignal>(
+                    flipFloorImpactSignals ?? Array.Empty<FlipFloorImpactPresentationSignal>()));
             _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
                 new List<TickImpactTransientPresentationSignal>());
             _summonedEnemyPresentationBindings = new ReadOnlyCollection<TickSummonedEnemyPresentationBinding>(
@@ -2418,7 +2516,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2443,7 +2542,8 @@ namespace Game.Feature.Gameplay.Loop
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
-                playerFlipResultTurnSignals: playerFlipResultTurnSignals)
+                playerFlipResultTurnSignals: playerFlipResultTurnSignals,
+                flipFloorImpactSignals: flipFloorImpactSignals)
         {
         }
 
@@ -2510,7 +2610,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2539,7 +2640,8 @@ namespace Game.Feature.Gameplay.Loop
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
-                playerFlipResultTurnSignals: playerFlipResultTurnSignals)
+                playerFlipResultTurnSignals: playerFlipResultTurnSignals,
+                flipFloorImpactSignals: flipFloorImpactSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -2584,7 +2686,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2614,7 +2717,8 @@ namespace Game.Feature.Gameplay.Loop
                 boxSlideStartSignals,
                 tileFeatureVisualStates,
                 tileFeatureActiveVisualStates,
-                playerFlipResultTurnSignals)
+                playerFlipResultTurnSignals,
+                flipFloorImpactSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -2694,6 +2798,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<BoxSlideStartPresentationSignal> BoxSlideStartSignals => _boxSlideStartSignals;
 
         public IReadOnlyList<FlipImpactPresentationSignal> FlipImpactSignals => _flipImpactSignals;
+
+        public IReadOnlyList<FlipFloorImpactPresentationSignal> FlipFloorImpactSignals => _flipFloorImpactSignals;
 
         internal IReadOnlyList<TickImpactTransientPresentationSignal> ImpactTransientSignals => _impactTransientSignals;
 
