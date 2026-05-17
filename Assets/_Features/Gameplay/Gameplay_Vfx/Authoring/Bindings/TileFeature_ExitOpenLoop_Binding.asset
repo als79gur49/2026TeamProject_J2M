@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
-  m_Name: JumperJumpStart_Binding
-  m_EditorClassIdentifier: 
-  family: 3
-  cueCode: 21
+  m_Name: TileFeature_ExitOpenLoop_Binding
+  m_EditorClassIdentifier:
+  family: 4
+  cueCode: 25
   styleKey:
-    value: 
-  prefab: {fileID: 100000, guid: e7d16f90d5f9ccb331e65ac35af7f32c, type: 3}
+    value:
+  prefab: {fileID: 100000, guid: 22f2ee6929b44bbab221484da19dd69f, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
-  playbackMode: 0
-  stopPolicy: 1
-  defaultLifetimeSeconds: 0.35
-  tailSeconds: 0.7
-  initialPoolSize: 4
+  playbackMode: 1
+  stopPolicy: 2
+  defaultLifetimeSeconds: 0
+  tailSeconds: 0.3
+  initialPoolSize: 2
   maxConcurrentInstances: 8

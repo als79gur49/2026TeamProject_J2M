@@ -160,7 +160,7 @@ MotionTrack-following VFX is a presentation-only attachment lifecycle for effect
 
 Categories:
 
-- Existing motion-like VFX computes its own source-to-target command, such as `BoxVfxCue.SlideDustTrail` through `ParameterizedMotionVfxCommand`.
+- Existing motion-like VFX computes its own source-to-target command, such as `BoxVfxCue.FlipDestroySelfMotion` through `ParameterizedMotionVfxCommand`.
 - MotionTrack-attached VFX follows original-view motion by parenting a pooled VFX instance under the source entity view/model root.
 - Future sample-following VFX may resolve `PresentationMotionTrack` samples into a VFX anchor directly; production `VfxAnchorKind.MotionTrack` sample resolving remains future work.
 
@@ -207,7 +207,7 @@ Ownership and lifecycle:
 
 Relationship to existing VFX:
 
-- this differs from `BoxVfxCue.SlideDustTrail`, which uses `ParameterizedMotionVfxCommand` to compute source-to-target VFX motion.
+- `BoxVfxCue.BoxSlideFollowLoop` now shares this parent attachment and detach/tail lifecycle family; the old source-to-target `SlideDustTrail` command path is removed.
 - it shares the parent attachment and detach/tail lifecycle family with `BoxVfxCue.FlipImpactStayTrail`.
 - production `VfxAnchorKind.MotionTrack` sample-follow resolving remains future work.
 
@@ -302,13 +302,6 @@ First concrete user:
 
 Second concrete user:
 
-- Box Slide trail
-- cue: `BoxVfxCue.SlideDustTrail`
-- adapter source: `TickPresentationData.EntityMotions` filtered to `TickEntityMotionKind.BoxSlide`
-- playback: `PrefabOnly` soft dust/trail emitter moved from source cell pose to destination cell pose
-
-Third concrete user:
-
 - Enemy Death Motion
 - cue: `EnemyVfxCue.DeathMotion`
 - adapter source: `TickPresentationData.EntityExitSignals` filtered to enemy death exits
@@ -319,10 +312,9 @@ Third concrete user:
 `ParameterizedMotionVfxCommand` carries an explicit sampler mode so presentation VFX can choose the correct source-to-target pose policy without changing gameplay movement carriers.
 
 - `FlipArc`: the existing arc/tumble sampler for `FlipDestroySelfMotion` and other flip-styled source-to-impact motion. It preserves the existing arc height, tumble rotation, break/fade, clone, and material behavior.
-- `Linear`: exact source-to-target interpolation for `BoxVfxCue.SlideDustTrail`. Position uses direct linear interpolation, rotation uses direct slerp, and arc height/tumble are not applied.
 - `LegacyEnemyDeathFlyAway`: enemy death exit motion parity sampler. Position uses legacy ease-out cubic travel plus `sin(t*pi)` arc offset, and rotation applies seeded spin around the legacy camera-forward local axis.
 
-Sampler modes are presentation-only. They do not change box slide movement, enemy death cleanup, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, `TickEntityMotion`, `MotionTrack`, `MotionClip`, or box slide timing. `BoxSlideTrail` v1 now uses `Linear`; `EnemyDeathMotion` uses `LegacyEnemyDeathFlyAway`; exact scrape/decal primitives remain future work.
+Sampler modes are presentation-only. They do not change enemy death cleanup, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, `TickEntityMotion`, `MotionTrack`, or `MotionClip`. `EnemyDeathMotion` uses `LegacyEnemyDeathFlyAway`; exact scrape/decal primitives remain future work.
 
 Future possible users:
 
@@ -331,42 +323,39 @@ Future possible users:
 
 Unit movement, Projectile movement, generic gameplay motion drivers, exact scrape/decal trails, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this sampler change.
 
-## Box Slide Trail VFX Adapter
+## Box Slide Spark Follow VFX
 
-The Box Slide trail adapter is an augmentation, not a migration. It adds a soft moving dust/trail emitter for committed box slide presentation facts while leaving existing box motion presentation active.
+The Box Slide spark follow VFX is an augmentation, not a migration. It adds a continuous spark emitter parented under the sliding box model root while leaving existing box motion presentation active.
 
 Source and cue:
 
 - source fact: `TickPresentationData.EntityMotions`
 - filter: `TickEntityMotionKind.BoxSlide`
-- cue: `BoxVfxCue.SlideDustTrail`
-- one command is emitted per slide segment; multi-segment slides are not collapsed
+- cue: `BoxVfxCue.BoxSlideFollowLoop`
+- one attached follower is desired per sliding box entity; multi-segment slides keep the same entity/state follower key
 
 Motion mapping:
 
-- source `SurfaceCell` to destination `SurfaceCell` is projected through the host `GameplayCubeProjector` / `GameplayPoseResolver` path
-- source and destination face/topology/facing metadata from `TickEntityMotion` is preserved through projection
-- duration comes from existing box slide timing, `GameplayMotionTimingResolver.ResolveGlobalMotionDurationSeconds(TickEntityMotionKind.BoxSlide, timingProfile)`
-- sequence and presentation seed are deterministic from tick, entity id, source cell, destination cell, and cue
+- the VFX follows by transform parenting under `GameplayEntityView.ModelRoot`, falling back to the view transform
+- the follower key is deterministic from cue, box entity id, state kind, and entity-based sequence; it does not include tick/source/destination
+- movement remains owned by gameplay/host presentation; VFX does not sample or move the box
 
 Runtime behavior:
 
 - feature flag: `EnableGameplayVfxBoxSlideTrail`
 - default true after the Tier 1/2 rollout batch
 - flag off emits no slide trail VFX and does not affect box movement
-- flag on plays a `ParameterizedMotionVfxCommand` when the binding is present
+- flag on creates/keeps a controller-managed attached follower while BoxSlide motion is present
 - missing binding is diagnostic/no-op
 - no legacy presenter bypass or suppress gate exists because there is no old slide dust/trail path to migrate
 
 Visual and boundaries:
 
-- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxSlideDustTrailVfx.prefab`
-- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxSlideDustTrail_SoftDust.mat`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideDustTrail_Binding.asset`
-- clone mode: `PrefabOnly`
-- fade mode: `AlphaOnly`
-- sampler mode: `Linear`
-- the v1 visual remains a moving dust emitter; exact scrape/decal trails, Unit movement trail, and Projectile trail remain future work
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxSlideSparkFollowVfx.prefab`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideFollowLoop_Binding.asset`
+- playback mode: `Follow`
+- stop policy: `DetachThenStopEmittingThenRelease`
+- the v1 visual is a bottom-of-box spark emitter; exact scrape/decal trails, Unit movement trail, and Projectile trail remain future work
 - this adapter does not change `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `TickPresentationData`, `TickEntityMotion`, box movement drivers, legality, settlement, or traversal
 
 ## FrontFace Shield VFX Migration
@@ -490,12 +479,12 @@ Non-goals:
 
 V1 policy:
 
-- transient one-shot marker only
+- persistent marker while the jump is in `Windup` or `Airborne`
 - anchor is `PresentationTargetCell` with `VfxAnchorSlot.CellFloor`
-- playback is `OneShot`
-- stop policy is `AuthoredDuration`
-- lifetime is `0.55` seconds
-- tail is `0.25` seconds
+- playback is `Loop`
+- stop policy is `StopEmittingThenRelease`
+- lifetime is `0` seconds
+- tail is `0` seconds so the marker is released at landing reconcile
 - initial pool size authoring hint is `4`
 - max concurrent instances is `8`
 
@@ -1277,7 +1266,7 @@ TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, t
 | `EnableGameplayVfxBoxDestroyShrinkMigration` | `BoxVfxCue.DestroyShrink` | Migration / parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | True | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.SlideDustTrail` | Augmentation / parameterized motion | True | Tier 1 | Yes | targeted tests + density visual spot check |
+| `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.BoxSlideFollowLoop` | Augmentation / attached follower | True | Tier 1 | Yes | targeted attached-follow regression + visual spot check |
 | `EnableGameplayVfxBoxSlideSolidStop` | `BoxVfxCue.BoxSlideSolidStop` | Augmentation / signal-owned boundary VFX | True | Tier 1 | Yes | targeted planner/runtime regression + visual spot check |
 | `EnableGameplayVfxImpactTransientBreakMigration` | `BoxVfxCue.ImpactTransientBreak` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | `EnableGameplayVfxOutOfBoundsExitMigration` | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |

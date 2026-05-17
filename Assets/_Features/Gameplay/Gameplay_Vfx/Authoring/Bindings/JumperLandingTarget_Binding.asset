@@ -17,9 +17,9 @@ MonoBehaviour:
   prefab: {fileID: 100000, guid: 99a3f5c656be4dcdb21b393b7aab0c90, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
-  playbackMode: 0
-  stopPolicy: 1
-  defaultLifetimeSeconds: 0.55
-  tailSeconds: 0.25
+  playbackMode: 1
+  stopPolicy: 2
+  defaultLifetimeSeconds: 0
+  tailSeconds: 0
   initialPoolSize: 4
   maxConcurrentInstances: 8

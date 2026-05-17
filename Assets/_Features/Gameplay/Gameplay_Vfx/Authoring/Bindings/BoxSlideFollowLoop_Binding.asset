@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
-  m_Name: BoxSlideFollowLoop_Binding
+  m_Name: BoxSlideSparkFollow_Binding
   m_EditorClassIdentifier: 
   family: 2
   cueCode: 15
@@ -21,7 +21,7 @@ MonoBehaviour:
   missingAnchorPolicy: 2
   playbackMode: 2
   stopPolicy: 3
-  defaultLifetimeSeconds: 0.2
-  tailSeconds: 0.4
+  defaultLifetimeSeconds: 0
+  tailSeconds: 0.35
   initialPoolSize: 4
   maxConcurrentInstances: 12

@@ -568,6 +568,7 @@ namespace Game.Feature.Gameplay.Vfx
                 var signal = jumpSignals[i];
                 if (IsJumperLandingTargetCueSource(signal))
                 {
+                    var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
                     builder.Add(
                         new GameplayVfxRequest(
                             tickIndex: context.TickIndex,
@@ -575,12 +576,20 @@ namespace Game.Feature.Gameplay.Vfx
                             presentationSeed: signal.EntityId,
                             // PresentationSeed remains a visual variation seed; SourceEntityId is the source identity.
                             sourceEntityId: signal.EntityId,
-                            cueId: GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
+                            cueId: cueId,
                             anchor: VfxAnchor.ForCell(
                                 signal.PresentationTargetCell,
                                 context.Topology,
                                 VfxAnchorSlot.CellFloor),
-                            timing: VfxTimingKind.ImmediateOnTickPresentation));
+                            timing: VfxTimingKind.ImmediateOnTickPresentation,
+                            isPersistent: true,
+                            persistentKey: new VfxPersistentKey(
+                                cueId,
+                                VfxAnchorKind.Cell,
+                                entityId: signal.EntityId,
+                                cell: signal.PresentationTargetCell,
+                                hasCell: true,
+                                activationSequence: signal.Sequence)));
                 }
 
                 if (IsJumperJumpStartCueSource(signal))
@@ -619,7 +628,9 @@ namespace Game.Feature.Gameplay.Vfx
 
         private static bool IsJumperLandingTargetCueSource(in TickEnemyJumpPresentationSignal signal)
         {
-            return signal.StartedWindupThisTick ||
+            return signal.Phase == EnemyJumpPhase.Windup ||
+                   signal.Phase == EnemyJumpPhase.Airborne ||
+                   signal.StartedWindupThisTick ||
                    signal.Outcome == TickEnemyJumpPresentationOutcome.WindupStarted;
         }
 
@@ -868,6 +879,9 @@ namespace Game.Feature.Gameplay.Vfx
                     return true;
                 case TileFeatureKind.Barricade:
                     cue = TileFeatureVfxCue.BarricadeActiveLoop;
+                    return true;
+                case TileFeatureKind.Exit:
+                    cue = TileFeatureVfxCue.ExitOpenLoop;
                     return true;
                 default:
                     cue = default;

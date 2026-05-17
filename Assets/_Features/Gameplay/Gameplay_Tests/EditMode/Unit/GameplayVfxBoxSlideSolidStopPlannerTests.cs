@@ -4,14 +4,46 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxBoxSlideSolidStopPlannerTests
     {
+        private const string SolidStopPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxSlideSolidStopVfx.prefab";
+        private const string FollowPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxSlideSparkFollowVfx.prefab";
+        private const string SolidStopBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxSlideSolidStop_Binding.asset";
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideSolidStopBinding_UsesDedicatedTransientPrefab()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(SolidStopBindingPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SolidStopPrefabPath);
+            var followPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(FollowPrefabPath);
+
+            Assert.That(binding, Is.Not.Null, SolidStopBindingPath);
+            Assert.That(prefab, Is.Not.Null, SolidStopPrefabPath);
+            Assert.That(followPrefab, Is.Not.Null, FollowPrefabPath);
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)));
+            Assert.That(binding.Prefab, Is.EqualTo(prefab));
+            Assert.That(binding.Prefab, Is.Not.EqualTo(followPrefab));
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+
+            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
+            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
+        }
+
         [Test]
         public void SolidEntitySignal_EmitsBoxSlideSolidStopRequest()
         {

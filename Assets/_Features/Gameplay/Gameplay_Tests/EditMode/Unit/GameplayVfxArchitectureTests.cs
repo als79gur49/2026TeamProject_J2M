@@ -314,10 +314,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var planner = ReadRepoFile(FlipImpactBurstVfxRequestPlannerPath);
 
-            Assert.That(planner, Does.Contain("FlipImpactContactVfxAnchorBuilder.TryBuild"));
+            Assert.That(planner, Does.Contain("FlipFloorImpactSignals"));
             Assert.That(planner, Does.Contain("BoxVfxCue.FlipImpactBurst"));
             Assert.That(planner, Does.Contain("VfxAnchor.ForCell"));
-            Assert.That(planner, Does.Contain("contactAnchor.ImpactCell"));
+            Assert.That(planner, Does.Contain("signal.ContactCell"));
             Assert.That(planner, Does.Not.Contain("PresentationMotionTrack"));
             Assert.That(planner, Does.Not.Contain("OriginalViewMotionTracks"));
             Assert.That(planner, Does.Not.Contain("Suppress"));
