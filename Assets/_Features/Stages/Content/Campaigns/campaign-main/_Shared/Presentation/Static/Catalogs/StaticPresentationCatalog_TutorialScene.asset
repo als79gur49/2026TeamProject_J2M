@@ -19,6 +19,8 @@ MonoBehaviour:
     ViewPrefab: {fileID: 1140000000000000010, guid: 992e3d33d474d4543b1ae0c1c01b1b77, type: 3}
   - PresentationId: box_moon
     ViewPrefab: {fileID: 1140000000000000010, guid: 4d56a7e70a1049dc879abc115bcaec46, type: 3}
+  - PresentationId: box_gravity
+    ViewPrefab: {fileID: 1140000000000000010, guid: 889b8faa72619c74fbffda1f2e73e91d, type: 3}
   - PresentationId: wall_tutorial
     ViewPrefab: {fileID: 1140000000000000010, guid: d88a1ebaf3e2422e9fe1cb9c438a0bc4, type: 3}
   - PresentationId: wall_bed_tutorial
