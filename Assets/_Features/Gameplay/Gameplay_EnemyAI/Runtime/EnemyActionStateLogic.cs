@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Entities
     internal sealed class EnemyActionStateLogic : IEnemyActionStateLogic, IEntityLogicSourceBinding
     {
         private readonly int _entityId;
+        private readonly EnemyAiCommonSettings _commonSettings;
         private readonly DetectionSettings _detectionSettings;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly EnemyCombatCapabilityRuntime _combatCapability;
@@ -36,6 +37,7 @@ namespace Game.Feature.Gameplay.Entities
             aiDefinition.Validate(nameof(aiDefinition));
 
             _entityId = entityId;
+            _commonSettings = aiDefinition.CommonSettings;
             _detectionSettings = aiDefinition.DetectionSettings;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
@@ -156,6 +158,27 @@ namespace Game.Feature.Gameplay.Entities
 
             if (workingAction.IsActive)
             {
+                if (workingAction.kind == EnemyActionKind.ForwardCellProjectile)
+                {
+                    if (!workingAction.executionAttempted &&
+                        workingAction.executeTick <= tickIndex)
+                    {
+                        var releasedAction = CommitForwardCellProjectileRelease(
+                            workingAction,
+                            writeContext,
+                            tickIndex);
+                        ReleaseCombatLocomotionHoldIfNeeded(snapshot, releasedAction, writeContext);
+                        return releasedAction;
+                    }
+
+                    if (source.facing != workingAction.direction)
+                    {
+                        writeContext.SetFacing(_entityId, workingAction.direction);
+                    }
+
+                    return workingAction;
+                }
+
                 if (EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
                         source,
@@ -197,13 +220,11 @@ namespace Game.Feature.Gameplay.Entities
                 return workingAction;
             }
 
-            var startQuery = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
-                    snapshot,
-                    source,
-                    target,
-                    _combatCapability.AttackDecisionStrategy,
-                    _combatCapability.AttackDecisionSettings,
-                    _combatCapability.WindupMeleeSettings);
+            var startQuery = QueryCombatWindupStart(
+                snapshot,
+                source,
+                target,
+                out var lockedTargetCell);
             if (!startQuery.CanStart)
             {
                 if (startQuery.BlockReason != WindupMeleeStartBlockReason.OutsideSimulationStartRange)
@@ -214,17 +235,87 @@ namespace Game.Feature.Gameplay.Entities
                 return EnemyActionQueries.Clear(previousAction);
             }
 
+            var actionKind = _combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile
+                ? EnemyActionKind.ForwardCellProjectile
+                : EnemyActionKind.Melee;
             var nextAction = EnemyActionQueries.StartAction(
                 workingAction,
-                EnemyActionKind.Melee,
+                actionKind,
                 target.entityId,
                 direction,
                 tickIndex,
                 _combatCapability.AttackTimingSettings.WindupTicks,
-                startQuery.EnemyOrigin);
+                startQuery.EnemyOrigin,
+                actionKind == EnemyActionKind.ForwardCellProjectile ? lockedTargetCell : null);
             writeContext.SetFacing(_entityId, direction);
             HoldCombatLocomotionAtCurrentPose(snapshot, source, writeContext);
             return nextAction;
+        }
+
+        private WindupMeleeStartQueryResult QueryCombatWindupStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            out SurfaceCell? lockedTargetCell)
+        {
+            lockedTargetCell = null;
+            if (_combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
+            {
+                var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                    snapshot,
+                    source,
+                    target,
+                    _combatCapability.AttackDecisionStrategy,
+                    _combatCapability.AttackDecisionSettings,
+                    _combatCapability.WindupForwardCellProjectileSettings,
+                    out var targetCell);
+                if (result.CanStart)
+                {
+                    lockedTargetCell = targetCell;
+                }
+
+                return result;
+            }
+
+            return WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                snapshot,
+                source,
+                target,
+                _combatCapability.AttackDecisionStrategy,
+                _combatCapability.AttackDecisionSettings,
+                _combatCapability.WindupMeleeSettings);
+        }
+
+        private EnemyActionRuntimeState CommitForwardCellProjectileRelease(
+            in EnemyActionRuntimeState action,
+            IEnemyActionCommitContext writeContext,
+            int tickIndex)
+        {
+            if (!action.hasLockedForwardCellImpact)
+            {
+                return EnemyActionQueries.MarkExecutionAttempted(action, tickIndex);
+            }
+
+            var settings = _combatCapability.WindupForwardCellProjectileSettings;
+            var impact = new PendingCellImpact(
+                AllocatePendingCellImpactId(_entityId, action.sequence),
+                _entityId,
+                _entityId,
+                action.lockedTargetCell,
+                action.lockedAttackDirection,
+                settings.Damage,
+                tickIndex,
+                tickIndex,
+                tickIndex + settings.ImpactDelayTicks);
+
+            writeContext.AddPendingCellImpact(impact);
+            writeContext.ApplyEnemyAiState(_entityId, EnemyAiMode.Recover, _commonSettings.RecoverTicks);
+            return EnemyActionQueries.MarkExecutionAttempted(action, tickIndex);
+        }
+
+        private static int AllocatePendingCellImpactId(int ownerId, int actionSequence)
+        {
+            return checked((ownerId * 100000) + Math.Max(1, actionSequence));
         }
 
         private static EnemyActionRuntimeState CommitAfterAttack(
@@ -404,7 +495,11 @@ namespace Game.Feature.Gameplay.Entities
                    left.executeTick == right.executeTick &&
                    left.executionAttempted == right.executionAttempted &&
                    left.hasLockedCombatAnchor == right.hasLockedCombatAnchor &&
-                   left.lockedCombatAnchor.Equals(right.lockedCombatAnchor);
+                   left.lockedCombatAnchor.Equals(right.lockedCombatAnchor) &&
+                   left.hasLockedForwardCellImpact == right.hasLockedForwardCellImpact &&
+                   left.lockedAttackBaseCell.Equals(right.lockedAttackBaseCell) &&
+                   left.lockedTargetCell.Equals(right.lockedTargetCell) &&
+                   left.lockedAttackDirection == right.lockedAttackDirection;
         }
     }
 

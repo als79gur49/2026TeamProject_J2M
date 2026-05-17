@@ -6,5 +6,6 @@ namespace Game.Feature.Gameplay.Attack
         PassiveContact = 1,
         ImpactReservation = 2,
         DelayedEffect = 3,
+        ForwardCellImpact = 4,
     }
 }

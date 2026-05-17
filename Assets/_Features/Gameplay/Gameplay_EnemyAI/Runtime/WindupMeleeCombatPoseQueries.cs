@@ -12,6 +12,8 @@ namespace Game.Feature.Gameplay.Entities
         MissingSimulationPose = 4,
         DifferentFace = 5,
         SevereTransition = 6,
+        InvalidForwardTargetCell = 7,
+        ActivePendingImpactLimitReached = 8,
     }
 
     internal readonly struct WindupMeleeStartQueryResult
@@ -96,7 +98,7 @@ namespace Game.Feature.Gameplay.Entities
             attackDecisionSettings.Validate(nameof(attackDecisionSettings));
             windupMeleeSettings.Validate(nameof(windupMeleeSettings));
 
-            if (attackDecisionStrategy is not MeleeAttackDecisionStrategy)
+            if (!IsShortRangeWindupStrategy(attackDecisionStrategy))
             {
                 return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
             }
@@ -141,6 +143,115 @@ namespace Game.Feature.Gameplay.Entities
                     distanceUnits,
                     thresholdUnits,
                     enemyOrigin);
+        }
+
+        public static WindupMeleeStartQueryResult QueryStartWindupForwardCellProjectile(
+            WorldSnapshot snapshot,
+            in EntityState enemy,
+            in EntityState player,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in AttackDecisionSettings attackDecisionSettings,
+            in WindupForwardCellProjectileSettings settings,
+            out SurfaceCell targetCell)
+        {
+            targetCell = default;
+            settings.Validate(nameof(settings));
+
+            var startQuery = QueryStartWindupMeleeA(
+                snapshot,
+                enemy,
+                player,
+                attackDecisionStrategy,
+                attackDecisionSettings,
+                settings.ToWindupStartSettings());
+            if (!startQuery.CanStart)
+            {
+                return startQuery;
+            }
+
+            if (snapshot.CountPendingCellImpactsForOwner(enemy.entityId) >= settings.ActivePendingImpactLimitPerOwner)
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.ActivePendingImpactLimitReached);
+            }
+
+            var attackDirection = EnemyActionStateTargeting.ResolveFacing(enemy, player);
+            if (settings.RequireValidForwardCell &&
+                !TryResolveForwardTargetCell(snapshot, startQuery.EnemyOrigin.AnchorCell, attackDirection, out targetCell))
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.InvalidForwardTargetCell);
+            }
+
+            if (!settings.RequireValidForwardCell)
+            {
+                TryResolveForwardTargetCell(snapshot, startQuery.EnemyOrigin.AnchorCell, attackDirection, out targetCell);
+            }
+
+            return startQuery;
+        }
+
+        public static WindupMeleeStartQueryResult QueryShortRangeWindupStart(
+            WorldSnapshot snapshot,
+            in EntityState enemy,
+            in EntityState player,
+            EnemyCombatCapabilityRuntime combatCapability,
+            out SurfaceCell? lockedTargetCell)
+        {
+            if (combatCapability == null)
+            {
+                throw new ArgumentNullException(nameof(combatCapability));
+            }
+
+            lockedTargetCell = null;
+            if (combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
+            {
+                var result = QueryStartWindupForwardCellProjectile(
+                    snapshot,
+                    enemy,
+                    player,
+                    combatCapability.AttackDecisionStrategy,
+                    combatCapability.AttackDecisionSettings,
+                    combatCapability.WindupForwardCellProjectileSettings,
+                    out var targetCell);
+                if (result.CanStart)
+                {
+                    lockedTargetCell = targetCell;
+                }
+
+                return result;
+            }
+
+            return QueryStartWindupMeleeA(
+                snapshot,
+                enemy,
+                player,
+                combatCapability.AttackDecisionStrategy,
+                combatCapability.AttackDecisionSettings,
+                combatCapability.WindupMeleeSettings);
+        }
+
+        public static bool TryResolveForwardTargetCell(
+            WorldSnapshot snapshot,
+            SurfaceCell baseCell,
+            Direction direction,
+            out SurfaceCell targetCell)
+        {
+            targetCell = default;
+            if (snapshot == null ||
+                !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta) ||
+                !snapshot.TryResolveUnitStep(baseCell, delta, out targetCell, out _, out var updatedTopology))
+            {
+                return false;
+            }
+
+            return updatedTopology.Equals(snapshot.Topology) &&
+                   targetCell.face == baseCell.face &&
+                   snapshot.Topology.IsFaceActive(targetCell.face);
+        }
+
+        private static bool IsShortRangeWindupStrategy(IAttackDecisionStrategy attackDecisionStrategy)
+        {
+            return attackDecisionStrategy is MeleeAttackDecisionStrategy ||
+                   attackDecisionStrategy is WindupForwardCellProjectileAttackDecisionStrategy;
         }
 
         public static bool CanExecuteHitFromLockedCombatAnchor(

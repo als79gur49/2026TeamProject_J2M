@@ -66,6 +66,100 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    [Serializable]
+    public struct WindupForwardCellProjectileSettings
+    {
+        [SerializeField] private float visualStartSlackCells;
+        [SerializeField] private int impactDelayTicks;
+        [SerializeField] private int damage;
+        [SerializeField] private int activePendingImpactLimitPerOwner;
+        [SerializeField] private bool sameSurfaceOnly;
+        [SerializeField] private bool sameFaceOnly;
+        [SerializeField] private bool requireValidForwardCell;
+        [SerializeField] private bool showDangerMarkerOnWindupStart;
+
+        public WindupForwardCellProjectileSettings(
+            float visualStartSlackCells,
+            int impactDelayTicks,
+            int damage,
+            int activePendingImpactLimitPerOwner,
+            bool sameSurfaceOnly = true,
+            bool sameFaceOnly = true,
+            bool requireValidForwardCell = true,
+            bool showDangerMarkerOnWindupStart = true)
+        {
+            this.visualStartSlackCells = visualStartSlackCells;
+            this.impactDelayTicks = impactDelayTicks;
+            this.damage = damage;
+            this.activePendingImpactLimitPerOwner = activePendingImpactLimitPerOwner;
+            this.sameSurfaceOnly = sameSurfaceOnly;
+            this.sameFaceOnly = sameFaceOnly;
+            this.requireValidForwardCell = requireValidForwardCell;
+            this.showDangerMarkerOnWindupStart = showDangerMarkerOnWindupStart;
+        }
+
+        public int AttackRangeCells => 1;
+
+        public float VisualStartSlackCells => visualStartSlackCells;
+
+        public int VisualStartSlackUnits =>
+            Mathf.RoundToInt(Mathf.Clamp(visualStartSlackCells, 0f, WindupMeleeSettings.MaxVisualRangeSlackCells) * KinematicFixed.UnitsPerCell);
+
+        public int ImpactDelayTicks => impactDelayTicks;
+
+        public int Damage => damage;
+
+        public int ActivePendingImpactLimitPerOwner => activePendingImpactLimitPerOwner;
+
+        public bool SameSurfaceOnly => sameSurfaceOnly;
+
+        public bool SameFaceOnly => sameFaceOnly;
+
+        public bool RequireValidForwardCell => requireValidForwardCell;
+
+        public bool ShowDangerMarkerOnWindupStart => showDangerMarkerOnWindupStart;
+
+        public WindupMeleeSettings ToWindupStartSettings()
+        {
+            return new WindupMeleeSettings(visualStartSlackCells);
+        }
+
+        public void Validate(string paramName)
+        {
+            if (visualStartSlackCells < 0f ||
+                visualStartSlackCells > WindupMeleeSettings.MaxVisualRangeSlackCells)
+            {
+                throw new ArgumentException(
+                    $"WindupForwardCellProjectile visual start slack must be between 0 and {WindupMeleeSettings.MaxVisualRangeSlackCells} cells.",
+                    paramName);
+            }
+
+            if (impactDelayTicks <= 0)
+            {
+                throw new ArgumentException("WindupForwardCellProjectile impact delay must be positive.", paramName);
+            }
+
+            if (damage <= 0)
+            {
+                throw new ArgumentException("WindupForwardCellProjectile damage must be positive.", paramName);
+            }
+
+            if (activePendingImpactLimitPerOwner <= 0)
+            {
+                throw new ArgumentException("WindupForwardCellProjectile active pending impact limit must be positive.", paramName);
+            }
+        }
+
+        public static WindupForwardCellProjectileSettings CreateDefault()
+        {
+            return new WindupForwardCellProjectileSettings(
+                WindupMeleeSettings.DefaultVisualRangeSlackCells,
+                impactDelayTicks: 1,
+                damage: 1,
+                activePendingImpactLimitPerOwner: 1);
+        }
+    }
+
     public interface IAttackDecisionStrategy
     {
         bool TryBuildAttackIntent(
@@ -158,6 +252,31 @@ namespace Game.Feature.Gameplay.Entities
 
             var delta = target - source;
             return Math.Abs(delta.x) + Math.Abs(delta.y);
+        }
+    }
+
+    public sealed class WindupForwardCellProjectileAttackDecisionStrategy : IAttackDecisionStrategy
+    {
+        public static readonly WindupForwardCellProjectileAttackDecisionStrategy Instance = new();
+
+        public bool TryBuildAttackIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            in EnemyAiCommonSettings commonSettings,
+            in AttackDecisionSettings settings,
+            out RawAttackIntent intent)
+        {
+            intent = default;
+            return false;
+        }
+
+        public bool IsTargetInRange(
+            in EntityState source,
+            in EntityState target,
+            in AttackDecisionSettings settings)
+        {
+            return MeleeAttackDecisionStrategy.Instance.IsTargetInRange(source, target, settings);
         }
     }
 

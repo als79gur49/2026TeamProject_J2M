@@ -36,6 +36,7 @@ namespace Game.Feature.Gameplay.Entities
         Melee = 0,
         None = 1,
         ContactSameCell = 2,
+        WindupForwardCellProjectile = 3,
     }
 
     public enum MovementSkillStrategyKind
@@ -1197,6 +1198,7 @@ namespace Game.Feature.Gameplay.Entities
             return attackDecisionStrategy switch
             {
                 MeleeAttackDecisionStrategy _ => AttackDecisionStrategyKind.Melee,
+                WindupForwardCellProjectileAttackDecisionStrategy _ => AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 NoAttackDecisionStrategy _ => AttackDecisionStrategyKind.None,
                 ContactSameCellAttackDecisionStrategy _ => AttackDecisionStrategyKind.ContactSameCell,
                 null => throw new ArgumentNullException(nameof(attackDecisionStrategy)),

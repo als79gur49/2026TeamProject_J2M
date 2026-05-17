@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.BoardState
     {
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
 
+        void AddPendingCellImpact(PendingCellImpact impact);
+
         void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
 
         void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
@@ -90,6 +92,8 @@ namespace Game.Feature.Gameplay.BoardState
     internal interface IAttackCommitContext : IPlayerDamageCommitContext
     {
         void ApplyDamage(int entityId, int amount);
+
+        void RemovePendingCellImpact(int impactId);
 
         void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
 

@@ -1275,6 +1275,41 @@ namespace Game.Feature.Gameplay.Loop
         public bool StartedRecoveryThisTick { get; }
     }
 
+    public readonly struct TickForwardCellImpactPresentationSignal
+    {
+        public TickForwardCellImpactPresentationSignal(
+            int impactId,
+            int ownerId,
+            int sourceEnemyId,
+            SurfaceCell targetCell,
+            Direction direction,
+            bool hit,
+            int targetEntityId)
+        {
+            ImpactId = impactId;
+            OwnerId = ownerId;
+            SourceEnemyId = sourceEnemyId;
+            TargetCell = targetCell;
+            Direction = direction;
+            Hit = hit;
+            TargetEntityId = targetEntityId;
+        }
+
+        public int ImpactId { get; }
+
+        public int OwnerId { get; }
+
+        public int SourceEnemyId { get; }
+
+        public SurfaceCell TargetCell { get; }
+
+        public Direction Direction { get; }
+
+        public bool Hit { get; }
+
+        public int TargetEntityId { get; }
+    }
+
     public enum EnemyUtilityPresentationKind
     {
         None = 0,
@@ -1879,6 +1914,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEnemyChargePresentationSignal> _enemyChargeSignals;
         private readonly ReadOnlyCollection<TickEnemyGlidePresentationSignal> _enemyGlideSignals;
         private readonly ReadOnlyCollection<TickEnemyUtilityPresentationSignal> _enemyUtilitySignals;
+        private readonly ReadOnlyCollection<TickForwardCellImpactPresentationSignal> _forwardCellImpactSignals;
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
         private readonly ReadOnlyCollection<TickContinuousLocomotionTrack> _continuousLocomotionTracks;
@@ -2243,7 +2279,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null)
         {
             if (entityMotions == null)
             {
@@ -2367,6 +2404,9 @@ namespace Game.Feature.Gameplay.Loop
             _enemyUtilitySignals = new ReadOnlyCollection<TickEnemyUtilityPresentationSignal>(
                 new List<TickEnemyUtilityPresentationSignal>(
                     enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>()));
+            _forwardCellImpactSignals = new ReadOnlyCollection<TickForwardCellImpactPresentationSignal>(
+                new List<TickForwardCellImpactPresentationSignal>(
+                    forwardCellImpactSignals ?? Array.Empty<TickForwardCellImpactPresentationSignal>()));
             _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
                 new List<TickEntityExitPresentationSignal>(entityExitSignals));
             _boxSlideStopSignals = new ReadOnlyCollection<BoxSlideStopPresentationSignal>(
@@ -2418,7 +2458,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2443,7 +2484,8 @@ namespace Game.Feature.Gameplay.Loop
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
-                playerFlipResultTurnSignals: playerFlipResultTurnSignals)
+                playerFlipResultTurnSignals: playerFlipResultTurnSignals,
+                forwardCellImpactSignals: forwardCellImpactSignals)
         {
         }
 
@@ -2510,7 +2552,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -2539,7 +2582,8 @@ namespace Game.Feature.Gameplay.Loop
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
-                playerFlipResultTurnSignals: playerFlipResultTurnSignals)
+                playerFlipResultTurnSignals: playerFlipResultTurnSignals,
+                forwardCellImpactSignals: forwardCellImpactSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -2584,37 +2628,39 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
-            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null)
+            IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
+            IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null)
             : this(
-                entityMotions,
-                topologyMotion,
-                visibilityChanges,
-                transitionVisibilityChanges,
-                playerActionSignals,
-                playerLocomotionSignals,
-                playerDamageSignals,
-                playerDeathSignals,
-                enemyDamageSignals,
-                enemyActionSignals,
-                enemyJumpSignals,
-                enemyChargeSignals,
-                entityExitSignals,
-                impactTransientSignals,
-                flipImpactSignals,
-                kinematicMotionTracks,
-                playerDeathHoldSignals,
-                continuousLocomotionTracks,
-                enemyGlideSignals,
-                tileEvents,
-                gravityFieldEvents,
-                gravityFieldVisualStates,
-                playerActionAttemptSignals,
-                boxSlideStopSignals,
-                enemyUtilitySignals,
-                boxSlideStartSignals,
-                tileFeatureVisualStates,
-                tileFeatureActiveVisualStates,
-                playerFlipResultTurnSignals)
+                entityMotions: entityMotions,
+                topologyMotion: topologyMotion,
+                visibilityChanges: visibilityChanges,
+                transitionVisibilityChanges: transitionVisibilityChanges,
+                playerActionSignals: playerActionSignals,
+                playerLocomotionSignals: playerLocomotionSignals,
+                playerDamageSignals: playerDamageSignals,
+                playerDeathSignals: playerDeathSignals,
+                enemyDamageSignals: enemyDamageSignals,
+                enemyActionSignals: enemyActionSignals,
+                enemyJumpSignals: enemyJumpSignals,
+                enemyChargeSignals: enemyChargeSignals,
+                entityExitSignals: entityExitSignals,
+                impactTransientSignals: impactTransientSignals,
+                flipImpactSignals: flipImpactSignals,
+                kinematicMotionTracks: kinematicMotionTracks,
+                playerDeathHoldSignals: playerDeathHoldSignals,
+                continuousLocomotionTracks: continuousLocomotionTracks,
+                enemyGlideSignals: enemyGlideSignals,
+                tileEvents: tileEvents,
+                gravityFieldEvents: gravityFieldEvents,
+                gravityFieldVisualStates: gravityFieldVisualStates,
+                playerActionAttemptSignals: playerActionAttemptSignals,
+                boxSlideStopSignals: boxSlideStopSignals,
+                enemyUtilitySignals: enemyUtilitySignals,
+                boxSlideStartSignals: boxSlideStartSignals,
+                tileFeatureVisualStates: tileFeatureVisualStates,
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
+                playerFlipResultTurnSignals: playerFlipResultTurnSignals,
+                forwardCellImpactSignals: forwardCellImpactSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -2686,6 +2732,9 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyGlidePresentationSignal> EnemyGlideSignals => _enemyGlideSignals;
 
         public IReadOnlyList<TickEnemyUtilityPresentationSignal> EnemyUtilitySignals => _enemyUtilitySignals;
+
+        public IReadOnlyList<TickForwardCellImpactPresentationSignal> ForwardCellImpactSignals =>
+            _forwardCellImpactSignals;
 
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
 

@@ -286,7 +286,8 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionSettings attackDecisionSettings,
             EnemyAttackTimingSettings attackTimingSettings,
             IAttackDecisionStrategy attackDecisionStrategy,
-            WindupMeleeSettings? windupMeleeSettings = null)
+            WindupMeleeSettings? windupMeleeSettings = null,
+            WindupForwardCellProjectileSettings? windupForwardCellProjectileSettings = null)
         {
             if (kind == AttackDecisionStrategyKind.None)
             {
@@ -304,6 +305,8 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionSettings = attackDecisionSettings;
             AttackTimingSettings = attackTimingSettings;
             WindupMeleeSettings = windupMeleeSettings ?? global::Game.Feature.Gameplay.Entities.WindupMeleeSettings.CreateDefault();
+            WindupForwardCellProjectileSettings = windupForwardCellProjectileSettings ??
+                                                  global::Game.Feature.Gameplay.Entities.WindupForwardCellProjectileSettings.CreateDefault();
             AttackDecisionStrategy = attackDecisionStrategy ?? throw new ArgumentNullException(nameof(attackDecisionStrategy));
             Validate(nameof(EnemyCombatCapabilityRuntime));
         }
@@ -318,6 +321,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public WindupMeleeSettings WindupMeleeSettings { get; }
 
+        public WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings { get; }
+
         public IAttackDecisionStrategy AttackDecisionStrategy { get; }
 
         public override void Validate(string paramName)
@@ -325,6 +330,10 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionSettings.Validate(paramName);
             AttackTimingSettings.Validate(paramName);
             WindupMeleeSettings.Validate(paramName);
+            if (Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
+            {
+                WindupForwardCellProjectileSettings.Validate(paramName);
+            }
         }
     }
 

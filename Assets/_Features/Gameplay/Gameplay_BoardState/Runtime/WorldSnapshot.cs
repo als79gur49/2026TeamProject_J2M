@@ -93,6 +93,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private readonly BoardBounds _boardBounds;
         private readonly IReadOnlyDictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, PendingCellImpact> _pendingCellImpactsById;
         private readonly IReadOnlyDictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
@@ -125,6 +126,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, TileFeatureState> tileFeaturesById,
             Dictionary<SurfaceCell, SortedSet<int>> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
+            Dictionary<int, PendingCellImpact> pendingCellImpactsById,
             Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
@@ -151,6 +153,7 @@ namespace Game.Feature.Gameplay.BoardState
             _tileFeaturesById = new ReadOnlyDictionary<int, TileFeatureState>(tileFeaturesById ?? throw new ArgumentNullException(nameof(tileFeaturesById)));
             _tileFeatureIdsByCell = CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell)));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
+            _pendingCellImpactsById = new ReadOnlyDictionary<int, PendingCellImpact>(pendingCellImpactsById ?? throw new ArgumentNullException(nameof(pendingCellImpactsById)));
             _enemyPatrolStatesByEntityId = new ReadOnlyDictionary<int, EnemyPatrolRuntimeState>(enemyPatrolStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyPatrolStatesByEntityId)));
             _enemyChargeStatesByEntityId = new ReadOnlyDictionary<int, EnemyChargeRuntimeState>(enemyChargeStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyChargeStatesByEntityId)));
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
@@ -241,6 +244,25 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEnemyActionState(int entityId, out EnemyActionRuntimeState state)
         {
             return _enemyActionStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetPendingCellImpact(int impactId, out PendingCellImpact impact)
+        {
+            return _pendingCellImpactsById.TryGetValue(impactId, out impact);
+        }
+
+        public int CountPendingCellImpactsForOwner(int ownerId)
+        {
+            var count = 0;
+            foreach (var pair in _pendingCellImpactsById)
+            {
+                if (pair.Value.OwnerId == ownerId)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         public bool TryGetEnemyPatrolState(int entityId, out EnemyPatrolRuntimeState state)
@@ -885,6 +907,60 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumeratePendingCellImpactsOrdered(List<PendingCellImpactSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _pendingCellImpactsById)
+            {
+                buffer.Add(new PendingCellImpactSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort(ComparePendingCellImpactEntries);
+        }
+
+        private static int ComparePendingCellImpactEntries(
+            PendingCellImpactSnapshotEntry left,
+            PendingCellImpactSnapshotEntry right)
+        {
+            var result = left.Impact.ImpactTick.CompareTo(right.Impact.ImpactTick);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.Impact.OwnerId.CompareTo(right.Impact.OwnerId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ((int)left.Impact.TargetCell.face).CompareTo((int)right.Impact.TargetCell.face);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.Impact.TargetCell.x.CompareTo(right.Impact.TargetCell.x);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.Impact.TargetCell.y.CompareTo(right.Impact.TargetCell.y);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return left.ImpactId.CompareTo(right.ImpactId);
         }
 
         internal void EnumerateEnemyPatrolStatesOrdered(List<EnemyPatrolSnapshotEntry> buffer)

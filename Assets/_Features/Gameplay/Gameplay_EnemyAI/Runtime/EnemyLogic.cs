@@ -397,6 +397,7 @@ namespace Game.Feature.Gameplay.Entities
             if (_combatCapability != null &&
                 !ShouldSuppressCombatAttackForJump(snapshot) &&
                 snapshot.TryGetEnemyActionState(_entityId, out var actionState) &&
+                actionState.kind == EnemyActionKind.Melee &&
                 EnemyActionQueries.CanExecute(actionState, input.TickIndex) &&
                 EnemyActionStateTargeting.TryResolveLockedTarget(
                     snapshot,
@@ -2431,13 +2432,7 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            var startQuery = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
-                snapshot,
-                source,
-                target,
-                _combatCapability.AttackDecisionStrategy,
-                _combatCapability.AttackDecisionSettings,
-                _combatCapability.WindupMeleeSettings);
+            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability);
             if (!startQuery.ShouldApproach)
             {
                 return false;
@@ -2467,15 +2462,36 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            var startQuery = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability);
+            return startQuery.BlockReason == WindupMeleeStartBlockReason.SevereTransition &&
+                   WindupMeleeCombatPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
+        }
+
+        private static WindupMeleeStartQueryResult QueryCombatWindupStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            EnemyCombatCapabilityRuntime combatCapability)
+        {
+            if (combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
+            {
+                return WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                    snapshot,
+                    source,
+                    target,
+                    combatCapability.AttackDecisionStrategy,
+                    combatCapability.AttackDecisionSettings,
+                    combatCapability.WindupForwardCellProjectileSettings,
+                    out _);
+            }
+
+            return WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
                 snapshot,
                 source,
                 target,
-                _combatCapability.AttackDecisionStrategy,
-                _combatCapability.AttackDecisionSettings,
-                _combatCapability.WindupMeleeSettings);
-            return startQuery.BlockReason == WindupMeleeStartBlockReason.SevereTransition &&
-                   WindupMeleeCombatPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
+                combatCapability.AttackDecisionStrategy,
+                combatCapability.AttackDecisionSettings,
+                combatCapability.WindupMeleeSettings);
         }
 
         private bool TryResolveScheduledJumpStart(
@@ -3077,6 +3093,12 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
                 actionState.IsActive)
             {
+                if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
+                    actionState.hasLockedForwardCellImpact)
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                }
+
                 if (combatCapability != null &&
                     EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
@@ -3109,13 +3131,12 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
-                    combatCapability.AttackDecisionStrategy,
-                    combatCapability.AttackDecisionSettings,
-                    combatCapability.WindupMeleeSettings);
+                    combatCapability,
+                    out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
                     WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
@@ -3391,13 +3412,12 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
-                    combatCapability.AttackDecisionStrategy,
-                    combatCapability.AttackDecisionSettings,
-                    combatCapability.WindupMeleeSettings);
+                    combatCapability,
+                    out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
                     WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
@@ -3439,6 +3459,12 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
                 actionState.IsActive)
             {
+                if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
+                    actionState.hasLockedForwardCellImpact)
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                }
+
                 if (combatCapability != null &&
                     EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
@@ -3471,13 +3497,12 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
-                    combatCapability.AttackDecisionStrategy,
-                    combatCapability.AttackDecisionSettings,
-                    combatCapability.WindupMeleeSettings);
+                    combatCapability,
+                    out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
                     WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
