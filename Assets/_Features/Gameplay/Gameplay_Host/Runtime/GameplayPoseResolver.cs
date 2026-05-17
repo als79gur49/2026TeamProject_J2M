@@ -283,6 +283,26 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryResolveContactDelayedEntityExitSignalLocalPose(
+            GameplayCubeProjector projector,
+            TickEntityExitPresentationSignal signal,
+            out GameplayEntityPose pose)
+        {
+            if (_stateStore.ViewsByEntityId.TryGetValue(signal.ExitedEntityId, out var view) &&
+                view != null)
+            {
+                pose = new GameplayEntityPose(view.transform.localPosition, view.transform.localRotation);
+                return true;
+            }
+
+            if (_stateStore.RetainedLocalTargetPoses.TryGetValue(signal.ExitedEntityId, out pose))
+            {
+                return true;
+            }
+
+            return TryResolveEntityExitSignalLocalPose(projector, signal, out pose);
+        }
+
         public bool TryResolveImpactTransientSignalLocalPoses(
             GameplayCubeProjector projector,
             TickImpactTransientPresentationSignal signal,

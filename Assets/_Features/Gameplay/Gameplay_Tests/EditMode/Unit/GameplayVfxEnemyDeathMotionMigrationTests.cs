@@ -109,6 +109,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ContactDelayedSourcePose_UsesRetainedPoseBeforeExitSignalFallback()
+        {
+            var fixture = CreateBuilderFixture();
+            try
+            {
+                var retainedPose = new GameplayEntityPose(
+                    new Vector3(2.25f, 0.5f, -0.75f),
+                    Quaternion.Euler(0f, 37f, 0f));
+                fixture.StateStore.RetainedLocalTargetPoses[40] = retainedPose;
+                var signal = CreateEnemyExitSignal(
+                    40,
+                    TickEntityExitCause.EnemyDeath,
+                    timing: EntityExitPresentationTiming.AtContactTime,
+                    visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime);
+
+                var result = EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                    signal,
+                    fixture.TimingProfile,
+                    fixture.PoseResolver,
+                    fixture.Projector,
+                    fixture.TargetResolver,
+                    out var command);
+
+                Assert.That(result, Is.True);
+                Assert.That(Vector3.Distance(command.SourceLocalPosition, retainedPose.Position), Is.LessThanOrEqualTo(0.0001f));
+                Assert.That(Quaternion.Angle(command.SourceLocalRotation, retainedPose.Rotation), Is.LessThanOrEqualTo(0.001f));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TargetPose_UsesLegacyCameraDirectionLogic()
         {
             var fixture = CreateBuilderFixture();
@@ -239,6 +274,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Destroy(cueMap, binding, prefab, cameraObject, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MotionFlagOn_AtContactTime_SpawnsDeathMotionAtVisualContact()
+        {
+            var owner = new GameObject("EnemyDeathMotionDelayedRuntime");
+            var cameraObject = CreateCameraObject("EnemyDeathMotionDelayedRuntimeCamera");
+            var prefab = CreateRuntimePrefab("EnemyDeathMotionDelayedRuntimePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
+                var context = CreateExtensionContext(
+                    CreateEnemyExitSignal(
+                        40,
+                        TickEntityExitCause.EnemyDeath,
+                        timing: EntityExitPresentationTiming.AtContactTime,
+                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+                context.StateStore.RetainedLocalTargetPoses[40] = new GameplayEntityPose(
+                    new Vector3(1.25f, 0.5f, -0.25f),
+                    Quaternion.Euler(0f, 45f, 0f));
+
+                runtime.Present(context);
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+
+                const float epsilon = 0.001f;
+                var contactDelaySeconds =
+                    context.TimingProfile.FlipMotionDurationSeconds *
+                    GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
+                runtime.UpdatePresentation(contactDelaySeconds - epsilon);
+                runtime.RefreshPresentationMotionVfx(
+                    new GameplayPresentationMotionVfxContext(
+                        context.Result.TickIndex,
+                        new GameplayPresentationTrackState(),
+                        context.StateStore,
+                        context.Projector,
+                        context.TimingProfile));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+
+                runtime.UpdatePresentation(epsilon);
+                runtime.RefreshPresentationMotionVfx(
+                    new GameplayPresentationMotionVfxContext(
+                        context.Result.TickIndex,
+                        new GameplayPresentationTrackState(),
+                        context.StateStore,
+                        context.Projector,
+                        context.TimingProfile));
+
+                Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+
+                runtime.RefreshPresentationMotionVfx(
+                    new GameplayPresentationMotionVfxContext(
+                        context.Result.TickIndex,
+                        new GameplayPresentationTrackState(),
+                        context.StateStore,
+                        context.Projector,
+                        context.TimingProfile));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
             finally
@@ -469,6 +580,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new GameplayPoseResolver(stateStore, trackState),
                 projector,
                 resolver,
+                stateStore,
                 playerPose);
         }
 
@@ -571,7 +683,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell cell = default,
             CubeTopologyState topology = default,
             EntityType entityType = EntityType.Unit,
-            int presentationSeed = 9127)
+            int presentationSeed = 9127,
+            EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate,
+            float visualContactNormalizedTime = 0f)
         {
             var resolvedCell = cell.Equals(default(SurfaceCell))
                 ? new SurfaceCell(FaceId.Floor, 1, 1)
@@ -587,7 +701,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Direction.Left,
                 entityType,
                 sourceActorEntityId: 10,
-                presentationSeed: presentationSeed);
+                presentationSeed: presentationSeed,
+                timing: timing,
+                visualContactNormalizedTime: visualContactNormalizedTime);
         }
 
         private static EntityState CreatePlayerUnit(int entityId, SurfaceCell position)
@@ -657,9 +773,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameObject CreateRuntimePrefab(string name)
         {
             var prefab = new GameObject(name);
+            var modelRoot = new GameObject("ModelRoot");
+            modelRoot.transform.SetParent(prefab.transform, worldPositionStays: false);
             var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
             UnityEngine.Object.DestroyImmediate(visual.GetComponent<Collider>());
-            visual.transform.SetParent(prefab.transform, worldPositionStays: false);
+            visual.transform.SetParent(modelRoot.transform, worldPositionStays: false);
             visual.transform.localScale = Vector3.one * 0.35f;
             return prefab;
         }
@@ -740,6 +858,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayPoseResolver poseResolver,
                 GameplayCubeProjector projector,
                 IEnemyDeathMotionTargetResolver targetResolver,
+                GameplayPresentationStateStore stateStore,
                 GameplayEntityPose playerPose)
             {
                 LocalSpaceRoot = localSpaceRoot;
@@ -749,6 +868,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PoseResolver = poseResolver;
                 Projector = projector;
                 TargetResolver = targetResolver;
+                StateStore = stateStore;
                 PlayerPose = playerPose;
             }
 
@@ -765,6 +885,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public GameplayCubeProjector Projector { get; }
 
             public IEnemyDeathMotionTargetResolver TargetResolver { get; }
+
+            public GameplayPresentationStateStore StateStore { get; }
 
             public GameplayEntityPose PlayerPose { get; }
 

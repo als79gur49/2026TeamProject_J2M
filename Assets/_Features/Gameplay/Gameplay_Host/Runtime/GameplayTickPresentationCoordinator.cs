@@ -112,6 +112,7 @@ namespace Game.Feature.Gameplay.Host
                 _enemyVisualSemanticResolver,
                 _committedFrameBuilder);
             _exitPresentationController = new GameplayExitPresentationController(
+                _animationSync,
                 _stateStore,
                 _trackState);
             _planner = new GameplayTrackPlanner(
@@ -163,6 +164,86 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingMoonBlockEmergenceRequestCount =>
             _moonBlockEmergencePresentationController.PendingRequestCount;
+
+        internal GameplayEntityPresentationLifecycleDebugSnapshot DebugCaptureEntityPresentationLifecycle(
+            int entityId,
+            float timelineTimeSeconds = 0f)
+        {
+            var hasView = _stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) && view != null;
+            var hasEnemyAnimatorDriver = hasView && view.TryGetComponent<EnemyAnimatorDriver>(out _);
+            var hasEntityViewComponent = hasView && view.TryGetComponent<GameplayEntityView>(out _);
+            var rendererEnabled = false;
+            var rendererActiveInHierarchy = false;
+            var animatorCurrentStateShortNameHash = 0;
+            var animatorNormalizedTime = 0f;
+            var deathTriggerCount = 0;
+
+            if (hasView)
+            {
+                var renderers = view.GetComponentsInChildren<Renderer>(includeInactive: true);
+                for (var i = 0; i < renderers.Length; i++)
+                {
+                    var renderer = renderers[i];
+                    if (renderer == null || !renderer.enabled)
+                    {
+                        continue;
+                    }
+
+                    rendererEnabled = true;
+                    if (renderer.gameObject.activeInHierarchy)
+                    {
+                        rendererActiveInHierarchy = true;
+                    }
+                }
+
+                var animator = view.GetComponentInChildren<Animator>(includeInactive: true);
+                if (animator != null && animator.isActiveAndEnabled && animator.runtimeAnimatorController != null)
+                {
+                    var currentState = animator.GetCurrentAnimatorStateInfo(0);
+                    animatorCurrentStateShortNameHash = currentState.shortNameHash;
+                    animatorNormalizedTime = currentState.normalizedTime;
+                }
+
+                if (view.TryGetComponent<EnemyAnimatorDriver>(out var enemyDriver) && enemyDriver != null)
+                {
+                    deathTriggerCount = enemyDriver.DeathSignalCount;
+                }
+            }
+
+            var pendingContactRemaining = _exitPresentationController.TryGetPendingContactDelayedExitRemainingSeconds(
+                entityId,
+                out var resolvedPendingContactRemaining)
+                ? resolvedPendingContactRemaining
+                : 0f;
+            var pendingDeathRemaining = _exitPresentationController.TryGetPendingDeathPresentationCleanupRemainingSeconds(
+                entityId,
+                out var resolvedPendingDeathRemaining)
+                ? resolvedPendingDeathRemaining
+                : 0f;
+
+            return new GameplayEntityPresentationLifecycleDebugSnapshot(
+                timelineTimeSeconds,
+                entityId,
+                hasView ? view.gameObject.name : string.Empty,
+                hasView ? view.GetInstanceID() : 0,
+                hasView && view.gameObject.activeSelf,
+                hasEnemyAnimatorDriver,
+                hasEntityViewComponent,
+                _stateStore.ViewsByEntityId.ContainsKey(entityId),
+                _trackState.ContactDelayedRetainedEntityIds.Contains(entityId),
+                _trackState.DeathPresentationPlayingEntityIds.Contains(entityId),
+                _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId),
+                _exitPresentationController.HasPendingContactDelayedExit(entityId),
+                pendingContactRemaining,
+                _exitPresentationController.HasPendingDeathPresentationCleanup(entityId),
+                pendingDeathRemaining,
+                hasView && view.gameObject.name.Contains("_PooledVfx"),
+                rendererEnabled,
+                rendererActiveInHierarchy,
+                animatorCurrentStateShortNameHash,
+                animatorNormalizedTime,
+                deathTriggerCount);
+        }
 
         public Bounds VisibleCubeBounds
         {
@@ -455,7 +536,9 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile);
             _exitPresentationController.CompleteDeferredEntityExits();
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
+            _exitPresentationController.AdvanceDeathPresentationCleanups(deltaTime);
             _exitPresentationController.AdvanceContactDelayedEntityExits(deltaTime);
+            RefreshPresentationMotionVfx(_lastPresentedTickIndex);
         }
 
         internal void AttachGameplayAudioRuntime(
@@ -714,5 +797,96 @@ namespace Game.Feature.Gameplay.Host
             _traceSink?.Invoke(stepName);
         }
 
+    }
+
+    internal readonly struct GameplayEntityPresentationLifecycleDebugSnapshot
+    {
+        public GameplayEntityPresentationLifecycleDebugSnapshot(
+            float timelineTimeSeconds,
+            int entityId,
+            string gameObjectName,
+            int instanceId,
+            bool gameObjectActiveSelf,
+            bool hasEnemyAnimatorDriver,
+            bool hasEntityViewComponent,
+            bool viewsByEntityIdContainsEntityId,
+            bool contactDelayedRetainedEntityIdsContainsEntityId,
+            bool deathPresentationPlayingEntityIdsContainsEntityId,
+            bool retainedLocalTargetPosesContainsEntityId,
+            bool pendingContactExitContainsEntityId,
+            float pendingContactExitRemainingSeconds,
+            bool pendingDeathCleanupContainsEntityId,
+            float pendingDeathCleanupRemainingSeconds,
+            bool isVfxPooledInstance,
+            bool rendererEnabled,
+            bool rendererActiveInHierarchy,
+            int animatorCurrentStateShortNameHash,
+            float animatorNormalizedTime,
+            int deathTriggerCount)
+        {
+            TimelineTimeSeconds = timelineTimeSeconds;
+            EntityId = entityId;
+            GameObjectName = gameObjectName ?? string.Empty;
+            InstanceId = instanceId;
+            GameObjectActiveSelf = gameObjectActiveSelf;
+            HasEnemyAnimatorDriver = hasEnemyAnimatorDriver;
+            HasEntityViewComponent = hasEntityViewComponent;
+            ViewsByEntityIdContainsEntityId = viewsByEntityIdContainsEntityId;
+            ContactDelayedRetainedEntityIdsContainsEntityId = contactDelayedRetainedEntityIdsContainsEntityId;
+            DeathPresentationPlayingEntityIdsContainsEntityId = deathPresentationPlayingEntityIdsContainsEntityId;
+            RetainedLocalTargetPosesContainsEntityId = retainedLocalTargetPosesContainsEntityId;
+            PendingContactExitContainsEntityId = pendingContactExitContainsEntityId;
+            PendingContactExitRemainingSeconds = pendingContactExitRemainingSeconds;
+            PendingDeathCleanupContainsEntityId = pendingDeathCleanupContainsEntityId;
+            PendingDeathCleanupRemainingSeconds = pendingDeathCleanupRemainingSeconds;
+            IsVfxPooledInstance = isVfxPooledInstance;
+            RendererEnabled = rendererEnabled;
+            RendererActiveInHierarchy = rendererActiveInHierarchy;
+            AnimatorCurrentStateShortNameHash = animatorCurrentStateShortNameHash;
+            AnimatorNormalizedTime = animatorNormalizedTime;
+            DeathTriggerCount = deathTriggerCount;
+        }
+
+        public float TimelineTimeSeconds { get; }
+
+        public int EntityId { get; }
+
+        public string GameObjectName { get; }
+
+        public int InstanceId { get; }
+
+        public bool GameObjectActiveSelf { get; }
+
+        public bool HasEnemyAnimatorDriver { get; }
+
+        public bool HasEntityViewComponent { get; }
+
+        public bool ViewsByEntityIdContainsEntityId { get; }
+
+        public bool ContactDelayedRetainedEntityIdsContainsEntityId { get; }
+
+        public bool DeathPresentationPlayingEntityIdsContainsEntityId { get; }
+
+        public bool RetainedLocalTargetPosesContainsEntityId { get; }
+
+        public bool PendingContactExitContainsEntityId { get; }
+
+        public float PendingContactExitRemainingSeconds { get; }
+
+        public bool PendingDeathCleanupContainsEntityId { get; }
+
+        public float PendingDeathCleanupRemainingSeconds { get; }
+
+        public bool IsVfxPooledInstance { get; }
+
+        public bool RendererEnabled { get; }
+
+        public bool RendererActiveInHierarchy { get; }
+
+        public int AnimatorCurrentStateShortNameHash { get; }
+
+        public float AnimatorNormalizedTime { get; }
+
+        public int DeathTriggerCount { get; }
     }
 }

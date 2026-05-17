@@ -1211,6 +1211,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
+                if (signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                    signal.VisualContactNormalizedTime > 0f)
+                {
+                    if (ScheduleDelayedEnemyDeathMotionVfx(context.Result.TickIndex, signal, context.TimingProfile))
+                    {
+                        plannedCommandCount++;
+                    }
+
+                    continue;
+                }
+
                 if (!EnemyDeathMotionVfxCommandBuilder.TryBuild(
                         signal,
                         context.TimingProfile,
@@ -1224,27 +1235,38 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 plannedCommandCount++;
-                if (signal.Timing == EntityExitPresentationTiming.AtContactTime &&
-                    signal.VisualContactNormalizedTime > 0f)
-                {
-                    var key = DelayedEnemyDeathMotionVfxKey.Create(context.Result.TickIndex, command);
-                    if (!scheduledDelayedEnemyDeathMotionVfxKeys.Add(key))
-                    {
-                        continue;
-                    }
-
-                    pendingDelayedEnemyDeathMotionVfx.Add(
-                        new DelayedEnemyDeathMotionVfx(
-                            context.Result.TickIndex,
-                            command,
-                            context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime));
-                    continue;
-                }
-
                 TryPlayEnemyDeathMotionCommand(context.Result.TickIndex, command);
             }
 
             return plannedCommandCount;
+        }
+
+        private bool ScheduleDelayedEnemyDeathMotionVfx(
+            int tickIndex,
+            in TickEntityExitPresentationSignal signal,
+            GameplayTimingProfile timingProfile)
+        {
+            var key = DelayedEnemyDeathMotionVfxKey.Create(tickIndex, signal);
+            if (!scheduledDelayedEnemyDeathMotionVfxKeys.Add(key))
+            {
+                return false;
+            }
+
+            var resolvedTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            var delaySeconds = resolvedTimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
+            var delayed = new DelayedEnemyDeathMotionVfx(
+                tickIndex,
+                signal,
+                resolvedTimingProfile,
+                delaySeconds);
+            if (delaySeconds <= 0.0001f)
+            {
+                PlayDelayedEnemyDeathMotionVfx(delayed);
+                return true;
+            }
+
+            pendingDelayedEnemyDeathMotionVfx.Add(delayed);
+            return true;
         }
 
         private void AdvanceDelayedEnemyDeathMotionVfx(float deltaTime)
@@ -1279,10 +1301,34 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < readyDelayedEnemyDeathMotionVfx.Count; i++)
             {
                 var delayed = readyDelayedEnemyDeathMotionVfx[i];
-                TryPlayEnemyDeathMotionCommand(delayed.TickIndex, delayed.Command);
+                PlayDelayedEnemyDeathMotionVfx(delayed);
             }
 
             readyDelayedEnemyDeathMotionVfx.Clear();
+        }
+
+        private void PlayDelayedEnemyDeathMotionVfx(in DelayedEnemyDeathMotionVfx delayed)
+        {
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(configuredStateStore, trackState);
+            var targetResolver = new EnemyDeathMotionTargetResolver(
+                localSpaceRoot,
+                outputCamera,
+                configuredStateStore,
+                configuredProjector.CellSize);
+            if (!EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                    delayed.Signal,
+                    delayed.TimingProfile,
+                    poseResolver,
+                    configuredProjector,
+                    targetResolver,
+                    out var command))
+            {
+                enemyDeathMotionMissingAnchorCount++;
+                return;
+            }
+
+            TryPlayEnemyDeathMotionCommand(delayed.TickIndex, command);
         }
 
         private bool TryPlayEnemyDeathMotionCommand(
@@ -2152,12 +2198,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             public static DelayedEnemyDeathMotionVfxKey Create(
                 int tickIndex,
-                in EnemyDeathMotionVfxCommand command)
+                in TickEntityExitPresentationSignal signal)
             {
                 return new DelayedEnemyDeathMotionVfxKey(
                     tickIndex,
-                    command.EntityId,
-                    command.PresentationSeed);
+                    signal.ExitedEntityId,
+                    signal.PresentationSeed);
             }
         }
 
@@ -2165,17 +2211,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             public DelayedEnemyDeathMotionVfx(
                 int tickIndex,
-                EnemyDeathMotionVfxCommand command,
+                TickEntityExitPresentationSignal signal,
+                GameplayTimingProfile timingProfile,
                 float remainingSeconds)
             {
                 TickIndex = tickIndex;
-                Command = command;
+                Signal = signal;
+                TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
                 RemainingSeconds = Mathf.Max(0f, remainingSeconds);
             }
 
             public int TickIndex { get; }
 
-            public EnemyDeathMotionVfxCommand Command { get; }
+            public TickEntityExitPresentationSignal Signal { get; }
+
+            public GameplayTimingProfile TimingProfile { get; }
 
             public float RemainingSeconds { get; }
 
@@ -2183,7 +2233,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 return new DelayedEnemyDeathMotionVfx(
                     TickIndex,
-                    Command,
+                    Signal,
+                    TimingProfile,
                     RemainingSeconds - Mathf.Max(0f, deltaTime));
             }
         }

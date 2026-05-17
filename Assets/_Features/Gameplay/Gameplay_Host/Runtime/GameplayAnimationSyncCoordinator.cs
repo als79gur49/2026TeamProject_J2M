@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
@@ -33,6 +34,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayAnimationSyncCoordinator
     {
         private readonly List<int> _completedPlayerVisualHoldEntityIds = new();
+        private readonly HashSet<int> _contactDelayedEnemyDeathEntityIds = new();
         private readonly HashSet<int> _playerDeathVisualOverrideEntityIds = new();
         private readonly List<int> _playerVisualHoldEntityIds = new();
         private readonly Dictionary<int, EnemyAnimatorDriver> _enemyAnimatorDriversByEntityId = new();
@@ -89,12 +91,19 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
         {
+            BuildContactDelayedEnemyDeathEntityIds(result?.PresentationData);
             _enemyViewPresentationMapper.Build(result, viewsByEntityId, _enemyViewPresentationStates);
             foreach (var pair in _enemyViewPresentationStates)
             {
+                var state = pair.Value;
+                if (state.DidDie && _contactDelayedEnemyDeathEntityIds.Contains(pair.Key))
+                {
+                    state = state.WithDidDie(false);
+                }
+
                 if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
-                    driver.Apply(pair.Value);
+                    driver.Apply(state);
                 }
             }
 
@@ -232,6 +241,7 @@ namespace Game.Feature.Gameplay.Host
             _playerVisualHoldEntityIds.Clear();
             _enemyAnimatorDriversByEntityId.Clear();
             _enemyViewPresentationStates.Clear();
+            _contactDelayedEnemyDeathEntityIds.Clear();
             _playerAnimatorDriversByEntityId.Clear();
             _playerDeathVisualOverrideEntityIds.Clear();
             _playerFlipOutcomeStateUpdateEntityIds.Clear();
@@ -243,6 +253,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _enemyAnimatorDriversByEntityId.Remove(entityId);
             _enemyViewPresentationStates.Remove(entityId);
+            _contactDelayedEnemyDeathEntityIds.Remove(entityId);
             _playerAnimatorDriversByEntityId.Remove(entityId);
             _playerDeathVisualOverrideEntityIds.Remove(entityId);
             _playerVisualHoldStates.Remove(entityId);
@@ -260,6 +271,16 @@ namespace Game.Feature.Gameplay.Host
             {
                 driver.SyncRuntimeState(isVisible, isMoving, playbackSuppressed);
             }
+        }
+
+        public float BeginEnemyDeathPresentation(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            _contactDelayedEnemyDeathEntityIds.Remove(entityId);
+            return TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver)
+                ? driver.PlayDeathPresentation(entityId)
+                : 0f;
         }
 
         public void SyncHiddenDrivers(
@@ -429,6 +450,30 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _enemyAnimatorDriversByEntityId.Remove(entityId);
+        }
+
+        private void BuildContactDelayedEnemyDeathEntityIds(TickPresentationData presentationData)
+        {
+            _contactDelayedEnemyDeathEntityIds.Clear();
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            var signals = presentationData.EntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.Timing != EntityExitPresentationTiming.AtContactTime ||
+                    signal.EntityType != EntityType.Unit ||
+                    (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
+                     signal.ExitCause != TickEntityExitCause.Killed))
+                {
+                    continue;
+                }
+
+                _contactDelayedEnemyDeathEntityIds.Add(signal.ExitedEntityId);
+            }
         }
 
         private void CachePlayerAnimatorDriver(int entityId, GameplayEntityView view)
