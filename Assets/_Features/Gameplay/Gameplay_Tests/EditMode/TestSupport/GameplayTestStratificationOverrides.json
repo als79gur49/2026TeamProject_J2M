@@ -2,6 +2,46 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxForwardCellProjectileTests.ForwardCellProjectile_WindupSignalCreatesMarkerRequest",
+      "category": "Core",
+      "contracts": [
+        "forward_cell_projectile_vfx_contract",
+        "projectile_windup_marker"
+      ],
+      "reason": "Locked Core coverage for WindupForwardCellProjectile danger marker planning.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxForwardCellProjectileTests.ForwardCellProjectile_ReleaseSignalCreatesFlightRequestOnly",
+      "category": "Core",
+      "contracts": [
+        "forward_cell_projectile_vfx_contract",
+        "projectile_release_flight"
+      ],
+      "reason": "Locked Core coverage for release-time projectile flight planning without impact playback.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxForwardCellProjectileTests.ForwardCellProjectile_ImpactSignalCreatesImpactVfx",
+      "category": "Core",
+      "contracts": [
+        "forward_cell_projectile_vfx_contract",
+        "projectile_impact_vfx"
+      ],
+      "reason": "Locked Core coverage for impact-signal-only ForwardCellImpact VFX planning.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxForwardCellProjectileTests.ForwardCellProjectile_ImpactHitSeparatesImpactAndDamageFeedback",
+      "category": "Core",
+      "contracts": [
+        "forward_cell_projectile_vfx_contract",
+        "damage_feedback_separation"
+      ],
+      "reason": "Locked Core coverage for separating projectile impact VFX from player damage feedback.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickResultBuilder_Free2DTopologyTransition_BarricadeFrontFace_DeactivatedWhenSnapshotsAlreadyMatch",
       "category": "Core",
       "contracts": [
