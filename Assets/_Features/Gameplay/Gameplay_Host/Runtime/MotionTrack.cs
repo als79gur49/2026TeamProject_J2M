@@ -263,7 +263,7 @@ namespace Game.Feature.Gameplay.Host
     {
         public const float LiftEndTime = 0.34f;
         public const float HoldEndTime = 0.48f;
-        public const float SlamEndTime = 0.936f;
+        public const float SlamEndTime = GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
 
         private const float LateralArcTravelFraction = 0.18f;
 

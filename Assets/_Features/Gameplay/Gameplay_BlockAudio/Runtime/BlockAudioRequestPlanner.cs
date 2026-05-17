@@ -8,7 +8,8 @@ namespace Game.Feature.Gameplay.BlockAudio
     public sealed class BlockAudioRequestPlanner
     {
         private const float FlipLandingNormalizedTime = 0.9f;
-        private const float FlipImpactContactNormalizedTime = 0.62f;
+        private const float FlipImpactContactNormalizedTime =
+            GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime;
 
         public IReadOnlyList<BlockAudioRequest> BuildRequests(
             TickResult result,
