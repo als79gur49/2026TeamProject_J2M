@@ -171,6 +171,349 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
             Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)));
             Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.BoxSlideFollow));
+            Assert.That(planner.DesiredFollowers[0].SequenceId, Is.EqualTo(42));
+            Assert.That(
+                planner.DesiredFollowers[0].RetentionPolicy,
+                Is.EqualTo(AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlide_UsesStableFollowerKeyAcrossTicksAndSegments()
+        {
+            var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+            planner.Build(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(entityMotions: new[] { CreateBoxSlideMotion(40) }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+            var first = planner.DesiredFollowers[0];
+
+            planner.Build(
+                tickIndex: 13,
+                presentationData: CreatePresentationData(entityMotions: new[]
+                {
+                    CreateBoxSlideMotion(
+                        40,
+                        sourceCell: new SurfaceCell(FaceId.Floor, 2, 1),
+                        destinationCell: new SurfaceCell(FaceId.Floor, 3, 1)),
+                }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+            var second = planner.DesiredFollowers[0];
+
+            Assert.That(second.Key, Is.EqualTo(first.Key));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideStartSignal_AttachesFollowLoop()
+        {
+            var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+            planner.Build(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(boxSlideStartSignals: new[] { CreateBoxSlideStartSignal(40) }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+            Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)));
+            Assert.That(planner.DesiredFollowers[0].Key, Is.EqualTo(StopKeyForBoxSlide(40)));
+            Assert.That(
+                planner.DesiredFollowers[0].RetentionPolicy,
+                Is.EqualTo(AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideFollow_RemainsSingleModelRootChildAcrossSegments()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredBoxSlide());
+                var instance = fixture.View.ModelRoot.GetChild(0);
+
+                fixture.RefreshAttached(DesiredBoxSlide());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.GetChild(0), Is.EqualTo(instance));
+                Assert.That(instance.parent, Is.EqualTo(fixture.View.ModelRoot));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideFollow_RetainsAcrossIdleRefreshUntilExplicitStop()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredBoxSlide());
+                var instance = fixture.View.ModelRoot.GetChild(0);
+
+                fixture.RefreshAttached();
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.GetChild(0), Is.EqualTo(instance));
+                Assert.That(fixture.Root.TailRoot.childCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideFollow_KeepsSameHandleAcrossIdleAndNextStep()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredBoxSlide());
+                var instance = fixture.View.ModelRoot.GetChild(0);
+
+                fixture.RefreshAttached();
+                fixture.RefreshAttached(DesiredBoxSlide());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.GetChild(0), Is.EqualTo(instance));
+                Assert.That(fixture.Root.TailRoot.childCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideFollow_ExplicitStopSignal_Tails()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredBoxSlide());
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+                planner.Build(
+                    tickIndex: 13,
+                    presentationData: CreatePresentationData(
+                        boxSlideStopSignals: new[] { CreateBoxSlideStopSignal(40) }),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true);
+
+                fixture.RefreshAttachedWithStops(planner.ExplicitStopKeys);
+
+                Assert.That(planner.ExplicitStopKeys, Has.Count.EqualTo(1));
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideFollow_SlidingEndedTick_Tails()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredBoxSlide());
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+                planner.Build(
+                    tickIndex: 13,
+                    presentationData: CreatePresentationData(),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    finalEntities: new[] { CreateBoxEntityState(40, EntityPhaseState.None) });
+
+                fixture.RefreshAttachedWithStops(planner.ExplicitStopKeys);
+
+                Assert.That(planner.ExplicitStopKeys, Has.Count.EqualTo(1));
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideFollow_RemovedExitOrDeathEntity_TailsRetainedFollower()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredBoxSlide());
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+                planner.Build(
+                    tickIndex: 13,
+                    presentationData: CreatePresentationData(
+                        exitSignals: new[] { CreateExitSignal(40) },
+                        visibilityChanges: new[] { CreateRemoveVisibilityChange(40) }),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    finalEntities: new[] { CreateBoxEntityState(40, EntityPhaseState.Sliding, hp: 0, markedForDeath: true) });
+
+                fixture.RefreshAttachedWithStops(planner.ExplicitStopKeys);
+
+                Assert.That(planner.ExplicitStopKeys, Has.Count.EqualTo(1));
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BoxSlideFollow_DetachedEntity_PlansExplicitStop()
+        {
+            var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+            planner.Build(
+                tickIndex: 13,
+                presentationData: CreatePresentationData(),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true,
+                finalEntities: new[]
+                {
+                    CreateBoxEntityState(
+                        40,
+                        EntityPhaseState.Sliding,
+                        boardPresence: EntityBoardPresence.Detached),
+                });
+
+            Assert.That(planner.ExplicitStopKeys, Has.Count.EqualTo(1));
+            Assert.That(planner.ExplicitStopKeys[0], Is.EqualTo(StopKeyForBoxSlide()));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RefreshDesiredOnlyFollower_MissingDesired_StillTails()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+
+                fixture.RefreshAttached();
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ChargeActiveSignal_MaintainsDesiredAcrossIdleContinuationTick()
+        {
+            var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+            planner.Build(
+                tickIndex: 12,
+                presentationData: CreatePresentationData(chargeSignals: new[] { CreateChargeSignal(EnemyChargePhase.Active) }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+            var first = planner.DesiredFollowers[0];
+
+            planner.Build(
+                tickIndex: 13,
+                presentationData: CreatePresentationData(chargeSignals: new[]
+                {
+                    CreateChargeSignal(
+                        EnemyChargePhase.Active,
+                        sequence: 7),
+                }),
+                enableGlideWindTrail: true,
+                enableChargeBoosterTrail: true,
+                enableBoxSlideFollowLoop: true,
+                enableEnemyJumpWindupLoop: true);
+            var second = planner.DesiredFollowers[0];
+
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+            Assert.That(second.Key, Is.EqualTo(first.Key));
+            Assert.That(second.RetentionPolicy, Is.EqualTo(AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideWindupLoop_PhaseEnd_Tails()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredGlideWindup());
+
+                fixture.RefreshAttached();
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideRecoverLoop_PhaseEnd_Tails()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredGlideRecover());
+
+                fixture.RefreshAttached();
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
         }
 
         [Test]
@@ -589,7 +932,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IEnumerable<TickEnemyChargePresentationSignal> chargeSignals = null,
             IEnumerable<TickEnemyGlidePresentationSignal> glideSignals = null,
             IEnumerable<TickEntityExitPresentationSignal> exitSignals = null,
-            IEnumerable<TickVisibilityChange> visibilityChanges = null)
+            IEnumerable<TickVisibilityChange> visibilityChanges = null,
+            IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
+            IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -607,7 +952,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 exitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<TickImpactTransientPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
-                enemyGlideSignals: glideSignals ?? Array.Empty<TickEnemyGlidePresentationSignal>());
+                enemyGlideSignals: glideSignals ?? Array.Empty<TickEnemyGlidePresentationSignal>(),
+                boxSlideStopSignals: boxSlideStopSignals ?? Array.Empty<BoxSlideStopPresentationSignal>(),
+                boxSlideStartSignals: boxSlideStartSignals ?? Array.Empty<BoxSlideStartPresentationSignal>());
         }
 
         private static TickEnemyChargePresentationSignal CreateChargeSignal(
@@ -647,13 +994,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static TickEntityMotion CreateBoxSlideMotion(
-            int entityId = 42)
+            int entityId = 42,
+            SurfaceCell? sourceCell = null,
+            SurfaceCell? destinationCell = null)
         {
             return new TickEntityMotion(
                 entityId,
                 TickEntityMotionKind.BoxSlide,
+                sourceCell ?? new SurfaceCell(FaceId.Floor, 0, 0),
+                destinationCell ?? new SurfaceCell(FaceId.Floor, 1, 0));
+        }
+
+        private static BoxSlideStartPresentationSignal CreateBoxSlideStartSignal(int entityId = 40)
+        {
+            return new BoxSlideStartPresentationSignal(
+                entityId,
+                1,
                 new SurfaceCell(FaceId.Floor, 0, 0),
-                new SurfaceCell(FaceId.Floor, 1, 0));
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new CubeTopologyState(FaceId.Floor));
+        }
+
+        private static BoxSlideStopPresentationSignal CreateBoxSlideStopSignal(int entityId = 40)
+        {
+            return new BoxSlideStopPresentationSignal(
+                entityId,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new SurfaceCell(FaceId.Floor, 2, 0),
+                Direction.Right,
+                BoxSlideStopperKind.Terrain,
+                0,
+                SolidKind.Wall,
+                new CubeTopologyState(FaceId.Floor),
+                BoxSlideStopCause.SlidingContinuationBlocked);
+        }
+
+        private static EntityState CreateBoxEntityState(
+            int entityId,
+            EntityPhaseState phaseState,
+            int hp = 1,
+            bool markedForDeath = false,
+            EntityBoardPresence boardPresence = EntityBoardPresence.Occupying)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                type = EntityType.Box,
+                hp = hp,
+                maxHp = 1,
+                state = phaseState,
+                boardPresence = boardPresence,
+                position = new SurfaceCell(FaceId.Floor, 1, 0),
+                facing = Direction.Right,
+            };
         }
 
         private static TickEnemyJumpPresentationSignal CreateJumpSignal(
@@ -719,6 +1112,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Quaternion.identity);
         }
 
+        private static AttachedVfxFollowerDesiredState DesiredBoxSlide()
+        {
+            return new AttachedVfxFollowerDesiredState(
+                GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop),
+                40,
+                AttachedVfxFollowerStateKind.BoxSlideFollow,
+                40,
+                Vector3.zero,
+                Quaternion.identity,
+                AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop);
+        }
+
+        private static AttachedVfxFollowerDesiredState DesiredGlideWindup()
+        {
+            return new AttachedVfxFollowerDesiredState(
+                GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop),
+                40,
+                AttachedVfxFollowerStateKind.EnemyGlideWindup,
+                9,
+                Vector3.zero,
+                Quaternion.identity);
+        }
+
+        private static AttachedVfxFollowerDesiredState DesiredGlideRecover()
+        {
+            return new AttachedVfxFollowerDesiredState(
+                GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop),
+                40,
+                AttachedVfxFollowerStateKind.EnemyGlideRecover,
+                9,
+                Vector3.zero,
+                Quaternion.identity);
+        }
+
+        private static AttachedVfxFollowerKey StopKeyForBoxSlide(int entityId = 40)
+        {
+            return new AttachedVfxFollowerKey(
+                GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop),
+                entityId,
+                AttachedVfxFollowerStateKind.BoxSlideFollow,
+                entityId);
+        }
+
         private static AttachedFollowerFixture CreateFixture(
             bool resolveBinding = true,
             bool registerView = true,
@@ -747,6 +1183,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail), tailSeconds),
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail), tailSeconds),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop), tailSeconds),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop), tailSeconds),
+                CreatePolicy(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop), tailSeconds),
             };
             return new AttachedFollowerFixture(
                 owner,
@@ -874,6 +1313,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void RefreshAttached(params AttachedVfxFollowerDesiredState[] desiredStates)
             {
+                RefreshAttachedWithStops(Array.Empty<AttachedVfxFollowerKey>(), desiredStates);
+            }
+
+            public void RefreshAttachedWithStops(
+                IReadOnlyList<AttachedVfxFollowerKey> explicitStopKeys,
+                params AttachedVfxFollowerDesiredState[] desiredStates)
+            {
                 Controller.Refresh(
                     10,
                     TrackState,
@@ -882,6 +1328,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     BindingResolver,
                     enabled: false,
                     attachedDesiredStates: desiredStates,
+                    explicitAttachedStopStates: explicitStopKeys,
                     attachedFollowersEnabled: true);
             }
 

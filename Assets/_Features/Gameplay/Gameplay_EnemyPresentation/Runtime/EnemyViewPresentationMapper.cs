@@ -190,6 +190,37 @@ namespace Game.Feature.Gameplay.Host
         public bool TookDamage { get; }
 
         public bool DidDie { get; }
+
+        public EnemyViewPresentationState WithDidDie(bool didDie)
+        {
+            return new EnemyViewPresentationState(
+                EntityId,
+                TickIndex,
+                AiMode,
+                ActiveActionKind,
+                JumpPhase,
+                ChargePhase,
+                IsMoving,
+                StartedWindupThisTick,
+                ExecutedThisTick,
+                StartedRecoveryThisTick,
+                StartedJumpWindupThisTick,
+                StartedJumpAirborneThisTick,
+                LandedFromJumpThisTick,
+                RetryingJumpAirborneThisTick,
+                StartedChargeWindupThisTick,
+                StartedChargeActiveThisTick,
+                StartedChargeRecoverThisTick,
+                TookDamage,
+                didDie,
+                JumpOutcome,
+                GlidePhase,
+                StartedGlideWindupThisTick,
+                StartedGlideActiveThisTick,
+                StartedGlideRecoverThisTick,
+                UtilityPresentationKind,
+                StartedUtilityWindupThisTick);
+        }
     }
 
     public sealed class EnemyViewPresentationMapper

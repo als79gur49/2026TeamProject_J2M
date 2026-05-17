@@ -8,10 +8,10 @@ namespace Game.Feature.Gameplay.EnemyAudio
         None = 0,
         Move = 1,
         Death = 2,
-        Act = 3,
+        Windup = 3,
         Landing = 4,
-        Plasma = 5,
-        GravityField = 6,
+        Active = 5,
+        Recover = 6,
     }
 
     public readonly struct EnemyAudioRequest
@@ -19,11 +19,13 @@ namespace Game.Feature.Gameplay.EnemyAudio
         public EnemyAudioRequest(
             int ownerEntityId,
             EnemyAudioCue cue,
-            in AudioPlaybackContext context)
+            in AudioPlaybackContext context,
+            float delaySeconds = 0f)
         {
             OwnerEntityId = ownerEntityId;
             Cue = cue;
             Context = context;
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public int OwnerEntityId { get; }
@@ -31,6 +33,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
         public EnemyAudioCue Cue { get; }
 
         public AudioPlaybackContext Context { get; }
+
+        public float DelaySeconds { get; }
     }
 
     public static class EnemyAudioCueCatalog
@@ -42,10 +46,10 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 EnemyAudioCue.None => nameof(EnemyAudioCue.None),
                 EnemyAudioCue.Move => nameof(EnemyAudioCue.Move),
                 EnemyAudioCue.Death => nameof(EnemyAudioCue.Death),
-                EnemyAudioCue.Act => nameof(EnemyAudioCue.Act),
+                EnemyAudioCue.Windup => nameof(EnemyAudioCue.Windup),
                 EnemyAudioCue.Landing => nameof(EnemyAudioCue.Landing),
-                EnemyAudioCue.Plasma => nameof(EnemyAudioCue.Plasma),
-                EnemyAudioCue.GravityField => nameof(EnemyAudioCue.GravityField),
+                EnemyAudioCue.Active => nameof(EnemyAudioCue.Active),
+                EnemyAudioCue.Recover => nameof(EnemyAudioCue.Recover),
                 _ => throw new ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported enemy audio cue."),
             };
         }

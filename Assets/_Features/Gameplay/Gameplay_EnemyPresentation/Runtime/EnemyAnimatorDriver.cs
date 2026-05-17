@@ -243,6 +243,32 @@ namespace Game.Feature.Gameplay.Host
             SetTrigger(targetAnimator, attackTriggerName);
         }
 
+        public float PlayDeathPresentation(int entityId)
+        {
+            var targetAnimator = ResolveAnimator();
+            var currentState = LastPresentationState.EntityId == 0
+                ? new EnemyViewPresentationState(
+                    entityId,
+                    tickIndex: -1,
+                    EnemyAiMode.Dead,
+                    EnemyActionKind.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: true)
+                : LastPresentationState.WithDidDie(true);
+            LastPresentationState = currentState;
+            CurrentAiMode = currentState.AiMode;
+            CurrentActiveActionKind = currentState.ActiveActionKind;
+            IsMoving = false;
+            DeathSignalCount++;
+            SetTrigger(targetAnimator, deathTriggerName);
+            ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.Death);
+            return DeathPresentationDurationSeconds;
+        }
+
         private Animator ResolveAnimator()
         {
             if (animator == null)

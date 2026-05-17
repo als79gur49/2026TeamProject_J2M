@@ -14,7 +14,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxTimingKind timing,
             bool isPersistent = false,
             VfxPersistentKey persistentKey = default,
-            VfxStyleKey styleKey = default)
+            VfxStyleKey styleKey = default,
+            float delaySeconds = 0f)
             : this(
                 tickIndex,
                 sequenceId,
@@ -25,7 +26,8 @@ namespace Game.Feature.Gameplay.Vfx
                 timing,
                 isPersistent,
                 persistentKey,
-                styleKey)
+                styleKey,
+                delaySeconds)
         {
         }
 
@@ -39,7 +41,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxTimingKind timing,
             bool isPersistent = false,
             VfxPersistentKey persistentKey = default,
-            VfxStyleKey styleKey = default)
+            VfxStyleKey styleKey = default,
+            float delaySeconds = 0f)
         {
             TickIndex = tickIndex;
             SequenceId = sequenceId;
@@ -51,6 +54,7 @@ namespace Game.Feature.Gameplay.Vfx
             IsPersistent = isPersistent;
             PersistentKey = persistentKey;
             StyleKey = styleKey;
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public int TickIndex { get; }
@@ -72,6 +76,8 @@ namespace Game.Feature.Gameplay.Vfx
         public VfxPersistentKey PersistentKey { get; }
 
         public VfxStyleKey StyleKey { get; }
+
+        public float DelaySeconds { get; }
 
         public int CompareTo(GameplayVfxRequest other)
         {
@@ -130,8 +136,14 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             var timingCompare = Timing.CompareTo(other.Timing);
-            return timingCompare != 0
-                ? timingCompare
+            if (timingCompare != 0)
+            {
+                return timingCompare;
+            }
+
+            var delayCompare = DelaySeconds.CompareTo(other.DelaySeconds);
+            return delayCompare != 0
+                ? delayCompare
                 : IsPersistent.CompareTo(other.IsPersistent);
         }
 
@@ -146,7 +158,8 @@ namespace Game.Feature.Gameplay.Vfx
                 && Timing == other.Timing
                 && IsPersistent == other.IsPersistent
                 && PersistentKey.Equals(other.PersistentKey)
-                && StyleKey.Equals(other.StyleKey);
+                && StyleKey.Equals(other.StyleKey)
+                && DelaySeconds.Equals(other.DelaySeconds);
         }
 
         public override bool Equals(object obj)
@@ -168,6 +181,7 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ IsPersistent.GetHashCode();
                 hash = (hash * 397) ^ PersistentKey.GetHashCode();
                 hash = (hash * 397) ^ StyleKey.GetHashCode();
+                hash = (hash * 397) ^ DelaySeconds.GetHashCode();
                 return hash;
             }
         }
@@ -185,7 +199,8 @@ namespace Game.Feature.Gameplay.Vfx
                 $"{nameof(Timing)}={Timing}, " +
                 $"{nameof(IsPersistent)}={IsPersistent}, " +
                 $"{nameof(PersistentKey)}={PersistentKey}, " +
-                $"{nameof(StyleKey)}={StyleKey})";
+                $"{nameof(StyleKey)}={StyleKey}, " +
+                $"{nameof(DelaySeconds)}={DelaySeconds})";
         }
     }
 }

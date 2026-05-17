@@ -2340,6 +2340,154 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(signal.ImpactFacing, Is.EqualTo(Direction.Right));
             Assert.That(signal.HasLandingCell, Is.False);
             Assert.That(signal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.DestroySelf));
+            Assert.That(presentationData.FlipFloorImpactSignals.Count, Is.EqualTo(1));
+            var floorSignal = presentationData.FlipFloorImpactSignals[0];
+            Assert.That(floorSignal.SourceActionPlanId, Is.EqualTo(1));
+            Assert.That(floorSignal.BoxEntityId, Is.EqualTo(20));
+            Assert.That(floorSignal.ActorEntityId, Is.EqualTo(20));
+            Assert.That(floorSignal.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(floorSignal.ContactCell, Is.EqualTo(impactCell));
+            Assert.That(floorSignal.SourceFacing, Is.EqualTo(Direction.Left));
+            Assert.That(floorSignal.ContactFacing, Is.EqualTo(Direction.Right));
+            Assert.That(floorSignal.Kind, Is.EqualTo(FlipFloorImpactPresentationKind.DestroySelf));
+            Assert.That(
+                floorSignal.VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_LethalFlipFollowThroughTargetExit_DelaysDeathPresentationToVisualContact()
+        {
+            const int tickIndex = 8;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var impactCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var sourceBox = CreateEntity(20, EntityType.Box, sourceCell, Direction.Right);
+            sourceBox.boxCapabilities = BoxCapabilities.Push;
+            var movedBox = sourceBox;
+            movedBox.position = impactCell;
+            var enemyBeforeImpact = CreateEnemyEntity(40, impactCell, EnemyAiMode.Attack, Direction.Left);
+            var enemyAfterImpact = enemyBeforeImpact;
+            enemyAfterImpact.position = new SurfaceCell(FaceId.Floor, 2, 0);
+            enemyAfterImpact.boardPresence = EntityBoardPresence.Detached;
+            enemyAfterImpact.hp = 0;
+            enemyAfterImpact.markedForDeath = true;
+
+            var preMovementSnapshot = CreateWorldState(new[] { sourceBox, enemyBeforeImpact }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(new[] { movedBox, enemyAfterImpact }).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(new[] { movedBox }).CreateSnapshot();
+
+            var moveMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Flip,
+                sourceActorEntityId: 10,
+                actionPlanId: 77,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement,
+                boundaryReason: "FollowThrough");
+            var destroyMetadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Attack,
+                sourceActorEntityId: 20,
+                actionPlanId: 77,
+                exitCauseHint: TickEntityExitCause.Killed,
+                attackSourceKind: AttackSourceKind.Combat,
+                damageSourceType: DamageSourceType.Impact,
+                presentationTargetCell: impactCell,
+                boundaryReason: "FollowThroughTarget",
+                hasPresentationTargetCell: true);
+            var impactDispositionRecord = new ImpactDispositionResolutionRecord(
+                actionPlanId: 77,
+                impactSourceEntityId: 20,
+                impactTargetEntityId: 40,
+                impactCell,
+                policyKind: ImpactDispositionPolicyKind.Flip,
+                dispositionKind: ImpactDispositionKind.FollowThrough,
+                targetDestroyed: true,
+                followThroughLegalityChecked: true,
+                followThroughAccepted: true);
+            var movementPhaseResult = new MovementPhaseResult(
+                Array.Empty<RawMovementIntent>(),
+                Array.Empty<MoveIntent>(),
+                Array.Empty<ResolutionRecord>(),
+                new[] { impactDispositionRecord },
+                new[] { FinalizationOperation.MoveEntity(1, 20, impactCell, moveMetadata) },
+                Array.Empty<string>(),
+                Array.Empty<string>());
+            var finalizationBatch = new FinalizationBatch();
+            finalizationBatch.MarkDestroy(40, destroyMetadata);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    finalSnapshot,
+                    movementPhaseResult,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.RemovedEntities(40),
+                    finalizationBatch: finalizationBatch,
+                    currentTickIndex: tickIndex));
+
+            Assert.That(presentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(presentationData.FlipFloorImpactSignals.Count, Is.EqualTo(1));
+            Assert.That(
+                presentationData.FlipFloorImpactSignals[0].VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime).Within(0.0001f));
+            Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1));
+            var exitSignal = presentationData.EntityExitSignals[0];
+            Assert.That(exitSignal.ExitedEntityId, Is.EqualTo(40));
+            Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.AtContactTime));
+            Assert.That(
+                exitSignal.VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_FlipLandingMotion_EmitsFloorImpactSignal()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var landingCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var sourceEntity = CreateEntity(20, EntityType.Box, sourceCell, Direction.Left);
+            var destinationEntity = CreateEntity(20, EntityType.Box, landingCell, Direction.Right);
+            var preMovementSnapshot = CreateWorldState(new[] { sourceEntity }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(new[] { destinationEntity }).CreateSnapshot();
+            var metadata = new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Flip,
+                sourceActorEntityId: 10,
+                actionPlanId: 77,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement,
+                boundaryReason: "BoxActionMovement");
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResultWithOperations(
+                        FinalizationOperation.MoveEntity(1, 20, landingCell, metadata)),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            Assert.That(presentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(presentationData.FlipFloorImpactSignals.Count, Is.EqualTo(1));
+            var signal = presentationData.FlipFloorImpactSignals[0];
+            Assert.That(signal.SourceActionPlanId, Is.EqualTo(77));
+            Assert.That(signal.BoxEntityId, Is.EqualTo(20));
+            Assert.That(signal.ActorEntityId, Is.EqualTo(10));
+            Assert.That(signal.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(signal.ContactCell, Is.EqualTo(landingCell));
+            Assert.That(signal.SourceFacing, Is.EqualTo(Direction.Left));
+            Assert.That(signal.ContactFacing, Is.EqualTo(Direction.Right));
+            Assert.That(signal.Kind, Is.EqualTo(FlipFloorImpactPresentationKind.Landing));
+            Assert.That(
+                signal.VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime).Within(0.0001f));
         }
 
         [Test]

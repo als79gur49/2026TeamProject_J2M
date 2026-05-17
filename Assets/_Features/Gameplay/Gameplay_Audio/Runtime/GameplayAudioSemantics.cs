@@ -219,11 +219,13 @@ namespace Game.Feature.Gameplay.Audio
         public GameplayAudioRequest(
             GameplayAudioSemanticId semanticId,
             int? ownerEntityId,
-            in AudioPlaybackContext context)
+            in AudioPlaybackContext context,
+            float delaySeconds = 0f)
         {
             SemanticId = semanticId;
             OwnerEntityId = ownerEntityId;
             Context = context;
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public GameplayAudioSemanticId SemanticId { get; }
@@ -231,5 +233,7 @@ namespace Game.Feature.Gameplay.Audio
         public int? OwnerEntityId { get; }
 
         public AudioPlaybackContext Context { get; }
+
+        public float DelaySeconds { get; }
     }
 }

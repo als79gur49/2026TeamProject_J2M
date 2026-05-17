@@ -153,7 +153,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
-            if (!poseResolver.TryResolveEntityExitSignalLocalPose(projector, signal, out var sourceLocalPose))
+            var hasContactDelay =
+                signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                signal.VisualContactNormalizedTime > 0f;
+            GameplayEntityPose sourceLocalPose;
+            var hasSourcePose = hasContactDelay
+                ? poseResolver.TryResolveContactDelayedEntityExitSignalLocalPose(projector, signal, out sourceLocalPose)
+                : poseResolver.TryResolveEntityExitSignalLocalPose(projector, signal, out sourceLocalPose);
+            if (!hasSourcePose)
             {
                 return false;
             }

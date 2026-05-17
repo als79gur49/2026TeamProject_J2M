@@ -11,15 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
   m_Name: JumperJumpStart_Binding
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   family: 3
   cueCode: 21
+  styleKey:
+    value: 
   prefab: {fileID: 100000, guid: e7d16f90d5f9ccb331e65ac35af7f32c, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 0
   stopPolicy: 1
   defaultLifetimeSeconds: 0.35
-  tailSeconds: 0.2
+  tailSeconds: 0.7
   initialPoolSize: 4
   maxConcurrentInstances: 8

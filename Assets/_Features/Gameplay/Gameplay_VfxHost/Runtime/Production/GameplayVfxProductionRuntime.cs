@@ -46,13 +46,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly GravityFieldVfxRequestPlanner gravityFieldPlanner = new();
         private readonly GameplayVfxRequestPlanBuilder planBuilder = new();
         private readonly HashSet<FlipDestroySelfMotionInstanceKey> playedFlipDestroySelfMotionKeys = new();
-        private readonly HashSet<BoxSlideTrailMotionInstanceKey> playedBoxSlideTrailMotionKeys = new();
         private readonly HashSet<int> playedBoxSlideSolidStopKeys = new();
         private readonly HashSet<ImpactTransientBreakInstanceKey> playedImpactTransientBreakKeys = new();
         private readonly HashSet<OutOfBoundsExitInstanceKey> playedOutOfBoundsExitKeys = new();
         private readonly HashSet<DelayedBoxDestroyExitVfxKey> scheduledDelayedBoxDestroyExitVfxKeys = new();
         private readonly List<DelayedBoxDestroyExitVfx> pendingDelayedBoxDestroyExitVfx = new();
         private readonly List<DelayedBoxDestroyExitVfx> readyDelayedBoxDestroyExitVfx = new();
+        private readonly HashSet<DelayedEnemyDeathMotionVfxKey> scheduledDelayedEnemyDeathMotionVfxKeys = new();
+        private readonly List<DelayedEnemyDeathMotionVfx> pendingDelayedEnemyDeathMotionVfx = new();
+        private readonly List<DelayedEnemyDeathMotionVfx> readyDelayedEnemyDeathMotionVfx = new();
         private readonly EnemyMotionAttachedVfxFollowerPlanner enemyMotionAttachedFollowerPlanner = new();
         private readonly PresentationMotionFollowingVfxController motionFollowingVfxController = new();
 
@@ -72,7 +74,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int flipImpactStayTrailMissingOwnerViewCount;
         private int enemyMotionAttachedMissingBindingCount;
         private int enemyMotionAttachedMissingOwnerViewCount;
-        private int boxSlideTrailMissingBindingCount;
         private int boxSlideSolidStopMissingBindingCount;
         private int boxSlideSolidStopMissingAnchorCount;
         private int boxDestroyShrinkMissingBindingCount;
@@ -520,7 +521,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             flipDestroySelfMotionMissingBindingCount +
             flipImpactStayTrailMissingBindingCount +
             enemyMotionAttachedMissingBindingCount +
-            boxSlideTrailMissingBindingCount +
             boxDestroyShrinkMissingBindingCount +
             impactTransientBreakMissingBindingCount +
             outOfBoundsExitMissingBindingCount +
@@ -566,7 +566,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             flipImpactStayTrailMissingOwnerViewCount = 0;
             enemyMotionAttachedMissingBindingCount = 0;
             enemyMotionAttachedMissingOwnerViewCount = 0;
-            boxSlideTrailMissingBindingCount = 0;
             boxDestroyShrinkMissingBindingCount = 0;
             boxDestroyShrinkMissingAnchorCount = 0;
             impactTransientBreakMissingBindingCount = 0;
@@ -576,10 +575,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enemyDeathMotionMissingBindingCount = 0;
             enemyDeathMotionMissingAnchorCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
-            playedBoxSlideTrailMotionKeys.Clear();
             playedBoxSlideSolidStopKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
+            scheduledDelayedBoxDestroyExitVfxKeys.Clear();
+            pendingDelayedBoxDestroyExitVfx.Clear();
+            readyDelayedBoxDestroyExitVfx.Clear();
+            scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
+            pendingDelayedEnemyDeathMotionVfx.Clear();
+            readyDelayedEnemyDeathMotionVfx.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
             motionFollowingVfxController.ResetSession();
             controller?.HardCleanupAll();
@@ -610,7 +614,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enableGameplayVfxGlideWindTrail,
                 enableGameplayVfxChargeBoosterTrail,
                 enableGameplayVfxBoxSlideTrail,
-                enableEnemyJumpTargetVfx);
+                enableEnemyJumpTargetVfx,
+                context.Result.FinalEntities);
             planBuilder.Clear();
             var planningContext = new GameplayVfxPlanningContext(
                 context.Result.TickIndex,
@@ -638,9 +643,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayFlipDestroySelfMotion =
                 enableGameplayVfxFlipDestroySelfMotionMigration &&
                 HasDestroySelfFlipImpactSignal(context.Result.PresentationData);
-            var shouldPlayBoxSlideTrail =
-                enableGameplayVfxBoxSlideTrail &&
-                HasBoxSlideMotion(context.Result.PresentationData);
             var shouldPlayBoxSlideSolidStop =
                 enableGameplayVfxBoxSlideSolidStop &&
                 HasBoxSlideSolidStopSignal(context.Result.PresentationData);
@@ -661,7 +663,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 HasEnemyDeathExitSignal(context.Result.PresentationData);
             if (plan.Requests.Count == 0 &&
                 !shouldPlayFlipDestroySelfMotion &&
-                !shouldPlayBoxSlideTrail &&
                 !shouldPlayBoxSlideSolidStop &&
                 !shouldPlayBoxDestroyShrink &&
                 !shouldScheduleAfterEntityMotionBoxDestroyExit &&
@@ -677,9 +678,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             controller.Refresh(plan);
             var flipDestroySelfMotionCommandCount = shouldPlayFlipDestroySelfMotion
                 ? PlayFlipDestroySelfMotionCommands(context)
-                : 0;
-            var boxSlideTrailCommandCount = shouldPlayBoxSlideTrail
-                ? PlayBoxSlideTrailCommands(context)
                 : 0;
             var boxSlideSolidStopCommandCount = shouldPlayBoxSlideSolidStop
                 ? PlayBoxSlideSolidStopCommands(context)
@@ -701,7 +699,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 : 0;
             LastPlannedRequestCount = plan.Requests.Count +
                                       flipDestroySelfMotionCommandCount +
-                                      boxSlideTrailCommandCount +
                                       boxSlideSolidStopCommandCount +
                                       boxDestroyShrinkCommandCount +
                                       delayedBoxDestroyExitVfxCount +
@@ -713,6 +710,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void UpdatePresentation(float deltaTime)
         {
             AdvanceDelayedBoxDestroyExitVfx(deltaTime);
+            AdvanceDelayedEnemyDeathMotionVfx(deltaTime);
+            controller?.Update(deltaTime);
             pool?.Advance(deltaTime);
         }
 
@@ -735,6 +734,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 bindingResolver,
                 enabled: enableGameplayVfxFlipImpactStayTrail,
                 enemyMotionAttachedFollowerPlanner.DesiredFollowers,
+                enemyMotionAttachedFollowerPlanner.ExplicitStopKeys,
                 attachedFollowersEnabled: enableGameplayVfxGlideWindTrail ||
                                           enableGameplayVfxChargeBoosterTrail ||
                                           enableGameplayVfxBoxSlideTrail ||
@@ -744,6 +744,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enemyMotionAttachedMissingBindingCount = motionFollowingVfxController.AttachedMissingBindingCount;
             enemyMotionAttachedMissingOwnerViewCount = motionFollowingVfxController.AttachedMissingOwnerViewCount;
             PlayReadyDelayedBoxDestroyExitVfx();
+            PlayReadyDelayedEnemyDeathMotionVfx();
         }
 
         public void HardCleanup()
@@ -752,12 +753,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             controller?.HardCleanupAll();
             LastPlannedRequestCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
-            playedBoxSlideTrailMotionKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
             playedOutOfBoundsExitKeys.Clear();
             scheduledDelayedBoxDestroyExitVfxKeys.Clear();
             pendingDelayedBoxDestroyExitVfx.Clear();
             readyDelayedBoxDestroyExitVfx.Clear();
+            scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
+            pendingDelayedEnemyDeathMotionVfx.Clear();
+            readyDelayedEnemyDeathMotionVfx.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
         }
 
@@ -948,7 +951,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)) ||
                    (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||
-                   (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)) ||
                    (enableGameplayVfxBoxSlideSolidStop && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)) ||
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
@@ -1209,6 +1211,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
+                if (signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                    signal.VisualContactNormalizedTime > 0f)
+                {
+                    if (ScheduleDelayedEnemyDeathMotionVfx(context.Result.TickIndex, signal, context.TimingProfile))
+                    {
+                        plannedCommandCount++;
+                    }
+
+                    continue;
+                }
+
                 if (!EnemyDeathMotionVfxCommandBuilder.TryBuild(
                         signal,
                         context.TimingProfile,
@@ -1226,6 +1239,96 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             return plannedCommandCount;
+        }
+
+        private bool ScheduleDelayedEnemyDeathMotionVfx(
+            int tickIndex,
+            in TickEntityExitPresentationSignal signal,
+            GameplayTimingProfile timingProfile)
+        {
+            var key = DelayedEnemyDeathMotionVfxKey.Create(tickIndex, signal);
+            if (!scheduledDelayedEnemyDeathMotionVfxKeys.Add(key))
+            {
+                return false;
+            }
+
+            var resolvedTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            var delaySeconds = resolvedTimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
+            var delayed = new DelayedEnemyDeathMotionVfx(
+                tickIndex,
+                signal,
+                resolvedTimingProfile,
+                delaySeconds);
+            if (delaySeconds <= 0.0001f)
+            {
+                PlayDelayedEnemyDeathMotionVfx(delayed);
+                return true;
+            }
+
+            pendingDelayedEnemyDeathMotionVfx.Add(delayed);
+            return true;
+        }
+
+        private void AdvanceDelayedEnemyDeathMotionVfx(float deltaTime)
+        {
+            if (pendingDelayedEnemyDeathMotionVfx.Count == 0)
+            {
+                return;
+            }
+
+            var advanceSeconds = Mathf.Max(0f, deltaTime);
+            for (var i = pendingDelayedEnemyDeathMotionVfx.Count - 1; i >= 0; i--)
+            {
+                var pending = pendingDelayedEnemyDeathMotionVfx[i].Advance(advanceSeconds);
+                if (pending.RemainingSeconds > 0.0001f)
+                {
+                    pendingDelayedEnemyDeathMotionVfx[i] = pending;
+                    continue;
+                }
+
+                pendingDelayedEnemyDeathMotionVfx.RemoveAt(i);
+                readyDelayedEnemyDeathMotionVfx.Add(pending);
+            }
+        }
+
+        private void PlayReadyDelayedEnemyDeathMotionVfx()
+        {
+            if (readyDelayedEnemyDeathMotionVfx.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < readyDelayedEnemyDeathMotionVfx.Count; i++)
+            {
+                var delayed = readyDelayedEnemyDeathMotionVfx[i];
+                PlayDelayedEnemyDeathMotionVfx(delayed);
+            }
+
+            readyDelayedEnemyDeathMotionVfx.Clear();
+        }
+
+        private void PlayDelayedEnemyDeathMotionVfx(in DelayedEnemyDeathMotionVfx delayed)
+        {
+            var trackState = new GameplayPresentationTrackState();
+            var poseResolver = new GameplayPoseResolver(configuredStateStore, trackState);
+            var targetResolver = new EnemyDeathMotionTargetResolver(
+                localSpaceRoot,
+                outputCamera,
+                configuredStateStore,
+                configuredProjector.CellSize);
+            if (!EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                    delayed.Signal,
+                    delayed.TimingProfile,
+                    poseResolver,
+                    configuredProjector,
+                    targetResolver,
+                    out var command))
+            {
+                enemyDeathMotionMissingAnchorCount++;
+                return;
+            }
+
+            TryPlayEnemyDeathMotionCommand(delayed.TickIndex, command);
         }
 
         private bool TryPlayEnemyDeathMotionCommand(
@@ -1268,99 +1371,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
             return pool.PlayParameterizedMotion(playbackCommand, parameterizedCommand) != null;
-        }
-
-        private int PlayBoxSlideTrailCommands(in GameplayTickPresentationExtensionContext context)
-        {
-            var presentationData = context.Result.PresentationData;
-            if (presentationData == null || pool == null || bindingResolver == null)
-            {
-                return 0;
-            }
-
-            var trackState = new GameplayPresentationTrackState();
-            var poseResolver = new GameplayPoseResolver(context.StateStore, trackState);
-            var motionTimingResolver = new GameplayMotionTimingResolver(context.StateStore, trackState);
-            var plannedCommandCount = 0;
-            var motions = presentationData.EntityMotions;
-            for (var i = 0; i < motions.Count; i++)
-            {
-                var motion = motions[i];
-                if (!BoxSlideTrailVfxCommandBuilder.TryBuild(
-                        context.Result.TickIndex,
-                        motion,
-                        context.TimingProfile,
-                        motionTimingResolver,
-                        poseResolver,
-                        context.Projector,
-                        context.Topology,
-                        out var command))
-                {
-                    continue;
-                }
-
-                plannedCommandCount++;
-                var key = BoxSlideTrailVfxCommandBuilder.CreateInstanceKey(
-                    context.Result.TickIndex,
-                    motion);
-                if (playedBoxSlideTrailMotionKeys.Contains(key))
-                {
-                    continue;
-                }
-
-                if (TryPlayBoxSlideTrailCommand(context.Result.TickIndex, motion, command))
-                {
-                    playedBoxSlideTrailMotionKeys.Add(key);
-                }
-            }
-
-            return plannedCommandCount;
-        }
-
-        private bool TryPlayBoxSlideTrailCommand(
-            int tickIndex,
-            TickEntityMotion motion,
-            in ParameterizedMotionVfxCommand command)
-        {
-            var cueId = GameplayVfxCueId.From(BoxVfxCue.SlideDustTrail);
-            var sourceTopology = motion.SourceTopology ??
-                                 motion.DestinationTopology ??
-                                 configuredStateStore?.CommittedTopology ??
-                                 default;
-            var request = new GameplayVfxRequest(
-                tickIndex: tickIndex,
-                sequenceId: command.SequenceId,
-                presentationSeed: command.PresentationSeed,
-                sourceEntityId: motion.EntityId,
-                cueId: cueId,
-                anchor: VfxAnchor.ForCell(
-                    motion.SourceCell,
-                    sourceTopology,
-                    VfxAnchorSlot.CellCenter),
-                timing: VfxTimingKind.ImmediateOnTickPresentation,
-                isPersistent: false,
-                persistentKey: VfxPersistentKey.None);
-
-            if (!bindingResolver.TryResolve(request, out var policy))
-            {
-                boxSlideTrailMissingBindingCount++;
-                return false;
-            }
-
-            policy.ValidateOrThrow();
-            if (policy.CueId != request.CueId)
-            {
-                throw new InvalidOperationException("Gameplay VFX binding cue does not match Box Slide trail request cue.");
-            }
-
-            var anchor = VfxResolvedAnchor.ForCell(
-                motion.SourceCell,
-                sourceTopology,
-                VfxAnchorSlot.CellCenter,
-                command.SourceLocalPosition,
-                command.SourceLocalRotation);
-            var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayParameterizedMotion(playbackCommand, command) != null;
         }
 
         private int PlayBoxSlideSolidStopCommands(in GameplayTickPresentationExtensionContext context)
@@ -1827,26 +1837,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return false;
         }
 
-        private static bool HasBoxSlideMotion(TickPresentationData presentationData)
-        {
-            if (presentationData == null)
-            {
-                return false;
-            }
-
-            var motions = presentationData.EntityMotions;
-            for (var i = 0; i < motions.Count; i++)
-            {
-                if (motions[i].MotionKind == TickEntityMotionKind.BoxSlide &&
-                    motions[i].EntityId > 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private static bool HasBoxSlideSolidStopSignal(TickPresentationData presentationData)
         {
             if (presentationData == null)
@@ -2171,6 +2161,81 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     PlaySmoke,
                     PlayShrink,
                     TimingProfile);
+            }
+        }
+
+        private readonly struct DelayedEnemyDeathMotionVfxKey : IEquatable<DelayedEnemyDeathMotionVfxKey>
+        {
+            private DelayedEnemyDeathMotionVfxKey(int tickIndex, int entityId, int presentationSeed)
+            {
+                TickIndex = tickIndex;
+                EntityId = entityId;
+                PresentationSeed = presentationSeed;
+            }
+
+            private int TickIndex { get; }
+
+            private int EntityId { get; }
+
+            private int PresentationSeed { get; }
+
+            public bool Equals(DelayedEnemyDeathMotionVfxKey other)
+            {
+                return TickIndex == other.TickIndex &&
+                       EntityId == other.EntityId &&
+                       PresentationSeed == other.PresentationSeed;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is DelayedEnemyDeathMotionVfxKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(TickIndex, EntityId, PresentationSeed);
+            }
+
+            public static DelayedEnemyDeathMotionVfxKey Create(
+                int tickIndex,
+                in TickEntityExitPresentationSignal signal)
+            {
+                return new DelayedEnemyDeathMotionVfxKey(
+                    tickIndex,
+                    signal.ExitedEntityId,
+                    signal.PresentationSeed);
+            }
+        }
+
+        private readonly struct DelayedEnemyDeathMotionVfx
+        {
+            public DelayedEnemyDeathMotionVfx(
+                int tickIndex,
+                TickEntityExitPresentationSignal signal,
+                GameplayTimingProfile timingProfile,
+                float remainingSeconds)
+            {
+                TickIndex = tickIndex;
+                Signal = signal;
+                TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+                RemainingSeconds = Mathf.Max(0f, remainingSeconds);
+            }
+
+            public int TickIndex { get; }
+
+            public TickEntityExitPresentationSignal Signal { get; }
+
+            public GameplayTimingProfile TimingProfile { get; }
+
+            public float RemainingSeconds { get; }
+
+            public DelayedEnemyDeathMotionVfx Advance(float deltaTime)
+            {
+                return new DelayedEnemyDeathMotionVfx(
+                    TickIndex,
+                    Signal,
+                    TimingProfile,
+                    RemainingSeconds - Mathf.Max(0f, deltaTime));
             }
         }
 

@@ -6235,6 +6235,145 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void GameplayTickViewPresenter_ContactDelayedEnemyDeath_RetainsOriginalViewUntilVisualContactThenCleansUpAtHandoff()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_ContactDelayedEnemyDeath_RetainsOriginalViewUntilVisualContactThenCleansUpAtHandoff");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.05f,
+                    topologyMotionDurationSeconds: 0.05f,
+                    flipMotionDurationSeconds: 1f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8,
+                    enemyDeathEffectDurationSeconds: 0.25f);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, playerCell, facing: Direction.Right),
+                        CreateSurfaceUnit(40, enemyCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
+                var originalInstanceId = enemyView.GetInstanceID();
+                var driver = enemyView.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                UnityEngine.Object.DestroyImmediate(visual.GetComponent<Collider>());
+                visual.name = "OriginalEnemyVisual";
+                visual.transform.SetParent(enemyView.ModelRoot, worldPositionStays: false);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, playerCell, facing: Direction.Right),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(40, TickVisibilityChangeKind.Remove, enemyCell, topology, Direction.Left),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    40,
+                                    TickEntityExitCause.EnemyDeath,
+                                    enemyCell,
+                                    topology,
+                                    Direction.Left,
+                                    EntityType.Unit,
+                                    sourceActorEntityId: 10,
+                                    timing: EntityExitPresentationTiming.AtContactTime,
+                                    visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime),
+                            })));
+
+                var flipDuration = timingProfile.FlipMotionDurationSeconds;
+                var contactTime = GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime *
+                                  flipDuration;
+                const float epsilon = 0.001f;
+                var oneFrame = 1f / timingProfile.SimulationTicksPerSecond;
+                var elapsedSeconds = 0f;
+
+                var startSnapshot = presenter.DebugCaptureEntityPresentationLifecycle(40, elapsedSeconds);
+                AssertContactRetainedBeforeVisualContact(startSnapshot, originalInstanceId, elapsedSeconds);
+
+                var interactionOnsetDelta =
+                    GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime * flipDuration;
+                presenter.UpdatePresentation(interactionOnsetDelta);
+                elapsedSeconds += interactionOnsetDelta;
+                var interactionOnsetSnapshot =
+                    presenter.DebugCaptureEntityPresentationLifecycle(40, elapsedSeconds);
+                AssertContactRetainedBeforeVisualContact(
+                    interactionOnsetSnapshot,
+                    originalInstanceId,
+                    elapsedSeconds);
+
+                var preSlamDelta =
+                    (0.9f - GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime) *
+                    flipDuration;
+                presenter.UpdatePresentation(preSlamDelta);
+                elapsedSeconds += preSlamDelta;
+                var preSlamSnapshot = presenter.DebugCaptureEntityPresentationLifecycle(40, elapsedSeconds);
+                AssertContactRetainedBeforeVisualContact(preSlamSnapshot, originalInstanceId, elapsedSeconds);
+
+                var beforeContactDelta = contactTime - (0.9f * flipDuration) - epsilon;
+                presenter.UpdatePresentation(beforeContactDelta);
+                elapsedSeconds += beforeContactDelta;
+                var beforeContactSnapshot = presenter.DebugCaptureEntityPresentationLifecycle(40, elapsedSeconds);
+                AssertContactRetainedBeforeVisualContact(beforeContactSnapshot, originalInstanceId, elapsedSeconds);
+
+                presenter.UpdatePresentation(epsilon);
+                elapsedSeconds += epsilon;
+                var contactSnapshot = presenter.DebugCaptureEntityPresentationLifecycle(40, elapsedSeconds);
+                AssertOriginalEnemyCleanedUpAtDestroyVfxHandoff(contactSnapshot, originalInstanceId, elapsedSeconds);
+
+                presenter.UpdatePresentation(oneFrame);
+                elapsedSeconds += oneFrame;
+                var oneFrameAfterContactSnapshot =
+                    presenter.DebugCaptureEntityPresentationLifecycle(40, elapsedSeconds);
+                AssertOriginalEnemyCleanedUpAtDestroyVfxHandoff(
+                    oneFrameAfterContactSnapshot,
+                    originalInstanceId,
+                    elapsedSeconds);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_PushMotion_MidpointInterpolatesBetweenSourceAndDestination()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PushMotion_MidpointInterpolatesBetweenSourceAndDestination");
@@ -7294,6 +7433,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var units = new List<EntityState>();
             snapshot.EnumerateUnitsAt(cell, units);
             return units.Select(entity => entity.entityId).ToArray();
+        }
+
+        private static void AssertContactRetainedBeforeVisualContact(
+            GameplayEntityPresentationLifecycleDebugSnapshot snapshot,
+            int expectedInstanceId,
+            float expectedTimelineTimeSeconds)
+        {
+            Assert.That(snapshot.TimelineTimeSeconds, Is.EqualTo(expectedTimelineTimeSeconds).Within(0.0001f));
+            Assert.That(snapshot.EntityId, Is.EqualTo(40));
+            Assert.That(snapshot.GameObjectName, Is.EqualTo("EntityView_40"));
+            Assert.That(snapshot.InstanceId, Is.EqualTo(expectedInstanceId));
+            Assert.That(snapshot.HasEnemyAnimatorDriver, Is.True);
+            Assert.That(snapshot.HasEntityViewComponent, Is.True);
+            Assert.That(snapshot.ViewsByEntityIdContainsEntityId, Is.True);
+            Assert.That(snapshot.ContactDelayedRetainedEntityIdsContainsEntityId, Is.True);
+            Assert.That(snapshot.DeathPresentationPlayingEntityIdsContainsEntityId, Is.False);
+            Assert.That(snapshot.RetainedLocalTargetPosesContainsEntityId, Is.True);
+            Assert.That(snapshot.PendingContactExitContainsEntityId, Is.True);
+            Assert.That(snapshot.PendingContactExitRemainingSeconds, Is.GreaterThan(0f));
+            Assert.That(snapshot.PendingDeathCleanupContainsEntityId, Is.False);
+            Assert.That(snapshot.GameObjectActiveSelf, Is.True);
+            Assert.That(snapshot.RendererEnabled, Is.True);
+            Assert.That(snapshot.RendererActiveInHierarchy, Is.True);
+            Assert.That(snapshot.IsVfxPooledInstance, Is.False);
+            Assert.That(snapshot.DeathTriggerCount, Is.Zero);
+        }
+
+        private static void AssertOriginalEnemyCleanedUpAtDestroyVfxHandoff(
+            GameplayEntityPresentationLifecycleDebugSnapshot snapshot,
+            int expectedInstanceId,
+            float expectedTimelineTimeSeconds)
+        {
+            Assert.That(snapshot.TimelineTimeSeconds, Is.EqualTo(expectedTimelineTimeSeconds).Within(0.0001f));
+            Assert.That(snapshot.EntityId, Is.EqualTo(40));
+            Assert.That(snapshot.GameObjectName, Is.EqualTo("EntityView_40"));
+            Assert.That(snapshot.InstanceId, Is.EqualTo(expectedInstanceId));
+            Assert.That(snapshot.HasEnemyAnimatorDriver, Is.True);
+            Assert.That(snapshot.HasEntityViewComponent, Is.True);
+            Assert.That(snapshot.ViewsByEntityIdContainsEntityId, Is.True);
+            Assert.That(snapshot.ContactDelayedRetainedEntityIdsContainsEntityId, Is.False);
+            Assert.That(snapshot.DeathPresentationPlayingEntityIdsContainsEntityId, Is.False);
+            Assert.That(snapshot.RetainedLocalTargetPosesContainsEntityId, Is.False);
+            Assert.That(snapshot.PendingContactExitContainsEntityId, Is.False);
+            Assert.That(snapshot.PendingDeathCleanupContainsEntityId, Is.False);
+            Assert.That(snapshot.GameObjectActiveSelf, Is.False);
+            Assert.That(snapshot.RendererActiveInHierarchy, Is.False);
+            Assert.That(snapshot.IsVfxPooledInstance, Is.False);
+            Assert.That(snapshot.DeathTriggerCount, Is.Zero);
         }
 
         private sealed class TestViewFactory : IGameplayEntityViewFactory

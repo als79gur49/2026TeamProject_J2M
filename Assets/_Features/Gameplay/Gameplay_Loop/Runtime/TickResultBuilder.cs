@@ -709,6 +709,7 @@ namespace Game.Feature.Gameplay.Loop
             var entityExitSignals = new List<TickEntityExitPresentationSignal>();
             var impactTransientSignals = new List<TickImpactTransientPresentationSignal>();
             var flipImpactSignals = new List<FlipImpactPresentationSignal>();
+            var flipFloorImpactSignals = new List<FlipFloorImpactPresentationSignal>();
             var boxSlideStopSignals = new List<BoxSlideStopPresentationSignal>();
             var boxSlideStartSignals = new List<BoxSlideStartPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
@@ -749,6 +750,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildTileFeatureActiveVisualStates(context, topologyFact, tileFeatureActiveVisualStates);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
+            BuildFlipFloorImpactPresentation(context, flipFloorImpactSignals);
             BuildBoxSlideStopPresentation(context, boxSlideStopSignals);
             BuildBoxSlideStartPresentation(context, boxSlideStartSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
@@ -793,6 +795,7 @@ namespace Game.Feature.Gameplay.Loop
                    entityExitSignals.Count == 0 &&
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
+                   flipFloorImpactSignals.Count == 0 &&
                    boxSlideStopSignals.Count == 0 &&
                    boxSlideStartSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
@@ -849,6 +852,7 @@ namespace Game.Feature.Gameplay.Loop
                     tileFeatureVisualStates,
                     tileFeatureActiveVisualStates,
                     playerFlipResultTurnSignals,
+                    flipFloorImpactSignals,
                     forwardCellImpactSignals);
         }
 
@@ -2297,6 +2301,94 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
+        private static void BuildFlipFloorImpactPresentation(
+            in TickPresentationBuildContext context,
+            List<FlipFloorImpactPresentationSignal> flipFloorImpactSignals)
+        {
+            var signaledKeys = new HashSet<long>();
+            BuildFlipFloorImpactPresentationFromDisposition(context, flipFloorImpactSignals, signaledKeys);
+            BuildFlipFloorImpactPresentationFromMovement(context, flipFloorImpactSignals, signaledKeys);
+        }
+
+        private static void BuildFlipFloorImpactPresentationFromDisposition(
+            in TickPresentationBuildContext context,
+            List<FlipFloorImpactPresentationSignal> flipFloorImpactSignals,
+            HashSet<long> signaledKeys)
+        {
+            var dispositionRecords = context.MovementPhaseResult.ImpactDispositionRecords;
+            for (var i = 0; i < dispositionRecords.Count; i++)
+            {
+                var record = dispositionRecords[i];
+                if (record.PolicyKind != ImpactDispositionPolicyKind.Flip ||
+                    !TryResolveFlipFloorImpactKind(record.DispositionKind, out var kind) ||
+                    !context.PreMovementSnapshot.TryGetEntity(record.ImpactSourceEntityId, out var sourceEntity) ||
+                    sourceEntity.boardPresence != EntityBoardPresence.Occupying ||
+                    sourceEntity.position == record.ImpactCell ||
+                    !ImpactGeometryResolver.TryResolve(sourceEntity.position, record.ImpactCell, out var geometry) ||
+                    !geometry.IsFlipImpact)
+                {
+                    continue;
+                }
+
+                var key = BuildFlipImpactSignalKey(record.ActionPlanId, record.ImpactSourceEntityId);
+                if (!signaledKeys.Add(key))
+                {
+                    continue;
+                }
+
+                flipFloorImpactSignals.Add(
+                    new FlipFloorImpactPresentationSignal(
+                        record.ActionPlanId,
+                        record.ImpactSourceEntityId,
+                        ResolveActionActorEntityId(context, record.ActionPlanId),
+                        sourceEntity.position,
+                        record.ImpactCell,
+                        context.PreMovementSnapshot.Topology,
+                        sourceEntity.facing,
+                        geometry.MoveFacing,
+                        kind));
+            }
+        }
+
+        private static void BuildFlipFloorImpactPresentationFromMovement(
+            in TickPresentationBuildContext context,
+            List<FlipFloorImpactPresentationSignal> flipFloorImpactSignals,
+            HashSet<long> signaledKeys)
+        {
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                    operation.Metadata.MovementSemanticKind != MovementSemanticKind.Flip ||
+                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
+                    !context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var destinationEntity) ||
+                    destinationEntity.boardPresence != EntityBoardPresence.Occupying ||
+                    sourceEntity.position == operation.Destination)
+                {
+                    continue;
+                }
+
+                var key = BuildFlipImpactSignalKey(operation.Metadata.ActionPlanId, operation.EntityId);
+                if (!signaledKeys.Add(key))
+                {
+                    continue;
+                }
+
+                flipFloorImpactSignals.Add(
+                    new FlipFloorImpactPresentationSignal(
+                        operation.Metadata.ActionPlanId,
+                        operation.EntityId,
+                        operation.Metadata.SourceActorEntityId,
+                        sourceEntity.position,
+                        operation.Destination,
+                        context.PostMovementSnapshot.Topology,
+                        sourceEntity.facing,
+                        destinationEntity.facing,
+                        FlipFloorImpactPresentationKind.Landing));
+            }
+        }
+
         private static void BuildImpactTransientPresentation(
             in TickPresentationBuildContext context,
             List<TickImpactTransientPresentationSignal> impactTransientSignals)
@@ -2351,7 +2443,8 @@ namespace Game.Feature.Gameplay.Loop
                             fact.EntityId,
                             fact.SourceActorEntityId,
                             fact.ExitCause),
-                        timing: fact.Timing));
+                        timing: fact.Timing,
+                        visualContactNormalizedTime: fact.VisualContactNormalizedTime));
                 exitOwnedEntityIds.Add(fact.EntityId);
             }
         }
@@ -2379,6 +2472,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                var exitTiming = ResolveEntityExitPresentationTiming(context, operation);
                 var fact = new EntityExitPresentationFact(
                     operation.EntityId,
                     operation.Metadata.ExitCauseHint,
@@ -2387,9 +2481,12 @@ namespace Game.Feature.Gameplay.Loop
                     topology,
                     sourceEntity.facing,
                     operation.Metadata.SourceActorEntityId,
-                    operation.Metadata.ExitPresentationTiming,
+                    exitTiming,
                     operation.Metadata.BoundaryReason,
-                    operation.Metadata.HasPresentationTargetCell);
+                    operation.Metadata.HasPresentationTargetCell,
+                    exitTiming == EntityExitPresentationTiming.AtContactTime
+                        ? GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime
+                        : 0f);
                 MergePreferMoreSpecificFact(factsByEntityId, fact);
             }
 
@@ -2440,6 +2537,46 @@ namespace Game.Feature.Gameplay.Loop
         {
             return entity.type == EntityType.Box ||
                    (entity.type == EntityType.Unit && entity.aiMode != EnemyAiMode.None);
+        }
+
+        private static EntityExitPresentationTiming ResolveEntityExitPresentationTiming(
+            in TickPresentationBuildContext context,
+            FinalizationOperation operation)
+        {
+            if (operation.Metadata.ExitPresentationTiming != EntityExitPresentationTiming.Immediate)
+            {
+                return operation.Metadata.ExitPresentationTiming;
+            }
+
+            return IsLethalFlipFollowThroughTargetExit(context, operation)
+                ? EntityExitPresentationTiming.AtContactTime
+                : operation.Metadata.ExitPresentationTiming;
+        }
+
+        private static bool IsLethalFlipFollowThroughTargetExit(
+            in TickPresentationBuildContext context,
+            FinalizationOperation operation)
+        {
+            if (operation.Kind != FinalizationOperationKind.MarkDestroy ||
+                operation.Metadata.ExitCauseHint != TickEntityExitCause.Killed)
+            {
+                return false;
+            }
+
+            var dispositionRecords = context.MovementPhaseResult.ImpactDispositionRecords;
+            for (var i = 0; i < dispositionRecords.Count; i++)
+            {
+                var record = dispositionRecords[i];
+                if (record.PolicyKind == ImpactDispositionPolicyKind.Flip &&
+                    record.DispositionKind == ImpactDispositionKind.FollowThrough &&
+                    record.TargetDestroyed &&
+                    record.ImpactTargetEntityId == operation.EntityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static SurfaceCell ResolveExitAnchorCell(
@@ -2604,7 +2741,8 @@ namespace Game.Feature.Gameplay.Loop
                     new TickSummonedEnemyPresentationBinding(
                         summonedEntry.EntityId,
                         hasBinding,
-                        hasBinding ? bindingState.ArchetypeId : EnemyUnitArchetypeId.None));
+                        hasBinding ? bindingState.ArchetypeId : EnemyUnitArchetypeId.None,
+                        summonedEntry.State.SourceEntityId));
             }
         }
 
@@ -3131,6 +3269,21 @@ namespace Game.Feature.Gameplay.Loop
             };
 
             return disposition != 0;
+        }
+
+        private static bool TryResolveFlipFloorImpactKind(
+            ImpactDispositionKind dispositionKind,
+            out FlipFloorImpactPresentationKind kind)
+        {
+            kind = dispositionKind switch
+            {
+                ImpactDispositionKind.DestroySelf => FlipFloorImpactPresentationKind.DestroySelf,
+                ImpactDispositionKind.Stay => FlipFloorImpactPresentationKind.Stay,
+                ImpactDispositionKind.FollowThrough => FlipFloorImpactPresentationKind.FollowThrough,
+                _ => 0,
+            };
+
+            return kind != 0;
         }
 
         private static long BuildFlipImpactSignalKey(int sourceActionPlanId, int boxEntityId)

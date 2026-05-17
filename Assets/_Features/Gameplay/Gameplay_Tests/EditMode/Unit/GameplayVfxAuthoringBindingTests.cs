@@ -33,10 +33,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.Prefab, Is.Not.Null);
             Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
             Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
-            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
-            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(0.55f).Within(0.0001f));
-            Assert.That(policy.TailSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            Assert.That(policy.DefaultLifetimeSeconds, Is.Zero);
+            Assert.That(policy.TailSeconds, Is.Zero);
             Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
             Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(8));
         }
@@ -87,7 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void BindingAsset_BuildsRuntimePolicyWithoutPrefabLeak()
         {
-            var prefab = new GameObject("ValidVfxPrefab");
+            var prefab = CreateValidPrefab("ValidVfxPrefab");
             var binding = CreateBinding(
                 GameplayVfxFamily.Player,
                 (int)PlayerVfxCue.Damage,
@@ -161,8 +161,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void BindingAsset_RejectsInvalidPolicyValues()
         {
-            var prefabA = new GameObject("InvalidDurationVfxPrefab");
-            var prefabB = new GameObject("RequiredSkipOptionalVfxPrefab");
+            var prefabA = CreateValidPrefab("InvalidDurationVfxPrefab");
+            var prefabB = CreateValidPrefab("RequiredSkipOptionalVfxPrefab");
             var invalidDuration = CreateBinding(
                 GameplayVfxFamily.Player,
                 (int)PlayerVfxCue.Damage,
@@ -225,7 +225,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void BindingAsset_BuildsDiagnosticRequirementPolicy()
         {
-            var prefab = new GameObject("DiagnosticVfxPrefab");
+            var prefab = CreateValidPrefab("DiagnosticVfxPrefab");
             var binding = CreateBinding(
                 GameplayVfxFamily.Player,
                 (int)PlayerVfxCue.PushWindup,
@@ -271,8 +271,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CueMapAsset_RejectsDuplicateCue()
         {
-            var prefabA = new GameObject("VfxPrefabA");
-            var prefabB = new GameObject("VfxPrefabB");
+            var prefabA = CreateValidPrefab("VfxPrefabA");
+            var prefabB = CreateValidPrefab("VfxPrefabB");
             var bindingA = CreateBinding(GameplayVfxFamily.Box, (int)BoxVfxCue.DestroySmoke, prefabA);
             var bindingB = CreateBinding(GameplayVfxFamily.Box, (int)BoxVfxCue.DestroySmoke, prefabB);
             var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
@@ -300,8 +300,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CueMapAsset_BuildsRuntimeCueMap()
         {
-            var prefabA = new GameObject("VfxPrefabA");
-            var prefabB = new GameObject("VfxPrefabB");
+            var prefabA = CreateValidPrefab("VfxPrefabA");
+            var prefabB = CreateValidPrefab("VfxPrefabB");
             var damage = CreateBinding(GameplayVfxFamily.Player, (int)PlayerVfxCue.Damage, prefabA);
             var death = CreateBinding(GameplayVfxFamily.Player, (int)PlayerVfxCue.Death, prefabB);
             var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
@@ -330,7 +330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ProfileAsset_RejectsCrossFamilyBinding()
         {
-            var prefab = new GameObject("BoxVfxPrefab");
+            var prefab = CreateValidPrefab("BoxVfxPrefab");
             var binding = CreateBinding(GameplayVfxFamily.Box, (int)BoxVfxCue.DestroySmoke, prefab);
             var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
             SetField(profile, "family", GameplayVfxFamily.Player);
@@ -356,7 +356,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ProfileAsset_BuildsRuntimeProfile()
         {
-            var prefab = new GameObject("EnemyVfxPrefab");
+            var prefab = CreateValidPrefab("EnemyVfxPrefab");
             var binding = CreateBinding(GameplayVfxFamily.Enemy, (int)EnemyVfxCue.Spawn, prefab);
             var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
             SetField(profile, "family", GameplayVfxFamily.Enemy);
@@ -412,6 +412,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
             field.SetValue(target, value);
+        }
+
+        private static GameObject CreateValidPrefab(string name)
+        {
+            var prefab = new GameObject(name);
+            new GameObject("ModelRoot").transform.SetParent(prefab.transform, worldPositionStays: false);
+            return prefab;
         }
 
         private static void Destroy(UnityEngine.Object unityObject)

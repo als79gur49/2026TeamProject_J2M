@@ -15,6 +15,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
         EnemyGlideRecover = 6,
     }
 
+    internal enum AttachedVfxFollowerRetentionPolicy
+    {
+        RefreshDesiredOnly = 0,
+        RetainUntilExplicitStop = 1,
+    }
+
     internal readonly struct AttachedVfxFollowerKey : IEquatable<AttachedVfxFollowerKey>
     {
         public AttachedVfxFollowerKey(
@@ -71,7 +77,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             AttachedVfxFollowerStateKind stateKind,
             int sequenceId,
             Vector3 localPosition,
-            Quaternion localRotation)
+            Quaternion localRotation,
+            AttachedVfxFollowerRetentionPolicy retentionPolicy = AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly)
         {
             CueId = cueId;
             SourceEntityId = sourceEntityId;
@@ -79,6 +86,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             SequenceId = sequenceId;
             LocalPosition = localPosition;
             LocalRotation = localRotation;
+            RetentionPolicy = retentionPolicy;
         }
 
         public GameplayVfxCueId CueId { get; }
@@ -92,6 +100,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public Vector3 LocalPosition { get; }
 
         public Quaternion LocalRotation { get; }
+
+        public AttachedVfxFollowerRetentionPolicy RetentionPolicy { get; }
 
         public AttachedVfxFollowerKey Key =>
             new(CueId, SourceEntityId, StateKind, SequenceId);

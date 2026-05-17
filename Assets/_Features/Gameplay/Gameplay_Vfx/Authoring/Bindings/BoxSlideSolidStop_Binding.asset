@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   family: 2
   cueCode: 14
-  prefab: {fileID: 100000, guid: b0261ad2b2864166a8bd3d14dbfa415c, type: 3}
+  prefab: {fileID: 100000, guid: 59a8001b7327493197528ee4c9339259, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 0

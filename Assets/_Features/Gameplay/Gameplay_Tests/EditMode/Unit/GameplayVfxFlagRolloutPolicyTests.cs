@@ -70,10 +70,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             new(
                 "EnableGameplayVfxBoxSlideTrail",
                 "enableGameplayVfxBoxSlideTrail",
-                "BoxVfxCue.SlideDustTrail",
-                "Augmentation / parameterized motion",
+                "BoxVfxCue.BoxSlideFollowLoop",
+                "Augmentation / attached follower",
                 "Tier 1",
-                "targeted tests + density visual spot check"),
+                "targeted attached-follow regression + visual spot check"),
             new(
                 "EnableGameplayVfxBoxSlideSolidStop",
                 "enableGameplayVfxBoxSlideSolidStop",

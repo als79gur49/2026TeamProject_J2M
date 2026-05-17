@@ -14,12 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   family: 3
   cueCode: 12
+  styleKey:
+    value: 
   prefab: {fileID: 100000, guid: c9bea5bfbcaa4facb4574a9126240ed6, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 0
   stopPolicy: 1
   defaultLifetimeSeconds: 0.45
-  tailSeconds: 0.3
+  tailSeconds: 0.9
   initialPoolSize: 4
   maxConcurrentInstances: 8

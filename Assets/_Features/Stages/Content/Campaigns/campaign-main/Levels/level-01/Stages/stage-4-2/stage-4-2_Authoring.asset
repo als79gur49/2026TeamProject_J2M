@@ -39,40 +39,6 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: 
-  - StableGuid: stage-4-2:Enemy:58
-    DisplayName: Enemy 58
-    Kind: 1
-    Cell:
-      face: 3
-      x: 7
-      y: 7
-    Facing: 4
-    Hp: 3
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId: rocket_face
-  - StableGuid: stage-4-2:Enemy:59
-    DisplayName: Enemy 59
-    Kind: 1
-    Cell:
-      face: 3
-      x: 4
-      y: 5
-    Facing: 4
-    Hp: 3
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
-    PresentationId: j_peter
   - StableGuid: stage-4-2:Box:42
     DisplayName: Box 42
     Kind: 2
@@ -85,23 +51,6 @@ MonoBehaviour:
     UnitMobilityKind: 0
     UnitStackGroup: 
     BoxCapabilities: 3
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
-  - StableGuid: stage-4-2:Box:43
-    DisplayName: Box 43
-    Kind: 2
-    Cell:
-      face: 3
-      x: 3
-      y: 5
-    Facing: 2
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 9
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -243,6 +192,176 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: box_tutorial
+  - StableGuid: a325e71139ae4a0398ccdfa92fd645f0
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 6
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
+    PresentationId: secbot
+  - StableGuid: c0db887eaeaf4850a581d9933eb7c72d
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 7
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
+    PresentationId: secbot
+  - StableGuid: 897cc316674941b4828da1bf6f1fc529
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 8
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
+    PresentationId: secbot
+  - StableGuid: 1f0d64bed8944b719c1cd28375a67226
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 4
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
+    PresentationId: secbot
+  - StableGuid: d42adb0bc79c4524a01ba0beec7d2780
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 3
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
+    PresentationId: secbot
+  - StableGuid: acb41868ab87416c8cbacc4264ac1633
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 0
+      x: 1
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
+    PresentationId: secbot
+  - StableGuid: d2df0c224c8c42dbaf8c5607a11f7014
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 10
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 2
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_gravity
+  - StableGuid: 5b5ffcc2a56d4881a9cba32919fcbcee
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 1
+      x: 9
+      y: 2
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: astreton
+  - StableGuid: 6aa9754e48794bd59b432854e95fa039
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 1
+      x: 12
+      y: 5
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
+    PresentationId: j_peter
+  - StableGuid: 5a2451fb45144cb4b8a4a42e389b0e14
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 3
+      x: 7
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
+    PresentationId: rocket_face
   tileFeatures:
   - TileId: 1
     Cell:
@@ -444,7 +563,7 @@ MonoBehaviour:
     LastKnownDisplayName: Box 42
   - StableGuid: stage-4-2:Box:43
     EntityId: 43
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Box 43
   - StableGuid: stage-4-2:Enemy:54
     EntityId: 54
@@ -464,11 +583,11 @@ MonoBehaviour:
     LastKnownDisplayName: Enemy 57
   - StableGuid: stage-4-2:Enemy:58
     EntityId: 58
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Enemy 58
   - StableGuid: stage-4-2:Enemy:59
     EntityId: 59
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Enemy 59
   - StableGuid: stage-4-2:Wall:196
     EntityId: 196
@@ -520,6 +639,90 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: d844135634af42c2b72ba1f3a2e78204
     EntityId: 208
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: a325e71139ae4a0398ccdfa92fd645f0
+    EntityId: 209
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: c0db887eaeaf4850a581d9933eb7c72d
+    EntityId: 210
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 897cc316674941b4828da1bf6f1fc529
+    EntityId: 211
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 1f0d64bed8944b719c1cd28375a67226
+    EntityId: 212
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: d42adb0bc79c4524a01ba0beec7d2780
+    EntityId: 213
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: acb41868ab87416c8cbacc4264ac1633
+    EntityId: 214
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 56129f3c38a14db3ae0308dc168b2aa5
+    EntityId: 215
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 85a57ab44cae402c90a7cea0e160915d
+    EntityId: 216
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: f18efab554d745c5982c71efd2db09fa
+    EntityId: 217
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 0707599c3074466e8919def9b4f4c2e3
+    EntityId: 218
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 0d55383f80c24625aad6f3d1ebacb2ed
+    EntityId: 219
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 7a486484c7b64aa09b1877a0d85583f3
+    EntityId: 220
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 76b8718cb5384f21b9b1a94f85a83654
+    EntityId: 221
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 2892a9c4356945c69ebd16ef3dbf742f
+    EntityId: 222
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 6c39e2beb2514058849c7152706dd3cb
+    EntityId: 223
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: a3375d33d1764e68a8df41924f8ed6fa
+    EntityId: 224
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 4c87773aa4f349a08915c5e028f47a65
+    EntityId: 225
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: d2df0c224c8c42dbaf8c5607a11f7014
+    EntityId: 226
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 5b5ffcc2a56d4881a9cba32919fcbcee
+    EntityId: 227
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 6aa9754e48794bd59b432854e95fa039
+    EntityId: 228
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 5a2451fb45144cb4b8a4a42e389b0e14
+    EntityId: 229
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

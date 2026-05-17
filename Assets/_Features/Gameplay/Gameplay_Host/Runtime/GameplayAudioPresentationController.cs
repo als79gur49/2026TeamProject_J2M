@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class GameplayAudioPresentationController
     {
-        private readonly List<GameplayAudioRequest> _pendingRequests = new();
+        private readonly List<ScheduledGameplayAudioRequest> _pendingRequests = new();
         private readonly GameplayPresentationStateStore _stateStore;
 
         private GameplayAudioMap _audioMap;
@@ -86,14 +86,30 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(plannedRequests));
             }
 
-            ClearPendingPlan();
+            RemoveImmediatePendingRequests();
             for (var i = 0; i < plannedRequests.Count; i++)
             {
-                _pendingRequests.Add(plannedRequests[i]);
+                var request = plannedRequests[i];
+                _pendingRequests.Add(new ScheduledGameplayAudioRequest(request, request.DelaySeconds));
             }
         }
 
         public void PlayPlannedAudio()
+        {
+            PlayReadyAudio(0f);
+        }
+
+        public void Update(float deltaTime)
+        {
+            if (deltaTime < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            PlayReadyAudio(deltaTime);
+        }
+
+        private void PlayReadyAudio(float deltaTime)
         {
             if (_audioMap == null || _playbackPort == null)
             {
@@ -101,22 +117,39 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            try
+            var retainedCount = 0;
+            for (var i = 0; i < _pendingRequests.Count; i++)
             {
-                for (var i = 0; i < _pendingRequests.Count; i++)
+                var scheduled = _pendingRequests[i].Advance(deltaTime);
+                if (scheduled.RemainingSeconds > 0f)
                 {
-                    PlayRequest(_pendingRequests[i]);
+                    _pendingRequests[retainedCount++] = scheduled;
+                    continue;
                 }
+
+                PlayRequest(scheduled.Request);
             }
-            finally
+
+            if (retainedCount < _pendingRequests.Count)
             {
-                ClearPendingPlan();
+                _pendingRequests.RemoveRange(retainedCount, _pendingRequests.Count - retainedCount);
             }
         }
 
         public void ClearPendingPlan()
         {
             _pendingRequests.Clear();
+        }
+
+        private void RemoveImmediatePendingRequests()
+        {
+            for (var i = _pendingRequests.Count - 1; i >= 0; i--)
+            {
+                if (_pendingRequests[i].RemainingSeconds <= 0f)
+                {
+                    _pendingRequests.RemoveAt(i);
+                }
+            }
         }
 
         private void PlayRequest(in GameplayAudioRequest request)
@@ -164,6 +197,24 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return true;
+        }
+
+        private readonly struct ScheduledGameplayAudioRequest
+        {
+            public ScheduledGameplayAudioRequest(GameplayAudioRequest request, float remainingSeconds)
+            {
+                Request = request;
+                RemainingSeconds = Math.Max(0f, remainingSeconds);
+            }
+
+            public GameplayAudioRequest Request { get; }
+
+            public float RemainingSeconds { get; }
+
+            public ScheduledGameplayAudioRequest Advance(float deltaTime)
+            {
+                return new ScheduledGameplayAudioRequest(Request, RemainingSeconds - Math.Max(0f, deltaTime));
+            }
         }
     }
 }

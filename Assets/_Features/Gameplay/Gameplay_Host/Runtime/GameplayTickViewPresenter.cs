@@ -196,6 +196,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.SetGravityFieldVisualDiagnosticSink(diagnosticSink);
         }
 
+        internal GameplayEntityPresentationLifecycleDebugSnapshot DebugCaptureEntityPresentationLifecycle(
+            int entityId,
+            float timelineTimeSeconds = 0f)
+        {
+            return _presentationCoordinator.DebugCaptureEntityPresentationLifecycle(entityId, timelineTimeSeconds);
+        }
+
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
 
         internal int PendingMoonBlockEmergenceRequestCount =>

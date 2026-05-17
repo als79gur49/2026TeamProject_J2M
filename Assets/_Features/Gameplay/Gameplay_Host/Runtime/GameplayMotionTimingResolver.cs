@@ -46,7 +46,8 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplayMotionTimingResolver
     {
         private const float DefaultJumpArcHeightInCells = 0.75f;
-        private const float DefaultFlipImpactContactNormalizedTime = 0.62f;
+        private const float DefaultFlipImpactContactNormalizedTime =
+            GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime;
         private const float DefaultFlipImpactStayReturnArcHeightMultiplier = 0.55f;
         private const float DefaultFlipImpactDestroyBreakNormalizedDuration = 0.22f;
         private const float DefaultFlipImpactStayPostContactHoldNormalizedDuration = 0.18f;

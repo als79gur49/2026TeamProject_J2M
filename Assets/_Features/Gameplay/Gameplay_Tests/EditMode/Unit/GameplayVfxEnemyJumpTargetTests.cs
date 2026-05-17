@@ -58,8 +58,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
             Assert.That(request.Anchor.Cell, Is.EqualTo(targetCell));
             Assert.That(request.Anchor.Topology, Is.EqualTo(topology));
-            Assert.That(request.IsPersistent, Is.False);
-            Assert.That(request.PersistentKey, Is.EqualTo(default(VfxPersistentKey)));
+            Assert.That(request.IsPersistent, Is.True);
+            Assert.That(request.PersistentKey.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
+            Assert.That(request.PersistentKey.AnchorKind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.PersistentKey.EntityId, Is.EqualTo(123));
+            Assert.That(request.PersistentKey.Cell, Is.EqualTo(targetCell));
+            Assert.That(request.PersistentKey.HasCell, Is.True);
+            Assert.That(request.PersistentKey.ActivationSequence, Is.EqualTo(3));
         }
 
         [Test]
@@ -80,24 +85,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPlanner_AirborneSignal_DoesNotEmitLandingTarget()
+        public void EnemyPlanner_AirborneSignal_ContinuesLandingTarget()
         {
-            AssertNoCueRequests(
-                EnemyVfxCue.JumperLandingTarget,
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            var request = PlanSingleRequest(
                 CreateJumpSignal(
-                    new SurfaceCell(FaceId.Floor, 1, 1),
-                    startedAirborne: true,
-                    phase: EnemyJumpPhase.Airborne));
+                    targetCell,
+                    phase: EnemyJumpPhase.Airborne),
+                topology);
+
+            AssertJumperLandingTargetRequest(request, targetCell, topology);
         }
 
         [Test]
         [Category("Extended")]
         public void EnemyPlanner_AirborneStarted_EmitsJumperJumpStartRequest()
         {
-            var request = PlanSingleRequest(CreateJumpSignal(
-                new SurfaceCell(FaceId.Floor, 1, 1),
-                startedAirborne: true,
-                phase: EnemyJumpPhase.Airborne));
+            var request = PlanRequestForCue(
+                EnemyVfxCue.JumperJumpStart,
+                CreateJumpSignal(
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    startedAirborne: true,
+                    phase: EnemyJumpPhase.Airborne));
 
             Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperJumpStart)));
             Assert.That(request.SourceEntityId, Is.EqualTo(40));
@@ -121,17 +132,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void EnemyPlanner_RetrySignal_DoesNotEmitLandingTarget()
+        public void EnemyPlanner_RetrySignal_ContinuesLandingTarget()
         {
-            AssertNoRequests(CreateJumpSignal(
-                new SurfaceCell(FaceId.Floor, 1, 1),
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var request = PlanSingleRequest(CreateJumpSignal(
+                targetCell,
                 retry: true,
                 phase: EnemyJumpPhase.Airborne));
+
+            AssertJumperLandingTargetRequest(request, targetCell, new CubeTopologyState(FaceId.Floor));
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyPlanner_MultipleIrrelevantJumpSignals_DoNotEmitLandingTargetFalsePositive()
+        public void EnemyPlanner_MultipleNonActiveJumpSignals_DoNotEmitLandingTargetFalsePositive()
         {
             var planner = new EnemyVfxRequestPlanner();
             var builder = new GameplayVfxRequestPlanBuilder();
@@ -141,9 +155,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new GameplayVfxPlanningContext(
                     tickIndex: 12,
                     CreatePresentationData(
-                        CreateJumpSignal(targetCell, startedAirborne: true, phase: EnemyJumpPhase.Airborne),
                         CreateJumpSignal(targetCell, landed: true, phase: EnemyJumpPhase.Cooldown),
-                        CreateJumpSignal(targetCell, retry: true, phase: EnemyJumpPhase.Airborne)),
+                        CreateJumpSignal(targetCell, phase: EnemyJumpPhase.Cooldown),
+                        CreateJumpSignal(targetCell, phase: EnemyJumpPhase.None)),
                     new CubeTopologyState(FaceId.Floor)),
                 builder);
 
@@ -279,7 +293,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_FlagOnWithBinding_PlaysOneTransientInstance()
+        public void ProductionRuntime_FlagOnWithBinding_PlaysOnePersistentInstance()
         {
             var owner = new GameObject("VfxRuntimeEnabled");
             var prefab = new GameObject("JumperLandingTargetPrefab");
@@ -313,6 +327,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ProductionRuntime_LandedSignal_StopsPersistentLandingTarget()
+        {
+            var owner = new GameObject("VfxRuntimeLandingStop");
+            var prefab = new GameObject("JumperLandingTargetPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableEnemyJumpTargetVfx = true;
+                runtime.EnableEnemyJumpLandingDustVfx = false;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                var targetCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                runtime.Present(CreateExtensionContext(CreateJumpSignal(targetCell, startedWindup: true)));
+                var persistentRoot = owner.transform.Find("GameplayVfxRuntimeRoot/Persistent");
+                Assert.That(persistentRoot, Is.Not.Null);
+                Assert.That(persistentRoot.childCount, Is.EqualTo(1));
+
+                runtime.Present(CreateExtensionContext(CreateJumpSignal(
+                    targetCell,
+                    landed: true,
+                    phase: EnemyJumpPhase.Cooldown)));
+                runtime.UpdatePresentation(0f);
+
+                Assert.That(persistentRoot.childCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ProductionRuntime_FlagOnWithActualBinding_PlaysMarkerOnTargetCell()
         {
             var owner = new GameObject("VfxRuntimeActualBinding");
@@ -329,15 +384,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(context);
 
-                var oneShotRoot = owner.transform.Find("GameplayVfxRuntimeRoot/OneShot");
-                Assert.That(oneShotRoot, Is.Not.Null);
-                Assert.That(oneShotRoot.childCount, Is.EqualTo(1));
+                var persistentRoot = owner.transform.Find("GameplayVfxRuntimeRoot/Persistent");
+                Assert.That(persistentRoot, Is.Not.Null);
+                Assert.That(persistentRoot.childCount, Is.EqualTo(1));
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
 
-                var marker = oneShotRoot.GetChild(0);
+                var marker = persistentRoot.GetChild(0);
                 var projector = new GameplayCubeProjector(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                     1f);
@@ -511,6 +566,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return plan.Requests[0];
         }
 
+        private static GameplayVfxRequest PlanRequestForCue(
+            EnemyVfxCue cue,
+            TickEnemyJumpPresentationSignal jumpSignal,
+            CubeTopologyState topology = default)
+        {
+            var resolvedTopology = topology.Equals(default(CubeTopologyState))
+                ? new CubeTopologyState(FaceId.Floor)
+                : topology;
+            var planner = new EnemyVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var cueId = GameplayVfxCueId.From(cue);
+
+            planner.Plan(
+                new GameplayVfxPlanningContext(
+                    tickIndex: 12,
+                    CreatePresentationData(jumpSignal),
+                    resolvedTopology),
+                builder);
+
+            var plan = builder.Build();
+            Assert.That(
+                plan.Requests,
+                Has.Exactly(1).Matches<GameplayVfxRequest>(request => request.CueId == cueId));
+            for (var i = 0; i < plan.Requests.Count; i++)
+            {
+                if (plan.Requests[i].CueId == cueId)
+                {
+                    return plan.Requests[i];
+                }
+            }
+
+            Assert.Fail($"Missing request for cue '{cueId}'.");
+            return default;
+        }
+
         private static void AssertNoRequests(params TickEnemyJumpPresentationSignal[] jumpSignals)
         {
             var planner = new EnemyVfxRequestPlanner();
@@ -554,13 +644,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.TickIndex, Is.EqualTo(12));
             Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
             Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.ImmediateOnTickPresentation));
-            Assert.That(request.IsPersistent, Is.False);
+            Assert.That(request.IsPersistent, Is.True);
             Assert.That(request.PresentationSeed, Is.EqualTo(40));
             Assert.That(request.SourceEntityId, Is.EqualTo(40));
             Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
             Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
             Assert.That(request.Anchor.Cell, Is.EqualTo(targetCell));
             Assert.That(request.Anchor.Topology, Is.EqualTo(topology));
+            Assert.That(request.PersistentKey.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
+            Assert.That(request.PersistentKey.AnchorKind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.PersistentKey.EntityId, Is.EqualTo(40));
+            Assert.That(request.PersistentKey.Cell, Is.EqualTo(targetCell));
+            Assert.That(request.PersistentKey.HasCell, Is.True);
+            Assert.That(request.PersistentKey.ActivationSequence, Is.EqualTo(3));
         }
 
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
@@ -636,17 +732,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static VfxBindingDefinitionAsset CreateBinding(GameObject prefab)
         {
+            EnsureModelRoot(prefab);
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Enemy);
             SetField(binding, "cueCode", (int)EnemyVfxCue.JumperLandingTarget);
             SetField(binding, "prefab", prefab);
             SetField(binding, "requirement", VfxBindingRequirement.Optional);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.SkipOptional);
-            SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
-            SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
-            SetField(binding, "defaultLifetimeSeconds", 0.5f);
-            SetField(binding, "tailSeconds", 0.2f);
+            SetField(binding, "playbackMode", VfxPlaybackMode.Loop);
+            SetField(binding, "stopPolicy", VfxStopPolicy.StopEmittingThenRelease);
+            SetField(binding, "defaultLifetimeSeconds", 0f);
+            SetField(binding, "tailSeconds", 0f);
             return binding;
+        }
+
+        private static void EnsureModelRoot(GameObject prefab)
+        {
+            if (prefab != null && prefab.transform.Find("ModelRoot") == null)
+            {
+                new GameObject("ModelRoot").transform.SetParent(prefab.transform, worldPositionStays: false);
+            }
         }
 
         private static VfxCueMapAsset CreateCueMap(params VfxBindingDefinitionAsset[] bindings)

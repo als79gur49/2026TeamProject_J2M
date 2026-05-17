@@ -337,6 +337,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 motionTimingResolver,
                 poseResolver,
                 new GameplayExitPresentationController(
+                    animationSync,
                     stateStore,
                     trackState),
                 entityApplier);

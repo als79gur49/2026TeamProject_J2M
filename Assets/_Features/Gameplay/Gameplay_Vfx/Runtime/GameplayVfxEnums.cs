@@ -34,7 +34,6 @@ namespace Game.Feature.Gameplay.Vfx
         DestroySmoke = 6,
         ItemConsume = 7,
         FlipDestroySelfMotion = 8,
-        SlideDustTrail = 9,
         DestroyShrink = 10,
         ImpactTransientBreak = 11,
         OutOfBoundsExit = 12,
@@ -97,6 +96,7 @@ namespace Game.Feature.Gameplay.Vfx
         BarricadeActiveLoop = 22,
         ButtonActiveLoop = 23,
         ExitObjectiveCleared = 24,
+        ExitOpenLoop = 25,
     }
 
     public enum GravityFieldVfxCue

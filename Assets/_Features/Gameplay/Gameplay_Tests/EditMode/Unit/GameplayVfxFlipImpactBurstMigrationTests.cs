@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -35,6 +36,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipTimingConstants_SeparateInteractionOnsetFromVisualSlamContact()
+        {
+            Assert.That(
+                GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime,
+                Is.EqualTo(0.62f).Within(0.0001f),
+                "0.62 remains the interaction onset / break onset / recoil branch timing.");
+            Assert.That(
+                GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                Is.EqualTo(0.936f).Within(0.0001f),
+                "0.936 is the ordinary flip visual slam contact timing.");
+            Assert.That(
+                BoxFlipSlamSampler.SlamEndTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StayFlipImpact_EmitsFlipImpactBurstRequest()
         {
             var signal = CreateSignal(FlipImpactPresentationDisposition.Stay);
@@ -61,6 +79,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var request = PlanSingleRequest(signal);
 
             AssertFlipImpactBurstRequest(request, signal, expectedSequence: signal.SourceActionPlanId);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FollowThroughFloorImpact_EmitsFlipImpactBurstRequest()
+        {
+            var signal = CreateFloorSignal(FlipFloorImpactPresentationKind.FollowThrough);
+            var request = PlanSingleFloorRequest(signal);
+
+            AssertFlipFloorImpactBurstRequest(request, signal, expectedSequence: signal.SourceActionPlanId);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LandingFloorImpact_EmitsFlipImpactBurstRequest()
+        {
+            var signal = CreateFloorSignal(FlipFloorImpactPresentationKind.Landing);
+            var request = PlanSingleFloorRequest(signal);
+
+            AssertFlipFloorImpactBurstRequest(request, signal, expectedSequence: signal.SourceActionPlanId);
         }
 
         [Test]
@@ -139,7 +177,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var request = PlanSingleRequest(CreateSignal(FlipImpactPresentationDisposition.Stay));
 
-            Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.ImmediateOnTickPresentation));
+            Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.Delayed));
             Assert.That(request.IsPersistent, Is.False);
             Assert.That(request.PersistentKey, Is.EqualTo(VfxPersistentKey.None));
         }
@@ -197,6 +235,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+
+                runtime.UpdatePresentation(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds);
+
                 Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
@@ -227,6 +270,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+
+                runtime.UpdatePresentation(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds);
+
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
             finally
@@ -451,6 +498,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayVfxRequestPlan PlanRequests(params FlipImpactPresentationSignal[] flipImpactSignals)
         {
+            var floorSignals = new List<FlipFloorImpactPresentationSignal>();
+            for (var i = 0; i < flipImpactSignals.Length; i++)
+            {
+                if (TryCreateFloorSignal(flipImpactSignals[i], out var floorSignal))
+                {
+                    floorSignals.Add(floorSignal);
+                }
+            }
+
+            return PlanFloorRequests(floorSignals.ToArray());
+        }
+
+        private static GameplayVfxRequestPlan PlanFloorRequests(params FlipFloorImpactPresentationSignal[] flipFloorImpactSignals)
+        {
             var planner = new FlipImpactBurstVfxRequestPlanner();
             var builder = new GameplayVfxRequestPlanBuilder();
             var topology = new CubeTopologyState(FaceId.Floor);
@@ -458,7 +519,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             planner.Plan(
                 new GameplayVfxPlanningContext(
                     12,
-                    CreatePresentationData(Array.Empty<TickEntityExitPresentationSignal>(), flipImpactSignals),
+                    CreatePresentationData(Array.Empty<TickEntityExitPresentationSignal>(), flipFloorImpactSignals),
                     topology,
                     GameplayTimingProfile.CreateDefault()),
                 builder);
@@ -474,9 +535,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return plan.Requests[0];
         }
 
+        private static GameplayVfxRequest PlanSingleFloorRequest(FlipFloorImpactPresentationSignal signal)
+        {
+            var plan = PlanFloorRequests(signal);
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            return plan.Requests[0];
+        }
+
         private static void AssertFlipImpactBurstRequest(
             in GameplayVfxRequest request,
             in FlipImpactPresentationSignal signal,
+            int expectedSequence)
+        {
+            AssertFlipFloorImpactBurstRequest(request, CreateFloorSignal(signal), expectedSequence);
+        }
+
+        private static void AssertFlipFloorImpactBurstRequest(
+            in GameplayVfxRequest request,
+            in FlipFloorImpactPresentationSignal signal,
             int expectedSequence)
         {
             Assert.That(request.TickIndex, Is.EqualTo(12));
@@ -484,12 +561,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.PresentationSeed, Is.EqualTo(expectedSequence));
             Assert.That(request.SourceEntityId, Is.EqualTo(signal.BoxEntityId));
             Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)));
-            Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.ImmediateOnTickPresentation));
+            Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.Delayed));
+            Assert.That(
+                request.DelaySeconds,
+                Is.EqualTo(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds * signal.VisualContactNormalizedTime)
+                    .Within(0.0001f));
             Assert.That(request.IsPersistent, Is.False);
             Assert.That(request.PersistentKey, Is.EqualTo(VfxPersistentKey.None));
             Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
             Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
-            Assert.That(request.Anchor.Cell, Is.EqualTo(signal.ImpactCell));
+            Assert.That(request.Anchor.Cell, Is.EqualTo(signal.ContactCell));
             Assert.That(request.Anchor.Topology, Is.EqualTo(signal.Topology));
         }
 
@@ -553,6 +634,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TickEntityExitPresentationSignal[] exitSignals,
             FlipImpactPresentationSignal[] flipImpactSignals)
         {
+            var floorSignals = new List<FlipFloorImpactPresentationSignal>();
+            for (var i = 0; i < flipImpactSignals.Length; i++)
+            {
+                if (TryCreateFloorSignal(flipImpactSignals[i], out var floorSignal))
+                {
+                    floorSignals.Add(floorSignal);
+                }
+            }
+
+            return CreatePresentationData(exitSignals, floorSignals.ToArray());
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            TickEntityExitPresentationSignal[] exitSignals,
+            FlipFloorImpactPresentationSignal[] flipFloorImpactSignals)
+        {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
                 topologyMotion: null,
@@ -561,12 +658,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickPlayerActionPresentationSignal>(),
                 Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                 Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
                 exitSignals,
                 Array.Empty<TickImpactTransientPresentationSignal>(),
-                flipImpactSignals);
+                Array.Empty<FlipImpactPresentationSignal>(),
+                flipFloorImpactSignals: flipFloorImpactSignals);
         }
 
         private static FlipImpactPresentationSignal CreateSignal(
@@ -587,6 +687,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Direction.Right,
                 Direction.Left,
                 disposition);
+        }
+
+        private static FlipFloorImpactPresentationSignal CreateFloorSignal(
+            FlipFloorImpactPresentationKind kind,
+            int sourceActionPlanId = 7,
+            int boxEntityId = 30,
+            SurfaceCell? sourceCell = null,
+            SurfaceCell? contactCell = null)
+        {
+            return new FlipFloorImpactPresentationSignal(
+                sourceActionPlanId,
+                boxEntityId,
+                actorEntityId: 10,
+                sourceCell ?? new SurfaceCell(FaceId.Floor, 1, 1),
+                contactCell ?? new SurfaceCell(FaceId.Floor, 2, 1),
+                new CubeTopologyState(FaceId.Floor),
+                Direction.Right,
+                Direction.Left,
+                kind);
+        }
+
+        private static FlipFloorImpactPresentationSignal CreateFloorSignal(
+            in FlipImpactPresentationSignal signal)
+        {
+            return CreateFloorSignal(
+                signal.Disposition == FlipImpactPresentationDisposition.DestroySelf
+                    ? FlipFloorImpactPresentationKind.DestroySelf
+                    : FlipFloorImpactPresentationKind.Stay,
+                signal.SourceActionPlanId,
+                signal.BoxEntityId,
+                signal.SourceCell,
+                signal.ImpactCell);
+        }
+
+        private static bool TryCreateFloorSignal(
+            in FlipImpactPresentationSignal signal,
+            out FlipFloorImpactPresentationSignal floorSignal)
+        {
+            if (signal.Disposition != FlipImpactPresentationDisposition.DestroySelf &&
+                signal.Disposition != FlipImpactPresentationDisposition.Stay)
+            {
+                floorSignal = default;
+                return false;
+            }
+
+            floorSignal = CreateFloorSignal(signal);
+            return true;
         }
 
         private static TickEntityExitPresentationSignal CreateExitSignal(

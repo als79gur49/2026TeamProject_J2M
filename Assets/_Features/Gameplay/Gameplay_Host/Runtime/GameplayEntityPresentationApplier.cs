@@ -178,14 +178,28 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     out var activeMotionTrack) &&
                     activeMotionTrack.HasClips;
+                var hasActiveOriginalViewMotion = _trackState.OriginalViewMotionTracks.TryGetValue(
+                    entityId,
+                    out var activeOriginalViewMotionTrack) &&
+                    !activeOriginalViewMotionTrack.IsComplete;
                 var isDeferredExitRetained =
                     _trackState.DeferredExitRetainedEntityIds.Contains(entityId) &&
                     hasActiveLocalMotion &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
+                var isContactDelayedRetained =
+                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) &&
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
+                var isDeathPresentationPlaying =
+                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
                 var isVisible = hasKinematicPoseOverride ||
                                 hasPlayerDeathHoldPose ||
                                 _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
+                                hasActiveLocalMotion ||
+                                hasActiveOriginalViewMotion ||
                                 isDeferredExitRetained ||
+                                isContactDelayedRetained ||
+                                isDeathPresentationPlaying ||
                                 _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
                 if (!hasPlayerDeathHoldPose &&
