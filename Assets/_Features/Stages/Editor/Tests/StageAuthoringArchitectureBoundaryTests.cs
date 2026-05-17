@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using NUnit.Framework;
@@ -91,6 +92,260 @@ namespace Game.Feature.Stages.Editor.Tests
             var resolver = File.ReadAllText("Assets/_Features/Stages/Runtime/Load/StageRuntimeContentResolver.cs");
             Assert.That(builder.Contains("AuthoringDefinition", StringComparison.Ordinal), Is.False);
             Assert.That(resolver.Contains("AuthoringDefinition", StringComparison.Ordinal), Is.False);
+        }
+
+        [Test]
+        public void StageRuntimeBuilder_DoesNotReferencePresentationBindingTypes()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs");
+            var forbiddenTokens = new[]
+            {
+                "EnemyPresentationBinding",
+                "StaticEntityPresentationBinding",
+                "TileFeaturePresentationBinding",
+                "VisualPrefab",
+                "PresentationCatalog",
+                "BackgroundPrefab",
+                "PreviewSprite",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(
+                    source.Contains(token, StringComparison.Ordinal),
+                    Is.False,
+                    $"StageRuntimeBuilder must remain gameplay-only and must not reference presentation token '{token}'.");
+            }
+
+            Assert.That(source, Does.Contain(nameof(EnemyAiProfileOverride)));
+        }
+
+        [Test]
+        public void StageRuntimeBuilder_DoesNotReferenceGameplayHostNamespace()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs");
+            var forbiddenTokens = new[]
+            {
+                "using Game.Feature.Gameplay.Host;",
+                "Game.Feature.Gameplay.Host.",
+                "EnemyPresentationBinding",
+                "StaticEntityPresentationBinding",
+                "TileFeaturePresentationBinding",
+                "VisualPrefab",
+                "PresentationCatalog",
+                "BackgroundPrefab",
+                "PreviewSprite",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(
+                    source.Contains(token, StringComparison.Ordinal),
+                    Is.False,
+                    $"StageRuntimeBuilder must remain gameplay-only and must not reference host/presentation token '{token}'.");
+            }
+
+            Assert.That(source, Does.Contain(nameof(EnemyAiProfileOverride)));
+        }
+
+        [Test]
+        public void EnemyAiProfileOverride_LivesInGameplayEntitiesNamespace()
+        {
+            Assert.That(
+                typeof(EnemyAiProfileOverride).Namespace,
+                Is.EqualTo("Game.Feature.Gameplay.Entities"));
+        }
+
+        [Test]
+        public void StageRuntimeBuildResult_PublicSurface_IsGameplayOnly()
+        {
+            var type = typeof(StageRuntimeBuildResult);
+            var forbiddenFragments = new[]
+            {
+                "Presentation",
+                "Prefab",
+                "View",
+                "Binding",
+                "Catalog",
+                "Visual",
+            };
+
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static))
+            {
+                AssertPublicNameIsGameplayOnly(property.Name, $"{type.Name} property", forbiddenFragments);
+                AssertPublicTypeIsGameplayOnly(
+                    property.PropertyType,
+                    $"{type.Name}.{property.Name}",
+                    forbiddenFragments);
+            }
+
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static))
+            {
+                AssertPublicNameIsGameplayOnly(field.Name, $"{type.Name} field", forbiddenFragments);
+                AssertPublicTypeIsGameplayOnly(field.FieldType, $"{type.Name}.{field.Name}", forbiddenFragments);
+            }
+
+            foreach (var constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance))
+            {
+                foreach (var parameter in constructor.GetParameters())
+                {
+                    AssertPublicNameIsGameplayOnly(
+                        parameter.Name,
+                        $"{type.Name} constructor parameter",
+                        forbiddenFragments);
+                    AssertPublicTypeIsGameplayOnly(
+                        parameter.ParameterType,
+                        $"{type.Name} constructor parameter '{parameter.Name}'",
+                        forbiddenFragments);
+                }
+            }
+
+            foreach (var method in type.GetMethods(
+                         BindingFlags.Public |
+                         BindingFlags.Instance |
+                         BindingFlags.Static |
+                         BindingFlags.DeclaredOnly))
+            {
+                AssertPublicNameIsGameplayOnly(method.Name, $"{type.Name} method", forbiddenFragments);
+                AssertPublicTypeIsGameplayOnly(method.ReturnType, $"{type.Name}.{method.Name} return", forbiddenFragments);
+                foreach (var parameter in method.GetParameters())
+                {
+                    AssertPublicNameIsGameplayOnly(
+                        parameter.Name,
+                        $"{type.Name}.{method.Name} parameter",
+                        forbiddenFragments);
+                    AssertPublicTypeIsGameplayOnly(
+                        parameter.ParameterType,
+                        $"{type.Name}.{method.Name} parameter '{parameter.Name}'",
+                        forbiddenFragments);
+                }
+            }
+
+            foreach (var nestedType in type.GetNestedTypes(BindingFlags.Public))
+            {
+                AssertPublicNameIsGameplayOnly(nestedType.Name, $"{type.Name} nested type", forbiddenFragments);
+                AssertPublicTypeIsGameplayOnly(nestedType, $"{type.Name}.{nestedType.Name}", forbiddenFragments);
+            }
+        }
+
+        [Test]
+        public void StagePresentationAssembler_OwnsPresentationBindingNormalization()
+        {
+            const string assemblerPath = "Assets/_Features/Stages/Runtime/Presentation/StagePresentationAssemblers.cs";
+            const string normalizerPath = "Assets/_Features/Stages/Runtime/Presentation/StagePresentationBindingNormalizer.cs";
+            var builderSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs");
+            var assemblerSource = File.ReadAllText(assemblerPath);
+            var normalizerSource = File.ReadAllText(normalizerPath);
+            var hostFactorySource =
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");
+            var stageInstallerSource =
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplayShowcaseInstallerBase.cs");
+
+            Assert.That(typeof(StagePresentationBindingNormalizer).Namespace, Is.EqualTo(typeof(StagePresentationAssembler).Namespace));
+            Assert.That(normalizerSource, Does.Contain("NormalizeEnemyBindings"));
+            Assert.That(normalizerSource, Does.Contain("NormalizeStaticEntityBindings"));
+            Assert.That(assemblerSource, Does.Contain("StagePresentationBindingNormalizer.NormalizeEnemyBindings"));
+            Assert.That(assemblerSource, Does.Contain("StagePresentationBindingNormalizer.NormalizeStaticEntityBindings"));
+            Assert.That(builderSource, Does.Not.Contain("PresentationBindingComparer"));
+            Assert.That(builderSource, Does.Not.Contain("EnemyPresentationBindings.Sort"));
+            Assert.That(builderSource, Does.Not.Contain("StaticEntityPresentationBindings.Sort"));
+            Assert.That(hostFactorySource, Does.Not.Contain("EnemyPresentationBindings.Sort"));
+            Assert.That(hostFactorySource, Does.Not.Contain("StaticEntityPresentationBindings.Sort"));
+            Assert.That(hostFactorySource, Does.Not.Contain("OrderBy(binding"));
+            Assert.That(stageInstallerSource, Does.Not.Contain("EnemyPresentationBindings.Sort"));
+            Assert.That(stageInstallerSource, Does.Not.Contain("StaticEntityPresentationBindings.Sort"));
+            Assert.That(stageInstallerSource, Does.Not.Contain("OrderBy(binding"));
+        }
+
+        [Test]
+        public void StageRuntimeBuilder_DoesNotAcceptPresentationInputs()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs");
+
+            Assert.That(source, Does.Not.Contain("Build(StagePresentationDefinition"));
+            Assert.That(source, Does.Not.Contain("Build(StageDefinition gameplayDefinition, StagePresentationDefinition"));
+            Assert.That(source, Does.Not.Contain("StagePresentationResolvedData"));
+            Assert.That(source, Does.Not.Contain("StageSceneCompositionData"));
+            Assert.That(source, Does.Not.Contain("StageSceneCompositionAssembler"));
+        }
+
+        [Test]
+        public void StagePresentationBindingNormalizer_RemainsBriteNormalizerOnly()
+        {
+            var source =
+                File.ReadAllText("Assets/_Features/Stages/Runtime/Presentation/StagePresentationBindingNormalizer.cs");
+            var forbiddenTokens = new[]
+            {
+                "StageRuntimeBuilder",
+                "StageRuntimeBuildResult",
+                "GameplayHostRuntimeFactory",
+                "StageBackedGameplayShowcaseInstallerBase",
+                "AudioRuntime",
+                "IAudioService",
+                "BgmFlow",
+                "StageCompletionReadModel",
+                "StageNavigationRequest",
+                "WorldState",
+                "TickRunner",
+                "PrefabUtility",
+                "AssetDatabase",
+            };
+
+            foreach (var token in forbiddenTokens)
+            {
+                Assert.That(
+                    source.Contains(token, StringComparison.Ordinal),
+                    Is.False,
+                    $"StagePresentationBindingNormalizer must stay B-lite and must not reference '{token}'.");
+            }
+
+            Assert.That(source, Does.Contain("NormalizeEnemyBindings"));
+            Assert.That(source, Does.Contain("NormalizeStaticEntityBindings"));
+            Assert.That(source, Does.Contain("CloneTileFeatureBindingsPreserveOrder"));
+        }
+
+        [Test]
+        public void StageBackedHostComposition_PassesGameplayAndPresentationSeparately()
+        {
+            var installerSource =
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplayShowcaseInstallerBase.cs");
+            var compositionSource =
+                File.ReadAllText("Assets/_Features/Stages/Runtime/Presentation/StagePresentationAssemblers.cs");
+            var hostFactorySource =
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");
+            var buildResultSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs");
+
+            Assert.That(installerSource, Does.Contain("var buildResult = StageRuntimeBuilder.Build"));
+            Assert.That(installerSource, Does.Contain("var resolvedPresentation = StagePresentationAssembler.Resolve"));
+            Assert.That(installerSource, Does.Contain("StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation)"));
+            Assert.That(compositionSource, Does.Contain("new StageSceneCompositionData(gameplayBuildResult, presentationData)"));
+            Assert.That(buildResultSource, Does.Not.Contain("EnemyPresentationBindings"));
+            Assert.That(buildResultSource, Does.Not.Contain("StaticEntityPresentationBindings"));
+            Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));
+            Assert.That(hostFactorySource, Does.Not.Contain("EnemyPresentationBindings.Sort"));
+            Assert.That(hostFactorySource, Does.Not.Contain("StaticEntityPresentationBindings.Sort"));
+            Assert.That(hostFactorySource, Does.Not.Contain("OrderBy(binding"));
+            Assert.That(installerSource, Does.Not.Contain("EnemyPresentationBindings.Sort"));
+            Assert.That(installerSource, Does.Not.Contain("StaticEntityPresentationBindings.Sort"));
+            Assert.That(installerSource, Does.Not.Contain("OrderBy(binding"));
+        }
+
+        [Test]
+        public void StageResultUi_DoesNotDependOnStageRuntimeBuildResult()
+        {
+            var uiSources = Directory.GetFiles("Assets/_Features/UI", "*.cs", SearchOption.AllDirectories);
+            var mapperSource =
+                File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs");
+
+            Assert.That(mapperSource, Does.Contain("StageCompletionReadModel"));
+            foreach (var sourcePath in uiSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(
+                    source.Contains("StageRuntimeBuildResult", StringComparison.Ordinal),
+                    Is.False,
+                    $"UI must consume stage result read models, not StageRuntimeBuildResult: {sourcePath}");
+            }
         }
 
         [Test]
@@ -375,6 +630,63 @@ namespace Game.Feature.Stages.Editor.Tests
             return Directory
                 .GetFiles("Assets/_Features/Stages/Runtime", "*.cs", SearchOption.AllDirectories)
                 .Any(path => File.ReadAllText(path).Contains(text, StringComparison.Ordinal));
+        }
+
+        private static void AssertPublicNameIsGameplayOnly(
+            string name,
+            string description,
+            string[] forbiddenFragments)
+        {
+            foreach (var fragment in forbiddenFragments)
+            {
+                Assert.That(
+                    (name ?? string.Empty).Contains(fragment, StringComparison.Ordinal),
+                    Is.False,
+                    $"{description} '{name}' must remain gameplay-only.");
+            }
+        }
+
+        private static void AssertPublicTypeIsGameplayOnly(
+            Type type,
+            string description,
+            string[] forbiddenFragments)
+        {
+            if (type == null || type == typeof(void))
+            {
+                return;
+            }
+
+            if (type.IsByRef || type.IsPointer || type.IsArray)
+            {
+                AssertPublicTypeIsGameplayOnly(type.GetElementType(), description, forbiddenFragments);
+                return;
+            }
+
+            if (type == typeof(EnemyAiProfileOverride))
+            {
+                Assert.That(
+                    type.Namespace,
+                    Is.EqualTo("Game.Feature.Gameplay.Entities"),
+                    $"{description} may expose EnemyAiProfileOverride only from the gameplay entities namespace.");
+                return;
+            }
+
+            if (type.IsGenericType)
+            {
+                foreach (var argument in type.GetGenericArguments())
+                {
+                    AssertPublicTypeIsGameplayOnly(argument, description, forbiddenFragments);
+                }
+            }
+
+            var typeName = type.FullName ?? type.Name;
+            foreach (var fragment in forbiddenFragments)
+            {
+                Assert.That(
+                    typeName.Contains(fragment, StringComparison.Ordinal),
+                    Is.False,
+                    $"{description} must remain gameplay-only but exposes type '{typeName}'.");
+            }
         }
     }
 }

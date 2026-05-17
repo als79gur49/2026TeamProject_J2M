@@ -2311,6 +2311,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CrossLineOfSight_Default_BlockedBySolid()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 8, out _);
+
+            Assert.That(detected, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NonGlider_CrossLineOfSight_StillBlockedBySolid()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+
+            var detected = TryFindCrossLineOfSightTarget(worldState, sourceEntityId: 40, senseRange: 8, out _);
+
+            Assert.That(detected, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DefaultDetectionUsersUnaffected()
+        {
+            var profile = CreateCrossLineNonGliderProfile();
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                    CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+
+            try
+            {
+                var tick = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+
+                Assert.That(tick.FinalEntities.Single(entity => entity.entityId == 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CrossLineOfSight_does_not_treat_target_cell_as_blocker()
         {
             var targetCell = new Vector2Int(2, 0);
@@ -5014,6 +5072,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0)
         {
             return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks);
+        }
+
+        private static EnemyAiProfile CreateCrossLineNonGliderProfile()
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                DetectionStrategyKind = DetectionStrategyKind.CrossLineOfSightOpponent,
+                DetectionSettings = new DetectionSettings(
+                    senseRange: 8,
+                    requireSameFace: true,
+                    canTargetMarkedForDeath: false),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
         }
 
         private static EnemyAiProfile CreateWindupRandomWalkPilotProfile(

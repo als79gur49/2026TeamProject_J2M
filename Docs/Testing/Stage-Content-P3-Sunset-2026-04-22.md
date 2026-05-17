@@ -38,9 +38,27 @@ StageCatalogCiValidationEntryPoint.Run
 
 - production runtime path는 계속 `StageId -> StageCatalogResolver -> StageContentEntry -> GameplayDefinition/PresentationDefinition` 단일 경로다.
 - `StageRuntimeBuilder` / `StageRuntimeBuildResult`는 계속 gameplay-only 경계를 유지한다.
+- presentation binding normalization owner는 `StagePresentationAssembler` /
+  `StagePresentationBindingNormalizer`다. Enemy/static binding은 `EntityId`
+  기준으로 정렬하고, TileFeature direct binding은 direct presentation resolve
+  path에서 authored order를 보존한다.
+- normalizer는 validation owner가 아니다. duplicate/missing/stale/catalog
+  diagnostics는 `StageCatalogValidator`와 presentation binding integrity
+  validator가 담당한다.
 - production runtime에 compat mode를 다시 넣지 않았다.
 - runtime `ResolveLegacy(...)`를 되돌리지 않았다.
 - continue/retry는 계속 `StageNavigationRequest` / `StageId` 계약으로 동작한다.
+
+## Finding 1 Hardening Note
+
+- `StageRuntimeBuilder.cs` must not reference presentation binding/prefab/catalog
+  tokens. `EnemyAiProfileOverride` export remains because it is gameplay seed
+  data; the `Game.Feature.Gameplay.Host` namespace placement is a separate
+  follow-up debt.
+- The currently observed BoxSpawns literal mismatches in
+  `StageRuntimeBuilderTests` are not part of the presentation-leakage fix. They
+  are stage asset contract issues and should be classified separately before any
+  test expected values or serialized stage assets are changed.
 
 ## Reporting Wording
 

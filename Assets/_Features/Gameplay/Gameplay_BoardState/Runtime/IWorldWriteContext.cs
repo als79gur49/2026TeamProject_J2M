@@ -13,6 +13,12 @@ namespace Game.Feature.Gameplay.BoardState
     public interface IEnemyActionCommitContext : IEnemyAiCommitContext
     {
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
+
+        void AddPendingCellImpact(PendingCellImpact impact);
+
+        void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
+
+        void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
     }
 
     public interface IPlayerControlCommitContext
@@ -87,6 +93,8 @@ namespace Game.Feature.Gameplay.BoardState
     {
         void ApplyDamage(int entityId, int amount);
 
+        void RemovePendingCellImpact(int impactId);
+
         void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
 
         void MarkDestroy(int entityId);
@@ -124,9 +132,9 @@ namespace Game.Feature.Gameplay.BoardState
 
         new void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
 
-        void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
+        new void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
 
-        void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
+        new void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
 
         new void RemoveBoxInteractionLockState(int entityId);
 

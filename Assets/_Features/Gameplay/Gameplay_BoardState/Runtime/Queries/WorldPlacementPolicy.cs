@@ -584,6 +584,7 @@ namespace Game.Feature.Gameplay.BoardState
             if (TryGetStoredOccupant(entitiesById, occupancyByCell, cell, out entity) &&
                 entity.entityId != ignoredEntityId &&
                 !ShouldIgnoreSolidOccupantForGlide(
+                    entitiesById,
                     enemyGlideStatesByEntityId,
                     movingEntityType,
                     queryMode,
@@ -647,6 +648,7 @@ namespace Game.Feature.Gameplay.BoardState
         }
 
         private static bool ShouldIgnoreSolidOccupantForGlide(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             EntityType movingEntityType,
             PlacementQueryMode queryMode,
@@ -666,9 +668,39 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            return queryMode == PlacementQueryMode.Representable &&
-                   glideState.IsLandingPending &&
-                   glideState.LandingPendingCell == cell;
+            if (queryMode != PlacementQueryMode.Representable ||
+                !glideState.IsLandingPending ||
+                glideState.LandingPendingCell != cell)
+            {
+                return false;
+            }
+
+            if (entitiesById == null ||
+                !entitiesById.TryGetValue(ignoredEntityId, out var actor))
+            {
+                return true;
+            }
+
+            return actor.position == cell ||
+                   TryResolveLandingPendingLockedStepTerminal(actor, glideState, out var terminalCell) &&
+                   terminalCell == cell;
+        }
+
+        private static bool TryResolveLandingPendingLockedStepTerminal(
+            in EntityState actor,
+            in EnemyGlideRuntimeState glideState,
+            out SurfaceCell terminalCell)
+        {
+            terminalCell = default;
+            var lockedStep = new Vector2Int(glideState.LockedStepX, glideState.LockedStepY);
+            if (!glideState.HasLockedStep ||
+                Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) != 1)
+            {
+                return false;
+            }
+
+            terminalCell = actor.position + lockedStep;
+            return terminalCell.face == actor.position.face;
         }
 
         private static bool ShouldIgnoreStackedUnitForGlide(

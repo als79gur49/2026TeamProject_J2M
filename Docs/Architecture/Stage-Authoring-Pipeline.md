@@ -27,6 +27,21 @@ metadata, preview/background, BGM reference, catalogs, and result text.
 Presentation metadata preservation is a pipeline invariant, not a generate
 option.
 
+`StagePresentationBindingNormalizer` is the narrow presentation-lane owner for
+binding normalization. Enemy and static entity presentation bindings are cloned
+and ordered deterministically by `EntityId`. TileFeature direct presentation
+bindings are cloned while preserving authored order on the direct presentation
+resolve path; gameplay-aware TileFeature resolved data remains ordered by
+`TileId` after gameplay tile feature materialization. The normalizer is not a
+validation owner: missing, stale, duplicate, catalog, and prefab integrity issues
+belong to `StageCatalogValidator`, presentation binding integrity validation,
+catalog resolvers, or host runtime validation.
+
+`EnemyAiProfileOverride` remains gameplay seed data exported by
+`StageRuntimeBuilder`. Its current `Game.Feature.Gameplay.Host` namespace is a
+separate namespace debt and does not make stage runtime building presentation
+owned.
+
 ## Entity Identity
 
 Placements own stable authoring GUIDs. The generator maintains

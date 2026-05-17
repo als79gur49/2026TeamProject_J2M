@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _tileFeatureIdsByCell = new();
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
+        private readonly Dictionary<int, PendingCellImpact> _pendingCellImpactsById = new();
         private readonly Dictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId = new();
         private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
@@ -128,6 +129,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, TileFeatureState>(_tileFeaturesById),
                 CloneTileFeatureIdsByCell(),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
+                new Dictionary<int, PendingCellImpact>(_pendingCellImpactsById),
                 new Dictionary<int, EnemyPatrolRuntimeState>(_enemyPatrolStatesByEntityId),
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
@@ -389,6 +391,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _enemyActionStatesByEntityId[entityId] = state;
+        }
+
+        private void AddPendingCellImpact(PendingCellImpact impact)
+        {
+            _pendingCellImpactsById[impact.ImpactId] = impact;
+        }
+
+        private void RemovePendingCellImpact(int impactId)
+        {
+            _pendingCellImpactsById.Remove(impactId);
         }
 
         private void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
@@ -1169,6 +1181,16 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             SetEnemyActionState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.AddPendingCellImpact(PendingCellImpact impact)
+        {
+            AddPendingCellImpact(impact);
+        }
+
+        void IWorldStateMutationPort.RemovePendingCellImpact(int impactId)
+        {
+            RemovePendingCellImpact(impactId);
         }
 
         void IWorldStateMutationPort.SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)

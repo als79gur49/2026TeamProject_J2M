@@ -1209,13 +1209,15 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             attackSnapshot = attackReadSnapshot;
+            var duePendingCellImpacts = CollectDuePendingCellImpacts(attackSnapshot, tickIndex);
             attackPlanResult = BuildAttackPlan(
                 attackSnapshot,
                 in input,
                 entityLogicsForTick.AttackLogics,
                 frozenMovementReservationExport,
                 drainedDelayedAttackEffects,
-                tickIndex);
+                tickIndex,
+                duePendingCellImpacts);
             rawAttackIntents = attackPlanResult.RawAttackIntents;
             attackRejectedReasons = attackPlanResult.RejectedReasons;
             attackResolutionRecords = new List<ResolutionRecord>();
@@ -1279,6 +1281,13 @@ namespace Game.Feature.Gameplay.Loop
                 delayedAttackEffects,
                 attackCommitEvents,
                 delayedAttackEnqueueEvents);
+            for (var i = 0; i < attackPlanResult.PendingCellImpactResolutions.Count; i++)
+            {
+                var impactResolution = attackPlanResult.PendingCellImpactResolutions[i];
+                attackStageBatch.RemovePendingCellImpact(impactResolution.Impact.ImpactId);
+                attackCommitEvents.Add(
+                    $"ForwardCellImpactResolved|Impact={impactResolution.Impact.ImpactId}|Owner={impactResolution.Impact.OwnerId}|Cell={FormatCell(impactResolution.Impact.TargetCell)}|Hit={(impactResolution.Hit ? 1 : 0)}|Target={impactResolution.TargetEntityId}");
+            }
             var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
                 _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ||
                 _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion
@@ -1392,7 +1401,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackEventLogEntries,
                 attackRejectedReasons,
                 frozenMovementReservationExport,
-                motionInterruptRecords);
+                motionInterruptRecords,
+                attackPlanResult.PendingCellImpactResolutions);
 
             return new ResolvePhaseResult(
                 movementPhaseResult,
@@ -3813,13 +3823,6 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            if (glideKinematicKind == EnemyGlideKinematicKind.Active &&
-                !MatchesLockedGlideStep(snapshot, entity.entityId, delta))
-            {
-                isGlideDirectionMismatch = true;
-                return false;
-            }
-
             if (!snapshot.TryResolveUnitStep(
                     entity.position,
                     delta,
@@ -4013,8 +4016,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             if (!snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
-                glideState.Phase != EnemyGlidePhase.Active ||
-                !HasValidLockedGlideStep(glideState))
+                glideState.Phase != EnemyGlidePhase.Active)
             {
                 return false;
             }
@@ -4168,18 +4170,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return false;
-        }
-
-        private static bool MatchesLockedGlideStep(WorldSnapshot snapshot, int entityId, Vector2Int delta)
-        {
-            return snapshot.TryGetEnemyGlideState(entityId, out var glideState) &&
-                   TryGetLockedGlideStep(glideState, out var lockedStep) &&
-                   delta == lockedStep;
-        }
-
-        private static bool HasValidLockedGlideStep(in EnemyGlideRuntimeState glideState)
-        {
-            return TryGetLockedGlideStep(glideState, out _);
         }
 
         private static bool TryGetLockedGlideStep(
@@ -5306,7 +5296,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<IAttackEntityLogic> entityLogics,
             List<ImpactReservation> impactReservations,
             List<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
-            int tickIndex)
+            int tickIndex,
+            IReadOnlyList<PendingCellImpact> duePendingCellImpacts = null)
         {
             var rawAttackIntents = new List<RawAttackIntent>();
             _attackIntentCollector.Collect(snapshot, in input, entityLogics, rawAttackIntents);
@@ -5315,11 +5306,21 @@ namespace Game.Feature.Gameplay.Loop
             var sortedInputs = NormalizeAttackInputs(executableAttackIntents, impactReservations, drainedDelayedAttackEffects);
             var expandedAttackCandidates = new List<ActionGroup>();
             _attackExpander.Expand(snapshot, sortedInputs, expandedAttackCandidates, rejectedReasons);
+            var pendingCellImpactResolutions = AppendPendingCellImpactAttackGroups(
+                snapshot,
+                duePendingCellImpacts,
+                expandedAttackCandidates);
             expandedAttackCandidates.Sort(ActionGroupComparer.Instance);
             AssignAttackGroupIds(expandedAttackCandidates);
             var actionPlanPayloads = BuildAttackActionPlanPayloads(snapshot, expandedAttackCandidates, tickIndex);
             var orderedActionPlanIds = BuildOrderedAttackActionPlanIds(snapshot, expandedAttackCandidates);
-            return new AttackPlanBuildResult(rawAttackIntents, expandedAttackCandidates, actionPlanPayloads, orderedActionPlanIds, rejectedReasons);
+            return new AttackPlanBuildResult(
+                rawAttackIntents,
+                expandedAttackCandidates,
+                actionPlanPayloads,
+                orderedActionPlanIds,
+                rejectedReasons,
+                pendingCellImpactResolutions);
         }
 
         private AttackPlanBuildResult BuildAttackPlan(
@@ -5328,7 +5329,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<IAttackEntityLogic> entityLogics,
             FrozenMovementReservationExport movementReservationExport,
             List<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
-            int tickIndex)
+            int tickIndex,
+            IReadOnlyList<PendingCellImpact> duePendingCellImpacts = null)
         {
             var rawAttackIntents = new List<RawAttackIntent>();
             _attackIntentCollector.Collect(snapshot, in input, entityLogics, rawAttackIntents);
@@ -5337,11 +5339,98 @@ namespace Game.Feature.Gameplay.Loop
             var sortedInputs = NormalizeAttackInputs(executableAttackIntents, movementReservationExport, drainedDelayedAttackEffects);
             var expandedAttackCandidates = new List<ActionGroup>();
             _attackExpander.Expand(snapshot, sortedInputs, expandedAttackCandidates, rejectedReasons);
+            var pendingCellImpactResolutions = AppendPendingCellImpactAttackGroups(
+                snapshot,
+                duePendingCellImpacts,
+                expandedAttackCandidates);
             expandedAttackCandidates.Sort(ActionGroupComparer.Instance);
             AssignAttackGroupIds(expandedAttackCandidates);
             var actionPlanPayloads = BuildAttackActionPlanPayloads(snapshot, expandedAttackCandidates, tickIndex);
             var orderedActionPlanIds = BuildOrderedAttackActionPlanIds(snapshot, expandedAttackCandidates);
-            return new AttackPlanBuildResult(rawAttackIntents, expandedAttackCandidates, actionPlanPayloads, orderedActionPlanIds, rejectedReasons);
+            return new AttackPlanBuildResult(
+                rawAttackIntents,
+                expandedAttackCandidates,
+                actionPlanPayloads,
+                orderedActionPlanIds,
+                rejectedReasons,
+                pendingCellImpactResolutions);
+        }
+
+        private static List<PendingCellImpact> CollectDuePendingCellImpacts(WorldSnapshot snapshot, int tickIndex)
+        {
+            var entries = new List<PendingCellImpactSnapshotEntry>();
+            snapshot.EnumeratePendingCellImpactsOrdered(entries);
+            var due = new List<PendingCellImpact>();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                if (entries[i].Impact.ImpactTick == tickIndex)
+                {
+                    due.Add(entries[i].Impact);
+                }
+            }
+
+            return due;
+        }
+
+        private static List<PendingCellImpactResolutionRecord> AppendPendingCellImpactAttackGroups(
+            WorldSnapshot snapshot,
+            IReadOnlyList<PendingCellImpact> duePendingCellImpacts,
+            List<ActionGroup> expandedAttackCandidates)
+        {
+            var resolutions = new List<PendingCellImpactResolutionRecord>();
+            if (duePendingCellImpacts == null || duePendingCellImpacts.Count == 0)
+            {
+                return resolutions;
+            }
+
+            var players = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(players);
+            for (var impactIndex = 0; impactIndex < duePendingCellImpacts.Count; impactIndex++)
+            {
+                var impact = duePendingCellImpacts[impactIndex];
+                var hitTargetId = 0;
+                for (var entityIndex = 0; entityIndex < players.Count; entityIndex++)
+                {
+                    var candidate = players[entityIndex];
+                    if (!EntityRolePolicy.IsPlayerUnit(candidate) ||
+                        candidate.hp <= 0 ||
+                        candidate.markedForDeath ||
+                        !IsPlayerCurrentCombatAnchorCell(snapshot, candidate, impact.TargetCell))
+                    {
+                        continue;
+                    }
+
+                    hitTargetId = candidate.entityId;
+                    break;
+                }
+
+                resolutions.Add(new PendingCellImpactResolutionRecord(impact, hitTargetId > 0, hitTargetId));
+                if (hitTargetId <= 0)
+                {
+                    continue;
+                }
+
+                var actionGroup = new ActionGroup(
+                    intentId: impact.ImpactId,
+                    sourceId: impact.OwnerId,
+                    priority: 0,
+                    ActionGroupKind.Attack,
+                    AttackSourceKind.ForwardCellImpact);
+                actionGroup.Damages.Add(new DamageAction(hitTargetId, impact.Damage));
+                actionGroup.Destroys.Add(new DestroyAction(hitTargetId));
+                expandedAttackCandidates.Add(actionGroup);
+            }
+
+            return resolutions;
+        }
+
+        private static bool IsPlayerCurrentCombatAnchorCell(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            SurfaceCell targetCell)
+        {
+            return WindupMeleeCombatPoseQueries.TryResolveSimulationCombatOrigin(snapshot, player, out var playerOrigin) &&
+                   playerOrigin.AnchorCell.Equals(targetCell);
         }
 
         private Dictionary<int, MovementActionPlanPayload> BuildMovementActionPlanPayloads(
@@ -6005,6 +6094,11 @@ namespace Game.Feature.Gameplay.Loop
                 return 3;
             }
 
+            if (group.AttackSourceKind == AttackSourceKind.ForwardCellImpact)
+            {
+                return 3;
+            }
+
             if (group.AttackSourceKind == AttackSourceKind.ImpactReservation)
             {
                 return 2;
@@ -6062,6 +6156,7 @@ namespace Game.Feature.Gameplay.Loop
                 AttackSourceKind.PassiveContact => 1,
                 AttackSourceKind.ImpactReservation => 2,
                 AttackSourceKind.DelayedEffect => 3,
+                AttackSourceKind.ForwardCellImpact => 4,
                 _ => 99,
             };
         }
@@ -7001,6 +7096,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 AttackSourceKind.Combat => DamageSourceType.Attack,
                 AttackSourceKind.DelayedEffect => DamageSourceType.Attack,
+                AttackSourceKind.ForwardCellImpact => DamageSourceType.Attack,
                 AttackSourceKind.ImpactReservation => DamageSourceType.Impact,
                 AttackSourceKind.PassiveContact => DamageSourceType.Environmental,
                 _ => DamageSourceType.None,
@@ -9157,7 +9253,8 @@ namespace Game.Feature.Gameplay.Loop
 
         private static string BuildSourceKindSuffix(AttackSourceKind sourceKind)
         {
-            return sourceKind == AttackSourceKind.PassiveContact
+            return sourceKind == AttackSourceKind.PassiveContact ||
+                   sourceKind == AttackSourceKind.ForwardCellImpact
                 ? $"|SourceKind={sourceKind}"
                 : string.Empty;
         }

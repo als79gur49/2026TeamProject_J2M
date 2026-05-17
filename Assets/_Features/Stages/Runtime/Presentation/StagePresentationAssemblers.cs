@@ -257,9 +257,10 @@ namespace Game.Feature.Stages
                 definition.BgmReference,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
-                CloneBindings(definition.EnemyPresentationBindings),
+                StagePresentationBindingNormalizer.NormalizeEnemyBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
-                CloneBindings(definition.StaticEntityPresentationBindings),
+                StagePresentationBindingNormalizer.NormalizeStaticEntityBindings(
+                    definition.StaticEntityPresentationBindings),
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTilePresentationOverrides,
                 definition.TileFeaturePresentationCatalog,
@@ -292,9 +293,10 @@ namespace Game.Feature.Stages
                 definition.BgmReference,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
-                CloneBindings(definition.EnemyPresentationBindings),
+                StagePresentationBindingNormalizer.NormalizeEnemyBindings(definition.EnemyPresentationBindings),
                 definition.StaticEntityPresentationCatalog,
-                CloneBindings(definition.StaticEntityPresentationBindings),
+                StagePresentationBindingNormalizer.NormalizeStaticEntityBindings(
+                    definition.StaticEntityPresentationBindings),
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTilePresentationOverrides,
                 definition.TileFeaturePresentationCatalog,
@@ -372,8 +374,7 @@ namespace Game.Feature.Stages
                 });
             }
 
-            bindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-            return bindings.ToArray();
+            return StagePresentationBindingNormalizer.NormalizeEnemyBindings(bindings);
         }
 
         internal static StaticEntityPresentationBinding[] BuildStaticBindings(IReadOnlyList<StageSpawnDefinition> spawns)
@@ -402,22 +403,7 @@ namespace Game.Feature.Stages
                 });
             }
 
-            bindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-            return bindings.ToArray();
-        }
-
-        private static EnemyPresentationBinding[] CloneBindings(EnemyPresentationBinding[] source)
-        {
-            return source == null || source.Length == 0
-                ? Array.Empty<EnemyPresentationBinding>()
-                : (EnemyPresentationBinding[])source.Clone();
-        }
-
-        private static StaticEntityPresentationBinding[] CloneBindings(StaticEntityPresentationBinding[] source)
-        {
-            return source == null || source.Length == 0
-                ? Array.Empty<StaticEntityPresentationBinding>()
-                : (StaticEntityPresentationBinding[])source.Clone();
+            return StagePresentationBindingNormalizer.NormalizeStaticEntityBindings(bindings);
         }
 
         private static IReadOnlyList<TileFeaturePresentationResolvedBinding> ResolveTileFeatureBindings(
@@ -428,10 +414,11 @@ namespace Game.Feature.Stages
                 return Array.Empty<TileFeaturePresentationResolvedBinding>();
             }
 
-            var bindings = new TileFeaturePresentationResolvedBinding[source.Count];
-            for (var i = 0; i < source.Count; i++)
+            var normalized = StagePresentationBindingNormalizer.CloneTileFeatureBindingsPreserveOrder(source);
+            var bindings = new TileFeaturePresentationResolvedBinding[normalized.Length];
+            for (var i = 0; i < normalized.Length; i++)
             {
-                var binding = source[i];
+                var binding = normalized[i];
                 bindings[i] = binding == null
                     ? default
                     : new TileFeaturePresentationResolvedBinding(binding.TileId, binding.VisualPrefab);

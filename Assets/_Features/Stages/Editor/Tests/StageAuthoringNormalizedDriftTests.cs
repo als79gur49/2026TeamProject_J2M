@@ -268,6 +268,52 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageCatalogValidator_PresentationBindingIntegrity_StillReportsDrift()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                var generatedBindings = fixture.Presentation.EnemyPresentationBindings;
+                Assert.That(generatedBindings.Length, Is.GreaterThanOrEqualTo(2));
+
+                SetEnemyBindings(
+                    fixture.Presentation,
+                    new[]
+                    {
+                        generatedBindings[1],
+                        generatedBindings[0],
+                    });
+
+                var reorderedReport = fixture.Validate();
+                Assert.That(
+                    reorderedReport.Issues.Any(issue => issue.Code.StartsWith("PresentationDrift.", StringComparison.Ordinal)),
+                    Is.False,
+                    FormatIssues(reorderedReport));
+
+                var changedBinding = generatedBindings[1];
+                changedBinding.PresentationId = "changed";
+                SetEnemyBindings(
+                    fixture.Presentation,
+                    new[]
+                    {
+                        changedBinding,
+                        generatedBindings[0],
+                    });
+
+                var changedReport = fixture.Validate();
+                AssertHasCode(changedReport, "PresentationDrift.BindingFieldMismatch");
+                Assert.That(
+                    changedReport.Issues.Any(issue => issue.Code == "PresentationBinding.MissingEnemyBinding"),
+                    Is.False,
+                    FormatIssues(changedReport));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void NormalizedPresentationDrift_DoesNotIncludeEnemyCatalogVfxProfile()
         {
             var fixture = StageAuthoringTestFixture.CreateSynced();
@@ -524,6 +570,23 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var serializedObject = new SerializedObject(presentation);
             serializedObject.FindProperty(fieldName).GetArrayElementAtIndex(index).FindPropertyRelative("PresentationId").stringValue = value;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetEnemyBindings(
+            StagePresentationDefinition presentation,
+            EnemyPresentationBinding[] bindings)
+        {
+            var serializedObject = new SerializedObject(presentation);
+            var property = serializedObject.FindProperty("enemyPresentationBindings");
+            property.arraySize = bindings.Length;
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                var element = property.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("EntityId").intValue = bindings[i].EntityId;
+                element.FindPropertyRelative("PresentationId").stringValue = bindings[i].PresentationId;
+            }
+
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 

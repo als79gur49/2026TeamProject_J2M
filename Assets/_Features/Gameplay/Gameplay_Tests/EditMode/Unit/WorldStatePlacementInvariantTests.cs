@@ -138,6 +138,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void MoveEntity_UnitOccupiedDestination_AllowsAuthoritativeUnitStacking()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: Vector2Int.zero),
+                    CreateUnit(entityId: 20, position: Vector2Int.right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+
+            worldState.CreateWriteContext().MoveEntity(10, Vector2Int.right);
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var movingEntity), Is.True);
+            Assert.That(movingEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshot.TryGetEntity(20, out var existingEntity), Is.True);
+            Assert.That(existingEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(GetUnitIdsAt(snapshot, Vector2Int.zero), Is.Empty);
+            CollectionAssert.AreEqual(new[] { 10, 20 }, GetUnitIdsAt(snapshot, Vector2Int.right));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SpawnEntity_InactiveFaceTerrainBlockedDestination_AllowsRepresentableAuthoritativeState()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(

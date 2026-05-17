@@ -718,6 +718,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
             var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
+            var forwardCellImpactSignals = new List<TickForwardCellImpactPresentationSignal>();
             var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
             var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
             var summonWindupWarnings = new List<TickSummonWindupWarningSignal>();
@@ -768,6 +769,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
+            BuildForwardCellImpactPresentation(context, forwardCellImpactSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
             BuildEnemyGlidePresentation(context, enemyGlideSignals);
@@ -785,6 +787,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyChargeSignals.Count == 0 &&
                    enemyGlideSignals.Count == 0 &&
                    enemyUtilitySignals.Count == 0 &&
+                   forwardCellImpactSignals.Count == 0 &&
                    frontFaceShieldSourceSignals.Count == 0 &&
                    frontFaceShieldBlockSignals.Count == 0 &&
                    summonWindupWarnings.Count == 0 &&
@@ -849,7 +852,29 @@ namespace Game.Feature.Gameplay.Loop
                     tileFeatureVisualStates,
                     tileFeatureActiveVisualStates,
                     playerFlipResultTurnSignals,
-                    flipFloorImpactSignals);
+                    flipFloorImpactSignals,
+                    forwardCellImpactSignals);
+        }
+
+        private static void BuildForwardCellImpactPresentation(
+            in TickPresentationBuildContext context,
+            List<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals)
+        {
+            var resolutions = context.AttackPhaseResult.PendingCellImpactResolutions;
+            for (var i = 0; i < resolutions.Count; i++)
+            {
+                var resolution = resolutions[i];
+                var impact = resolution.Impact;
+                forwardCellImpactSignals.Add(
+                    new TickForwardCellImpactPresentationSignal(
+                        impact.ImpactId,
+                        impact.OwnerId,
+                        impact.SourceEnemyId,
+                        impact.TargetCell,
+                        impact.Direction,
+                        resolution.Hit,
+                        resolution.TargetEntityId));
+            }
         }
 
         private static void BuildBoxSlideStartPresentation(
@@ -3350,6 +3375,12 @@ namespace Game.Feature.Gameplay.Loop
                 var entityId = candidateEntityIds[i];
                 context.PreMovementSnapshot.TryGetEnemyActionState(entityId, out var previousAction);
                 context.PostAttackSnapshot.TryGetEnemyActionState(entityId, out var currentAction);
+                if (currentAction.IsActive &&
+                    currentAction.executionAttempted &&
+                    !previousAction.executionAttempted)
+                {
+                    executedEntityIds.Add(entityId);
+                }
 
                 var transition = new EnemyActionTransition(entityId, previousAction, currentAction);
                 var activeActionKind = EnemyActionKind.None;

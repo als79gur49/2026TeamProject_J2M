@@ -1044,6 +1044,459 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveHudView_GroupedRow_InitialPartialEnter_DoesNotPulse()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_GroupedRow_InitialPartialEnter_DoesNotPulse");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 2, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a push box on the button (2/4)"));
+                Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(0));
+                Assert.That(GetProgressHighlightAlpha(row), Is.Zero);
+                Assert.That(row.GetComponent<Animator>().GetBool("Active"), Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_GroupedRow_VisibleIdleProgressIncrease_PulsesOnce()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_GroupedRow_VisibleIdleProgressIncrease_PulsesOnce");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                CompleteObjectiveEnter(objectiveView, row);
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 2, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                Assert.That(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons"), Is.SameAs(row));
+                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a push box on the button (2/4)"));
+                Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(1));
+                Assert.That(GetProgressHighlightAlpha(row), Is.GreaterThan(0.0f));
+                Assert.That(GetProgressPulseScaleTarget(row).localScale.x, Is.GreaterThan(1.0f));
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Idle));
+                Assert.That(row.GetComponent<Animator>().GetBool("Active"), Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_GroupedRow_FinalComplete_UsesActiveDismissNotProgressPulse()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_GroupedRow_FinalComplete_UsesActiveDismissNotProgressPulse");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 3, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                CompleteObjectiveEnter(objectiveView, row);
+
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 4, 4, isSatisfied: true, justSatisfied: true),
+                    });
+
+                Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(0));
+                Assert.That(GetProgressHighlightAlpha(row), Is.Zero);
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+                Assert.That(row.GetComponent<Animator>().GetBool("Active"), Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_PendingEnterProgressChange_UpdatesBaselineWithoutPulse()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_PendingEnterProgressChange_UpdatesBaselineWithoutPulse");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        CreateGroupedObjectiveRow("buttons", 0, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                CompleteObjectiveEnter(objectiveView, aRow);
+                var pendingRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+
+                Assert.That(FindObjectiveLabel(pendingRow.transform).text, Is.EqualTo("Place a push box on the button (1/4)"));
+                Assert.That(GetProgressPulsePlayCount(pendingRow), Is.EqualTo(0));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudRowView_ProgressPulse_FadesHighlightToZero()
+        {
+            var rootObject = new GameObject("ObjectiveHudRowView_ProgressPulse_FadesHighlightToZero");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                CompleteObjectiveEnter(objectiveView, row);
+
+                row.PlayProgressPulse();
+                Assert.That(GetProgressHighlightAlpha(row), Is.GreaterThan(0.0f));
+
+                row.Tick(1.0f);
+
+                Assert.That(GetProgressHighlightAlpha(row), Is.Zero);
+                Assert.That(GetProgressPulseScaleTarget(row).localScale, Is.EqualTo(Vector3.one));
+                Assert.That(GetPrivateField<bool>(row, "_isProgressPulsePlaying"), Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudRowView_ProgressPulse_RestartsCleanly()
+        {
+            var rootObject = new GameObject("ObjectiveHudRowView_ProgressPulse_RestartsCleanly");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                CompleteObjectiveEnter(objectiveView, row);
+
+                row.PlayProgressPulse();
+                row.Tick(0.1f);
+                var fadedAlpha = GetProgressHighlightAlpha(row);
+
+                row.PlayProgressPulse();
+
+                Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(2));
+                Assert.That(GetProgressHighlightAlpha(row), Is.GreaterThan(fadedAlpha));
+
+                row.Tick(1.0f);
+                Assert.That(GetProgressHighlightAlpha(row), Is.Zero);
+                Assert.That(GetProgressPulseScaleTarget(row).localScale, Is.EqualTo(Vector3.one));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudRowView_ForceResetForPool_ClearsProgressHighlight()
+        {
+            var rootObject = new GameObject("ObjectiveHudRowView_ForceResetForPool_ClearsProgressHighlight");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                CompleteObjectiveEnter(objectiveView, row);
+                row.PlayProgressPulse();
+
+                row.ForceResetForPool();
+
+                Assert.That(GetProgressHighlightAlpha(row), Is.Zero);
+                Assert.That(GetProgressPulseScaleTarget(row).localScale, Is.EqualTo(Vector3.one));
+                Assert.That(GetPrivateField<bool>(row, "_isProgressPulsePlaying"), Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudRowView_CompleteAndDismiss_CancelsProgressPulse()
+        {
+            var rootObject = new GameObject("ObjectiveHudRowView_CompleteAndDismiss_CancelsProgressPulse");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 3, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                CompleteObjectiveEnter(objectiveView, row);
+                row.PlayProgressPulse();
+
+                row.CompleteAndDismiss();
+
+                Assert.That(GetProgressHighlightAlpha(row), Is.Zero);
+                Assert.That(GetProgressPulseScaleTarget(row).localScale, Is.EqualTo(Vector3.one));
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+                Assert.That(row.GetComponent<Animator>().GetBool("Active"), Is.True);
+                Assert.That(GetPrivateField<bool>(row, "_isProgressPulsePlaying"), Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_PendingEnterAlreadySatisfied_IsSkipped()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_PendingEnterAlreadySatisfied_IsSkipped");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        CreateGroupedObjectiveRow("buttons", 0, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var aRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "a");
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        new ObjectiveConditionHudViewModel("a", "A", false, false),
+                        CreateGroupedObjectiveRow("buttons", 4, 4, isSatisfied: true, justSatisfied: true),
+                    });
+
+                CompleteObjectiveEnter(objectiveView, aRow);
+
+                Assert.That(TryFindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons"), Is.Null);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_EnteringRowBecomesSatisfied_CompletesAfterEnter()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_EnteringRowBecomesSatisfied_CompletesAfterEnter");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 3, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 4, 4, isSatisfied: true, justSatisfied: true),
+                    });
+
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Entering));
+
+                CompleteObjectiveEnter(objectiveView, row);
+
+                Assert.That(row.VisualState, Is.EqualTo(ObjectiveRowVisualState.Completing));
+                Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(0));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
+        public void ObjectiveHudView_ObjectiveIdentityChange_ClearsProgressBaselines()
+        {
+            var rootObject = new GameObject("ObjectiveHudView_ObjectiveIdentityChange_ClearsProgressBaselines");
+
+            try
+            {
+                CreateCanonicalRootView(rootObject, out var hudView);
+                var objectiveView = hudView.ObjectiveHudView;
+                var objectiveListRoot = GetSerializedReference<RectTransform>(objectiveView, "_objectiveListRoot");
+                var itemTemplate = GetSerializedReference<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                var viewModel = new ObjectiveHudViewModel();
+                viewModel.SetState(
+                    true,
+                    "objective-a",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 1, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                objectiveView.Bind(viewModel);
+                CompleteObjectiveEnter(
+                    objectiveView,
+                    FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons"));
+
+                viewModel.SetState(
+                    true,
+                    "objective-b",
+                    new[]
+                    {
+                        CreateGroupedObjectiveRow("buttons", 2, 4, isSatisfied: false, justSatisfied: false),
+                    });
+
+                var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
+                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a push box on the button (2/4)"));
+                Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(0));
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
+        [Test]
         public void ObjectiveHudView_InsertingMiddleRow_UsesTargetSiblingPosition()
         {
             var rootObject = new GameObject("ObjectiveHudView_InsertingMiddleRow_UsesTargetSiblingPosition");
@@ -1450,6 +1903,7 @@ namespace Game.Feature.UI.Tests
                 CreateCanonicalRootView(rootObject, out var hudView);
 
                 Assert.That(hudView.ObjectiveHudView, Is.Not.Null);
+                hudView.ObjectiveHudView.Bind(new ObjectiveHudViewModel());
                 var objectiveListRoot = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveListRoot");
                 var itemTemplate = GetSerializedReference<RectTransform>(hudView.ObjectiveHudView, "_objectiveItemTemplate");
                 Assert.That(objectiveListRoot, Is.Not.Null);
@@ -1460,7 +1914,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(itemTemplate.gameObject.activeSelf, Is.False);
                 Assert.That(itemTemplate.GetComponent<Animator>(), Is.Not.Null);
                 Assert.That(itemTemplate.GetComponent<LayoutElement>(), Is.Not.Null);
-                Assert.That(itemTemplate.GetComponent<ObjectiveHudRowView>(), Is.Not.Null);
+                var rowView = itemTemplate.GetComponent<ObjectiveHudRowView>();
+                Assert.That(rowView, Is.Not.Null);
                 var layoutGroup = objectiveListRoot.GetComponent<VerticalLayoutGroup>();
                 Assert.That(layoutGroup, Is.Not.Null);
                 Assert.That(layoutGroup.childControlHeight, Is.True);
@@ -1468,6 +1923,19 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     itemTemplate.GetComponentsInChildren<TMP_Text>(true).Any(label => label.name == "Label_Objective"),
                     Is.True);
+
+                var overlay = itemTemplate
+                    .GetComponentsInChildren<RectTransform>(true)
+                    .SingleOrDefault(rect => rect.name == "ProgressHighlightOverlay");
+                Assert.That(overlay, Is.Not.Null);
+                AssertSerializedReference(rowView, "_progressHighlightGraphic", overlay.GetComponent<Graphic>());
+                AssertSerializedReference(rowView, "_progressHighlightGroup", overlay.GetComponent<CanvasGroup>());
+                AssertSerializedReference(rowView, "_progressPulseScaleTarget", overlay.parent);
+                Assert.That(overlay.GetComponent<CanvasGroup>().alpha, Is.Zero);
+                Assert.That(overlay.GetComponent<Graphic>().color.a, Is.EqualTo(1.0f));
+                Assert.That(overlay.GetComponent<Graphic>().raycastTarget, Is.False);
+                Assert.That(overlay.GetSiblingIndex(), Is.LessThan(FindRequiredRect(itemTemplate, "Icon").GetSiblingIndex()));
+                Assert.That(overlay.GetSiblingIndex(), Is.LessThan(FindRequiredRect(itemTemplate, "Text").GetSiblingIndex()));
             }
             finally
             {
@@ -1480,6 +1948,47 @@ namespace Game.Feature.UI.Tests
             return item
                 .GetComponentsInChildren<TMP_Text>(true)
                 .Single(label => label.name == "Label_Objective");
+        }
+
+        private static ObjectiveConditionHudViewModel CreateGroupedObjectiveRow(
+            string stableId,
+            int completedCount,
+            int requiredCount,
+            bool isSatisfied,
+            bool justSatisfied)
+        {
+            return new ObjectiveConditionHudViewModel(
+                stableId,
+                $"Place a push box on the button ({completedCount}/{requiredCount})",
+                isSatisfied,
+                justSatisfied,
+                isGrouped: true,
+                completedCount: completedCount,
+                requiredCount: requiredCount,
+                rowKind: ObjectiveHudRowKind.ButtonGroupGeneric,
+                groupKey: "button-group-push");
+        }
+
+        private static int GetProgressPulsePlayCount(ObjectiveHudRowView rowView)
+        {
+            return GetPrivateField<int>(rowView, "<ProgressPulsePlayCount>k__BackingField");
+        }
+
+        private static float GetProgressHighlightAlpha(ObjectiveHudRowView rowView)
+        {
+            var group = GetPrivateField<CanvasGroup>(rowView, "_progressHighlightGroup");
+            if (group != null)
+            {
+                return group.alpha;
+            }
+
+            var graphic = GetPrivateField<Graphic>(rowView, "_progressHighlightGraphic");
+            return graphic != null ? graphic.color.a : 0.0f;
+        }
+
+        private static Transform GetProgressPulseScaleTarget(ObjectiveHudRowView rowView)
+        {
+            return GetPrivateField<Transform>(rowView, "_progressPulseScaleTarget");
         }
 
         private static GameObject FindActiveObjectiveRuntimeItem(

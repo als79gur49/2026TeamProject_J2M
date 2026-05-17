@@ -462,6 +462,7 @@ namespace Game.Feature.Gameplay.Tests
             {
                 AttackSourceKind.Combat => DamageSourceType.Attack,
                 AttackSourceKind.DelayedEffect => DamageSourceType.Attack,
+                AttackSourceKind.ForwardCellImpact => DamageSourceType.Attack,
                 AttackSourceKind.ImpactReservation => DamageSourceType.Impact,
                 AttackSourceKind.PassiveContact => DamageSourceType.Environmental,
                 _ => DamageSourceType.None,

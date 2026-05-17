@@ -115,13 +115,21 @@ namespace Game.Feature.Gameplay.Entities
 
         public abstract EnemyAttackTimingAuthoringSettings AttackTimingSettings { get; }
 
+        public virtual WindupMeleeSettings WindupMeleeSettings =>
+            global::Game.Feature.Gameplay.Entities.WindupMeleeSettings.CreateDefault();
+
+        public virtual WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings =>
+            global::Game.Feature.Gameplay.Entities.WindupForwardCellProjectileSettings.CreateDefault();
+
         internal sealed override EnemyCapabilityRuntime Compile(int simulationTicksPerSecond)
         {
             return new EnemyCombatCapabilityRuntime(
                 Kind,
                 AttackDecisionSettings,
                 AttackTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                ResolveStrategy());
+                ResolveStrategy(),
+                WindupMeleeSettings,
+                WindupForwardCellProjectileSettings);
         }
 
         protected abstract IAttackDecisionStrategy ResolveStrategy();

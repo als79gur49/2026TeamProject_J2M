@@ -320,6 +320,83 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveHudPresenter_ButtonRows_AreGroupedByDisplayGoal()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Activate all buttons.",
+                conditions: new[]
+                {
+                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                }));
+
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/4)"));
+            Assert.That(presenter.ViewModel.Rows[0].IsGrouped, Is.True);
+            Assert.That(presenter.ViewModel.Rows[0].CompletedCount, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.Rows[0].RequiredCount, Is.EqualTo(4));
+            Assert.That(presenter.ViewModel.Rows[0].StableId, Does.Not.Contain("1/4"));
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_MoonButtonRows_AreGroupedSeparatelyFromGenericButtons()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Activate all buttons.",
+                conditions: new[]
+                {
+                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
+                    CreateCondition("Place the MoonBlock on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
+                    CreateCondition("Place the MoonBlock on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                }));
+
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[0].RowKind, Is.EqualTo(ObjectiveHudRowKind.ButtonGroupGeneric));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Place the MoonBlock on the button (0/2)"));
+            Assert.That(presenter.ViewModel.Rows[1].RowKind, Is.EqualTo(ObjectiveHudRowKind.ButtonGroupMoon));
+            Assert.That(presenter.ViewModel.Rows[0].StableId, Is.Not.EqualTo(presenter.ViewModel.Rows[1].StableId));
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_GroupedRow_StableId_DoesNotChangeWhenCompletedCountChanges()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Activate all buttons.",
+                conditions: new[]
+                {
+                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                }));
+            var stableId = presenter.ViewModel.Rows[0].StableId;
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Activate all buttons.",
+                conditions: new[]
+                {
+                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
+                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
+                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                }));
+
+            Assert.That(presenter.ViewModel.Rows[0].StableId, Is.EqualTo(stableId));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (2/4)"));
+            Assert.That(presenter.ViewModel.Rows[0].JustSatisfied, Is.False);
+        }
+
+        [Test]
         public void HUDRootPresenter_FansOutObjectiveSliceToObjectivePresenter()
         {
             var source = new ManualGameplayUiPresentationSource();
@@ -710,9 +787,11 @@ namespace Game.Feature.UI.Tests
             string titleText,
             bool isSatisfied,
             UIObjectiveConditionRole role,
-            int sortOrder)
+            int sortOrder,
+            string stableId = "")
         {
             return new UIObjectiveConditionSlice(
+                stableId,
                 titleText,
                 progressText: string.Empty,
                 isSatisfied,

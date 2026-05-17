@@ -62,6 +62,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyActions").Append('\n');
             AppendEnemyActionLines(builder, GetOrderedEnemyActionStates(finalSnapshot));
 
+            builder.Append("PendingCellImpacts").Append('\n');
+            AppendPendingCellImpactLines(builder, GetOrderedPendingCellImpacts(finalSnapshot));
+
             builder.Append("EnemyPatrols").Append('\n');
             AppendEnemyPatrolLines(builder, GetOrderedEnemyPatrolStates(finalSnapshot));
 
@@ -288,6 +291,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyActionEntries = new List<EnemyActionSnapshotEntry>();
             finalSnapshot.EnumerateEnemyActionStatesOrdered(enemyActionEntries);
             return enemyActionEntries;
+        }
+
+        private static List<PendingCellImpactSnapshotEntry> GetOrderedPendingCellImpacts(WorldSnapshot finalSnapshot)
+        {
+            var pendingCellImpacts = new List<PendingCellImpactSnapshotEntry>();
+            finalSnapshot.EnumeratePendingCellImpactsOrdered(pendingCellImpacts);
+            return pendingCellImpacts;
         }
 
         private static List<SnapshotOccupancyEntry> GetOrderedProjectileOccupancy(WorldSnapshot finalSnapshot)
@@ -736,7 +746,43 @@ namespace Game.Feature.Gameplay.Loop
                     .Append((int)entry.State.direction).Append('|')
                     .Append(entry.State.startTick).Append('|')
                     .Append(entry.State.executeTick).Append('|')
-                    .Append(entry.State.executionAttempted ? 1 : 0).Append('\n');
+                    .Append(entry.State.executionAttempted ? 1 : 0).Append('|')
+                    .Append(entry.State.hasLockedForwardCellImpact ? 1 : 0).Append('|')
+                    .Append((int)entry.State.lockedAttackBaseCell.face).Append('|')
+                    .Append(entry.State.lockedAttackBaseCell.x).Append('|')
+                    .Append(entry.State.lockedAttackBaseCell.y).Append('|')
+                    .Append((int)entry.State.lockedAttackDirection).Append('|')
+                    .Append((int)entry.State.lockedTargetCell.face).Append('|')
+                    .Append(entry.State.lockedTargetCell.x).Append('|')
+                    .Append(entry.State.lockedTargetCell.y).Append('\n');
+            }
+        }
+
+        private static void AppendPendingCellImpactLines(
+            StringBuilder builder,
+            IReadOnlyList<PendingCellImpactSnapshotEntry> pendingCellImpacts)
+        {
+            if (pendingCellImpacts.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < pendingCellImpacts.Count; i++)
+            {
+                var impact = pendingCellImpacts[i].Impact;
+                builder
+                    .Append(impact.ImpactId).Append('|')
+                    .Append(impact.OwnerId).Append('|')
+                    .Append(impact.SourceEnemyId).Append('|')
+                    .Append((int)impact.TargetCell.face).Append('|')
+                    .Append(impact.TargetCell.x).Append('|')
+                    .Append(impact.TargetCell.y).Append('|')
+                    .Append((int)impact.Direction).Append('|')
+                    .Append(impact.Damage).Append('|')
+                    .Append(impact.CreatedTick).Append('|')
+                    .Append(impact.ReleaseTick).Append('|')
+                    .Append(impact.ImpactTick).Append('\n');
             }
         }
 
@@ -804,7 +850,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.InitialDelayTicksRemaining).Append('|')
                     .Append((int)entry.State.LandingPendingCell.face).Append('|')
                     .Append(entry.State.LandingPendingCell.x).Append('|')
-                    .Append(entry.State.LandingPendingCell.y).Append('\n');
+                    .Append(entry.State.LandingPendingCell.y).Append('|')
+                    .Append(entry.State.LockedTargetEntityId).Append('\n');
             }
         }
 

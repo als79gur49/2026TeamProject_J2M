@@ -319,6 +319,13 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
+            var pendingCellImpacts = new List<PendingCellImpactSnapshotEntry>();
+            snapshot.EnumeratePendingCellImpactsOrdered(pendingCellImpacts);
+            for (var i = 0; i < pendingCellImpacts.Count; i++)
+            {
+                writeContext.AddPendingCellImpact(pendingCellImpacts[i].Impact);
+            }
+
             return worldState;
         }
 
