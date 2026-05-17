@@ -24,6 +24,8 @@ namespace Game.Feature.Gameplay.Tests
         public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateDefaultMelee();
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
         public WindupMeleeSettings WindupMeleeSettings = WindupMeleeSettings.CreateDefault();
+        public WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings =
+            WindupForwardCellProjectileSettings.CreateDefault();
         public bool IncludePassiveContact;
         public MovementSkillStrategyKind MovementSkillStrategyKind = MovementSkillStrategyKind.None;
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
@@ -80,6 +82,31 @@ namespace Game.Feature.Gameplay.Tests
                     recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
+                IncludePassiveContact = includePassiveContact,
+            });
+        }
+
+        public static EnemyAiProfile CreateWindupForwardCellProjectile(
+            int windupTicks = 1,
+            int impactDelayTicks = 1,
+            int damage = 1,
+            int recoverTicks = 1,
+            bool includePassiveContact = false)
+        {
+            return Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = ToAuthoring(new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: recoverTicks)),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
+                AttackDecisionSettings = new AttackDecisionSettings(1),
+                AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
+                WindupForwardCellProjectileSettings = new WindupForwardCellProjectileSettings(
+                    WindupMeleeSettings.DefaultVisualRangeSlackCells,
+                    impactDelayTicks,
+                    damage,
+                    activePendingImpactLimitPerOwner: 1),
                 IncludePassiveContact = includePassiveContact,
             });
         }
@@ -418,6 +445,20 @@ namespace Game.Feature.Gameplay.Tests
                     SetSerializedField(melee, "attackTimingSettings", spec.AttackTimingSettings);
                     SetSerializedField(melee, "windupMeleeSettings", spec.WindupMeleeSettings);
                     yield return melee;
+                    break;
+                }
+
+                case AttackDecisionStrategyKind.WindupForwardCellProjectile:
+                {
+                    var projectile = CreateHiddenAsset<WindupForwardCellProjectileCapabilityAsset>(
+                        "Test_WindupForwardCellProjectileCapability");
+                    SetSerializedField(projectile, "attackDecisionSettings", spec.AttackDecisionSettings);
+                    SetSerializedField(projectile, "attackTimingSettings", spec.AttackTimingSettings);
+                    SetSerializedField(
+                        projectile,
+                        "windupForwardCellProjectileSettings",
+                        spec.WindupForwardCellProjectileSettings);
+                    yield return projectile;
                     break;
                 }
 
