@@ -409,6 +409,48 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void HUDPrefab_SurfaceBeltCenterHighlight_ReservesSpacingForAuthoredOutline()
+        {
+            var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
+            var surfaceBeltIndicator = GetSerializedReference<SurfaceBeltIndicatorView>(hudPrefab, "_surfaceBeltIndicatorView");
+            var indicatorRoot = (RectTransform)surfaceBeltIndicator.transform;
+            var indicatorLayout = surfaceBeltIndicator.GetComponent<LayoutElement>();
+            var maskRoot = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_maskRoot");
+            var beltContent = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_beltContent");
+            var cells = surfaceBeltIndicator.Cells;
+
+            Assert.That(indicatorRoot.sizeDelta, Is.EqualTo(new Vector2(252.0f, 80.0f)));
+            Assert.That(indicatorLayout, Is.Not.Null);
+            Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(252.0f));
+            Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(80.0f));
+            Assert.That(maskRoot.sizeDelta, Is.EqualTo(new Vector2(192.0f, 36.0f)));
+            Assert.That(maskRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(beltContent.sizeDelta, Is.EqualTo(new Vector2(264.0f, 18.0f)));
+            Assert.That(cells.Length, Is.EqualTo(7));
+
+            var left = (RectTransform)cells[2].transform;
+            var center = (RectTransform)cells[3].transform;
+            var right = (RectTransform)cells[4].transform;
+
+            Assert.That(center.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(center.sizeDelta.x, Is.GreaterThan(left.sizeDelta.x));
+            Assert.That(center.sizeDelta.y, Is.GreaterThan(left.sizeDelta.y));
+            Assert.That(right.sizeDelta, Is.EqualTo(left.sizeDelta));
+
+            for (var i = 0; i < cells.Length - 1; i++)
+            {
+                var current = (RectTransform)cells[i].transform;
+                var next = (RectTransform)cells[i + 1].transform;
+                var visualGap = GetAuthoredVisualLeft(next) - GetAuthoredVisualRight(current);
+
+                Assert.That(
+                    visualGap,
+                    Is.EqualTo(0.0f).Within(0.01f),
+                    $"{current.name} should touch {next.name} without overlap or authored spacing.");
+            }
+        }
+
+        [Test]
         public void HUDController_CanonicalPrefab_DuplicateChancePanelView_FailsPrefabContract()
         {
             var rootObject = new GameObject("HUDController_CanonicalPrefab_DuplicateChancePanelView_FailsPrefabContract");
@@ -2275,6 +2317,28 @@ namespace Game.Feature.UI.Tests
                 && firstRect.yMax > secondRect.yMin;
 
             Assert.That(overlaps, Is.False, $"{first.name} overlaps {second.name}.");
+        }
+
+        private static float GetAuthoredVisualHalfWidth(RectTransform rectTransform)
+        {
+            var halfWidth = rectTransform.sizeDelta.x * Mathf.Abs(rectTransform.localScale.x) * 0.5f;
+            var outline = rectTransform.GetComponent<Outline>();
+            if (outline != null && outline.enabled)
+            {
+                halfWidth += Mathf.Abs(outline.effectDistance.x) * Mathf.Abs(rectTransform.localScale.x);
+            }
+
+            return halfWidth;
+        }
+
+        private static float GetAuthoredVisualLeft(RectTransform rectTransform)
+        {
+            return rectTransform.anchoredPosition.x - GetAuthoredVisualHalfWidth(rectTransform);
+        }
+
+        private static float GetAuthoredVisualRight(RectTransform rectTransform)
+        {
+            return rectTransform.anchoredPosition.x + GetAuthoredVisualHalfWidth(rectTransform);
         }
 
         private static TReference GetSerializedReference<TReference>(
