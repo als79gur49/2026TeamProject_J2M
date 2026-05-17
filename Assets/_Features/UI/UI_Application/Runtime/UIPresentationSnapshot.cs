@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
+using Game.Feature.UI.HUD;
 
 namespace Game.Feature.UI.Application
 {
@@ -161,6 +162,93 @@ namespace Game.Feature.UI.Application
                 SourceFaceLabel,
                 DestinationFaceLabel,
                 Progress01);
+        }
+    }
+
+    public readonly struct SurfaceBeltSnapshot : IEquatable<SurfaceBeltSnapshot>
+    {
+        public static readonly SurfaceBeltSnapshot Empty = FromTopology(
+            new GameplayUiTopology(GameplayUiFace.Floor),
+            false,
+            0);
+
+        public SurfaceBeltSnapshot(
+            int currentSlotIndex,
+            int sourceSlotIndex,
+            int destinationSlotIndex,
+            SurfaceBeltDirection direction,
+            bool isTransitioning,
+            int transitionSequenceId)
+        {
+            CurrentSlotIndex = SurfaceBeltSlotMapping.WrapSlot(currentSlotIndex);
+            SourceSlotIndex = SurfaceBeltSlotMapping.WrapSlot(sourceSlotIndex);
+            DestinationSlotIndex = SurfaceBeltSlotMapping.WrapSlot(destinationSlotIndex);
+            Direction = direction;
+            IsTransitioning = isTransitioning;
+            TransitionSequenceId = isTransitioning ? Math.Max(0, transitionSequenceId) : 0;
+        }
+
+        public int CurrentSlotIndex { get; }
+
+        public int SourceSlotIndex { get; }
+
+        public int DestinationSlotIndex { get; }
+
+        public SurfaceBeltDirection Direction { get; }
+
+        public bool IsTransitioning { get; }
+
+        public int TransitionSequenceId { get; }
+
+        public static SurfaceBeltSnapshot FromTopology(
+            GameplayUiTopology topology,
+            bool isTransitioning,
+            int transitionSequenceId,
+            GameplayUiTopology? sourceTopology = null,
+            GameplayUiTopology? destinationTopology = null,
+            SurfaceBeltDirection direction = SurfaceBeltDirection.None)
+        {
+            var current = ToSlotIndex(topology);
+            var source = sourceTopology.HasValue ? ToSlotIndex(sourceTopology.Value) : current;
+            var destination = destinationTopology.HasValue ? ToSlotIndex(destinationTopology.Value) : current;
+            return new SurfaceBeltSnapshot(
+                current,
+                source,
+                destination,
+                isTransitioning ? direction : SurfaceBeltDirection.None,
+                isTransitioning,
+                transitionSequenceId);
+        }
+
+        public static int ToSlotIndex(GameplayUiTopology topology)
+        {
+            return SurfaceBeltSlotMapping.WrapSlot((int)topology.BottomFace);
+        }
+
+        public bool Equals(SurfaceBeltSnapshot other)
+        {
+            return CurrentSlotIndex == other.CurrentSlotIndex &&
+                   SourceSlotIndex == other.SourceSlotIndex &&
+                   DestinationSlotIndex == other.DestinationSlotIndex &&
+                   Direction == other.Direction &&
+                   IsTransitioning == other.IsTransitioning &&
+                   TransitionSequenceId == other.TransitionSequenceId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is SurfaceBeltSnapshot other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                CurrentSlotIndex,
+                SourceSlotIndex,
+                DestinationSlotIndex,
+                Direction,
+                IsTransitioning,
+                TransitionSequenceId);
         }
     }
 
@@ -754,6 +842,7 @@ namespace Game.Feature.UI.Application
             UIObjectiveSlice.Empty,
             UIChanceSlice.Empty,
             UITopologySlice.Empty,
+            SurfaceBeltSnapshot.Empty,
             new UIPlayerActionSlice(
                 0,
                 0,
@@ -781,6 +870,7 @@ namespace Game.Feature.UI.Application
                 UIObjectiveSlice.Empty,
                 new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
                 UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
+                SurfaceBeltSnapshot.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive, 0),
                 player,
                 notifications)
         {
@@ -799,6 +889,7 @@ namespace Game.Feature.UI.Application
                 UIObjectiveSlice.Empty,
                 new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
                 UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
+                SurfaceBeltSnapshot.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive, 0),
                 player,
                 notifications)
         {
@@ -818,6 +909,7 @@ namespace Game.Feature.UI.Application
                 objective,
                 new UIChanceSlice(player.HasRemainingChances, player.RemainingChances, player.MaxChances),
                 UITopologySlice.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive),
+                SurfaceBeltSnapshot.FromTopology(tick.FinalTopology, tick.IsTopologyTransitionActive, 0),
                 player,
                 notifications)
         {
@@ -832,6 +924,32 @@ namespace Game.Feature.UI.Application
             UITopologySlice topology,
             UIPlayerActionSlice player,
             UINotificationLedgerSlice notifications)
+            : this(
+                tick,
+                interaction,
+                stage,
+                objective,
+                chance,
+                topology,
+                SurfaceBeltSnapshot.FromTopology(
+                    tick.FinalTopology,
+                    tick.IsTopologyTransitionActive,
+                    0),
+                player,
+                notifications)
+        {
+        }
+
+        public UIPresentationSnapshot(
+            UITickSlice tick,
+            UIInteractionSlice interaction,
+            UIStageSlice stage,
+            UIObjectiveSlice objective,
+            UIChanceSlice chance,
+            UITopologySlice topology,
+            SurfaceBeltSnapshot surfaceBelt,
+            UIPlayerActionSlice player,
+            UINotificationLedgerSlice notifications)
         {
             Tick = tick;
             Interaction = interaction;
@@ -839,6 +957,7 @@ namespace Game.Feature.UI.Application
             Objective = objective;
             Chance = chance;
             Topology = topology;
+            SurfaceBelt = surfaceBelt;
             Player = player;
             Notifications = notifications;
         }
@@ -855,6 +974,8 @@ namespace Game.Feature.UI.Application
 
         public UITopologySlice Topology { get; }
 
+        public SurfaceBeltSnapshot SurfaceBelt { get; }
+
         public UIPlayerActionSlice Player { get; }
 
         public UINotificationLedgerSlice Notifications { get; }
@@ -867,6 +988,7 @@ namespace Game.Feature.UI.Application
                    Objective.Equals(other.Objective) &&
                    Chance.Equals(other.Chance) &&
                    Topology.Equals(other.Topology) &&
+                   SurfaceBelt.Equals(other.SurfaceBelt) &&
                    Player.Equals(other.Player) &&
                    Notifications.Equals(other.Notifications);
         }
@@ -879,7 +1001,8 @@ namespace Game.Feature.UI.Application
         public override int GetHashCode()
         {
             var hash = HashCode.Combine(Tick, Interaction, Stage, Objective);
-            hash = HashCode.Combine(hash, Chance, Topology, Player);
+            hash = HashCode.Combine(hash, Chance, Topology, SurfaceBelt);
+            hash = HashCode.Combine(hash, Player);
             hash = HashCode.Combine(hash, Notifications);
             return hash;
         }

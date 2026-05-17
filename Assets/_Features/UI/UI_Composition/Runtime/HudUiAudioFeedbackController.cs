@@ -8,29 +8,29 @@ namespace Game.Feature.UI.Composition
     {
         private readonly IUiAudioPort _uiAudioPort;
         private readonly ChancePanelViewModel _chanceViewModel;
-        private readonly SurfaceIndicatorViewModel _surfaceIndicatorViewModel;
+        private readonly SurfaceBeltViewModel _surfaceBeltViewModel;
         private int _lastChanceSequenceId;
-        private int _lastTopologySequenceId;
+        private int _lastSurfaceBeltSequenceId;
 
         public HudUiAudioFeedbackController(
             IUiAudioPort uiAudioPort,
             ChancePanelViewModel chanceViewModel,
             ObjectiveHudViewModel objectiveViewModel,
-            SurfaceIndicatorViewModel surfaceIndicatorViewModel)
+            SurfaceBeltViewModel surfaceBeltViewModel)
         {
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _chanceViewModel = chanceViewModel ?? throw new ArgumentNullException(nameof(chanceViewModel));
             _ = objectiveViewModel ?? throw new ArgumentNullException(nameof(objectiveViewModel));
-            _surfaceIndicatorViewModel = surfaceIndicatorViewModel ?? throw new ArgumentNullException(nameof(surfaceIndicatorViewModel));
+            _surfaceBeltViewModel = surfaceBeltViewModel ?? throw new ArgumentNullException(nameof(surfaceBeltViewModel));
 
             _chanceViewModel.Changed += HandleChanceChanged;
-            _surfaceIndicatorViewModel.Changed += HandleTopologyChanged;
+            _surfaceBeltViewModel.Changed += HandleSurfaceBeltChanged;
         }
 
         public void Dispose()
         {
             _chanceViewModel.Changed -= HandleChanceChanged;
-            _surfaceIndicatorViewModel.Changed -= HandleTopologyChanged;
+            _surfaceBeltViewModel.Changed -= HandleSurfaceBeltChanged;
         }
 
         private void HandleChanceChanged()
@@ -56,19 +56,19 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        private void HandleTopologyChanged()
+        private void HandleSurfaceBeltChanged()
         {
-            var hint = _surfaceIndicatorViewModel.AnimationHint;
-            if (hint.SequenceId <= 0 || hint.SequenceId == _lastTopologySequenceId)
+            var sequenceId = _surfaceBeltViewModel.TransitionSequenceId;
+            if (sequenceId <= 0 ||
+                sequenceId == _lastSurfaceBeltSequenceId ||
+                !_surfaceBeltViewModel.IsTransitioning ||
+                _surfaceBeltViewModel.Direction == SurfaceBeltDirection.None)
             {
                 return;
             }
 
-            _lastTopologySequenceId = hint.SequenceId;
-            if (hint.PulseDestination)
-            {
-                _uiAudioPort.Play(UiAudioCueId.TopologyShift);
-            }
+            _lastSurfaceBeltSequenceId = sequenceId;
+            _uiAudioPort.Play(UiAudioCueId.TopologyShift);
         }
     }
 }
