@@ -419,13 +419,13 @@ namespace Game.Feature.UI.Tests
             var beltContent = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_beltContent");
             var cells = surfaceBeltIndicator.Cells;
 
-            Assert.That(indicatorRoot.sizeDelta, Is.EqualTo(new Vector2(252.0f, 80.0f)));
+            Assert.That(indicatorRoot.sizeDelta, Is.EqualTo(new Vector2(252.0f, 104.0f)));
             Assert.That(indicatorLayout, Is.Not.Null);
             Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(252.0f));
-            Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(80.0f));
-            Assert.That(maskRoot.sizeDelta, Is.EqualTo(new Vector2(192.0f, 36.0f)));
+            Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(104.0f));
+            Assert.That(maskRoot.sizeDelta, Is.EqualTo(new Vector2(232.0f, 52.0f)));
             Assert.That(maskRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
-            Assert.That(beltContent.sizeDelta, Is.EqualTo(new Vector2(264.0f, 18.0f)));
+            Assert.That(beltContent.sizeDelta, Is.EqualTo(new Vector2(320.0f, 52.0f)));
             Assert.That(cells.Length, Is.EqualTo(7));
 
             var left = (RectTransform)cells[2].transform;

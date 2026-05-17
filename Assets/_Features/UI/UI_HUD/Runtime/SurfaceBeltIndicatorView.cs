@@ -7,6 +7,14 @@ namespace Game.Feature.UI.HUD
 {
     public sealed class SurfaceBeltIndicatorView : MonoBehaviour
     {
+        private const string AllIn1UiMaskShaderName = "AllIn1SpriteShader/AllIn1SpriteShaderUiMask";
+        private const string ShineKeyword = "SHINE_ON";
+        private static readonly int ShineColorId = Shader.PropertyToID("_ShineColor");
+        private static readonly int ShineLocationId = Shader.PropertyToID("_ShineLocation");
+        private static readonly int ShineRotateId = Shader.PropertyToID("_ShineRotate");
+        private static readonly int ShineWidthId = Shader.PropertyToID("_ShineWidth");
+        private static readonly int ShineGlowId = Shader.PropertyToID("_ShineGlow");
+
         [SerializeField] private GameObject _root;
         [SerializeField] private RectTransform _maskRoot;
         [SerializeField] private RectTransform _beltContent;
@@ -15,10 +23,26 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private SurfaceBeltStyleProfile _styleProfile;
         [SerializeField] private float _animationDurationSeconds = 0.18f;
         [SerializeField] private Ease _animationEase = Ease.OutQuad;
+        [SerializeField] private float _centerArrowNudgePixels = 8.0f;
+        [SerializeField] private float _centerArrowAnimationDurationSeconds = 0.16f;
+        [SerializeField] private Ease _centerArrowEase = Ease.OutQuad;
+        [SerializeField] private bool _centerArrowShineEnabled = true;
+        [SerializeField] private float _centerArrowShineDurationSeconds = 0.2f;
+        [SerializeField] private float _centerArrowShineWidth = 0.14f;
+        [SerializeField] private float _centerArrowShineGlow = 2.4f;
+        [SerializeField] private float _centerArrowShineRotateRadians = 0.0f;
+        [SerializeField] private Color _centerArrowShineColor = Color.white;
         [SerializeField] private bool _useUnscaledTime = true;
 
         private SurfaceBeltViewModel _viewModel;
         private Tween _moveTween;
+        private Tween _centerArrowTween;
+        private Tween _centerArrowShineTween;
+        private Image _centerArrowImage;
+        private Material _centerArrowOriginalMaterial;
+        private Material _centerArrowMaterialInstance;
+        private Vector2 _centerArrowBaseAnchoredPosition;
+        private bool _hasCenterArrowBaseAnchoredPosition;
         private int _lastAnimatedSequenceId;
 
         public SurfaceBeltViewModel ViewModel => _viewModel;
@@ -93,11 +117,16 @@ namespace Game.Feature.UI.HUD
         private void OnDisable()
         {
             KillMoveTween();
+            KillCenterArrowTween(true);
+            KillCenterArrowShineTween(true);
         }
 
         private void OnDestroy()
         {
             KillMoveTween();
+            KillCenterArrowTween(true);
+            KillCenterArrowShineTween(true);
+            DisposeCenterArrowMaterialInstance();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -120,6 +149,8 @@ namespace Game.Feature.UI.HUD
             if (_viewModel == null || !_viewModel.Visible)
             {
                 KillMoveTween();
+                KillCenterArrowTween(true);
+                KillCenterArrowShineTween(true);
                 return;
             }
 
@@ -132,6 +163,8 @@ namespace Game.Feature.UI.HUD
             if (!_viewModel.IsTransitioning)
             {
                 KillMoveTween();
+                KillCenterArrowTween(true);
+                KillCenterArrowShineTween(true);
                 ApplyCells(_viewModel.Cells);
                 ResetContentPosition();
             }
@@ -158,6 +191,9 @@ namespace Game.Feature.UI.HUD
                 ? -authoredCellStepWidth
                 : authoredCellStepWidth;
 
+            PlayCenterArrowFeedback(viewModel.Direction);
+            PlayCenterArrowShine(viewModel.Direction);
+
             _moveTween = _beltContent
                 .DOAnchorPosX(targetX, Mathf.Max(0.0f, _animationDurationSeconds))
                 .SetEase(_animationEase)
@@ -168,6 +204,80 @@ namespace Game.Feature.UI.HUD
                     ApplyCells(SurfaceBeltSlotMapping.BuildCells(destinationSlotIndex));
                     ResetContentPosition();
                     _moveTween = null;
+                });
+        }
+
+        private void PlayCenterArrowFeedback(SurfaceBeltDirection direction)
+        {
+            if (_centerArrow == null || direction == SurfaceBeltDirection.None)
+            {
+                return;
+            }
+
+            CacheCenterArrowBasePosition();
+            KillCenterArrowTween(true);
+
+            var nudge = direction == SurfaceBeltDirection.Forward
+                ? -Mathf.Abs(_centerArrowNudgePixels)
+                : Mathf.Abs(_centerArrowNudgePixels);
+            if (Mathf.Approximately(nudge, 0.0f))
+            {
+                return;
+            }
+
+            var duration = Mathf.Max(0.0f, _centerArrowAnimationDurationSeconds);
+            var target = _centerArrowBaseAnchoredPosition + new Vector2(nudge, 0.0f);
+            _centerArrowTween = DOTween.Sequence()
+                .Append(_centerArrow.DOAnchorPos(target, duration * 0.45f).SetEase(_centerArrowEase))
+                .Append(_centerArrow.DOAnchorPos(_centerArrowBaseAnchoredPosition, duration * 0.55f).SetEase(_centerArrowEase))
+                .SetUpdate(_useUnscaledTime)
+                .SetLink(gameObject, LinkBehaviour.KillOnDestroy)
+                .OnKill(() => _centerArrowTween = null);
+        }
+
+        private void PlayCenterArrowShine(SurfaceBeltDirection direction)
+        {
+            if (!_centerArrowShineEnabled ||
+                direction == SurfaceBeltDirection.None ||
+                !TryEnsureCenterArrowShineMaterial(out var material))
+            {
+                return;
+            }
+
+            KillCenterArrowShineTween(true);
+
+            var from = direction == SurfaceBeltDirection.Forward ? 1.0f : 0.0f;
+            var to = direction == SurfaceBeltDirection.Forward ? 0.0f : 1.0f;
+            var duration = Mathf.Max(0.0f, _centerArrowShineDurationSeconds);
+            material.SetColor(ShineColorId, _centerArrowShineColor);
+            material.SetFloat(ShineRotateId, _centerArrowShineRotateRadians);
+            material.SetFloat(ShineWidthId, Mathf.Max(0.05f, _centerArrowShineWidth));
+            material.SetFloat(ShineGlowId, 0.0f);
+            material.SetFloat(ShineLocationId, from);
+
+            _centerArrowShineTween = DOTween.Sequence()
+                .Append(DOTween.To(
+                    () => from,
+                    value => material.SetFloat(ShineLocationId, value),
+                    to,
+                    duration))
+                .Join(DOTween.Sequence()
+                    .Append(DOTween.To(
+                        () => 0.0f,
+                        value => material.SetFloat(ShineGlowId, value),
+                        Mathf.Max(0.0f, _centerArrowShineGlow),
+                        duration * 0.35f))
+                    .Append(DOTween.To(
+                        () => Mathf.Max(0.0f, _centerArrowShineGlow),
+                        value => material.SetFloat(ShineGlowId, value),
+                        0.0f,
+                        duration * 0.65f)))
+                .SetUpdate(_useUnscaledTime)
+                .SetLink(gameObject, LinkBehaviour.KillOnDestroy)
+                .OnKill(() =>
+                {
+                    ResetCenterArrowShine();
+                    _centerArrowShineTween = null;
                 });
         }
 
@@ -221,6 +331,131 @@ namespace Game.Feature.UI.HUD
 
             _moveTween.Kill(false);
             _moveTween = null;
+        }
+
+        private void KillCenterArrowTween(bool restorePosition)
+        {
+            if (_centerArrowTween != null)
+            {
+                _centerArrowTween.Kill(false);
+                _centerArrowTween = null;
+            }
+
+            if (restorePosition)
+            {
+                ResetCenterArrowPosition();
+            }
+        }
+
+        private void CacheCenterArrowBasePosition()
+        {
+            if (_centerArrow == null || _hasCenterArrowBaseAnchoredPosition)
+            {
+                return;
+            }
+
+            _centerArrowBaseAnchoredPosition = _centerArrow.anchoredPosition;
+            _hasCenterArrowBaseAnchoredPosition = true;
+        }
+
+        private void ResetCenterArrowPosition()
+        {
+            if (_centerArrow == null || !_hasCenterArrowBaseAnchoredPosition)
+            {
+                return;
+            }
+
+            _centerArrow.anchoredPosition = _centerArrowBaseAnchoredPosition;
+        }
+
+        private void KillCenterArrowShineTween(bool resetShine)
+        {
+            if (_centerArrowShineTween != null)
+            {
+                _centerArrowShineTween.Kill(false);
+                _centerArrowShineTween = null;
+            }
+
+            if (resetShine)
+            {
+                ResetCenterArrowShine();
+            }
+        }
+
+        private bool TryEnsureCenterArrowShineMaterial(out Material material)
+        {
+            material = null;
+            if (_centerArrow == null)
+            {
+                return false;
+            }
+
+            _centerArrowImage ??= _centerArrow.GetComponent<Image>();
+            if (_centerArrowImage == null)
+            {
+                return false;
+            }
+
+            if (_centerArrowMaterialInstance != null)
+            {
+                material = _centerArrowMaterialInstance;
+                return true;
+            }
+
+            var shader = Shader.Find(AllIn1UiMaskShaderName);
+            if (shader == null)
+            {
+                return false;
+            }
+
+            _centerArrowOriginalMaterial = _centerArrowImage.material;
+            _centerArrowMaterialInstance = _centerArrowOriginalMaterial != null &&
+                                           _centerArrowOriginalMaterial.shader == shader
+                ? new Material(_centerArrowOriginalMaterial)
+                : new Material(shader);
+            _centerArrowMaterialInstance.name = $"{_centerArrow.name}_AllIn1Shine_Runtime";
+            _centerArrowMaterialInstance.EnableKeyword(ShineKeyword);
+            _centerArrowMaterialInstance.SetFloat(ShineGlowId, 0.0f);
+            _centerArrowMaterialInstance.SetFloat(ShineWidthId, Mathf.Max(0.05f, _centerArrowShineWidth));
+            _centerArrowMaterialInstance.SetColor(ShineColorId, _centerArrowShineColor);
+            _centerArrowImage.material = _centerArrowMaterialInstance;
+            material = _centerArrowMaterialInstance;
+            return true;
+        }
+
+        private void ResetCenterArrowShine()
+        {
+            if (_centerArrowMaterialInstance == null)
+            {
+                return;
+            }
+
+            _centerArrowMaterialInstance.SetFloat(ShineGlowId, 0.0f);
+        }
+
+        private void DisposeCenterArrowMaterialInstance()
+        {
+            if (_centerArrowImage != null)
+            {
+                _centerArrowImage.material = _centerArrowOriginalMaterial;
+            }
+
+            if (_centerArrowMaterialInstance == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(_centerArrowMaterialInstance);
+            }
+            else
+            {
+                DestroyImmediate(_centerArrowMaterialInstance);
+            }
+
+            _centerArrowMaterialInstance = null;
+            _centerArrowOriginalMaterial = null;
         }
 
         private static void RequireReference(UnityEngine.Object value, string fieldName)
