@@ -225,8 +225,7 @@ namespace Game.Feature.UI.Composition
             _hudUiAudioFeedbackController = new HudUiAudioFeedbackController(
                 uiAudioPort,
                 chancePanelPresenter.ViewModel,
-                objectiveHudPresenter.ViewModel,
-                surfaceBeltIndicatorPresenter.ViewModel);
+                objectiveHudPresenter.ViewModel);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
                 ScreenController,

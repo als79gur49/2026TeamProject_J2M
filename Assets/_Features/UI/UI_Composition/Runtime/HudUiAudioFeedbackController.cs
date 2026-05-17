@@ -8,29 +8,23 @@ namespace Game.Feature.UI.Composition
     {
         private readonly IUiAudioPort _uiAudioPort;
         private readonly ChancePanelViewModel _chanceViewModel;
-        private readonly SurfaceBeltViewModel _surfaceBeltViewModel;
         private int _lastChanceSequenceId;
-        private int _lastSurfaceBeltSequenceId;
 
         public HudUiAudioFeedbackController(
             IUiAudioPort uiAudioPort,
             ChancePanelViewModel chanceViewModel,
-            ObjectiveHudViewModel objectiveViewModel,
-            SurfaceBeltViewModel surfaceBeltViewModel)
+            ObjectiveHudViewModel objectiveViewModel)
         {
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _chanceViewModel = chanceViewModel ?? throw new ArgumentNullException(nameof(chanceViewModel));
             _ = objectiveViewModel ?? throw new ArgumentNullException(nameof(objectiveViewModel));
-            _surfaceBeltViewModel = surfaceBeltViewModel ?? throw new ArgumentNullException(nameof(surfaceBeltViewModel));
 
             _chanceViewModel.Changed += HandleChanceChanged;
-            _surfaceBeltViewModel.Changed += HandleSurfaceBeltChanged;
         }
 
         public void Dispose()
         {
             _chanceViewModel.Changed -= HandleChanceChanged;
-            _surfaceBeltViewModel.Changed -= HandleSurfaceBeltChanged;
         }
 
         private void HandleChanceChanged()
@@ -54,21 +48,6 @@ namespace Game.Feature.UI.Composition
                     _uiAudioPort.Play(UiAudioCueId.ChanceLoss);
                     break;
             }
-        }
-
-        private void HandleSurfaceBeltChanged()
-        {
-            var sequenceId = _surfaceBeltViewModel.TransitionSequenceId;
-            if (sequenceId <= 0 ||
-                sequenceId == _lastSurfaceBeltSequenceId ||
-                !_surfaceBeltViewModel.IsTransitioning ||
-                _surfaceBeltViewModel.Direction == SurfaceBeltDirection.None)
-            {
-                return;
-            }
-
-            _lastSurfaceBeltSequenceId = sequenceId;
-            _uiAudioPort.Play(UiAudioCueId.TopologyShift);
         }
     }
 }
