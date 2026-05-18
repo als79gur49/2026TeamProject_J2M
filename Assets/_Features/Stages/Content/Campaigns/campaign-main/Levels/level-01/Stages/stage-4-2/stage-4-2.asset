@@ -34,22 +34,6 @@ MonoBehaviour:
     PresentationId: 
     UnitStackGroup: 
   boxSpawns:
-  - EntityId: 42
-    Kind: 2
-    Cell:
-      face: 2
-      x: 7
-      y: 1
-    Facing: 4
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 3
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId: 
-    UnitStackGroup: 
   - EntityId: 201
     Kind: 2
     Cell:
@@ -369,6 +353,22 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 232
+    Kind: 1
+    Cell:
+      face: 2
+      x: 7
+      y: 1
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
     PresentationId: 
     UnitStackGroup: 
   wallSpawns: []
