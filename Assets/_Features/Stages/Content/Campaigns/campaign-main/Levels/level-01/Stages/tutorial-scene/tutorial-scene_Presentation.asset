@@ -11,16 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
   m_Name: tutorial-scene_Presentation
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: d8a3fa0c6ff547208df399f499335d58, type: 2}
   ownerEntryGuid: d8a3fa0c6ff547208df399f499335d58
   displayName: Tutorial Scene
-  summaryText:
+  summaryText: 
   previewSprite: {fileID: 0}
-  backgroundPrefab: {fileID: 0}
+  backgroundPrefab: {fileID: 6146672969793721054, guid: 19c2a2b2ee2064644878dd76228bc933, type: 3}
   bgmReference:
-    bgmKey:
+    bgmKey: 
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
+  enemyPresentationArchetypeCatalog: {fileID: 0}
   enemyPresentationBindings:
   - EntityId: 101
     PresentationId: secbot
@@ -432,7 +433,11 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 358
     PresentationId: wall_tutorial
+  boardTilePresentationCatalog: {fileID: 0}
+  boardTilePresentationOverrides: []
+  tileFeaturePresentationCatalog: {fileID: 0}
+  tileFeaturePresentationBindings: []
   resultTitle: Stage Cleared
-  resultSummaryText:
-  resultDetailText:
+  resultSummaryText: 
+  resultDetailText: 
   resultContinueLabel: Continue

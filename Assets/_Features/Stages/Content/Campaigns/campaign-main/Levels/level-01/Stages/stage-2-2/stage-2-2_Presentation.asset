@@ -17,7 +17,7 @@ MonoBehaviour:
   displayName: Ward[A]-02
   summaryText: 
   previewSprite: {fileID: 0}
-  backgroundPrefab: {fileID: 0}
+  backgroundPrefab: {fileID: 3930222102342455819, guid: 249351490955d3740a182f00f925ff7e, type: 3}
   bgmReference:
     bgmKey: stage-2-1
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
