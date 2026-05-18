@@ -601,6 +601,47 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    internal static class EnemyUtilitySummonPolicy
+    {
+        public static bool IsMaxAliveReached(
+            WorldSnapshot snapshot,
+            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
+            int sourceEntityId,
+            int effectIndex,
+            in SummonMinionRuntime summonRuntime,
+            int plannedChildren = 0)
+        {
+            return CountAliveChildren(snapshot, summonedEntries, sourceEntityId, effectIndex) + plannedChildren >=
+                   summonRuntime.MaxAliveChildren;
+        }
+
+        public static int CountAliveChildren(
+            WorldSnapshot snapshot,
+            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
+            int sourceEntityId,
+            int effectIndex)
+        {
+            var aliveCount = 0;
+            for (var i = 0; i < summonedEntries.Count; i++)
+            {
+                var entry = summonedEntries[i];
+                if (entry.State.SourceEntityId != sourceEntityId ||
+                    entry.State.SourceEffectIndex != effectIndex ||
+                    !snapshot.TryGetEntity(entry.EntityId, out var child) ||
+                    child.hp <= 0 ||
+                    child.markedForDeath ||
+                    child.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                aliveCount++;
+            }
+
+            return aliveCount;
+        }
+    }
+
     public readonly struct LockNearbyBoxesRuntime
     {
         public LockNearbyBoxesRuntime(

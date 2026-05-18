@@ -220,6 +220,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyUtilitySummon_InitializesCooldown_TriggersAndResetsThroughCanonicalState();
             EnemyUtilitySummon_DeterministicCandidateOrder_SkipsBlockedForwardAndRight();
             EnemyUtilitySummon_MaxAliveChildren_BlocksAliveChild_AndIgnoresDeadChild();
+            EnemyUtilitySummon_MaxAliveBlocked_StartsWindupAfterChildSlotOpens();
         }
 
         [Test]
@@ -1125,14 +1126,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var blockedPipeline = CreateTickPipeline(defaultProfile, profile, archetypeCatalog, blockedWorld);
-                blockedPipeline.RunTick(new TickInput(1));
-                var blockedTick = blockedPipeline.RunTick(new TickInput(2));
+                var blockedTick = blockedPipeline.RunTick(new TickInput(1));
+                var blockedState = GetEnemyUtilityState(blockedWorld, 40).EffectStates[0];
                 Assert.That(blockedWorld.CreateSnapshot().TryGetEntity(51, out _), Is.False);
-                Assert.That(blockedTick.EventLog, Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=MaxAliveReached"));
+                Assert.That(blockedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(blockedTick.EventLog, Has.None.Contains("EnemyUtilityWindupStarted|E=40|Effect=0"));
+                Assert.That(blockedTick.EventLog, Has.None.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=MaxAliveReached"));
+                Assert.That(blockedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(blockedState.cooldownTicksRemaining, Is.EqualTo(0));
+                Assert.That(blockedState.activationSequence, Is.EqualTo(0));
 
                 var deadChildPipeline = CreateTickPipeline(defaultProfile, profile, archetypeCatalog, deadChildWorld);
-                deadChildPipeline.RunTick(new TickInput(1));
+                var deadChildWindupTick = deadChildPipeline.RunTick(new TickInput(1));
                 deadChildPipeline.RunTick(new TickInput(2));
+                Assert.That(deadChildWindupTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
                 Assert.That(deadChildWorld.CreateSnapshot().TryGetEntity(51, out var spawnedChild), Is.True);
                 Assert.That(spawnedChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             }
@@ -1144,8 +1151,55 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilitySummon_MaxAliveBlocked_StartsWindupAfterChildSlotOpens()
+        {
+            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+            });
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 5, maxAliveChildren: 1, windupTicks: 1);
+            var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(GetSharedSummonedArchetype());
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(1, 0), hp: 1, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            worldState.SetSummonedEntityState(50, new SummonedEntityState(40, 0));
 
+            try
+            {
+                var pipeline = CreateTickPipeline(defaultProfile, profile, archetypeCatalog, worldState);
+                var blockedTick = pipeline.RunTick(new TickInput(1));
+                var blockedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                Assert.That(blockedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(blockedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(blockedState.cooldownTicksRemaining, Is.EqualTo(0));
+                Assert.That(blockedState.activationSequence, Is.EqualTo(0));
 
+                worldState.CreateWriteContext().RemoveEntity(50);
+
+                var windupTick = pipeline.RunTick(new TickInput(2));
+                var windupState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                Assert.That(windupTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(windupState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(windupState.activationSequence, Is.EqualTo(1));
+
+                var committedTick = pipeline.RunTick(new TickInput(3));
+                Assert.That(committedTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=51"));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(51, out var spawnedChild), Is.True);
+                Assert.That(spawnedChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
 
         [Test]
         [Category("Extended")]

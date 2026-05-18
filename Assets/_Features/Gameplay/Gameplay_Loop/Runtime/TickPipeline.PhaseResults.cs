@@ -691,15 +691,16 @@ namespace Game.Feature.Gameplay.Loop
             var sourceKey = new SourceEffectKey(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
             for (var spawnIndex = 0; spawnIndex < summonRuntime.SpawnCountPerTrigger; spawnIndex++)
             {
-                var aliveChildren = CountAliveChildren(
-                    snapshot,
-                    summonedEntries,
-                    triggerIntent.SourceEntityId,
-                    triggerIntent.EffectIndex);
                 var plannedChildren = plannedChildrenBySource.TryGetValue(sourceKey, out var currentPlannedChildren)
                     ? currentPlannedChildren
                     : 0;
-                if (aliveChildren + plannedChildren >= summonRuntime.MaxAliveChildren)
+                if (EnemyUtilitySummonPolicy.IsMaxAliveReached(
+                        snapshot,
+                        summonedEntries,
+                        triggerIntent.SourceEntityId,
+                        triggerIntent.EffectIndex,
+                        summonRuntime,
+                        plannedChildren))
                 {
                     AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.MaxAliveReached);
                     continue;
@@ -761,32 +762,6 @@ namespace Game.Feature.Gameplay.Loop
 
             return EnemyParticipationPolicy.IsControllableParticipant(snapshot, source) &&
                    source.position.face == snapshot.Topology.BottomFace;
-        }
-
-        private static int CountAliveChildren(
-            WorldSnapshot snapshot,
-            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
-            int sourceEntityId,
-            int effectIndex)
-        {
-            var aliveCount = 0;
-            for (var i = 0; i < summonedEntries.Count; i++)
-            {
-                var entry = summonedEntries[i];
-                if (entry.State.SourceEntityId != sourceEntityId ||
-                    entry.State.SourceEffectIndex != effectIndex ||
-                    !snapshot.TryGetEntity(entry.EntityId, out var child) ||
-                    child.hp <= 0 ||
-                    child.markedForDeath ||
-                    child.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                aliveCount++;
-            }
-
-            return aliveCount;
         }
 
         private static bool TrySelectCandidateCell(
