@@ -1414,38 +1414,26 @@ namespace Game.Feature.Gameplay.Vfx
                 return;
             }
 
-            var markerCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellDangerMarker);
-            var windupSignals = presentationData.ForwardCellProjectileWindupSignals;
-            for (var i = 0; i < windupSignals.Count; i++)
+            var flightCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
+            var activeCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileActive);
+            var releaseSignals = presentationData.ForwardCellProjectileReleaseSignals;
+            for (var i = 0; i < releaseSignals.Count; i++)
             {
-                var signal = windupSignals[i];
+                var signal = releaseSignals[i];
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
                         sequenceId: signal.PresentationKey,
                         presentationSeed: signal.PresentationKey,
                         sourceEntityId: signal.SourceEnemyId,
-                        cueId: markerCueId,
+                        cueId: activeCueId,
                         anchor: VfxAnchor.ForCell(
-                            signal.TargetCell,
+                            signal.SourceCell,
                             context.Topology,
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation,
-                        isPersistent: true,
-                        persistentKey: new VfxPersistentKey(
-                            markerCueId,
-                            VfxAnchorKind.Cell,
-                            entityId: signal.SourceEnemyId,
-                            cell: signal.TargetCell,
-                            hasCell: true,
-                            activationSequence: signal.PresentationKey)));
-            }
-
-            var flightCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
-            var releaseSignals = presentationData.ForwardCellProjectileReleaseSignals;
-            for (var i = 0; i < releaseSignals.Count; i++)
-            {
-                var signal = releaseSignals[i];
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
@@ -1477,7 +1465,7 @@ namespace Game.Feature.Gameplay.Vfx
                         anchor: VfxAnchor.ForCell(
                             signal.TargetCell,
                             context.Topology,
-                            VfxAnchorSlot.CellCenter),
+                            VfxAnchorSlot.CellFloor),
                         timing: VfxTimingKind.ImmediateOnTickPresentation,
                         isPersistent: false,
                         persistentKey: VfxPersistentKey.None));

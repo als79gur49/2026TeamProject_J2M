@@ -30,7 +30,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             IReadOnlyList<EntityState> finalEntities = null,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId = null,
             bool enableEnemyWeaponWindupAura = false,
-            bool enableEnemyUtilityCooldownAura = false)
+            bool enableEnemyUtilityCooldownAura = false,
+            bool enableEnemyAttackCooldownFollow = false)
         {
             desiredFollowers.Clear();
             explicitStopKeys.Clear();
@@ -44,7 +45,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                      !enableBoxSlideFollowLoop &&
                      !enableEnemyJumpWindupLoop &&
                      !enableEnemyWeaponWindupAura &&
-                     !enableEnemyUtilityCooldownAura))
+                     !enableEnemyUtilityCooldownAura &&
+                     !enableEnemyAttackCooldownFollow))
             {
                 return;
             }
@@ -70,6 +72,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (enableEnemyUtilityCooldownAura)
             {
                 AddUtilityCooldownAuraFollowers(presentationData, viewsByEntityId);
+            }
+
+            if (enableEnemyAttackCooldownFollow)
+            {
+                AddEnemyAttackCooldownFollowers(finalEntities, viewsByEntityId);
             }
 
             if (enableGlideWindTrail)
@@ -403,6 +410,55 @@ namespace Game.Feature.Gameplay.Vfx.Host
             authoring = null;
             return viewsByEntityId.TryGetValue(entityId, out var view) &&
                    view != null &&
+                   view.TryGetComponent(out authoring) &&
+                   authoring != null;
+        }
+
+        private void AddEnemyAttackCooldownFollowers(
+            IReadOnlyList<EntityState> finalEntities,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (finalEntities == null ||
+                viewsByEntityId == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                if (entity.entityId <= 0 ||
+                    entity.type != EntityType.Unit ||
+                    entity.enemyAttackCooldownTicks <= 0 ||
+                    removedEntityIds.Contains(entity.entityId) ||
+                    !viewsByEntityId.TryGetValue(entity.entityId, out var view) ||
+                    view == null)
+                {
+                    continue;
+                }
+
+                var attachPointId = TryGetForwardCellProjectileVfxAuthoring(view, out var authoring)
+                    ? authoring.AttackCooldownAttachPointId
+                    : null;
+                AddDesiredFollower(
+                    new AttachedVfxFollowerDesiredState(
+                        GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellAttackCooldownFollow),
+                        entity.entityId,
+                        AttachedVfxFollowerStateKind.EnemyAttackCooldownFollow,
+                        entity.entityId,
+                        Vector3.zero,
+                        Quaternion.identity,
+                        AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly,
+                        attachPointId));
+            }
+        }
+
+        private static bool TryGetForwardCellProjectileVfxAuthoring(
+            GameplayEntityView view,
+            out EnemyForwardCellProjectileVfxAuthoring authoring)
+        {
+            authoring = null;
+            return view != null &&
                    view.TryGetComponent(out authoring) &&
                    authoring != null;
         }
