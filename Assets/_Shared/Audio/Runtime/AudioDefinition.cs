@@ -21,8 +21,8 @@ namespace Game.Shared.Audio
         public AudioPlaybackData Resolve(in AudioPlaybackContext context)
         {
             AudioDefinitionCategoryRules.ThrowIfDefinitionCategoryReserved(category, $"AudioDefinition '{name}'");
-            var clip = ResolveClip();
-            if (clip == null)
+            var selection = ResolveClipSelection();
+            if (selection.Clip == null)
             {
                 throw new InvalidOperationException($"{name} resolved a null AudioClip.");
             }
@@ -42,14 +42,14 @@ namespace Game.Shared.Audio
             var resolvedPitch = UnityEngine.Random.Range(pitchMin, pitchMax);
 
             return new AudioPlaybackData(
-                clip,
+                selection.Clip,
                 category,
-                Mathf.Clamp01(defaultVolumeTrim * volumeMultiplier),
-                resolvedPitch * pitchMultiplier,
+                Mathf.Max(0f, defaultVolumeTrim * selection.VolumeTrim * volumeMultiplier),
+                resolvedPitch * selection.PitchTrim * pitchMultiplier,
                 loop);
         }
 
-        protected abstract AudioClip ResolveClip();
+        protected abstract AudioClipSelection ResolveClipSelection();
 
         protected virtual void OnValidate()
         {
