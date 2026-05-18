@@ -40,6 +40,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private PopupLayerView _popupLayerView;
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
+        [SerializeField] private MainMenuCameraPresentationController _cameraPresentationController;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
         [SerializeField] private CampaignStageSequenceDefinition _campaignStageSequenceDefinition;
@@ -118,6 +119,7 @@ namespace Game.Feature.UI.Composition
             BuildAudioFeedbackModule();
             BuildSaveSlotModule();
             BuildHubModule();
+            BuildCameraPresentationModule();
             EnsureNavigationInputRouter();
             _mainMenuScreenView.SetVisible(true);
             _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
@@ -246,6 +248,11 @@ namespace Game.Feature.UI.Composition
                 _settingsOverlayController);
         }
 
+        private void BuildCameraPresentationModule()
+        {
+            _cameraPresentationController?.Attach(_mainMenuScreenView, _settingsOverlayController);
+        }
+
         private void EnsureNavigationInputRouter()
         {
             _navigationInputRouter = GetComponent<UiNavigationInputRouter>();
@@ -282,13 +289,15 @@ namespace Game.Feature.UI.Composition
                     screenProvider: new SingleUiNavigationTargetProvider(_mainMenuScreenView),
                     modalOverlayProvider: _settingsOverlayController),
                 TryHandleBackRequested,
-                () => IsKeyboardBindingRebinding() || _wasKeyboardBindingRebinding);
+                () => IsKeyboardBindingRebinding() || _wasKeyboardBindingRebinding,
+                EnsureUiAudioPort());
         }
 
         private void OnDestroy()
         {
             _uiAudioFeedbackController?.Dispose();
             _uiAudioFeedbackController = null;
+            _cameraPresentationController?.Detach();
 
             if (Controller != null)
             {

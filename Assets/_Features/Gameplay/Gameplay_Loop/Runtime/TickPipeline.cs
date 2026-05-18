@@ -6780,7 +6780,8 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                var reservationStatus = reservationBook.GetCellStatus(payload.DestinationCell);
+                var reservationInfo = reservationBook.GetCellReservationInfo(payload.DestinationCell);
+                var reservationStatus = ResolveJumpLandingReservationStatus(payload, reservationInfo);
                 var settlementContext = new SettlementContext(
                     movementSnapshot,
                     BuildLegalityActorRef(movementSnapshot, payload.SourceActorEntityId, EntityType.Unit),
@@ -6836,7 +6837,10 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (accepted)
                 {
-                    reservationBook.ReserveJumpLanding(payload.SourceActorEntityId, payload.DestinationCell);
+                    reservationBook.ReserveJumpLanding(
+                        payload.SourceActorEntityId,
+                        payload.DestinationCell,
+                        BlocksUnitSharedSettlementForJumpLanding(payload.LandingKind));
                     if (payload.LandingKind == JumpLandingKind.CrushBoxAndLand &&
                         resolvedCrushedBoxEntityId > 0)
                     {
@@ -6872,6 +6876,32 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static ReservationStatus ResolveJumpLandingReservationStatus(
+            JumpLandingActionPlanPayload payload,
+            CellReservationInfo reservationInfo)
+        {
+            if (reservationInfo.Status != ReservationStatus.Conflicted)
+            {
+                return reservationInfo.Status;
+            }
+
+            return IsUnitSharedSettlementCompatibleJumpLandingKind(payload.LandingKind) &&
+                   reservationInfo.IsUnitSharedSettlementCompatible
+                ? ReservationStatus.None
+                : ReservationStatus.Conflicted;
+        }
+
+        private static bool BlocksUnitSharedSettlementForJumpLanding(JumpLandingKind landingKind)
+        {
+            return !IsUnitSharedSettlementCompatibleJumpLandingKind(landingKind);
+        }
+
+        private static bool IsUnitSharedSettlementCompatibleJumpLandingKind(JumpLandingKind landingKind)
+        {
+            return landingKind == JumpLandingKind.ExactStack ||
+                   landingKind == JumpLandingKind.Contested;
         }
 
         private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(
@@ -7007,7 +7037,10 @@ namespace Game.Feature.Gameplay.Loop
         {
             // Semantic contract: read exactly one fixed terminal cell and do not inspect
             // edge/entity/topology reservation detail from this validator consumer.
-            return reservationBook.GetCellStatus(terminalCell);
+            var reservationInfo = reservationBook.GetCellReservationInfo(terminalCell);
+            return reservationInfo.IsUnitSharedSettlementCompatible
+                ? ReservationStatus.None
+                : reservationInfo.Status;
         }
 
         private static Contest TryFindJumpLandingContest(
@@ -8397,7 +8430,7 @@ namespace Game.Feature.Gameplay.Loop
                 }
                 else
                 {
-                    if (reservationBook.TryAcceptPayload(payload, out var conflict))
+                    if (reservationBook.TryAcceptPayload(snapshot, payload, out var conflict))
                     {
                         accepted = true;
                         selectedIntentIds.Add(payload.IntentId);

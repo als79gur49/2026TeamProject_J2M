@@ -16,6 +16,7 @@ namespace Game.Feature.UI.Application
         TopologyShift = 11,
         PrimaryMenuCommand = 12,
         StageLaunch = 13,
+        KeyboardMove = 14,
     }
 
     public interface IUiAudioPort

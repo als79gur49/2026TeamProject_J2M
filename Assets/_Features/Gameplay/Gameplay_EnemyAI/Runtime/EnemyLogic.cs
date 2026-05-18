@@ -1457,6 +1457,8 @@ namespace Game.Feature.Gameplay.Entities
 
             var nextEffectStates = new EnemyUtilityEffectState[currentState.EffectStates.Count];
             var hasAnyChange = false;
+            List<SummonedEntitySnapshotEntry> summonedEntries = null;
+            var hasEnumeratedSummonedEntries = false;
 
             for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
             {
@@ -1600,19 +1602,34 @@ namespace Game.Feature.Gameplay.Entities
 
                         if (nextEffectState.cooldownTicksRemaining == 0)
                         {
-                            nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
-                            nextEffectState.windupStartTick = input.TickIndex;
-                            nextEffectState.windupEndTick = input.TickIndex + effectRuntime.Summon.WindupTicks;
-                            nextEffectState.recoverStartTick = 0;
-                            nextEffectState.recoverEndTickExclusive = 0;
-                            nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
-                            if (effectRuntime.Summon.SuppressMovementDuringWindup)
+                            summonedEntries ??= new List<SummonedEntitySnapshotEntry>();
+                            if (!hasEnumeratedSummonedEntries)
                             {
-                                nextEffectState.movementSuppressionUntilTickInclusive = nextEffectState.windupEndTick;
+                                snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
+                                hasEnumeratedSummonedEntries = true;
                             }
 
-                            updates.Add(
-                                $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
+                            if (!EnemyUtilitySummonPolicy.IsMaxAliveReached(
+                                    snapshot,
+                                    summonedEntries,
+                                    source.entityId,
+                                    effectIndex,
+                                    effectRuntime.Summon))
+                            {
+                                nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
+                                nextEffectState.windupStartTick = input.TickIndex;
+                                nextEffectState.windupEndTick = input.TickIndex + effectRuntime.Summon.WindupTicks;
+                                nextEffectState.recoverStartTick = 0;
+                                nextEffectState.recoverEndTickExclusive = 0;
+                                nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
+                                if (effectRuntime.Summon.SuppressMovementDuringWindup)
+                                {
+                                    nextEffectState.movementSuppressionUntilTickInclusive = nextEffectState.windupEndTick;
+                                }
+
+                                updates.Add(
+                                    $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
+                            }
                         }
                     }
 

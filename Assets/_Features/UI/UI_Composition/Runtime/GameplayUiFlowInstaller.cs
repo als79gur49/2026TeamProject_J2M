@@ -48,6 +48,7 @@ namespace Game.Feature.UI.Composition
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private UiNavigationInputRouter _navigationInputRouter;
+        private IUiAudioPort _uiAudioPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
 
@@ -174,7 +175,8 @@ namespace Game.Feature.UI.Composition
             var audioSettingsPort = CreateAudioSettingsPort();
             var displaySettingsPort = CreateDisplaySettingsPort();
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
-            var uiAudioPort = CreateUiAudioPort();
+            _uiAudioPort = CreateUiAudioPort();
+            var uiAudioPort = _uiAudioPort;
             EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
@@ -463,7 +465,8 @@ namespace Game.Feature.UI.Composition
                 ResolveUiInputActions(),
                 resolver,
                 () => Coordinator != null && Coordinator.HandleBackRequested(),
-                () => false);
+                () => false,
+                _uiAudioPort);
         }
 
         private InputActionAsset ResolveUiInputActions()

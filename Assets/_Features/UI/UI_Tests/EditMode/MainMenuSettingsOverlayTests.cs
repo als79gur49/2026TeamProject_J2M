@@ -10,9 +10,11 @@ using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using NUnit.Framework;
+using Unity.Cinemachine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Splines;
 using UnityEngine.UI;
 using UiDisplayWindowMode = Game.Feature.UI.Application.DisplayWindowMode;
 
@@ -303,6 +305,91 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuScreenView_ShowSection_EmitsOnlyWhenSectionChanges()
+        {
+            var menuObject = new GameObject(nameof(MainMenuScreenView_ShowSection_EmitsOnlyWhenSectionChanges));
+            try
+            {
+                var mainMenuView = menuObject.AddComponent<MainMenuScreenView>();
+                var changedCount = 0;
+                var lastSection = MainMenuSectionId.SaveSlots;
+                mainMenuView.SectionChanged += sectionId =>
+                {
+                    changedCount++;
+                    lastSection = sectionId;
+                };
+
+                mainMenuView.ShowSection(MainMenuSectionId.SaveSlots);
+                Assert.That(changedCount, Is.Zero);
+
+                mainMenuView.ShowSection(MainMenuSectionId.None);
+                Assert.That(changedCount, Is.EqualTo(1));
+                Assert.That(lastSection, Is.EqualTo(MainMenuSectionId.None));
+
+                mainMenuView.ShowSection(MainMenuSectionId.None);
+                Assert.That(changedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(menuObject);
+            }
+        }
+
+        [Test]
+        public void MainMenuCameraPresentationController_AttachAtRoot_UsesIdleTargetAndKnot()
+        {
+            using var harness = new CameraPresentationHarness();
+            harness.MainMenuView.ShowSection(MainMenuSectionId.None);
+
+            harness.Controller.Attach(harness.MainMenuView, harness.OverlayHarness.OverlayController);
+
+            Assert.That(harness.Camera.LookAt, Is.SameAs(harness.LookAtProxy));
+            Assert.That(harness.LookAtProxy.position, Is.EqualTo(harness.IdleTarget.position));
+            Assert.That(harness.Dolly.PositionUnits, Is.EqualTo(PathIndexUnit.Knot));
+            Assert.That(harness.Dolly.CameraPosition, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void MainMenuCameraPresentationController_SaveSlotsSection_UsesStartTargetAndKnot()
+        {
+            using var harness = new CameraPresentationHarness();
+            harness.MainMenuView.ShowSection(MainMenuSectionId.None);
+            harness.Controller.Attach(harness.MainMenuView, harness.OverlayHarness.OverlayController);
+
+            harness.MainMenuView.ShowSection(MainMenuSectionId.SaveSlots);
+
+            Assert.That(harness.Camera.LookAt, Is.SameAs(harness.LookAtProxy));
+            Assert.That(harness.LookAtProxy.position, Is.EqualTo(harness.SaveSlotsTarget.position));
+            Assert.That(harness.Dolly.CameraPosition, Is.EqualTo(4f));
+        }
+
+        [Test]
+        public void MainMenuCameraPresentationController_SettingsOpen_OverridesAndRestoresSaveSlots()
+        {
+            using var harness = new CameraPresentationHarness();
+            harness.MainMenuView.ShowSection(MainMenuSectionId.SaveSlots);
+            harness.Controller.Attach(harness.MainMenuView, harness.OverlayHarness.OverlayController);
+
+            harness.OverlayHarness.OverlayController.Open();
+
+            Assert.That(harness.Camera.LookAt, Is.SameAs(harness.LookAtProxy));
+            Assert.That(harness.LookAtProxy.position, Is.EqualTo(harness.SettingsTarget.position));
+            Assert.That(harness.Dolly.CameraPosition, Is.EqualTo(0f));
+
+            harness.OverlayHarness.OverlayController.Close();
+
+            Assert.That(harness.Camera.LookAt, Is.SameAs(harness.LookAtProxy));
+            Assert.That(harness.LookAtProxy.position, Is.EqualTo(harness.SaveSlotsTarget.position));
+            Assert.That(harness.Dolly.CameraPosition, Is.EqualTo(4f));
+
+            harness.MainMenuView.ShowSection(MainMenuSectionId.None);
+
+            Assert.That(harness.Camera.LookAt, Is.SameAs(harness.LookAtProxy));
+            Assert.That(harness.LookAtProxy.position, Is.EqualTo(harness.IdleTarget.position));
+            Assert.That(harness.Dolly.CameraPosition, Is.EqualTo(1f));
+        }
+
+        [Test]
         public void MainMenuSettingsRuntime_OpenTwice_DoesNotDuplicateSettingsView()
         {
             using var harness = new OverlayHarness();
@@ -549,6 +636,21 @@ namespace Game.Feature.UI.Tests
             Assert.That(serializedAudioInstaller.FindProperty("bindingMode").enumValueIndex, Is.EqualTo((int)AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime));
             Assert.That(serializedInstaller.FindProperty("_settingsScreenPrefab").objectReferenceValue, Is.Not.Null);
             Assert.That(serializedInstaller.FindProperty("_settingsPreviewTimeoutSeconds").doubleValue, Is.EqualTo(15d));
+
+            var cameraPresentationController = uiRoot.GetComponent<MainMenuCameraPresentationController>();
+            Assert.That(cameraPresentationController, Is.Not.Null);
+            Assert.That(serializedInstaller.FindProperty("_cameraPresentationController").objectReferenceValue, Is.SameAs(cameraPresentationController));
+
+            var serializedCameraController = new SerializedObject(cameraPresentationController);
+            Assert.That(serializedCameraController.FindProperty("_cinemachineCamera").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_splineDolly").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_lookAtProxy").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_settingsTarget").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_idleTarget").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_saveSlotsTarget").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_settingsKnotIndex").intValue, Is.EqualTo(0));
+            Assert.That(serializedCameraController.FindProperty("_idleKnotIndex").intValue, Is.EqualTo(1));
+            Assert.That(serializedCameraController.FindProperty("_saveSlotsKnotIndex").intValue, Is.EqualTo(4));
         }
 
         private static void AssertForbiddenMainMenuSettingsReferences()
@@ -603,6 +705,70 @@ namespace Game.Feature.UI.Tests
             var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, methodName);
             method.Invoke(target, null);
+        }
+
+        private sealed class CameraPresentationHarness : IDisposable
+        {
+            public CameraPresentationHarness()
+            {
+                Root = new GameObject("MainMenuCameraPresentationTestRoot");
+                MainMenuViewObject = new GameObject("MainMenuScreenView");
+                MainMenuView = MainMenuViewObject.AddComponent<MainMenuScreenView>();
+                SettingsTarget = new GameObject("Target01").transform;
+                IdleTarget = new GameObject("Target02").transform;
+                SaveSlotsTarget = new GameObject("Target03").transform;
+                LookAtProxy = new GameObject("MainMenuLookAtProxy").transform;
+                CameraObject = new GameObject("CinemachineCamera");
+                Camera = CameraObject.AddComponent<CinemachineCamera>();
+                Dolly = CameraObject.AddComponent<CinemachineSplineDolly>();
+                Controller = Root.AddComponent<MainMenuCameraPresentationController>();
+                OverlayHarness = new OverlayHarness();
+
+                SetPrivateField(Controller, "_cinemachineCamera", Camera);
+                SetPrivateField(Controller, "_splineDolly", Dolly);
+                SetPrivateField(Controller, "_lookAtProxy", LookAtProxy);
+                SetPrivateField(Controller, "_settingsTarget", SettingsTarget);
+                SetPrivateField(Controller, "_idleTarget", IdleTarget);
+                SetPrivateField(Controller, "_saveSlotsTarget", SaveSlotsTarget);
+                SetPrivateField(Controller, "_transitionDurationSeconds", 0f);
+            }
+
+            public GameObject Root { get; }
+
+            public GameObject MainMenuViewObject { get; }
+
+            public MainMenuScreenView MainMenuView { get; }
+
+            public Transform SettingsTarget { get; }
+
+            public Transform IdleTarget { get; }
+
+            public Transform SaveSlotsTarget { get; }
+
+            public Transform LookAtProxy { get; }
+
+            public GameObject CameraObject { get; }
+
+            public CinemachineCamera Camera { get; }
+
+            public CinemachineSplineDolly Dolly { get; }
+
+            public MainMenuCameraPresentationController Controller { get; }
+
+            public OverlayHarness OverlayHarness { get; }
+
+            public void Dispose()
+            {
+                Controller.Detach();
+                OverlayHarness.Dispose();
+                UnityEngine.Object.DestroyImmediate(CameraObject);
+                UnityEngine.Object.DestroyImmediate(SettingsTarget.gameObject);
+                UnityEngine.Object.DestroyImmediate(IdleTarget.gameObject);
+                UnityEngine.Object.DestroyImmediate(SaveSlotsTarget.gameObject);
+                UnityEngine.Object.DestroyImmediate(LookAtProxy.gameObject);
+                UnityEngine.Object.DestroyImmediate(MainMenuViewObject);
+                UnityEngine.Object.DestroyImmediate(Root);
+            }
         }
 
         private sealed class RuntimeHarness : IDisposable

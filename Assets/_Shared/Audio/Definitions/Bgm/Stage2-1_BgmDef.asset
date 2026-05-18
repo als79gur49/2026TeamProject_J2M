@@ -18,4 +18,6 @@ MonoBehaviour:
   loop: 1
   clips:
   - Clip: {fileID: 8300000, guid: d75dda935034c594d977b46ea0b0616a, type: 3}
-    Weight: 0
+    Weight: 1
+    VolumeTrim: 1
+    PitchTrim: 1

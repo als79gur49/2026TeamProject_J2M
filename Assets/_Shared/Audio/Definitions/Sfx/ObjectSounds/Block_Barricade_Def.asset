@@ -19,3 +19,5 @@ MonoBehaviour:
   clips:
   - Clip: {fileID: 8300000, guid: 0b5ab9e42510ff34f8919f3e1d9386ca, type: 3}
     Weight: 1
+    VolumeTrim: 1
+    PitchTrim: 1

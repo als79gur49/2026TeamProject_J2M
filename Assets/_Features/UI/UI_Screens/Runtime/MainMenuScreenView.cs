@@ -43,6 +43,8 @@ namespace Game.Feature.UI.Screens
 
         public event Action<MainMenuNavigationIntent> NavigationRequested;
 
+        public event Action<MainMenuSectionId> SectionChanged;
+
         public SaveSlotPanelView SaveSlotPanel => _saveSlotPanel;
 
         public MainMenuSectionId ActiveSection { get; private set; } = MainMenuSectionId.SaveSlots;
@@ -215,6 +217,7 @@ namespace Game.Feature.UI.Screens
 
         public void ShowSection(MainMenuSectionId sectionId)
         {
+            var previousSection = ActiveSection;
             ActiveSection = sectionId;
             if (_saveSlotPanel != null)
             {
@@ -232,6 +235,11 @@ namespace Game.Feature.UI.Screens
                         FocusCommandStart(showFrame: _navigationFocusVisible);
                     }
                 }
+            }
+
+            if (previousSection != ActiveSection)
+            {
+                SectionChanged?.Invoke(ActiveSection);
             }
         }
 
