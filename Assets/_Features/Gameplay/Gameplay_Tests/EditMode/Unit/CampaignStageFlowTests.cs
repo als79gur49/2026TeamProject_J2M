@@ -381,6 +381,98 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
+        public void StagePresentationRuntimeAdapter_BackgroundPrefabBridgeAutoResolvesSingleSceneHost()
+        {
+            var hostObject = new GameObject("background-bridge-host");
+            var root = new GameObject("background-root");
+            var prefab = new GameObject("background-with-bridge");
+            var bridgeTarget = new GameObject("bridge-target");
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var adapter = new StagePresentationRuntimeAdapter();
+
+            try
+            {
+                hostObject.AddComponent<GameplaySceneHost>();
+                bridgeTarget.transform.SetParent(prefab.transform, worldPositionStays: false);
+                var controller = prefab.AddComponent<TopologyVisualBridgeVisibilityController>();
+                SetPrivateField(
+                    controller,
+                    "bindings",
+                    new[]
+                    {
+                        new TopologyVisualBridgeBinding
+                        {
+                            TargetObject = bridgeTarget,
+                            FirstFace = FaceId.Floor,
+                            SecondFace = FaceId.Front,
+                        },
+                    });
+                SetPrivateField(presentation, "backgroundPrefab", prefab);
+
+                adapter.Apply(presentation, root.transform, null);
+
+                var instantiatedController =
+                    adapter.CurrentBackgroundInstance.GetComponent<TopologyVisualBridgeVisibilityController>();
+                Assert.That(instantiatedController, Is.Not.Null);
+                Assert.That(instantiatedController.SceneHost, Is.SameAs(hostObject.GetComponent<GameplaySceneHost>()));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageBackedInstaller_ResolveStageBackgroundRoot_CreatesFallbackUnderInstaller()
+        {
+            var installerObject = new GameObject("installer-background-root");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+
+                var resolvedRoot = (Transform)InvokeInstanceMethod(installer, "ResolveStageBackgroundRoot");
+
+                Assert.That(resolvedRoot, Is.Not.Null);
+                Assert.That(resolvedRoot.name, Is.EqualTo("StageBackgroundRoot"));
+                Assert.That(resolvedRoot.parent, Is.EqualTo(installerObject.transform));
+                Assert.That(ReadPrivateField<Transform>(installer, "stageBackgroundRoot"), Is.SameAs(resolvedRoot));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageBackedInstaller_ResolveStageBackgroundRoot_ReusesAuthoredChild()
+        {
+            var installerObject = new GameObject("installer-background-root");
+            var authoredRoot = new GameObject("StageBackgroundRoot");
+            authoredRoot.transform.SetParent(installerObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+
+                var resolvedRoot = (Transform)InvokeInstanceMethod(installer, "ResolveStageBackgroundRoot");
+
+                Assert.That(resolvedRoot, Is.SameAs(authoredRoot.transform));
+                Assert.That(ReadPrivateField<Transform>(installer, "stageBackgroundRoot"), Is.SameAs(authoredRoot.transform));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayInstaller_NoActiveSlot_DoesNotBindCampaignController_AndDoesNotDisableRespawn()
         {
