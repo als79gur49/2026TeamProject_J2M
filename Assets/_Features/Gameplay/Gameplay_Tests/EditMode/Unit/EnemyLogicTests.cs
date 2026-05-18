@@ -1420,6 +1420,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyLogic_PatrolDecisionProposal_SkipsInitializationBuild_WhenPatrolStateAlreadyInitialized()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
+                PatrolSettings = new PatrolSettings(
+                    PatrolBlockedMovementResponse.Stop,
+                    leashRadius: -1,
+                    forwardWeight: 1,
+                    sideWeight: 0,
+                    backwardWeight: 0),
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(4, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 1)));
+            var existingState = new EnemyPatrolRuntimeState
+            {
+                sequence = 7,
+                homeCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                lastCommittedDirection = Direction.Left,
+            };
+            worldState.CreateWriteContext().SetEnemyPatrolState(40, existingState);
+            List<string> updates = null;
+
+            try
+            {
+                Assert.DoesNotThrow(() => CommitPreMovementState(worldState, profile, out updates));
+
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyPatrolState(40, out var patrolState), Is.True);
+                Assert.That(patrolState.sequence, Is.EqualTo(existingState.sequence));
+                Assert.That(patrolState.homeCell, Is.EqualTo(existingState.homeCell));
+                Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(existingState.lastCommittedDirection));
+                Assert.That(updates.Any(update => update.Contains("EnemyPatrolStateUpdated|E=40", StringComparison.Ordinal)), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyLogic_StationaryPassiveContactProfile_DoesNotMove_AndProducesSameCellContactIntent()
         {
             var profile = EnemyAiProfileTestFactory.CreateStationaryPassiveContact();

@@ -2907,14 +2907,19 @@ namespace Game.Feature.Gameplay.Entities
             IPreMovementStateCommitContext writeContext,
             List<string> updates)
         {
-            if (source.aiMode != EnemyAiMode.Patrol ||
+            if (source.aiMode != EnemyAiMode.Patrol)
+            {
+                return;
+            }
+
+            var hadPreviousState = snapshot.TryGetEnemyPatrolState(_entityId, out var previousState);
+            if (previousState.IsInitialized ||
                 !TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var proposal) ||
                 !proposal.ShouldInitializeState)
             {
                 return;
             }
 
-            var hadPreviousState = snapshot.TryGetEnemyPatrolState(_entityId, out var previousState);
             var nextState = EnemyPatrolQueries.Initialize(previousState, source.position);
             if (!ShouldWritePatrolState(hadPreviousState, previousState, nextState))
             {
