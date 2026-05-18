@@ -19,7 +19,13 @@ MonoBehaviour:
   clips:
   - Clip: {fileID: 8300000, guid: ce73d9b0d439d7346af9b359ead60c32, type: 3}
     Weight: 1
+    VolumeTrim: 1
+    PitchTrim: 1
   - Clip: {fileID: 8300000, guid: f2b82fe1b6deaff45b8f6d7330068b0b, type: 3}
     Weight: 1
+    VolumeTrim: 1
+    PitchTrim: 1
   - Clip: {fileID: 8300000, guid: 303ef154b87a4a74cb9939277e0635bf, type: 3}
     Weight: 1
+    VolumeTrim: 1
+    PitchTrim: 1
