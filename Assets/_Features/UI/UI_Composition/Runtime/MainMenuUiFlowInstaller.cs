@@ -282,7 +282,8 @@ namespace Game.Feature.UI.Composition
                     screenProvider: new SingleUiNavigationTargetProvider(_mainMenuScreenView),
                     modalOverlayProvider: _settingsOverlayController),
                 TryHandleBackRequested,
-                () => IsKeyboardBindingRebinding() || _wasKeyboardBindingRebinding);
+                () => IsKeyboardBindingRebinding() || _wasKeyboardBindingRebinding,
+                EnsureUiAudioPort());
         }
 
         private void OnDestroy()

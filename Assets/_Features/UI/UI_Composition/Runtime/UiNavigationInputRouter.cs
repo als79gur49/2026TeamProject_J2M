@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
@@ -30,6 +31,7 @@ namespace Game.Feature.UI.Composition
         private InputAction _navigateAction;
         private PopupController _popupController;
         private IUiNavigationTargetResolver _targetResolver;
+        private IUiAudioPort _uiAudioPort;
         private InputAction _submitAction;
 
         public void Initialize(
@@ -38,7 +40,8 @@ namespace Game.Feature.UI.Composition
             PopupLayerView popupLayerView,
             MainMenuScreenView mainMenuScreenView,
             Func<bool> backRequestedFallback,
-            Func<bool> isNavigationBlocked)
+            Func<bool> isNavigationBlocked,
+            IUiAudioPort uiAudioPort = null)
         {
             UnbindActions();
             _inputActions = inputActions;
@@ -48,6 +51,7 @@ namespace Game.Feature.UI.Composition
             _targetResolver = new LegacyNavigationTargetResolver(popupController, popupLayerView, mainMenuScreenView);
             _backRequestedFallback = backRequestedFallback;
             _isNavigationBlocked = isNavigationBlocked;
+            _uiAudioPort = uiAudioPort;
             _initialized = true;
             BindActions();
             SetCurrentTarget(ResolveTarget().Target);
@@ -57,7 +61,8 @@ namespace Game.Feature.UI.Composition
             InputActionAsset inputActions,
             IUiNavigationTargetResolver targetResolver,
             Func<bool> backRequestedFallback,
-            Func<bool> isNavigationBlocked)
+            Func<bool> isNavigationBlocked,
+            IUiAudioPort uiAudioPort = null)
         {
             UnbindActions();
             _inputActions = inputActions;
@@ -67,6 +72,7 @@ namespace Game.Feature.UI.Composition
             _targetResolver = targetResolver;
             _backRequestedFallback = backRequestedFallback;
             _isNavigationBlocked = isNavigationBlocked;
+            _uiAudioPort = uiAudioPort;
             _initialized = true;
             BindActions();
             SetCurrentTarget(ResolveTarget().Target);
@@ -111,7 +117,13 @@ namespace Game.Feature.UI.Composition
             }
 
             RevealCurrentTargetFocus();
-            return target.HandleNavigate(command);
+            var handled = target.HandleNavigate(command);
+            if (handled)
+            {
+                _uiAudioPort?.Play(UiAudioCueId.KeyboardMove);
+            }
+
+            return handled;
         }
 
         public bool DispatchSubmit()

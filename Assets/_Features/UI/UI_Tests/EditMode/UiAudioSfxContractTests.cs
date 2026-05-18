@@ -32,6 +32,7 @@ namespace Game.Feature.UI.Tests
                     "TopologyShift",
                     "PrimaryMenuCommand",
                     "StageLaunch",
+                    "KeyboardMove",
                 }));
         }
 
