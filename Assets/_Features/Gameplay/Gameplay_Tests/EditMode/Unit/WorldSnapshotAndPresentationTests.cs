@@ -412,6 +412,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TickPresentationDataBuilder_ButtonVisibleVisualStates_UseActivationRuleAndIgnoreActivatedFlag()
+        {
+            var visibleCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var hiddenCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var visibleButton = CreateTileFeature(
+                100,
+                visibleCell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.None,
+                sourceEntityId: 10,
+                ownerEntityId: 20,
+                teamId: 1);
+            var hiddenActivatedButton = CreateTileFeature(
+                101,
+                hiddenCell,
+                TileFeatureKind.Button,
+                TileFeatureFlags.Activated,
+                sourceEntityId: 11,
+                ownerEntityId: 21,
+                teamId: 2);
+            var snapshot = CreateTileFeatureSnapshot(visibleButton, hiddenActivatedButton);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.ActiveFaceOnly),
+                        CreateTileFeatureDefinition(101, TileFeatureActivationRule.ActiveFaceOnly),
+                    }));
+
+            var visibleState = presentationData.TileFeatureVisibleVisualStates.Single();
+            Assert.That(visibleState.TileId, Is.EqualTo(100));
+            Assert.That(visibleState.Cell, Is.EqualTo(visibleCell));
+            Assert.That(visibleState.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+            Assert.That(visibleState.IsActive, Is.True);
+            Assert.That(visibleState.SourceEntityId, Is.EqualTo(10));
+            Assert.That(visibleState.OwnerEntityId, Is.EqualTo(20));
+            Assert.That(visibleState.TeamId, Is.EqualTo(1));
+
+            var activeState = presentationData.TileFeatureVisualStates.Single();
+            Assert.That(activeState.TileId, Is.EqualTo(101));
+            Assert.That(activeState.Cell, Is.EqualTo(hiddenCell));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TickPresentationDataBuilder_DestroyTileVisualStates_UseActivationRuleDesiredState()
         {
             var activeCell = new SurfaceCell(FaceId.Front, 1, 1);

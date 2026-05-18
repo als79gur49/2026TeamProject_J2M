@@ -745,6 +745,7 @@ namespace Game.Feature.Gameplay.Loop
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
             var tileEvents = new List<TilePresentationEvent>();
             var tileFeatureVisualStates = new List<TileFeatureVisualState>();
+            var tileFeatureVisibleVisualStates = new List<TileFeatureVisualState>();
             var gravityFieldEvents = new List<GravityFieldPresentationEvent>();
             var gravityFieldVisualStates = new List<GravityFieldVisualState>();
             var tileFeatureActiveVisualStates = new List<TileFeatureActiveVisualState>();
@@ -753,6 +754,7 @@ namespace Game.Feature.Gameplay.Loop
 
             BuildTilePresentationEvents(context, topologyFact, tileEvents);
             BuildTileFeatureVisualStates(context, topologyFact, tileFeatureVisualStates);
+            BuildTileFeatureVisibleVisualStates(context, topologyFact, tileFeatureVisibleVisualStates);
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
             BuildTileFeatureActiveVisualStates(context, topologyFact, tileFeatureActiveVisualStates);
@@ -836,6 +838,7 @@ namespace Game.Feature.Gameplay.Loop
                    continuousLocomotionTracks.Count == 0 &&
                    tileEvents.Count == 0 &&
                    tileFeatureVisualStates.Count == 0 &&
+                   tileFeatureVisibleVisualStates.Count == 0 &&
                    gravityFieldEvents.Count == 0 &&
                    gravityFieldVisualStates.Count == 0 &&
                    tileFeatureActiveVisualStates.Count == 0 &&
@@ -876,6 +879,7 @@ namespace Game.Feature.Gameplay.Loop
                     enemyGravityFieldAuraVisualStates,
                     boxSlideStartSignals,
                     tileFeatureVisualStates,
+                    tileFeatureVisibleVisualStates,
                     tileFeatureActiveVisualStates,
                     playerFlipResultTurnSignals,
                     flipFloorImpactSignals,
@@ -1449,6 +1453,37 @@ namespace Game.Feature.Gameplay.Loop
                         tileFeature.OwnerEntityId,
                         tileFeature.TeamId));
                 }
+            }
+        }
+
+        private static void BuildTileFeatureVisibleVisualStates(
+            in TickPresentationBuildContext context,
+            in TickTopologyTransitionFact topologyFact,
+            List<TileFeatureVisualState> visualStates)
+        {
+            var finalTopology = topologyFact.HasTransition
+                ? topologyFact.DestinationTopology
+                : context.FinalAuthoritativeSnapshot.Topology;
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var tileFeature = finalTileFeatures[i];
+                if (tileFeature.Kind != TileFeatureKind.Button ||
+                    !TryGetTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                    !TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology))
+                {
+                    continue;
+                }
+
+                visualStates.Add(new TileFeatureVisualState(
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    true,
+                    tileFeature.SourceEntityId,
+                    tileFeature.OwnerEntityId,
+                    tileFeature.TeamId));
             }
         }
 

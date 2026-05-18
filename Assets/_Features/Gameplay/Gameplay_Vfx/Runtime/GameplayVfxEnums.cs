@@ -102,6 +102,7 @@ namespace Game.Feature.Gameplay.Vfx
         ButtonActiveLoop = 23,
         ExitObjectiveCleared = 24,
         ExitOpenLoop = 25,
+        ButtonVisibleLoop = 26,
     }
 
     public enum GravityFieldVfxCue
