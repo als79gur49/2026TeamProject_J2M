@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
+using Game.Feature.Gameplay.TopologyAudio;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -128,6 +129,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private Texture2D boardSurfaceTexture;
         [SerializeField] private GameplayAudioMap gameplayAudioMap;
         [SerializeField] private TileFeatureAudioMap tileFeatureAudioMap;
+        [SerializeField] private TopologyAudioMap topologyAudioMap;
         [SerializeField] private GravityFieldAudioMap gravityFieldAudioMap;
         [SerializeField] private BlockAudioMap blockAudioMap;
         [SerializeField] private PlayerLocomotionAudioMap playerLocomotionAudioMap;
@@ -232,6 +234,11 @@ namespace Game.Feature.Gameplay.Host
         protected virtual TileFeatureAudioMap ResolveTileFeatureAudioMap()
         {
             return tileFeatureAudioMap;
+        }
+
+        protected virtual TopologyAudioMap ResolveTopologyAudioMap()
+        {
+            return topologyAudioMap;
         }
 
         protected virtual GravityFieldAudioMap ResolveGravityFieldAudioMap()
@@ -353,6 +360,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 GameplayAudioMap = ResolveGameplayAudioMap(),
                 TileFeatureAudioMap = ResolveTileFeatureAudioMap(),
+                TopologyAudioMap = ResolveTopologyAudioMap(),
                 GravityFieldAudioMap = ResolveGravityFieldAudioMap(),
                 BlockAudioMap = ResolveBlockAudioMap(),
                 PlayerLocomotionAudioMap = ResolvePlayerLocomotionAudioMap(),

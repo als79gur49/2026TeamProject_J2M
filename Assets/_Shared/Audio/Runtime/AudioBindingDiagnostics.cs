@@ -82,6 +82,12 @@ namespace Game.Shared.Audio
             {
                 AppendCategoryPolicyErrors(binding, ownerDescription, bindingDescription, validationErrors, options);
                 AppendLoopPolicyErrors(binding, ownerDescription, bindingDescription, validationErrors, options);
+                if (binding.Definition is RandomAudioDefinition randomDefinition)
+                {
+                    randomDefinition.AppendValidationErrors(
+                        validationErrors,
+                        $"{ownerDescription} {bindingDescription} definition '{binding.Definition.name}'");
+                }
             }
 
             if (binding.Policy != null)

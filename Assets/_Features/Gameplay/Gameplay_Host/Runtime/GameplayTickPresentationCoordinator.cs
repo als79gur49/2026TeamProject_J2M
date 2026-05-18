@@ -13,6 +13,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
+using Game.Feature.Gameplay.TopologyAudio;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -52,6 +53,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver = new();
         private readonly TileFeatureAudioRequestPlanner _tileFeatureAudioRequestPlanner = new();
         private readonly TileFeatureAudioPresentationController _tileFeatureAudioPresentationController;
+        private readonly TopologyAudioRequestPlanner _topologyAudioRequestPlanner = new();
+        private readonly TopologyAudioPresentationController _topologyAudioPresentationController = new();
         private readonly GameplayPresentationTrackState _trackState = new();
         private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
@@ -61,6 +64,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController = new();
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
+        private readonly GameplaySfxArbiter _gameplaySfxArbiter = new();
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
 
         private bool _isInitialized;
@@ -82,6 +86,8 @@ namespace Game.Feature.Gameplay.Host
         private Action<string> _traceSink;
         private int _lastPresentedTickIndex;
         private TileFeatureVisualPoseSynchronizer _tileFeatureVisualPoseSynchronizer;
+        private IGameplayAudioPlaybackPort _rawGameplayAudioPlaybackPort;
+        private GameplaySfxArbitratingPlaybackPort _arbitratingGameplayAudioPlaybackPort;
 
         public GameplayTickPresentationCoordinator()
         {
@@ -301,6 +307,7 @@ namespace Game.Feature.Gameplay.Host
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
+            _topologyAudioPresentationController.ResetSession();
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
@@ -388,7 +395,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshTileFeatureVisualStates(result.PresentationData);
             RefreshGravityFieldVisualStates(result.PresentationData);
             _tileFeatureAudioPresentationController.ReplacePendingPlan(
-                _tileFeatureAudioRequestPlanner.BuildRequests(_currentTilePresentationRequests));
+                _tileFeatureAudioRequestPlanner.BuildRequests(_currentTilePresentationRequests, result.TickIndex));
             _gravityFieldAudioPresentationController.ReplacePendingPlan(
                 _gravityFieldAudioRequestPlanner.BuildRequests(_currentGravityFieldPresentationRequests));
             _tileFeatureVisualPresentationController.PlayRequests(_currentTilePresentationRequests);
@@ -430,6 +437,8 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.RefreshBoardSurfaceTransition(
                 result.PresentationData,
                 _stateStore.CommittedTopology);
+            _topologyAudioPresentationController.ReplacePendingPlan(
+                _topologyAudioRequestPlanner.BuildRequests(result));
             _planner.RefreshTracks(
                 result,
                 previousCommittedLocalTargetPoses,
@@ -446,13 +455,26 @@ namespace Game.Feature.Gameplay.Host
                     actionKind,
                     _timingProfile));
             TraceStep("PlayPlannedAudio");
-            _audioPresentationController.PlayPlannedAudio();
-            _actionAudioPresentationController.PlayPlannedAudio();
-            _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
-            _blockAudioPresentationController.PlayPlannedAudio();
-            _playerLocomotionAudioPresentationController.PlayPlannedAudio();
-            _tileFeatureAudioPresentationController.PlayPlannedAudio();
-            _gravityFieldAudioPresentationController.PlayPlannedAudio();
+            _arbitratingGameplayAudioPlaybackPort?.BeginBatch(
+                result.TickIndex,
+                _timingProfile.SimulationTicksPerSecond);
+            try
+            {
+                _audioPresentationController.PlayPlannedAudio();
+                _actionAudioPresentationController.PlayPlannedAudio();
+                _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
+                _blockAudioPresentationController.PlayPlannedAudio();
+                _playerLocomotionAudioPresentationController.PlayPlannedAudio();
+                _tileFeatureAudioPresentationController.PlayPlannedAudio();
+                _topologyAudioPresentationController.PlayPlannedAudio();
+                _gravityFieldAudioPresentationController.PlayPlannedAudio();
+                _arbitratingGameplayAudioPlaybackPort?.FlushBatch();
+            }
+            catch
+            {
+                _arbitratingGameplayAudioPlaybackPort?.CancelBatch();
+                throw;
+            }
             TraceStep("ApplyEntityExitOwnership");
             _exitPresentationController.ApplyEntityExitOwnership();
             _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
@@ -476,6 +498,7 @@ namespace Game.Feature.Gameplay.Host
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
+            _topologyAudioPresentationController.ResetSession();
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
@@ -545,37 +568,53 @@ namespace Game.Feature.Gameplay.Host
             IGameplayAudioPlaybackPort playbackPort,
             GameplayAudioMap gameplayAudioMap)
         {
-            _audioPresentationController.AttachRuntime(playbackPort, gameplayAudioMap);
-            _actionAudioPresentationController.AttachRuntime(playbackPort);
-            _enemyAudioPresentationController.AttachRuntime(playbackPort);
+            var arbitratingPort = GetOrCreateArbitratingPlaybackPort(playbackPort);
+            _audioPresentationController.AttachRuntime(arbitratingPort, gameplayAudioMap);
+            _actionAudioPresentationController.AttachRuntime(arbitratingPort);
+            _enemyAudioPresentationController.AttachRuntime(arbitratingPort);
         }
 
         internal void AttachTileFeatureAudioRuntime(
             IGameplayAudioPlaybackPort playbackPort,
             TileFeatureAudioMap tileFeatureAudioMap)
         {
-            _tileFeatureAudioPresentationController.AttachRuntime(playbackPort, tileFeatureAudioMap);
+            _tileFeatureAudioPresentationController.AttachRuntime(
+                GetOrCreateArbitratingPlaybackPort(playbackPort),
+                tileFeatureAudioMap);
+        }
+
+        internal void AttachTopologyAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            TopologyAudioMap topologyAudioMap)
+        {
+            _topologyAudioPresentationController.AttachRuntime(
+                GetOrCreateArbitratingPlaybackPort(playbackPort),
+                topologyAudioMap);
         }
 
         internal void AttachGravityFieldAudioRuntime(
             IGameplayAudioPlaybackPort playbackPort,
             GravityFieldAudioMap gravityFieldAudioMap)
         {
-            _gravityFieldAudioPresentationController.AttachRuntime(playbackPort, gravityFieldAudioMap);
+            _gravityFieldAudioPresentationController.AttachRuntime(
+                GetOrCreateArbitratingPlaybackPort(playbackPort),
+                gravityFieldAudioMap);
         }
 
         internal void AttachBlockAudioRuntime(
             IGameplayAudioPlaybackPort playbackPort,
             BlockAudioMap blockAudioMap)
         {
-            _blockAudioPresentationController.AttachRuntime(playbackPort, blockAudioMap);
+            _blockAudioPresentationController.AttachRuntime(GetOrCreateArbitratingPlaybackPort(playbackPort), blockAudioMap);
         }
 
         internal void AttachPlayerLocomotionAudioRuntime(
             IGameplayAudioPlaybackPort playbackPort,
             PlayerLocomotionAudioMap playerLocomotionAudioMap)
         {
-            _playerLocomotionAudioPresentationController.AttachRuntime(playbackPort, playerLocomotionAudioMap);
+            _playerLocomotionAudioPresentationController.AttachRuntime(
+                GetOrCreateArbitratingPlaybackPort(playbackPort),
+                playerLocomotionAudioMap);
         }
 
         internal void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
@@ -600,6 +639,11 @@ namespace Game.Feature.Gameplay.Host
             _tileFeatureAudioPresentationController.DetachRuntime();
         }
 
+        internal void DetachTopologyAudioRuntime()
+        {
+            _topologyAudioPresentationController.DetachRuntime();
+        }
+
         internal void DetachGravityFieldAudioRuntime()
         {
             _gravityFieldAudioPresentationController.DetachRuntime();
@@ -613,6 +657,27 @@ namespace Game.Feature.Gameplay.Host
         internal void DetachPlayerLocomotionAudioRuntime()
         {
             _playerLocomotionAudioPresentationController.DetachRuntime();
+        }
+
+        private GameplaySfxArbitratingPlaybackPort GetOrCreateArbitratingPlaybackPort(
+            IGameplayAudioPlaybackPort playbackPort)
+        {
+            if (playbackPort == null)
+            {
+                throw new ArgumentNullException(nameof(playbackPort));
+            }
+
+            if (_arbitratingGameplayAudioPlaybackPort != null &&
+                ReferenceEquals(_rawGameplayAudioPlaybackPort, playbackPort))
+            {
+                return _arbitratingGameplayAudioPlaybackPort;
+            }
+
+            _rawGameplayAudioPlaybackPort = playbackPort;
+            _arbitratingGameplayAudioPlaybackPort = new GameplaySfxArbitratingPlaybackPort(
+                playbackPort,
+                _gameplaySfxArbiter);
+            return _arbitratingGameplayAudioPlaybackPort;
         }
 
         internal void DebugRefreshGameplayAudioPlan(TickResult result)

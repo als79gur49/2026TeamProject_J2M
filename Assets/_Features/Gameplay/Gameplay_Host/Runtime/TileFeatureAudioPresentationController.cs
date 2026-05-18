@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Host
 
         private TileFeatureAudioMap _audioMap;
         private IGameplayAudioPlaybackPort _playbackPort;
+        private Action<string> _diagnosticSink;
 
         public TileFeatureAudioPresentationController(GameplayPresentationStateStore stateStore)
         {
@@ -19,6 +20,11 @@ namespace Game.Feature.Gameplay.Host
         }
 
         internal int PendingRequestCount => _pendingRequests.Count;
+
+        public void SetDiagnosticSink(Action<string> diagnosticSink)
+        {
+            _diagnosticSink = diagnosticSink;
+        }
 
         public void AttachRuntime(
             IGameplayAudioPlaybackPort playbackPort,
@@ -113,6 +119,30 @@ namespace Game.Feature.Gameplay.Host
 
         private bool TryResolveBinding(in TileFeatureAudioRequest request, out AudioBinding binding)
         {
+            if (request.BurstKind == TileFeatureAudioBurstKind.On)
+            {
+                if (_audioMap.TryResolveOptional(TileFeatureAudioCue.TileFeatureOnBurst, out binding))
+                {
+                    return true;
+                }
+
+                _diagnosticSink?.Invoke(
+                    "TileFeature On burst binding is missing. Falling back to one representative single request.");
+                return TryResolveRepresentativeSingleBinding(request, out binding);
+            }
+
+            if (request.BurstKind == TileFeatureAudioBurstKind.Off)
+            {
+                if (_audioMap.TryResolveOptional(TileFeatureAudioCue.TileFeatureOffBurst, out binding))
+                {
+                    return true;
+                }
+
+                _diagnosticSink?.Invoke(
+                    "TileFeature Off burst binding is missing. Falling back to one representative single request.");
+                return TryResolveRepresentativeSingleBinding(request, out binding);
+            }
+
             if (request.Cue == TileFeatureAudioCue.MoonBlockGeneratorBlocked)
             {
                 return _audioMap.TryResolveMoonBlockGeneratorBlocked(
@@ -121,6 +151,24 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return TryResolveBinding(request.Cue, out binding);
+        }
+
+        private bool TryResolveRepresentativeSingleBinding(
+            in TileFeatureAudioRequest request,
+            out AudioBinding binding)
+        {
+            var representativeCue = request.RepresentativeCue == TileFeatureAudioCue.None
+                ? request.Cue
+                : request.RepresentativeCue;
+            if (representativeCue == request.Cue &&
+                (request.Cue == TileFeatureAudioCue.TileFeatureOnBurst ||
+                 request.Cue == TileFeatureAudioCue.TileFeatureOffBurst))
+            {
+                binding = null;
+                return false;
+            }
+
+            return TryResolveBinding(representativeCue, out binding);
         }
 
         private bool TryResolveOwner(int ownerEntityId, out GameplayEntityView owner)

@@ -1,0 +1,8 @@
+{
+  "name": "Game.Feature.Gameplay.TopologyAudio",
+  "rootNamespace": "Game.Feature.Gameplay.TopologyAudio",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Shared.Audio"
+  ]
+}
