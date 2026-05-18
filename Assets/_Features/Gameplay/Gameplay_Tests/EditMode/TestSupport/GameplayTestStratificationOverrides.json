@@ -2828,6 +2828,42 @@
       ],
       "reason": "Locked Extended coverage that default active glide kinematic hit/death cleanup remains stable.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GravityFieldPresentationRequestPlannerTests.TickPresentationDataEmpty_HasEmptyGravityFieldEvents",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_presentation_request_planner_contract"
+      ],
+      "reason": "Locked Core coverage for gravity field presentation request planning and planner responsibility separation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GravityFieldPresentationRequestPlannerTests.GravityFieldPresentationRequestPlanner_MapsActivatedExpiredLockedBox_AndPreservesOrderPayloadAndDuplicates",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_presentation_request_planner_contract"
+      ],
+      "reason": "Locked Core coverage for gravity field presentation request planning and planner responsibility separation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GravityFieldPresentationRequestPlannerTests.GravityFieldPresentationRequestPlanner_ReadModelOnlyLockedTargets_ProducesNoRequests",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_presentation_request_planner_contract"
+      ],
+      "reason": "Locked Core coverage for gravity field presentation request planning and planner responsibility separation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GravityFieldPresentationRequestPlannerTests.TilePresentationRequestPlanner_IgnoresGravityFieldEvents",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_presentation_request_planner_contract"
+      ],
+      "reason": "Locked Core coverage for gravity field presentation request planning and planner responsibility separation.",
+      "locked": true
     }
   ]
 }
