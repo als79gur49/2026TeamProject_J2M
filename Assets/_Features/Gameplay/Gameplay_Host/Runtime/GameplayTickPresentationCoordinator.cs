@@ -34,6 +34,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayActionAudioPresentationController _actionAudioPresentationController;
         private readonly EnemyAudioRequestPlanner _enemyAudioRequestPlanner = new();
         private readonly EnemyAudioPresentationController _enemyAudioPresentationController;
+        private readonly EnemyChargeLoopAudioPresentationController _enemyChargeLoopAudioPresentationController;
         private readonly BlockAudioRequestPlanner _blockAudioRequestPlanner = new();
         private readonly BlockAudioPresentationController _blockAudioPresentationController;
         private readonly PlayerLocomotionAudioPresentationController _playerLocomotionAudioPresentationController;
@@ -94,6 +95,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
             _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
+            _enemyChargeLoopAudioPresentationController = new EnemyChargeLoopAudioPresentationController(_stateStore);
             _blockAudioPresentationController = new BlockAudioPresentationController(_stateStore);
             _playerLocomotionAudioPresentationController = new PlayerLocomotionAudioPresentationController(_stateStore);
             _tileFeatureAudioPresentationController = new TileFeatureAudioPresentationController(_stateStore);
@@ -304,6 +306,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
             _enemyAudioPresentationController.ResetSession();
+            _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
@@ -475,6 +478,7 @@ namespace Game.Feature.Gameplay.Host
                 _arbitratingGameplayAudioPlaybackPort?.CancelBatch();
                 throw;
             }
+            _enemyChargeLoopAudioPresentationController.RefreshSignals(result.PresentationData.EnemyChargeSignals);
             TraceStep("ApplyEntityExitOwnership");
             _exitPresentationController.ApplyEntityExitOwnership();
             _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
@@ -495,6 +499,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
             _enemyAudioPresentationController.ResetSession();
+            _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
             _tileFeatureAudioPresentationController.ResetSession();
@@ -572,6 +577,14 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.AttachRuntime(arbitratingPort, gameplayAudioMap);
             _actionAudioPresentationController.AttachRuntime(arbitratingPort);
             _enemyAudioPresentationController.AttachRuntime(arbitratingPort);
+            if (playbackPort is IGameplayAudioLoopPlaybackPort loopPlaybackPort)
+            {
+                _enemyChargeLoopAudioPresentationController.AttachRuntime(loopPlaybackPort);
+            }
+            else
+            {
+                _enemyChargeLoopAudioPresentationController.DetachRuntime();
+            }
         }
 
         internal void AttachTileFeatureAudioRuntime(
@@ -631,6 +644,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _actionAudioPresentationController.DetachRuntime();
             _enemyAudioPresentationController.DetachRuntime();
+            _enemyChargeLoopAudioPresentationController.DetachRuntime();
             _audioPresentationController.DetachRuntime();
         }
 

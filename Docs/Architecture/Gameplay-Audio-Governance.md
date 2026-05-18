@@ -104,6 +104,7 @@ future loop or flow audio가 필요해도 이 controller를 넓히지 않는다.
 true fade/crossfade execution도 이 controller를 넓히는 방식으로 넣지 않는다.
 
 action-specific windup/contact/blocked/impact SFX는 이 core controller가 아니라 separate gameplay action-audio controller path에 남긴다.
+Charge active loop SFX는 이 core controller가 아니라 별도 enemy-local persistent controller path에 남긴다.
 
 ## 5. Pending Plan Lifecycle
 

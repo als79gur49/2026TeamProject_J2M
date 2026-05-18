@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 9095932808801300161}
   - component: {fileID: 3687895322971148645}
   - component: {fileID: 3687895322971148646}
+  - component: {fileID: 6679000000000000002}
   m_Layer: 0
   m_Name: EnemyView_RocketFace
   m_TagString: Untagged
@@ -171,6 +172,19 @@ MonoBehaviour:
   deathViewTailSeconds: -1
   deathOwnershipMode: 0
   deathAnchorName: Chest
+--- !u!114 &6679000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1253227309742569353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
+  profile: {fileID: 11400000, guid: 35cbdb04368c445bb8d8c3f40a79614b, type: 2}
 --- !u!1 &9172096366852895011
 GameObject:
   m_ObjectHideFlags: 0

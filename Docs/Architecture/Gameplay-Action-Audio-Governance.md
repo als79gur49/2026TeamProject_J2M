@@ -136,3 +136,4 @@ action audio v1 is one-shot only.
 - looping `AudioDefinition` entries are rejected for action profiles
 - the action-audio controller stores no playback handles
 - future loop/continuous audio requires a separate owner/controller
+- Charge active loop audio is handled outside action audio by an enemy-local persistent owner/controller.

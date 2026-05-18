@@ -9,11 +9,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa7ae393f6850194aa4d0353dc3d6279, type: 3}
+  m_Script: {fileID: 11500000, guid: 41e9ec39e3edd8b41b147170787cd890, type: 3}
   m_Name: DrSaturn_Move_Def
-  m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.SingleAudioDefinition
+  m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.RandomAudioDefinition
   category: 2
   defaultVolumeTrim: 1
   pitchRange: {x: 1, y: 1}
   loop: 0
-  clip: {fileID: 8300000, guid: 071f0bd55ea941c4a999be9eb809bd29, type: 3}
+  clips:
+  - Clip: {fileID: 8300000, guid: 071f0bd55ea941c4a999be9eb809bd29, type: 3}
+    Weight: 1
+    VolumeTrim: 1
+    PitchTrim: 1
+  - Clip: {fileID: 8300000, guid: bf85540a9fe408e45b9222f535e43966, type: 3}
+    Weight: 1
+    VolumeTrim: 1
+    PitchTrim: 1
