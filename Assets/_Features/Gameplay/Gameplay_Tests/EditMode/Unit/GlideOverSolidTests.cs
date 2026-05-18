@@ -1685,7 +1685,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tick.MovementPhaseResult.RawIntents.Count(intent => intent.Destination == destination.PlanarPosition),
                     Is.EqualTo(2));
                 var reservationBook = new MovementReservationBook();
-                reservationBook.ReserveJumpLanding(99, destination);
+                reservationBook.ReserveJumpLanding(
+                    entityId: 99,
+                    destinationCell: destination,
+                    blocksUnitSharedSettlement: true);
                 var reservationStatus = reservationBook.GetCellStatus(destination);
                 Assert.That(
                     reservationStatus,
