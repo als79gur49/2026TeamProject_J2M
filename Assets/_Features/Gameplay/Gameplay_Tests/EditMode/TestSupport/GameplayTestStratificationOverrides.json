@@ -2828,6 +2828,105 @@
       ],
       "reason": "Locked Extended coverage that default active glide kinematic hit/death cleanup remains stable.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.RandomDefinition_DefaultVariantTrim_PreservesExistingVolume",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for random audio variant trim migration.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.RandomDefinition_SelectedVariantTrim_AppliesToFinalVolume",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for selected random variant volume trim.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.RandomDefinition_InvalidVariantTrim_IsDiagnosedOrSanitized",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for invalid random variant trim diagnostics.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.RandomDefinition_NullClipVariant_IsDiagnosed",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for null random variant diagnostics.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.SingleDefinition_ReturnsClipSelectionWithNeutralVariantTrim",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for neutral single definition selection.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.TileFeatureAudioPlanner_MultipleOnEvents_CoalescesToOneOnBurst",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for TileFeature On burst coalescing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.TileFeatureAudioPlanner_MixedOnOffEvents_CoalescesByKind",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for TileFeature On/Off burst separation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.AudioVoicePolicy_EnemyMovement_PerOwnerCooldown_Works",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for shared audio voice policy owner cooldown.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.EnemyMoveCadenceGate_ExistingBehavior_PreservedWithPolicy",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for EnemyMoveCadenceGate policy adapter behavior.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.GameplaySfxArbiter_TileFeatureSpam_DoesNotDropPlayerDamage",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for gameplay SFX priority arbitration.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayAudioOverlapRefactorTests.GameplaySfxArbiter_ActionAudio_KeepsLayeringExceptExactDuplicates",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor"
+      ],
+      "reason": "Locked Core coverage for action audio exact duplicate handling.",
+      "locked": true
     }
   ]
 }
