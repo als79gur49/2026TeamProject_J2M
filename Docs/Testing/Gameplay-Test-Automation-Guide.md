@@ -383,6 +383,7 @@ WSL CLI
 
 - Unity는 CLI `-runTests`에 의존하지 않는다.
 - Unity는 `TestRunnerCliBootstrap.RunEditMode` 또는 `TestRunnerCliBootstrap.RunPlayMode`를 통해 실행된다.
+- `run_tests.sh`는 실행한 worktree의 WSL path를 Windows path로 변환하고, Unity `-projectPath`가 같은 worktree를 가리키는지 먼저 검증한다.
 - bootstrap이 테스트 실행, XML 기록, Unity exit code를 직접 관리한다.
 - shell은 이후 XML을 검증하고, 실패 테스트를 출력하고, stage metrics를 기록한다.
 
@@ -400,6 +401,7 @@ WSL CLI
 
 - Unity does not rely on CLI `-runTests`.
 - Unity is invoked through `TestRunnerCliBootstrap.RunEditMode` or `TestRunnerCliBootstrap.RunPlayMode`.
+- `run_tests.sh` converts the current worktree WSL path to a Windows path and first verifies that Unity `-projectPath` targets that same worktree.
 - The bootstrap owns test execution, XML writing, and Unity exit codes.
 - The shell then validates the XML, prints failed tests, and emits stage metrics.
 
@@ -410,8 +412,18 @@ WSL CLI
 ./run_tests.sh core
 ./run_tests.sh ui
 ./run_tests.sh full
+./run_tests.sh --print-config
+./run_tests.sh --dry-run core
 ```
 
+- `./run_tests.sh --print-config`
+  - 현재 worktree path 계산과 Unity project root 구조만 검증한다.
+  - governance, dotnet, Unity를 실행하지 않는다.
+  - 테스트 pass가 아니므로 `ALL TESTS PASSED`를 출력하지 않는다.
+- `./run_tests.sh --dry-run <lane>`
+  - path 검증 후 실행될 dotnet/Unity command를 출력한다.
+  - governance, dotnet, Unity를 실행하지 않는다.
+  - Unity command의 `-projectPath`가 현재 worktree Windows path인지 확인하는 용도다.
 - `./run_tests.sh core`
   - 일반적인 로컬 개발 루프에서 사용한다.
   - governance 검사 후 Windows `dotnet` core build, Unity Core EditMode, Unity Core PlayMode를 순서대로 실행한다.
@@ -441,8 +453,18 @@ WSL CLI
 ./run_tests.sh core
 ./run_tests.sh ui
 ./run_tests.sh full
+./run_tests.sh --print-config
+./run_tests.sh --dry-run core
 ```
 
+- `./run_tests.sh --print-config`
+  - Validates current worktree path calculation and Unity project root shape only.
+  - Does not run governance, dotnet, or Unity.
+  - Does not print `ALL TESTS PASSED` because it is not a test pass.
+- `./run_tests.sh --dry-run <lane>`
+  - Validates paths, then prints the dotnet/Unity commands that would run.
+  - Does not run governance, dotnet, or Unity.
+  - Use it to confirm Unity `-projectPath` is the current worktree Windows path.
 - `./run_tests.sh core`
   - Use for normal local development.
   - Runs governance first, then Windows `dotnet` core build, then Unity Core EditMode and Core PlayMode.
@@ -709,7 +731,7 @@ WSL CLI
   - 실패한 테스트 이름
   - 첫 줄 실패 이유
   - stage별 metric
-- 로그와 결과 파일은 `TestResults/` 아래에 기록된다.
+- 로그와 결과 파일은 검증 중인 현재 worktree의 `TestResults/` 아래에 기록된다.
 - 일반적으로 확인하는 파일:
   - Unity 로그
   - Unity XML 결과
@@ -735,7 +757,7 @@ WSL CLI
   - failed test names
   - first-line failure reasons
   - per-stage metrics
-- Logs and results are written under `TestResults/`.
+- Logs and results are written under the current worktree's `TestResults/`.
 - Typical files include:
   - Unity logs
   - Unity XML results

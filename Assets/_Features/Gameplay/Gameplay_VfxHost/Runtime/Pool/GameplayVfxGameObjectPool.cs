@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly GameplayVfxRuntimeRoot root;
         private readonly IVfxPrefabProvider prefabProvider;
         private readonly IGameplayVfxTimeProvider timeProvider;
+        private readonly Dictionary<GameplayVfxCueId, int> releaseToPoolCountByCue = new();
         private int nextHandleId;
 
         public GameplayVfxGameObjectPool(
@@ -37,6 +38,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public int ActiveCount => activeHandles.Count(handle => handle != null && !handle.IsTerminal);
 
         public int PooledCount => availableByPrefabId.Values.Sum(stack => stack.Count);
+
+        internal int GetActiveCount(GameplayVfxCueId cueId)
+        {
+            return activeHandles.Count(handle =>
+                handle != null &&
+                !handle.IsTerminal &&
+                handle.CueId == cueId);
+        }
+
+        internal int GetReleaseToPoolCount(GameplayVfxCueId cueId)
+        {
+            return releaseToPoolCountByCue.TryGetValue(cueId, out var count)
+                ? count
+                : 0;
+        }
 
         public IVfxPlaybackHandle PlayTransient(in ResolvedVfxPlaybackCommand command)
         {
@@ -119,6 +135,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             activeHandles.Clear();
             activeParameterizedMotions.Clear();
+            releaseToPoolCountByCue.Clear();
 
             foreach (var instance in allByPrefabId.Values.SelectMany(list => list).ToArray())
             {
@@ -315,6 +332,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             instance.DeactivateForPool(root.PoolRoot);
             handle.DetachInstance();
+            releaseToPoolCountByCue.TryGetValue(handle.CueId, out var releaseCount);
+            releaseToPoolCountByCue[handle.CueId] = releaseCount + 1;
             if (!availableByPrefabId.TryGetValue(instance.PrefabInstanceId, out var available))
             {
                 available = new Stack<GameplayVfxPooledInstance>();
