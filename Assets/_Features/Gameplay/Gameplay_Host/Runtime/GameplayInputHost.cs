@@ -594,7 +594,7 @@ namespace Game.Feature.Gameplay.Host
 
         private bool IsPresentationLocked()
         {
-            return _presenter != null && _presenter.IsTopologyTransitionActive;
+            return _presenter != null && _presenter.HasBlockingPresentation;
         }
 
         private PlayerTickCommand BuildPlayerCommand()

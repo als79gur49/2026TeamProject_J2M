@@ -105,6 +105,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyViewPresentationState_JumpLandingCompletionHold_SuppressesLandedSignal()
+        {
+            var state = new EnemyViewPresentationState(
+                entityId: 40,
+                tickIndex: 3,
+                EnemyAiMode.Patrol,
+                EnemyActionKind.None,
+                EnemyJumpPhase.Cooldown,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: true,
+                retryingJumpAirborneThisTick: false,
+                tookDamage: false,
+                didDie: false);
+
+            var held = state.WithJumpLandingCompletionHold();
+
+            Assert.That(held.JumpPhase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(held.LandedFromJumpThisTick, Is.False);
+            Assert.That(held.StartedJumpAirborneThisTick, Is.False);
+            Assert.That(held.RetryingJumpAirborneThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyViewPresentationMapper_TryMapInitial_RoleEnemyWithNoneAiMode_StillMapsEnemyViewState()
         {
             var mapper = new EnemyViewPresentationMapper();

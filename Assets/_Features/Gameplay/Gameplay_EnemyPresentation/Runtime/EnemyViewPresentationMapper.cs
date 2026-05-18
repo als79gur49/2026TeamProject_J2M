@@ -221,6 +221,68 @@ namespace Game.Feature.Gameplay.Host
                 UtilityPresentationKind,
                 StartedUtilityWindupThisTick);
         }
+
+        public EnemyViewPresentationState WithJumpLandingCompletionHold()
+        {
+            return new EnemyViewPresentationState(
+                EntityId,
+                TickIndex,
+                AiMode,
+                ActiveActionKind,
+                EnemyJumpPhase.Airborne,
+                ChargePhase,
+                IsMoving,
+                StartedWindupThisTick,
+                ExecutedThisTick,
+                StartedRecoveryThisTick,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                StartedChargeWindupThisTick,
+                StartedChargeActiveThisTick,
+                StartedChargeRecoverThisTick,
+                TookDamage,
+                DidDie,
+                JumpOutcome,
+                GlidePhase,
+                StartedGlideWindupThisTick,
+                StartedGlideActiveThisTick,
+                StartedGlideRecoverThisTick,
+                UtilityPresentationKind,
+                StartedUtilityWindupThisTick);
+        }
+
+        public EnemyViewPresentationState WithJumpLandingCompletionSettled()
+        {
+            return new EnemyViewPresentationState(
+                EntityId,
+                TickIndex,
+                AiMode,
+                ActiveActionKind,
+                EnemyJumpPhase.None,
+                ChargePhase,
+                IsMoving,
+                StartedWindupThisTick,
+                ExecutedThisTick,
+                StartedRecoveryThisTick,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                StartedChargeWindupThisTick,
+                StartedChargeActiveThisTick,
+                StartedChargeRecoverThisTick,
+                TookDamage,
+                DidDie,
+                JumpOutcome,
+                GlidePhase,
+                StartedGlideWindupThisTick,
+                StartedGlideActiveThisTick,
+                StartedGlideRecoverThisTick,
+                UtilityPresentationKind,
+                StartedUtilityWindupThisTick);
+        }
     }
 
     public sealed class EnemyViewPresentationMapper

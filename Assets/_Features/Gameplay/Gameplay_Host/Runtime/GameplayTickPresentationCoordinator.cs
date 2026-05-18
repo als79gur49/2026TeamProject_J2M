@@ -139,7 +139,9 @@ namespace Game.Feature.Gameplay.Host
 
         public Vector3 CubeCenter => _projector != null ? _projector.GetCubeCenter() : Vector3.zero;
 
-        public bool HasBlockingPresentation => _topologyTransitionController.HasActiveBoardRotationTween;
+        public bool HasBlockingPresentation =>
+            _topologyTransitionController.HasActiveBoardRotationTween ||
+            _presentationActivityInspector.HasActiveBlockingJumpLandingCompletion();
 
         public bool IsInitialized => _isInitialized;
 
@@ -450,6 +452,7 @@ namespace Game.Feature.Gameplay.Host
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
+                _trackState.JumpLandingCompletionHoldEntityIds,
                 (entityId, actionKind) => _motionTimingResolver.ResolvePlayerMotionDurationSeconds(
                     entityId,
                     actionKind,
