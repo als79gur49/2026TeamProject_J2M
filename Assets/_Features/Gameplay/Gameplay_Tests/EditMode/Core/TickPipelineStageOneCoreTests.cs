@@ -134,6 +134,51 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void ProjectedWorld_SeededBaseSnapshot_ReusesBaseSnapshotUntilBatchApplied()
+        {
+            var baseSnapshot = CreateSnapshot(Array.Empty<TileFeatureState>());
+            var projectedWorld = new ProjectedWorld(baseSnapshot, seedBaseSnapshot: true);
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                var first = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterEnemyAi);
+                var second = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanPostPreMovement);
+
+                Assert.That(first, Is.SameAs(baseSnapshot));
+                Assert.That(second, Is.SameAs(baseSnapshot));
+                counts = capture.Counts;
+            }
+
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
+            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(0));
+            Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(2));
+            Assert.That(counts.GetCacheHitCount(ProjectedWorldSnapshotReason.PlanAfterEnemyAi), Is.EqualTo(1));
+            Assert.That(counts.GetCacheHitCount(ProjectedWorldSnapshotReason.PlanPostPreMovement), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectedWorld_ReasonedApplyBatch_RecordsSourceCounts()
+        {
+            var projectedWorld = new ProjectedWorld(CreateSnapshot(Array.Empty<TileFeatureState>()));
+            var emptyBatch = new FinalizationBatch();
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                projectedWorld.ApplyBatch(emptyBatch, ProjectedWorldBatchReason.PlanPreMovementState);
+                counts = capture.Counts;
+            }
+
+            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(1));
+            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(1));
+            Assert.That(counts.GetApplyBatchCount(ProjectedWorldBatchReason.PlanPreMovementState), Is.EqualTo(1));
+            Assert.That(counts.GetEmptyApplyBatchCount(ProjectedWorldBatchReason.PlanPreMovementState), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
         public void ProjectedWorld_EntityFinalizationBatch_DirtiesProjectedWorld()
         {
             var startCell = new SurfaceCell(FaceId.Floor, 0, 0);

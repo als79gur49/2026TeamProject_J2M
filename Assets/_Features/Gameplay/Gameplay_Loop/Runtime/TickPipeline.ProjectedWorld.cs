@@ -34,17 +34,32 @@ namespace Game.Feature.Gameplay.Loop
         private WorldSnapshot _materializedSnapshot;
 
         public ProjectedWorld(WorldSnapshot baseSnapshot)
+            : this(baseSnapshot, seedBaseSnapshot: false)
+        {
+        }
+
+        public ProjectedWorld(WorldSnapshot baseSnapshot, bool seedBaseSnapshot)
         {
             _baseSnapshot = baseSnapshot ?? throw new ArgumentNullException(nameof(baseSnapshot));
+            if (seedBaseSnapshot)
+            {
+                _materializedSnapshot = _baseSnapshot;
+                _isDirty = false;
+            }
         }
 
         public void ApplyBatch(FinalizationBatch batch)
+        {
+            ApplyBatch(batch, ProjectedWorldBatchReason.Unspecified);
+        }
+
+        public void ApplyBatch(FinalizationBatch batch, ProjectedWorldBatchReason reason)
         {
             var resolvedBatch = batch ?? throw new ArgumentNullException(nameof(batch));
             var isEmpty =
                 resolvedBatch.Operations.Count == 0 &&
                 resolvedBatch.TileFeatureOperations.Count == 0;
-            SnapshotMaterializationDiagnostics.RecordProjectedWorldApplyBatch(isEmpty);
+            SnapshotMaterializationDiagnostics.RecordProjectedWorldApplyBatch(isEmpty, reason);
             if (isEmpty)
             {
                 return;
@@ -52,7 +67,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (resolvedBatch.TileFeatureOperations.Count > 0)
             {
-                ApplyTileFeatureOperations(new TileFeatureOperationBatch(resolvedBatch.TileFeatureOperations));
+                ApplyTileFeatureOperations(new TileFeatureOperationBatch(resolvedBatch.TileFeatureOperations), reason);
             }
 
             _overlayBatch.MergeFrom(resolvedBatch, includeTileFeatureOperations: false);
@@ -60,6 +75,11 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         public void ApplyTileFeatureOperations(TileFeatureOperationBatch batch)
+        {
+            ApplyTileFeatureOperations(batch, ProjectedWorldBatchReason.Unspecified);
+        }
+
+        public void ApplyTileFeatureOperations(TileFeatureOperationBatch batch, ProjectedWorldBatchReason reason)
         {
             var resolvedBatch = batch ?? throw new ArgumentNullException(nameof(batch));
             if (resolvedBatch.IsEmpty)
@@ -95,13 +115,18 @@ namespace Game.Feature.Gameplay.Loop
 
         public WorldSnapshot CreateSnapshot()
         {
+            return CreateSnapshot(ProjectedWorldSnapshotReason.Unspecified);
+        }
+
+        public WorldSnapshot CreateSnapshot(ProjectedWorldSnapshotReason reason)
+        {
             if (!_isDirty && _materializedSnapshot != null)
             {
-                SnapshotMaterializationDiagnostics.RecordProjectedWorldCacheHit();
+                SnapshotMaterializationDiagnostics.RecordProjectedWorldCacheHit(reason);
                 return _materializedSnapshot;
             }
 
-            SnapshotMaterializationDiagnostics.RecordProjectedWorldMaterializedSnapshot();
+            SnapshotMaterializationDiagnostics.RecordProjectedWorldMaterializedSnapshot(reason);
             var projectedWorldState = MaterializeWorldState(_baseSnapshot, _projectedTileFeaturesById);
             _overlayBatch.ApplyTo(projectedWorldState.CreateWriteContext(), delayedAttackEffectSink: null);
             _materializedSnapshot = SnapshotBuilder.Create(projectedWorldState);

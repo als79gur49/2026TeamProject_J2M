@@ -550,7 +550,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             phaseTrace.Add("Plan:Enter");
             var planFinalizationBatch = new FinalizationBatch();
-            var projectedWorld = new ProjectedWorld(snapshot);
+            var projectedWorld = new ProjectedWorld(snapshot, seedBaseSnapshot: true);
 
             var beforeMovementAiBatch = new FinalizationBatch();
             var beforeMovementAiContext = new RecordingFinalizationContext(beforeMovementAiBatch, snapshot, TickPhase.Plan);
@@ -560,8 +560,8 @@ namespace Game.Feature.Gameplay.Loop
                 in input,
                 beforeMovementAiContext);
             planFinalizationBatch.MergeFrom(beforeMovementAiBatch);
-            projectedWorld.ApplyBatch(beforeMovementAiBatch);
-            var snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
+            projectedWorld.ApplyBatch(beforeMovementAiBatch, ProjectedWorldBatchReason.PlanBeforeMovementAi);
+            var snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterEnemyAi);
 
             var kinematicClosureBatch = new FinalizationBatch();
             var kinematicClosureEvents = new List<string>();
@@ -575,8 +575,8 @@ namespace Game.Feature.Gameplay.Loop
                     closePlayerKinematics: _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion,
                     closeEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion);
                 planFinalizationBatch.MergeFrom(kinematicClosureBatch);
-                projectedWorld.ApplyBatch(kinematicClosureBatch);
-                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
+                projectedWorld.ApplyBatch(kinematicClosureBatch, ProjectedWorldBatchReason.PlanKinematicClosure);
+                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterKinematicClosure);
             }
 
             var gravityFieldResult = GravityFieldRuntimeResolver.ResolvePreMovement(
@@ -590,8 +590,8 @@ namespace Game.Feature.Gameplay.Loop
             if (gravityFieldBatch.Operations.Count > 0)
             {
                 planFinalizationBatch.MergeFrom(gravityFieldBatch);
-                projectedWorld.ApplyBatch(gravityFieldBatch);
-                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
+                projectedWorld.ApplyBatch(gravityFieldBatch, ProjectedWorldBatchReason.PlanGravityField);
+                snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterGravityField);
             }
 
             var preMovementBatch = new FinalizationBatch();
@@ -617,13 +617,13 @@ namespace Game.Feature.Gameplay.Loop
             utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
             planFinalizationBatch.MergeFrom(preMovementBatch);
-            projectedWorld.ApplyBatch(preMovementBatch);
+            projectedWorld.ApplyBatch(preMovementBatch, ProjectedWorldBatchReason.PlanPreMovementState);
             var preMovementUtilityResolveResult = EnemyUtilityResolver.ResolvePreMovementProjectedEffects(
-                projectedWorld.CreateSnapshot(),
+                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanPreMovementUtilityInput),
                 preMovementStateResult.UtilityTriggerIntents,
                 input.TickIndex);
             planFinalizationBatch.MergeFrom(preMovementUtilityResolveResult.Batch);
-            projectedWorld.ApplyBatch(preMovementUtilityResolveResult.Batch);
+            projectedWorld.ApplyBatch(preMovementUtilityResolveResult.Batch, ProjectedWorldBatchReason.PlanPreMovementUtility);
             AddRange(preMovementStateResult.EventLogEntries, preMovementUtilityResolveResult.EventLogEntries);
 
             var nextContestId = 1;
@@ -632,8 +632,9 @@ namespace Game.Feature.Gameplay.Loop
             var jumpLandingEvents = new List<string>();
             var phaseRelocationPlans = new List<PhaseRelocationPlan>();
             var phaseRelocationSpaceContests = new List<Contest>();
+            var planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanPostPreMovement);
             ResolvePlanJumpLandings(
-                projectedWorld,
+                planSnapshot,
                 input.TickIndex,
                 entityLogicsForTick.MovementLogics,
                 planFinalizationBatch,
@@ -642,7 +643,6 @@ namespace Game.Feature.Gameplay.Loop
                 jumpLandingSpaceContests,
                 jumpLandingEvents,
                 ref nextContestId);
-            var planSnapshot = projectedWorld.CreateSnapshot();
             ResolvePlanEnemyPhaseRelocations(
                 planSnapshot,
                 input.TickIndex,
@@ -666,8 +666,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerActionAttemptBatch.TileFeatureOperations.Count > 0)
             {
                 planFinalizationBatch.MergeFrom(playerActionAttemptBatch);
-                projectedWorld.ApplyBatch(playerActionAttemptBatch);
-                planSnapshot = projectedWorld.CreateSnapshot();
+                projectedWorld.ApplyBatch(playerActionAttemptBatch, ProjectedWorldBatchReason.PlanPlayerActionAttempt);
+                planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterPlayerActionAttempt);
             }
 
             var rawMovementIntents = new List<RawMovementIntent>();
@@ -695,8 +695,8 @@ namespace Game.Feature.Gameplay.Loop
                     free2DBatch,
                     consumedPlayerActionAttemptEntityIds);
                 planFinalizationBatch.MergeFrom(free2DBatch);
-                projectedWorld.ApplyBatch(free2DBatch);
-                planSnapshot = projectedWorld.CreateSnapshot();
+                projectedWorld.ApplyBatch(free2DBatch, ProjectedWorldBatchReason.PlanPlayerFree2DLocomotion);
+                planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterPlayerFree2DLocomotion);
             }
             else if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
             {
@@ -6546,7 +6546,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private void ResolvePlanJumpLandings(
-            ProjectedWorld projectedWorld,
+            WorldSnapshot snapshot,
             int tickIndex,
             IReadOnlyList<IMovementEntityLogic> movementLogics,
             FinalizationBatch planFinalizationBatch,
@@ -6556,7 +6556,6 @@ namespace Game.Feature.Gameplay.Loop
             List<string> jumpLandingEvents,
             ref int nextContestId)
         {
-            var snapshot = projectedWorld.CreateSnapshot();
             var jumpEntries = new List<EnemyJumpSnapshotEntry>();
             snapshot.EnumerateEnemyJumpStatesOrdered(jumpEntries);
 
