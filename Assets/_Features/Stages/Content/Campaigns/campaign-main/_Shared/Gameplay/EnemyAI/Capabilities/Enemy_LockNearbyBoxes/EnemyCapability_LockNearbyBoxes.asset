@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: EnemyCapability_LockNearbyBoxes
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyUtilityCapabilityAsset
   effects:
-  - kind: 1
-    initialDelaySeconds: 8
-    cooldownSeconds: 8
+  - kind: 2
+    initialDelaySeconds: 7
+    cooldownSeconds: 7
     summon:
       spawnCountPerTrigger: 1
       maxAliveChildren: 3
@@ -40,3 +40,12 @@ MonoBehaviour:
       suppressMovementDuringWindup: 1
       recoverySeconds: 0.2
       suppressMovementDuringRecover: 1
+    gravityFieldAura:
+      radius: 1
+      windupSeconds: 0.5
+      durationSeconds: 4
+      blocksPush: 1
+      blocksFlip: 1
+      blocksDestroy: 1
+      suppressMovementDuringWindup: 1
+      suppressMovementDuringActive: 0

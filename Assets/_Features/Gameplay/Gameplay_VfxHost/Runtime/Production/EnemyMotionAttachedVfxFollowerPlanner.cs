@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
 using UnityEngine;
@@ -26,7 +27,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             bool enableChargeBoosterTrail,
             bool enableBoxSlideFollowLoop,
             bool enableEnemyJumpWindupLoop,
-            IReadOnlyList<EntityState> finalEntities = null)
+            IReadOnlyList<EntityState> finalEntities = null,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId = null,
+            bool enableEnemyWeaponWindupAura = false,
+            bool enableEnemyUtilityCooldownAura = false)
         {
             desiredFollowers.Clear();
             explicitStopKeys.Clear();
@@ -36,9 +40,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (presentationData == null ||
                 (!enableGlideWindTrail &&
-                 !enableChargeBoosterTrail &&
-                 !enableBoxSlideFollowLoop &&
-                 !enableEnemyJumpWindupLoop))
+                     !enableChargeBoosterTrail &&
+                     !enableBoxSlideFollowLoop &&
+                     !enableEnemyJumpWindupLoop &&
+                     !enableEnemyWeaponWindupAura &&
+                     !enableEnemyUtilityCooldownAura))
             {
                 return;
             }
@@ -54,6 +60,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (enableEnemyJumpWindupLoop)
             {
                 AddJumpWindupFollowers(presentationData);
+            }
+
+            if (enableEnemyWeaponWindupAura)
+            {
+                AddWeaponWindupAuraFollowers(presentationData, viewsByEntityId);
+            }
+
+            if (enableEnemyUtilityCooldownAura)
+            {
+                AddUtilityCooldownAuraFollowers(presentationData, viewsByEntityId);
             }
 
             if (enableGlideWindTrail)
@@ -263,6 +279,132 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         Vector3.zero,
                         Quaternion.identity));
             }
+        }
+
+        private void AddWeaponWindupAuraFollowers(
+            TickPresentationData presentationData,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (viewsByEntityId == null)
+            {
+                return;
+            }
+
+            var signals = presentationData.EnemyActionSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0 ||
+                    removedEntityIds.Contains(signal.EntityId) ||
+                    !TryGetWeaponAuraAuthoring(
+                        viewsByEntityId,
+                        signal.EntityId,
+                        out var authoring) ||
+                    !authoring.TryGetWeaponWindupAura(out var cueId, out var attachPointId) ||
+                    signal.ActiveActionKind != authoring.ActionKind)
+                {
+                    continue;
+                }
+
+                var sequenceId = signal.ActiveActionSequence > 0
+                    ? signal.ActiveActionSequence
+                    : signal.EntityId;
+                var key = new AttachedVfxFollowerKey(
+                    cueId,
+                    signal.EntityId,
+                    AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
+                    sequenceId,
+                    attachPointId);
+                if (signal.CanceledThisTick ||
+                    signal.ExecutedThisTick ||
+                    signal.StartedRecoveryThisTick)
+                {
+                    AddExplicitStopKey(key);
+                    continue;
+                }
+
+                if (signal.ActiveActionKind == EnemyActionKind.None)
+                {
+                    continue;
+                }
+
+                AddDesiredFollower(
+                    new AttachedVfxFollowerDesiredState(
+                        cueId,
+                        signal.EntityId,
+                        AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
+                        sequenceId,
+                        Vector3.zero,
+                        Quaternion.identity,
+                        AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop,
+                        attachPointId));
+            }
+        }
+
+        private static bool TryGetWeaponAuraAuthoring(
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            int entityId,
+            out EnemyWeaponAuraVfxAuthoring authoring)
+        {
+            authoring = null;
+            return viewsByEntityId.TryGetValue(entityId, out var view) &&
+                   view != null &&
+                   view.TryGetComponent(out authoring) &&
+                   authoring != null;
+        }
+
+        private void AddUtilityCooldownAuraFollowers(
+            TickPresentationData presentationData,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (viewsByEntityId == null)
+            {
+                return;
+            }
+
+            var signals = presentationData.EnemyUtilityCooldownSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0 ||
+                    signal.CooldownTicksRemaining <= 0 ||
+                    removedEntityIds.Contains(signal.EntityId) ||
+                    !TryGetUtilityCooldownAuraAuthoring(
+                        viewsByEntityId,
+                        signal.EntityId,
+                        out var authoring) ||
+                    !authoring.TryGetUtilityCooldownAura(out var cueId, out var attachPointId) ||
+                    signal.Kind != authoring.UtilityKind)
+                {
+                    continue;
+                }
+
+                var sequenceId = signal.ActivationSequence > 0
+                    ? (signal.ActivationSequence * 1000) + signal.EffectIndex
+                    : signal.EntityId;
+                AddDesiredFollower(
+                    new AttachedVfxFollowerDesiredState(
+                        cueId,
+                        signal.EntityId,
+                        AttachedVfxFollowerStateKind.EnemyUtilityCooldownAura,
+                        sequenceId,
+                        Vector3.zero,
+                        Quaternion.identity,
+                        AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly,
+                        attachPointId));
+            }
+        }
+
+        private static bool TryGetUtilityCooldownAuraAuthoring(
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            int entityId,
+            out EnemyUtilityCooldownAuraVfxAuthoring authoring)
+        {
+            authoring = null;
+            return viewsByEntityId.TryGetValue(entityId, out var view) &&
+                   view != null &&
+                   view.TryGetComponent(out authoring) &&
+                   authoring != null;
         }
 
         private static bool TryResolveGlideFollowerCue(

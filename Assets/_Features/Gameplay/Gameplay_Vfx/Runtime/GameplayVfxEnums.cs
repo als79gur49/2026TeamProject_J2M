@@ -68,6 +68,11 @@ namespace Game.Feature.Gameplay.Vfx
         JumperWindupLoop = 22,
         GlideWindupLoop = 23,
         GlideRecoverLoop = 24,
+        WeaponWindupAura = 25,
+        UtilityCooldownAura = 26,
+        GravityFieldAuraWindupArea = 27,
+        GravityFieldAuraActiveArea = 28,
+        GravityFieldAuraActiveStarted = 29,
     }
 
     public enum TileFeatureVfxCue

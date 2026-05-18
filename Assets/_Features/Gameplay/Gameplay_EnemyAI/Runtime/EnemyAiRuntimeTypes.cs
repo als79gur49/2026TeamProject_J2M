@@ -87,6 +87,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         SummonMinion = 0,
         LockNearbyBoxes = 1,
+        GravityFieldAura = 2,
     }
 
     public enum SummonCandidatePattern
@@ -98,6 +99,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         OrthogonalAdjacent4 = 0,
         ManhattanRadius = 1,
+        SquareRadius = 2,
     }
 
     public enum EnemyFrontFaceSupportEffectKind
@@ -685,6 +687,69 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public readonly struct EnemyGravityFieldAuraRuntime
+    {
+        public EnemyGravityFieldAuraRuntime(
+            int radius,
+            int windupTicks,
+            int durationTicks,
+            bool blocksPush,
+            bool blocksFlip,
+            bool blocksDestroy,
+            bool suppressMovementDuringWindup = true,
+            bool suppressMovementDuringActive = false)
+        {
+            Radius = radius;
+            WindupTicks = windupTicks;
+            DurationTicks = durationTicks;
+            BlocksPush = blocksPush;
+            BlocksFlip = blocksFlip;
+            BlocksDestroy = blocksDestroy;
+            SuppressMovementDuringWindup = suppressMovementDuringWindup;
+            SuppressMovementDuringActive = suppressMovementDuringActive;
+            Validate(nameof(EnemyGravityFieldAuraRuntime));
+        }
+
+        public int Radius { get; }
+
+        public int WindupTicks { get; }
+
+        public int DurationTicks { get; }
+
+        public bool BlocksPush { get; }
+
+        public bool BlocksFlip { get; }
+
+        public bool BlocksDestroy { get; }
+
+        public bool SuppressMovementDuringWindup { get; }
+
+        public bool SuppressMovementDuringActive { get; }
+
+        public void Validate(string paramName)
+        {
+            if (Radius <= 0)
+            {
+                throw new ArgumentException("Enemy gravity field aura runtime requires a positive radius.", paramName);
+            }
+
+            if (WindupTicks <= 0)
+            {
+                throw new ArgumentException("Enemy gravity field aura runtime requires a positive windup duration.", paramName);
+            }
+
+            if (DurationTicks <= 0)
+            {
+                throw new ArgumentException("Enemy gravity field aura runtime requires a positive active duration.", paramName);
+            }
+
+            if (!BlocksPush && !BlocksFlip && !BlocksDestroy)
+            {
+                throw new ArgumentException("Enemy gravity field aura runtime must block at least one box interaction.", paramName);
+            }
+        }
+    }
+
     public sealed class EnemyUtilityEffectRuntime
     {
         public EnemyUtilityEffectRuntime(
@@ -692,13 +757,15 @@ namespace Game.Feature.Gameplay.Entities
             int initialDelayTicks,
             int cooldownTicks,
             SummonMinionRuntime summon = default,
-            LockNearbyBoxesRuntime lockNearbyBoxes = default)
+            LockNearbyBoxesRuntime lockNearbyBoxes = default,
+            EnemyGravityFieldAuraRuntime gravityFieldAura = default)
         {
             Kind = kind;
             InitialDelayTicks = initialDelayTicks;
             CooldownTicks = cooldownTicks;
             Summon = summon;
             LockNearbyBoxes = lockNearbyBoxes;
+            GravityFieldAura = gravityFieldAura;
             Validate(nameof(EnemyUtilityEffectRuntime));
         }
 
@@ -711,6 +778,8 @@ namespace Game.Feature.Gameplay.Entities
         public SummonMinionRuntime Summon { get; }
 
         public LockNearbyBoxesRuntime LockNearbyBoxes { get; }
+
+        public EnemyGravityFieldAuraRuntime GravityFieldAura { get; }
 
         public void Validate(string paramName)
         {
@@ -732,6 +801,10 @@ namespace Game.Feature.Gameplay.Entities
 
                 case EnemyUtilityEffectKind.LockNearbyBoxes:
                     LockNearbyBoxes.Validate(paramName);
+                    break;
+
+                case EnemyUtilityEffectKind.GravityFieldAura:
+                    GravityFieldAura.Validate(paramName);
                     break;
 
                 default:
@@ -1062,6 +1135,9 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyUtilityEffectPhase phase;
         public int windupStartTick;
         public int windupEndTick;
+        public int activeStartTick;
+        public int activeEndTickExclusive;
+        public SurfaceCell activeOriginCell;
         public int recoverStartTick;
         public int recoverEndTickExclusive;
         public int activationSequence;
@@ -1073,6 +1149,7 @@ namespace Game.Feature.Gameplay.Entities
         None = 0,
         Windup = 1,
         Recover = 2,
+        Active = 3,
     }
 
     public sealed class EnemyUtilityRuntimeState
@@ -1221,6 +1298,9 @@ namespace Game.Feature.Gameplay.Entities
                 if (left.EffectStates[i].phase != right.EffectStates[i].phase ||
                     left.EffectStates[i].windupStartTick != right.EffectStates[i].windupStartTick ||
                     left.EffectStates[i].windupEndTick != right.EffectStates[i].windupEndTick ||
+                    left.EffectStates[i].activeStartTick != right.EffectStates[i].activeStartTick ||
+                    left.EffectStates[i].activeEndTickExclusive != right.EffectStates[i].activeEndTickExclusive ||
+                    !left.EffectStates[i].activeOriginCell.Equals(right.EffectStates[i].activeOriginCell) ||
                     left.EffectStates[i].recoverStartTick != right.EffectStates[i].recoverStartTick ||
                     left.EffectStates[i].recoverEndTickExclusive != right.EffectStates[i].recoverEndTickExclusive ||
                     left.EffectStates[i].activationSequence != right.EffectStates[i].activationSequence ||
@@ -1386,7 +1466,8 @@ namespace Game.Feature.Gameplay.Entities
             int effectIndex,
             EnemyUtilityEffectKind effectKind,
             int triggerTick,
-            EnemyUtilityEffectRuntime effectRuntime)
+            EnemyUtilityEffectRuntime effectRuntime,
+            SurfaceCell originCell = default)
         {
             if (effectRuntime == null)
             {
@@ -1398,6 +1479,7 @@ namespace Game.Feature.Gameplay.Entities
             EffectKind = effectKind;
             TriggerTick = triggerTick;
             EffectRuntime = effectRuntime;
+            OriginCell = originCell;
         }
 
         public int SourceEntityId { get; }
@@ -1409,6 +1491,8 @@ namespace Game.Feature.Gameplay.Entities
         public int TriggerTick { get; }
 
         public EnemyUtilityEffectRuntime EffectRuntime { get; }
+
+        public SurfaceCell OriginCell { get; }
     }
 
     internal sealed class EnemyUtilityTriggerIntentComparer : IComparer<EnemyUtilityTriggerIntent>

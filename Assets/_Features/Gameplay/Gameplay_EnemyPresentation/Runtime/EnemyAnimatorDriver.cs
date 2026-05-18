@@ -234,7 +234,8 @@ namespace Game.Feature.Gameplay.Host
         public void PlayUtilityWindup(EnemyUtilityPresentationKind kind)
         {
             var targetAnimator = ResolveAnimator();
-            if (kind != EnemyUtilityPresentationKind.LockNearbyBoxes)
+            if (kind != EnemyUtilityPresentationKind.LockNearbyBoxes &&
+                kind != EnemyUtilityPresentationKind.GravityFieldAura)
             {
                 return;
             }

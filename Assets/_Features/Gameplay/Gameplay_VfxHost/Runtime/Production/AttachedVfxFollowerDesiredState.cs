@@ -13,6 +13,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         EnemyJumpWindup = 4,
         EnemyGlideWindup = 5,
         EnemyGlideRecover = 6,
+        EnemyWeaponWindupAura = 7,
+        EnemyUtilityCooldownAura = 8,
     }
 
     internal enum AttachedVfxFollowerRetentionPolicy
@@ -27,12 +29,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxCueId cueId,
             int sourceEntityId,
             AttachedVfxFollowerStateKind stateKind,
-            int sequenceId)
+            int sequenceId,
+            string attachPointId = null)
         {
             CueId = cueId;
             SourceEntityId = sourceEntityId;
             StateKind = stateKind;
             SequenceId = sequenceId;
+            AttachPointId = NormalizeAttachPointId(attachPointId);
         }
 
         public GameplayVfxCueId CueId { get; }
@@ -43,12 +47,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int SequenceId { get; }
 
+        public string AttachPointId { get; }
+
         public bool Equals(AttachedVfxFollowerKey other)
         {
             return CueId.Equals(other.CueId) &&
                    SourceEntityId == other.SourceEntityId &&
                    StateKind == other.StateKind &&
-                   SequenceId == other.SequenceId;
+                   SequenceId == other.SequenceId &&
+                   string.Equals(AttachPointId, other.AttachPointId, StringComparison.Ordinal);
         }
 
         public override bool Equals(object obj)
@@ -64,8 +71,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 hashCode = (hashCode * 397) ^ SourceEntityId;
                 hashCode = (hashCode * 397) ^ (int)StateKind;
                 hashCode = (hashCode * 397) ^ SequenceId;
+                hashCode = (hashCode * 397) ^ (AttachPointId != null ? AttachPointId.GetHashCode() : 0);
                 return hashCode;
             }
+        }
+
+        internal static string NormalizeAttachPointId(string attachPointId)
+        {
+            return string.IsNullOrWhiteSpace(attachPointId)
+                ? null
+                : attachPointId.Trim();
         }
     }
 
@@ -78,7 +93,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             int sequenceId,
             Vector3 localPosition,
             Quaternion localRotation,
-            AttachedVfxFollowerRetentionPolicy retentionPolicy = AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly)
+            AttachedVfxFollowerRetentionPolicy retentionPolicy = AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly,
+            string attachPointId = null)
         {
             CueId = cueId;
             SourceEntityId = sourceEntityId;
@@ -87,6 +103,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             LocalPosition = localPosition;
             LocalRotation = localRotation;
             RetentionPolicy = retentionPolicy;
+            AttachPointId = AttachedVfxFollowerKey.NormalizeAttachPointId(attachPointId);
         }
 
         public GameplayVfxCueId CueId { get; }
@@ -103,7 +120,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public AttachedVfxFollowerRetentionPolicy RetentionPolicy { get; }
 
+        public string AttachPointId { get; }
+
         public AttachedVfxFollowerKey Key =>
-            new(CueId, SourceEntityId, StateKind, SequenceId);
+            new(CueId, SourceEntityId, StateKind, SequenceId, AttachPointId);
     }
 }

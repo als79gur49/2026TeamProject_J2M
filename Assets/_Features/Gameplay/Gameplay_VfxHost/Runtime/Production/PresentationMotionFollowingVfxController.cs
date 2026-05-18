@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<PresentationMotionInstanceKey> missingMotionOwnerViewKeys = new();
         private readonly HashSet<AttachedVfxFollowerKey> missingAttachedBindingKeys = new();
         private readonly HashSet<AttachedVfxFollowerKey> missingAttachedOwnerViewKeys = new();
+        private readonly HashSet<AttachedVfxFollowerKey> missingExplicitAttachPointKeys = new();
         private readonly List<PresentationMotionInstanceKey> motionStopBuffer = new();
         private readonly List<AttachedVfxFollowerKey> attachedStopBuffer = new();
 
@@ -301,7 +302,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         IsHandleLive(existingHandle))
                     {
                         activeAttachedRetentionPoliciesByKey[key] = desiredState.RetentionPolicy;
-                        if (!TryResolveAttachParent(stateStore, desiredState.SourceEntityId, out _))
+                        if (!TryResolveAttachParent(
+                                stateStore,
+                                desiredState.SourceEntityId,
+                                desiredState.AttachPointId,
+                                key,
+                                out _))
                         {
                             CountMissingAttachedOwnerOnce(key);
                             StopAttached(key, tail: true);
@@ -312,7 +318,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
                     activeAttachedHandlesByKey.Remove(key);
                     activeAttachedRetentionPoliciesByKey.Remove(key);
-                    if (!TryResolveAttachParent(stateStore, desiredState.SourceEntityId, out var parent))
+                    if (!TryResolveAttachParent(
+                            stateStore,
+                            desiredState.SourceEntityId,
+                            desiredState.AttachPointId,
+                            key,
+                            out var parent))
                     {
                         CountMissingAttachedOwnerOnce(key);
                         continue;
@@ -429,7 +440,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     out var retentionPolicy);
                 if (retentionPolicy == AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop)
                 {
-                    if (!TryResolveAttachParent(stateStore, key.SourceEntityId, out _))
+                    if (!TryResolveAttachParent(
+                            stateStore,
+                            key.SourceEntityId,
+                            key.AttachPointId,
+                            key,
+                            out _))
                     {
                         CountMissingAttachedOwnerOnce(key);
                         attachedStopBuffer.Add(key);
@@ -559,12 +575,73 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        private bool TryResolveAttachParent(
+            GameplayPresentationStateStore stateStore,
+            int entityId,
+            string attachPointId,
+            AttachedVfxFollowerKey key,
+            out Transform parent)
+        {
+            parent = null;
+            if (stateStore == null ||
+                !stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) ||
+                view == null ||
+                !view.isActiveAndEnabled ||
+                !view.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(attachPointId))
+            {
+                if (view.TryGetVfxAttachPoint(attachPointId, out var attachPoint) &&
+                    attachPoint != null)
+                {
+                    parent = attachPoint;
+                    return true;
+                }
+
+                CountMissingExplicitAttachPointOnce(key, view, attachPointId);
+                return false;
+            }
+
+            parent = view.ModelRoot != null ? view.ModelRoot : view.transform;
+            return parent != null;
+        }
+
+        private void CountMissingExplicitAttachPointOnce(
+            AttachedVfxFollowerKey key,
+            GameplayEntityView view,
+            string attachPointId)
+        {
+            if (!missingExplicitAttachPointKeys.Add(key))
+            {
+                return;
+            }
+
+            UnityEngine.Debug.LogWarning(
+                $"VFX attach point '{attachPointId.Trim()}' not found on entity view '{view.name}'. Cue='{FormatCue(key.CueId)}'. The follower will not be spawned.",
+                view);
+        }
+
+        private static string FormatCue(GameplayVfxCueId cueId)
+        {
+            if (cueId.Family == GameplayVfxFamily.Enemy &&
+                Enum.IsDefined(typeof(EnemyVfxCue), cueId.Code))
+            {
+                return ((EnemyVfxCue)cueId.Code).ToString();
+            }
+
+            return cueId.ToString();
+        }
+
         private void PruneMissingKeyState()
         {
             missingMotionBindingKeys.RemoveWhere(key => !desiredMotionKeys.Contains(key));
             missingMotionOwnerViewKeys.RemoveWhere(key => !desiredMotionKeys.Contains(key));
             missingAttachedBindingKeys.RemoveWhere(key => !desiredAttachedKeys.Contains(key));
             missingAttachedOwnerViewKeys.RemoveWhere(key => !desiredAttachedKeys.Contains(key));
+            missingExplicitAttachPointKeys.RemoveWhere(key => !desiredAttachedKeys.Contains(key));
         }
 
         private void ClearMissingKeyState()
@@ -575,6 +652,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             missingMotionOwnerViewKeys.Clear();
             missingAttachedBindingKeys.Clear();
             missingAttachedOwnerViewKeys.Clear();
+            missingExplicitAttachPointKeys.Clear();
             motionStopBuffer.Clear();
             attachedStopBuffer.Clear();
             explicitAttachedStopKeys.Clear();

@@ -1318,6 +1318,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         None = 0,
         LockNearbyBoxes = 1,
+        GravityFieldAura = 2,
     }
 
     public enum EnemyUtilityPresentationPhase
@@ -1325,6 +1326,7 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         WindupStarted = 1,
         RecoverStarted = 2,
+        ActiveStarted = 3,
     }
 
     public readonly struct TickEnemyUtilityPresentationSignal
@@ -1364,6 +1366,100 @@ namespace Game.Feature.Gameplay.Loop
         public int EffectIndex { get; }
 
         public int ActivationSequence { get; }
+    }
+
+    public readonly struct TickEnemyUtilityCooldownPresentationSignal
+    {
+        public TickEnemyUtilityCooldownPresentationSignal(
+            int entityId,
+            EnemyUtilityPresentationKind kind,
+            int cooldownTicksRemaining,
+            int cooldownTicksTotal,
+            int effectIndex = 0,
+            int activationSequence = 0)
+        {
+            EntityId = entityId;
+            Kind = kind;
+            CooldownTicksRemaining = Math.Max(0, cooldownTicksRemaining);
+            CooldownTicksTotal = Math.Max(CooldownTicksRemaining, cooldownTicksTotal);
+            EffectIndex = effectIndex;
+            ActivationSequence = Math.Max(0, activationSequence);
+        }
+
+        public int EntityId { get; }
+
+        public EnemyUtilityPresentationKind Kind { get; }
+
+        public int CooldownTicksRemaining { get; }
+
+        public int CooldownTicksTotal { get; }
+
+        public int EffectIndex { get; }
+
+        public int ActivationSequence { get; }
+    }
+
+    public readonly struct TickEnemyGravityFieldAuraVisualState
+    {
+        public TickEnemyGravityFieldAuraVisualState(
+            int entityId,
+            SurfaceCell cell,
+            EnemyUtilityEffectPhase phase,
+            int radius,
+            int timerTicks,
+            int durationTicks,
+            float progress01,
+            int effectIndex,
+            int activationSequence,
+            GravityFieldAreaFootprint areaFootprint,
+            bool startedThisTick)
+        {
+            EntityId = entityId;
+            Cell = cell;
+            Phase = phase;
+            Radius = Math.Max(0, radius);
+            TimerTicks = Math.Max(0, timerTicks);
+            DurationTicks = Math.Max(TimerTicks, durationTicks);
+            Progress01 = Clamp01(progress01);
+            EffectIndex = Math.Max(0, effectIndex);
+            ActivationSequence = Math.Max(0, activationSequence);
+            AreaFootprint = areaFootprint;
+            StartedThisTick = startedThisTick;
+        }
+
+        public int EntityId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public EnemyUtilityEffectPhase Phase { get; }
+
+        public int Radius { get; }
+
+        public int TimerTicks { get; }
+
+        public int DurationTicks { get; }
+
+        public float Progress01 { get; }
+
+        public int EffectIndex { get; }
+
+        public int ActivationSequence { get; }
+
+        public GravityFieldAreaFootprint AreaFootprint { get; }
+
+        public IReadOnlyList<SurfaceCell> AreaCells => AreaFootprint.AreaCells;
+
+        public bool StartedThisTick { get; }
+
+        private static float Clamp01(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
     }
 
     public enum TickEnemyJumpPresentationOutcome
@@ -2012,6 +2108,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEnemyChargePresentationSignal> _enemyChargeSignals;
         private readonly ReadOnlyCollection<TickEnemyGlidePresentationSignal> _enemyGlideSignals;
         private readonly ReadOnlyCollection<TickEnemyUtilityPresentationSignal> _enemyUtilitySignals;
+        private readonly ReadOnlyCollection<TickEnemyUtilityCooldownPresentationSignal> _enemyUtilityCooldownSignals;
+        private readonly ReadOnlyCollection<TickEnemyGravityFieldAuraVisualState> _enemyGravityFieldAuraVisualStates;
         private readonly ReadOnlyCollection<TickForwardCellImpactPresentationSignal> _forwardCellImpactSignals;
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
@@ -2374,6 +2472,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals = null,
+            IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
@@ -2503,6 +2603,12 @@ namespace Game.Feature.Gameplay.Loop
             _enemyUtilitySignals = new ReadOnlyCollection<TickEnemyUtilityPresentationSignal>(
                 new List<TickEnemyUtilityPresentationSignal>(
                     enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>()));
+            _enemyUtilityCooldownSignals = new ReadOnlyCollection<TickEnemyUtilityCooldownPresentationSignal>(
+                new List<TickEnemyUtilityCooldownPresentationSignal>(
+                    enemyUtilityCooldownSignals ?? Array.Empty<TickEnemyUtilityCooldownPresentationSignal>()));
+            _enemyGravityFieldAuraVisualStates = new ReadOnlyCollection<TickEnemyGravityFieldAuraVisualState>(
+                new List<TickEnemyGravityFieldAuraVisualState>(
+                    enemyGravityFieldAuraVisualStates ?? Array.Empty<TickEnemyGravityFieldAuraVisualState>()));
             _forwardCellImpactSignals = new ReadOnlyCollection<TickForwardCellImpactPresentationSignal>(
                 new List<TickForwardCellImpactPresentationSignal>(
                     forwardCellImpactSignals ?? Array.Empty<TickForwardCellImpactPresentationSignal>()));
@@ -2557,6 +2663,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals = null,
+            IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
@@ -2584,6 +2692,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerActionAttemptSignals: playerActionAttemptSignals,
                 boxSlideStopSignals: boxSlideStopSignals,
                 enemyUtilitySignals: enemyUtilitySignals,
+                enemyUtilityCooldownSignals: enemyUtilityCooldownSignals,
+                enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
@@ -2653,6 +2763,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals = null,
+            IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
@@ -2684,6 +2796,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerActionAttemptSignals: playerActionAttemptSignals,
                 boxSlideStopSignals: boxSlideStopSignals,
                 enemyUtilitySignals: enemyUtilitySignals,
+                enemyUtilityCooldownSignals: enemyUtilityCooldownSignals,
+                enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
@@ -2731,6 +2845,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
             IEnumerable<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
+            IEnumerable<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals = null,
+            IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
@@ -2763,6 +2879,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerActionAttemptSignals: playerActionAttemptSignals,
                 boxSlideStopSignals: boxSlideStopSignals,
                 enemyUtilitySignals: enemyUtilitySignals,
+                enemyUtilityCooldownSignals: enemyUtilityCooldownSignals,
+                enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
@@ -2840,6 +2958,12 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyGlidePresentationSignal> EnemyGlideSignals => _enemyGlideSignals;
 
         public IReadOnlyList<TickEnemyUtilityPresentationSignal> EnemyUtilitySignals => _enemyUtilitySignals;
+
+        public IReadOnlyList<TickEnemyUtilityCooldownPresentationSignal> EnemyUtilityCooldownSignals =>
+            _enemyUtilityCooldownSignals;
+
+        public IReadOnlyList<TickEnemyGravityFieldAuraVisualState> EnemyGravityFieldAuraVisualStates =>
+            _enemyGravityFieldAuraVisualStates;
 
         public IReadOnlyList<TickForwardCellImpactPresentationSignal> ForwardCellImpactSignals =>
             _forwardCellImpactSignals;
