@@ -242,6 +242,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeaturePlanner_DestroyActiveState_CreatesStyledPersistentLaserActiveLoop()
+        {
+            var planner = new TileFeatureVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var frontCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var bottomCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var presentationData = CreatePresentationData(
+                tileFeatureActiveVisualStates: new[]
+                {
+                    new TileFeatureActiveVisualState(
+                        901,
+                        frontCell,
+                        TileFeatureKind.Destroy,
+                        sourceEntityId: 10,
+                        ownerEntityId: 0,
+                        teamId: 1),
+                    new TileFeatureActiveVisualState(
+                        902,
+                        bottomCell,
+                        TileFeatureKind.Destroy,
+                        sourceEntityId: 11,
+                        ownerEntityId: 0,
+                        teamId: 1),
+                });
+            var context = new GameplayVfxPlanningContext(
+                12,
+                presentationData,
+                new CubeTopologyState(FaceId.Floor),
+                tileFeatureVfxStyleBindings: new[]
+                {
+                    new TileFeatureVfxStyleBinding(901, VfxStyleKey.Red),
+                    new TileFeatureVfxStyleBinding(902, VfxStyleKey.Blue),
+                });
+
+            planner.Plan(context, builder);
+            var requests = builder.Build().Requests.OrderBy(request => request.PersistentKey.TileId).ToArray();
+
+            Assert.That(requests, Has.Length.EqualTo(2));
+            Assert.That(requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
+            Assert.That(requests[0].IsPersistent, Is.True);
+            Assert.That(requests[0].PersistentKey.TileId, Is.EqualTo(901));
+            Assert.That(requests[0].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
+            Assert.That(requests[0].StyleKey, Is.EqualTo(VfxStyleKey.Red));
+            Assert.That(requests[1].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
+            Assert.That(requests[1].IsPersistent, Is.True);
+            Assert.That(requests[1].PersistentKey.TileId, Is.EqualTo(902));
+            Assert.That(requests[1].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
+            Assert.That(requests[1].StyleKey, Is.EqualTo(VfxStyleKey.Blue));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeaturePlanner_VisibleButtonState_CreatesStyledPersistentButtonVisibleLoopAtCellFloor()
         {
             var planner = new TileFeatureVfxRequestPlanner();
@@ -392,6 +444,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeatureDestroySpark_Binding.asset");
             var laserBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeatureDestroyLaserActive_Binding.asset");
+            var redLaserBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeatureDestroyLaserActive_Red_Binding.asset");
+            var blueLaserBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeatureDestroyLaserActive_Blue_Binding.asset");
             var barricadeBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_BarricadeActiveLoop_Binding.asset");
             var greenButtonBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
@@ -408,6 +464,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(cueMap, Is.Not.Null);
             Assert.That(sparkBinding, Is.Not.Null);
             Assert.That(laserBinding, Is.Not.Null);
+            Assert.That(redLaserBinding, Is.Not.Null);
+            Assert.That(blueLaserBinding, Is.Not.Null);
             Assert.That(barricadeBinding, Is.Not.Null);
             Assert.That(greenButtonBinding, Is.Not.Null);
             Assert.That(yellowButtonBinding, Is.Not.Null);
@@ -416,6 +474,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(exitOpenLoopBinding, Is.Not.Null);
             Assert.That(sparkBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered)));
             Assert.That(laserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
+            Assert.That(redLaserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
+            Assert.That(blueLaserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
             Assert.That(barricadeBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop)));
             Assert.That(greenButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
             Assert.That(yellowButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
@@ -430,10 +490,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(yellowButtonBinding.StyleKey, Is.EqualTo(VfxStyleKey.Yellow));
             Assert.That(greenButtonVisibleBinding.StyleKey, Is.EqualTo(VfxStyleKey.Green));
             Assert.That(yellowButtonVisibleBinding.StyleKey, Is.EqualTo(VfxStyleKey.Yellow));
+            Assert.That(redLaserBinding.StyleKey, Is.EqualTo(VfxStyleKey.Red));
+            Assert.That(blueLaserBinding.StyleKey, Is.EqualTo(VfxStyleKey.Blue));
             Assert.That(sparkBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(sparkBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
             Assert.That(laserBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
             Assert.That(laserBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            AssertDestroyLaserActiveLoopBinding(redLaserBinding);
+            AssertDestroyLaserActiveLoopBinding(blueLaserBinding);
             Assert.That(barricadeBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
             Assert.That(barricadeBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             AssertButtonActiveLoopBinding(greenButtonBinding);
@@ -447,6 +511,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var runtimeMap = cueMap.BuildRuntimeMap();
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), VfxStyleKey.Red, out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), VfxStyleKey.Blue, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Green, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Yellow, out _), Is.True);
@@ -455,6 +521,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonVisibleLoop), VfxStyleKey.Yellow, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonVisibleLoop), VfxStyleKey.Default, out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpenLoop), out _), Is.True);
+
+            var tileFeatureCatalog = ReadRepoFile(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CombinedGameplayShowcase.asset");
+            Assert.That(tileFeatureCatalog, Does.Contain("presentationKey: destroy.front"));
+            Assert.That(tileFeatureCatalog, Does.Contain("value: Red"));
+            Assert.That(tileFeatureCatalog, Does.Contain("presentationKey: destroy.bottom"));
+            Assert.That(tileFeatureCatalog, Does.Contain("value: Blue"));
         }
 
         [Test]
@@ -537,6 +610,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.TailSeconds, Is.EqualTo(0.3f));
             Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
             Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(32));
+        }
+
+        private static void AssertDestroyLaserActiveLoopBinding(VfxBindingDefinitionAsset binding)
+        {
+            Assert.That(binding.Prefab, Is.Not.Null);
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            Assert.That(binding.DefaultLifetimeSeconds, Is.Zero);
+            Assert.That(binding.TailSeconds, Is.EqualTo(0.25f));
+            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
+            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(16));
         }
 
         private static void AssertOneShotBinding(

@@ -282,6 +282,45 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StagePresentationAssembler_DestroyTileVfxStyleFollowsActivationRule()
+        {
+            var prefab = CreateValidPrefab("DestroyActivationStylePrefab");
+            var stage = CreateStage(
+                CreateTileFeature(
+                    100,
+                    TileFeatureKind.Destroy,
+                    string.Empty,
+                    activationRule: TileFeatureActivationRule.FrontFaceOnly),
+                CreateTileFeature(
+                    101,
+                    TileFeatureKind.Destroy,
+                    string.Empty,
+                    activationRule: TileFeatureActivationRule.BottomFaceOnly));
+            var catalog = CreateCatalog(Entry(
+                "destroy.default",
+                TileFeatureKind.Destroy,
+                prefab,
+                isDefault: true));
+            var presentation = CreatePresentation(catalog);
+
+            try
+            {
+                var resolved = StagePresentationAssembler.Resolve(stage, presentation)
+                    .TileFeatureBindings
+                    .OrderBy(binding => binding.TileId)
+                    .ToArray();
+
+                Assert.That(resolved, Has.Length.EqualTo(2));
+                Assert.That(resolved[0].VfxStyleKey, Is.EqualTo(VfxStyleKey.Red));
+                Assert.That(resolved[1].VfxStyleKey, Is.EqualTo(VfxStyleKey.Blue));
+            }
+            finally
+            {
+                DestroyObjects(stage, presentation, catalog, prefab);
+            }
+        }
+
+        [Test]
         public void StagePresentationAssembler_ResolvesTileFeaturePlacementModeFromCatalog()
         {
             var prefab = CreateValidPrefab("CatalogPlacementModePrefab");
@@ -1242,16 +1281,17 @@ namespace Game.Feature.Stages.Editor.Tests
             int tileId,
             TileFeatureKind kind,
             string presentationKey,
-            SurfaceCell? cell = null)
+            SurfaceCell? cell = null,
+            TileFeatureActivationRule? activationRule = null)
         {
             return new StageTileFeatureDefinition
             {
                 TileId = tileId,
                 Cell = cell ?? new SurfaceCell(FaceId.Floor, 1, 1),
                 Kind = kind,
-                ActivationRule = kind == TileFeatureKind.Slide
+                ActivationRule = activationRule ?? (kind == TileFeatureKind.Slide
                     ? TileFeatureActivationRule.FrontFaceOnly
-                    : TileFeatureActivationRule.BottomFaceOnly,
+                    : TileFeatureActivationRule.BottomFaceOnly),
                 Direction = kind == TileFeatureKind.Slide ? Direction2D.Right : Direction2D.None,
                 BoxSelector = kind == TileFeatureKind.Button
                     ? TileFeatureBoxSelector.AnyPushableBox

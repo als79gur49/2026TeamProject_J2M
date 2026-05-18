@@ -915,7 +915,10 @@ namespace Game.Feature.Gameplay.Vfx
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation,
                         isPersistent: true,
-                        persistentKey: persistentKey));
+                        persistentKey: persistentKey,
+                        styleKey: ResolveTileFeatureStyleKey(
+                            context.TileFeatureVfxStyleBindings,
+                            activeVisualState.TileId)));
             }
         }
 

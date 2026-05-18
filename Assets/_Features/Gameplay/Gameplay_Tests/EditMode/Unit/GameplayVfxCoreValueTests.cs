@@ -265,7 +265,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builder = new GameplayVfxRequestPlanBuilder();
 
             new TileFeatureVfxRequestPlanner().Plan(
-                new GameplayVfxPlanningContext(21, data, topology),
+                new GameplayVfxPlanningContext(
+                    21,
+                    data,
+                    topology,
+                    tileFeatureVfxStyleBindings: new[]
+                    {
+                        new TileFeatureVfxStyleBinding(100, VfxStyleKey.Blue),
+                    }),
                 builder);
             var request = builder.Build().Requests.Single();
             var expectedCueId = GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive);
@@ -282,10 +289,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
             Assert.That(request.Anchor.Cell, Is.EqualTo(cell));
             Assert.That(request.SourceEntityId, Is.EqualTo(10));
+            Assert.That(request.StyleKey, Is.EqualTo(VfxStyleKey.Blue));
 
             var secondBuilder = new GameplayVfxRequestPlanBuilder();
             new TileFeatureVfxRequestPlanner().Plan(
-                new GameplayVfxPlanningContext(22, data, topology),
+                new GameplayVfxPlanningContext(
+                    22,
+                    data,
+                    topology,
+                    tileFeatureVfxStyleBindings: new[]
+                    {
+                        new TileFeatureVfxStyleBinding(100, VfxStyleKey.Blue),
+                    }),
                 secondBuilder);
 
             Assert.That(secondBuilder.Build().Requests.Single().PersistentKey, Is.EqualTo(request.PersistentKey));
