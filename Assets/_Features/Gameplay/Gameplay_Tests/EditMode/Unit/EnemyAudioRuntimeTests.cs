@@ -590,6 +590,141 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAudioRequestPlanner_ForwardCellImpact_EmitsProjectileImpactCueForSourceEnemy()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                forwardCellImpactSignals: new[]
+                {
+                    new TickForwardCellImpactPresentationSignal(
+                        impactId: 100,
+                        presentationKey: 100,
+                        ownerId: 20,
+                        sourceEnemyId: 20,
+                        targetCell: targetCell,
+                        direction: Direction.Right,
+                        hit: true,
+                        targetEntityId: 10),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.ProjectileImpact) }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_GravityFieldAuraPhases_EmitWindupAndActiveCues()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyUtilitySignals: new[]
+                {
+                    new TickEnemyUtilityPresentationSignal(
+                        30,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.WindupStarted,
+                        startTick: 1,
+                        executeTick: 2,
+                        durationTicks: 1),
+                    new TickEnemyUtilityPresentationSignal(
+                        30,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.ActiveStarted,
+                        startTick: 2,
+                        executeTick: 4,
+                        durationTicks: 2),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (30, EnemyAudioCue.Windup), (30, EnemyAudioCue.Active) }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_ChargeActiveStart_EmitsActiveCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyChargeSignals: new[]
+                {
+                    new TickEnemyChargePresentationSignal(
+                        40,
+                        sequence: 1,
+                        EnemyChargePhase.Active,
+                        startedWindupThisTick: false,
+                        startedActiveThisTick: true,
+                        startedRecoverThisTick: false,
+                        lockedDirection: Direction.Right),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (40, EnemyAudioCue.Active) }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_GlidePhaseStarts_EmitWindupActiveAndRecoverCues()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyGlideSignals: new[]
+                {
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Windup, phaseElapsedTicks: 0),
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Active, phaseElapsedTicks: 0),
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Active, phaseElapsedTicks: 1),
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Recovery, phaseElapsedTicks: 0),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (60, EnemyAudioCue.Windup),
+                    (60, EnemyAudioCue.Active),
+                    (60, EnemyAudioCue.Recover),
+                }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_ActionRecoveryStart_EmitsRecoverCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    new TickEnemyActionPresentationSignal(
+                        50,
+                        EnemyActionKind.Melee,
+                        activeActionSequence: 1,
+                        startedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: false,
+                        startedRecoveryThisTick: true),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (50, EnemyAudioCue.Recover) }));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAudioProfile_ValidateOrThrow_RejectsInvalidEntries()
         {
             using var duplicateProfile = CreateEnemyAudioProfile(
@@ -676,6 +811,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Full")]
+        public void BlackEyeAudioProfile_UsesActForActiveAndPlasmaForProjectileImpact()
+        {
+            const string path =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_BlackEye.asset";
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(path);
+
+            Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{path}'.");
+            Assert.That(profile.HasCue(EnemyAudioCue.Windup), Is.False);
+            Assert.That(profile.HasCue(EnemyAudioCue.Active), Is.True);
+            Assert.That(profile.HasCue(EnemyAudioCue.ProjectileImpact), Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void DrSaturnAudioProfile_MoveRandomizesMoveAndActClips()
+        {
+            const string profilePath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_LockNearbyBoxesDrS.asset";
+            const string moveClipPath =
+                "Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Dr.saturn_move.wav";
+            const string actClipPath =
+                "Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Dr.saturn_act.wav";
+
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(profilePath);
+            var moveClip = AssetDatabase.LoadAssetAtPath<AudioClip>(moveClipPath);
+            var actClip = AssetDatabase.LoadAssetAtPath<AudioClip>(actClipPath);
+
+            Assert.That(profile, Is.Not.Null, $"Missing Dr.Saturn audio profile at '{profilePath}'.");
+            Assert.That(moveClip, Is.Not.Null, $"Missing Dr.Saturn move clip at '{moveClipPath}'.");
+            Assert.That(actClip, Is.Not.Null, $"Missing Dr.Saturn act clip at '{actClipPath}'.");
+            Assert.That(profile.TryResolve(EnemyAudioCue.Move, out var moveBinding), Is.True);
+            Assert.That(moveBinding.Definition, Is.TypeOf<RandomAudioDefinition>());
+
+            var definitionObject = new SerializedObject(moveBinding.Definition);
+            var clipsProperty = definitionObject.FindProperty("clips");
+
+            Assert.That(clipsProperty, Is.Not.Null);
+            Assert.That(clipsProperty.arraySize, Is.EqualTo(2));
+            Assert.That(
+                ResolveRandomDefinitionClips(clipsProperty),
+                Is.EquivalentTo(new[] { moveClip, actClip }));
+        }
+
         private static IReadOnlyList<EnemyPrefabExpectation> PrefabExpectations()
         {
             return new[]
@@ -692,13 +872,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_BlackEye.prefab",
                     EnemyAudioCue.Move,
-                    EnemyAudioCue.Windup,
                     EnemyAudioCue.Active,
+                    EnemyAudioCue.ProjectileImpact,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_DrSaturn.prefab",
                     EnemyAudioCue.Move,
                     EnemyAudioCue.Windup,
+                    EnemyAudioCue.Active,
                     EnemyAudioCue.Recover,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
@@ -709,6 +890,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_Startis.prefab",
                     EnemyAudioCue.Move,
+                    EnemyAudioCue.Death),
+                new EnemyPrefabExpectation(
+                    $"{EnemyPrefabRoot}/EnemyView_Nebulous.prefab",
+                    EnemyAudioCue.Move,
+                    EnemyAudioCue.Windup,
+                    EnemyAudioCue.Active,
+                    EnemyAudioCue.Recover,
+                    EnemyAudioCue.Death),
+                new EnemyPrefabExpectation(
+                    $"{EnemyPrefabRoot}/EnemyView_RocketFace.prefab",
+                    EnemyAudioCue.Move,
+                    EnemyAudioCue.Active,
                     EnemyAudioCue.Death),
             };
         }
@@ -770,12 +963,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickEntityMotion> entityMotions = null,
             IReadOnlyList<TickEnemyActionPresentationSignal> enemyActionSignals = null,
             IReadOnlyList<TickEnemyJumpPresentationSignal> enemyJumpSignals = null,
+            IReadOnlyList<TickEnemyChargePresentationSignal> enemyChargeSignals = null,
             IReadOnlyList<TickEnemyUtilityPresentationSignal> enemyUtilitySignals = null,
             IReadOnlyList<TickSummonWindupWarningSignal> summonWindupWarnings = null,
             IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals = null,
             IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks = null,
             IReadOnlyList<TickVisibilityChange> visibilityChanges = null,
-            IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null)
+            IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null,
+            IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
+            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -789,14 +985,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals ?? Array.Empty<TickEnemyActionPresentationSignal>(),
                 enemyJumpSignals ?? Array.Empty<TickEnemyJumpPresentationSignal>(),
-                Array.Empty<TickEnemyChargePresentationSignal>(),
+                enemyChargeSignals ?? Array.Empty<TickEnemyChargePresentationSignal>(),
                 entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
                 impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
                 summonedEnemyPresentationBindings: summonedEnemyPresentationBindings ?? Array.Empty<TickSummonedEnemyPresentationBinding>(),
                 summonWindupWarnings: summonWindupWarnings ?? Array.Empty<TickSummonWindupWarningSignal>(),
                 kinematicMotionTracks: kinematicMotionTracks ?? Array.Empty<TickKinematicMotionTrack>(),
-                enemyUtilitySignals: enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>());
+                enemyUtilitySignals: enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>(),
+                forwardCellImpactSignals: forwardCellImpactSignals ?? Array.Empty<TickForwardCellImpactPresentationSignal>(),
+                enemyGlideSignals: enemyGlideSignals ?? Array.Empty<TickEnemyGlidePresentationSignal>());
+        }
+
+        private static TickEnemyGlidePresentationSignal CreateGlideSignal(
+            int entityId,
+            SurfaceCell anchorCell,
+            EnemyGlidePhase phase,
+            int phaseElapsedTicks)
+        {
+            return new TickEnemyGlidePresentationSignal(
+                entityId,
+                anchorCell,
+                phase,
+                sequence: 1,
+                phaseElapsedTicks,
+                phaseTotalTicks: 2,
+                normalizedPhaseProgress: phaseElapsedTicks == 0 ? 0f : 0.5f,
+                liftHeightUnits: 1024,
+                recoveryDipHeightUnits: 0,
+                currentHeightUnits: phase == EnemyGlidePhase.Active ? 1024 : 0,
+                isAirborneVisual: phase == EnemyGlidePhase.Active,
+                isLandingPending: false,
+                isTerminalZero: false);
+        }
+
+        private static AudioClip[] ResolveRandomDefinitionClips(SerializedProperty clipsProperty)
+        {
+            var clips = new AudioClip[clipsProperty.arraySize];
+            for (var i = 0; i < clipsProperty.arraySize; i++)
+            {
+                clips[i] = clipsProperty
+                    .GetArrayElementAtIndex(i)
+                    .FindPropertyRelative("Clip")
+                    .objectReferenceValue as AudioClip;
+            }
+
+            return clips;
         }
 
         private static TickKinematicMotionTrack CreateKinematicTrack(

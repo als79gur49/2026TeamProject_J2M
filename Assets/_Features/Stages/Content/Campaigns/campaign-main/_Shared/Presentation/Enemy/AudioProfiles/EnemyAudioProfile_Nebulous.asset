@@ -10,38 +10,46 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ab64c1bee5254184a7440f8826bf4d84, type: 3}
-  m_Name: EnemyAudioProfile_BlackEye
+  m_Name: EnemyAudioProfile_Nebulous
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioProfile
   entries:
   - Cue: 1
     Binding:
-      definition: {fileID: 11400000, guid: a3dfdd109d9e419395abcf2213af05a2, type: 2}
+      definition: {fileID: 11400000, guid: bb62dcd26e754f2d8cc6e25164303828, type: 2}
       attachmentSlot:
-        id: 
+        id:
+      policy:
+        rid: -2
+    IsOptional: 0
+  - Cue: 3
+    Binding:
+      definition: {fileID: 11400000, guid: ad6c48bf5fe243288129db110d851bd1, type: 2}
+      attachmentSlot:
+        id:
       policy:
         rid: -2
     IsOptional: 0
   - Cue: 5
     Binding:
-      definition: {fileID: 11400000, guid: 3c6807c29028408ba9bf48d9c12f01ea, type: 2}
+      definition: {fileID: 11400000, guid: 5b21a8a1fe2b49ff917cb5beda810d33, type: 2}
       attachmentSlot:
-        id: 
+        id:
       policy:
         rid: -2
     IsOptional: 0
-  - Cue: 7
+  - Cue: 6
     Binding:
-      definition: {fileID: 11400000, guid: fe90589f5038483e95b02678acd606cb, type: 2}
+      definition: {fileID: 11400000, guid: 225b043a5f564b97a9b239cc5ec35677, type: 2}
       attachmentSlot:
-        id: 
+        id:
       policy:
         rid: -2
     IsOptional: 0
   - Cue: 2
     Binding:
-      definition: {fileID: 11400000, guid: 857bf52e0f8d47dd9d57a33e73b5ecf6, type: 2}
+      definition: {fileID: 11400000, guid: 7db3229edffb49fab31a82df7ee13ae5, type: 2}
       attachmentSlot:
-        id: 
+        id:
       policy:
         rid: -2
     IsOptional: 0

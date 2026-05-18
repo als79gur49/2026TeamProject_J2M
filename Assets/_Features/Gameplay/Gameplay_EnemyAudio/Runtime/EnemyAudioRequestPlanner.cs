@@ -26,6 +26,9 @@ namespace Game.Feature.Gameplay.EnemyAudio
             BuildUtilityRequests(result.PresentationData, requests);
             BuildSummonRequests(result.PresentationData, requests);
             BuildJumpRequests(result.PresentationData, requests);
+            BuildGlideRequests(result.PresentationData, requests);
+            BuildChargeRequests(result.PresentationData, requests);
+            BuildProjectileImpactRequests(result.PresentationData, requests);
             BuildDeathRequests(result.PresentationData, timingProfile, requests);
             return requests;
         }
@@ -117,6 +120,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 var signal = signals[i];
                 AddRequestIf(signal.EntityId, EnemyAudioCue.Windup, signal.StartedThisTick, requests);
                 AddRequestIf(signal.EntityId, EnemyAudioCue.Active, signal.ExecutedThisTick, requests);
+                AddRequestIf(signal.EntityId, EnemyAudioCue.Recover, signal.StartedRecoveryThisTick, requests);
             }
         }
 
@@ -131,13 +135,21 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 AddRequestIf(
                     signal.EntityId,
                     EnemyAudioCue.Windup,
-                    signal.Phase == EnemyUtilityPresentationPhase.WindupStarted,
+                    signal.Phase == EnemyUtilityPresentationPhase.WindupStarted &&
+                    (signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
+                     signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura),
                     requests);
                 AddRequestIf(
                     signal.EntityId,
                     EnemyAudioCue.Recover,
                     signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes &&
                     signal.Phase == EnemyUtilityPresentationPhase.RecoverStarted,
+                    requests);
+                AddRequestIf(
+                    signal.EntityId,
+                    EnemyAudioCue.Active,
+                    signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura &&
+                    signal.Phase == EnemyUtilityPresentationPhase.ActiveStarted,
                     requests);
             }
         }
@@ -205,6 +217,62 @@ namespace Game.Feature.Gameplay.EnemyAudio
             {
                 var signal = signals[i];
                 AddRequestIf(signal.EntityId, EnemyAudioCue.Landing, signal.LandedThisTick, requests);
+            }
+        }
+
+        private static void BuildGlideRequests(
+            TickPresentationData presentationData,
+            ICollection<EnemyAudioRequest> requests)
+        {
+            var signals = presentationData.EnemyGlideSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.PhaseElapsedTicks != 0)
+                {
+                    continue;
+                }
+
+                switch (signal.Phase)
+                {
+                    case EnemyGlidePhase.Windup:
+                        AddRequest(signal.EntityId, EnemyAudioCue.Windup, requests);
+                        break;
+                    case EnemyGlidePhase.Active:
+                        AddRequest(signal.EntityId, EnemyAudioCue.Active, requests);
+                        break;
+                    case EnemyGlidePhase.Recovery:
+                        AddRequest(signal.EntityId, EnemyAudioCue.Recover, requests);
+                        break;
+                }
+            }
+        }
+
+        private static void BuildChargeRequests(
+            TickPresentationData presentationData,
+            ICollection<EnemyAudioRequest> requests)
+        {
+            var signals = presentationData.EnemyChargeSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                AddRequestIf(signal.EntityId, EnemyAudioCue.Active, signal.StartedActiveThisTick, requests);
+            }
+        }
+
+        private static void BuildProjectileImpactRequests(
+            TickPresentationData presentationData,
+            ICollection<EnemyAudioRequest> requests)
+        {
+            var signals = presentationData.ForwardCellImpactSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                AddRequestIf(
+                    signal.SourceEnemyId,
+                    EnemyAudioCue.ProjectileImpact,
+                    signal.SourceEnemyId > 0,
+                    requests);
             }
         }
 

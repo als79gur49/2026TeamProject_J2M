@@ -23,9 +23,17 @@ MonoBehaviour:
     IsOptional: 0
   - Cue: 3
     Binding:
-      definition: {fileID: 11400000, guid: 5646112bb2e343d18745567c3ba5ec6a, type: 2}
+      definition: {fileID: 11400000, guid: 717cadf68a3a41a991ceab6c8df98d31, type: 2}
       attachmentSlot:
         id: 
+      policy:
+        rid: -2
+    IsOptional: 0
+  - Cue: 5
+    Binding:
+      definition: {fileID: 11400000, guid: b6e6185758ca44e28c1f2534e1aa2ce9, type: 2}
+      attachmentSlot:
+        id:
       policy:
         rid: -2
     IsOptional: 0
