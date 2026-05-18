@@ -24,6 +24,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxFlipImpactStayTrail = true;
         [SerializeField] private bool enableGameplayVfxGlideWindTrail = true;
         [SerializeField] private bool enableGameplayVfxChargeBoosterTrail = true;
+        [SerializeField] private bool enableGameplayVfxEnemyWeaponWindupAura = true;
+        [SerializeField] private bool enableGameplayVfxEnemyUtilityCooldownAura = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideSolidStop = true;
         [SerializeField] private bool enableGameplayVfxImpactTransientBreakMigration = true;
@@ -323,6 +325,46 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     var cueId = GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail);
                     enemyMotionAttachedFollowerPlanner.RemoveCue(cueId);
                     motionFollowingVfxController.StopAttachedFollowersForCue(cueId, tail: true);
+                }
+
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxEnemyWeaponWindupAura
+        {
+            get => enableGameplayVfxEnemyWeaponWindupAura;
+            set
+            {
+                if (enableGameplayVfxEnemyWeaponWindupAura == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxEnemyWeaponWindupAura = value;
+                if (!value)
+                {
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura), tail: true);
+                }
+
+                ResetIfNoGameplayVfxEnabled();
+            }
+        }
+
+        public bool EnableGameplayVfxEnemyUtilityCooldownAura
+        {
+            get => enableGameplayVfxEnemyUtilityCooldownAura;
+            set
+            {
+                if (enableGameplayVfxEnemyUtilityCooldownAura == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxEnemyUtilityCooldownAura = value;
+                if (!value)
+                {
+                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura), tail: true);
                 }
 
                 ResetIfNoGameplayVfxEnabled();
@@ -662,7 +704,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enableGameplayVfxChargeBoosterTrail,
                 enableGameplayVfxBoxSlideTrail,
                 enableEnemyJumpTargetVfx,
-                context.Result.FinalEntities);
+                context.Result.FinalEntities,
+                context.StateStore?.ViewsByEntityId,
+                enableGameplayVfxEnemyWeaponWindupAura,
+                enableGameplayVfxEnemyUtilityCooldownAura);
             planBuilder.Clear();
             var planningContext = new GameplayVfxPlanningContext(
                 context.Result.TickIndex,
@@ -798,6 +843,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enemyMotionAttachedFollowerPlanner.ExplicitStopKeys,
                 attachedFollowersEnabled: enableGameplayVfxGlideWindTrail ||
                                           enableGameplayVfxChargeBoosterTrail ||
+                                          enableGameplayVfxEnemyWeaponWindupAura ||
+                                          enableGameplayVfxEnemyUtilityCooldownAura ||
                                           enableGameplayVfxBoxSlideTrail ||
                                           enableEnemyJumpTargetVfx);
             flipImpactStayTrailMissingBindingCount = motionFollowingVfxController.MotionMissingBindingCount;
@@ -942,6 +989,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxFlipImpactStayTrail ||
             enableGameplayVfxGlideWindTrail ||
             enableGameplayVfxChargeBoosterTrail ||
+            enableGameplayVfxEnemyWeaponWindupAura ||
+            enableGameplayVfxEnemyUtilityCooldownAura ||
             enableGameplayVfxBoxSlideTrail ||
             enableGameplayVfxBoxSlideSolidStop ||
             enableGameplayVfxImpactTransientBreakMigration ||
@@ -1005,6 +1054,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxFrontFaceShieldActiveMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive)) ||
                    (enableGameplayVfxFrontFaceShieldBlockMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock)) ||
                    (enableGameplayVfxFrontFaceShieldWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup)) ||
+                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraWindupArea)) ||
+                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveArea)) ||
+                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveStarted)) ||
                    (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
                    (enableGameplayVfxBoxDestroyShrinkMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)) ||
                    (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
@@ -1015,6 +1067,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)) ||
                    (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||
+                   (enableGameplayVfxEnemyWeaponWindupAura && cueId == GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura)) ||
+                   (enableGameplayVfxEnemyUtilityCooldownAura && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)) ||
                    (enableGameplayVfxBoxSlideSolidStop && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)) ||
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||

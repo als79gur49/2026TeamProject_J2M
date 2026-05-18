@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.BoardState
         EnemyUtility = 1,
         GravityField = 2,
         MoonBlockGeneratorSpawn = 3,
+        EnemyGravityFieldAura = 4,
     }
 
     public readonly struct BoxInteractionLockState

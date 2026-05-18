@@ -11,15 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
   m_Name: ChargeBoosterTrail_Binding
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   family: 3
   cueCode: 19
+  styleKey:
+    value: 
   prefab: {fileID: 100000, guid: 8b2315e4c5c24b389abce5d8a53271fa, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 2
   stopPolicy: 3
   defaultLifetimeSeconds: 0
-  tailSeconds: 0.25
+  tailSeconds: 1.2
   initialPoolSize: 4
   maxConcurrentInstances: 8

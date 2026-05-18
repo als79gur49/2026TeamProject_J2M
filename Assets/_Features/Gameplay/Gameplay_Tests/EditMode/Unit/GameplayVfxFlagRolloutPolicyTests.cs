@@ -180,6 +180,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Tier 2",
                 "manual visual approval + targeted motion-attached follower regression"),
             new(
+                "EnableGameplayVfxEnemyWeaponWindupAura",
+                "enableGameplayVfxEnemyWeaponWindupAura",
+                "EnemyVfxCue.WeaponWindupAura",
+                "Augmentation / enemy attached follower",
+                "Tier 2",
+                "manual visual approval + targeted motion-attached follower regression"),
+            new(
+                "EnableGameplayVfxEnemyUtilityCooldownAura",
+                "enableGameplayVfxEnemyUtilityCooldownAura",
+                "EnemyVfxCue.UtilityCooldownAura",
+                "Augmentation / enemy attached follower",
+                "Tier 2",
+                "manual visual approval + targeted motion-attached follower regression"),
+            new(
                 "EnableGameplayVfxTileFeatureLane",
                 "enableGameplayVfxTileFeatureLane",
                 "TileFeatureVfxCue.*",

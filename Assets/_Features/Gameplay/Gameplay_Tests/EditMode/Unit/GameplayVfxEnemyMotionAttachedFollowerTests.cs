@@ -12,6 +12,7 @@ using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -34,8 +35,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideWindupLoop_Binding.asset";
         private const string GlideRecoverBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GlideRecoverLoop_Binding.asset";
+        private const string EnemyWeaponWindupAuraBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyWeaponWindupAura_Binding.asset";
+        private const string EnemyUtilityCooldownAuraBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyUtilityCooldownAura_Binding.asset";
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string DrSaturnPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_DrSaturn.prefab";
         private const string ProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
         private const string FollowerPlannerPath =
@@ -72,6 +79,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enableEnemyJumpWindupLoop: true);
 
             Assert.That(planner.DesiredFollowers, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayEntityView_TryGetVfxAttachPoint_FindsNamedAnchor()
+        {
+            var viewObject = new GameObject("AttachPointView");
+            try
+            {
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                var anchor = CreateAttachPoint(view.EnsureModelRoot(), "WeaponAura");
+
+                Assert.That(view.TryGetVfxAttachPoint("WeaponAura", out var point), Is.True);
+                Assert.That(point, Is.EqualTo(anchor));
+                Assert.That(view.TryGetVfxAttachPoint(" WeaponAura ", out point), Is.True);
+                Assert.That(point, Is.EqualTo(anchor));
+            }
+            finally
+            {
+                Destroy(viewObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayEntityView_TryGetVfxAttachPoint_RejectsEmptyId()
+        {
+            var viewObject = new GameObject("AttachPointView");
+            try
+            {
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                CreateAttachPoint(view.EnsureModelRoot(), "WeaponAura");
+
+                Assert.That(view.TryGetVfxAttachPoint(null, out _), Is.False);
+                Assert.That(view.TryGetVfxAttachPoint(string.Empty, out _), Is.False);
+                Assert.That(view.TryGetVfxAttachPoint("   ", out _), Is.False);
+            }
+            finally
+            {
+                Destroy(viewObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayEntityView_TryGetVfxAttachPoint_IgnoresInvalidAttachPoint()
+        {
+            var viewObject = new GameObject("AttachPointView");
+            try
+            {
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                CreateAttachPoint(view.EnsureModelRoot(), " ");
+
+                Assert.That(view.TryGetVfxAttachPoint("WeaponAura", out _), Is.False);
+            }
+            finally
+            {
+                Destroy(viewObject);
+            }
         }
 
         [Test]
@@ -536,6 +602,234 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void WeaponWindupAura_PlannerUsesViewAuthoringOptIn()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.View.gameObject.AddComponent<EnemyWeaponAuraVfxAuthoring>();
+                CreateAttachPoint(fixture.View.ModelRoot, "WeaponAura");
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+
+                planner.Build(
+                    tickIndex: 12,
+                    presentationData: CreatePresentationData(
+                        enemyActionSignals: new[] { CreateEnemyActionSignal(startedThisTick: true) }),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    viewsByEntityId: fixture.StateStore.ViewsByEntityId,
+                    enableEnemyWeaponWindupAura: true);
+
+                Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+                Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura)));
+                Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyWeaponWindupAura));
+                Assert.That(planner.DesiredFollowers[0].AttachPointId, Is.EqualTo("WeaponAura"));
+                Assert.That(
+                    planner.DesiredFollowers[0].RetentionPolicy,
+                    Is.EqualTo(AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WeaponWindupAura_PlannerIgnoresViewsWithoutAuthoring()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                CreateAttachPoint(fixture.View.ModelRoot, "WeaponAura");
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+
+                planner.Build(
+                    tickIndex: 12,
+                    presentationData: CreatePresentationData(
+                        enemyActionSignals: new[] { CreateEnemyActionSignal(startedThisTick: true) }),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    viewsByEntityId: fixture.StateStore.ViewsByEntityId,
+                    enableEnemyWeaponWindupAura: true);
+
+                Assert.That(planner.DesiredFollowers, Is.Empty);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UtilityCooldownAura_PlannerUsesViewAuthoringOptIn()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.View.gameObject.AddComponent<EnemyUtilityCooldownAuraVfxAuthoring>();
+                CreateAttachPoint(fixture.View.ModelRoot, "WeaponAura");
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+
+                planner.Build(
+                    tickIndex: 12,
+                    presentationData: CreatePresentationData(
+                        enemyUtilityCooldownSignals: new[] { CreateUtilityCooldownSignal() }),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    viewsByEntityId: fixture.StateStore.ViewsByEntityId,
+                    enableEnemyUtilityCooldownAura: true);
+
+                Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+                Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura)));
+                Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyUtilityCooldownAura));
+                Assert.That(planner.DesiredFollowers[0].AttachPointId, Is.EqualTo("WeaponAura"));
+                Assert.That(
+                    planner.DesiredFollowers[0].RetentionPolicy,
+                    Is.EqualTo(AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UtilityCooldownAura_PlannerIgnoresViewsWithoutAuthoring()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                CreateAttachPoint(fixture.View.ModelRoot, "WeaponAura");
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+
+                planner.Build(
+                    tickIndex: 12,
+                    presentationData: CreatePresentationData(
+                        enemyUtilityCooldownSignals: new[] { CreateUtilityCooldownSignal() }),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    viewsByEntityId: fixture.StateStore.ViewsByEntityId,
+                    enableEnemyUtilityCooldownAura: true);
+
+                Assert.That(planner.DesiredFollowers, Is.Empty);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionFollowingVfxController_AttachesFollowerToNamedAttachPoint()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                var attachPoint = CreateAttachPoint(fixture.View.ModelRoot, "WeaponAura");
+
+                fixture.RefreshAttached(DesiredWeaponWindupAura());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(attachPoint.childCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+                Assert.That(attachPoint.GetChild(0).parent, Is.EqualTo(attachPoint));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionFollowingVfxController_MissingExplicitAttachPoint_DoesNotFallbackToModelRoot()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "VFX attach point 'WeaponAura' not found on entity view 'EnemyView'. Cue='WeaponWindupAura'. The follower will not be spawned.");
+
+                fixture.RefreshAttached(DesiredWeaponWindupAura());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+                Assert.That(fixture.Controller.AttachedMissingOwnerViewCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PresentationMotionFollowingVfxController_EmptyAttachPointId_KeepsExistingModelRootBehavior()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.GetChild(0).parent, Is.EqualTo(fixture.View.ModelRoot));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void AttachedVfxFollowerKey_IncludesAttachPointId()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura);
+            var body = new AttachedVfxFollowerKey(
+                cueId,
+                40,
+                AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
+                7);
+            var empty = new AttachedVfxFollowerKey(
+                cueId,
+                40,
+                AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
+                7,
+                " ");
+            var weapon = new AttachedVfxFollowerKey(
+                cueId,
+                40,
+                AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
+                7,
+                "WeaponAura");
+            var hand = new AttachedVfxFollowerKey(
+                cueId,
+                40,
+                AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
+                7,
+                "HandAura");
+
+            Assert.That(empty, Is.EqualTo(body));
+            Assert.That(weapon, Is.Not.EqualTo(body));
+            Assert.That(hand, Is.Not.EqualTo(weapon));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Follower_DoesNotRespawnEveryFrame()
         {
             var fixture = CreateFixture();
@@ -914,6 +1208,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop));
+            AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura));
         }
 
         [Test]
@@ -924,6 +1219,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertFollowBinding(JumperWindupBindingPath, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
             AssertFollowBinding(GlideWindupBindingPath, GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop));
             AssertFollowBinding(GlideRecoverBindingPath, GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop));
+            AssertFollowBinding(EnemyWeaponWindupAuraBindingPath, GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura));
+            AssertFollowBinding(EnemyUtilityCooldownAuraBindingPath, GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DrSaturnPrefab_HasWeaponAuraAttachPointAndAuthoring()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(DrSaturnPrefabPath);
+
+            Assert.That(prefab, Is.Not.Null, DrSaturnPrefabPath);
+            Assert.That(prefab.TryGetComponent<EnemyWeaponAuraVfxAuthoring>(out var authoring), Is.True);
+            Assert.That(authoring.AttachPointId, Is.EqualTo("WeaponAura"));
+            Assert.That(prefab.TryGetComponent<EnemyUtilityCooldownAuraVfxAuthoring>(out var cooldownAuthoring), Is.True);
+            Assert.That(cooldownAuthoring.UtilityKind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
+            Assert.That(cooldownAuthoring.AttachPointId, Is.EqualTo("WeaponAura"));
+
+            var attachPoints = prefab.GetComponentsInChildren<GameplayVfxAttachPoint>(true)
+                .Where(point => point != null && point.Id == "WeaponAura")
+                .ToArray();
+            Assert.That(attachPoints, Has.Length.EqualTo(1));
+            var view = prefab.GetComponent<GameplayEntityView>();
+            Assert.That(view.TryGetVfxAttachPoint("WeaponAura", out var point), Is.True);
+            Assert.That(point, Is.EqualTo(attachPoints[0].transform));
+            Assert.That(point.parent, Is.Not.EqualTo(view.ModelRoot));
+            Assert.That(point.parent.name, Is.EqualTo("Blade").Or.EqualTo("R_Hand"));
         }
 
         private static TickPresentationData CreatePresentationData(
@@ -931,6 +1252,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IEnumerable<TickEnemyJumpPresentationSignal> jumpSignals = null,
             IEnumerable<TickEnemyChargePresentationSignal> chargeSignals = null,
             IEnumerable<TickEnemyGlidePresentationSignal> glideSignals = null,
+            IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals = null,
+            IEnumerable<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals = null,
             IEnumerable<TickEntityExitPresentationSignal> exitSignals = null,
             IEnumerable<TickVisibilityChange> visibilityChanges = null,
             IEnumerable<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
@@ -946,7 +1269,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickPlayerDamagePresentationSignal>(),
                 Array.Empty<TickPlayerDeathPresentationSignal>(),
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
-                Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyActionSignals ?? Array.Empty<TickEnemyActionPresentationSignal>(),
                 jumpSignals ?? Array.Empty<TickEnemyJumpPresentationSignal>(),
                 chargeSignals ?? Array.Empty<TickEnemyChargePresentationSignal>(),
                 exitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
@@ -954,7 +1277,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<FlipImpactPresentationSignal>(),
                 enemyGlideSignals: glideSignals ?? Array.Empty<TickEnemyGlidePresentationSignal>(),
                 boxSlideStopSignals: boxSlideStopSignals ?? Array.Empty<BoxSlideStopPresentationSignal>(),
+                enemyUtilityCooldownSignals: enemyUtilityCooldownSignals ?? Array.Empty<TickEnemyUtilityCooldownPresentationSignal>(),
                 boxSlideStartSignals: boxSlideStartSignals ?? Array.Empty<BoxSlideStartPresentationSignal>());
+        }
+
+        private static TickEnemyActionPresentationSignal CreateEnemyActionSignal(
+            int entityId = 40,
+            EnemyActionKind actionKind = EnemyActionKind.Melee,
+            int sequence = 17,
+            bool startedThisTick = false,
+            bool canceledThisTick = false,
+            bool executedThisTick = false,
+            bool startedRecoveryThisTick = false)
+        {
+            return new TickEnemyActionPresentationSignal(
+                entityId,
+                actionKind,
+                sequence,
+                startedThisTick,
+                canceledThisTick,
+                executedThisTick,
+                startedRecoveryThisTick);
+        }
+
+        private static TickEnemyUtilityCooldownPresentationSignal CreateUtilityCooldownSignal(
+            int entityId = 40,
+            int cooldownTicksRemaining = 5,
+            int cooldownTicksTotal = 5,
+            int effectIndex = 0,
+            int activationSequence = 2)
+        {
+            return new TickEnemyUtilityCooldownPresentationSignal(
+                entityId,
+                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                cooldownTicksRemaining,
+                cooldownTicksTotal,
+                effectIndex,
+                activationSequence);
         }
 
         private static TickEnemyChargePresentationSignal CreateChargeSignal(
@@ -1146,6 +1505,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Quaternion.identity);
         }
 
+        private static AttachedVfxFollowerDesiredState DesiredWeaponWindupAura()
+        {
+            return new AttachedVfxFollowerDesiredState(
+                GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura),
+                40,
+                AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
+                17,
+                Vector3.zero,
+                Quaternion.identity,
+                AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop,
+                "WeaponAura");
+        }
+
         private static AttachedVfxFollowerKey StopKeyForBoxSlide(int entityId = 40)
         {
             return new AttachedVfxFollowerKey(
@@ -1185,6 +1557,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail), tailSeconds),
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop), tailSeconds),
                 CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop), tailSeconds),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura), tailSeconds),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura), tailSeconds),
                 CreatePolicy(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop), tailSeconds),
             };
             return new AttachedFollowerFixture(
@@ -1252,6 +1626,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(resolver.TryResolve(request, out var policy), Is.True);
             Assert.That(policy.CueId, Is.EqualTo(cueId));
+        }
+
+        private static Transform CreateAttachPoint(Transform parent, string id)
+        {
+            var anchorObject = new GameObject("VfxAttach_" + (string.IsNullOrWhiteSpace(id) ? "Invalid" : id.Trim()));
+            anchorObject.transform.SetParent(parent, worldPositionStays: false);
+            var attachPoint = anchorObject.AddComponent<GameplayVfxAttachPoint>();
+            SetSerializedString(attachPoint, "id", id);
+            return anchorObject.transform;
+        }
+
+        private static void SetSerializedString(Object target, string propertyName, string value)
+        {
+            var serializedObject = new SerializedObject(target);
+            serializedObject.FindProperty(propertyName).stringValue = value;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void Destroy(params Object[] unityObjects)

@@ -432,17 +432,26 @@ namespace Game.Feature.Gameplay.Loop
             for (var intentIndex = 0; intentIndex < triggerIntents.Count; intentIndex++)
             {
                 var triggerIntent = triggerIntents[intentIndex];
-                if (triggerIntent.EffectKind != EnemyUtilityEffectKind.LockNearbyBoxes)
+                if (triggerIntent.EffectKind == EnemyUtilityEffectKind.LockNearbyBoxes)
                 {
+                    ResolveLockNearbyBoxes(
+                        projectedSnapshot,
+                        triggerIntent,
+                        tickIndex,
+                        plannedStatesByBoxEntityId,
+                        eventLogEntries);
                     continue;
                 }
 
-                ResolveLockNearbyBoxes(
-                    projectedSnapshot,
-                    triggerIntent,
-                    tickIndex,
-                    plannedStatesByBoxEntityId,
-                    eventLogEntries);
+                if (triggerIntent.EffectKind == EnemyUtilityEffectKind.GravityFieldAura)
+                {
+                    ResolveGravityFieldAura(
+                        projectedSnapshot,
+                        triggerIntent,
+                        tickIndex,
+                        plannedStatesByBoxEntityId,
+                        eventLogEntries);
+                }
             }
 
             if (plannedStatesByBoxEntityId.Count == 0)
@@ -578,6 +587,65 @@ namespace Game.Feature.Gameplay.Loop
                 newExpiresTickExclusive,
                 triggerIntent.EffectRuntime.LockNearbyBoxes.BlocksPush,
                 triggerIntent.EffectRuntime.LockNearbyBoxes.BlocksFlip);
+            var orderedTargetEntityIds = new List<int>(targetEntityIds);
+            orderedTargetEntityIds.Sort();
+
+            for (var targetIndex = 0; targetIndex < orderedTargetEntityIds.Count; targetIndex++)
+            {
+                var boxEntityId = orderedTargetEntityIds[targetIndex];
+                var hasExistingPlannedState = plannedStatesByBoxEntityId.TryGetValue(boxEntityId, out var plannedState);
+                var hasExistingSnapshotState = snapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out var existingState);
+                var mergedState = !hasExistingPlannedState && !hasExistingSnapshotState
+                    ? newState
+                    : MergeBoxInteractionLockStates(
+                        hasExistingPlannedState ? plannedState : existingState,
+                        newState);
+                plannedStatesByBoxEntityId[boxEntityId] = mergedState;
+            }
+        }
+
+        private static void ResolveGravityFieldAura(
+            WorldSnapshot snapshot,
+            in EnemyUtilityTriggerIntent triggerIntent,
+            int tickIndex,
+            IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
+            List<string> eventLogEntries)
+        {
+            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var source))
+            {
+                AppendLockSkipEvent(eventLogEntries, triggerIntent, LockNearbyBoxesSkipReason.SourceInvalid, tickIndex);
+                return;
+            }
+
+            var targetEntityIds = new HashSet<int>();
+            var targetCellOffsets = BuildSquareOffsets(triggerIntent.EffectRuntime.GravityFieldAura.Radius);
+            for (var offsetIndex = 0; offsetIndex < targetCellOffsets.Count; offsetIndex++)
+            {
+                var candidateCell = triggerIntent.OriginCell + targetCellOffsets[offsetIndex];
+                if (!snapshot.IsInsideBoard(candidateCell) ||
+                    !TryResolveGravityFieldAuraTargetBox(snapshot, candidateCell, out var box))
+                {
+                    continue;
+                }
+
+                targetEntityIds.Add(box.entityId);
+            }
+
+            if (targetEntityIds.Count == 0)
+            {
+                AppendLockSkipEvent(eventLogEntries, triggerIntent, LockNearbyBoxesSkipReason.NoTargetBoxes, tickIndex);
+                return;
+            }
+
+            var aura = triggerIntent.EffectRuntime.GravityFieldAura;
+            var newState = new BoxInteractionLockState(
+                triggerIntent.SourceEntityId,
+                triggerIntent.EffectIndex,
+                tickIndex + 1,
+                aura.BlocksPush,
+                aura.BlocksFlip,
+                aura.BlocksDestroy,
+                BoxInteractionLockSourceReason.EnemyGravityFieldAura);
             var orderedTargetEntityIds = new List<int>(targetEntityIds);
             orderedTargetEntityIds.Sort();
 
@@ -849,6 +917,32 @@ namespace Game.Feature.Gameplay.Loop
             return left.x.CompareTo(right.x);
         }
 
+        private static List<Vector2Int> BuildSquareOffsets(int radius)
+        {
+            var offsets = new List<Vector2Int>();
+            for (var dx = -radius; dx <= radius; dx++)
+            {
+                for (var dy = -radius; dy <= radius; dy++)
+                {
+                    offsets.Add(new Vector2Int(dx, dy));
+                }
+            }
+
+            offsets.Sort(CompareSquareOffsets);
+            return offsets;
+        }
+
+        private static int CompareSquareOffsets(Vector2Int left, Vector2Int right)
+        {
+            var yComparison = right.y.CompareTo(left.y);
+            if (yComparison != 0)
+            {
+                return yComparison;
+            }
+
+            return left.x.CompareTo(right.x);
+        }
+
         private static bool TryResolveLockTargetBox(
             WorldSnapshot snapshot,
             SurfaceCell cell,
@@ -866,6 +960,30 @@ namespace Game.Feature.Gameplay.Loop
                    box.hp > 0 &&
                    !box.markedForDeath &&
                    box.boardPresence == EntityBoardPresence.Occupying;
+        }
+
+        private static bool TryResolveGravityFieldAuraTargetBox(
+            WorldSnapshot snapshot,
+            SurfaceCell cell,
+            out EntityState box)
+        {
+            if (!TryResolveLockTargetBox(snapshot, cell, out box) ||
+                box.state == EntityPhaseState.Sliding ||
+                HasActivePhasedState(snapshot, box.entityId) ||
+                !snapshot.TryGetResolvedSpatialState(box.entityId, out var spatialState))
+            {
+                return false;
+            }
+
+            return spatialState.Kind == SpatialState.Anchored &&
+                   spatialState.ClaimsAuthoritativeOccupancy &&
+                   spatialState.IsGameplayVisible;
+        }
+
+        private static bool HasActivePhasedState(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetPhasedState(entityId, out var phasedState) &&
+                   phasedState.IsActive;
         }
 
         private static BoxInteractionLockState MergeBoxInteractionLockStates(

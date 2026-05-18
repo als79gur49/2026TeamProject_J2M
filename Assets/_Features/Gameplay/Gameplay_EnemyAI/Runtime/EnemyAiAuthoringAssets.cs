@@ -367,6 +367,80 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     [Serializable]
+    public sealed class EnemyGravityFieldAuraAuthoring
+    {
+        [SerializeField] private int radius = 1;
+        [SerializeField] private float windupSeconds = 0.5f;
+        [SerializeField] private float durationSeconds = 4f;
+        [SerializeField] private bool blocksPush = true;
+        [SerializeField] private bool blocksFlip = true;
+        [SerializeField] private bool blocksDestroy = true;
+        [SerializeField] private bool suppressMovementDuringWindup = true;
+        [SerializeField] private bool suppressMovementDuringActive;
+
+        public int Radius => radius;
+
+        public float WindupSeconds => windupSeconds;
+
+        public float DurationSeconds => durationSeconds;
+
+        public bool BlocksPush => blocksPush;
+
+        public bool BlocksFlip => blocksFlip;
+
+        public bool BlocksDestroy => blocksDestroy;
+
+        public bool SuppressMovementDuringWindup => suppressMovementDuringWindup;
+
+        public bool SuppressMovementDuringActive => suppressMovementDuringActive;
+
+        internal EnemyGravityFieldAuraRuntime Compile(int simulationTicksPerSecond)
+        {
+            if (radius <= 0)
+            {
+                throw new ArgumentException("Enemy gravity field aura authoring requires a positive radius.", nameof(radius));
+            }
+
+            if (windupSeconds <= 0f)
+            {
+                throw new ArgumentException("Enemy gravity field aura authoring requires a positive windup duration.", nameof(windupSeconds));
+            }
+
+            if (durationSeconds <= 0f)
+            {
+                throw new ArgumentException("Enemy gravity field aura authoring requires a positive active duration.", nameof(durationSeconds));
+            }
+
+            if (!blocksPush && !blocksFlip && !blocksDestroy)
+            {
+                throw new ArgumentException("Enemy gravity field aura authoring must block at least one box interaction.", nameof(blocksPush));
+            }
+
+            var windupTicks = GameplayTimingProfile.SecondsToTicks(windupSeconds, simulationTicksPerSecond);
+            var durationTicks = GameplayTimingProfile.SecondsToTicks(durationSeconds, simulationTicksPerSecond);
+            if (windupTicks <= 0)
+            {
+                throw new ArgumentException("Enemy gravity field aura windup must compile to a positive duration.", nameof(windupSeconds));
+            }
+
+            if (durationTicks <= 0)
+            {
+                throw new ArgumentException("Enemy gravity field aura duration must compile to a positive duration.", nameof(durationSeconds));
+            }
+
+            return new EnemyGravityFieldAuraRuntime(
+                radius,
+                windupTicks,
+                durationTicks,
+                blocksPush,
+                blocksFlip,
+                blocksDestroy,
+                suppressMovementDuringWindup,
+                suppressMovementDuringActive);
+        }
+    }
+
+    [Serializable]
     public sealed class EnemyUtilityEffectAuthoring
     {
         [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.SummonMinion;
@@ -374,6 +448,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private float cooldownSeconds = 1f;
         [SerializeField] private SummonMinionAuthoring summon = new();
         [SerializeField] private LockNearbyBoxesAuthoring lockNearbyBoxes = new();
+        [SerializeField] private EnemyGravityFieldAuraAuthoring gravityFieldAura = new();
 
         public EnemyUtilityEffectKind Kind => kind;
 
@@ -384,6 +459,8 @@ namespace Game.Feature.Gameplay.Entities
         public SummonMinionAuthoring Summon => summon;
 
         public LockNearbyBoxesAuthoring LockNearbyBoxes => lockNearbyBoxes;
+
+        public EnemyGravityFieldAuraAuthoring GravityFieldAura => gravityFieldAura;
 
         internal EnemyUtilityEffectRuntime Compile(int simulationTicksPerSecond)
         {
@@ -409,6 +486,11 @@ namespace Game.Feature.Gameplay.Entities
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
                     GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
                     lockNearbyBoxes: (lockNearbyBoxes ?? throw new ArgumentException("Lock nearby boxes utility effect requires authoring data.", nameof(lockNearbyBoxes))).Compile(simulationTicksPerSecond)),
+                EnemyUtilityEffectKind.GravityFieldAura => new EnemyUtilityEffectRuntime(
+                    kind,
+                    GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
+                    GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
+                    gravityFieldAura: (gravityFieldAura ?? throw new ArgumentException("Enemy gravity field aura utility effect requires authoring data.", nameof(gravityFieldAura))).Compile(simulationTicksPerSecond)),
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported enemy utility effect kind."),
             };
         }

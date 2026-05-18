@@ -718,6 +718,8 @@ namespace Game.Feature.Gameplay.Loop
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
             var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
+            var enemyUtilityCooldownSignals = new List<TickEnemyUtilityCooldownPresentationSignal>();
+            var enemyGravityFieldAuraVisualStates = new List<TickEnemyGravityFieldAuraVisualState>();
             var forwardCellProjectileWindupSignals =
                 new List<TickForwardCellProjectileWindupPresentationSignal>();
             var forwardCellProjectileReleaseSignals =
@@ -785,7 +787,13 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyChargePresentation(context, enemyChargeSignals);
             BuildEnemyGlidePresentation(context, enemyGlideSignals);
             BuildFrontFaceShieldPresentation(context, frontFaceShieldSourceSignals, frontFaceShieldBlockSignals);
-            BuildEnemyUtilityWindupPresentation(context, summonWindupWarnings, frontFaceShieldWindupWarnings, enemyUtilitySignals);
+            BuildEnemyUtilityWindupPresentation(
+                context,
+                summonWindupWarnings,
+                frontFaceShieldWindupWarnings,
+                enemyUtilitySignals,
+                enemyUtilityCooldownSignals,
+                enemyGravityFieldAuraVisualStates);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
 
             var topologyMotion = BuildTopologyMotion(context, topologyFact);
@@ -798,6 +806,8 @@ namespace Game.Feature.Gameplay.Loop
                    enemyChargeSignals.Count == 0 &&
                    enemyGlideSignals.Count == 0 &&
                    enemyUtilitySignals.Count == 0 &&
+                   enemyUtilityCooldownSignals.Count == 0 &&
+                   enemyGravityFieldAuraVisualStates.Count == 0 &&
                    forwardCellProjectileWindupSignals.Count == 0 &&
                    forwardCellProjectileReleaseSignals.Count == 0 &&
                    forwardCellProjectileClearSignals.Count == 0 &&
@@ -862,6 +872,8 @@ namespace Game.Feature.Gameplay.Loop
                     playerActionAttemptSignals,
                     boxSlideStopSignals,
                     enemyUtilitySignals,
+                    enemyUtilityCooldownSignals,
+                    enemyGravityFieldAuraVisualStates,
                     boxSlideStartSignals,
                     tileFeatureVisualStates,
                     tileFeatureActiveVisualStates,
@@ -1780,7 +1792,9 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
             List<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings,
-            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals)
+            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals,
+            List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals,
+            List<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates)
         {
             var utilityEntries = new List<EnemyUtilitySnapshotEntry>();
             context.FinalAuthoritativeSnapshot.EnumerateEnemyUtilityStatesOrdered(utilityEntries);
@@ -1796,6 +1810,12 @@ namespace Game.Feature.Gameplay.Loop
                 for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
                 {
                     var effectState = entry.State.EffectStates[effectIndex];
+                    AddEnemyUtilityCooldownPresentationSignal(
+                        entry.EntityId,
+                        effectIndex,
+                        effectState,
+                        enemyUtilityCooldownSignals);
+
                     if (effectState.phase == EnemyUtilityEffectPhase.Recover)
                     {
                         if (effectState.effectKind == EnemyUtilityEffectKind.LockNearbyBoxes &&
@@ -1814,6 +1834,18 @@ namespace Game.Feature.Gameplay.Loop
                         }
 
                         continue;
+                    }
+
+                    if (effectState.effectKind == EnemyUtilityEffectKind.GravityFieldAura)
+                    {
+                        AddEnemyGravityFieldAuraPresentation(
+                            context,
+                            entry.EntityId,
+                            source.position,
+                            effectIndex,
+                            effectState,
+                            enemyUtilitySignals,
+                            enemyGravityFieldAuraVisualStates);
                     }
 
                     if (effectState.phase != EnemyUtilityEffectPhase.Windup)
@@ -1897,6 +1929,140 @@ namespace Game.Feature.Gameplay.Loop
                                 source.position,
                                 effectState.activationSequence)));
                 }
+            }
+        }
+
+        private static void AddEnemyUtilityCooldownPresentationSignal(
+            int entityId,
+            int effectIndex,
+            in EnemyUtilityEffectState effectState,
+            List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals)
+        {
+            if (!TryResolveEnemyUtilityPresentationKind(effectState.effectKind, out var presentationKind) ||
+                effectState.phase == EnemyUtilityEffectPhase.Windup ||
+                effectState.phase == EnemyUtilityEffectPhase.Active ||
+                effectState.cooldownTicksRemaining <= 0)
+            {
+                return;
+            }
+
+            enemyUtilityCooldownSignals.Add(
+                new TickEnemyUtilityCooldownPresentationSignal(
+                    entityId,
+                    presentationKind,
+                    effectState.cooldownTicksRemaining,
+                    effectState.cooldownTicksRemaining,
+                    effectIndex,
+                    effectState.activationSequence));
+        }
+
+        private static void AddEnemyGravityFieldAuraPresentation(
+            in TickPresentationBuildContext context,
+            int entityId,
+            SurfaceCell sourceCell,
+            int effectIndex,
+            in EnemyUtilityEffectState effectState,
+            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals,
+            List<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates)
+        {
+            if (effectState.phase == EnemyUtilityEffectPhase.Windup)
+            {
+                var durationTicks = Math.Max(0, effectState.windupEndTick - effectState.windupStartTick);
+                var timerTicks = Math.Max(0, effectState.windupEndTick - context.CurrentTickIndex);
+                enemyGravityFieldAuraVisualStates.Add(
+                    new TickEnemyGravityFieldAuraVisualState(
+                        entityId,
+                        sourceCell,
+                        effectState.phase,
+                        radius: 1,
+                        timerTicks,
+                        durationTicks,
+                        CalculateProgress01(timerTicks, durationTicks),
+                        effectIndex,
+                        effectState.activationSequence,
+                        BuildEnemyGravityFieldAuraFootprint(context, sourceCell, radius: 1),
+                        startedThisTick: context.CurrentTickIndex == effectState.windupStartTick));
+
+                if (context.CurrentTickIndex == effectState.windupStartTick)
+                {
+                    enemyUtilitySignals.Add(
+                        new TickEnemyUtilityPresentationSignal(
+                            entityId,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
+                            EnemyUtilityPresentationPhase.WindupStarted,
+                            effectState.windupStartTick,
+                            effectState.windupEndTick,
+                            durationTicks,
+                            effectIndex,
+                            effectState.activationSequence));
+                }
+
+                return;
+            }
+
+            if (effectState.phase != EnemyUtilityEffectPhase.Active)
+            {
+                return;
+            }
+
+            var activeDurationTicks = Math.Max(0, effectState.activeEndTickExclusive - effectState.activeStartTick);
+            var activeTimerTicks = Math.Max(0, effectState.activeEndTickExclusive - context.CurrentTickIndex);
+            var startedThisTick = context.CurrentTickIndex == effectState.activeStartTick;
+            var activeCell = effectState.activeOriginCell;
+            enemyGravityFieldAuraVisualStates.Add(
+                new TickEnemyGravityFieldAuraVisualState(
+                    entityId,
+                    activeCell,
+                    effectState.phase,
+                    radius: 1,
+                    activeTimerTicks,
+                    activeDurationTicks,
+                    CalculateProgress01(activeTimerTicks, activeDurationTicks),
+                    effectIndex,
+                    effectState.activationSequence,
+                    BuildEnemyGravityFieldAuraFootprint(context, activeCell, radius: 1),
+                    startedThisTick));
+
+            if (startedThisTick)
+            {
+                enemyUtilitySignals.Add(
+                    new TickEnemyUtilityPresentationSignal(
+                        entityId,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.ActiveStarted,
+                        effectState.activeStartTick,
+                        effectState.activeEndTickExclusive,
+                        activeDurationTicks,
+                        effectIndex,
+                        effectState.activationSequence));
+            }
+        }
+
+        private static GravityFieldAreaFootprint BuildEnemyGravityFieldAuraFootprint(
+            in TickPresentationBuildContext context,
+            SurfaceCell sourceCell,
+            int radius)
+        {
+            return radius == 1
+                ? GravityFieldAreaPolicy.BuildFootprint(context.FinalAuthoritativeSnapshot, sourceCell)
+                : GravityFieldAreaFootprint.Empty;
+        }
+
+        private static bool TryResolveEnemyUtilityPresentationKind(
+            EnemyUtilityEffectKind effectKind,
+            out EnemyUtilityPresentationKind presentationKind)
+        {
+            switch (effectKind)
+            {
+                case EnemyUtilityEffectKind.LockNearbyBoxes:
+                    presentationKind = EnemyUtilityPresentationKind.LockNearbyBoxes;
+                    return true;
+                case EnemyUtilityEffectKind.GravityFieldAura:
+                    presentationKind = EnemyUtilityPresentationKind.GravityFieldAura;
+                    return true;
+                default:
+                    presentationKind = EnemyUtilityPresentationKind.None;
+                    return false;
             }
         }
 

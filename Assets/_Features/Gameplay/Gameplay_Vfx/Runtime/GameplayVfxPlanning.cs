@@ -558,8 +558,30 @@ namespace Game.Feature.Gameplay.Vfx
                             signal.Topology,
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation,
-                        isPersistent: false,
-                        persistentKey: VfxPersistentKey.None));
+                    isPersistent: false,
+                    persistentKey: VfxPersistentKey.None));
+            }
+
+            var gravityFieldAuraStates = presentationData.EnemyGravityFieldAuraVisualStates;
+            for (var i = 0; i < gravityFieldAuraStates.Count; i++)
+            {
+                var state = gravityFieldAuraStates[i];
+                if (state.EntityId <= 0 ||
+                    DidEnemyExitThisTick(presentationData, state.EntityId))
+                {
+                    continue;
+                }
+
+                if (TryResolveGravityFieldAuraAreaCue(state.Phase, out var areaCue))
+                {
+                    AddGravityFieldAuraAreaRequest(context, builder, state, areaCue);
+                }
+
+                if (state.Phase == EnemyUtilityEffectPhase.Active &&
+                    state.StartedThisTick)
+                {
+                    AddGravityFieldAuraActiveStartedRequest(context, builder, state);
+                }
             }
 
             var jumpSignals = presentationData.EnemyJumpSignals;
@@ -623,6 +645,96 @@ namespace Game.Feature.Gameplay.Vfx
                                 VfxAnchorSlot.CellFloor),
                             timing: VfxTimingKind.ImmediateOnTickPresentation));
                 }
+            }
+        }
+
+        private static bool TryResolveGravityFieldAuraAreaCue(
+            EnemyUtilityEffectPhase phase,
+            out EnemyVfxCue cue)
+        {
+            switch (phase)
+            {
+                case EnemyUtilityEffectPhase.Windup:
+                    cue = EnemyVfxCue.GravityFieldAuraWindupArea;
+                    return true;
+                case EnemyUtilityEffectPhase.Active:
+                    cue = EnemyVfxCue.GravityFieldAuraActiveArea;
+                    return true;
+                default:
+                    cue = default;
+                    return false;
+            }
+        }
+
+        private static void AddGravityFieldAuraAreaRequest(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            in TickEnemyGravityFieldAuraVisualState state,
+            EnemyVfxCue cue)
+        {
+            var cueId = GameplayVfxCueId.From(cue);
+            var sequenceId = ResolveGravityFieldAuraSequenceId(context.TickIndex, state, cue);
+            builder.Add(
+                new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: state.EntityId,
+                    cueId: cueId,
+                    anchor: VfxAnchor.ForCell(
+                        state.Cell,
+                        context.Topology,
+                        VfxAnchorSlot.CellCenter),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation,
+                    isPersistent: true,
+                    persistentKey: new VfxPersistentKey(
+                        cueId,
+                        VfxAnchorKind.Cell,
+                        entityId: state.EntityId,
+                        cell: state.Cell,
+                        hasCell: true,
+                        effectIndex: state.EffectIndex,
+                        activationSequence: state.ActivationSequence)));
+        }
+
+        private static void AddGravityFieldAuraActiveStartedRequest(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            in TickEnemyGravityFieldAuraVisualState state)
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveStarted);
+            var sequenceId = ResolveGravityFieldAuraSequenceId(context.TickIndex, state, EnemyVfxCue.GravityFieldAuraActiveStarted);
+            builder.Add(
+                new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: state.EntityId,
+                    cueId: cueId,
+                    anchor: VfxAnchor.ForCell(
+                        state.Cell,
+                        context.Topology,
+                        VfxAnchorSlot.CellCenter),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation,
+                    isPersistent: false,
+                    persistentKey: VfxPersistentKey.None));
+        }
+
+        private static int ResolveGravityFieldAuraSequenceId(
+            int tickIndex,
+            in TickEnemyGravityFieldAuraVisualState state,
+            EnemyVfxCue cue)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ state.EntityId;
+                hash = (hash * 397) ^ state.EffectIndex;
+                hash = (hash * 397) ^ state.ActivationSequence;
+                hash = (hash * 397) ^ (int)state.Phase;
+                hash = (hash * 397) ^ (int)cue;
+                hash = (hash * 397) ^ state.Cell.GetHashCode();
+                return hash != 0 ? hash : state.EntityId;
             }
         }
 

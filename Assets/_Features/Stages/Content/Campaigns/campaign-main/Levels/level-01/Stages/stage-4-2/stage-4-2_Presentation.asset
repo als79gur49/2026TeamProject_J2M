@@ -41,6 +41,10 @@ MonoBehaviour:
     PresentationId: j_peter
   - EntityId: 229
     PresentationId: rocket_face
+  - EntityId: 230
+    PresentationId: nebulous
+  - EntityId: 231
+    PresentationId: dr_saturn
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 201

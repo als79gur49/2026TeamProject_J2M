@@ -22,6 +22,6 @@ MonoBehaviour:
   playbackMode: 1
   stopPolicy: 2
   defaultLifetimeSeconds: 0
-  tailSeconds: 0.3
+  tailSeconds: 0.5
   initialPoolSize: 4
   maxConcurrentInstances: 8

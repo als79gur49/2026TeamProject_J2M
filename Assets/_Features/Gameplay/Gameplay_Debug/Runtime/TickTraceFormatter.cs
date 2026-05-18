@@ -336,7 +336,7 @@ namespace Game.Feature.Gameplay.Debug
                 {
                     var effectState = entries[i].State.EffectStates[effectIndex];
                     lines.Add(
-                        $"E={entries[i].EntityId}|Effect={effectIndex}|Cooldown={effectState.cooldownTicksRemaining}|Phase={effectState.phase}|WindupStart={effectState.windupStartTick}|WindupEnd={effectState.windupEndTick}|RecoverStart={effectState.recoverStartTick}|RecoverEnd={effectState.recoverEndTickExclusive}|Sequence={effectState.activationSequence}|MoveSuppressUntil={effectState.movementSuppressionUntilTickInclusive}|Kind={effectState.effectKind}");
+                        $"E={entries[i].EntityId}|Effect={effectIndex}|Cooldown={effectState.cooldownTicksRemaining}|Phase={effectState.phase}|WindupStart={effectState.windupStartTick}|WindupEnd={effectState.windupEndTick}|ActiveStart={effectState.activeStartTick}|ActiveEnd={effectState.activeEndTickExclusive}|ActiveOrigin={FormatCell(effectState.activeOriginCell)}|RecoverStart={effectState.recoverStartTick}|RecoverEnd={effectState.recoverEndTickExclusive}|Sequence={effectState.activationSequence}|MoveSuppressUntil={effectState.movementSuppressionUntilTickInclusive}|Kind={effectState.effectKind}");
                 }
             }
 
@@ -621,6 +621,12 @@ namespace Game.Feature.Gameplay.Debug
                             .Append(':')
                             .Append(effectState.windupEndTick)
                             .Append(':')
+                            .Append(effectState.activeStartTick)
+                            .Append(':')
+                            .Append(effectState.activeEndTickExclusive)
+                            .Append(':')
+                            .Append(FormatCell(effectState.activeOriginCell))
+                            .Append(':')
                             .Append(effectState.recoverStartTick)
                             .Append(':')
                             .Append(effectState.recoverEndTickExclusive)
@@ -744,7 +750,7 @@ namespace Game.Feature.Gameplay.Debug
 
         private static string FormatEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)
         {
-            return $"Source={intent.SourceEntityId}|Effect={intent.EffectIndex}|Kind={intent.EffectKind}|Tick={intent.TriggerTick}";
+            return $"Source={intent.SourceEntityId}|Effect={intent.EffectIndex}|Kind={intent.EffectKind}|Tick={intent.TriggerTick}|Origin={FormatCell(intent.OriginCell)}";
         }
 
         private static string BuildPhasedMetadataSuffix(PhasedRuntimeStateOwnerKind ownerKind)
