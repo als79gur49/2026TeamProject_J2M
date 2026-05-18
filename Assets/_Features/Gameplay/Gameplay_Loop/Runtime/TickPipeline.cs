@@ -182,8 +182,10 @@ namespace Game.Feature.Gameplay.Loop
 
         private static bool ShouldEmitTickTrace()
         {
-#if UNITY_EDITOR && GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
+#if GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
             return false;
+#elif GAMEPLAY_ENABLE_TICK_TRACE
+            return true;
 #elif UNITY_EDITOR || DEVELOPMENT_BUILD
             return true;
 #else
