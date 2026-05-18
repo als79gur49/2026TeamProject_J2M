@@ -247,6 +247,8 @@ namespace Game.Feature.Gameplay.Loop
             respawnEntity.kineticInstigatorTeamId = 0;
             respawnEntity.aiStateTimer = 0;
             respawnEntity.enemyLocomotionCooldownTicks = 0;
+            respawnEntity.enemyAttackCooldownTicks = 0;
+            respawnEntity.enemyAttackCooldownTotalTicks = 0;
             return respawnEntity;
         }
 

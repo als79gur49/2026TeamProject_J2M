@@ -186,6 +186,89 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void WindupForwardCellProjectile_ReleaseStartsAttackCooldown()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(attackCooldownTicks: 3);
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                var releaseTickIndex = Math.Max(2, GetEnemyActionState(worldState).executeTick);
+                pipeline.RunTick(new TickInput(releaseTickIndex));
+
+                var enemy = GetEntity(worldState, EnemyId);
+                Assert.That(enemy.enemyAttackCooldownTicks, Is.EqualTo(3));
+                Assert.That(enemy.enemyAttackCooldownTotalTicks, Is.EqualTo(3));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WindupForwardCellProjectile_CooldownBlocksRewindupUntilExpired()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(attackCooldownTicks: 3);
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                var firstSequence = GetEnemyActionState(worldState).sequence;
+                var releaseTickIndex = Math.Max(2, GetEnemyActionState(worldState).executeTick);
+                pipeline.RunTick(new TickInput(releaseTickIndex));
+                pipeline.RunTick(new TickInput(releaseTickIndex + 1));
+
+                var blockedAction = GetEnemyActionState(worldState);
+                Assert.That(blockedAction.IsActive, Is.False);
+                Assert.That(GetEntity(worldState, EnemyId).enemyAttackCooldownTicks, Is.EqualTo(2));
+
+                pipeline.RunTick(new TickInput(releaseTickIndex + 2));
+                pipeline.RunTick(new TickInput(releaseTickIndex + 3));
+
+                var restartedAction = GetEnemyActionState(worldState);
+                Assert.That(restartedAction.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+                Assert.That(restartedAction.sequence, Is.GreaterThan(firstSequence));
+                Assert.That(GetEntity(worldState, EnemyId).enemyAttackCooldownTicks, Is.Zero);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WindupForwardCellProjectile_CooldownDoesNotBlockPendingImpact()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(attackCooldownTicks: 3);
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                var releaseTickIndex = Math.Max(2, GetEnemyActionState(worldState).executeTick);
+                pipeline.RunTick(new TickInput(releaseTickIndex));
+                var impactTick = pipeline.RunTick(new TickInput(releaseTickIndex + 1));
+
+                Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(2));
+                Assert.That(impactTick.AttackPhaseResult.PendingCellImpactResolutions.Single().Hit, Is.True);
+                Assert.That(GetEntity(worldState, EnemyId).enemyAttackCooldownTicks, Is.EqualTo(2));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void WindupForwardCellProjectile_ImpactHitsPlayerInsideTargetCell()
         {
             var (result, worldState) = RunReleasedImpact(playerCellBeforeImpact: new SurfaceCell(FaceId.Floor, 1, 0));

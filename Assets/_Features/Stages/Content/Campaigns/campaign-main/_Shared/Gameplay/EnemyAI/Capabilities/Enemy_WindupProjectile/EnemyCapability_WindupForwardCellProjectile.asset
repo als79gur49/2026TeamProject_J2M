@@ -18,10 +18,11 @@ MonoBehaviour:
     windupSeconds: 1
   windupForwardCellProjectileSettings:
     visualStartSlackCells: 0.1
-    impactDelayTicks: 1
+    impactDelayTicks: 24
     damage: 1
     activePendingImpactLimitPerOwner: 1
+    attackCooldownTicks: 120
     sameSurfaceOnly: 1
     sameFaceOnly: 1
     requireValidForwardCell: 1
-    showDangerMarkerOnWindupStart: 1
+    showDangerMarkerOnWindupStart: 0

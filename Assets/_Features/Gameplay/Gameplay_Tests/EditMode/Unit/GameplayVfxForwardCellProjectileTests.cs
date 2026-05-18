@@ -21,6 +21,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static readonly SurfaceCell TargetCell = new(FaceId.Floor, 1, 0);
         private static GameplayVfxCueId MarkerCueId =>
             GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellDangerMarker);
+        private static GameplayVfxCueId ActiveCueId =>
+            GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileActive);
         private static GameplayVfxCueId FlightCueId =>
             GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
         private static GameplayVfxCueId ImpactCueId =>
@@ -28,28 +30,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ForwardCellProjectile_WindupSignalCreatesMarkerRequest()
+        public void ForwardCellProjectile_WindupSignalDoesNotCreateMarkerRequest()
         {
             var plan = PlanProjectile(CreatePresentationData(windupSignals: new[] { CreateWindupSignal() }));
-            var request = plan.Requests.Single();
 
-            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellDangerMarker)));
-            Assert.That(request.IsPersistent, Is.True);
-            Assert.That(request.SequenceId, Is.EqualTo(4000001));
-            Assert.That(request.SourceEntityId, Is.EqualTo(40));
-            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
-            Assert.That(request.Anchor.Cell, Is.EqualTo(TargetCell));
+            Assert.That(plan.Requests, Is.Empty);
         }
 
         [Test]
         [Category("Core")]
-        public void ForwardCellProjectile_ReleaseSignalCreatesFlightRequestOnly()
+        public void ForwardCellProjectile_ReleaseSignalCreatesActiveAndFlightRequests()
         {
             var plan = PlanProjectile(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() }));
 
-            Assert.That(plan.Requests, Has.Count.EqualTo(1));
-            Assert.That(plan.Requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight)));
-            Assert.That(plan.Requests[0].CueId, Is.Not.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
+            Assert.That(plan.Requests, Has.Count.EqualTo(2));
+            Assert.That(plan.Requests.Select(request => request.CueId), Is.EqualTo(new[]
+            {
+                ActiveCueId,
+                FlightCueId,
+            }));
+            Assert.That(plan.Requests[0].Anchor.Cell, Is.EqualTo(SourceCell));
+            Assert.That(plan.Requests[1].CueId, Is.Not.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
         }
 
         [Test]
@@ -66,6 +67,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(plan.Requests, Has.Count.EqualTo(1));
             Assert.That(plan.Requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
+            Assert.That(plan.Requests[0].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
             Assert.That(playerBuilder.Build().Requests, Is.Empty);
         }
 
@@ -95,28 +97,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_MarkerLifecycle()
+        public void ForwardCellProjectile_ReleaseAndImpactLifecycle()
         {
             var owner = new GameObject("ForwardCellProjectileLifecycle");
-            var markerPrefab = new GameObject("ForwardCellProjectileMarkerPrefab");
+            var activePrefab = new GameObject("ForwardCellProjectileActivePrefab");
             var flightPrefab = new GameObject("ForwardCellProjectileFlightPrefab");
             var impactPrefab = new GameObject("ForwardCellProjectileImpactPrefab");
-            VfxBindingDefinitionAsset markerBinding = null;
+            VfxBindingDefinitionAsset activeBinding = null;
             VfxBindingDefinitionAsset flightBinding = null;
             VfxBindingDefinitionAsset impactBinding = null;
             VfxCueMapAsset cueMap = null;
             try
             {
-                markerBinding = CreateBinding(ProjectileVfxCue.ForwardCellDangerMarker, markerPrefab, VfxPlaybackMode.Loop, VfxStopPolicy.StopEmittingThenRelease);
+                activeBinding = CreateBinding(ProjectileVfxCue.ForwardCellProjectileActive, activePrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
                 flightBinding = CreateBinding(ProjectileVfxCue.ForwardCellProjectileFlight, flightPrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
                 impactBinding = CreateBinding(ProjectileVfxCue.ForwardCellImpact, impactPrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
-                cueMap = CreateCueMap(markerBinding, flightBinding, impactBinding);
+                cueMap = CreateCueMap(activeBinding, flightBinding, impactBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.ConfigureHostDefaultMap(cueMap);
                 var contextFactory = new PresentationContextFactory();
 
                 runtime.Present(contextFactory.Create(CreatePresentationData(windupSignals: new[] { CreateWindupSignal() })));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
 
                 runtime.Present(contextFactory.Create(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() })));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
@@ -126,7 +128,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(cueMap, markerBinding, flightBinding, impactBinding, impactPrefab, flightPrefab, markerPrefab, owner);
+                Destroy(cueMap, activeBinding, flightBinding, impactBinding, impactPrefab, flightPrefab, activePrefab, owner);
             }
         }
 
@@ -139,8 +141,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var playerBuilder = new GameplayVfxRequestPlanBuilder();
 
             fixture.Present(CreatePresentationData(windupSignals: new[] { CreateWindupSignal() }));
-            AssertActiveMarkerKeys(fixture.Runtime, 4000001);
-            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.EqualTo(1));
+            AssertActiveMarkerKeys(fixture.Runtime);
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.Zero);
 
             new PlayerVfxRequestPlanner().Plan(
                 new GameplayVfxPlanningContext(12, clearData, new CubeTopologyState(FaceId.Floor)),
@@ -151,7 +153,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.DoesNotThrow(() => fixture.Present(clearData));
             AssertActiveMarkerKeys(fixture.Runtime);
             AssertActiveCarrierKeys(fixture.Runtime);
-            Assert.That(fixture.Runtime.GetReleaseToPoolCount(MarkerCueId), Is.EqualTo(1));
+            Assert.That(fixture.Runtime.GetReleaseToPoolCount(MarkerCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(ImpactCueId), Is.Zero);
             Assert.That(fixture.Runtime.LastPlannedRequestCount, Is.Zero);
@@ -159,7 +161,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.DoesNotThrow(() => fixture.Present(clearData));
             AssertActiveMarkerKeys(fixture.Runtime);
             AssertActiveCarrierKeys(fixture.Runtime);
-            Assert.That(fixture.Runtime.GetReleaseToPoolCount(MarkerCueId), Is.EqualTo(1));
+            Assert.That(fixture.Runtime.GetReleaseToPoolCount(MarkerCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(ImpactCueId), Is.Zero);
         }
@@ -210,28 +212,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWindupSignal(presentationKey: keyA, ownerId: enemyA),
                 CreateWindupSignal(presentationKey: keyB, ownerId: enemyB),
             }));
-            AssertActiveMarkerKeys(fixture.Runtime, keyA, keyB);
+            AssertActiveMarkerKeys(fixture.Runtime);
             AssertActiveCarrierKeys(fixture.Runtime);
-            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.EqualTo(2));
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.Zero);
 
             fixture.Present(CreatePresentationData(releaseSignals: new[]
             {
                 CreateReleaseSignal(presentationKey: keyA, impactId: keyA, ownerId: enemyA),
             }));
-            AssertActiveMarkerKeys(fixture.Runtime, keyA, keyB);
+            AssertActiveMarkerKeys(fixture.Runtime);
             AssertActiveCarrierKeys(fixture.Runtime, keyA);
-            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.EqualTo(2));
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
 
             fixture.Present(CreatePresentationData(forwardCellImpactSignals: new[]
             {
                 CreateImpactSignal(hit: false, presentationKey: keyA, impactId: keyA, ownerId: enemyA),
             }));
-            AssertActiveMarkerKeys(fixture.Runtime, keyB);
+            AssertActiveMarkerKeys(fixture.Runtime);
             AssertActiveCarrierKeys(fixture.Runtime);
-            Assert.That(fixture.Runtime.GetReleaseToPoolCount(MarkerCueId), Is.EqualTo(1));
+            Assert.That(fixture.Runtime.GetReleaseToPoolCount(MarkerCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetReleaseToPoolCount(FlightCueId), Is.EqualTo(1));
-            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.EqualTo(1));
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(ImpactCueId), Is.EqualTo(1));
         }
 
@@ -272,6 +274,88 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ForwardCellProjectile_AuthoredProjectileMuzzleOverridesLegacySocket()
+        {
+            var owner = new GameObject("ForwardCellProjectileAttachPoint");
+            var flightPrefab = new GameObject("ForwardCellProjectileAttachPointFlightPrefab");
+            VfxBindingDefinitionAsset flightBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                var sourceViewObject = new GameObject("SourceViewWithProjectileMuzzle");
+                sourceViewObject.transform.SetParent(owner.transform, worldPositionStays: false);
+                var sourceView = sourceViewObject.AddComponent<GameplayEntityView>();
+                sourceView.Initialize(40);
+                var modelRoot = sourceView.EnsureModelRoot();
+                sourceViewObject.AddComponent<EnemyForwardCellProjectileVfxAuthoring>();
+                var muzzle = CreateAttachPoint(modelRoot, "ProjectileMuzzle");
+                muzzle.localPosition = new Vector3(0.25f, 0.5f, 0.75f);
+                var legacyEye = new GameObject("Eye");
+                legacyEye.transform.SetParent(modelRoot, worldPositionStays: false);
+                legacyEye.transform.localPosition = new Vector3(2f, 3f, 4f);
+
+                flightBinding = CreateBinding(ProjectileVfxCue.ForwardCellProjectileFlight, flightPrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
+                cueMap = CreateCueMap(flightBinding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(
+                    CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() }),
+                    sourceView));
+
+                var flightInstance = FindPooledVfx(owner, flightPrefab.name);
+                Assert.That(flightInstance, Is.Not.Null);
+                Assert.That(flightInstance.localPosition.x, Is.EqualTo(muzzle.localPosition.x).Within(0.0001f));
+                Assert.That(flightInstance.localPosition.y, Is.EqualTo(muzzle.localPosition.y).Within(0.0001f));
+                Assert.That(flightInstance.localPosition.z, Is.EqualTo(muzzle.localPosition.z).Within(0.0001f));
+            }
+            finally
+            {
+                Destroy(cueMap, flightBinding, flightPrefab, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_FlightMotionUsesMildEaseIn()
+        {
+            var owner = new GameObject("ForwardCellProjectileEaseIn");
+            var flightPrefab = new GameObject("ForwardCellProjectileEaseInFlightPrefab");
+            VfxBindingDefinitionAsset flightBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                flightBinding = CreateBinding(ProjectileVfxCue.ForwardCellProjectileFlight, flightPrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
+                cueMap = CreateCueMap(flightBinding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData(releaseSignals: new[]
+                {
+                    CreateReleaseSignal(impactDelayTicks: 24),
+                })));
+                var flightInstance = FindPooledVfx(owner, flightPrefab.name);
+                Assert.That(flightInstance, Is.Not.Null);
+
+                var source = flightInstance.localPosition;
+                var target = ResolveCellCenterLocalPosition(TargetCell);
+
+                runtime.UpdatePresentation(0.2f);
+
+                var distanceX = target.x - source.x;
+                Assert.That(Mathf.Abs(distanceX), Is.GreaterThan(0.0001f));
+                var progressX = (flightInstance.localPosition.x - source.x) / distanceX;
+                Assert.That(progressX, Is.EqualTo(0.4375f).Within(0.0001f));
+                Assert.That(progressX, Is.LessThan(0.5f));
+            }
+            finally
+            {
+                Destroy(cueMap, flightBinding, flightPrefab, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ForwardCellProjectile_MissingPrefabNoFatal()
         {
             var owner = new GameObject("ForwardCellProjectileMissingPrefab");
@@ -281,7 +365,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.DoesNotThrow(() =>
                     runtime.Present(CreateExtensionContext(CreatePresentationData(windupSignals: new[] { CreateWindupSignal() }))));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -295,23 +379,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ForwardCellProjectile_ResetCleansActiveVfx()
         {
             var owner = new GameObject("ForwardCellProjectileReset");
-            var markerPrefab = new GameObject("ForwardCellProjectileResetMarkerPrefab");
             var flightPrefab = new GameObject("ForwardCellProjectileResetFlightPrefab");
-            VfxBindingDefinitionAsset markerBinding = null;
             VfxBindingDefinitionAsset flightBinding = null;
             VfxCueMapAsset cueMap = null;
             try
             {
-                markerBinding = CreateBinding(ProjectileVfxCue.ForwardCellDangerMarker, markerPrefab, VfxPlaybackMode.Loop, VfxStopPolicy.StopEmittingThenRelease);
                 flightBinding = CreateBinding(ProjectileVfxCue.ForwardCellProjectileFlight, flightPrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
-                cueMap = CreateCueMap(markerBinding, flightBinding);
+                cueMap = CreateCueMap(flightBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.ConfigureHostDefaultMap(cueMap);
                 var contextFactory = new PresentationContextFactory();
 
                 runtime.Present(contextFactory.Create(CreatePresentationData(windupSignals: new[] { CreateWindupSignal() })));
                 runtime.Present(contextFactory.Create(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() })));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
 
                 runtime.ResetSession();
 
@@ -319,7 +400,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(cueMap, markerBinding, flightBinding, flightPrefab, markerPrefab, owner);
+                Destroy(cueMap, flightBinding, flightPrefab, owner);
             }
         }
 
@@ -328,15 +409,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ForwardCellProjectile_VfxDoesNotAffectDeterminism()
         {
             var owner = new GameObject("ForwardCellProjectileDeterminism");
-            var markerPrefab = new GameObject("ForwardCellProjectileDeterminismMarkerPrefab");
-            VfxBindingDefinitionAsset markerBinding = null;
-            VfxCueMapAsset cueMap = null;
             try
             {
-                markerBinding = CreateBinding(ProjectileVfxCue.ForwardCellDangerMarker, markerPrefab, VfxPlaybackMode.Loop, VfxStopPolicy.StopEmittingThenRelease);
-                cueMap = CreateCueMap(markerBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.ConfigureHostDefaultMap(cueMap);
                 var result = CreateResult(CreatePresentationData(windupSignals: new[] { CreateWindupSignal() }));
 
                 runtime.EnableGameplayVfxForwardCellProjectile = true;
@@ -350,7 +425,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(cueMap, markerBinding, markerPrefab, owner);
+                Destroy(owner);
             }
         }
 
@@ -553,6 +628,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
             field.SetValue(target, value);
+        }
+
+        private static Transform CreateAttachPoint(Transform parent, string id)
+        {
+            var anchorObject = new GameObject("VfxAttach_" + id);
+            anchorObject.transform.SetParent(parent, worldPositionStays: false);
+            var attachPoint = anchorObject.AddComponent<GameplayVfxAttachPoint>();
+            SetField(attachPoint, "id", id);
+            return anchorObject.transform;
+        }
+
+        private static Transform FindPooledVfx(GameObject root, string prefabName)
+        {
+            return root.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(transform => transform != null && transform.name == $"{prefabName}_PooledVfx");
+        }
+
+        private static Vector3 ResolveCellCenterLocalPosition(SurfaceCell cell)
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                1f);
+            var cellProjector = new GameplayVfxHostCellAnchorProjector(projector);
+            Assert.That(
+                cellProjector.TryResolveCell(
+                    cell,
+                    new CubeTopologyState(FaceId.Floor),
+                    VfxAnchorSlot.CellCenter,
+                    out var anchor),
+                Is.True);
+            Assert.That(anchor.IsResolved, Is.True);
+            Assert.That(anchor.HasLocalPose, Is.True);
+            return anchor.LocalPosition;
         }
 
         private static void Destroy(params UnityEngine.Object[] unityObjects)

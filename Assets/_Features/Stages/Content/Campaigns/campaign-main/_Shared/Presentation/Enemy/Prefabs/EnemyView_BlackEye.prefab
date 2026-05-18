@@ -80,6 +80,7 @@ GameObject:
   - component: {fileID: 3687895322971148645}
   - component: {fileID: 3687895322971148646}
   - component: {fileID: 5500000000000000101}
+  - component: {fileID: 5500000000000000201}
   m_Layer: 0
   m_Name: EnemyView_BlackEye
   m_TagString: Untagged
@@ -113,7 +114,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d61d20915b944faabca806869d9edba, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 0
   modelRoot: {fileID: 1730374851651807525}
@@ -127,7 +128,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1c4a2f7bf37431fa19e2d57c1d803aa, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
   moveMotionDurationSeconds: 1
 --- !u!114 &1395465871142893710
@@ -147,7 +148,11 @@ MonoBehaviour:
   windupStateName: Windup
   jumpWindupStateName: JumpWindup
   jumpAirborneStateName: JumpAirborne
+  chargeActiveStateName: Charge
   recoveryStateName: Recover
+  glideWindupStateName: Fly_Start
+  glideActiveStateName: Fly_Loop
+  glideRecoveryStateName: Fly_Done
   windupTriggerName: Windup
   jumpWindupTriggerName: JumpWindup
   jumpAirborneTriggerName: JumpAirborne
@@ -209,7 +214,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6c751b2feb5f4cb9b5bf1a1b799f0684, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EntityEffectPresentationAuthoring
   hitEffectDurationSeconds: -1
   deathEffectDurationSeconds: -1
@@ -226,9 +231,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
   profile: {fileID: 11400000, guid: 3faff0a24677472b8e34f1af20008edb, type: 2}
+--- !u!114 &5500000000000000201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1253227309742569353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 83dd8d3d4b6c4e9da655db27cb7b3c91, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  projectileMuzzleAttachPointId: ProjectileMuzzle
+  attackCooldownAttachPointId: StatusAura
 --- !u!1 &2671696761220166410
 GameObject:
   m_ObjectHideFlags: 0
@@ -571,6 +590,96 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.59351915, y: -0.38993245, z: 0.010223176}
     m_Extent: {x: 0.595866, y: 0.46994197, z: 0.0846878}
   m_DirtyAABB: 0
+--- !u!1 &5500000000000000202
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5500000000000000203}
+  - component: {fileID: 5500000000000000204}
+  m_Layer: 0
+  m_Name: VfxAttach_ProjectileMuzzle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5500000000000000203
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5500000000000000202}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.737, y: -0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1631297773542589464}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5500000000000000204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5500000000000000202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5974d998f64403f9b8f09b33c394925, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  id: ProjectileMuzzle
+--- !u!1 &5500000000000000205
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5500000000000000206}
+  - component: {fileID: 5500000000000000207}
+  m_Layer: 0
+  m_Name: VfxAttach_StatusAura
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5500000000000000206
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5500000000000000205}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.806, z: -0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1730374851651807525}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5500000000000000207
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5500000000000000205}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5974d998f64403f9b8f09b33c394925, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  id: StatusAura
 --- !u!1 &6058130249843911741
 GameObject:
   m_ObjectHideFlags: 0
@@ -669,6 +778,7 @@ Transform:
   - {fileID: 8058062270360263488}
   - {fileID: 1750545790936038259}
   - {fileID: 4837960048092349439}
+  - {fileID: 5500000000000000203}
   m_Father: {fileID: 1730374851651807525}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &6890479757791155909
@@ -763,6 +873,7 @@ Transform:
   - {fileID: 1634162768140999881}
   - {fileID: 4327104525117096048}
   - {fileID: 1631297773542589464}
+  - {fileID: 5500000000000000206}
   m_Father: {fileID: 1046601049133615650}
   m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
 --- !u!95 &5272011485980291436

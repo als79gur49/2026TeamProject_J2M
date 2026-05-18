@@ -309,6 +309,14 @@ namespace Game.Feature.Gameplay.Entities
                 tickIndex + settings.ImpactDelayTicks);
 
             writeContext.AddPendingCellImpact(impact);
+            if (settings.AttackCooldownTicks > 0)
+            {
+                writeContext.SetEnemyAttackCooldown(
+                    _entityId,
+                    settings.AttackCooldownTicks,
+                    settings.AttackCooldownTicks);
+            }
+
             writeContext.ApplyEnemyAiState(_entityId, EnemyAiMode.Recover, _commonSettings.RecoverTicks);
             return EnemyActionQueries.MarkExecutionAttempted(action, tickIndex);
         }
@@ -426,6 +434,13 @@ namespace Game.Feature.Gameplay.Entities
 
         private bool CanStartCombatActionThisTick(WorldSnapshot snapshot, in EntityState source, int tickIndex)
         {
+            if (_combatCapability != null &&
+                _combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile &&
+                source.enemyAttackCooldownTicks > 0)
+            {
+                return false;
+            }
+
             if (snapshot.CanStartAction(_entityId, tickIndex))
             {
                 return true;

@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
-  m_Name: ForwardCellImpact_Binding
+  m_Name: ForwardCellAttackCooldownFollow_Binding
   m_EditorClassIdentifier: 
   family: 6
-  cueCode: 7
+  cueCode: 10
   styleKey:
     value: 
-  prefab: {fileID: 100000, guid: 047bc39d81f244641829b90d6c4838a0, type: 3}
+  prefab: {fileID: 100000, guid: 5304ef65970fb1247ae0341a97b37dda, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
-  playbackMode: 0
-  stopPolicy: 1
-  defaultLifetimeSeconds: 0.35
-  tailSeconds: 0.2
-  initialPoolSize: 4
+  playbackMode: 2
+  stopPolicy: 3
+  defaultLifetimeSeconds: 0
+  tailSeconds: 1
+  initialPoolSize: 2
   maxConcurrentInstances: 8

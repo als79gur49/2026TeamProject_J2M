@@ -131,6 +131,9 @@ namespace Game.Feature.Gameplay.Vfx
         ForwardCellDangerMarker = 5,
         ForwardCellProjectileFlight = 6,
         ForwardCellImpact = 7,
+        ForwardCellProjectileActive = 8,
+        ForwardCellProjectileFlightFollow = 9,
+        ForwardCellAttackCooldownFollow = 10,
     }
 
     public enum ObjectiveStageVfxCue

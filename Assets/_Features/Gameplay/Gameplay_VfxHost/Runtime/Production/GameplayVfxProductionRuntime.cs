@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxChargeBoosterTrail = true;
         [SerializeField] private bool enableGameplayVfxEnemyWeaponWindupAura = true;
         [SerializeField] private bool enableGameplayVfxEnemyUtilityCooldownAura = true;
+        [SerializeField] private bool enableGameplayVfxEnemyAttackCooldownFollow = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideSolidStop = true;
         [SerializeField] private bool enableGameplayVfxImpactTransientBreakMigration = true;
@@ -707,7 +708,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.Result.FinalEntities,
                 context.StateStore?.ViewsByEntityId,
                 enableGameplayVfxEnemyWeaponWindupAura,
-                enableGameplayVfxEnemyUtilityCooldownAura);
+                enableGameplayVfxEnemyUtilityCooldownAura,
+                enableGameplayVfxEnemyAttackCooldownFollow);
             planBuilder.Clear();
             var planningContext = new GameplayVfxPlanningContext(
                 context.Result.TickIndex,
@@ -845,6 +847,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                                           enableGameplayVfxChargeBoosterTrail ||
                                           enableGameplayVfxEnemyWeaponWindupAura ||
                                           enableGameplayVfxEnemyUtilityCooldownAura ||
+                                          enableGameplayVfxEnemyAttackCooldownFollow ||
                                           enableGameplayVfxBoxSlideTrail ||
                                           enableEnemyJumpTargetVfx);
             flipImpactStayTrailMissingBindingCount = motionFollowingVfxController.MotionMissingBindingCount;
@@ -991,6 +994,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxChargeBoosterTrail ||
             enableGameplayVfxEnemyWeaponWindupAura ||
             enableGameplayVfxEnemyUtilityCooldownAura ||
+            enableGameplayVfxEnemyAttackCooldownFollow ||
             enableGameplayVfxBoxSlideTrail ||
             enableGameplayVfxBoxSlideSolidStop ||
             enableGameplayVfxImpactTransientBreakMigration ||
@@ -1069,6 +1073,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||
                    (enableGameplayVfxEnemyWeaponWindupAura && cueId == GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura)) ||
                    (enableGameplayVfxEnemyUtilityCooldownAura && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura)) ||
+                   (enableGameplayVfxEnemyAttackCooldownFollow && cueId == GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellAttackCooldownFollow)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)) ||
                    (enableGameplayVfxBoxSlideSolidStop && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)) ||
                    (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||

@@ -163,6 +163,10 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             entity.enemyLocomotionCooldownTicks = Mathf.Max(0, entity.enemyLocomotionCooldownTicks);
+            entity.enemyAttackCooldownTicks = Mathf.Max(0, entity.enemyAttackCooldownTicks);
+            entity.enemyAttackCooldownTotalTicks = Mathf.Max(
+                entity.enemyAttackCooldownTicks,
+                entity.enemyAttackCooldownTotalTicks);
             if (ShouldStoreEntityInOccupancy(entity))
             {
                 EnsurePlacementIsRepresentable(entity, entity.position, entity.entityId);
@@ -272,6 +276,20 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             entity.enemyLocomotionCooldownTicks = Mathf.Max(0, cooldownTicks);
+            UpdateStoredEntity(entity);
+        }
+
+        private void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks)
+        {
+            if (!TryGetEntity(entityId, out var entity))
+            {
+                return;
+            }
+
+            entity.enemyAttackCooldownTicks = Mathf.Max(0, cooldownTicks);
+            entity.enemyAttackCooldownTotalTicks = entity.enemyAttackCooldownTicks > 0
+                ? Mathf.Max(entity.enemyAttackCooldownTicks, totalTicks)
+                : 0;
             UpdateStoredEntity(entity);
         }
 
@@ -1176,6 +1194,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyLocomotionCooldown(int entityId, int cooldownTicks)
         {
             SetEnemyLocomotionCooldown(entityId, cooldownTicks);
+        }
+
+        void IWorldStateMutationPort.SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks)
+        {
+            SetEnemyAttackCooldown(entityId, cooldownTicks, totalTicks);
         }
 
         void IWorldStateMutationPort.SetEnemyActionState(int entityId, EnemyActionRuntimeState state)

@@ -43,6 +43,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
         private const string DrSaturnPrefabPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_DrSaturn.prefab";
+        private const string BlackEyePrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_BlackEye.prefab";
         private const string ProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
         private const string FollowerPlannerPath =
@@ -732,6 +734,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAttackCooldownFollow_PlannerUsesAuthoritativeCooldownState()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+
+                planner.Build(
+                    tickIndex: 12,
+                    presentationData: CreatePresentationData(),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    finalEntities: new[] { CreateEnemyEntityState(40, attackCooldownTicks: 2, attackCooldownTotalTicks: 3) },
+                    viewsByEntityId: fixture.StateStore.ViewsByEntityId,
+                    enableEnemyAttackCooldownFollow: true);
+
+                Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+                Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellAttackCooldownFollow)));
+                Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyAttackCooldownFollow));
+                Assert.That(planner.DesiredFollowers[0].RetentionPolicy, Is.EqualTo(AttachedVfxFollowerRetentionPolicy.RefreshDesiredOnly));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAttackCooldownFollow_PlannerUsesStatusAuraAttachPointWhenAuthored()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.View.gameObject.AddComponent<EnemyForwardCellProjectileVfxAuthoring>();
+                CreateAttachPoint(fixture.View.ModelRoot, "StatusAura");
+                var planner = new EnemyMotionAttachedVfxFollowerPlanner();
+
+                planner.Build(
+                    tickIndex: 12,
+                    presentationData: CreatePresentationData(),
+                    enableGlideWindTrail: true,
+                    enableChargeBoosterTrail: true,
+                    enableBoxSlideFollowLoop: true,
+                    enableEnemyJumpWindupLoop: true,
+                    finalEntities: new[] { CreateEnemyEntityState(40, attackCooldownTicks: 2, attackCooldownTotalTicks: 3) },
+                    viewsByEntityId: fixture.StateStore.ViewsByEntityId,
+                    enableEnemyAttackCooldownFollow: true);
+
+                Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(1));
+                Assert.That(planner.DesiredFollowers[0].AttachPointId, Is.EqualTo("StatusAura"));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PresentationMotionFollowingVfxController_AttachesFollowerToNamedAttachPoint()
         {
             var fixture = CreateFixture();
@@ -1247,6 +1311,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(point.parent.name, Is.EqualTo("Blade").Or.EqualTo("R_Hand"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void BlackEyePrefab_HasProjectileMuzzleAndStatusAuraAttachPoints()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BlackEyePrefabPath);
+
+            Assert.That(prefab, Is.Not.Null, BlackEyePrefabPath);
+            Assert.That(prefab.TryGetComponent<EnemyForwardCellProjectileVfxAuthoring>(out var authoring), Is.True);
+            Assert.That(authoring.ProjectileMuzzleAttachPointId, Is.EqualTo("ProjectileMuzzle"));
+            Assert.That(authoring.AttackCooldownAttachPointId, Is.EqualTo("StatusAura"));
+
+            var attachPoints = prefab.GetComponentsInChildren<GameplayVfxAttachPoint>(true);
+            var projectileMuzzle = attachPoints
+                .Where(point => point != null && point.Id == "ProjectileMuzzle")
+                .ToArray();
+            var statusAura = attachPoints
+                .Where(point => point != null && point.Id == "StatusAura")
+                .ToArray();
+            Assert.That(projectileMuzzle, Has.Length.EqualTo(1));
+            Assert.That(statusAura, Has.Length.EqualTo(1));
+
+            var view = prefab.GetComponent<GameplayEntityView>();
+            Assert.That(view.TryGetVfxAttachPoint("ProjectileMuzzle", out var muzzlePoint), Is.True);
+            Assert.That(muzzlePoint, Is.EqualTo(projectileMuzzle[0].transform));
+            Assert.That(muzzlePoint.parent.name, Is.EqualTo("Eye"));
+            Assert.That(view.TryGetVfxAttachPoint("StatusAura", out var statusPoint), Is.True);
+            Assert.That(statusPoint, Is.EqualTo(statusAura[0].transform));
+            Assert.That(statusPoint.parent, Is.EqualTo(view.ModelRoot));
+        }
+
         private static TickPresentationData CreatePresentationData(
             IEnumerable<TickEntityMotion> entityMotions = null,
             IEnumerable<TickEnemyJumpPresentationSignal> jumpSignals = null,
@@ -1405,6 +1499,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = boardPresence,
                 position = new SurfaceCell(FaceId.Floor, 1, 0),
                 facing = Direction.Right,
+            };
+        }
+
+        private static EntityState CreateEnemyEntityState(
+            int entityId,
+            int attackCooldownTicks,
+            int attackCooldownTotalTicks)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                type = EntityType.Unit,
+                hp = 1,
+                maxHp = 1,
+                unitRole = UnitRole.Enemy,
+                boardPresence = EntityBoardPresence.Occupying,
+                position = new SurfaceCell(FaceId.Floor, 1, 0),
+                facing = Direction.Right,
+                enemyAttackCooldownTicks = attackCooldownTicks,
+                enemyAttackCooldownTotalTicks = attackCooldownTotalTicks,
             };
         }
 

@@ -38,6 +38,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyLocomotionCooldown(entityId, cooldownTicks);
         }
 
+        public void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks)
+        {
+            _port.SetEnemyAttackCooldown(entityId, cooldownTicks, totalTicks);
+        }
+
         public void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             _port.SetEnemyActionState(entityId, state);

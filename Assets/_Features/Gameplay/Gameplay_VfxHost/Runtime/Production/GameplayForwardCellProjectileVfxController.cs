@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         private const float DefaultMinFlightDurationSeconds = 0.05f;
         private const float DefaultArcHeight = 0.35f;
+        private const float FlightEaseInBlend = 0.25f;
 
         private static readonly string[] SourceSocketNames =
         {
@@ -86,13 +87,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var windupSignals = presentationData.ForwardCellProjectileWindupSignals;
             for (var i = 0; i < windupSignals.Count; i++)
             {
-                PresentWindup(
-                    context.Result.TickIndex,
-                    context.Topology,
-                    windupSignals[i],
-                    pool,
-                    bindingResolver,
-                    cellProjector);
+                ReleaseMarker(windupSignals[i].PresentationKey, pool);
             }
 
             var releaseSignals = presentationData.ForwardCellProjectileReleaseSignals;
@@ -213,13 +208,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             IVfxBindingResolver bindingResolver,
             GameplayVfxHostCellAnchorProjector cellProjector)
         {
-            if (markerHandlesByKey.TryGetValue(signal.PresentationKey, out var marker) &&
-                marker is GameplayVfxPlaybackHandle markerHandle &&
-                markerHandle.InstanceTransform != null)
-            {
-                markerHandle.InstanceTransform.localScale = Vector3.one * 1.15f;
-            }
-
+            ReleaseMarker(signal.PresentationKey, pool);
             ReleaseFlight(signal.PresentationKey, pool);
 
             if (!TryResolveCellLocalPosition(
@@ -239,6 +228,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.Topology,
                 signal,
                 targetLocalPosition);
+            PlayActiveOneShot(
+                context,
+                signal,
+                pool,
+                bindingResolver,
+                sourceLocalPosition,
+                targetLocalRotation);
             var cueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
             var request = new GameplayVfxRequest(
                 context.Result.TickIndex,
@@ -269,8 +265,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (handle is GameplayVfxPlaybackHandle playbackHandle &&
                 playbackHandle.InstanceTransform != null)
             {
+                var followHandle = PlayFlightFollow(
+                    context,
+                    signal,
+                    pool,
+                    bindingResolver,
+                    playbackHandle.InstanceTransform,
+                    sourceLocalPosition,
+                    targetLocalRotation);
                 activeFlightsByKey[signal.PresentationKey] = new ActiveFlight(
                     playbackHandle,
+                    followHandle,
                     sourceLocalPosition,
                     targetLocalPosition,
                     ResolveFlightDurationSeconds(signal, context.TimingProfile),
@@ -297,7 +302,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 signal.PresentationKey,
                 signal.SourceEnemyId,
                 cueId,
-                VfxAnchor.ForCell(signal.TargetCell, topology, VfxAnchorSlot.CellCenter),
+                VfxAnchor.ForCell(signal.TargetCell, topology, VfxAnchorSlot.CellFloor),
                 VfxTimingKind.ImmediateOnTickPresentation,
                 isPersistent: false,
                 persistentKey: VfxPersistentKey.None);
@@ -343,6 +348,125 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return true;
         }
 
+        private void PlayActiveOneShot(
+            in GameplayTickPresentationExtensionContext context,
+            in TickForwardCellProjectileReleasePresentationSignal signal,
+            GameplayVfxGameObjectPool pool,
+            IVfxBindingResolver bindingResolver,
+            Vector3 sourceLocalPosition,
+            Quaternion sourceLocalRotation)
+        {
+            var cueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileActive);
+            var request = new GameplayVfxRequest(
+                context.Result.TickIndex,
+                signal.PresentationKey,
+                signal.PresentationKey,
+                signal.SourceEnemyId,
+                cueId,
+                VfxAnchor.ForCell(signal.SourceCell, context.Topology, VfxAnchorSlot.CellCenter),
+                VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!TryResolveOptionalCommand(
+                    request,
+                    bindingResolver,
+                    signal.SourceCell,
+                    context.Topology,
+                    VfxAnchorSlot.CellCenter,
+                    sourceLocalPosition,
+                    sourceLocalRotation,
+                    out var command))
+            {
+                return;
+            }
+
+            if (pool.PlayTransient(command) != null)
+            {
+                PlayedThisTickCount++;
+            }
+        }
+
+        private IVfxPlaybackHandle PlayFlightFollow(
+            in GameplayTickPresentationExtensionContext context,
+            in TickForwardCellProjectileReleasePresentationSignal signal,
+            GameplayVfxGameObjectPool pool,
+            IVfxBindingResolver bindingResolver,
+            Transform parent,
+            Vector3 sourceLocalPosition,
+            Quaternion sourceLocalRotation)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            var cueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlightFollow);
+            var request = new GameplayVfxRequest(
+                context.Result.TickIndex,
+                signal.PresentationKey,
+                signal.PresentationKey,
+                signal.SourceEnemyId,
+                cueId,
+                VfxAnchor.ForCell(signal.SourceCell, context.Topology, VfxAnchorSlot.CellCenter),
+                VfxTimingKind.DuringMotion,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+
+            if (!TryResolveOptionalCommand(
+                    request,
+                    bindingResolver,
+                    signal.SourceCell,
+                    context.Topology,
+                    VfxAnchorSlot.CellCenter,
+                    sourceLocalPosition,
+                    sourceLocalRotation,
+                    out var command))
+            {
+                return null;
+            }
+
+            var handle = pool.PlayAttachedTransient(
+                command,
+                parent,
+                controllerManagedLifetime: true);
+            if (handle != null)
+            {
+                PlayedThisTickCount++;
+            }
+
+            return handle;
+        }
+
+        private static bool TryResolveOptionalCommand(
+            in GameplayVfxRequest request,
+            IVfxBindingResolver bindingResolver,
+            SurfaceCell fallbackCell,
+            CubeTopologyState topology,
+            VfxAnchorSlot slot,
+            Vector3 localPosition,
+            Quaternion localRotation,
+            out ResolvedVfxPlaybackCommand command)
+        {
+            command = default;
+            if (!bindingResolver.TryResolve(request, out var policy))
+            {
+                return false;
+            }
+
+            policy.ValidateOrThrow();
+            command = new ResolvedVfxPlaybackCommand(
+                request,
+                policy,
+                VfxResolvedAnchor.ForCell(
+                    fallbackCell,
+                    topology,
+                    slot,
+                    localPosition,
+                    localRotation));
+            return true;
+        }
+
         private Vector3 ResolveSourceLocalPosition(
             GameplayPresentationStateStore stateStore,
             GameplayCubeProjector projector,
@@ -354,6 +478,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 stateStore.ViewsByEntityId.TryGetValue(signal.SourceEnemyId, out var view) &&
                 view != null)
             {
+                if (TryResolveProjectileMuzzleAttachPoint(view, out var attachPoint))
+                {
+                    return ToPresentationLocal(view.transform, attachPoint.position);
+                }
+
                 if (TryFindNamedSocket(view.transform, out var socket))
                 {
                     return ToPresentationLocal(view.transform, socket.position);
@@ -378,6 +507,34 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             MissingSourceFallbackCount++;
             return targetFallback;
+        }
+
+        private bool TryResolveProjectileMuzzleAttachPoint(
+            GameplayEntityView view,
+            out Transform attachPoint)
+        {
+            attachPoint = null;
+            if (view == null ||
+                !view.TryGetComponent(out EnemyForwardCellProjectileVfxAuthoring authoring) ||
+                authoring == null)
+            {
+                return false;
+            }
+
+            var attachPointId = authoring.ProjectileMuzzleAttachPointId;
+            if (string.IsNullOrWhiteSpace(attachPointId))
+            {
+                return false;
+            }
+
+            if (view.TryGetVfxAttachPoint(attachPointId, out attachPoint) &&
+                attachPoint != null)
+            {
+                return true;
+            }
+
+            MissingSourceFallbackCount++;
+            return false;
         }
 
         private static Vector3 ToPresentationLocal(Transform viewTransform, Vector3 worldPosition)
@@ -481,6 +638,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             pool?.Release(flight.Handle);
+            pool?.Release(flight.FollowHandle);
         }
 
         private void Cleanup(GameplayVfxGameObjectPool pool, bool hard)
@@ -517,12 +675,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             public ActiveFlight(
                 GameplayVfxPlaybackHandle handle,
+                IVfxPlaybackHandle followHandle,
                 Vector3 source,
                 Vector3 target,
                 float duration,
                 float arcHeight)
             {
                 Handle = handle;
+                FollowHandle = followHandle;
                 Source = source;
                 Target = target;
                 Duration = Mathf.Max(DefaultMinFlightDurationSeconds, duration);
@@ -531,6 +691,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             public GameplayVfxPlaybackHandle Handle { get; }
+
+            public IVfxPlaybackHandle FollowHandle { get; }
 
             private Vector3 Source { get; }
 
@@ -546,11 +708,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             public ActiveFlight Advance(float deltaSeconds)
             {
-                return new ActiveFlight(Handle, Source, Target, Duration, ArcHeight, Mathf.Min(Duration, Elapsed + deltaSeconds));
+                return new ActiveFlight(Handle, FollowHandle, Source, Target, Duration, ArcHeight, Mathf.Min(Duration, Elapsed + deltaSeconds));
             }
 
             private ActiveFlight(
                 GameplayVfxPlaybackHandle handle,
+                IVfxPlaybackHandle followHandle,
                 Vector3 source,
                 Vector3 target,
                 float duration,
@@ -558,6 +721,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 float elapsed)
             {
                 Handle = handle;
+                FollowHandle = followHandle;
                 Source = source;
                 Target = target;
                 Duration = duration;
@@ -574,15 +738,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 var t = Mathf.Clamp01(Duration <= 0f ? 1f : Elapsed / Duration);
+                var easedT = ResolveFlightProgress(t);
                 var control = (Source + Target) * 0.5f + Vector3.up * ArcHeight;
-                var a = Vector3.Lerp(Source, control, t);
-                var b = Vector3.Lerp(control, Target, t);
-                var position = Vector3.Lerp(a, b, t);
+                var a = Vector3.Lerp(Source, control, easedT);
+                var b = Vector3.Lerp(control, Target, easedT);
+                var position = Vector3.Lerp(a, b, easedT);
                 var tangent = (b - a).sqrMagnitude > 0.0001f ? (b - a).normalized : Vector3.forward;
                 transform.localPosition = position;
                 transform.localRotation = Quaternion.LookRotation(tangent, Vector3.up);
                 return true;
             }
+        }
+
+        private static float ResolveFlightProgress(float normalizedTime)
+        {
+            var t = Mathf.Clamp01(normalizedTime);
+            return Mathf.Lerp(t, t * t, FlightEaseInBlend);
         }
     }
 }

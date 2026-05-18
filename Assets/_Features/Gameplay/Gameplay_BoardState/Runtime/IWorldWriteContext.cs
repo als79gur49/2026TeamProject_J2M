@@ -12,6 +12,8 @@ namespace Game.Feature.Gameplay.BoardState
 
     public interface IEnemyActionCommitContext : IEnemyAiCommitContext
     {
+        void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks);
+
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
 
         void AddPendingCellImpact(PendingCellImpact impact);
@@ -36,6 +38,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetFacing(int entityId, Direction facing);
 
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
+
+        void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks);
 
         void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
 

@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         EnemyGlideRecover = 6,
         EnemyWeaponWindupAura = 7,
         EnemyUtilityCooldownAura = 8,
+        EnemyAttackCooldownFollow = 9,
     }
 
     internal enum AttachedVfxFollowerRetentionPolicy

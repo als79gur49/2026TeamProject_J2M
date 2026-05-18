@@ -163,7 +163,9 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entity.kineticInstigatorTeamId).Append('|')
                     .Append((int)entity.aiMode).Append('|')
                     .Append(entity.aiStateTimer).Append('|')
-                    .Append(entity.enemyLocomotionCooldownTicks).Append('\n');
+                    .Append(entity.enemyLocomotionCooldownTicks).Append('|')
+                    .Append(entity.enemyAttackCooldownTicks).Append('|')
+                    .Append(entity.enemyAttackCooldownTotalTicks).Append('\n');
             }
         }
 
