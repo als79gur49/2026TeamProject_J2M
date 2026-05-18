@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
         Active = 5,
         Recover = 6,
         ProjectileImpact = 7,
+        ChargeActiveLoop = 8,
     }
 
     public readonly struct EnemyAudioRequest
@@ -52,6 +53,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 EnemyAudioCue.Active => nameof(EnemyAudioCue.Active),
                 EnemyAudioCue.Recover => nameof(EnemyAudioCue.Recover),
                 EnemyAudioCue.ProjectileImpact => nameof(EnemyAudioCue.ProjectileImpact),
+                EnemyAudioCue.ChargeActiveLoop => nameof(EnemyAudioCue.ChargeActiveLoop),
                 _ => throw new ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported enemy audio cue."),
             };
         }

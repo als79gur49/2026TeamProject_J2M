@@ -117,6 +117,12 @@ TickResult
   - live owner view에서 optional `GameplayActionAudioAuthoring`를 resolve한다
   - missing owner view / missing authoring은 runtime no-op다
   - looping handle state나 enemy reaction governance를 소유하지 않는다
+- `EnemyChargeLoopAudioPresentationController`
+  - host-owned presentation-side controller다
+  - `TickEnemyChargePresentationSignal`의 `Active` phase를 desired persistent state로 읽는다
+  - enemy-local `EnemyAudioProfile`의 `ChargeActiveLoop` binding을 attached loop로 재생하고 handle을 소유한다
+  - active phase 이탈, sequence 변경, session reset, runtime detach에서 handle을 정지한다
+  - core required gameplay semantic set이나 action-audio moment set을 확장하지 않는다
 - `GameplayAudioPresentationController`
   - host-owned orchestration controller다
   - `GameplayTickPresentationCoordinator` 내부 collaborator로 존재한다
@@ -165,6 +171,7 @@ TickResult
   - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
   - core enemy damage/death reaction sounds는 existing core one-shot path에 남는다.
   - Action-side `ImpactEnemy` may coexist with core `EnemyDamage`.
+  - Charge active loop audio remains a separate enemy-local persistent controller, not a core one-shot semantic.
   - persistent BGM ownership/access terminology는 [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md) 를 따른다.
 
 ### 4.2 Gameplay Audio Bootstrap Validation

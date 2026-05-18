@@ -110,11 +110,41 @@ namespace Game.Feature.Gameplay.EnemyAudio
                     validationErrors,
                     new AudioBindingValidationOptions(
                         OneShotSfxCategories,
-                        allowLoopingDefinitions: false,
+                        allowLoopingDefinitions: IsLoopCue(entry.Cue),
                         allowNullBinding: entry.IsOptional));
+
+                AppendLoopCueValidationErrors(entry, cueLabel, validationErrors);
             }
 
             return validationErrors;
+        }
+
+        private void AppendLoopCueValidationErrors(
+            in EnemyAudioEntry entry,
+            string cueLabel,
+            ICollection<string> validationErrors)
+        {
+            if (!IsLoopCue(entry.Cue) ||
+                entry.Binding == null ||
+                entry.Binding.Definition == null)
+            {
+                return;
+            }
+
+            if (!entry.Binding.Definition.Loop)
+            {
+                validationErrors.Add($"{name} cue '{cueLabel}' requires a looping AudioDefinition.");
+            }
+
+            if (!entry.Binding.HasAttachmentSlot)
+            {
+                validationErrors.Add($"{name} cue '{cueLabel}' requires an attachment slot.");
+            }
+        }
+
+        private static bool IsLoopCue(EnemyAudioCue cue)
+        {
+            return cue == EnemyAudioCue.ChargeActiveLoop;
         }
     }
 }

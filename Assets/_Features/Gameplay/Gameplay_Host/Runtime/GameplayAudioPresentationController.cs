@@ -18,7 +18,16 @@ namespace Game.Feature.Gameplay.Host
             in AudioPlaybackContext context);
     }
 
-    internal sealed class GameplayAudioPlaybackPortAdapter : IGameplayAudioPlaybackPort
+    internal interface IGameplayAudioLoopPlaybackPort
+    {
+        AudioPlaybackHandle PlayAttachedLoop(
+            AudioDefinition definition,
+            Component owner,
+            AudioAttachmentSlot slot,
+            in AudioPlaybackContext context);
+    }
+
+    internal sealed class GameplayAudioPlaybackPortAdapter : IGameplayAudioPlaybackPort, IGameplayAudioLoopPlaybackPort
     {
         private readonly IAudioService _audioService;
 
@@ -39,6 +48,15 @@ namespace Game.Feature.Gameplay.Host
             in AudioPlaybackContext context)
         {
             _audioService.PlayAttached(definition, owner, slot, context);
+        }
+
+        public AudioPlaybackHandle PlayAttachedLoop(
+            AudioDefinition definition,
+            Component owner,
+            AudioAttachmentSlot slot,
+            in AudioPlaybackContext context)
+        {
+            return _audioService.PlayAttached(definition, owner, slot, context);
         }
     }
 
