@@ -362,6 +362,40 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
     PresentationId: rocket_face
+  - StableGuid: 692089b38be9404d8f48b773e85c4de0
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 3
+      x: 11
+      y: 2
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: nebulous
+  - StableGuid: faaa3a142fd74becb949a1f00dbaad39
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 3
+      x: 4
+      y: 2
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
+    PresentationId: dr_saturn
   tileFeatures:
   - TileId: 1
     Cell:
@@ -723,6 +757,14 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: 5a2451fb45144cb4b8a4a42e389b0e14
     EntityId: 229
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 692089b38be9404d8f48b773e85c4de0
+    EntityId: 230
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: faaa3a142fd74becb949a1f00dbaad39
+    EntityId: 231
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0
