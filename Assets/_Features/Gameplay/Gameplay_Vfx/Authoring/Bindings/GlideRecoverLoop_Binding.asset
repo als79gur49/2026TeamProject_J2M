@@ -11,15 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
   m_Name: GlideRecoverLoop_Binding
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   family: 3
   cueCode: 24
+  styleKey:
+    value: 
   prefab: {fileID: 100000, guid: 8671d82d7374b8f3c4d978f19612e710, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 2
   stopPolicy: 3
   defaultLifetimeSeconds: 0
-  tailSeconds: 0.3
+  tailSeconds: 2
   initialPoolSize: 4
   maxConcurrentInstances: 8
