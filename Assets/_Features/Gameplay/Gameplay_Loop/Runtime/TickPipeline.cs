@@ -6780,7 +6780,8 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                var reservationStatus = reservationBook.GetCellStatus(payload.DestinationCell);
+                var reservationInfo = reservationBook.GetCellReservationInfo(payload.DestinationCell);
+                var reservationStatus = ResolveJumpLandingReservationStatus(payload, reservationInfo);
                 var settlementContext = new SettlementContext(
                     movementSnapshot,
                     BuildLegalityActorRef(movementSnapshot, payload.SourceActorEntityId, EntityType.Unit),
@@ -6872,6 +6873,21 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static ReservationStatus ResolveJumpLandingReservationStatus(
+            JumpLandingActionPlanPayload payload,
+            CellReservationInfo reservationInfo)
+        {
+            if (reservationInfo.Status != ReservationStatus.Conflicted)
+            {
+                return reservationInfo.Status;
+            }
+
+            return payload.LandingKind != JumpLandingKind.RetryOnly &&
+                   reservationInfo.IsUnitSharedSettlementCompatible
+                ? ReservationStatus.None
+                : ReservationStatus.Conflicted;
         }
 
         private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(
@@ -8397,7 +8413,7 @@ namespace Game.Feature.Gameplay.Loop
                 }
                 else
                 {
-                    if (reservationBook.TryAcceptPayload(payload, out var conflict))
+                    if (reservationBook.TryAcceptPayload(snapshot, payload, out var conflict))
                     {
                         accepted = true;
                         selectedIntentIds.Add(payload.IntentId);

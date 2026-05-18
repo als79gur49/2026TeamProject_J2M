@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly HashSet<int> _reservedAffectedEntities = new();
         private readonly Dictionary<UndirectedEdgeKey, EdgeReservation> _reservedBlockingEdges = new();
         private readonly HashSet<SurfaceCell> _reservedBlockingDestinations = new();
+        private readonly Dictionary<SurfaceCell, CellReservationInfo> _reservedDestinationInfos = new();
         private readonly Dictionary<UndirectedEdgeKey, EdgeReservation> _reservedEdges = new();
         private readonly HashSet<SurfaceCell> _reservedDestinations = new();
         private bool _isFrozen;
@@ -20,6 +21,7 @@ namespace Game.Feature.Gameplay.Loop
         private (int ActionPlanId, MovementCandidateKind CandidateKind, bool HasTopologyChange, bool HasValue) _topologyExclusiveReservation;
 
         public bool TryAcceptPayload(
+            WorldSnapshot snapshot,
             MovementActionPlanPayload payload,
             out MovementReservationConflict conflict)
         {
@@ -63,7 +65,7 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            ReservePayload(payload);
+            ReservePayload(snapshot, payload);
             conflict = default;
             return true;
         }
@@ -85,6 +87,18 @@ namespace Game.Feature.Gameplay.Loop
             return _reservedDestinations.Contains(cell)
                 ? ReservationStatus.Conflicted
                 : ReservationStatus.None;
+        }
+
+        public CellReservationInfo GetCellReservationInfo(SurfaceCell cell)
+        {
+            if (!_reservedDestinations.Contains(cell))
+            {
+                return CellReservationInfo.None;
+            }
+
+            return _reservedDestinationInfos.TryGetValue(cell, out var info)
+                ? info
+                : CellReservationInfo.BlockingConflict;
         }
 
         public ReservationStatus GetEdgeStatus(SurfaceCell from, SurfaceCell to)
@@ -110,7 +124,11 @@ namespace Game.Feature.Gameplay.Loop
         public void ReserveJumpLanding(int entityId, SurfaceCell destinationCell)
         {
             ThrowIfFrozen();
-            _reservedDestinations.Add(destinationCell);
+            AddDestinationReservation(
+                destinationCell,
+                entityId,
+                EntityType.Unit,
+                blocksUnitSharedSettlement: true);
             _reservedBlockingDestinations.Add(destinationCell);
             _reservedAffectedEntities.Add(entityId);
         }
@@ -118,7 +136,11 @@ namespace Game.Feature.Gameplay.Loop
         public void ReservePhaseRelocation(int entityId, SurfaceCell destinationCell)
         {
             ThrowIfFrozen();
-            _reservedDestinations.Add(destinationCell);
+            AddDestinationReservation(
+                destinationCell,
+                entityId,
+                EntityType.Unit,
+                blocksUnitSharedSettlement: true);
             _reservedBlockingDestinations.Add(destinationCell);
             _reservedAffectedEntities.Add(entityId);
         }
@@ -157,13 +179,24 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private void ReservePayload(MovementActionPlanPayload payload)
+        private void ReservePayload(WorldSnapshot snapshot, MovementActionPlanPayload payload)
         {
             var blocksSharedUnitMoves = payload.BlockingType == MovementBlockingType.Blocking;
+            var destinationReservationEntityId = GetDestinationReservationEntityId(payload);
+            var destinationReservationEntityType = snapshot.TryGetEntity(destinationReservationEntityId, out var destinationReservationEntity)
+                ? destinationReservationEntity.type
+                : EntityType.None;
+            var blocksUnitSharedSettlement = !IsUnitSharedSettlementCompatibleReservation(
+                payload,
+                destinationReservationEntityType);
 
             if (PayloadReservesDestination(payload))
             {
-                _reservedDestinations.Add(payload.DestinationCell);
+                AddDestinationReservation(
+                    payload.DestinationCell,
+                    destinationReservationEntityId,
+                    destinationReservationEntityType,
+                    blocksUnitSharedSettlement);
                 if (blocksSharedUnitMoves)
                 {
                     _reservedBlockingDestinations.Add(payload.DestinationCell);
@@ -216,7 +249,11 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ReserveImpactPayloadCore(MovementImpactReservationPayload payload, int actionPlanId)
         {
-            _reservedDestinations.Add(payload.ContingentDestinationCell);
+            AddDestinationReservation(
+                payload.ContingentDestinationCell,
+                payload.SourceEntityId,
+                EntityType.None,
+                blocksUnitSharedSettlement: true);
             _reservedBlockingDestinations.Add(payload.ContingentDestinationCell);
             _reservedAffectedEntities.Add(payload.SourceEntityId);
 
@@ -240,6 +277,51 @@ namespace Game.Feature.Gameplay.Loop
         private static bool PayloadHasTopologyChange(MovementActionPlanPayload payload)
         {
             return payload.TopologyWrites.Count > 0;
+        }
+
+        private static int GetDestinationReservationEntityId(MovementActionPlanPayload payload)
+        {
+            if (payload.MoveWrites.Count > 0)
+            {
+                return payload.MoveWrites[0].EntityId;
+            }
+
+            if (payload.KinematicMotionOutcomes.Count > 0)
+            {
+                return payload.KinematicMotionOutcomes[0].EntityId;
+            }
+
+            return payload.SourceActorEntityId;
+        }
+
+        private void AddDestinationReservation(
+            SurfaceCell cell,
+            int reservedEntityId,
+            EntityType reservedEntityType,
+            bool blocksUnitSharedSettlement)
+        {
+            _reservedDestinations.Add(cell);
+            var nextInfo = new CellReservationInfo(
+                ReservationStatus.Conflicted,
+                reservedEntityId,
+                reservedEntityType,
+                blocksUnitSharedSettlement);
+
+            if (!_reservedDestinationInfos.TryGetValue(cell, out var existingInfo) ||
+                blocksUnitSharedSettlement ||
+                !existingInfo.BlocksUnitSharedSettlement)
+            {
+                _reservedDestinationInfos[cell] = nextInfo;
+            }
+        }
+
+        private static bool IsUnitSharedSettlementCompatibleReservation(
+            MovementActionPlanPayload payload,
+            EntityType sourceEntityType)
+        {
+            return sourceEntityType == EntityType.Unit &&
+                   payload.BlockingType == MovementBlockingType.NonBlocking &&
+                   !PayloadHasTopologyChange(payload);
         }
 
         private static bool TryGetPayloadTopologyExclusiveConflict(
@@ -486,6 +568,46 @@ namespace Game.Feature.Gameplay.Loop
         Edge = 2,
         AffectedEntity = 3,
         TopologyExclusive = 4,
+    }
+
+    internal readonly struct CellReservationInfo
+    {
+        public static readonly CellReservationInfo None = new(
+            ReservationStatus.None,
+            0,
+            EntityType.None,
+            blocksUnitSharedSettlement: false);
+
+        public static readonly CellReservationInfo BlockingConflict = new(
+            ReservationStatus.Conflicted,
+            0,
+            EntityType.None,
+            blocksUnitSharedSettlement: true);
+
+        public CellReservationInfo(
+            ReservationStatus status,
+            int reservedEntityId,
+            EntityType reservedEntityType,
+            bool blocksUnitSharedSettlement)
+        {
+            Status = status;
+            ReservedEntityId = reservedEntityId;
+            ReservedEntityType = reservedEntityType;
+            BlocksUnitSharedSettlement = blocksUnitSharedSettlement;
+        }
+
+        public ReservationStatus Status { get; }
+
+        public int ReservedEntityId { get; }
+
+        public EntityType ReservedEntityType { get; }
+
+        public bool BlocksUnitSharedSettlement { get; }
+
+        public bool IsUnitSharedSettlementCompatible =>
+            Status == ReservationStatus.Conflicted &&
+            ReservedEntityType == EntityType.Unit &&
+            !BlocksUnitSharedSettlement;
     }
 
     internal sealed class FrozenMovementReservationExport
