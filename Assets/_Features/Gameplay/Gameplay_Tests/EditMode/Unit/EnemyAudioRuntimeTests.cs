@@ -1061,7 +1061,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_RocketFace.prefab",
                     EnemyAudioCue.Move,
-                    EnemyAudioCue.Active,
+                    EnemyAudioCue.ChargeActiveLoop,
                     EnemyAudioCue.Death),
             };
         }

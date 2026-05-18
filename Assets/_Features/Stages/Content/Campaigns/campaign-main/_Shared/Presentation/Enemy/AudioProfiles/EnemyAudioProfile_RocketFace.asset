@@ -21,11 +21,11 @@ MonoBehaviour:
       policy:
         rid: -2
     IsOptional: 0
-  - Cue: 5
+  - Cue: 8
     Binding:
-      definition: {fileID: 11400000, guid: 322ed63326e445de84998446805cbcbc, type: 2}
+      definition: {fileID: 11400000, guid: 6246b40973694a9f90496e06f95a2fb4, type: 2}
       attachmentSlot:
-        id:
+        id: charge-active-loop
       policy:
         rid: -2
     IsOptional: 0
