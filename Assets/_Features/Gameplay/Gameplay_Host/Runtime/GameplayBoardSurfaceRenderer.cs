@@ -35,6 +35,9 @@ namespace Game.Feature.Gameplay.Host
         private Material _decorativeTopFaceMaterial;
         private bool _isInitialized;
         private bool _areSteadyTilesVisible = true;
+        private bool _hasAppliedSteadyTopology;
+        private CubeTopologyState _appliedSteadyTopology;
+        private bool _isSteadySurfaceDirty = true;
         private CubeTopologyState _steadyTopology;
         private GameplayCubeProjector _projector;
 
@@ -101,6 +104,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(cellSize), "Cell size must be greater than zero.");
             }
 
+            MarkSteadySurfaceDirty();
             _boardBounds = boardBounds;
             _cellSize = cellSize;
             var overridesChanged = !BoardTileOverridesEqual(
@@ -137,6 +141,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _suppressedBaseTileCells = next;
+            MarkSteadySurfaceDirty();
             if (!_isInitialized)
             {
                 return;
@@ -144,13 +149,16 @@ namespace Game.Feature.Gameplay.Host
 
             RefreshSteadyTopology(_steadyTopology);
             ClearTopologyTransition();
+            MarkSteadyTopologyApplied(_steadyTopology);
         }
 
         public void RefreshTopology(CubeTopologyState topology)
         {
             EnsureInitialized();
+            MarkSteadySurfaceDirty();
             RefreshSteadyTopology(topology);
             ClearTopologyTransition();
+            MarkSteadyTopologyApplied(topology);
         }
 
         public void BeginTopologyTransition(
@@ -159,6 +167,7 @@ namespace Game.Feature.Gameplay.Host
         {
             EnsureInitialized();
 
+            MarkSteadySurfaceDirty();
             ClearTopologyTransition();
             if (!_steadyTopology.Equals(sourceTopology))
             {
@@ -220,8 +229,24 @@ namespace Game.Feature.Gameplay.Host
         public void CompleteTopologyTransition(CubeTopologyState topology)
         {
             EnsureInitialized();
+            if (CanSkipCompleteTopologyTransition(topology))
+            {
+                return;
+            }
+
             RefreshSteadyTopology(topology);
             ClearTopologyTransition();
+            MarkSteadyTopologyApplied(topology);
+        }
+
+        internal bool CanSkipCompleteTopologyTransition(CubeTopologyState topology)
+        {
+            return _isInitialized &&
+                   _hasAppliedSteadyTopology &&
+                   _appliedSteadyTopology.Equals(topology) &&
+                   !_isSteadySurfaceDirty &&
+                   TransitionTileCount == 0 &&
+                   HasVisibleSteadySurface();
         }
 
         public void ClearTopologyTransition()
@@ -888,6 +913,48 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void MarkSteadySurfaceDirty()
+        {
+            _isSteadySurfaceDirty = true;
+        }
+
+        private void MarkSteadyTopologyApplied(CubeTopologyState topology)
+        {
+            _appliedSteadyTopology = topology;
+            _hasAppliedSteadyTopology = true;
+            _isSteadySurfaceDirty = false;
+        }
+
+        private void ResetAppliedSteadyTopology()
+        {
+            _hasAppliedSteadyTopology = false;
+            _appliedSteadyTopology = default;
+            _isSteadySurfaceDirty = true;
+        }
+
+        private bool HasVisibleSteadySurface()
+        {
+            if (!_areSteadyTilesVisible ||
+                SteadyTileCount <= 0 ||
+                _steadyActiveTiles.Count < SteadyTileCount)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < SteadyTileCount; i++)
+            {
+                var tileView = _steadyActiveTiles[i];
+                if (tileView == null ||
+                    tileView.GameObject == null ||
+                    !tileView.GameObject.activeSelf)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private void DestroyAllTilePools()
         {
             DestroyTilePools(_steadyTilePools);
@@ -897,6 +964,7 @@ namespace Game.Feature.Gameplay.Host
             _transitionTileStates.Clear();
             SteadyTileCount = 0;
             TransitionTileCount = 0;
+            ResetAppliedSteadyTopology();
         }
 
         private void DestroyTilePools(Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools)

@@ -70,6 +70,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(1));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayTopologyTransitionController_InactiveBoardSurfaceBranch_GuardsOnlyRendererCompletion()
+        {
+            var refreshBoardSurfaceTransitionBody = ExtractMethodBody(
+                ReadRepoFile(ControllerRelativePath),
+                "public void RefreshBoardSurfaceTransition(");
+
+            Assert.That(
+                refreshBoardSurfaceTransitionBody,
+                Does.Contain("if (!_boardSurfaceRenderer.CanSkipCompleteTopologyTransition(committedTopology))"));
+            Assert.That(
+                refreshBoardSurfaceTransitionBody,
+                Does.Contain("_boardSurfaceRenderer.CompleteTopologyTransition(committedTopology);"));
+            Assert.That(
+                CountMatches(
+                    refreshBoardSurfaceTransitionBody,
+                    "_boardSurfaceRenderer.CompleteTopologyTransition(committedTopology);"),
+                Is.EqualTo(1));
+            Assert.That(refreshBoardSurfaceTransitionBody, Does.Contain("_lastCommittedTopology = committedTopology;"));
+            Assert.That(refreshBoardSurfaceTransitionBody, Does.Contain("_isBoardSurfaceTransitionActive = false;"));
+            Assert.That(refreshBoardSurfaceTransitionBody, Does.Contain("TopologyPresentationCompleted?.Invoke(committedTopology);"));
+            Assert.That(refreshBoardSurfaceTransitionBody, Does.Contain("UpdateInactiveVisualState();"));
+        }
+
         private static string ExtractMethodBody(string source, string signature)
         {
             var signatureIndex = source.IndexOf(signature, StringComparison.Ordinal);

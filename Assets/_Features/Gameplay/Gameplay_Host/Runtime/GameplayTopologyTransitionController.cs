@@ -183,7 +183,11 @@ namespace Game.Feature.Gameplay.Host
                 var restReferenceRotationXDegrees =
                     ResolveNearestRestReferenceAngleXDegrees(_presentedBoardRotationXDegrees, committedTopology);
                 var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
-                _boardSurfaceRenderer.CompleteTopologyTransition(committedTopology);
+                if (!_boardSurfaceRenderer.CanSkipCompleteTopologyTransition(committedTopology))
+                {
+                    _boardSurfaceRenderer.CompleteTopologyTransition(committedTopology);
+                }
+
                 _lastCommittedTopology = committedTopology;
                 _boardSurfaceTransitionStartRotation = restReferenceRotation;
                 _boardSurfaceTransitionDestinationRotation = restReferenceRotation;

@@ -2247,6 +2247,110 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void GameplayBoardSurfaceRenderer_CompleteTopologyTransition_SameCommittedTopologyKeepsVisibleTilesActive()
+        {
+            var rootObject =
+                new GameObject("GameplayBoardSurfaceRenderer_CompleteTopologyTransition_SameCommittedTopologyKeepsVisibleTilesActive");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+                var boardBounds = new BoardBounds(Vector2Int.zero, Vector2Int.zero);
+                var topology = new CubeTopologyState(FaceId.Floor);
+
+                renderer.Initialize(boardBounds, 1f, topology);
+
+                var bottomTile = FindSurfaceTile(renderer, "ActiveBottom_Floor_0_0");
+                var frontTile = FindSurfaceTile(renderer, "ActiveFront_Front_0_0");
+                var bottomProbe = bottomTile.AddComponent<SurfaceTileLifecycleProbe>();
+                var frontProbe = frontTile.AddComponent<SurfaceTileLifecycleProbe>();
+                bottomProbe.ResetCounts();
+                frontProbe.ResetCounts();
+                var visibleChildCount = renderer.VisibleTilePoolRoot.childCount;
+                var activeTileCount = renderer.ActiveTileCount;
+
+                Assert.That(renderer.CanSkipCompleteTopologyTransition(topology), Is.True);
+
+                renderer.CompleteTopologyTransition(topology);
+
+                Assert.That(renderer.CanSkipCompleteTopologyTransition(topology), Is.True);
+                Assert.That(renderer.VisibleTilePoolRoot.childCount, Is.EqualTo(visibleChildCount));
+                Assert.That(renderer.ActiveTileCount, Is.EqualTo(activeTileCount));
+                Assert.That(FindSurfaceTile(renderer, "ActiveBottom_Floor_0_0"), Is.SameAs(bottomTile));
+                Assert.That(FindSurfaceTile(renderer, "ActiveFront_Front_0_0"), Is.SameAs(frontTile));
+                Assert.That(bottomTile.activeSelf, Is.True);
+                Assert.That(frontTile.activeSelf, Is.True);
+                Assert.That(bottomProbe.EnabledCount, Is.Zero);
+                Assert.That(bottomProbe.DisabledCount, Is.Zero);
+                Assert.That(frontProbe.EnabledCount, Is.Zero);
+                Assert.That(frontProbe.DisabledCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplayBoardSurfaceRenderer_CompleteTopologyTransition_AfterBeginRefreshesDestinationOnceThenSkips()
+        {
+            var rootObject =
+                new GameObject("GameplayBoardSurfaceRenderer_CompleteTopologyTransition_AfterBeginRefreshesDestinationOnceThenSkips");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+                var boardBounds = new BoardBounds(Vector2Int.zero, Vector2Int.zero);
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+
+                renderer.Initialize(boardBounds, 1f, sourceTopology);
+                var sourceBottomTile = FindSurfaceTile(renderer, "ActiveBottom_Floor_0_0");
+
+                renderer.BeginTopologyTransition(sourceTopology, destinationTopology);
+
+                Assert.That(renderer.CanSkipCompleteTopologyTransition(destinationTopology), Is.False);
+                Assert.That(sourceBottomTile.activeSelf, Is.False);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveBottom_Front_0_0"), Is.Null);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveFront_Ceiling_0_0"), Is.Null);
+
+                renderer.CompleteTopologyTransition(destinationTopology);
+
+                Assert.That(renderer.SteadyTopology, Is.EqualTo(destinationTopology));
+                Assert.That(renderer.TransitionTileCount, Is.Zero);
+                Assert.That(renderer.CanSkipCompleteTopologyTransition(destinationTopology), Is.True);
+                var destinationBottomTile = FindSurfaceTile(renderer, "ActiveBottom_Front_0_0");
+                var destinationFrontTile = FindSurfaceTile(renderer, "ActiveFront_Ceiling_0_0");
+                var destinationBottomProbe = destinationBottomTile.AddComponent<SurfaceTileLifecycleProbe>();
+                var destinationFrontProbe = destinationFrontTile.AddComponent<SurfaceTileLifecycleProbe>();
+                Assert.That(destinationBottomTile.activeSelf, Is.True);
+                Assert.That(destinationFrontTile.activeSelf, Is.True);
+
+                destinationBottomProbe.ResetCounts();
+                destinationFrontProbe.ResetCounts();
+                var visibleChildCount = renderer.VisibleTilePoolRoot.childCount;
+                var activeTileCount = renderer.ActiveTileCount;
+
+                renderer.CompleteTopologyTransition(destinationTopology);
+
+                Assert.That(renderer.VisibleTilePoolRoot.childCount, Is.EqualTo(visibleChildCount));
+                Assert.That(renderer.ActiveTileCount, Is.EqualTo(activeTileCount));
+                Assert.That(FindSurfaceTile(renderer, "ActiveBottom_Front_0_0"), Is.SameAs(destinationBottomTile));
+                Assert.That(FindSurfaceTile(renderer, "ActiveFront_Ceiling_0_0"), Is.SameAs(destinationFrontTile));
+                Assert.That(destinationBottomProbe.EnabledCount, Is.Zero);
+                Assert.That(destinationBottomProbe.DisabledCount, Is.Zero);
+                Assert.That(destinationFrontProbe.EnabledCount, Is.Zero);
+                Assert.That(destinationFrontProbe.DisabledCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_UsesConfiguredBoardSurfaceTextureForAllTiles()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesConfiguredBoardSurfaceTextureForAllTiles");
@@ -7258,6 +7362,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var tile = TryFindSurfaceTile(renderer, tileName);
             Assert.That(tile, Is.Not.Null, $"Expected board surface tile '{tileName}' to exist.");
             return tile;
+        }
+
+        private sealed class SurfaceTileLifecycleProbe : MonoBehaviour
+        {
+            public int EnabledCount { get; private set; }
+
+            public int DisabledCount { get; private set; }
+
+            private void OnEnable()
+            {
+                EnabledCount++;
+            }
+
+            private void OnDisable()
+            {
+                DisabledCount++;
+            }
+
+            public void ResetCounts()
+            {
+                EnabledCount = 0;
+                DisabledCount = 0;
+            }
         }
 
         private static void AssertSurfaceTileMatchesProjection(
