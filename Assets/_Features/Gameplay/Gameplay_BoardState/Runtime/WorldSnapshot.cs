@@ -408,9 +408,31 @@ namespace Game.Feature.Gameplay.BoardState
             EnumerateUnitsAt(CreateDefaultQueryCell(cell), buffer);
         }
 
+        public void EnumerateUnitImpactTargetsAt(SurfaceCell cell, List<EntityState> buffer)
+        {
+            EnumerateUnitImpactTargetsAt(_topology, cell, buffer);
+        }
+
+        public void EnumerateUnitImpactTargetsAt(Vector2Int cell, List<EntityState> buffer)
+        {
+            EnumerateUnitImpactTargetsAt(CreateDefaultQueryCell(cell), buffer);
+        }
+
         internal void EnumerateUnitsAt(CubeTopologyState topology, SurfaceCell cell, List<EntityState> buffer)
         {
             SnapshotReadQueries.EnumerateUnitsAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
+                topology,
+                cell,
+                buffer);
+        }
+
+        internal void EnumerateUnitImpactTargetsAt(CubeTopologyState topology, SurfaceCell cell, List<EntityState> buffer)
+        {
+            SnapshotReadQueries.EnumerateUnitImpactTargetsAt(
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,

@@ -81,6 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     "AttackSourceId",
                     "TargetId",
+                    "TargetIds",
                     "DestroyResolutions",
                 }));
         }

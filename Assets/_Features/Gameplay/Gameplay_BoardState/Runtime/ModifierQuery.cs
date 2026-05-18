@@ -75,7 +75,7 @@ namespace Game.Feature.Gameplay.BoardState
             return HasAcceptedImpactDestroy(
                 evidence.DestroyResolutions,
                 evidence.AttackSourceId,
-                evidence.TargetId)
+                evidence.TargetIds)
                 ? LegalityModifierSet.None.With(LegalityModifierId.AcceptedDestroyVacatesTarget)
                 : LegalityModifierSet.None;
         }
@@ -83,19 +83,35 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool HasAcceptedImpactDestroy(
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
             int sourceEntityId,
-            int targetEntityId)
+            IReadOnlyList<int> targetEntityIds)
         {
-            for (var i = 0; i < destroyResolutions.Count; i++)
+            if (targetEntityIds == null ||
+                targetEntityIds.Count == 0)
             {
-                if (destroyResolutions[i].Accepted &&
-                    destroyResolutions[i].SourceId == sourceEntityId &&
-                    destroyResolutions[i].TargetId == targetEntityId)
+                return false;
+            }
+
+            for (var targetIndex = 0; targetIndex < targetEntityIds.Count; targetIndex++)
+            {
+                var targetDestroyed = false;
+                for (var i = 0; i < destroyResolutions.Count; i++)
                 {
-                    return true;
+                    if (destroyResolutions[i].Accepted &&
+                        destroyResolutions[i].SourceId == sourceEntityId &&
+                        destroyResolutions[i].TargetId == targetEntityIds[targetIndex])
+                    {
+                        targetDestroyed = true;
+                        break;
+                    }
+                }
+
+                if (!targetDestroyed)
+                {
+                    return false;
                 }
             }
 
-            return false;
+            return true;
         }
     }
 }

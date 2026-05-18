@@ -1600,7 +1600,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Impact_TargetCellHasStackedFriendlyAndHostile_PicksHostileDeterministically()
+        public void Impact_TargetCellHasStackedFriendlyAndHostile_DamagesAllUnitTargetsDeterministically()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1623,6 +1623,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Floor, 2, 0), Damage: 1),
+                    (SourceId: 20, TargetId: 40, Position: new SurfaceCell(FaceId.Floor, 2, 0), Damage: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
@@ -1635,7 +1636,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetEntity(30, out var hostile), Is.True);
             Assert.That(hostile.hp, Is.EqualTo(2));
             Assert.That(snapshotAfter.TryGetEntity(40, out var friendly), Is.True);
-            Assert.That(friendly.hp, Is.EqualTo(3));
+            Assert.That(friendly.hp, Is.EqualTo(2));
         }
 
         [Test]
@@ -1663,6 +1664,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Floor, 2, 0), Damage: 1),
+                    (SourceId: 20, TargetId: 40, Position: new SurfaceCell(FaceId.Floor, 2, 0), Damage: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
@@ -1679,7 +1681,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(40, out var survivingOccupant), Is.True);
-            Assert.That(survivingOccupant.hp, Is.EqualTo(3));
+            Assert.That(survivingOccupant.hp, Is.EqualTo(2));
         }
 
         [Test]
@@ -2125,13 +2127,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Flip_LandingHasHostileUnit_NonLethalImpact_DestroysSelfWithoutCommittedMove()
+        public void Flip_LandingHasStackedUnits_NonLethalImpact_DamagesAllAndDestroysSelfWithoutCommittedMove()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
+                CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 3, teamId: 1),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -2166,6 +2169,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     (SourceId: 30, TargetId: 20, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1),
+                    (SourceId: 30, TargetId: 21, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
@@ -2192,6 +2196,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(20, out var enemy), Is.True);
             Assert.That(enemy.hp, Is.EqualTo(2));
+            Assert.That(snapshotAfter.TryGetEntity(21, out var friendly), Is.True);
+            Assert.That(friendly.hp, Is.EqualTo(2));
             Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.Flip));
             Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.DestroySelf));
             Assert.That(disposition.TargetDestroyed, Is.False);
@@ -2251,6 +2257,93 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(disposition.TargetDestroyed, Is.True);
             Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
             Assert.That(disposition.FollowThroughAccepted, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_AllStackedTargetsDie_ButReservedLandingCell_StaysWithoutDestroySelf()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateUnit(entityId: 12, position: new Vector2Int(1, 1), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 1),
+                CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 1, teamId: 1),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(
+                        new RawMovementIntent(
+                            sourceId: 12,
+                            priority: 200,
+                            destination: new Vector2Int(1, 0),
+                            MovementCommandKind.Move,
+                            localSequence: 0)),
+                    new StubMovementLogic(
+                        new RawMovementIntent(
+                            sourceId: 10,
+                            priority: 100,
+                            destination: new Vector2Int(-1, 0),
+                            MovementCommandKind.Flip,
+                            localSequence: 0)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.None));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 30, TargetId: 20, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1),
+                    (SourceId: 30, TargetId: 21, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1),
+                },
+                result.AttackPhaseResult
+                    .DrainedImpactReservations
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.ImpactCell,
+                        reservation.Damage))
+                    .ToArray());
+            CollectionAssert.AreEqual(new[] { 20, 21 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog).OrderBy(id => id).ToArray());
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=12",
+                    "To=(1,0)"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=30"),
+                Is.False);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "DestroyMarked",
+                    "Target=30",
+                    "Reason=ImpactDestroySelf"),
+                Is.False);
+            Assert.That(result.PresentationData.EntityMotions.Any(motion => motion.EntityId == 30), Is.False);
+            Assert.That(result.PresentationData.FlipImpactSignals.Count, Is.EqualTo(1));
+            Assert.That(result.PresentationData.FlipImpactSignals[0].Disposition, Is.EqualTo(FlipImpactPresentationDisposition.Stay));
+            Assert.That(snapshotAfter.TryGetEntity(30, out var flippedBox), Is.True);
+            Assert.That(flippedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(21, out _), Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(12, out var reservedMover), Is.True);
+            Assert.That(reservedMover.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.Flip));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
         }
 
         [Test]
@@ -2320,7 +2413,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Flip_LethalImpact_LandingDenied_CurrentContract_StaysAtSource()
+        public void Flip_MixedLethalAndSurvivingStackedImpact_DestroysSelf()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -2340,7 +2433,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
             var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
 
-            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            CollectionAssert.AreEqual(new[] { 20, 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog).OrderBy(id => id).ToArray());
             Assert.That(result.PresentationData.EntityMotions, Is.Empty);
             Assert.That(result.PresentationData.ImpactTransientSignals, Is.Empty);
             Assert.That(result.PresentationData.FlipImpactSignals.Count, Is.EqualTo(1));
@@ -2349,14 +2442,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flipImpactSignal.ImpactTargetEntityId, Is.EqualTo(20));
             Assert.That(flipImpactSignal.ActorEntityId, Is.EqualTo(10));
             Assert.That(flipImpactSignal.HasLandingCell, Is.False);
-            Assert.That(flipImpactSignal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.Stay));
-            Assert.That(snapshotAfter.TryGetEntity(30, out var box), Is.True);
-            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(flipImpactSignal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.DestroySelf));
+            Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(21, out var survivingOccupant), Is.True);
             Assert.That(survivingOccupant.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
-            Assert.That(disposition.TargetDestroyed, Is.True);
-            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(survivingOccupant.hp, Is.EqualTo(2));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.DestroySelf));
+            Assert.That(disposition.TargetDestroyed, Is.False);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.False);
             Assert.That(disposition.FollowThroughAccepted, Is.False);
         }
 
@@ -2686,7 +2779,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void SlidingPush_BoxKillsHostileButPlayerRemainsStacked_DoesNotAdvanceIntoPlayer()
+        public void SlidingPush_BoxImpactsStackedHostileAndPlayer_DamagesBothAndDoesNotAdvance()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -2715,6 +2808,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Idle));
             Assert.That(snapshotAfter.TryGetEntity(50, out var playerOccupant), Is.True);
             Assert.That(playerOccupant.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+            Assert.That(playerOccupant.hp, Is.EqualTo(2));
         }
 
         [Test]
@@ -4385,7 +4479,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "ImpactReservationRejected|Stage=Plan|G=1|I=1|Source=10|Target=20|Reason=CrossFaceUnsupported|SourceCell=(0,0)|ImpactCell=Front(0,0)",
+                    "ImpactReservationRejected|Stage=Plan|G=1|I=1|Source=10|Targets=20|Reason=CrossFaceUnsupported|SourceCell=(0,0)|ImpactCell=Front(0,0)",
                 },
                 rejectedReasons);
 

@@ -312,15 +312,24 @@ namespace Game.Feature.Gameplay.Movement.Commit
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
                 var group = selectedGroups[groupIndex];
-                if (TryFindImpactReservation(impactReservations, group.GroupId, out var impactReservation))
+                var hasImpactReservation = false;
+                for (var impactIndex = 0; impactIndex < impactReservations.Count; impactIndex++)
                 {
-                    commitEvents.Add(
-                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.ImpactCell)}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
-
-                    if (group.GroupKind == ActionGroupKind.ProjectileImpact)
+                    var impactReservation = impactReservations[impactIndex];
+                    if (impactReservation.SourceActionPlanId != group.GroupId)
                     {
                         continue;
                     }
+
+                    hasImpactReservation = true;
+                    commitEvents.Add(
+                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.ImpactCell)}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
+                }
+
+                if (hasImpactReservation &&
+                    group.GroupKind == ActionGroupKind.ProjectileImpact)
+                {
+                    continue;
                 }
 
                 var hasImpactSpaceResolution = TryFindImpactSpaceResolution(
@@ -495,10 +504,9 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     continue;
                 }
 
-                if (TryCreateImpactReservation(snapshot, tickIndex, group, reservationSequence, out var impactReservation))
+                if (TryCreateImpactReservations(snapshot, tickIndex, group, ref reservationSequence, impactReservations))
                 {
-                    impactReservations.Add(impactReservation);
-                    reservationSequence++;
+                    continue;
                 }
             }
 
@@ -1028,12 +1036,12 @@ namespace Game.Feature.Gameplay.Movement.Commit
             return false;
         }
 
-        private static bool TryCreateImpactReservation(
+        private static bool TryCreateImpactReservations(
             WorldSnapshot snapshot,
             int tickIndex,
             ActionGroup group,
-            int reservationSequence,
-            out ImpactReservation impactReservation)
+            ref int reservationSequence,
+            List<ImpactReservation> impactReservations)
         {
             if (!snapshot.TryGetEntity(group.ImpactSourceId, out var source))
             {
@@ -1054,29 +1062,36 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     $"Impact group is missing its resolved target. Source={group.SourceId}, Intent={group.IntentId}, Group={group.GroupId}");
             }
 
-            if (!snapshot.TryGetEntity(group.ImpactTargetId, out var target))
+            var addedAny = false;
+            for (var i = 0; i < group.ImpactTargetIds.Count; i++)
             {
-                throw new InvalidOperationException(
-                    $"Impact group target no longer exists in the authoritative snapshot. Source={group.SourceId}, Intent={group.IntentId}, Target={group.ImpactTargetId}");
+                var impactTargetId = group.ImpactTargetIds[i];
+                if (!snapshot.TryGetEntity(impactTargetId, out var target))
+                {
+                    throw new InvalidOperationException(
+                        $"Impact group target no longer exists in the authoritative snapshot. Source={group.SourceId}, Intent={group.IntentId}, Target={impactTargetId}");
+                }
+
+                if (!ImpactGeometryResolver.TryResolve(source.position, target.position, out _))
+                {
+                    continue;
+                }
+
+                impactReservations.Add(
+                    new ImpactReservation(
+                        source.entityId,
+                        target.entityId,
+                        target.position,
+                        group.GroupKind == ActionGroupKind.ProjectileImpact
+                            ? ProjectileImpactDamageAmount
+                            : BoxImpactDamageAmount,
+                        tickIndex,
+                        group.GroupId,
+                        reservationSequence++));
+                addedAny = true;
             }
 
-            if (!ImpactGeometryResolver.TryResolve(source.position, target.position, out _))
-            {
-                impactReservation = default;
-                return false;
-            }
-
-            impactReservation = new ImpactReservation(
-                source.entityId,
-                target.entityId,
-                target.position,
-                group.GroupKind == ActionGroupKind.ProjectileImpact
-                    ? ProjectileImpactDamageAmount
-                    : BoxImpactDamageAmount,
-                tickIndex,
-                group.GroupId,
-                reservationSequence);
-            return true;
+            return addedAny;
         }
 
         private static MoveIntent FindIntent(IReadOnlyList<MoveIntent> sortedIntents, int intentId)

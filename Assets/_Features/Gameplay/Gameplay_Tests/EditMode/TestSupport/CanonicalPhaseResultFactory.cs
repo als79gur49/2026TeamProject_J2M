@@ -472,6 +472,7 @@ namespace Game.Feature.Gameplay.Tests
         private static IReadOnlyList<string> BuildMovementCommitEvents(IReadOnlyList<ActionGroup> selectedGroups)
         {
             var commitEvents = new List<string>();
+            var sequence = 1;
             for (var i = 0; i < selectedGroups.Count; i++)
             {
                 var group = selectedGroups[i];
@@ -480,8 +481,11 @@ namespace Game.Feature.Gameplay.Tests
                     continue;
                 }
 
-                commitEvents.Add(
-                    $"ImpactReservationCreated|G={ResolveActionPlanId(group, i)}|I={group.IntentId}|Source={group.ImpactSourceId}|Target={group.ImpactTargetId}|At=(0,0)|Damage=1|Sequence={i + 1}");
+                for (var targetIndex = 0; targetIndex < group.ImpactTargetIds.Count; targetIndex++)
+                {
+                    commitEvents.Add(
+                        $"ImpactReservationCreated|G={ResolveActionPlanId(group, i)}|I={group.IntentId}|Source={group.ImpactSourceId}|Target={group.ImpactTargetIds[targetIndex]}|At=(0,0)|Damage=1|Sequence={sequence++}");
+                }
             }
 
             return commitEvents;

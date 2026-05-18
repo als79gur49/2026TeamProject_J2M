@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
@@ -231,6 +232,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(snapshot.TryPickHostileUnitImpactTargetAt(friendlyOnlyCell, sourceTeamId: 1, out _), Is.False);
             Assert.That(snapshot.TryPickHostileUnitImpactTargetAt(boxCell, sourceTeamId: 1, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_EnumerateUnitImpactTargetsAt_ReturnsAllTargetableUnitsDeterministically()
+        {
+            var contestedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 30, position: contestedCell, teamId: 2),
+                    CreateUnit(entityId: 10, position: contestedCell, teamId: 1),
+                    CreateUnit(entityId: 20, position: contestedCell, teamId: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
+                GameplayTerrainData.Empty);
+            var snapshot = CreateSnapshot(worldState);
+            var targets = new List<EntityState>();
+
+            snapshot.EnumerateUnitImpactTargetsAt(contestedCell, targets);
+
+            CollectionAssert.AreEqual(new[] { 10, 20, 30 }, targets.Select(target => target.entityId).ToArray());
         }
 
         [Test]
