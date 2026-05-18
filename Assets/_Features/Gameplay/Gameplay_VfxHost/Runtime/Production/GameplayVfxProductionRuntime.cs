@@ -518,6 +518,28 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
 
+        internal int ActiveForwardCellProjectileMarkerCount =>
+            forwardCellProjectileVfxController.ActiveMarkerCount;
+
+        internal int ActiveForwardCellProjectileFlightCount =>
+            forwardCellProjectileVfxController.ActiveFlightCount;
+
+        internal int[] ActiveForwardCellProjectileMarkerKeys =>
+            forwardCellProjectileVfxController.ActiveMarkerKeys;
+
+        internal int[] ActiveForwardCellProjectileFlightKeys =>
+            forwardCellProjectileVfxController.ActiveFlightKeys;
+
+        internal int GetActiveVfxInstanceCount(GameplayVfxCueId cueId)
+        {
+            return pool?.GetActiveCount(cueId) ?? 0;
+        }
+
+        internal int GetReleaseToPoolCount(GameplayVfxCueId cueId)
+        {
+            return pool?.GetReleaseToPoolCount(cueId) ?? 0;
+        }
+
         public int MissingBindingCount =>
             (controller?.MissingBindingCount ?? 0) +
             flipDestroySelfMotionMissingBindingCount +

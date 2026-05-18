@@ -30,6 +30,30 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int PlayedThisTickCount { get; private set; }
 
+        internal int ActiveMarkerCount => markerHandlesByKey.Count;
+
+        internal int ActiveFlightCount => activeFlightsByKey.Count;
+
+        internal int[] ActiveMarkerKeys
+        {
+            get
+            {
+                var keys = new int[markerHandlesByKey.Count];
+                markerHandlesByKey.Keys.CopyTo(keys, 0);
+                return keys;
+            }
+        }
+
+        internal int[] ActiveFlightKeys
+        {
+            get
+            {
+                var keys = new int[activeFlightsByKey.Count];
+                activeFlightsByKey.Keys.CopyTo(keys, 0);
+                return keys;
+            }
+        }
+
         public void ResetSession(GameplayVfxGameObjectPool pool = null)
         {
             Cleanup(pool, hard: false);
