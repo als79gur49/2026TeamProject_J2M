@@ -7,6 +7,8 @@ namespace Game.Feature.Gameplay.Host
     [DisallowMultipleComponent]
     public abstract class StageBackedGameplayShowcaseInstallerBase : GameplayShowcaseSceneInstallerBase
     {
+        private const string StageBackgroundRootObjectName = "StageBackgroundRoot";
+
         private static readonly StageRuntimeContentResolver RuntimeContentResolver = new();
 
         [Header("Stage Catalog")]
@@ -172,7 +174,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _stagePresentationRuntimeAdapter.Apply(
                 _resolvedPresentationDefinition,
-                stageBackgroundRoot,
+                ResolveStageBackgroundRoot(),
                 stageBgmProfileCatalog,
                 globalAudioFlowBootstrap);
 
@@ -226,6 +228,29 @@ namespace Game.Feature.Gameplay.Host
             return StageLoadRequest.CreateLaunchContextOnly(
                 stageCatalogProvider,
                 gameObject.scene.name);
+        }
+
+        private Transform ResolveStageBackgroundRoot()
+        {
+            if (stageBackgroundRoot != null)
+            {
+                return stageBackgroundRoot;
+            }
+
+            var existingRoot = transform.Find(StageBackgroundRootObjectName);
+            if (existingRoot != null)
+            {
+                stageBackgroundRoot = existingRoot;
+                return stageBackgroundRoot;
+            }
+
+            var rootObject = new GameObject(StageBackgroundRootObjectName);
+            stageBackgroundRoot = rootObject.transform;
+            stageBackgroundRoot.SetParent(transform, worldPositionStays: false);
+            stageBackgroundRoot.localPosition = Vector3.zero;
+            stageBackgroundRoot.localRotation = Quaternion.identity;
+            stageBackgroundRoot.localScale = Vector3.one;
+            return stageBackgroundRoot;
         }
 
         private void EnsureCampaignStores()
