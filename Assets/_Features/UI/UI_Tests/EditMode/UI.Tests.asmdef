@@ -17,7 +17,9 @@
     "Game.Feature.UI.Popups",
     "Game.Feature.UI.Composition",
     "Game.Shared.Input",
+    "Unity.Cinemachine",
     "Unity.InputSystem",
+    "Unity.Splines",
     "Unity.TextMeshPro",
     "DOTween.Modules"
   ],
