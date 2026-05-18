@@ -343,6 +343,30 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiNavigationInputRouter_HandledNavigate_PlaysKeyboardMoveCue()
+        {
+            using var harness = CreateMainMenuHarness();
+            var uiAudioPort = new RecordingUiAudioPort();
+
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_HandledNavigate_PlaysKeyboardMoveCue));
+            try
+            {
+                var router = routerObject.AddComponent<UiNavigationInputRouter>();
+                router.Initialize(null, null, null, harness.View, () => false, () => false, uiAudioPort);
+
+                Assert.That(router.DispatchNavigate(UiNavigationCommand.Down), Is.True);
+                Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.KeyboardMove }));
+
+                Assert.That(router.DispatchNavigate(UiNavigationCommand.Right), Is.False);
+                Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.KeyboardMove }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routerObject);
+            }
+        }
+
+        [Test]
         public void UiNavigationInputRouter_FirstCancel_DoesNotReveal_UsesExistingBackPath()
         {
             using var harness = CreateMainMenuHarness();
