@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.BoardState
         void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
         void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer);
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
+        void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks);
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
         void AddPendingCellImpact(PendingCellImpact impact);
         void RemovePendingCellImpact(int impactId);

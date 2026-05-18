@@ -73,6 +73,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private int impactDelayTicks;
         [SerializeField] private int damage;
         [SerializeField] private int activePendingImpactLimitPerOwner;
+        [SerializeField] private int attackCooldownTicks;
         [SerializeField] private bool sameSurfaceOnly;
         [SerializeField] private bool sameFaceOnly;
         [SerializeField] private bool requireValidForwardCell;
@@ -83,6 +84,7 @@ namespace Game.Feature.Gameplay.Entities
             int impactDelayTicks,
             int damage,
             int activePendingImpactLimitPerOwner,
+            int attackCooldownTicks = 0,
             bool sameSurfaceOnly = true,
             bool sameFaceOnly = true,
             bool requireValidForwardCell = true,
@@ -92,6 +94,7 @@ namespace Game.Feature.Gameplay.Entities
             this.impactDelayTicks = impactDelayTicks;
             this.damage = damage;
             this.activePendingImpactLimitPerOwner = activePendingImpactLimitPerOwner;
+            this.attackCooldownTicks = attackCooldownTicks;
             this.sameSurfaceOnly = sameSurfaceOnly;
             this.sameFaceOnly = sameFaceOnly;
             this.requireValidForwardCell = requireValidForwardCell;
@@ -110,6 +113,8 @@ namespace Game.Feature.Gameplay.Entities
         public int Damage => damage;
 
         public int ActivePendingImpactLimitPerOwner => activePendingImpactLimitPerOwner;
+
+        public int AttackCooldownTicks => attackCooldownTicks;
 
         public bool SameSurfaceOnly => sameSurfaceOnly;
 
@@ -147,6 +152,11 @@ namespace Game.Feature.Gameplay.Entities
             if (activePendingImpactLimitPerOwner <= 0)
             {
                 throw new ArgumentException("WindupForwardCellProjectile active pending impact limit must be positive.", paramName);
+            }
+
+            if (attackCooldownTicks < 0)
+            {
+                throw new ArgumentException("WindupForwardCellProjectile attack cooldown must be non-negative.", paramName);
             }
         }
 

@@ -42,30 +42,31 @@ namespace Game.Feature.Gameplay.Loop
         SetBoxKineticOwner = 3,
         SetBoardPresence = 4,
         SetEnemyLocomotionCooldown = 5,
-        SetEntityExecutionLockState = 6,
-        SetTopology = 7,
-        SetPlayerControlState = 8,
-        SetPlayerDamageState = 9,
-        ApplyEnemyAiState = 10,
-        SetEnemyActionState = 11,
-        SetEnemyPatrolState = 12,
-        SetEnemyJumpState = 13,
-        SetEnemyChargeState = 14,
-        SpawnEntity = 15,
-        ApplyDamage = 16,
-        MarkDestroy = 17,
-        EnqueueDelayedAttackEffect = 18,
-        SetPhasedState = 19,
-        SetEnemyUtilityState = 20,
-        SetBoxInteractionLockState = 21,
-        RemoveBoxInteractionLockState = 22,
-        SetEnemyGlideState = 23,
-        SetEnemyFrontFaceSupportState = 24,
-        SetUnitKinematicState = 25,
-        SetUnitContinuousLocomotionState = 26,
-        SetGravityFieldState = 27,
-        AddPendingCellImpact = 28,
-        RemovePendingCellImpact = 29,
+        SetEnemyAttackCooldown = 6,
+        SetEntityExecutionLockState = 7,
+        SetTopology = 8,
+        SetPlayerControlState = 9,
+        SetPlayerDamageState = 10,
+        ApplyEnemyAiState = 11,
+        SetEnemyActionState = 12,
+        SetEnemyPatrolState = 13,
+        SetEnemyJumpState = 14,
+        SetEnemyChargeState = 15,
+        SpawnEntity = 16,
+        ApplyDamage = 17,
+        MarkDestroy = 18,
+        EnqueueDelayedAttackEffect = 19,
+        SetPhasedState = 20,
+        SetEnemyUtilityState = 21,
+        SetBoxInteractionLockState = 22,
+        RemoveBoxInteractionLockState = 23,
+        SetEnemyGlideState = 24,
+        SetEnemyFrontFaceSupportState = 25,
+        SetUnitKinematicState = 26,
+        SetUnitContinuousLocomotionState = 27,
+        SetGravityFieldState = 28,
+        AddPendingCellImpact = 29,
+        RemovePendingCellImpact = 30,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -215,6 +216,7 @@ namespace Game.Feature.Gameplay.Loop
             int instigatorTeamId = 0,
             EntityBoardPresence boardPresence = default,
             int cooldownTicks = 0,
+            int cooldownTotalTicks = 0,
             EntityExecutionLockState executionLockState = default,
             CubeTopologyState topology = default,
             PlayerControlState playerControlState = default,
@@ -256,6 +258,7 @@ namespace Game.Feature.Gameplay.Loop
             InstigatorTeamId = instigatorTeamId;
             BoardPresence = boardPresence;
             CooldownTicks = cooldownTicks;
+            CooldownTotalTicks = cooldownTotalTicks;
             ExecutionLockState = executionLockState;
             Topology = topology;
             PlayerControlState = playerControlState;
@@ -311,6 +314,8 @@ namespace Game.Feature.Gameplay.Loop
         public EntityBoardPresence BoardPresence { get; }
 
         public int CooldownTicks { get; }
+
+        public int CooldownTotalTicks { get; }
 
         public EntityExecutionLockState ExecutionLockState { get; }
 
@@ -381,6 +386,7 @@ namespace Game.Feature.Gameplay.Loop
                 InstigatorTeamId,
                 BoardPresence,
                 CooldownTicks,
+                CooldownTotalTicks,
                 ExecutionLockState,
                 Topology,
                 PlayerControlState,
@@ -469,6 +475,18 @@ namespace Game.Feature.Gameplay.Loop
                 metadata,
                 entityId: entityId,
                 cooldownTicks: cooldownTicks);
+        }
+
+        public static FinalizationOperation SetEnemyAttackCooldown(long sequence, int entityId, int cooldownTicks, int totalTicks, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemyAttackCooldown,
+                metadata,
+                entityId: entityId,
+                cooldownTicks: cooldownTicks,
+                cooldownTotalTicks: totalTicks);
         }
 
         public static FinalizationOperation SetEntityExecutionLockState(long sequence, int entityId, EntityExecutionLockState executionLockState, FinalizationOperationMetadata metadata = default)
@@ -802,6 +820,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyLocomotionCooldown(_nextSequence++, entityId, cooldownTicks, metadata));
         }
 
+        public void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemyAttackCooldown(_nextSequence++, entityId, cooldownTicks, totalTicks, metadata));
+        }
+
         public void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetEntityExecutionLockState(_nextSequence++, entityId, state, metadata));
@@ -1058,6 +1081,13 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyLocomotionCooldown(operation.EntityId, operation.CooldownTicks);
                         break;
 
+                    case FinalizationOperationKind.SetEnemyAttackCooldown:
+                        ((IPreMovementStateCommitContext)writeContext).SetEnemyAttackCooldown(
+                            operation.EntityId,
+                            operation.CooldownTicks,
+                            operation.CooldownTotalTicks);
+                        break;
+
                     case FinalizationOperationKind.SetEntityExecutionLockState:
                         ((IMovementCommitContext)writeContext).SetEntityExecutionLockState(operation.EntityId, operation.ExecutionLockState);
                         break;
@@ -1219,6 +1249,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks)
         {
             _batch.SetEnemyLocomotionCooldown(entityId, cooldownTicks);
+        }
+
+        public void SetEnemyAttackCooldown(int entityId, int cooldownTicks, int totalTicks)
+        {
+            _batch.SetEnemyAttackCooldown(entityId, cooldownTicks, totalTicks);
         }
 
         public void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)

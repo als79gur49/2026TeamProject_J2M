@@ -317,6 +317,8 @@ namespace Game.Feature.Gameplay.Loop
             template.kineticInstigatorTeamId = 0;
             template.aiStateTimer = 0;
             template.enemyLocomotionCooldownTicks = 0;
+            template.enemyAttackCooldownTicks = 0;
+            template.enemyAttackCooldownTotalTicks = 0;
             return template;
         }
 

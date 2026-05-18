@@ -294,16 +294,29 @@ namespace Game.Feature.Gameplay.Entities
                 CommitEnemyUtilityState(snapshot, in input, source, writeContext, updates);
             }
 
-            if (!TryGetControllableEnemy(snapshot, out source) ||
-                source.enemyLocomotionCooldownTicks <= 0)
+            if (!TryGetControllableEnemy(snapshot, out source))
             {
                 return;
             }
 
-            var nextCooldown = source.enemyLocomotionCooldownTicks - 1;
-            writeContext.SetEnemyLocomotionCooldown(_entityId, nextCooldown);
-            updates.Add(
-                $"EnemyLocomotionCooldownUpdated|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To={nextCooldown}");
+            if (source.enemyAttackCooldownTicks > 0)
+            {
+                var nextAttackCooldown = source.enemyAttackCooldownTicks - 1;
+                writeContext.SetEnemyAttackCooldown(
+                    _entityId,
+                    nextAttackCooldown,
+                    source.enemyAttackCooldownTotalTicks);
+                updates.Add(
+                    $"EnemyAttackCooldownUpdated|E={_entityId}|From={source.enemyAttackCooldownTicks}|To={nextAttackCooldown}");
+            }
+
+            if (source.enemyLocomotionCooldownTicks > 0)
+            {
+                var nextCooldown = source.enemyLocomotionCooldownTicks - 1;
+                writeContext.SetEnemyLocomotionCooldown(_entityId, nextCooldown);
+                updates.Add(
+                    $"EnemyLocomotionCooldownUpdated|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To={nextCooldown}");
+            }
 
             if (suppressMovementThisTick)
             {

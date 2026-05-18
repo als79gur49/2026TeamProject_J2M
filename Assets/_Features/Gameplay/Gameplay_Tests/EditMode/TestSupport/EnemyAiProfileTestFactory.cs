@@ -91,6 +91,7 @@ namespace Game.Feature.Gameplay.Tests
             int impactDelayTicks = 1,
             int damage = 1,
             int recoverTicks = 1,
+            int attackCooldownTicks = 0,
             bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
@@ -106,7 +107,8 @@ namespace Game.Feature.Gameplay.Tests
                     WindupMeleeSettings.DefaultVisualRangeSlackCells,
                     impactDelayTicks,
                     damage,
-                    activePendingImpactLimitPerOwner: 1),
+                    activePendingImpactLimitPerOwner: 1,
+                    attackCooldownTicks: attackCooldownTicks),
                 IncludePassiveContact = includePassiveContact,
             });
         }

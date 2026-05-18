@@ -1077,6 +1077,8 @@ namespace Game.Feature.Gameplay.Loop
                 aiMode = initialAiMode,
                 aiStateTimer = 0,
                 enemyLocomotionCooldownTicks = 0,
+                enemyAttackCooldownTicks = 0,
+                enemyAttackCooldownTotalTicks = 0,
             };
         }
 

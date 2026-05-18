@@ -56,5 +56,7 @@ namespace Game.Feature.Gameplay.BoardState
         // a dedicated EnemyRecoverRuntimeState instead of expanding this field again.
         public int aiStateTimer;
         public int enemyLocomotionCooldownTicks;
+        public int enemyAttackCooldownTicks;
+        public int enemyAttackCooldownTotalTicks;
     }
 }
