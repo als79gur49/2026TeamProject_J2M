@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Host",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.AudioPolicy",
     "Game.Feature.Gameplay.EnemyPresentation",
     "Game.Feature.Gameplay.ActionAudio",
     "Game.Feature.Gameplay.Audio",
@@ -10,6 +11,7 @@
     "Game.Feature.Gameplay.EnemyAudio",
     "Game.Feature.Gameplay.PlayerLocomotionAudio",
     "Game.Feature.Gameplay.TileFeatureAudio",
+    "Game.Feature.Gameplay.TopologyAudio",
     "Game.Feature.Gameplay.GravityFieldAudio",
     "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.Flow.Audio",

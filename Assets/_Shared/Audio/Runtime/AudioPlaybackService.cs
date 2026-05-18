@@ -45,6 +45,7 @@ namespace Game.Shared.Audio
         private BgmTransitionState bgmTransitionState;
         private AudioSourcePool sourcePool;
         private Transform runtimeRoot;
+        private int sourcePoolAcquireFailureCount;
 
         public int LivePlaybackCount
         {
@@ -54,6 +55,8 @@ namespace Game.Shared.Audio
                 return livePlaybacks.Count;
             }
         }
+
+        public int SourcePoolAcquireFailureCount => sourcePoolAcquireFailureCount;
 
         public void Initialize(Transform ownerRoot, int initialPoolSize, int maxPoolSize)
         {
@@ -484,6 +487,10 @@ namespace Game.Shared.Audio
                 : sourcePool.Acquire();
             if (source == null)
             {
+                sourcePoolAcquireFailureCount++;
+                Debug.LogWarning(
+                    $"AudioPlaybackService could not acquire an AudioSource for '{definition.name}' on category '{playbackData.Category}'. " +
+                    "Playback was skipped by the shared runtime fallback budget.");
                 return AudioPlaybackHandle.Invalid;
             }
 

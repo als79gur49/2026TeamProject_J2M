@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.EnemyAudio",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.AudioPolicy",
     "Game.Shared.Audio"
   ]
 }

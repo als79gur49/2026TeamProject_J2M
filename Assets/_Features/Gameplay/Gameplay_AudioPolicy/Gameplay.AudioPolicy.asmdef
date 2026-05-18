@@ -1,0 +1,5 @@
+{
+  "name": "Game.Feature.Gameplay.AudioPolicy",
+  "rootNamespace": "Game.Feature.Gameplay.AudioPolicy",
+  "references": []
+}

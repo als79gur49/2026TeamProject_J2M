@@ -7,9 +7,9 @@ namespace Game.Shared.Audio
     {
         [SerializeField] private AudioClip clip;
 
-        protected override AudioClip ResolveClip()
+        protected override AudioClipSelection ResolveClipSelection()
         {
-            return clip;
+            return new AudioClipSelection(clip);
         }
     }
 }

@@ -1,0 +1,61 @@
+#!/bin/sh
+set -eu
+
+msg_file="${1:-}"
+
+if [ -z "$msg_file" ] || [ ! -f "$msg_file" ]; then
+    echo "commit-msg: missing commit message file" >&2
+    exit 1
+fi
+
+title="$(sed -n '1p' "$msg_file")"
+second_line="$(sed -n '2p' "$msg_file")"
+
+case "$title" in
+    Merge\ *|Revert\ *|Revert)
+        exit 0
+        ;;
+esac
+
+fail() {
+    echo "commit-msg: $1" >&2
+    exit 1
+}
+
+warn() {
+    echo "commit-msg warning: $1" >&2
+}
+
+if ! printf '%s\n' "$title" | grep -Eq '^(feat|fix|refactor|chore|docs|test): [^[:space:]].+ - .+$'; then
+    fail "title must match '<type>: <scope> - <summary>' with type feat|fix|refactor|chore|docs|test"
+fi
+
+summary="$(printf '%s\n' "$title" | sed -E 's/^(feat|fix|refactor|chore|docs|test): .+ - //')"
+summary_trimmed="$(printf '%s\n' "$summary" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+summary_lower="$(printf '%s\n' "$summary_trimmed" | tr '[:upper:]' '[:lower:]')"
+
+case "$summary_lower" in
+    update|수정|작업|변경|변경사항\ 반영)
+        fail "summary is too vague: $summary_trimmed"
+        ;;
+esac
+
+if [ "$second_line" != "" ]; then
+    fail "title must be followed by one blank line before the body"
+fi
+
+bullet_count="$(sed -n '3,$p' "$msg_file" | grep -Ec '^[[:space:]]*[-*][[:space:]]+.+' || true)"
+if [ "$bullet_count" -lt 2 ]; then
+    fail "body must contain at least two bullet lines"
+fi
+
+path_like_count="$(sed -n '3,$p' "$msg_file" | grep -E '^[[:space:]]*[-*][[:space:]]+([A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+[[:space:]]*$' | wc -l | tr -d ' ')"
+if [ "$path_like_count" -eq "$bullet_count" ]; then
+    fail "body must explain why and what changed, not only list files"
+fi
+
+if grep -Eiq '(^|[^A-Za-z])WIP([^A-Za-z]|$)' "$msg_file"; then
+    warn "WIP commits should be local checkpoints and cleaned up before sharing"
+fi
+
+exit 0

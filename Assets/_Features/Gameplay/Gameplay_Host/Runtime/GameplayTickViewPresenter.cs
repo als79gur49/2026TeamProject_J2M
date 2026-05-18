@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
+using Game.Feature.Gameplay.TopologyAudio;
 using Unity.Cinemachine;
 using UnityEngine;
 
@@ -133,6 +134,13 @@ namespace Game.Feature.Gameplay.Host
             TileFeatureAudioMap tileFeatureAudioMap)
         {
             _presentationCoordinator.AttachTileFeatureAudioRuntime(playbackPort, tileFeatureAudioMap);
+        }
+
+        internal void AttachTopologyAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            TopologyAudioMap topologyAudioMap)
+        {
+            _presentationCoordinator.AttachTopologyAudioRuntime(playbackPort, topologyAudioMap);
         }
 
         internal void AttachGravityFieldAudioRuntime(
@@ -268,6 +276,7 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.DetachBlockAudioRuntime();
             _presentationCoordinator.DetachGravityFieldAudioRuntime();
             _presentationCoordinator.DetachTileFeatureAudioRuntime();
+            _presentationCoordinator.DetachTopologyAudioRuntime();
             _presentationCoordinator.DetachGameplayAudioRuntime();
         }
 

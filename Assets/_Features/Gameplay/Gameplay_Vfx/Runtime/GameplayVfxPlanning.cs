@@ -1403,6 +1403,85 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
         {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var presentationData = context.PresentationData;
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            var markerCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellDangerMarker);
+            var windupSignals = presentationData.ForwardCellProjectileWindupSignals;
+            for (var i = 0; i < windupSignals.Count; i++)
+            {
+                var signal = windupSignals[i];
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.PresentationKey,
+                        presentationSeed: signal.PresentationKey,
+                        sourceEntityId: signal.SourceEnemyId,
+                        cueId: markerCueId,
+                        anchor: VfxAnchor.ForCell(
+                            signal.TargetCell,
+                            context.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: new VfxPersistentKey(
+                            markerCueId,
+                            VfxAnchorKind.Cell,
+                            entityId: signal.SourceEnemyId,
+                            cell: signal.TargetCell,
+                            hasCell: true,
+                            activationSequence: signal.PresentationKey)));
+            }
+
+            var flightCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
+            var releaseSignals = presentationData.ForwardCellProjectileReleaseSignals;
+            for (var i = 0; i < releaseSignals.Count; i++)
+            {
+                var signal = releaseSignals[i];
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.PresentationKey,
+                        presentationSeed: signal.PresentationKey,
+                        sourceEntityId: signal.SourceEnemyId,
+                        cueId: flightCueId,
+                        anchor: VfxAnchor.FromEntityToCell(
+                            signal.SourceEnemyId,
+                            signal.TargetCell,
+                            context.Topology),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
+            }
+
+            var impactCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact);
+            var impactSignals = presentationData.ForwardCellImpactSignals;
+            for (var i = 0; i < impactSignals.Count; i++)
+            {
+                var signal = impactSignals[i];
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: signal.PresentationKey,
+                        presentationSeed: signal.PresentationKey,
+                        sourceEntityId: signal.SourceEnemyId,
+                        cueId: impactCueId,
+                        anchor: VfxAnchor.ForCell(
+                            signal.TargetCell,
+                            context.Topology,
+                            VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: false,
+                        persistentKey: VfxPersistentKey.None));
+            }
         }
     }
 

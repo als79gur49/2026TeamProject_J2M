@@ -7,8 +7,11 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
 {
     public sealed class TileFeatureAudioRequestPlanner
     {
+        private readonly TileFeatureAudioCoalescer _coalescer = new();
+
         public IReadOnlyList<TileFeatureAudioRequest> BuildRequests(
-            IReadOnlyList<TilePresentationRequest> tilePresentationRequests)
+            IReadOnlyList<TilePresentationRequest> tilePresentationRequests,
+            int tickIndex = 0)
         {
             if (tilePresentationRequests == null)
             {
@@ -43,7 +46,9 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                     request.MoonBlockGeneratorBlockedPayload));
             }
 
-            return requests.Count == 0 ? Array.Empty<TileFeatureAudioRequest>() : requests;
+            return requests.Count == 0
+                ? Array.Empty<TileFeatureAudioRequest>()
+                : _coalescer.Coalesce(requests, tickIndex);
         }
 
         private static bool TryMapCue(TilePresentationRequestKind requestKind, out TileFeatureAudioCue cue)

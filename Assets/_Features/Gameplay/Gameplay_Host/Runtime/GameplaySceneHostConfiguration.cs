@@ -10,6 +10,7 @@ using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
+using Game.Feature.Gameplay.TopologyAudio;
 using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
@@ -187,6 +188,7 @@ namespace Game.Feature.Gameplay.Host
         public InputActionAsset Actions;
         public GameplayAudioMap GameplayAudioMap;
         public TileFeatureAudioMap TileFeatureAudioMap;
+        public TopologyAudioMap TopologyAudioMap;
         public GravityFieldAudioMap GravityFieldAudioMap;
         public BlockAudioMap BlockAudioMap;
         public PlayerLocomotionAudioMap PlayerLocomotionAudioMap;

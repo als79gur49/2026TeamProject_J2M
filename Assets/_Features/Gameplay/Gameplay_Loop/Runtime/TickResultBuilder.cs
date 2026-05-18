@@ -720,6 +720,12 @@ namespace Game.Feature.Gameplay.Loop
             var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
             var enemyUtilityCooldownSignals = new List<TickEnemyUtilityCooldownPresentationSignal>();
             var enemyGravityFieldAuraVisualStates = new List<TickEnemyGravityFieldAuraVisualState>();
+            var forwardCellProjectileWindupSignals =
+                new List<TickForwardCellProjectileWindupPresentationSignal>();
+            var forwardCellProjectileReleaseSignals =
+                new List<TickForwardCellProjectileReleasePresentationSignal>();
+            var forwardCellProjectileClearSignals =
+                new List<TickForwardCellProjectileClearPresentationSignal>();
             var forwardCellImpactSignals = new List<TickForwardCellImpactPresentationSignal>();
             var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
             var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
@@ -771,6 +777,11 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
+            BuildForwardCellProjectilePresentation(
+                context,
+                forwardCellProjectileWindupSignals,
+                forwardCellProjectileReleaseSignals,
+                forwardCellProjectileClearSignals);
             BuildForwardCellImpactPresentation(context, forwardCellImpactSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
@@ -797,6 +808,9 @@ namespace Game.Feature.Gameplay.Loop
                    enemyUtilitySignals.Count == 0 &&
                    enemyUtilityCooldownSignals.Count == 0 &&
                    enemyGravityFieldAuraVisualStates.Count == 0 &&
+                   forwardCellProjectileWindupSignals.Count == 0 &&
+                   forwardCellProjectileReleaseSignals.Count == 0 &&
+                   forwardCellProjectileClearSignals.Count == 0 &&
                    forwardCellImpactSignals.Count == 0 &&
                    frontFaceShieldSourceSignals.Count == 0 &&
                    frontFaceShieldBlockSignals.Count == 0 &&
@@ -865,7 +879,90 @@ namespace Game.Feature.Gameplay.Loop
                     tileFeatureActiveVisualStates,
                     playerFlipResultTurnSignals,
                     flipFloorImpactSignals,
-                    forwardCellImpactSignals);
+                    forwardCellImpactSignals,
+                    forwardCellProjectileWindupSignals,
+                    forwardCellProjectileReleaseSignals,
+                    forwardCellProjectileClearSignals);
+        }
+
+        private static void BuildForwardCellProjectilePresentation(
+            in TickPresentationBuildContext context,
+            List<TickForwardCellProjectileWindupPresentationSignal> windupSignals,
+            List<TickForwardCellProjectileReleasePresentationSignal> releaseSignals,
+            List<TickForwardCellProjectileClearPresentationSignal> clearSignals)
+        {
+            var candidateEntityIds = new List<int>();
+            var seenEntityIds = new HashSet<int>();
+            var preMovementEntries = new List<EnemyActionSnapshotEntry>();
+            var postAttackEntries = new List<EnemyActionSnapshotEntry>();
+
+            context.PreMovementSnapshot.EnumerateEnemyActionStatesOrdered(preMovementEntries);
+            context.PostAttackSnapshot.EnumerateEnemyActionStatesOrdered(postAttackEntries);
+            CollectEnemyActionCandidateIds(preMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyActionCandidateIds(postAttackEntries, seenEntityIds, candidateEntityIds);
+
+            for (var i = 0; i < candidateEntityIds.Count; i++)
+            {
+                var entityId = candidateEntityIds[i];
+                context.PreMovementSnapshot.TryGetEnemyActionState(entityId, out var previousAction);
+                context.PostAttackSnapshot.TryGetEnemyActionState(entityId, out var currentAction);
+                var transition = new EnemyActionTransition(entityId, previousAction, currentAction);
+
+                if (transition.StartedThisTick &&
+                    currentAction.kind == EnemyActionKind.ForwardCellProjectile &&
+                    currentAction.hasLockedForwardCellImpact)
+                {
+                    windupSignals.Add(
+                        new TickForwardCellProjectileWindupPresentationSignal(
+                            ComputeForwardCellProjectilePresentationKey(entityId, currentAction.sequence),
+                            entityId,
+                            entityId,
+                            currentAction.lockedTargetCell,
+                            currentAction.lockedAttackDirection,
+                            currentAction.startTick,
+                            currentAction.executeTick));
+                }
+
+                if (transition.CanceledThisTick &&
+                    previousAction.kind == EnemyActionKind.ForwardCellProjectile &&
+                    previousAction.hasLockedForwardCellImpact)
+                {
+                    clearSignals.Add(
+                        new TickForwardCellProjectileClearPresentationSignal(
+                            ComputeForwardCellProjectilePresentationKey(entityId, previousAction.sequence),
+                            entityId,
+                            entityId,
+                            previousAction.lockedTargetCell,
+                            previousAction.lockedAttackDirection,
+                            previousAction.startTick,
+                            ForwardCellProjectileClearReason.Canceled));
+                }
+            }
+
+            var operations = context.FinalizationBatch.Operations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.AddPendingCellImpact)
+                {
+                    continue;
+                }
+
+                var impact = operation.PendingCellImpact;
+                var sourceCell = ResolveForwardCellProjectileSourceCell(context, impact);
+                releaseSignals.Add(
+                    new TickForwardCellProjectileReleasePresentationSignal(
+                        impact.ImpactId,
+                        impact.ImpactId,
+                        impact.OwnerId,
+                        impact.SourceEnemyId,
+                        sourceCell,
+                        impact.TargetCell,
+                        impact.Direction,
+                        impact.ReleaseTick,
+                        impact.ImpactTick,
+                        impact.ImpactTick - impact.ReleaseTick));
+            }
         }
 
         private static void BuildForwardCellImpactPresentation(
@@ -880,6 +977,7 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellImpactSignals.Add(
                     new TickForwardCellImpactPresentationSignal(
                         impact.ImpactId,
+                        impact.ImpactId,
                         impact.OwnerId,
                         impact.SourceEnemyId,
                         impact.TargetCell,
@@ -887,6 +985,44 @@ namespace Game.Feature.Gameplay.Loop
                         resolution.Hit,
                         resolution.TargetEntityId));
             }
+        }
+
+        private static int ComputeForwardCellProjectilePresentationKey(int ownerId, int actionSequence)
+        {
+            return checked((ownerId * 100000) + Math.Max(1, actionSequence));
+        }
+
+        private static SurfaceCell ResolveForwardCellProjectileSourceCell(
+            in TickPresentationBuildContext context,
+            in PendingCellImpact impact)
+        {
+            if (TryResolveLockedProjectileSourceCell(context.PostAttackSnapshot, impact.SourceEnemyId, out var sourceCell) ||
+                TryResolveLockedProjectileSourceCell(context.PreMovementSnapshot, impact.SourceEnemyId, out sourceCell))
+            {
+                return sourceCell;
+            }
+
+            return context.PostAttackSnapshot.TryGetEntity(impact.SourceEnemyId, out var sourceEntity)
+                ? sourceEntity.position
+                : impact.TargetCell;
+        }
+
+        private static bool TryResolveLockedProjectileSourceCell(
+            WorldSnapshot snapshot,
+            int sourceEnemyId,
+            out SurfaceCell sourceCell)
+        {
+            if (snapshot != null &&
+                snapshot.TryGetEnemyActionState(sourceEnemyId, out var action) &&
+                action.kind == EnemyActionKind.ForwardCellProjectile &&
+                action.hasLockedForwardCellImpact)
+            {
+                sourceCell = action.lockedAttackBaseCell;
+                return true;
+            }
+
+            sourceCell = default;
+            return false;
         }
 
         private static void BuildBoxSlideStartPresentation(

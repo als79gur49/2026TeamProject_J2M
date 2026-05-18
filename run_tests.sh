@@ -6,12 +6,12 @@ cd "$SCRIPT_DIR"
 
 UNITY_PATH="${UNITY_PATH:-/mnt/c/Users/user/Desktop/6000.3.11f1/Editor/Unity.exe}"
 DOTNET_PATH="${DOTNET_PATH:-/mnt/c/Program Files/dotnet/dotnet.exe}"
-PROJECT_PATH_WIN="${PROJECT_PATH_WIN:-C:\Users\user\2026TeamProject_J2M}"
 PROJECT_PATH_WSL="$SCRIPT_DIR"
+PROJECT_PATH_WIN="${PROJECT_PATH_WIN:-}"
+DRY_RUN=0
 
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
-mkdir -p "$RESULT_DIR" "$METRICS_DIR"
 
 STRATIFICATION_CHECKER_PATH="$PROJECT_PATH_WSL/Tools/check_gameplay_test_stratification.py"
 SEMANTIC_QUERY_CHECKER_PATH="$PROJECT_PATH_WSL/Tools/check_gameplay_semantic_query_migration.py"
@@ -54,6 +54,16 @@ require_file() {
     fi
 }
 
+require_dir() {
+    local path="$1"
+    local label="$2"
+
+    if [ ! -d "$path" ]; then
+        echo "Missing $label: $path"
+        exit 1
+    fi
+}
+
 require_command() {
     local command_name="$1"
 
@@ -61,6 +71,74 @@ require_command() {
         echo "Missing required command: $command_name"
         exit 1
     fi
+}
+
+ensure_result_dirs() {
+    mkdir -p "$RESULT_DIR" "$METRICS_DIR"
+}
+
+normalize_windows_path_for_compare() {
+    local path="$1"
+
+    path="$(printf '%s' "$path" | tr -d '\r' | sed 's|/|\\|g')"
+    while [ "${#path}" -gt 3 ]; do
+        case "$path" in
+            *\\) path="${path%\\}" ;;
+            *) break ;;
+        esac
+    done
+    printf '%s' "$path" | tr '[:upper:]' '[:lower:]'
+}
+
+initialize_project_paths() {
+    if [ -z "$PROJECT_PATH_WIN" ]; then
+        PROJECT_PATH_WIN="$(wslpath -w "$PROJECT_PATH_WSL")"
+    fi
+}
+
+validate_project_paths() {
+    local expected_project_path_win
+    local expected_compare
+    local actual_compare
+
+    expected_project_path_win="$(wslpath -w "$PROJECT_PATH_WSL")"
+    expected_compare="$(normalize_windows_path_for_compare "$expected_project_path_win")"
+    actual_compare="$(normalize_windows_path_for_compare "$PROJECT_PATH_WIN")"
+
+    if [ "$actual_compare" != "$expected_compare" ]; then
+        echo "ERROR: PROJECT_PATH_WIN does not match current worktree."
+        echo "  PROJECT_PATH_WSL:          $PROJECT_PATH_WSL"
+        echo "  Expected PROJECT_PATH_WIN: $expected_project_path_win"
+        echo "  Actual PROJECT_PATH_WIN:   $PROJECT_PATH_WIN"
+        exit 1
+    fi
+
+    require_dir "$PROJECT_PATH_WSL/Assets" "Unity Assets directory"
+    require_dir "$PROJECT_PATH_WSL/ProjectSettings" "Unity ProjectSettings directory"
+    require_file "$PROJECT_PATH_WSL/ProjectSettings/ProjectVersion.txt" "Unity ProjectVersion.txt"
+}
+
+print_environment_summary() {
+    echo "Test environment:"
+    echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
+    echo "  PROJECT_PATH_WIN: $PROJECT_PATH_WIN"
+    echo "  UNITY_PATH:       $UNITY_PATH"
+    echo "  DOTNET_PATH:      $DOTNET_PATH"
+    echo "  RESULT_DIR:       $RESULT_DIR"
+}
+
+print_config() {
+    echo "PROJECT_PATH_WSL=$PROJECT_PATH_WSL"
+    echo "PROJECT_PATH_WIN=$PROJECT_PATH_WIN"
+    echo "UNITY_PATH=$UNITY_PATH"
+    echo "DOTNET_PATH=$DOTNET_PATH"
+    echo "RESULT_DIR=$RESULT_DIR"
+}
+
+print_shell_command() {
+    printf '  '
+    printf '%q ' "$@"
+    printf '\n'
 }
 
 validate_xml() {
@@ -92,6 +170,12 @@ validate_xml() {
 run_dotnet_build() {
     local log_path="$1"
     shift
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would run Windows dotnet build:"
+        print_shell_command "$DOTNET_PATH" build "$@"
+        return 0
+    fi
 
     if ! "$DOTNET_PATH" build "$@" >> "$log_path" 2>&1; then
         echo "DOTNET BUILD FAILED"
@@ -283,30 +367,41 @@ run_unity_stage() {
     local log_path="$5"
     local xml_path="$6"
     local execute_method="$7"
-    local -a command
     local log_path_win
     local xml_path_win
     local exit_code
 
-    rm -f "$xml_path"
     log_path_win="$(wslpath -w "$log_path")"
     xml_path_win="$(wslpath -w "$xml_path")"
 
-    command=(
-        timeout --kill-after=10 300
-        "$UNITY_PATH"
-        -batchmode
-        -nographics
-        -projectPath "$PROJECT_PATH_WIN"
-        -logFile "$log_path_win"
-        -executeMethod "$execute_method"
-        -codexSelection "$selection"
-        -codexResultPath "$xml_path_win"
-    )
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would run Unity $stage_label:"
+        print_shell_command \
+            timeout --kill-after=10 300 \
+            "$UNITY_PATH" \
+            -batchmode \
+            -nographics \
+            -projectPath "$PROJECT_PATH_WIN" \
+            -logFile "$log_path_win" \
+            -executeMethod "$execute_method" \
+            -codexSelection "$selection" \
+            -codexResultPath "$xml_path_win"
+        return 0
+    fi
 
+    rm -f "$xml_path"
     echo "Running Unity $stage_label..."
 
-    if "${command[@]}"; then
+    if timeout --kill-after=10 300 \
+        "$UNITY_PATH" \
+        -batchmode \
+        -nographics \
+        -projectPath "$PROJECT_PATH_WIN" \
+        -logFile "$log_path_win" \
+        -executeMethod "$execute_method" \
+        -codexSelection "$selection" \
+        -codexResultPath "$xml_path_win"
+    then
         exit_code=0
     else
         exit_code=$?
@@ -331,20 +426,26 @@ run_unity_stage() {
 }
 
 run_dotnet_core() {
-    : > "$DOTNET_CORE_LOG"
+    if [ "$DRY_RUN" -eq 0 ]; then
+        : > "$DOTNET_CORE_LOG"
+    fi
     echo "Running Windows dotnet core build..."
     run_dotnet_build "$DOTNET_CORE_LOG" Game.Feature.Gameplay.Tests.csproj -c Debug
     run_dotnet_build "$DOTNET_CORE_LOG" Game.Feature.Gameplay.PlayModeTests.csproj -c Debug
 }
 
 run_dotnet_ui() {
-    : > "$DOTNET_UI_LOG"
+    if [ "$DRY_RUN" -eq 0 ]; then
+        : > "$DOTNET_UI_LOG"
+    fi
     echo "Running Windows dotnet UI build..."
     run_dotnet_build "$DOTNET_UI_LOG" Game.Feature.UI.Tests.csproj -c Debug
 }
 
 run_dotnet_full() {
-    : > "$DOTNET_FULL_LOG"
+    if [ "$DRY_RUN" -eq 0 ]; then
+        : > "$DOTNET_FULL_LOG"
+    fi
     echo "Running Windows dotnet full build..."
     run_dotnet_build "$DOTNET_FULL_LOG" 2026TeamProject_J2M.sln -c Debug
 }
@@ -352,7 +453,9 @@ run_dotnet_full() {
 run_dotnet_integration() {
     local log_path="$1"
 
-    : > "$log_path"
+    if [ "$DRY_RUN" -eq 0 ]; then
+        : > "$log_path"
+    fi
     echo "Running Windows dotnet integration build..."
     run_dotnet_build "$log_path" Game.Feature.Gameplay.Tests.csproj -c Debug
 }
@@ -386,18 +489,39 @@ run_unity_integration_fuzz() {
 main() {
     local mode="${1:-}"
 
-    require_command timeout
     require_command wslpath
-    require_command python3
-    require_file "$DOTNET_PATH" "dotnet executable"
-    require_file "$UNITY_PATH" "Unity executable"
-    require_file "$STRATIFICATION_CHECKER_PATH" "stratification governance checker"
-    require_file "$SEMANTIC_QUERY_CHECKER_PATH" "semantic query governance checker"
-    require_file "$ACTION_PLAN_CORRELATION_CHECKER_PATH" "ActionPlanId correlation governance checker"
+    initialize_project_paths
+    validate_project_paths
 
-    run_governance_check
-    run_semantic_query_migration_check
-    run_action_plan_correlation_check
+    if [ "$mode" = "--print-config" ]; then
+        print_config
+        return 0
+    fi
+
+    if [ "$mode" = "--dry-run" ]; then
+        DRY_RUN=1
+        shift
+        mode="${1:-}"
+    fi
+
+    print_environment_summary
+
+    if [ "$DRY_RUN" -eq 0 ]; then
+        require_command timeout
+        require_command python3
+        require_file "$DOTNET_PATH" "dotnet executable"
+        require_file "$UNITY_PATH" "Unity executable"
+        require_file "$STRATIFICATION_CHECKER_PATH" "stratification governance checker"
+        require_file "$SEMANTIC_QUERY_CHECKER_PATH" "semantic query governance checker"
+        require_file "$ACTION_PLAN_CORRELATION_CHECKER_PATH" "ActionPlanId correlation governance checker"
+        ensure_result_dirs
+
+        run_governance_check
+        run_semantic_query_migration_check
+        run_action_plan_correlation_check
+    else
+        echo "Dry run: governance checks, dotnet builds, and Unity stages will not execute."
+    fi
 
     case "$mode" in
         core)
@@ -425,12 +549,14 @@ main() {
             run_unity_integration_fuzz
             ;;
         *)
-            echo "Usage: ./run_tests.sh [core|ui|full|--integration-simulation|--integration-replay|--integration-fuzz]"
+            echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|ui|full|--integration-simulation|--integration-replay|--integration-fuzz]"
             exit 1
             ;;
     esac
 
-    echo "ALL TESTS PASSED"
+    if [ "$DRY_RUN" -eq 0 ]; then
+        echo "ALL TESTS PASSED"
+    fi
 }
 
 main "$@"
