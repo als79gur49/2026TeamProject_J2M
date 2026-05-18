@@ -142,6 +142,11 @@ namespace Game.Shared.Audio
             return playbackService?.LivePlaybackCount ?? 0;
         }
 
+        internal int CaptureSourcePoolAcquireFailureCount()
+        {
+            return playbackService?.SourcePoolAcquireFailureCount ?? 0;
+        }
+
         internal void TickForTesting(float deltaSeconds)
         {
             ThrowIfNotInitialized();
