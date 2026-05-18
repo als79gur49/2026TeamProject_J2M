@@ -37,9 +37,9 @@ MonoBehaviour:
     PresentationId: j_peter
   staticEntityPresentationCatalog: {fileID: 11400000, guid: 28eb5cc07ccd15d4b9a99a3364f7fd07, type: 2}
   staticEntityPresentationBindings: []
-  boardTilePresentationCatalog: {fileID: 0}
+  boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []
-  tileFeaturePresentationCatalog: {fileID: 0}
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
   resultTitle: Stage Cleared
   resultSummaryText: 
