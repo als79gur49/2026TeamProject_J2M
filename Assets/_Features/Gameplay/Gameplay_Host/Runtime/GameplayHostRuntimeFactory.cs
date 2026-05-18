@@ -12,6 +12,7 @@ using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
+using Game.Feature.Gameplay.TopologyAudio;
 using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.Stages;
 using Game.Shared.Audio;
@@ -28,6 +29,8 @@ namespace Game.Feature.Gameplay.Host
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
         private const string MissingTileFeatureAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TileFeatureAudioMap is assigned.";
+        private const string MissingTopologyAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TopologyAudioMap is assigned.";
         private const string MissingGravityFieldAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GravityFieldAudioMap is assigned.";
         private const string MissingBlockAudioRuntimeInstallerMessage =
@@ -582,11 +585,13 @@ namespace Game.Feature.Gameplay.Host
         {
             var hasGameplayAudioMap = configuration?.GameplayAudioMap != null;
             var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
+            var hasTopologyAudioMap = configuration?.TopologyAudioMap != null;
             var hasGravityFieldAudioMap = configuration?.GravityFieldAudioMap != null;
             var hasBlockAudioMap = configuration?.BlockAudioMap != null;
             var hasPlayerLocomotionAudioMap = configuration?.PlayerLocomotionAudioMap != null;
             if (!hasGameplayAudioMap &&
                 !hasTileFeatureAudioMap &&
+                !hasTopologyAudioMap &&
                 !hasGravityFieldAudioMap &&
                 !hasBlockAudioMap &&
                 !hasPlayerLocomotionAudioMap)
@@ -600,6 +605,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
+                    hasTopologyAudioMap,
                     hasGravityFieldAudioMap,
                     hasBlockAudioMap,
                     hasPlayerLocomotionAudioMap));
@@ -611,6 +617,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
                     hasGameplayAudioMap,
                     hasTileFeatureAudioMap,
+                    hasTopologyAudioMap,
                     hasGravityFieldAudioMap,
                     hasBlockAudioMap,
                     hasPlayerLocomotionAudioMap));
@@ -625,6 +632,11 @@ namespace Game.Feature.Gameplay.Host
             if (hasTileFeatureAudioMap)
             {
                 presenter.AttachTileFeatureAudioRuntime(playbackPort, configuration.TileFeatureAudioMap);
+            }
+
+            if (hasTopologyAudioMap)
+            {
+                presenter.AttachTopologyAudioRuntime(playbackPort, configuration.TopologyAudioMap);
             }
 
             if (hasGravityFieldAudioMap)
@@ -646,6 +658,7 @@ namespace Game.Feature.Gameplay.Host
         private static string ResolveMissingAudioRuntimeInstallerMessage(
             bool hasGameplayAudioMap,
             bool hasTileFeatureAudioMap,
+            bool hasTopologyAudioMap,
             bool hasGravityFieldAudioMap,
             bool hasBlockAudioMap,
             bool hasPlayerLocomotionAudioMap)
@@ -658,6 +671,11 @@ namespace Game.Feature.Gameplay.Host
             if (hasTileFeatureAudioMap)
             {
                 return MissingTileFeatureAudioRuntimeInstallerMessage;
+            }
+
+            if (hasTopologyAudioMap)
+            {
+                return MissingTopologyAudioRuntimeInstallerMessage;
             }
 
             if (hasGravityFieldAudioMap)

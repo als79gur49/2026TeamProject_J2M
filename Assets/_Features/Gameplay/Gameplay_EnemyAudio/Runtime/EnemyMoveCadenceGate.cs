@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.AudioPolicy;
 
 namespace Game.Feature.Gameplay.EnemyAudio
 {
@@ -10,15 +11,14 @@ namespace Game.Feature.Gameplay.EnemyAudio
         internal const float DefaultJitterSeconds = 1f;
         internal const int DefaultMaxMoveRequestsPerTick = 1;
 
+        private readonly AudioVoicePolicyGate _policyGate = new();
         private readonly Dictionary<int, int> _nextAllowedTickByEntityId = new();
 
         private int _perEntityMoveMinIntervalTicks;
         private int _globalMoveMinIntervalTicks;
         private int _jitterTicks;
         private int _maxMoveRequestsPerTick;
-        private int _nextGlobalMoveTick;
-        private int _lastBudgetTick = int.MinValue;
-        private int _moveRequestsPlayedThisTick;
+        private AudioVoicePolicy _policy = AudioVoicePolicy.None;
 
         public EnemyMoveCadenceGate()
         {
@@ -45,6 +45,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
         internal int JitterTicks => _jitterTicks;
 
         internal int MaxMoveRequestsPerTick => _maxMoveRequestsPerTick;
+
+        internal AudioVoicePolicy Policy => _policy;
 
         public void Configure(int simulationTicksPerSecond)
         {
@@ -98,15 +100,22 @@ namespace Game.Feature.Gameplay.EnemyAudio
             _globalMoveMinIntervalTicks = globalMoveMinIntervalTicks;
             _jitterTicks = jitterTicks;
             _maxMoveRequestsPerTick = maxMoveRequestsPerTick;
+            _policy = new AudioVoicePolicy(
+                AudioVoiceGroupId.EnemyMovement,
+                priority: 15,
+                maxVoicesGlobal: maxMoveRequestsPerTick,
+                maxVoicesPerOwner: 1,
+                cooldownSecondsGlobal: globalMoveMinIntervalTicks,
+                cooldownSecondsPerOwner: perEntityMoveMinIntervalTicks,
+                duplicateWindowSeconds: 0f,
+                overflowMode: VoiceOverflowMode.DropNewest);
             ResetState();
         }
 
         public void ResetState()
         {
             _nextAllowedTickByEntityId.Clear();
-            _nextGlobalMoveTick = 0;
-            _lastBudgetTick = int.MinValue;
-            _moveRequestsPlayedThisTick = 0;
+            _policyGate.Reset();
         }
 
         public bool ShouldPlayMove(int ownerEntityId, int tickIndex)
@@ -116,11 +125,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 return false;
             }
 
-            RefreshTickBudget(tickIndex);
-
-            if (_maxMoveRequestsPerTick <= 0 ||
-                _moveRequestsPlayedThisTick >= _maxMoveRequestsPerTick ||
-                tickIndex < _nextGlobalMoveTick)
+            if (_maxMoveRequestsPerTick <= 0)
             {
                 return false;
             }
@@ -132,9 +137,17 @@ namespace Game.Feature.Gameplay.EnemyAudio
             }
 
             var jitter = ComputeDeterministicJitterTicks(ownerEntityId, tickIndex, _jitterTicks);
+            if (!_policyGate.ShouldAccept(
+                    _policy,
+                    ownerEntityId,
+                    tickIndex,
+                    simulationTicksPerSecond: 1,
+                    additionalCooldownJitterTicks: jitter))
+            {
+                return false;
+            }
+
             _nextAllowedTickByEntityId[ownerEntityId] = tickIndex + _perEntityMoveMinIntervalTicks + jitter;
-            _nextGlobalMoveTick = tickIndex + _globalMoveMinIntervalTicks + jitter;
-            _moveRequestsPlayedThisTick++;
             return true;
         }
 
@@ -146,17 +159,6 @@ namespace Game.Feature.Gameplay.EnemyAudio
             }
 
             return (int)(ComputeHash(ownerEntityId, tickIndex) % (uint)(jitterTicks + 1));
-        }
-
-        private void RefreshTickBudget(int tickIndex)
-        {
-            if (_lastBudgetTick == tickIndex)
-            {
-                return;
-            }
-
-            _lastBudgetTick = tickIndex;
-            _moveRequestsPlayedThisTick = 0;
         }
 
         private static int SecondsToCeilTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

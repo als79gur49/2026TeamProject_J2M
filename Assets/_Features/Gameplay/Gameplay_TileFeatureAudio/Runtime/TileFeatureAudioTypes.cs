@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
@@ -21,6 +22,15 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         DestroyTileDeactivated = 11,
         BarricadeActivated = 12,
         BarricadeDeactivated = 13,
+        TileFeatureOnBurst = 14,
+        TileFeatureOffBurst = 15,
+    }
+
+    public enum TileFeatureAudioBurstKind
+    {
+        None = 0,
+        On = 1,
+        Off = 2,
     }
 
     public readonly struct TileFeatureAudioRequest
@@ -34,7 +44,11 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             int teamId,
             in AudioPlaybackContext context,
             int targetEntityId = 0,
-            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default)
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
+            int count = 1,
+            int tickIndex = 0,
+            TileFeatureAudioBurstKind burstKind = TileFeatureAudioBurstKind.None,
+            TileFeatureAudioCue representativeCue = TileFeatureAudioCue.None)
         {
             Cue = cue;
             TileId = tileId;
@@ -45,6 +59,10 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             Context = context;
             TargetEntityId = targetEntityId;
             MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
+            Count = Math.Max(1, count);
+            TickIndex = tickIndex;
+            BurstKind = burstKind;
+            RepresentativeCue = representativeCue == TileFeatureAudioCue.None ? cue : representativeCue;
         }
 
         public TileFeatureAudioCue Cue { get; }
@@ -64,6 +82,14 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         public int TargetEntityId { get; }
 
         public MoonBlockGeneratorBlockedPayload MoonBlockGeneratorBlockedPayload { get; }
+
+        public int Count { get; }
+
+        public int TickIndex { get; }
+
+        public TileFeatureAudioBurstKind BurstKind { get; }
+
+        public TileFeatureAudioCue RepresentativeCue { get; }
     }
 
     public static class TileFeatureAudioCueCatalog
@@ -93,6 +119,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 TileFeatureAudioCue.DestroyTileDeactivated => nameof(TileFeatureAudioCue.DestroyTileDeactivated),
                 TileFeatureAudioCue.BarricadeActivated => nameof(TileFeatureAudioCue.BarricadeActivated),
                 TileFeatureAudioCue.BarricadeDeactivated => nameof(TileFeatureAudioCue.BarricadeDeactivated),
+                TileFeatureAudioCue.TileFeatureOnBurst => nameof(TileFeatureAudioCue.TileFeatureOnBurst),
+                TileFeatureAudioCue.TileFeatureOffBurst => nameof(TileFeatureAudioCue.TileFeatureOffBurst),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(cue), cue, "Unsupported tile feature audio cue."),
             };
         }
