@@ -726,14 +726,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(phaseReservationReadMethod, Does.Contain("ReadPhaseRelocationTerminalReservationStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetCellStatus("));
+            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetCellReservationInfo("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEdgeStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEntityStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("topology-exclusive"));
             Assert.That(
-                CountOccurrences(reservationHelperWindow, "reservationBook.GetCellStatus("),
+                CountOccurrences(reservationHelperWindow, "reservationBook.GetCellReservationInfo("),
                 Is.EqualTo(1),
                 "Inline reservation read count is a secondary sentinel. The primary contract is still cell-only terminal settlement semantics.");
-            Assert.That(reservationHelperWindow, Does.Contain("return reservationBook.GetCellStatus(terminalCell);"));
+            Assert.That(reservationHelperWindow, Does.Contain("var reservationInfo = reservationBook.GetCellReservationInfo(terminalCell);"));
             Assert.That(reservationHelperWindow, Does.Not.Contain("GetEdgeStatus("));
             Assert.That(reservationHelperWindow, Does.Not.Contain("GetEntityStatus("));
             Assert.That(reservationHelperWindow, Does.Not.Contain("topology-exclusive"));

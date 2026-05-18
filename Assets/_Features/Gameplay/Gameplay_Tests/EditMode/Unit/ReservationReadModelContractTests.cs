@@ -29,7 +29,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetEntityId: 30,
                     destinationCell),
                 actionPlanId: 101);
-            reservationBook.ReserveJumpLanding(entityId: 40, jumpLandingCell);
+            reservationBook.ReserveJumpLanding(
+                entityId: 40,
+                jumpLandingCell,
+                blocksUnitSharedSettlement: true);
 
             var frozenExport = reservationBook.Freeze(new[]
             {
@@ -55,13 +58,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var reservationBook = new MovementReservationBook();
 
-            reservationBook.ReservePhaseRelocation(entityId: 40, destinationCell);
+            reservationBook.ReservePhaseRelocation(entityId: 40, destinationCell: destinationCell);
 
             Assert.That(reservationBook.GetCellStatus(destinationCell), Is.EqualTo(ReservationStatus.Conflicted));
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void MovementReservationBook_CellReservationInfo_DistinguishesUnitSharedSettlementCompatibility()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -91,12 +94,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(unitMoveInfo.IsUnitSharedSettlementCompatible, Is.True);
 
             var jumpReservationBook = new MovementReservationBook();
-            jumpReservationBook.ReserveJumpLanding(entityId: 40, destinationCell);
+            jumpReservationBook.ReserveJumpLanding(
+                entityId: 40,
+                destinationCell: destinationCell,
+                blocksUnitSharedSettlement: false);
 
             var jumpInfo = jumpReservationBook.GetCellReservationInfo(destinationCell);
             Assert.That(jumpInfo.Status, Is.EqualTo(ReservationStatus.Conflicted));
             Assert.That(jumpInfo.ReservedEntityType, Is.EqualTo(EntityType.Unit));
-            Assert.That(jumpInfo.IsUnitSharedSettlementCompatible, Is.False);
+            Assert.That(jumpInfo.IsUnitSharedSettlementCompatible, Is.True);
+
+            var blockingJumpReservationBook = new MovementReservationBook();
+            blockingJumpReservationBook.ReserveJumpLanding(
+                entityId: 40,
+                destinationCell: destinationCell,
+                blocksUnitSharedSettlement: true);
+
+            var blockingJumpInfo = blockingJumpReservationBook.GetCellReservationInfo(destinationCell);
+            Assert.That(blockingJumpInfo.Status, Is.EqualTo(ReservationStatus.Conflicted));
+            Assert.That(blockingJumpInfo.ReservedEntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(blockingJumpInfo.IsUnitSharedSettlementCompatible, Is.False);
+
+            var phaseReservationBook = new MovementReservationBook();
+            phaseReservationBook.ReservePhaseRelocation(entityId: 40, destinationCell: destinationCell);
+
+            var phaseInfo = phaseReservationBook.GetCellReservationInfo(destinationCell);
+            Assert.That(phaseInfo.Status, Is.EqualTo(ReservationStatus.Conflicted));
+            Assert.That(phaseInfo.ReservedEntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(phaseInfo.IsUnitSharedSettlementCompatible, Is.True);
+
+            var impactReservationBook = new MovementReservationBook();
+            impactReservationBook.ReserveImpactPayload(
+                CreateImpactReservationPayload(
+                    sourceEntityId: 20,
+                    attackSourceEntityId: 10,
+                    sourceCell,
+                    targetEntityId: 30,
+                    destinationCell),
+                actionPlanId: 101);
+
+            var impactInfo = impactReservationBook.GetCellReservationInfo(destinationCell);
+            Assert.That(impactInfo.Status, Is.EqualTo(ReservationStatus.Conflicted));
+            Assert.That(impactInfo.ReservedEntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(impactInfo.IsUnitSharedSettlementCompatible, Is.False);
 
             var boxSourceCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var boxDestinationCell = new SurfaceCell(FaceId.Floor, 3, 0);
@@ -136,7 +176,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var exception = Assert.Throws<InvalidOperationException>(
                 () => reservationBook.ReserveJumpLanding(
                     entityId: 10,
-                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0)));
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    blocksUnitSharedSettlement: true));
 
             Assert.That(exception, Is.Not.Null);
             StringAssert.Contains("frozen", exception.Message);

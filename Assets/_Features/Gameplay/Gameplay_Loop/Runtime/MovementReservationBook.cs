@@ -121,15 +121,22 @@ namespace Game.Feature.Gameplay.Loop
             ReserveImpactPayloadCore(payload, actionPlanId);
         }
 
-        public void ReserveJumpLanding(int entityId, SurfaceCell destinationCell)
+        public void ReserveJumpLanding(
+            int entityId,
+            SurfaceCell destinationCell,
+            bool blocksUnitSharedSettlement)
         {
             ThrowIfFrozen();
             AddDestinationReservation(
                 destinationCell,
                 entityId,
                 EntityType.Unit,
-                blocksUnitSharedSettlement: true);
-            _reservedBlockingDestinations.Add(destinationCell);
+                blocksUnitSharedSettlement);
+            if (blocksUnitSharedSettlement)
+            {
+                _reservedBlockingDestinations.Add(destinationCell);
+            }
+
             _reservedAffectedEntities.Add(entityId);
         }
 
@@ -140,8 +147,7 @@ namespace Game.Feature.Gameplay.Loop
                 destinationCell,
                 entityId,
                 EntityType.Unit,
-                blocksUnitSharedSettlement: true);
-            _reservedBlockingDestinations.Add(destinationCell);
+                blocksUnitSharedSettlement: false);
             _reservedAffectedEntities.Add(entityId);
         }
 

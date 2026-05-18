@@ -6837,7 +6837,10 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (accepted)
                 {
-                    reservationBook.ReserveJumpLanding(payload.SourceActorEntityId, payload.DestinationCell);
+                    reservationBook.ReserveJumpLanding(
+                        payload.SourceActorEntityId,
+                        payload.DestinationCell,
+                        BlocksUnitSharedSettlementForJumpLanding(payload.LandingKind));
                     if (payload.LandingKind == JumpLandingKind.CrushBoxAndLand &&
                         resolvedCrushedBoxEntityId > 0)
                     {
@@ -6884,10 +6887,21 @@ namespace Game.Feature.Gameplay.Loop
                 return reservationInfo.Status;
             }
 
-            return payload.LandingKind != JumpLandingKind.RetryOnly &&
+            return IsUnitSharedSettlementCompatibleJumpLandingKind(payload.LandingKind) &&
                    reservationInfo.IsUnitSharedSettlementCompatible
                 ? ReservationStatus.None
                 : ReservationStatus.Conflicted;
+        }
+
+        private static bool BlocksUnitSharedSettlementForJumpLanding(JumpLandingKind landingKind)
+        {
+            return !IsUnitSharedSettlementCompatibleJumpLandingKind(landingKind);
+        }
+
+        private static bool IsUnitSharedSettlementCompatibleJumpLandingKind(JumpLandingKind landingKind)
+        {
+            return landingKind == JumpLandingKind.ExactStack ||
+                   landingKind == JumpLandingKind.Contested;
         }
 
         private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(
@@ -7023,7 +7037,10 @@ namespace Game.Feature.Gameplay.Loop
         {
             // Semantic contract: read exactly one fixed terminal cell and do not inspect
             // edge/entity/topology reservation detail from this validator consumer.
-            return reservationBook.GetCellStatus(terminalCell);
+            var reservationInfo = reservationBook.GetCellReservationInfo(terminalCell);
+            return reservationInfo.IsUnitSharedSettlementCompatible
+                ? ReservationStatus.None
+                : reservationInfo.Status;
         }
 
         private static Contest TryFindJumpLandingContest(
