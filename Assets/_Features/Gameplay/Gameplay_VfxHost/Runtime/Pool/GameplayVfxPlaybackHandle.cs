@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     public sealed class GameplayVfxPlaybackHandle : IVfxPlaybackHandle
@@ -36,6 +38,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         internal VfxBindingRuntimePolicy Policy { get; }
 
         internal GameplayVfxPooledInstance Instance { get; private set; }
+
+        public Transform InstanceTransform => Instance?.Transform;
 
         internal float StartedAtSeconds { get; }
 

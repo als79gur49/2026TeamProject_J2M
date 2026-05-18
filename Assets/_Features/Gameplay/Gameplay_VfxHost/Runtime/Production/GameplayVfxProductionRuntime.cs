@@ -36,6 +36,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxGravityFieldEvents = true;
         [SerializeField] private bool enableGameplayVfxGravityFieldContinuous = true;
         [SerializeField] private bool enableGameplayVfxGravityFieldLockedTarget = true;
+        [SerializeField] private bool enableGameplayVfxForwardCellProjectile = true;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
@@ -57,6 +58,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly List<DelayedEnemyDeathMotionVfx> readyDelayedEnemyDeathMotionVfx = new();
         private readonly EnemyMotionAttachedVfxFollowerPlanner enemyMotionAttachedFollowerPlanner = new();
         private readonly PresentationMotionFollowingVfxController motionFollowingVfxController = new();
+        private readonly GameplayForwardCellProjectileVfxController forwardCellProjectileVfxController = new();
 
         private AuthoringPrefabProvider prefabProvider;
         private GameplayVfxGameObjectPool pool;
@@ -516,6 +518,28 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
 
+        internal int ActiveForwardCellProjectileMarkerCount =>
+            forwardCellProjectileVfxController.ActiveMarkerCount;
+
+        internal int ActiveForwardCellProjectileFlightCount =>
+            forwardCellProjectileVfxController.ActiveFlightCount;
+
+        internal int[] ActiveForwardCellProjectileMarkerKeys =>
+            forwardCellProjectileVfxController.ActiveMarkerKeys;
+
+        internal int[] ActiveForwardCellProjectileFlightKeys =>
+            forwardCellProjectileVfxController.ActiveFlightKeys;
+
+        internal int GetActiveVfxInstanceCount(GameplayVfxCueId cueId)
+        {
+            return pool?.GetActiveCount(cueId) ?? 0;
+        }
+
+        internal int GetReleaseToPoolCount(GameplayVfxCueId cueId)
+        {
+            return pool?.GetReleaseToPoolCount(cueId) ?? 0;
+        }
+
         public int MissingBindingCount =>
             (controller?.MissingBindingCount ?? 0) +
             flipDestroySelfMotionMissingBindingCount +
@@ -524,7 +548,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             boxDestroyShrinkMissingBindingCount +
             impactTransientBreakMissingBindingCount +
             outOfBoundsExitMissingBindingCount +
-            enemyDeathMotionMissingBindingCount;
+            enemyDeathMotionMissingBindingCount +
+            forwardCellProjectileVfxController.MissingBindingCount;
 
         public int MissingAnchorCount =>
             (controller?.MissingAnchorCount ?? 0) +
@@ -533,7 +558,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             boxDestroyShrinkMissingAnchorCount +
             impactTransientBreakMissingAnchorCount +
             outOfBoundsExitMissingAnchorCount +
-            enemyDeathMotionMissingAnchorCount;
+            enemyDeathMotionMissingAnchorCount +
+            forwardCellProjectileVfxController.MissingAnchorCount;
 
         public int MissingPrefabCount => pool?.MissingPrefabCount ?? 0;
 
@@ -556,6 +582,26 @@ namespace Game.Feature.Gameplay.Vfx.Host
             familyProfiles = profiles ?? Array.Empty<VfxProfileAsset>();
             RebuildBindingRuntime();
             ResetRuntimeComposition();
+        }
+
+        public bool EnableGameplayVfxForwardCellProjectile
+        {
+            get => enableGameplayVfxForwardCellProjectile;
+            set
+            {
+                if (enableGameplayVfxForwardCellProjectile == value)
+                {
+                    return;
+                }
+
+                enableGameplayVfxForwardCellProjectile = value;
+                if (!value)
+                {
+                    forwardCellProjectileVfxController.HardCleanup(pool);
+                }
+
+                ResetIfNoGameplayVfxEnabled();
+            }
         }
 
         public void ResetSession()
@@ -586,6 +632,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             readyDelayedEnemyDeathMotionVfx.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
             motionFollowingVfxController.ResetSession();
+            forwardCellProjectileVfxController.ResetSession(pool);
             controller?.HardCleanupAll();
             planBuilder.Clear();
         }
@@ -661,6 +708,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayEnemyDeathMotion =
                 enableGameplayVfxEnemyDeathMotionMigration &&
                 HasEnemyDeathExitSignal(context.Result.PresentationData);
+            var shouldPlayForwardCellProjectile =
+                enableGameplayVfxForwardCellProjectile &&
+                HasForwardCellProjectileSignal(context.Result.PresentationData);
             if (plan.Requests.Count == 0 &&
                 !shouldPlayFlipDestroySelfMotion &&
                 !shouldPlayBoxSlideSolidStop &&
@@ -668,7 +718,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 !shouldScheduleAfterEntityMotionBoxDestroyExit &&
                 !shouldPlayImpactTransientBreak &&
                 !shouldPlayOutOfBoundsExit &&
-                !shouldPlayEnemyDeathMotion)
+                !shouldPlayEnemyDeathMotion &&
+                !shouldPlayForwardCellProjectile)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
                 return;
@@ -697,6 +748,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var enemyDeathMotionCommandCount = shouldPlayEnemyDeathMotion
                 ? PlayEnemyDeathMotionCommands(context)
                 : 0;
+            if (shouldPlayForwardCellProjectile)
+            {
+                forwardCellProjectileVfxController.Present(context, pool, bindingResolver);
+            }
+
+            var forwardCellProjectileCommandCount = shouldPlayForwardCellProjectile
+                ? forwardCellProjectileVfxController.PlayedThisTickCount
+                : 0;
             LastPlannedRequestCount = plan.Requests.Count +
                                       flipDestroySelfMotionCommandCount +
                                       boxSlideSolidStopCommandCount +
@@ -704,13 +763,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
                                       delayedBoxDestroyExitVfxCount +
                                       impactTransientBreakCommandCount +
                                       outOfBoundsExitCommandCount +
-                                      enemyDeathMotionCommandCount;
+                                      enemyDeathMotionCommandCount +
+                                      forwardCellProjectileCommandCount;
         }
 
         public void UpdatePresentation(float deltaTime)
         {
             AdvanceDelayedBoxDestroyExitVfx(deltaTime);
             AdvanceDelayedEnemyDeathMotionVfx(deltaTime);
+            forwardCellProjectileVfxController.Update(deltaTime, pool);
             controller?.Update(deltaTime);
             pool?.Advance(deltaTime);
         }
@@ -750,6 +811,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void HardCleanup()
         {
             motionFollowingVfxController.HardCleanup();
+            forwardCellProjectileVfxController.HardCleanup(pool);
             controller?.HardCleanupAll();
             LastPlannedRequestCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
@@ -857,6 +919,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private void ResetRuntimeComposition()
         {
             motionFollowingVfxController.HardCleanup();
+            forwardCellProjectileVfxController.HardCleanup(pool);
             enemyMotionAttachedFollowerPlanner.Clear();
             controller?.HardCleanupAll();
             controller = null;
@@ -890,7 +953,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxTileFeatureLane ||
             enableGameplayVfxGravityFieldEvents ||
             enableGameplayVfxGravityFieldContinuous ||
-            enableGameplayVfxGravityFieldLockedTarget;
+            enableGameplayVfxGravityFieldLockedTarget ||
+            enableGameplayVfxForwardCellProjectile;
 
         private void ResetIfNoEnemyJumpVfxEnabled()
         {
@@ -1954,6 +2018,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             return false;
+        }
+
+        private static bool HasForwardCellProjectileSignal(TickPresentationData presentationData)
+        {
+            return presentationData != null &&
+                   (presentationData.ForwardCellProjectileWindupSignals.Count > 0 ||
+                    presentationData.ForwardCellProjectileReleaseSignals.Count > 0 ||
+                    presentationData.ForwardCellProjectileClearSignals.Count > 0 ||
+                    presentationData.ForwardCellImpactSignals.Count > 0);
         }
 
         private readonly struct ImpactTransientBreakInstanceKey : IEquatable<ImpactTransientBreakInstanceKey>

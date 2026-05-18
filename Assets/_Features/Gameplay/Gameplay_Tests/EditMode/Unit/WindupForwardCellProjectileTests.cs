@@ -96,6 +96,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void WindupForwardCellProjectile_WindupEmitsProjectileWindupSignal()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                var tick = pipeline.RunTick(new TickInput(1));
+                var signal = tick.PresentationData.ForwardCellProjectileWindupSignals.Single();
+                var action = GetEnemyActionState(worldState);
+
+                Assert.That(signal.PresentationKey, Is.EqualTo(ComputePresentationKey(EnemyId, action.sequence)));
+                Assert.That(signal.OwnerId, Is.EqualTo(EnemyId));
+                Assert.That(signal.SourceEnemyId, Is.EqualTo(EnemyId));
+                Assert.That(signal.TargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(signal.Direction, Is.EqualTo(Direction.Right));
+                Assert.That(signal.StartedTick, Is.EqualTo(action.startTick));
+                Assert.That(signal.ExpectedReleaseTick, Is.EqualTo(action.executeTick));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void WindupForwardCellProjectile_TargetCellDoesNotTrackPlayerDuringWindup()
         {
             var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(windupTicks: 2);
@@ -138,6 +166,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     releaseTick.PresentationData.EnemyActionSignals.Any(signal =>
                         signal.EntityId == EnemyId && signal.ExecutedThisTick),
                     Is.True);
+
+                var releaseSignal = releaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single();
+                Assert.That(releaseSignal.PresentationKey, Is.EqualTo(releaseSignal.ImpactId));
+                Assert.That(releaseSignal.OwnerId, Is.EqualTo(EnemyId));
+                Assert.That(releaseSignal.SourceEnemyId, Is.EqualTo(EnemyId));
+                Assert.That(releaseSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(releaseSignal.TargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(releaseSignal.Direction, Is.EqualTo(Direction.Right));
+                Assert.That(releaseSignal.ReleaseTick, Is.EqualTo(releaseTickIndex));
+                Assert.That(releaseSignal.ImpactTick, Is.EqualTo(releaseTickIndex + 1));
+                Assert.That(releaseSignal.ImpactDelayTicks, Is.EqualTo(1));
             }
             finally
             {
@@ -163,6 +202,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(3));
             Assert.That(result.AttackPhaseResult.PendingCellImpactResolutions.Single().Hit, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WindupForwardCellProjectile_ImpactEmitsImpactPresentationSignalOnMiss()
+        {
+            var (result, _) = RunReleasedImpact(playerCellBeforeImpact: new SurfaceCell(FaceId.Floor, 1, 1));
+            var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
+            var signal = result.PresentationData.ForwardCellImpactSignals.Single();
+
+            Assert.That(signal.PresentationKey, Is.EqualTo(resolution.Impact.ImpactId));
+            Assert.That(signal.ImpactId, Is.EqualTo(resolution.Impact.ImpactId));
+            Assert.That(signal.OwnerId, Is.EqualTo(EnemyId));
+            Assert.That(signal.SourceEnemyId, Is.EqualTo(EnemyId));
+            Assert.That(signal.TargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(signal.Direction, Is.EqualTo(Direction.Right));
+            Assert.That(signal.Hit, Is.False);
+            Assert.That(signal.TargetEntityId, Is.Zero);
         }
 
         [Test]
@@ -291,6 +348,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ToComparableResolution(PendingCellImpactResolutionRecord resolution)
         {
             return $"{resolution.Impact.ImpactId}:{resolution.Impact.TargetCell}:{resolution.Hit}:{resolution.TargetEntityId}";
+        }
+
+        private static int ComputePresentationKey(int ownerId, int actionSequence)
+        {
+            return checked((ownerId * 100000) + Math.Max(1, actionSequence));
         }
 
         private static TickPipeline CreateEnemyPipeline(WorldState worldState, EnemyAiProfile profile)

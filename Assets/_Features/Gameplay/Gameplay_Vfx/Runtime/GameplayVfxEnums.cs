@@ -123,6 +123,9 @@ namespace Game.Feature.Gameplay.Vfx
         Trail = 2,
         Hit = 3,
         Expired = 4,
+        ForwardCellDangerMarker = 5,
+        ForwardCellProjectileFlight = 6,
+        ForwardCellImpact = 7,
     }
 
     public enum ObjectiveStageVfxCue
