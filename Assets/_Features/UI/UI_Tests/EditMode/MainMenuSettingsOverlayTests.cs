@@ -636,6 +636,21 @@ namespace Game.Feature.UI.Tests
             Assert.That(serializedAudioInstaller.FindProperty("bindingMode").enumValueIndex, Is.EqualTo((int)AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime));
             Assert.That(serializedInstaller.FindProperty("_settingsScreenPrefab").objectReferenceValue, Is.Not.Null);
             Assert.That(serializedInstaller.FindProperty("_settingsPreviewTimeoutSeconds").doubleValue, Is.EqualTo(15d));
+
+            var cameraPresentationController = uiRoot.GetComponent<MainMenuCameraPresentationController>();
+            Assert.That(cameraPresentationController, Is.Not.Null);
+            Assert.That(serializedInstaller.FindProperty("_cameraPresentationController").objectReferenceValue, Is.SameAs(cameraPresentationController));
+
+            var serializedCameraController = new SerializedObject(cameraPresentationController);
+            Assert.That(serializedCameraController.FindProperty("_cinemachineCamera").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_splineDolly").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_lookAtProxy").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_settingsTarget").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_idleTarget").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_saveSlotsTarget").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedCameraController.FindProperty("_settingsKnotIndex").intValue, Is.EqualTo(0));
+            Assert.That(serializedCameraController.FindProperty("_idleKnotIndex").intValue, Is.EqualTo(1));
+            Assert.That(serializedCameraController.FindProperty("_saveSlotsKnotIndex").intValue, Is.EqualTo(4));
         }
 
         private static void AssertForbiddenMainMenuSettingsReferences()
