@@ -1268,6 +1268,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ExitPresentation_ActiveFaceOnlyFrontFace_OpenedEmitsAndOpenStateIsActive()
+        {
+            var exitCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var objective = CreateExitObjectiveDefinitionWithTickPrerequisite(
+                exitCell,
+                prerequisiteSatisfiedTick: 8,
+                activationRule: TileFeatureActivationRule.ActiveFaceOnly);
+            var tileFeatureDefinitions = CreateExitTileFeatureDefinitions(TileFeatureActivationRule.ActiveFaceOnly);
+            var worldState = CreateExitWorldState(
+                exitCell,
+                new CubeTopologyState(FaceId.Floor),
+                CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+            var pipeline = CreatePipeline(worldState, objective, tileFeatureDefinitions);
+
+            var incompleteResult = pipeline.RunTick(new TickInput(7));
+            var openedResult = pipeline.RunTick(new TickInput(8));
+
+            Assert.That(incompleteResult.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitOpened), Is.False);
+            var exitOpened = openedResult.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitOpened);
+            Assert.That(exitOpened.TileId, Is.EqualTo(100));
+            Assert.That(exitOpened.Cell, Is.EqualTo(exitCell));
+            var exitVisualState = openedResult.PresentationData.TileFeatureVisualStates.Single(state =>
+                state.TileFeatureKind == TileFeatureKind.Exit);
+            Assert.That(exitVisualState.IsActive, Is.True);
+            Assert.That(openedResult.ObjectiveResult.RequiredNonPrimaryConditionsSatisfiedThisTick, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ExitPresentation_ActiveFaceOnlyInactiveFace_DoesNotOpenOrClear()
+        {
+            var exitCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var objective = CreateExitObjectiveDefinitionWithTickPrerequisite(
+                exitCell,
+                prerequisiteSatisfiedTick: 8,
+                activationRule: TileFeatureActivationRule.ActiveFaceOnly);
+            var tileFeatureDefinitions = CreateExitTileFeatureDefinitions(TileFeatureActivationRule.ActiveFaceOnly);
+            var worldState = CreateExitWorldState(
+                exitCell,
+                new CubeTopologyState(FaceId.Floor),
+                CreatePlayerEntity(10, exitCell));
+            var pipeline = CreatePipeline(worldState, objective, tileFeatureDefinitions);
+
+            var incompleteResult = pipeline.RunTick(new TickInput(7));
+            var result = pipeline.RunTick(new TickInput(8));
+
+            Assert.That(incompleteResult.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitOpened), Is.False);
+            Assert.That(result.ObjectiveResult.RequiredNonPrimaryConditionsSatisfiedThisTick, Is.True);
+            Assert.That(result.ObjectiveResult.ClearedThisTick, Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitOpened), Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitEntered), Is.False);
+            var exitVisualState = result.PresentationData.TileFeatureVisualStates.Single(state =>
+                state.TileFeatureKind == TileFeatureKind.Exit);
+            Assert.That(exitVisualState.IsActive, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ExitPresentation_ObjectiveClearedEmitsAtActiveExit()
         {
             var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -2968,7 +3031,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static StageObjectiveRuntimeDefinition CreateExitObjectiveDefinition(
             SurfaceCell exitCell,
             bool includePrerequisite,
-            bool prerequisiteSatisfied)
+            bool prerequisiteSatisfied,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.BottomFaceOnly)
         {
             var goalZone = new StageZoneRuntimeDefinition(
                 "goal",
@@ -2995,7 +3059,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     100,
                     new TileFeatureRuntimeDefinition(
                         100,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        activationRule,
                         Direction2D.None,
                         TileFeatureBoxSelector.None,
                         boundEntityId: 0,
@@ -3015,7 +3079,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static StageObjectiveRuntimeDefinition CreateExitObjectiveDefinitionWithTickPrerequisite(
             SurfaceCell exitCell,
-            int prerequisiteSatisfiedTick)
+            int prerequisiteSatisfiedTick,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.BottomFaceOnly)
         {
             var goalZone = new StageZoneRuntimeDefinition(
                 "goal",
@@ -3044,7 +3109,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             "Primary Goal",
                             10,
                             100,
-                            CreateExitTileFeatureDefinitions()[0],
+                            CreateExitTileFeatureDefinitions(activationRule)[0],
                             goalZone,
                             requireAlive: true),
                         required: true,
@@ -3053,13 +3118,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
         }
 
-        private static TileFeatureRuntimeDefinition[] CreateExitTileFeatureDefinitions()
+        private static TileFeatureRuntimeDefinition[] CreateExitTileFeatureDefinitions(
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.BottomFaceOnly)
         {
             return new[]
             {
                 new TileFeatureRuntimeDefinition(
                     100,
-                    TileFeatureActivationRule.BottomFaceOnly,
+                    activationRule,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
                     boundEntityId: 0,
