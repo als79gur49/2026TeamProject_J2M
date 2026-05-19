@@ -22,51 +22,9 @@ MonoBehaviour:
     bgmKey: stage-4-1
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
-  enemyPresentationBindings:
-  - EntityId: 209
-    PresentationId: secbot
-  - EntityId: 210
-    PresentationId: secbot
-  - EntityId: 211
-    PresentationId: secbot
-  - EntityId: 212
-    PresentationId: secbot
-  - EntityId: 213
-    PresentationId: secbot
-  - EntityId: 214
-    PresentationId: secbot
-  - EntityId: 227
-    PresentationId: astreton
-  - EntityId: 228
-    PresentationId: j_peter
-  - EntityId: 229
-    PresentationId: rocket_face
-  - EntityId: 230
-    PresentationId: nebulous
-  - EntityId: 231
-    PresentationId: dr_saturn
-  - EntityId: 232
-    PresentationId: black_eye
+  enemyPresentationBindings: []
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
-  staticEntityPresentationBindings:
-  - EntityId: 201
-    PresentationId: box_tutorial
-  - EntityId: 202
-    PresentationId: box_moon
-  - EntityId: 203
-    PresentationId: box_tutorial
-  - EntityId: 204
-    PresentationId: box_tutorial
-  - EntityId: 205
-    PresentationId: box_tutorial
-  - EntityId: 206
-    PresentationId: box_tutorial
-  - EntityId: 207
-    PresentationId: box_tutorial
-  - EntityId: 208
-    PresentationId: box_tutorial
-  - EntityId: 226
-    PresentationId: box_gravity
+  staticEntityPresentationBindings: []
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
