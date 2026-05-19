@@ -594,7 +594,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -611,7 +611,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -628,7 +628,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -645,7 +645,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -662,7 +662,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -679,7 +679,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1036,7 +1036,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1053,7 +1053,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1070,7 +1070,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1495,7 +1495,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1512,7 +1512,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1529,7 +1529,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -2022,7 +2022,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -2039,7 +2039,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 19
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
