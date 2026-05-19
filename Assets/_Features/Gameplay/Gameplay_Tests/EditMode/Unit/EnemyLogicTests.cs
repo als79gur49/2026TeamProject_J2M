@@ -729,7 +729,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_UsesDestroyTileOnlyWhenNoSafeRoute()
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_StopsWhenOnlyRouteUsesDestroyTile()
         {
             var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var sourceCell = new SurfaceCell(FaceId.Floor, 4, 1);
@@ -760,6 +760,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Vector2Int.left,
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) }),
                 Is.True);
+            Assert.That(plan.HasDirection, Is.False);
+            Assert.That(plan.CandidateMask, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalkPatrolPlanner_AirUnit_OutsideLeash_CanReturnThroughDestroyTile()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var riskyCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(
+                        entityId: 40,
+                        teamId: 2,
+                        position: sourceCell,
+                        aiMode: EnemyAiMode.Patrol,
+                        facing: Direction.Left,
+                        unitMobilityKind: UnitMobilityKind.Air),
+                },
+                new BoardBounds(new Vector2Int(0, 1), new Vector2Int(4, 1)),
+                new[] { CreateDestroyTile(100, riskyCell) });
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                worldState.CreateSnapshot(),
+                GetEntity(worldState, 40),
+                tickIndex: 9,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = homeCell,
+                    lastCommittedDirection = Direction.Right,
+                },
+                settings,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
             Assert.That(plan.HasDirection, Is.True);
             Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Left));
         }
@@ -996,7 +1040,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyRandomWalk_GroundUnit_CanChooseDestroyTileWhenAllLegalCandidatesAreRisky()
+        public void EnemyRandomWalk_GroundUnit_StopsWhenAllLegalCandidatesAreDestroyTiles()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
             var worldState = CreateWorldState(
@@ -1030,8 +1074,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateTileFeatureDefinition(101, TileFeatureActivationRule.BottomFaceOnly),
                 });
 
+            Assert.That(plan.HasDirection, Is.False);
+            Assert.That(plan.CandidateMask, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyRandomWalk_AirUnit_CanChooseDestroyTileCandidates()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(
+                        entityId: 40,
+                        teamId: 2,
+                        position: sourceCell,
+                        aiMode: EnemyAiMode.Patrol,
+                        facing: Direction.Right,
+                        unitMobilityKind: UnitMobilityKind.Air),
+                },
+                new BoardBounds(new Vector2Int(0, 1), new Vector2Int(2, 1)),
+                new[]
+                {
+                    CreateDestroyTile(100, new SurfaceCell(FaceId.Floor, 2, 1)),
+                    CreateDestroyTile(101, new SurfaceCell(FaceId.Floor, 0, 1)),
+                });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 3,
+                forwardWeight: 10,
+                backwardWeight: 1);
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex: 5,
+                new EnemyPatrolRuntimeState { sequence = 1, homeCell = sourceCell },
+                settings,
+                new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly),
+                    CreateTileFeatureDefinition(101, TileFeatureActivationRule.BottomFaceOnly),
+                });
+
             Assert.That(plan.HasDirection, Is.True);
-            Assert.That(plan.CandidateMask, Is.Not.EqualTo(0));
+            Assert.That(plan.CandidateMask, Is.EqualTo(GetCandidateMaskBit(Direction.Right) | GetCandidateMaskBit(Direction.Left)));
         }
 
 

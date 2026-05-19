@@ -37,7 +37,6 @@ namespace Game.Feature.Gameplay.Entities
         private const int LeashReturnBaseStepCost = 10;
         private const int LeashReturnSameDistancePenalty = 5;
         private const int LeashReturnDistanceIncreasePenalty = 20;
-        private const int LeashReturnLethalHazardPenalty = 1000;
         private const int LeashReturnImmediateBacktrackPenalty = 3;
         private const int LeashReturnDetourAllowance = 8;
         private const int LeashReturnMaxSearchDepth = 48;
@@ -113,6 +112,11 @@ namespace Game.Feature.Gameplay.Entities
                         DirectionOrder[i],
                         tileFeatureDefinitions,
                         out var candidate))
+                {
+                    continue;
+                }
+
+                if (IsLethalApproachCandidate(snapshot, tileFeatureDefinitions, source, candidate.DestinationCell))
                 {
                     continue;
                 }
@@ -474,7 +478,8 @@ namespace Game.Feature.Gameplay.Entities
                             direction,
                             tileFeatureDefinitions,
                             out var candidate) ||
-                        closedCells.Contains(candidate.DestinationCell))
+                        closedCells.Contains(candidate.DestinationCell) ||
+                        IsLethalApproachCandidate(snapshot, tileFeatureDefinitions, nodeSource, candidate.DestinationCell))
                     {
                         continue;
                     }
@@ -487,10 +492,6 @@ namespace Game.Feature.Gameplay.Entities
                         ? directionOrder
                         : node.FirstDirectionOrder;
                     var stepCost = CalculateLeashReturnStepCost(
-                        snapshot,
-                        tileFeatureDefinitions,
-                        nodeSource,
-                        candidate.DestinationCell,
                         node.DistanceToHome,
                         nextDistanceToHome,
                         direction,
@@ -543,10 +544,6 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         private static int CalculateLeashReturnStepCost(
-            WorldSnapshot snapshot,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            in EntityState source,
-            SurfaceCell candidateCell,
             int currentDistanceToHome,
             int nextDistanceToHome,
             Direction direction,
@@ -568,16 +565,20 @@ namespace Game.Feature.Gameplay.Entities
                 cost += LeashReturnImmediateBacktrackPenalty;
             }
 
-            if (TileFeatureHazardQueries.EvaluateTileApproachRisk(
-                    snapshot,
-                    tileFeatureDefinitions,
-                    source,
-                    candidateCell) == TileApproachRisk.LethalOnEnter)
-            {
-                cost += LeashReturnLethalHazardPenalty;
-            }
-
             return cost;
+        }
+
+        private static bool IsLethalApproachCandidate(
+            WorldSnapshot snapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            in EntityState source,
+            SurfaceCell candidateCell)
+        {
+            return TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                snapshot,
+                tileFeatureDefinitions,
+                source,
+                candidateCell) == TileApproachRisk.LethalOnEnter;
         }
 
         private static int ResolveCandidateWeight(
