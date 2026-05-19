@@ -1354,15 +1354,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
                 primedWorld.CreateWriteContext().SetEnemyActionState(
                     40,
-                    new EnemyActionRuntimeState
-                    {
-                        kind = EnemyActionKind.Melee,
-                        sequence = 1,
-                        lockedTargetEntityId = 10,
-                        direction = Direction.Left,
-                        startTick = 0,
-                        executeTick = 1,
-                    });
+                    CreateExecutableMeleeActionState(
+                        sourceCell: sharedCell,
+                        targetEntityId: 10,
+                        direction: Direction.Left,
+                        startTick: 0,
+                        executeTick: 1));
                 var primedLogic = new EnemyLogic(entityId: 40, profile);
                 var primedBuffer = new List<RawAttackIntent>();
 
@@ -1937,16 +1934,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     landingTick: 5));
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
-                new EnemyActionRuntimeState
-                {
-                    kind = EnemyActionKind.Melee,
-                    sequence = 1,
-                    lockedTargetEntityId = 10,
-                    direction = Direction.Right,
-                    startTick = 1,
-                    executeTick = 5,
-                    executionAttempted = false,
-                });
+                CreateExecutableMeleeActionState(
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    targetEntityId: 10,
+                    direction: Direction.Right,
+                    startTick: 1,
+                    executeTick: 5));
 
             try
             {
@@ -1985,16 +1978,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     cooldownRemainingTicks: 2));
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
-                new EnemyActionRuntimeState
-                {
-                    kind = EnemyActionKind.Melee,
-                    sequence = 1,
-                    lockedTargetEntityId = 10,
-                    direction = Direction.Right,
-                    startTick = 1,
-                    executeTick = 5,
-                    executionAttempted = false,
-                });
+                CreateExecutableMeleeActionState(
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    targetEntityId: 10,
+                    direction: Direction.Right,
+                    startTick: 1,
+                    executeTick: 5));
 
             try
             {
@@ -2043,16 +2032,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     cooldownRemainingTicks: 2));
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
-                new EnemyActionRuntimeState
-                {
-                    kind = EnemyActionKind.Melee,
-                    sequence = 1,
-                    lockedTargetEntityId = 10,
-                    direction = Direction.Right,
-                    startTick = 1,
-                    executeTick = 5,
-                    executionAttempted = false,
-                });
+                CreateExecutableMeleeActionState(
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    targetEntityId: 10,
+                    direction: Direction.Right,
+                    startTick: 1,
+                    executeTick: 5));
 
             try
             {
@@ -2121,16 +2106,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buffer = new List<RawAttackIntent>();
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
-                new EnemyActionRuntimeState
-                {
-                    kind = EnemyActionKind.Melee,
-                    sequence = 1,
-                    lockedTargetEntityId = 10,
-                    direction = Direction.Right,
-                    startTick = 1,
-                    executeTick = 1,
-                    executionAttempted = false,
-                });
+                CreateExecutableMeleeActionState(
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    targetEntityId: 10,
+                    direction: Direction.Right,
+                    startTick: 1,
+                    executeTick: 1));
 
             logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
 
@@ -2155,16 +2136,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buffer = new List<RawAttackIntent>();
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
-                new EnemyActionRuntimeState
-                {
-                    kind = EnemyActionKind.Melee,
-                    sequence = 1,
-                    lockedTargetEntityId = 10,
-                    direction = Direction.Right,
-                    startTick = 1,
-                    executeTick = 1,
-                    executionAttempted = false,
-                });
+                CreateExecutableMeleeActionState(
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    targetEntityId: 10,
+                    direction: Direction.Right,
+                    startTick: 1,
+                    executeTick: 1));
 
             logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
 
@@ -6476,6 +6453,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cooldownRemainingTicks = cooldownRemainingTicks,
                 retryCount = 0,
             };
+        }
+
+        private static EnemyActionRuntimeState CreateExecutableMeleeActionState(
+            SurfaceCell sourceCell,
+            int targetEntityId,
+            Direction direction,
+            int startTick,
+            int executeTick)
+        {
+            return new EnemyActionRuntimeState
+            {
+                kind = EnemyActionKind.Melee,
+                sequence = 1,
+                lockedTargetEntityId = targetEntityId,
+                direction = direction,
+                startTick = startTick,
+                executeTick = executeTick,
+                hasLockedCombatAnchor = true,
+                lockedCombatAnchor = CreateCombatOriginAnchor(sourceCell, direction),
+            };
+        }
+
+        private static CombatOriginAnchor CreateCombatOriginAnchor(SurfaceCell sourceCell, Direction facing)
+        {
+            return new CombatOriginAnchor(
+                sourceCell,
+                KinematicOffset2.Zero,
+                sourceCell.x * KinematicFixed.UnitsPerCell,
+                sourceCell.y * KinematicFixed.UnitsPerCell,
+                facing);
         }
 
         private static EnemyAiProfile CreateHybridAuthoringProfile(
