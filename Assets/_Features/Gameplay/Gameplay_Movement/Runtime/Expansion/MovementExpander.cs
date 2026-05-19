@@ -997,17 +997,36 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             bool skipActiveGlideTargets,
             List<ActionGroup> buffer)
         {
-            var targets = new List<EntityState>();
-            snapshot.EnumerateUnitImpactTargetsAt(impactCell, targets);
-            if (targets.Count == 0)
+            if (!TryResolveBoxImpactTeamId(actorSource, impactSourceBox, out var sourceTeamId))
             {
                 return false;
             }
 
+            var targets = new List<EntityState>();
+            snapshot.EnumerateUnitImpactTargetsAt(impactCell, targets);
+
             var targetIds = new List<int>(targets.Count);
+            var hasHostileTarget = false;
             for (var i = 0; i < targets.Count; i++)
             {
-                targetIds.Add(targets[i].entityId);
+                var target = targets[i];
+                if (skipActiveGlideTargets &&
+                    snapshot.TryGetActiveEnemyGlideState(target.entityId, out _))
+                {
+                    continue;
+                }
+
+                targetIds.Add(target.entityId);
+                if (target.teamId > 0 &&
+                    target.teamId != sourceTeamId)
+                {
+                    hasHostileTarget = true;
+                }
+            }
+
+            if (!hasHostileTarget)
+            {
+                return false;
             }
 
             var actionGroup = new ActionGroup(

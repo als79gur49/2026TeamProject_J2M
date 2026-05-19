@@ -1015,82 +1015,68 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            if (TryGetLockedGlideStep(glideState, out var lockedStep) &&
+            var hasLockedStep = TryGetLockedGlideStep(glideState, out var lockedStep);
+            if (hasLockedStep &&
                 TryBuildLandingPendingEgressIntentForStep(snapshot, source, lockedStep, out var lockedEgressIntent))
             {
-                locomotion = new GroundLocomotionResolution(
-                    hasIntent: true,
-                    lockedEgressIntent,
-                    _locomotionTimingSettings.MoveCooldownTicks,
-                    _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+                locomotion = BuildLandingPendingEgressLocomotion(lockedEgressIntent);
                 return true;
             }
 
-            if (source.aiMode != EnemyAiMode.Chase)
-            {
-                return false;
-            }
-
-            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
-            {
-                return false;
-            }
-
-            if (!_chaseStrategy.TryBuildMovementIntent(
+            if (!TryBuildLandingPendingRing1EgressIntent(
                     snapshot,
                     source,
-                    chaseTarget,
-                    _commonSettings,
-                    _chaseSettings,
-                    _tileFeatureDefinitions,
-                    out var egressIntent) &&
-                !TryBuildLandingPendingEgressIntent(snapshot, source, chaseTarget, out egressIntent))
+                    hasLockedStep ? lockedStep : (Vector2Int?)null,
+                    out var ringEgressIntent))
             {
                 return false;
             }
 
-            if (!IsLandingPendingEgressIntentLegal(snapshot, source, egressIntent))
-            {
-                return false;
-            }
-
-            locomotion = new GroundLocomotionResolution(
-                hasIntent: true,
-                egressIntent,
-                _locomotionTimingSettings.MoveCooldownTicks,
-                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+            locomotion = BuildLandingPendingEgressLocomotion(ringEgressIntent);
             return true;
         }
 
-        private bool TryBuildLandingPendingEgressIntent(
+        private GroundLocomotionResolution BuildLandingPendingEgressLocomotion(RawMovementIntent intent)
+        {
+            return new GroundLocomotionResolution(
+                hasIntent: true,
+                intent,
+                _locomotionTimingSettings.MoveCooldownTicks,
+                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+        }
+
+        private bool TryBuildLandingPendingRing1EgressIntent(
             WorldSnapshot snapshot,
             in EntityState source,
-            in EntityState target,
+            Vector2Int? attemptedLockedStep,
             out RawMovementIntent intent)
         {
             intent = default;
-            if (source.position.face != target.position.face)
+            var basisFacing = ResolveLandingPendingEgressBasisFacing(source, attemptedLockedStep);
+            var candidateDirections = new[]
             {
-                return false;
+                basisFacing,
+                TurnLeft(basisFacing),
+                TurnRight(basisFacing),
+                TurnBack(basisFacing),
+            };
+
+            foreach (var candidateDirection in candidateDirections)
+            {
+                if (!EnemyMovementStrategyShared.TryResolveDelta(candidateDirection, out var candidateStep) ||
+                    attemptedLockedStep.HasValue &&
+                    candidateStep == attemptedLockedStep.Value)
+                {
+                    continue;
+                }
+
+                if (TryBuildLandingPendingEgressIntentForStep(snapshot, source, candidateStep, out intent))
+                {
+                    return true;
+                }
             }
 
-            var planarDelta = target.position - source.position;
-            var horizontalStep = planarDelta.x == 0
-                ? (Vector2Int?)null
-                : new Vector2Int(Math.Sign(planarDelta.x), 0);
-            var verticalStep = planarDelta.y == 0
-                ? (Vector2Int?)null
-                : new Vector2Int(0, Math.Sign(planarDelta.y));
-            var tryHorizontalFirst = Math.Abs(planarDelta.x) >= Math.Abs(planarDelta.y);
-
-            if (tryHorizontalFirst)
-            {
-                return TryBuildLandingPendingEgressIntentForStep(snapshot, source, horizontalStep, out intent) ||
-                       TryBuildLandingPendingEgressIntentForStep(snapshot, source, verticalStep, out intent);
-            }
-
-            return TryBuildLandingPendingEgressIntentForStep(snapshot, source, verticalStep, out intent) ||
-                   TryBuildLandingPendingEgressIntentForStep(snapshot, source, horizontalStep, out intent);
+            return false;
         }
 
         private bool TryBuildLandingPendingEgressIntentForStep(
@@ -1126,36 +1112,59 @@ namespace Game.Feature.Gameplay.Entities
             return true;
         }
 
-        private bool IsLandingPendingEgressIntentLegal(
-            WorldSnapshot snapshot,
+        private static Direction ResolveLandingPendingEgressBasisFacing(
             in EntityState source,
-            in RawMovementIntent intent)
+            Vector2Int? lockedStep)
         {
-            if (intent.CommandKind != MovementCommandKind.Move)
+            if (DirectionUtility.IsCardinal(source.facing))
             {
-                return false;
+                return source.facing;
             }
 
-            var step = intent.Destination - source.position.PlanarPosition;
-            if (Math.Abs(step.x) + Math.Abs(step.y) != 1 ||
-                !snapshot.TryResolveUnitStep(
-                    source.position,
-                    step,
-                    out var destination,
-                    out var rotationKind,
-                    out var updatedTopology) ||
-                destination.face != source.position.face ||
-                destination.PlanarPosition != intent.Destination)
+            if (lockedStep.HasValue &&
+                EnemyMovementStrategyShared.TryResolveDirection(lockedStep.Value, out var lockedDirection) &&
+                DirectionUtility.IsCardinal(lockedDirection))
             {
-                return false;
+                return lockedDirection;
             }
 
-            return IsLandingPendingEgressDestinationLegal(
-                snapshot,
-                source,
-                destination,
-                rotationKind,
-                updatedTopology);
+            return Direction.Right;
+        }
+
+        private static Direction TurnLeft(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Left,
+                Direction.Left => Direction.Down,
+                Direction.Down => Direction.Right,
+                Direction.Right => Direction.Up,
+                _ => Direction.None,
+            };
+        }
+
+        private static Direction TurnRight(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Right,
+                Direction.Right => Direction.Down,
+                Direction.Down => Direction.Left,
+                Direction.Left => Direction.Up,
+                _ => Direction.None,
+            };
+        }
+
+        private static Direction TurnBack(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Down,
+                Direction.Right => Direction.Left,
+                Direction.Down => Direction.Up,
+                Direction.Left => Direction.Right,
+                _ => Direction.None,
+            };
         }
 
         private bool IsLandingPendingEgressDestinationLegal(
