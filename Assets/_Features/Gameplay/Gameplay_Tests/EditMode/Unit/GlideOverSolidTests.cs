@@ -878,6 +878,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void MovementExpansion_BoxSlideImpactSkipsActiveGliderSharingStopperCellWithSolid()
+        {
+            var origin = new SurfaceCell(FaceId.Floor, 0, 0);
+            var stopperCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, -1, 0), EnemyAiMode.None),
+                CreateBox(20, origin, BoxCapabilities.Push),
+                CreateWall(30, stopperCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 2, 0), EnemyAiMode.Chase),
+            });
+            MoveGliderOntoSolidWithActiveAllowance(
+                worldState,
+                40,
+                stopperCell,
+                CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1, lockedStepX: -1, lockedStepY: 0));
+
+            var groups = ExpandPushIntoBox(worldState);
+
+            Assert.That(groups, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpansion_BoxSlideImpactKeepsLandingPendingGliderSharingStopperCellWithSolid()
+        {
+            var origin = new SurfaceCell(FaceId.Floor, 0, 0);
+            var stopperCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, -1, 0), EnemyAiMode.None),
+                CreateBox(20, origin, BoxCapabilities.Push),
+                CreateWall(30, stopperCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 2, 0), EnemyAiMode.Chase),
+            });
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(EnemyGlidePhase.LandingPending, activeUntilTickExclusive: 5, landingPendingCell: stopperCell),
+                stopperCell);
+
+            var groups = ExpandPushIntoBox(worldState);
+
+            Assert.That(groups, Has.Count.EqualTo(1));
+            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
+            CollectionAssert.AreEqual(new[] { 40 }, groups[0].ImpactTargetIds.ToArray());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpansion_BoxSlideImpactFiltersOnlyActiveGliderFromStackedTargets()
+        {
+            var origin = new SurfaceCell(FaceId.Floor, 0, 0);
+            var stopperCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, -1, 0), EnemyAiMode.None),
+                CreateBox(20, origin, BoxCapabilities.Push),
+                CreateUnit(40, teamId: 2, stopperCell, EnemyAiMode.Chase),
+                CreateUnit(50, teamId: 2, stopperCell, EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1));
+
+            var groups = ExpandPushIntoBox(worldState);
+
+            Assert.That(groups, Has.Count.EqualTo(1));
+            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
+            CollectionAssert.AreEqual(new[] { 50 }, groups[0].ImpactTargetIds.ToArray());
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Legality_ActiveGlideBypassesOnlySolidBlockers()
         {
             var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -2574,6 +2648,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(resolved, Is.False);
             Assert.That(stopper.EntityId, Is.EqualTo(expectedBlockerEntityId));
+        }
+
+        private static List<ActionGroup> ExpandPushIntoBox(WorldState worldState)
+        {
+            var pushIntent = new PushIntent(10, priority: 50, destination: new Vector2Int(0, 0));
+            pushIntent.AssignIntentId(1);
+            var groups = new List<ActionGroup>();
+            var rejected = new List<string>();
+
+            new MovementExpander().Expand(
+                worldState.CreateSnapshot(),
+                new[] { pushIntent },
+                groups,
+                rejected);
+
+            return groups;
         }
 
         private static void AssertFlipCreatesImpactOnTarget(WorldState worldState, int expectedImpactTargetId)
