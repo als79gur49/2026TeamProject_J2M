@@ -656,6 +656,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     cell,
                     new CubeTopologyState(FaceId.Floor),
                     VfxAnchorSlot.CellCenter,
+                    GameplayVfxVisibilityMode.DefaultGameplay,
                     out var anchor),
                 Is.True);
             Assert.That(anchor.IsResolved, Is.True);

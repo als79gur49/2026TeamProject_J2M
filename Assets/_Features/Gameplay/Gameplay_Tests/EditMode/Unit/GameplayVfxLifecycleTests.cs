@@ -110,6 +110,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PersistentVfx_FrontFaceInactiveWhileRequestContinues_StopsOrDespawnsExistingInstance()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var runner = new VfxLifetimeRunner();
+            var key = CreatePersistentKey();
+            var request = CreateRequest(isPersistent: true, persistentKey: key);
+            var controller = CreateController(
+                pool,
+                registry,
+                runner,
+                CreatePolicy(request.CueId, VfxPlaybackMode.Loop, VfxStopPolicy.StopEmittingThenRelease));
+
+            controller.SetVisibilityContext(new GameplayVfxVisibilityContext(
+                new Dictionary<int, GameplayVfxEntityVisibilityState>
+                {
+                    {
+                        7,
+                        new GameplayVfxEntityVisibilityState(
+                            hasView: true,
+                            isViewActiveInHierarchy: true,
+                            hasSemanticState: true)
+                    },
+                }));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            Assert.That(registry.TryGet(key, out var handle), Is.True);
+
+            controller.SetVisibilityContext(new GameplayVfxVisibilityContext(
+                new Dictionary<int, GameplayVfxEntityVisibilityState>
+                {
+                    {
+                        7,
+                        new GameplayVfxEntityVisibilityState(
+                            hasView: true,
+                            isViewActiveInHierarchy: true,
+                            hasSemanticState: true,
+                            isFrontFaceInactive: true)
+                    },
+                }));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            var fakeHandle = (FakeVfxPlaybackHandle)handle;
+            Assert.That(fakeHandle.StopEmittingCount, Is.EqualTo(1));
+            Assert.That(fakeHandle.State, Is.EqualTo(VfxLifetimeState.TailPlaying));
+            Assert.That(controller.VisibilityBlockedCount, Is.EqualTo(1));
+            Assert.That(controller.LastVisibilityBlockReason, Is.EqualTo(GameplayVfxVisibilityBlockReason.FrontFaceInactive));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void DetachThenStopEmittingPolicy_PreservesTailUntilCompletion()
         {
             var pool = new FakeVfxPool();
@@ -337,7 +387,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class FakeVfxAnchorResolver : IVfxAnchorResolver
         {
-            public bool TryResolve(in GameplayVfxRequest request, out VfxResolvedAnchor resolvedAnchor)
+            public bool TryResolve(
+                in GameplayVfxRequest request,
+                VfxBindingRuntimePolicy policy,
+                out VfxResolvedAnchor resolvedAnchor)
             {
                 resolvedAnchor = VfxResolvedAnchor.ForCell(
                     new SurfaceCell(FaceId.Floor, 1, 1),

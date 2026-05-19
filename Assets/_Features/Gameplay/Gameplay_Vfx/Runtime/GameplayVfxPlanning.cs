@@ -26,13 +26,15 @@ namespace Game.Feature.Gameplay.Vfx
             TickPresentationData presentationData,
             CubeTopologyState topology,
             GameplayTimingProfile timingProfile = null,
-            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            GameplayVfxVisibilityContext visibilityContext = default)
         {
             TickIndex = tickIndex;
             PresentationData = presentationData;
             Topology = topology;
             TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? Array.Empty<TileFeatureVfxStyleBinding>();
+            VisibilityContext = visibilityContext;
         }
 
         public int TickIndex { get; }
@@ -44,6 +46,8 @@ namespace Game.Feature.Gameplay.Vfx
         public GameplayTimingProfile TimingProfile { get; }
 
         public IReadOnlyList<TileFeatureVfxStyleBinding> TileFeatureVfxStyleBindings { get; }
+
+        public GameplayVfxVisibilityContext VisibilityContext { get; }
     }
 
     public sealed class PlayerVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner

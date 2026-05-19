@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CellAnchor_ResolvesSurfaceCellAndPreservesFace()
         {
-            var cell = new SurfaceCell(FaceId.Front, 2, 3);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
             var topology = new CubeTopologyState(FaceId.Floor);
             var resolver = CreateResolver();
 
@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result, Is.True);
             Assert.That(resolved.HasCell, Is.True);
             Assert.That(resolved.Cell, Is.EqualTo(cell));
-            Assert.That(resolved.Cell.face, Is.EqualTo(FaceId.Front));
+            Assert.That(resolved.Cell.face, Is.EqualTo(FaceId.Floor));
             Assert.That(resolved.Topology, Is.EqualTo(topology));
             Assert.That(resolved.UsedFallback, Is.False);
         }
@@ -41,6 +41,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result, Is.False);
             Assert.That(resolved.IsResolved, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CellVfx_InactiveButVisibleSurface_SuppressesGeneralGameplayCellCue()
+        {
+            var projector = new Game.Feature.Gameplay.Host.GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                1f);
+            var cellProjector = new GameplayVfxHostCellAnchorProjector(projector);
+            var cell = new SurfaceCell(FaceId.Front, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(projector.TryProjectSurfaceCell(cell, topology, out _), Is.True);
+            Assert.That(
+                cellProjector.TryResolveCell(
+                    cell,
+                    topology,
+                    VfxAnchorSlot.CellCenter,
+                    GameplayVfxVisibilityMode.DefaultGameplay,
+                    out _),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void InactiveFaceExplicitCue_OnlyDisplaysWhenCuePolicyOptIn()
+        {
+            var projector = new Game.Feature.Gameplay.Host.GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                1f);
+            var cellProjector = new GameplayVfxHostCellAnchorProjector(projector);
+            var cell = new SurfaceCell(FaceId.Front, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            var defaultResult = cellProjector.TryResolveCell(
+                cell,
+                topology,
+                VfxAnchorSlot.CellCenter,
+                GameplayVfxVisibilityMode.DefaultGameplay,
+                out _);
+            var explicitResult = cellProjector.TryResolveCell(
+                cell,
+                topology,
+                VfxAnchorSlot.CellCenter,
+                GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed,
+                out var explicitAnchor);
+
+            Assert.That(defaultResult, Is.False);
+            Assert.That(explicitResult, Is.True);
+            Assert.That(explicitAnchor.HasCell, Is.True);
+            Assert.That(explicitAnchor.Cell, Is.EqualTo(cell));
         }
 
         [Test]
@@ -64,7 +116,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EntityAnchor_UsesFallbackCellWhenEntityMissing()
         {
-            var fallbackCell = new SurfaceCell(FaceId.Back, 1, 2);
+            var fallbackCell = new SurfaceCell(FaceId.Floor, 1, 2);
             var fallbackTopology = new CubeTopologyState(FaceId.Floor);
             var resolver = CreateResolver();
 
@@ -82,6 +134,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolved.Topology, Is.EqualTo(fallbackTopology));
             Assert.That(resolved.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
             Assert.That(resolved.UsedFallback, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EntityAnchorFallbackCell_PreservesOriginalVisibilityPolicy()
+        {
+            var fallbackCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var fallbackTopology = new CubeTopologyState(FaceId.Floor);
+            var resolver = new GameplayVfxHostAnchorResolver(
+                new GameplayVfxHostCellAnchorProjector(new Game.Feature.Gameplay.Host.GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                    1f)),
+                new FakeEntityAnchorProjector());
+            var request = CreateRequest(VfxAnchor.ForEntity(
+                10,
+                fallbackCell: fallbackCell,
+                fallbackTopology: fallbackTopology,
+                hasFallbackCell: true));
+            var policy = VfxBindingRuntimePolicy.Optional(
+                request.CueId,
+                VfxPlaybackMode.Loop,
+                VfxStopPolicy.StopEmittingThenRelease,
+                visibilityMode: GameplayVfxVisibilityMode.ActiveGameplayFaceOnly);
+
+            var result = resolver.TryResolve(request, policy, out var resolved);
+
+            Assert.That(result, Is.False);
+            Assert.That(resolved.IsResolved, Is.False);
         }
 
         [Test]
@@ -129,7 +209,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CellToEntity_ValidatesSourceCellAndTargetEntity()
         {
-            var cell = new SurfaceCell(FaceId.Front, 1, 2);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 2);
             var topology = new CubeTopologyState(FaceId.Floor);
             var cellProjector = new FakeCellAnchorProjector();
             var entityProjector = new FakeEntityAnchorProjector();
@@ -152,7 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EntityToCell_UsesEntityOrFallback()
         {
-            var targetCell = new SurfaceCell(FaceId.Back, 2, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
             var topology = new CubeTopologyState(FaceId.Floor);
             var liveEntityProjector = new FakeEntityAnchorProjector();
             liveEntityProjector.AddLiveEntity(10);
@@ -203,6 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cell,
                 topology,
                 VfxAnchorSlot.CellAboveOccupant,
+                GameplayVfxVisibilityMode.VisibleSurfaceAllowed,
                 out var resolved);
 
             Assert.That(result, Is.True);
@@ -226,6 +307,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cell,
                 topology,
                 VfxAnchorSlot.CellFloor,
+                GameplayVfxVisibilityMode.DefaultGameplay,
                 out var resolved);
 
             Assert.That(result, Is.True);
@@ -312,6 +394,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SurfaceCell cell,
                 CubeTopologyState topology,
                 VfxAnchorSlot slot,
+                GameplayVfxVisibilityMode visibilityMode,
                 out VfxResolvedAnchor resolvedAnchor)
             {
                 LastCell = cell;

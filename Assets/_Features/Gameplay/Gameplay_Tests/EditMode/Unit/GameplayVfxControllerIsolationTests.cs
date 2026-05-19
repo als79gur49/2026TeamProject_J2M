@@ -365,7 +365,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int TryResolveCallCount { get; private set; }
 
-            public bool TryResolve(in GameplayVfxRequest request, out VfxResolvedAnchor resolvedAnchor)
+            public bool TryResolve(
+                in GameplayVfxRequest request,
+                VfxBindingRuntimePolicy policy,
+                out VfxResolvedAnchor resolvedAnchor)
             {
                 TryResolveCallCount++;
                 CallOrder?.Add("anchor");

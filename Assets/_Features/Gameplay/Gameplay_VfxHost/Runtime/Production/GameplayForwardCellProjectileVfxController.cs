@@ -73,7 +73,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Present(
             in GameplayTickPresentationExtensionContext context,
             GameplayVfxGameObjectPool pool,
-            IVfxBindingResolver bindingResolver)
+            IVfxBindingResolver bindingResolver,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             PlayedThisTickCount = 0;
             var presentationData = context.Result.PresentationData;
@@ -98,7 +99,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     releaseSignals[i],
                     pool,
                     bindingResolver,
-                    cellProjector);
+                    cellProjector,
+                    visibilityContext);
             }
 
             var impactSignals = presentationData.ForwardCellImpactSignals;
@@ -110,7 +112,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     impactSignals[i],
                     pool,
                     bindingResolver,
-                    cellProjector);
+                    cellProjector,
+                    visibilityContext);
             }
 
             var clearSignals = presentationData.ForwardCellProjectileClearSignals;
@@ -163,7 +166,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in TickForwardCellProjectileWindupPresentationSignal signal,
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
-            GameplayVfxHostCellAnchorProjector cellProjector)
+            GameplayVfxHostCellAnchorProjector cellProjector,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             if (markerHandlesByKey.ContainsKey(signal.PresentationKey))
             {
@@ -188,7 +192,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     hasCell: true,
                     activationSequence: signal.PresentationKey));
 
-            if (!TryResolveCommand(request, bindingResolver, cellProjector, out var command))
+            if (!TryResolveCommand(request, bindingResolver, cellProjector, visibilityContext, out var command))
             {
                 return;
             }
@@ -206,7 +210,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in TickForwardCellProjectileReleasePresentationSignal signal,
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
-            GameplayVfxHostCellAnchorProjector cellProjector)
+            GameplayVfxHostCellAnchorProjector cellProjector,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             ReleaseMarker(signal.PresentationKey, pool);
             ReleaseFlight(signal.PresentationKey, pool);
@@ -215,6 +220,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     cellProjector,
                     signal.TargetCell,
                     context.Topology,
+                    GameplayVfxVisibilityMode.DefaultGameplay,
                     out var targetLocalPosition,
                     out var targetLocalRotation))
             {
@@ -234,7 +240,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 pool,
                 bindingResolver,
                 sourceLocalPosition,
-                targetLocalRotation);
+                targetLocalRotation,
+                visibilityContext);
             var cueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
             var request = new GameplayVfxRequest(
                 context.Result.TickIndex,
@@ -254,6 +261,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             policy.ValidateOrThrow();
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+            if (!decision.IsVisible)
+            {
+                return;
+            }
+
             var sourceAnchor = VfxResolvedAnchor.ForCell(
                 signal.SourceCell,
                 context.Topology,
@@ -269,10 +285,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     context,
                     signal,
                     pool,
-                    bindingResolver,
-                    playbackHandle.InstanceTransform,
-                    sourceLocalPosition,
-                    targetLocalRotation);
+                bindingResolver,
+                playbackHandle.InstanceTransform,
+                sourceLocalPosition,
+                targetLocalRotation,
+                visibilityContext);
                 activeFlightsByKey[signal.PresentationKey] = new ActiveFlight(
                     playbackHandle,
                     followHandle,
@@ -290,7 +307,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in TickForwardCellImpactPresentationSignal signal,
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
-            GameplayVfxHostCellAnchorProjector cellProjector)
+            GameplayVfxHostCellAnchorProjector cellProjector,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             ReleaseMarker(signal.PresentationKey, pool);
             ReleaseFlight(signal.PresentationKey, pool);
@@ -307,7 +325,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 isPersistent: false,
                 persistentKey: VfxPersistentKey.None);
 
-            if (!TryResolveCommand(request, bindingResolver, cellProjector, out var command))
+            if (!TryResolveCommand(request, bindingResolver, cellProjector, visibilityContext, out var command))
             {
                 return;
             }
@@ -322,6 +340,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in GameplayVfxRequest request,
             IVfxBindingResolver bindingResolver,
             GameplayVfxHostCellAnchorProjector cellProjector,
+            GameplayVfxVisibilityContext visibilityContext,
             out ResolvedVfxPlaybackCommand command)
         {
             if (!bindingResolver.TryResolve(request, out var policy))
@@ -332,14 +351,36 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             policy.ValidateOrThrow();
+            var preDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+            if (!preDecision.IsVisible)
+            {
+                command = default;
+                return false;
+            }
+
             if (!cellProjector.TryResolveCell(
                     request.Anchor.Cell,
                     request.Anchor.Topology,
                     request.Anchor.Slot,
+                    policy.VisibilityMode,
                     out var anchor) ||
                 !anchor.IsResolved)
             {
                 MissingAnchorCount++;
+                command = default;
+                return false;
+            }
+
+            var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+                request,
+                policy,
+                anchor,
+                visibilityContext);
+            if (!postDecision.IsVisible)
+            {
                 command = default;
                 return false;
             }
@@ -354,7 +395,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
             Vector3 sourceLocalPosition,
-            Quaternion sourceLocalRotation)
+            Quaternion sourceLocalRotation,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             var cueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileActive);
             var request = new GameplayVfxRequest(
@@ -376,6 +418,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     VfxAnchorSlot.CellCenter,
                     sourceLocalPosition,
                     sourceLocalRotation,
+                    visibilityContext,
                     out var command))
             {
                 return;
@@ -394,7 +437,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             IVfxBindingResolver bindingResolver,
             Transform parent,
             Vector3 sourceLocalPosition,
-            Quaternion sourceLocalRotation)
+            Quaternion sourceLocalRotation,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             if (parent == null)
             {
@@ -421,6 +465,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     VfxAnchorSlot.CellCenter,
                     sourceLocalPosition,
                     sourceLocalRotation,
+                    visibilityContext,
                     out var command))
             {
                 return null;
@@ -446,6 +491,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             VfxAnchorSlot slot,
             Vector3 localPosition,
             Quaternion localRotation,
+            GameplayVfxVisibilityContext visibilityContext,
             out ResolvedVfxPlaybackCommand command)
         {
             command = default;
@@ -455,15 +501,35 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             policy.ValidateOrThrow();
+            var preDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+            if (!preDecision.IsVisible)
+            {
+                return false;
+            }
+
+            var anchor = VfxResolvedAnchor.ForCell(
+                fallbackCell,
+                topology,
+                slot,
+                localPosition,
+                localRotation);
+            var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+                request,
+                policy,
+                anchor,
+                visibilityContext);
+            if (!postDecision.IsVisible)
+            {
+                return false;
+            }
+
             command = new ResolvedVfxPlaybackCommand(
                 request,
                 policy,
-                VfxResolvedAnchor.ForCell(
-                    fallbackCell,
-                    topology,
-                    slot,
-                    localPosition,
-                    localRotation));
+                anchor);
             return true;
         }
 
@@ -498,6 +564,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     cellProjector,
                     signal.SourceCell,
                     topology,
+                    GameplayVfxVisibilityMode.DefaultGameplay,
                     out var sourceLocalPosition,
                     out _))
             {
@@ -588,6 +655,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxHostCellAnchorProjector cellProjector,
             SurfaceCell cell,
             CubeTopologyState topology,
+            GameplayVfxVisibilityMode visibilityMode,
             out Vector3 localPosition,
             out Quaternion localRotation)
         {
@@ -595,6 +663,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     cell,
                     topology,
                     VfxAnchorSlot.CellCenter,
+                    visibilityMode,
                     out var anchor) &&
                 anchor.IsResolved &&
                 anchor.HasLocalPose)

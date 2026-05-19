@@ -17,37 +17,54 @@ namespace Game.Feature.Gameplay.Vfx.Host
             this.entityProjector = entityProjector ?? throw new ArgumentNullException(nameof(entityProjector));
         }
 
-        public bool TryResolve(in GameplayVfxRequest request, out VfxResolvedAnchor resolvedAnchor)
+        public bool TryResolve(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy,
+            out VfxResolvedAnchor resolvedAnchor)
         {
             var anchor = request.Anchor;
+            var visibilityMode = GameplayVfxVisibilityPolicy.ResolveEffectiveMode(request, policy.VisibilityMode);
             switch (anchor.Kind)
             {
                 case VfxAnchorKind.Cell:
-                    return TryResolveCell(anchor.Cell, anchor.Topology, ResolveCellSlot(anchor.Slot), false, out resolvedAnchor);
+                    return TryResolveCell(anchor.Cell, anchor.Topology, ResolveCellSlot(anchor.Slot), visibilityMode, false, out resolvedAnchor);
                 case VfxAnchorKind.Entity:
-                    return TryResolveEntity(anchor.EntityId, ResolveEntitySlot(anchor.Slot), anchor, out resolvedAnchor);
+                    return TryResolveEntity(anchor.EntityId, ResolveEntitySlot(anchor.Slot), anchor, visibilityMode, out resolvedAnchor);
                 case VfxAnchorKind.EntitySlot:
-                    return TryResolveEntitySlot(anchor.EntityId, anchor.Slot, anchor, out resolvedAnchor);
+                    return TryResolveEntitySlot(anchor.EntityId, anchor.Slot, anchor, visibilityMode, out resolvedAnchor);
                 case VfxAnchorKind.CellToEntity:
-                    return TryResolveCellToEntity(anchor, out resolvedAnchor);
+                    return TryResolveCellToEntity(anchor, visibilityMode, out resolvedAnchor);
                 case VfxAnchorKind.EntityToCell:
-                    return TryResolveEntityToCell(anchor, out resolvedAnchor);
+                    return TryResolveEntityToCell(anchor, visibilityMode, out resolvedAnchor);
                 default:
                     resolvedAnchor = VfxResolvedAnchor.Unresolved(VfxMissingAnchorPolicy.SkipOptional);
                     return false;
             }
         }
 
-        private bool TryResolveCellToEntity(VfxAnchor anchor, out VfxResolvedAnchor resolvedAnchor)
+        public bool TryResolve(in GameplayVfxRequest request, out VfxResolvedAnchor resolvedAnchor)
+        {
+            var policy = VfxBindingRuntimePolicy.Optional(
+                request.CueId,
+                request.IsPersistent ? VfxPlaybackMode.Loop : VfxPlaybackMode.OneShot,
+                request.IsPersistent ? VfxStopPolicy.StopEmittingThenRelease : VfxStopPolicy.AuthoredDuration);
+            return TryResolve(request, policy, out resolvedAnchor);
+        }
+
+        private bool TryResolveCellToEntity(
+            VfxAnchor anchor,
+            GameplayVfxVisibilityMode visibilityMode,
+            out VfxResolvedAnchor resolvedAnchor)
         {
             if (!anchor.HasCell ||
                 !cellProjector.TryResolveCell(
                     anchor.Cell,
                     anchor.Topology,
                     VfxAnchorSlot.CellCenter,
+                    visibilityMode,
                     out var sourceCellAnchor))
             {
-                return TryResolveFallbackCell(anchor, out resolvedAnchor);
+                return TryResolveFallbackCell(anchor, visibilityMode, out resolvedAnchor);
             }
 
             if (entityProjector.TryResolveEntity(
@@ -59,10 +76,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return true;
             }
 
-            return TryResolveFallbackCell(anchor, out resolvedAnchor);
+            return TryResolveFallbackCell(anchor, visibilityMode, out resolvedAnchor);
         }
 
-        private bool TryResolveEntityToCell(VfxAnchor anchor, out VfxResolvedAnchor resolvedAnchor)
+        private bool TryResolveEntityToCell(
+            VfxAnchor anchor,
+            GameplayVfxVisibilityMode visibilityMode,
+            out VfxResolvedAnchor resolvedAnchor)
         {
             if (entityProjector.TryResolveEntity(
                     anchor.SourceEntityId,
@@ -72,13 +92,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return true;
             }
 
-            return TryResolveFallbackCell(anchor, out resolvedAnchor);
+            return TryResolveFallbackCell(anchor, visibilityMode, out resolvedAnchor);
         }
 
         private bool TryResolveEntity(
             int entityId,
             VfxAnchorSlot slot,
             VfxAnchor anchor,
+            GameplayVfxVisibilityMode visibilityMode,
             out VfxResolvedAnchor resolvedAnchor)
         {
             if (entityProjector.TryResolveEntity(entityId, slot, out resolvedAnchor))
@@ -86,13 +107,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return true;
             }
 
-            return TryResolveFallbackCell(anchor, out resolvedAnchor);
+            return TryResolveFallbackCell(anchor, visibilityMode, out resolvedAnchor);
         }
 
         private bool TryResolveEntitySlot(
             int entityId,
             VfxAnchorSlot slot,
             VfxAnchor anchor,
+            GameplayVfxVisibilityMode visibilityMode,
             out VfxResolvedAnchor resolvedAnchor)
         {
             if (slot == VfxAnchorSlot.EntityCenter &&
@@ -101,10 +123,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return true;
             }
 
-            return TryResolveFallbackCell(anchor, out resolvedAnchor);
+            return TryResolveFallbackCell(anchor, visibilityMode, out resolvedAnchor);
         }
 
-        private bool TryResolveFallbackCell(VfxAnchor anchor, out VfxResolvedAnchor resolvedAnchor)
+        private bool TryResolveFallbackCell(
+            VfxAnchor anchor,
+            GameplayVfxVisibilityMode visibilityMode,
+            out VfxResolvedAnchor resolvedAnchor)
         {
             if (!anchor.HasFallbackCell)
             {
@@ -116,6 +141,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 anchor.FallbackCell,
                 anchor.FallbackTopology,
                 ResolveCellSlot(anchor.Slot),
+                visibilityMode,
                 true,
                 out resolvedAnchor);
         }
@@ -124,11 +150,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             SurfaceCell cell,
             CubeTopologyState topology,
             VfxAnchorSlot slot,
+            GameplayVfxVisibilityMode visibilityMode,
             bool usedFallback,
             out VfxResolvedAnchor resolvedAnchor)
         {
             if (!IsSupportedCellSlot(slot) ||
-                !cellProjector.TryResolveCell(cell, topology, slot, out resolvedAnchor))
+                !cellProjector.TryResolveCell(cell, topology, slot, visibilityMode, out resolvedAnchor))
             {
                 resolvedAnchor = VfxResolvedAnchor.Unresolved(VfxMissingAnchorPolicy.SkipOptional);
                 return false;

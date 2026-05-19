@@ -49,12 +49,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 isPersistent: false,
                 persistentKey: VfxPersistentKey.None);
 
-            if (!projector.TryProjectSurfaceCell(signal.SourceCell, signal.Topology, out var sourcePose))
+            if (!signal.Topology.IsFaceActive(signal.SourceCell.face) ||
+                !projector.TryProjectSurfaceCell(signal.SourceCell, signal.Topology, out var sourcePose))
             {
                 return false;
             }
 
-            if (projector.TryProjectSurfaceCell(signal.StopperCell, signal.Topology, out var stopperPose))
+            if (signal.Topology.IsFaceActive(signal.StopperCell.face) &&
+                projector.TryProjectSurfaceCell(signal.StopperCell, signal.Topology, out var stopperPose))
             {
                 var midpoint = Vector3.Lerp(sourcePose.LocalPosition, stopperPose.LocalPosition, 0.5f);
                 var approach = stopperPose.LocalPosition - sourcePose.LocalPosition;

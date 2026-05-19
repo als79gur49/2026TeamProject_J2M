@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         [SerializeField] private VfxMissingAnchorPolicy missingAnchorPolicy;
         [SerializeField] private VfxPlaybackMode playbackMode;
         [SerializeField] private VfxStopPolicy stopPolicy;
+        [SerializeField] private GameplayVfxVisibilityMode visibilityMode;
         [SerializeField] private float defaultLifetimeSeconds;
         [SerializeField] private float tailSeconds;
         [SerializeField] private int initialPoolSize;
@@ -36,6 +37,8 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         public VfxPlaybackMode PlaybackMode => playbackMode;
 
         public VfxStopPolicy StopPolicy => stopPolicy;
+
+        public GameplayVfxVisibilityMode VisibilityMode => visibilityMode;
 
         public float DefaultLifetimeSeconds => defaultLifetimeSeconds;
 
@@ -72,7 +75,8 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 defaultLifetimeSeconds,
                 tailSeconds,
                 maxConcurrentInstances,
-                styleKey);
+                styleKey,
+                visibilityMode);
         }
 
         private void LogValidationMessages(VfxAuthoringValidationResult result)

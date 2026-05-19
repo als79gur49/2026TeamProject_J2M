@@ -5,6 +5,7 @@ using System.Reflection;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Vfx;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
@@ -332,6 +333,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Floor)), Is.True);
             Assert.That(TileFeatureActivationQueries.IsActive(state, definition, new CubeTopologyState(FaceId.Ceiling)), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void InactiveFaceOnlyFeature_ActiveButGeneralGameplayVfxSuppressed()
+        {
+            var cell = new SurfaceCell(FaceId.Back, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var state = CreateTileFeature(10, cell, TileFeatureKind.Button);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.InactiveFaceOnly);
+            var request = new GameplayVfxRequest(
+                1,
+                10,
+                10,
+                GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop),
+                VfxAnchor.ForCell(cell, topology, VfxAnchorSlot.CellCenter),
+                VfxTimingKind.ImmediateOnTickPresentation);
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.DefaultGameplay,
+                default);
+
+            Assert.That(TileFeatureActivationQueries.IsActive(state, definition, topology), Is.True);
+            Assert.That(decision.IsVisible, Is.False);
+            Assert.That(decision.BlockReason, Is.EqualTo(GameplayVfxVisibilityBlockReason.InactiveFace));
         }
 
         [Test]

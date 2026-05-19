@@ -20,7 +20,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 VfxStopPolicy.DetachThenStopEmittingThenRelease,
                 defaultLifetimeSeconds: 1.25f,
                 tailSeconds: 0.5f,
-                maxConcurrentInstances: 3);
+                maxConcurrentInstances: 3,
+                visibilityMode: GameplayVfxVisibilityMode.VisibleSurfaceAllowed);
 
             Assert.That(policy.CueId, Is.EqualTo(cueId));
             Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.Required));
@@ -30,7 +31,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(1.25f));
             Assert.That(policy.TailSeconds, Is.EqualTo(0.5f));
             Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(3));
+            Assert.That(policy.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.VisibleSurfaceAllowed));
             Assert.DoesNotThrow(() => new VfxBinding(policy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BindingPolicy_DefaultVisibilityMode_IsDefaultGameplay()
+        {
+            var policy = CreatePolicy();
+
+            Assert.That(policy.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.DefaultGameplay));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TopologyMotionVisualHelper_NotSuppressedByGameplayInactiveGate()
+        {
+            var request = new GameplayVfxRequest(
+                1,
+                1,
+                1,
+                GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail),
+                VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    new CubeTopologyState(FaceId.Floor),
+                    VfxAnchorSlot.CellCenter),
+                VfxTimingKind.QueuedUntilTopologyTransitionEnd);
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.PresentationOnly,
+                default);
+
+            Assert.That(decision.IsVisible, Is.True);
+            Assert.That(decision.BlockReason, Is.EqualTo(GameplayVfxVisibilityBlockReason.None));
         }
 
         [Test]

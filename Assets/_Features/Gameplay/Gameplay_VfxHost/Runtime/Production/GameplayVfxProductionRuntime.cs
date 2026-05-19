@@ -59,6 +59,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<DelayedEnemyDeathMotionVfxKey> scheduledDelayedEnemyDeathMotionVfxKeys = new();
         private readonly List<DelayedEnemyDeathMotionVfx> pendingDelayedEnemyDeathMotionVfx = new();
         private readonly List<DelayedEnemyDeathMotionVfx> readyDelayedEnemyDeathMotionVfx = new();
+        private readonly Dictionary<int, GameplayVfxEntityVisibilityState> visibilityEntityStates = new();
         private readonly EnemyMotionAttachedVfxFollowerPlanner enemyMotionAttachedFollowerPlanner = new();
         private readonly PresentationMotionFollowingVfxController motionFollowingVfxController = new();
         private readonly GameplayForwardCellProjectileVfxController forwardCellProjectileVfxController = new();
@@ -281,6 +282,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         null,
                         pool,
                         bindingResolver,
+                        visibilityContext: default,
                         enabled: false);
                 }
 
@@ -698,6 +700,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ConfigureEnemyPresentationProfiles(
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
+            var visibilityContext = BuildVisibilityContext(context.StateStore);
             enemyMotionAttachedFollowerPlanner.Build(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
@@ -716,7 +719,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.Result.PresentationData,
                 context.Topology,
                 context.TimingProfile,
-                context.TileFeatureVfxStyleBindings);
+                context.TileFeatureVfxStyleBindings,
+                visibilityContext);
             playerPlanner.Plan(planningContext, planBuilder);
             boxPlanner.Plan(planningContext, planBuilder);
             flipImpactBurstPlanner.Plan(planningContext, planBuilder);
@@ -733,7 +737,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 gravityFieldPlanner.Plan(planningContext, planBuilder);
             }
 
-            var plan = FilterByEnabledCues(planBuilder.Build());
+            var plan = FilterByPlanningVisibility(
+                FilterByEnabledCues(planBuilder.Build()),
+                visibilityContext);
             var shouldPlayFlipDestroySelfMotion =
                 enableGameplayVfxFlipDestroySelfMotionMigration &&
                 HasDestroySelfFlipImpactSignal(context.Result.PresentationData);
@@ -773,6 +779,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             EnsureRuntime(context);
+            controller.SetVisibilityContext(visibilityContext);
             controller.Refresh(plan);
             var flipDestroySelfMotionCommandCount = shouldPlayFlipDestroySelfMotion
                 ? PlayFlipDestroySelfMotionCommands(context)
@@ -797,7 +804,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 : 0;
             if (shouldPlayForwardCellProjectile)
             {
-                forwardCellProjectileVfxController.Present(context, pool, bindingResolver);
+                forwardCellProjectileVfxController.Present(context, pool, bindingResolver, visibilityContext);
             }
 
             var forwardCellProjectileCommandCount = shouldPlayForwardCellProjectile
@@ -834,6 +841,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             EnsureRuntime(
                 context.Projector,
                 context.StateStore);
+            var visibilityContext = BuildVisibilityContext(context.StateStore);
             motionFollowingVfxController.Refresh(
                 context.TickIndex,
                 context.TrackState as GameplayPresentationTrackState,
@@ -841,8 +849,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 pool,
                 bindingResolver,
                 enabled: enableGameplayVfxFlipImpactStayTrail,
-                enemyMotionAttachedFollowerPlanner.DesiredFollowers,
-                enemyMotionAttachedFollowerPlanner.ExplicitStopKeys,
+                visibilityContext: visibilityContext,
+                attachedDesiredStates: enemyMotionAttachedFollowerPlanner.DesiredFollowers,
+                explicitAttachedStopStates: enemyMotionAttachedFollowerPlanner.ExplicitStopKeys,
                 attachedFollowersEnabled: enableGameplayVfxGlideWindTrail ||
                                           enableGameplayVfxChargeBoosterTrail ||
                                           enableGameplayVfxEnemyWeaponWindupAura ||
@@ -1025,6 +1034,53 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ResetRuntimeComposition();
         }
 
+        private GameplayVfxVisibilityContext BuildVisibilityContext(GameplayPresentationStateStore stateStore)
+        {
+            visibilityEntityStates.Clear();
+            if (stateStore == null)
+            {
+                return new GameplayVfxVisibilityContext(visibilityEntityStates);
+            }
+
+            foreach (var pair in stateStore.ViewsByEntityId)
+            {
+                var entityId = pair.Key;
+                var view = pair.Value;
+                var hasSemanticState = stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(
+                    entityId,
+                    out var semanticState);
+                var hasFacts = stateStore.EnemyVisualFactsByEntityId.TryGetValue(entityId, out var facts);
+                visibilityEntityStates[entityId] = new GameplayVfxEntityVisibilityState(
+                    hasView: view != null,
+                    isViewActiveInHierarchy: view != null &&
+                                             view.isActiveAndEnabled &&
+                                             view.gameObject.activeInHierarchy,
+                    hasSemanticState: hasSemanticState,
+                    isFrontFaceInactive: hasSemanticState &&
+                                         semanticState.ActivityState == EnemyVisualActivityState.FrontFaceInactive,
+                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed);
+            }
+
+            foreach (var pair in stateStore.EnemyVisualSemanticStatesByEntityId)
+            {
+                var entityId = pair.Key;
+                if (visibilityEntityStates.ContainsKey(entityId))
+                {
+                    continue;
+                }
+
+                var hasFacts = stateStore.EnemyVisualFactsByEntityId.TryGetValue(entityId, out var facts);
+                visibilityEntityStates[entityId] = new GameplayVfxEntityVisibilityState(
+                    hasView: false,
+                    isViewActiveInHierarchy: false,
+                    hasSemanticState: true,
+                    isFrontFaceInactive: pair.Value.ActivityState == EnemyVisualActivityState.FrontFaceInactive,
+                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed);
+            }
+
+            return new GameplayVfxVisibilityContext(visibilityEntityStates);
+        }
+
         private GameplayVfxRequestPlan FilterByEnabledCues(GameplayVfxRequestPlan plan)
         {
             if (plan == null || plan.Requests.Count == 0)
@@ -1038,6 +1094,34 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 var request = plan.Requests[i];
                 if (IsCueEnabled(request.CueId) &&
                     !IsParameterizedCommandOwnedCue(request.CueId))
+                {
+                    filteredRequests.Add(request);
+                }
+            }
+
+            return filteredRequests.Count == 0
+                ? GameplayVfxRequestPlan.Empty
+                : new GameplayVfxRequestPlan(filteredRequests);
+        }
+
+        private static GameplayVfxRequestPlan FilterByPlanningVisibility(
+            GameplayVfxRequestPlan plan,
+            in GameplayVfxVisibilityContext visibilityContext)
+        {
+            if (plan == null || plan.Requests.Count == 0)
+            {
+                return GameplayVfxRequestPlan.Empty;
+            }
+
+            var filteredRequests = new List<GameplayVfxRequest>(plan.Requests.Count);
+            for (var i = 0; i < plan.Requests.Count; i++)
+            {
+                var request = plan.Requests[i];
+                var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                    request,
+                    GameplayVfxVisibilityMode.DefaultGameplay,
+                    visibilityContext);
+                if (decision.IsVisible)
                 {
                     filteredRequests.Add(request);
                 }
@@ -1764,6 +1848,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     signal.SourceCell,
                     signal.Topology,
                     VfxAnchorSlot.CellFloor,
+                    policy.VisibilityMode,
                     out var anchor) ||
                 !anchor.IsResolved)
             {

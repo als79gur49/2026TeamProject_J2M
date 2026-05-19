@@ -228,6 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SurfaceCell cell,
                 CubeTopologyState topology,
                 VfxAnchorSlot slot,
+                GameplayVfxVisibilityMode visibilityMode,
                 out VfxResolvedAnchor resolvedAnchor)
             {
                 resolvedAnchor = VfxResolvedAnchor.Unresolved(VfxMissingAnchorPolicy.SkipOptional);

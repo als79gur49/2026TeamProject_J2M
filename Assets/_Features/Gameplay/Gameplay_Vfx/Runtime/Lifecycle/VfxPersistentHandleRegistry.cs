@@ -81,6 +81,29 @@ namespace Game.Feature.Gameplay.Vfx
             desiredKeys.Add(key);
         }
 
+        public bool StopIfActive(
+            VfxPersistentKey key,
+            VfxStopPolicy fallbackStopPolicy,
+            VfxLifetimeRunner lifetimeRunner)
+        {
+            if (lifetimeRunner == null)
+            {
+                throw new ArgumentNullException(nameof(lifetimeRunner));
+            }
+
+            if (!activeHandles.TryGetValue(key, out var handle) ||
+                !CanStop(handle))
+            {
+                return false;
+            }
+
+            var stopPolicy = stopPolicies.TryGetValue(key, out var storedPolicy)
+                ? storedPolicy
+                : fallbackStopPolicy;
+            lifetimeRunner.Stop(handle, stopPolicy);
+            return true;
+        }
+
         public void BeginReconcile()
         {
             desiredKeys.Clear();
