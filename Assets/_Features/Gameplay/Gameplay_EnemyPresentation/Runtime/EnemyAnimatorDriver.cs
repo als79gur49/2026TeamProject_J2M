@@ -256,7 +256,10 @@ namespace Game.Feature.Gameplay.Host
             }
 
             UtilityWindupSignalCount++;
-            SetTrigger(targetAnimator, attackTriggerName);
+            if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup))
+            {
+                DispatchWindupTrigger(targetAnimator);
+            }
         }
 
         public float PlayDeathPresentation(int entityId)

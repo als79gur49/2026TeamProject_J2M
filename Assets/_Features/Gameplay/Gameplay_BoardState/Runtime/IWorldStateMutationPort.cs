@@ -26,10 +26,12 @@ namespace Game.Feature.Gameplay.BoardState
         void SetSummonedEntityState(int entityId, SummonedEntityState state);
         void SetEnemyDefinitionBindingState(int entityId, EnemyDefinitionBindingState state);
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
+        void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state);
         void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
         void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
         void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
         void RemoveBoxInteractionLockState(int entityId);
+        void RemoveEnemyGravityFieldAuraFieldState(int fieldId);
         void SetPhasedState(int entityId, PhasedRuntimeState state);
         void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state);
         void MarkDestroy(int entityId);

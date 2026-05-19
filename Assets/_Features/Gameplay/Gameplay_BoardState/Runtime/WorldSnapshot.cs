@@ -81,6 +81,86 @@ namespace Game.Feature.Gameplay.BoardState
         public BoxInteractionLockState State { get; }
     }
 
+    public readonly struct EnemyGravityFieldAuraFieldState
+    {
+        public EnemyGravityFieldAuraFieldState(
+            int sourceEntityId,
+            int sourceEffectIndex,
+            int activationSequence,
+            SurfaceCell originCell,
+            int radius,
+            int startedTick,
+            int expiresTickExclusive,
+            bool blocksPush,
+            bool blocksFlip,
+            bool blocksDestroy)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceEffectIndex = sourceEffectIndex;
+            ActivationSequence = activationSequence;
+            OriginCell = originCell;
+            Radius = radius;
+            StartedTick = startedTick;
+            ExpiresTickExclusive = expiresTickExclusive;
+            BlocksPush = blocksPush;
+            BlocksFlip = blocksFlip;
+            BlocksDestroy = blocksDestroy;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int SourceEffectIndex { get; }
+
+        public int ActivationSequence { get; }
+
+        public SurfaceCell OriginCell { get; }
+
+        public int Radius { get; }
+
+        public int StartedTick { get; }
+
+        public int ExpiresTickExclusive { get; }
+
+        public bool BlocksPush { get; }
+
+        public bool BlocksFlip { get; }
+
+        public bool BlocksDestroy { get; }
+
+        public bool IsActive(int tickIndex)
+        {
+            return tickIndex < ExpiresTickExclusive;
+        }
+    }
+
+    internal readonly struct EnemyGravityFieldAuraFieldSnapshotEntry
+    {
+        public EnemyGravityFieldAuraFieldSnapshotEntry(int fieldId, EnemyGravityFieldAuraFieldState state)
+        {
+            FieldId = fieldId;
+            State = state;
+        }
+
+        public int FieldId { get; }
+
+        public EnemyGravityFieldAuraFieldState State { get; }
+    }
+
+    internal static class EnemyGravityFieldAuraFieldIds
+    {
+        public static int Compute(int sourceEntityId, int sourceEffectIndex, int activationSequence)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 397) ^ sourceEntityId;
+                hash = (hash * 397) ^ sourceEffectIndex;
+                hash = (hash * 397) ^ activationSequence;
+                return hash;
+            }
+        }
+    }
+
     internal static class BoxInteractionLockQueries
     {
         public static bool IsActive(in BoxInteractionLockState state, int tickIndex)
@@ -103,6 +183,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyFrontFaceSupportRuntimeState> _enemyFrontFaceSupportStatesByEntityId;
         private readonly IReadOnlyDictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, EnemyGravityFieldAuraFieldState> _enemyGravityFieldAuraFieldsById;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
         private readonly IReadOnlyDictionary<int, PhasedRuntimeState> _phasedStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerDamageState> _playerDamageStatesByEntityId;
@@ -136,6 +217,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyUtilityRuntimeState> enemyUtilityStatesByEntityId,
             Dictionary<int, EnemyFrontFaceSupportRuntimeState> enemyFrontFaceSupportStatesByEntityId,
             Dictionary<int, BoxInteractionLockState> boxInteractionLockStatesByEntityId,
+            Dictionary<int, EnemyGravityFieldAuraFieldState> enemyGravityFieldAuraFieldsById,
             Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
@@ -163,6 +245,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyUtilityStatesByEntityId = new ReadOnlyDictionary<int, EnemyUtilityRuntimeState>(enemyUtilityStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyUtilityStatesByEntityId)));
             _enemyFrontFaceSupportStatesByEntityId = new ReadOnlyDictionary<int, EnemyFrontFaceSupportRuntimeState>(enemyFrontFaceSupportStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyFrontFaceSupportStatesByEntityId)));
             _boxInteractionLockStatesByEntityId = new ReadOnlyDictionary<int, BoxInteractionLockState>(boxInteractionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(boxInteractionLockStatesByEntityId)));
+            _enemyGravityFieldAuraFieldsById = new ReadOnlyDictionary<int, EnemyGravityFieldAuraFieldState>(enemyGravityFieldAuraFieldsById ?? throw new ArgumentNullException(nameof(enemyGravityFieldAuraFieldsById)));
             _phasedStatesByEntityId = new ReadOnlyDictionary<int, PhasedRuntimeState>(phasedStatesByEntityId ?? throw new ArgumentNullException(nameof(phasedStatesByEntityId)));
             _playerDamageStatesByEntityId = new ReadOnlyDictionary<int, PlayerDamageState>(playerDamageStatesByEntityId ?? throw new ArgumentNullException(nameof(playerDamageStatesByEntityId)));
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
@@ -328,6 +411,13 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return true;
+        }
+
+        internal bool TryGetEnemyGravityFieldAuraFieldState(
+            int fieldId,
+            out EnemyGravityFieldAuraFieldState state)
+        {
+            return _enemyGravityFieldAuraFieldsById.TryGetValue(fieldId, out state);
         }
 
         public bool TryGetSummonedEntityState(int entityId, out SummonedEntityState state)
@@ -1103,6 +1193,24 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemyGravityFieldAuraFieldStatesOrdered(
+            List<EnemyGravityFieldAuraFieldSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _enemyGravityFieldAuraFieldsById)
+            {
+                buffer.Add(new EnemyGravityFieldAuraFieldSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.FieldId.CompareTo(right.FieldId));
         }
 
         internal void EnumerateSummonedEntityStatesOrdered(List<SummonedEntitySnapshotEntry> buffer)

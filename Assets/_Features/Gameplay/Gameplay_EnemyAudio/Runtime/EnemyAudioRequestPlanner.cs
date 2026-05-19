@@ -142,14 +142,16 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 AddRequestIf(
                     signal.EntityId,
                     EnemyAudioCue.Recover,
-                    signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes &&
+                    (signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
+                     signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura) &&
                     signal.Phase == EnemyUtilityPresentationPhase.RecoverStarted,
                     requests);
                 AddRequestIf(
                     signal.EntityId,
                     EnemyAudioCue.Active,
                     signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura &&
-                    signal.Phase == EnemyUtilityPresentationPhase.ActiveStarted,
+                    (signal.Phase == EnemyUtilityPresentationPhase.ActiveStarted ||
+                     signal.Phase == EnemyUtilityPresentationPhase.AttackStarted),
                     requests);
             }
         }

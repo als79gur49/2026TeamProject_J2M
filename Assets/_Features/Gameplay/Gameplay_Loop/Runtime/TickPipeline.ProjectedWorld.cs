@@ -350,6 +350,15 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
+            var enemyGravityFieldAuraFields = new List<EnemyGravityFieldAuraFieldSnapshotEntry>();
+            snapshot.EnumerateEnemyGravityFieldAuraFieldStatesOrdered(enemyGravityFieldAuraFields);
+            for (var i = 0; i < enemyGravityFieldAuraFields.Count; i++)
+            {
+                writeContext.SetEnemyGravityFieldAuraFieldState(
+                    enemyGravityFieldAuraFields[i].FieldId,
+                    enemyGravityFieldAuraFields[i].State);
+            }
+
             var pendingCellImpacts = new List<PendingCellImpactSnapshotEntry>();
             snapshot.EnumeratePendingCellImpactsOrdered(pendingCellImpacts);
             for (var i = 0; i < pendingCellImpacts.Count; i++)

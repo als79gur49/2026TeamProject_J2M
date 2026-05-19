@@ -326,7 +326,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void GameplayActionAudioRequestPlanner_AttemptFailures_MapToFailureMomentsOnly()
         {
             var planner = new GameplayActionAudioRequestPlanner();
@@ -348,7 +348,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         10,
                         PlayerActionKind.Flip,
                         Direction.Right,
-                        PlayerActionAttemptFeedbackKind.Invalid),
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        emitsVisualFeedback: false),
                 }));
 
             var requests = planner.BuildRequests(result);

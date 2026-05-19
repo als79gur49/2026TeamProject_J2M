@@ -1418,14 +1418,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtilityGravityFieldAura_WindupThenActiveRefreshesThreeByThreeLocks_AndCooldownStartsAfterActive()
+        public void EnemyUtilityGravityFieldAura_WindupThenAttackCreatesField_AndCooldownStartsAfterRecover()
         {
             var profile = CreateUtilityGravityFieldAuraProfile(
                 initialDelayTicks: 0,
                 cooldownTicks: 4,
                 radius: 1,
                 windupTicks: 2,
-                durationTicks: 3);
+                durationTicks: 3,
+                recoverTicks: 1);
             var sliding = CreateBox(entityId: 24, position: new Vector2Int(0, -1), capabilities: BoxCapabilities.Push);
             sliding.state = EntityPhaseState.Sliding;
             var worldState = CreateWorldState(new[]
@@ -1452,32 +1453,38 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(windupTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().Phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
 
                 pipeline.RunTick(new TickInput(2));
-                var activeTick = pipeline.RunTick(new TickInput(3));
-                var activeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-                var activeSnapshot = worldState.CreateSnapshot();
+                var attackTick = pipeline.RunTick(new TickInput(3));
+                var recoverState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var attackSnapshot = worldState.CreateSnapshot();
+                var fieldId = EnemyGravityFieldAuraFieldIds.Compute(40, sourceEffectIndex: 0, activationSequence: 1);
 
-                Assert.That(activeTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=GravityFieldAura|Tick=3"));
-                Assert.That(activeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Active));
-                Assert.That(activeState.activeStartTick, Is.EqualTo(3));
-                Assert.That(activeState.activeEndTickExclusive, Is.EqualTo(6));
-                Assert.That(activeState.activeOriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(activeSnapshot.TryGetBoxInteractionLockState(20, out var cardinalLock), Is.True);
-                Assert.That(activeSnapshot.TryGetBoxInteractionLockState(21, out var diagonalLock), Is.True);
-                Assert.That(activeSnapshot.TryGetBoxInteractionLockState(23, out _), Is.True);
-                Assert.That(activeSnapshot.TryGetBoxInteractionLockState(22, out _), Is.False);
-                Assert.That(activeSnapshot.TryGetBoxInteractionLockState(24, out _), Is.False);
+                Assert.That(attackTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=GravityFieldAura|Tick=3"));
+                Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+                Assert.That(recoverState.recoverStartTick, Is.EqualTo(3));
+                Assert.That(recoverState.recoverEndTickExclusive, Is.EqualTo(4));
+                Assert.That(attackSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out var fieldState), Is.True);
+                Assert.That(fieldState.OriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(fieldState.ExpiresTickExclusive, Is.EqualTo(6));
+                Assert.That(attackSnapshot.TryGetBoxInteractionLockState(20, out var cardinalLock), Is.True);
+                Assert.That(attackSnapshot.TryGetBoxInteractionLockState(21, out var diagonalLock), Is.True);
+                Assert.That(attackSnapshot.TryGetBoxInteractionLockState(23, out _), Is.True);
+                Assert.That(attackSnapshot.TryGetBoxInteractionLockState(22, out _), Is.False);
+                Assert.That(attackSnapshot.TryGetBoxInteractionLockState(24, out _), Is.False);
                 Assert.That(cardinalLock.ExpiresTickExclusive, Is.EqualTo(4));
                 Assert.That(cardinalLock.BlocksPush, Is.True);
                 Assert.That(cardinalLock.BlocksFlip, Is.True);
                 Assert.That(cardinalLock.BlocksDestroy, Is.True);
                 Assert.That(cardinalLock.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.EnemyGravityFieldAura));
                 Assert.That(diagonalLock.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.EnemyGravityFieldAura));
-                Assert.That(activeTick.PresentationData.EnemyUtilitySignals.Single().Phase, Is.EqualTo(EnemyUtilityPresentationPhase.ActiveStarted));
-                Assert.That(activeTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().Phase, Is.EqualTo(EnemyUtilityEffectPhase.Active));
-                Assert.That(activeTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(activeTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().AreaCells, Has.Count.EqualTo(9));
+                Assert.That(
+                    attackTick.PresentationData.EnemyUtilitySignals.Select(signal => signal.Phase).ToArray(),
+                    Is.EqualTo(new[] { EnemyUtilityPresentationPhase.AttackStarted, EnemyUtilityPresentationPhase.RecoverStarted }));
+                Assert.That(attackTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().Phase, Is.EqualTo(EnemyUtilityEffectPhase.Active));
+                Assert.That(attackTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(attackTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().AreaCells, Has.Count.EqualTo(9));
 
-                pipeline.RunTick(new TickInput(4));
+                var cooldownStartTick = pipeline.RunTick(new TickInput(4));
+                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].cooldownTicksRemaining, Is.EqualTo(4));
                 Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out var refreshedLock), Is.True);
                 Assert.That(refreshedLock.ExpiresTickExclusive, Is.EqualTo(5));
 
@@ -1486,10 +1493,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var cooldownState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
                 Assert.That(cooldownState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(cooldownState.cooldownTicksRemaining, Is.EqualTo(4));
+                Assert.That(cooldownState.cooldownTicksRemaining, Is.EqualTo(2));
                 Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 6, out _), Is.False);
-                Assert.That(cooldownTick.PresentationData.EnemyUtilityCooldownSignals.Single().Kind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
-                Assert.That(cooldownTick.PresentationData.EnemyUtilityCooldownSignals.Single().CooldownTicksRemaining, Is.EqualTo(4));
+                Assert.That(cooldownStartTick.PresentationData.EnemyUtilityCooldownSignals.Single().Kind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
+                Assert.That(cooldownStartTick.PresentationData.EnemyUtilityCooldownSignals.Single().CooldownTicksRemaining, Is.EqualTo(4));
+                Assert.That(cooldownTick.PresentationData.EnemyUtilityCooldownSignals.Single().CooldownTicksRemaining, Is.EqualTo(2));
             }
             finally
             {
@@ -1499,7 +1507,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtilityGravityFieldAura_SuppressesWindupButAllowsMovementDuringActive()
+        public void EnemyUtilityGravityFieldAura_SuppressesWindupAndRecover_ButFieldPersistsOnCell()
         {
             var profile = CreateMovingUtilityProfile(
                 CreateGravityFieldAuraUtilityEffect(
@@ -1508,11 +1516,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     radius: 1,
                     windupTicks: 2,
                     durationTicks: 3,
+                    recoverTicks: 1,
                     blocksPush: true,
                     blocksFlip: true,
                     blocksDestroy: true,
                     suppressMovementDuringWindup: true,
-                    suppressMovementDuringActive: false));
+                    suppressMovementDuringRecover: true));
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
@@ -1532,17 +1541,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(windupTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Empty);
 
                 pipeline.RunTick(new TickInput(2));
-                var activeTick = pipeline.RunTick(new TickInput(3));
-                var activeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var attackTick = pipeline.RunTick(new TickInput(3));
+                var recoverState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(activeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Active));
-                Assert.That(activeTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Not.Empty);
-                Assert.That(activeTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=GravityFieldAura|Tick=3"));
-                Assert.That(activeTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+                Assert.That(attackTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Empty);
+                Assert.That(attackTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=GravityFieldAura|Tick=3"));
+                Assert.That(attackTick.PresentationData.EnemyGravityFieldAuraVisualStates.Single().Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
 
                 var sustainedActiveTick = pipeline.RunTick(new TickInput(4));
                 var sustainedSnapshot = worldState.CreateSnapshot();
 
+                Assert.That(sustainedActiveTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Not.Empty);
                 Assert.That(sustainedSnapshot.TryGetBoxInteractionLockState(20, out var originLock), Is.True);
                 Assert.That(originLock.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.EnemyGravityFieldAura));
                 Assert.That(sustainedSnapshot.TryGetBoxInteractionLockState(21, out _), Is.False);
@@ -7056,11 +7066,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int radius,
             int windupTicks,
             int durationTicks,
+            int recoverTicks = 1,
             bool blocksPush = true,
             bool blocksFlip = true,
             bool blocksDestroy = true,
             bool suppressMovementDuringWindup = true,
-            bool suppressMovementDuringActive = false)
+            bool suppressMovementDuringRecover = true)
         {
             return CreateUtilityProfile(
                 CreateGravityFieldAuraUtilityEffect(
@@ -7069,11 +7080,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     radius,
                     windupTicks,
                     durationTicks,
+                    recoverTicks,
                     blocksPush,
                     blocksFlip,
                     blocksDestroy,
                     suppressMovementDuringWindup,
-                    suppressMovementDuringActive));
+                    suppressMovementDuringRecover));
         }
 
         private static EnemyAiProfile CreateUtilityProfile(params EnemyUtilityEffectAuthoring[] effects)
@@ -7185,21 +7197,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int radius,
             int windupTicks,
             int durationTicks,
+            int recoverTicks,
             bool blocksPush,
             bool blocksFlip,
             bool blocksDestroy,
             bool suppressMovementDuringWindup,
-            bool suppressMovementDuringActive)
+            bool suppressMovementDuringRecover)
         {
             var gravityFieldAura = new EnemyGravityFieldAuraAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "radius", radius);
             EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "windupSeconds", TicksToSeconds(windupTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "durationSeconds", TicksToSeconds(durationTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "fieldDurationSeconds", TicksToSeconds(durationTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "recoverSeconds", TicksToSeconds(recoverTicks));
             EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "blocksPush", blocksPush);
             EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "blocksFlip", blocksFlip);
             EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "blocksDestroy", blocksDestroy);
             EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "suppressMovementDuringWindup", suppressMovementDuringWindup);
-            EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "suppressMovementDuringActive", suppressMovementDuringActive);
+            EnemyAiProfileTestFactory.SetSerializedField(gravityFieldAura, "suppressMovementDuringRecover", suppressMovementDuringRecover);
 
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.GravityFieldAura);

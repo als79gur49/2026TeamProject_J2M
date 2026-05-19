@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Entities
 {
@@ -381,18 +382,24 @@ namespace Game.Feature.Gameplay.Entities
     {
         [SerializeField] private int radius = 1;
         [SerializeField] private float windupSeconds = 0.5f;
-        [SerializeField] private float durationSeconds = 4f;
+        [FormerlySerializedAs("durationSeconds")]
+        [SerializeField] private float fieldDurationSeconds = 4f;
+        [SerializeField] private float recoverSeconds = 0.5f;
         [SerializeField] private bool blocksPush = true;
         [SerializeField] private bool blocksFlip = true;
         [SerializeField] private bool blocksDestroy = true;
         [SerializeField] private bool suppressMovementDuringWindup = true;
-        [SerializeField] private bool suppressMovementDuringActive;
+        [SerializeField] private bool suppressMovementDuringRecover = true;
 
         public int Radius => radius;
 
         public float WindupSeconds => windupSeconds;
 
-        public float DurationSeconds => durationSeconds;
+        public float FieldDurationSeconds => fieldDurationSeconds;
+
+        public float DurationSeconds => fieldDurationSeconds;
+
+        public float RecoverSeconds => recoverSeconds;
 
         public bool BlocksPush => blocksPush;
 
@@ -402,7 +409,9 @@ namespace Game.Feature.Gameplay.Entities
 
         public bool SuppressMovementDuringWindup => suppressMovementDuringWindup;
 
-        public bool SuppressMovementDuringActive => suppressMovementDuringActive;
+        public bool SuppressMovementDuringActive => false;
+
+        public bool SuppressMovementDuringRecover => suppressMovementDuringRecover;
 
         internal EnemyGravityFieldAuraRuntime Compile(int simulationTicksPerSecond)
         {
@@ -416,9 +425,14 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Enemy gravity field aura authoring requires a positive windup duration.", nameof(windupSeconds));
             }
 
-            if (durationSeconds <= 0f)
+            if (fieldDurationSeconds <= 0f)
             {
-                throw new ArgumentException("Enemy gravity field aura authoring requires a positive active duration.", nameof(durationSeconds));
+                throw new ArgumentException("Enemy gravity field aura authoring requires a positive field duration.", nameof(fieldDurationSeconds));
+            }
+
+            if (recoverSeconds < 0f)
+            {
+                throw new ArgumentException("Enemy gravity field aura authoring requires a non-negative recovery duration.", nameof(recoverSeconds));
             }
 
             if (!blocksPush && !blocksFlip && !blocksDestroy)
@@ -427,26 +441,31 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var windupTicks = GameplayTimingProfile.SecondsToTicks(windupSeconds, simulationTicksPerSecond);
-            var durationTicks = GameplayTimingProfile.SecondsToTicks(durationSeconds, simulationTicksPerSecond);
+            var fieldDurationTicks = GameplayTimingProfile.SecondsToTicks(fieldDurationSeconds, simulationTicksPerSecond);
+            var recoveryTicks = GameplayTimingProfile.SecondsToTicks(
+                recoverSeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
             if (windupTicks <= 0)
             {
                 throw new ArgumentException("Enemy gravity field aura windup must compile to a positive duration.", nameof(windupSeconds));
             }
 
-            if (durationTicks <= 0)
+            if (fieldDurationTicks <= 0)
             {
-                throw new ArgumentException("Enemy gravity field aura duration must compile to a positive duration.", nameof(durationSeconds));
+                throw new ArgumentException("Enemy gravity field aura field duration must compile to a positive duration.", nameof(fieldDurationSeconds));
             }
 
             return new EnemyGravityFieldAuraRuntime(
                 radius,
                 windupTicks,
-                durationTicks,
+                fieldDurationTicks,
+                recoveryTicks,
                 blocksPush,
                 blocksFlip,
                 blocksDestroy,
                 suppressMovementDuringWindup,
-                suppressMovementDuringActive);
+                suppressMovementDuringRecover);
         }
     }
 

@@ -744,21 +744,23 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyGravityFieldAuraRuntime(
             int radius,
             int windupTicks,
-            int durationTicks,
+            int fieldDurationTicks,
+            int recoveryTicks,
             bool blocksPush,
             bool blocksFlip,
             bool blocksDestroy,
             bool suppressMovementDuringWindup = true,
-            bool suppressMovementDuringActive = false)
+            bool suppressMovementDuringRecover = true)
         {
             Radius = radius;
             WindupTicks = windupTicks;
-            DurationTicks = durationTicks;
+            FieldDurationTicks = fieldDurationTicks;
+            RecoveryTicks = recoveryTicks;
             BlocksPush = blocksPush;
             BlocksFlip = blocksFlip;
             BlocksDestroy = blocksDestroy;
             SuppressMovementDuringWindup = suppressMovementDuringWindup;
-            SuppressMovementDuringActive = suppressMovementDuringActive;
+            SuppressMovementDuringRecover = suppressMovementDuringRecover;
             Validate(nameof(EnemyGravityFieldAuraRuntime));
         }
 
@@ -766,7 +768,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public int WindupTicks { get; }
 
-        public int DurationTicks { get; }
+        public int FieldDurationTicks { get; }
+
+        public int DurationTicks => FieldDurationTicks;
+
+        public int RecoveryTicks { get; }
 
         public bool BlocksPush { get; }
 
@@ -776,7 +782,9 @@ namespace Game.Feature.Gameplay.Entities
 
         public bool SuppressMovementDuringWindup { get; }
 
-        public bool SuppressMovementDuringActive { get; }
+        public bool SuppressMovementDuringActive => false;
+
+        public bool SuppressMovementDuringRecover { get; }
 
         public void Validate(string paramName)
         {
@@ -790,9 +798,14 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Enemy gravity field aura runtime requires a positive windup duration.", paramName);
             }
 
-            if (DurationTicks <= 0)
+            if (FieldDurationTicks <= 0)
             {
-                throw new ArgumentException("Enemy gravity field aura runtime requires a positive active duration.", paramName);
+                throw new ArgumentException("Enemy gravity field aura runtime requires a positive field duration.", paramName);
+            }
+
+            if (RecoveryTicks < 0)
+            {
+                throw new ArgumentException("Enemy gravity field aura runtime requires a non-negative recovery duration.", paramName);
             }
 
             if (!BlocksPush && !BlocksFlip && !BlocksDestroy)

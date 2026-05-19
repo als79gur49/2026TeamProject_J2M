@@ -168,7 +168,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 utility.Effects[0].Summon.SummonedArchetypeId,
                 Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
-            Assert.That(utility.Effects[0].Summon.OverrideHp, Is.False);
+            Assert.That(utility.Effects[0].Summon.OverrideHp, Is.True);
+            Assert.That(utility.Effects[0].Summon.HpOverride, Is.EqualTo(1));
         }
 
         [Test]

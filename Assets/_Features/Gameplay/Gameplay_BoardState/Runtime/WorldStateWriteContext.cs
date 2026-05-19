@@ -93,6 +93,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetBoxInteractionLockState(entityId, state);
         }
 
+        public void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state)
+        {
+            _port.SetEnemyGravityFieldAuraFieldState(fieldId, state);
+        }
+
         public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
         {
             _port.SetGravityFieldState(entityId, phase, timerTicks);
@@ -166,6 +171,11 @@ namespace Game.Feature.Gameplay.BoardState
         public void RemoveBoxInteractionLockState(int entityId)
         {
             _port.RemoveBoxInteractionLockState(entityId);
+        }
+
+        public void RemoveEnemyGravityFieldAuraFieldState(int fieldId)
+        {
+            _port.RemoveEnemyGravityFieldAuraFieldState(fieldId);
         }
 
         public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)

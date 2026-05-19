@@ -1144,6 +1144,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayAnimationSyncCoordinator_ActionAttemptWithoutVisualFeedback_DoesNotHoldAnimation()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_ActionAttemptWithoutVisualFeedback_DoesNotHoldAnimation");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() },
+                    playerActionAttemptSignals: new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Flip,
+                            Direction.Right,
+                            PlayerActionAttemptFeedbackKind.Invalid,
+                            emitsVisualFeedback: false),
+                    });
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true);
+
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+                Assert.That(playback.PhaseOverride, Is.EqualTo(PlayerPresentationPhase.None));
+                Assert.That(coordinator.IsPlayerActionAttemptHoldActive(10), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayAnimationSyncCoordinator_RealActionStart_ClearsActionAttemptHold()
         {

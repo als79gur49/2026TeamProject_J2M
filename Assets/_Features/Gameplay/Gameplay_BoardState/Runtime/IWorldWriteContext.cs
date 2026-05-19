@@ -55,6 +55,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
 
+        void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state);
+
         void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
     }
 
@@ -113,6 +115,8 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
 
         void RemoveBoxInteractionLockState(int entityId);
+
+        void RemoveEnemyGravityFieldAuraFieldState(int fieldId);
     }
 
     internal interface IEnemyUtilityTriggerSink
@@ -134,6 +138,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         new void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
 
+        new void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state);
+
         new void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
 
         new void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
@@ -141,6 +147,8 @@ namespace Game.Feature.Gameplay.BoardState
         new void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
 
         new void RemoveBoxInteractionLockState(int entityId);
+
+        new void RemoveEnemyGravityFieldAuraFieldState(int fieldId);
 
         void AddTileFeature(TileFeatureState state);
 

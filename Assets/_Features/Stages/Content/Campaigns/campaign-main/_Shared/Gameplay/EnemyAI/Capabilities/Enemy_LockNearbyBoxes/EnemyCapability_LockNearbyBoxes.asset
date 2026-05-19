@@ -43,9 +43,10 @@ MonoBehaviour:
     gravityFieldAura:
       radius: 1
       windupSeconds: 0.5
-      durationSeconds: 4
+      fieldDurationSeconds: 4
+      recoverSeconds: 0.5
       blocksPush: 1
       blocksFlip: 1
       blocksDestroy: 1
       suppressMovementDuringWindup: 1
-      suppressMovementDuringActive: 0
+      suppressMovementDuringRecover: 1

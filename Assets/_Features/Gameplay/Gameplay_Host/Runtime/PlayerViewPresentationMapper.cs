@@ -257,6 +257,11 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < playerActionAttemptSignals.Count; i++)
             {
                 var signal = playerActionAttemptSignals[i];
+                if (!signal.EmitsVisualFeedback)
+                {
+                    continue;
+                }
+
                 _candidateEntityIds.Add(signal.EntityId);
                 _attemptSignalsByEntityId[signal.EntityId] = signal;
             }

@@ -472,6 +472,68 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
         }
 
+        public static bool TryResolveBoxInteractionLockedTarget(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            SurfaceCell currentAnchor,
+            PlayerQueuedFree2DActionKind actionKind,
+            Direction actionDirection,
+            int tickIndex,
+            out PlayerActionTarget target)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!TryResolveDelta(actionDirection, out var delta))
+            {
+                target = default;
+                return false;
+            }
+
+            switch (actionKind)
+            {
+                case PlayerQueuedFree2DActionKind.Push:
+                    return TryResolvePushContactAtAnchor(
+                               snapshot,
+                               player,
+                               currentAnchor,
+                               actionDirection,
+                               delta,
+                               tickIndex,
+                               checkLocks: false,
+                               out target) &&
+                           TryGetActiveBoxInteractionLock(
+                               snapshot,
+                               target.TargetEntityId,
+                               tickIndex,
+                               blocksPush: true,
+                               out _);
+
+                case PlayerQueuedFree2DActionKind.Flip:
+                    return TryResolveFlipTargetAtAnchor(
+                               snapshot,
+                               player,
+                               currentAnchor,
+                               actionDirection,
+                               delta,
+                               tickIndex,
+                               checkLocks: false,
+                               out target) &&
+                           TryGetActiveBoxInteractionLock(
+                               snapshot,
+                               target.TargetEntityId,
+                               tickIndex,
+                               blocksPush: false,
+                               out _);
+
+                default:
+                    target = default;
+                    return false;
+            }
+        }
+
         public static bool TryResolveAdjacentPushTarget(
             WorldSnapshot snapshot,
             in EntityState player,
@@ -676,7 +738,8 @@ namespace Game.Feature.Gameplay.PlayerControl
             var anchoredPlayer = player;
             anchoredPlayer.position = currentAnchor;
             if (!snapshot.TryResolveLocalFlipCells(anchoredPlayer.position, delta, out var targetCell, out var landingCell) ||
-                !TryResolveFlippableBoxTarget(snapshot, targetCell, landingCell, out var entity))
+                !TryResolveFlippableBoxTarget(snapshot, targetCell, out var entity) ||
+                IsFlipLandingBlockedAtActionStart(snapshot, entity, landingCell))
             {
                 target = default;
                 return false;
@@ -743,10 +806,43 @@ namespace Game.Feature.Gameplay.PlayerControl
                    snapshot.Topology.IsFaceActive(target.position.face);
         }
 
+        public static bool TryResolveBlockedFlipLandingTarget(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            SurfaceCell currentAnchor,
+            Direction inputDirection,
+            int tickIndex,
+            out PlayerActionTarget target)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!TryResolveDelta(inputDirection, out var delta))
+            {
+                target = default;
+                return false;
+            }
+
+            var anchoredPlayer = player;
+            anchoredPlayer.position = currentAnchor;
+            if (!snapshot.TryResolveLocalFlipCells(anchoredPlayer.position, delta, out var targetCell, out var landingCell) ||
+                !TryResolveFlippableBoxTarget(snapshot, targetCell, out var entity) ||
+                !IsFlipLandingBlockedAtActionStart(snapshot, entity, landingCell) ||
+                TryGetActiveBoxInteractionLock(snapshot, entity.entityId, tickIndex, blocksPush: false, out _))
+            {
+                target = default;
+                return false;
+            }
+
+            target = new PlayerActionTarget(entity.entityId, inputDirection);
+            return true;
+        }
+
         private static bool TryResolveFlippableBoxTarget(
             WorldSnapshot snapshot,
             SurfaceCell targetCell,
-            SurfaceCell landingCell,
             out EntityState entity)
         {
             if (!snapshot.TryGetSolidSemanticAt(targetCell, out var targetSemantic) ||
@@ -759,6 +855,43 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             entity = targetSemantic.Entity;
             return true;
+        }
+
+        private static bool IsFlipLandingBlockedAtActionStart(
+            WorldSnapshot snapshot,
+            in EntityState target,
+            SurfaceCell landingCell)
+        {
+            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, target),
+                    landingCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored));
+            return IsActionStartBlockingFlipLanding(landingLegality);
+        }
+
+        private static bool IsActionStartBlockingFlipLanding(in LegalityResult legality)
+        {
+            if (legality.Verdict != LegalityVerdict.Blocked)
+            {
+                return false;
+            }
+
+            var blockers = legality.Blockers;
+            for (var i = 0; i < blockers.Count; i++)
+            {
+                switch (blockers[i].Kind)
+                {
+                    case LegalityBlockerKind.BoardEdge:
+                    case LegalityBlockerKind.Terrain:
+                    case LegalityBlockerKind.Solid:
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         public static bool CanPendingActionStillExecute(
@@ -841,7 +974,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             int tickIndex,
             bool checkLocks)
         {
-            if (!snapshot.TryResolveLocalFlipCells(player.position, delta, out var targetCell, out _) ||
+            if (!snapshot.TryResolveLocalFlipCells(player.position, delta, out var targetCell, out var landingCell) ||
                 !snapshot.TryGetSolidSemanticAt(targetCell, out var targetSemantic) ||
                 targetSemantic.Kind != SolidKind.Box)
             {
@@ -851,6 +984,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             var target = targetSemantic.Entity;
             return target.entityId == targetEntityId &&
                    HasBoxCapability(target, BoxCapabilities.Flip) &&
+                   !IsFlipLandingBlockedAtActionStart(snapshot, target, landingCell) &&
                    (!checkLocks ||
                     !TryGetActiveBoxInteractionLock(snapshot, target.entityId, tickIndex, blocksPush: false, out _));
         }

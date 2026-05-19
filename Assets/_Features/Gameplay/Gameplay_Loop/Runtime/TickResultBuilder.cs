@@ -1136,7 +1136,8 @@ namespace Game.Feature.Gameplay.Loop
                         resolution.Direction,
                         resolution.FeedbackKind,
                         resolution.TargetEntityId,
-                        resolution.HasTarget));
+                        resolution.HasTarget,
+                        resolution.EmitsVisualFeedback));
             }
         }
 
@@ -1867,6 +1868,31 @@ namespace Game.Feature.Gameplay.Loop
                                     effectIndex,
                                     effectState.activationSequence));
                         }
+                        else if (effectState.effectKind == EnemyUtilityEffectKind.GravityFieldAura &&
+                                 context.CurrentTickIndex == effectState.recoverStartTick)
+                        {
+                            var recoverDurationTicks = Math.Max(0, effectState.recoverEndTickExclusive - effectState.recoverStartTick);
+                            enemyUtilitySignals.Add(
+                                new TickEnemyUtilityPresentationSignal(
+                                    entry.EntityId,
+                                    EnemyUtilityPresentationKind.GravityFieldAura,
+                                    EnemyUtilityPresentationPhase.AttackStarted,
+                                    effectState.recoverStartTick,
+                                    effectState.recoverStartTick,
+                                    durationTicks: 0,
+                                    effectIndex,
+                                    effectState.activationSequence));
+                            enemyUtilitySignals.Add(
+                                new TickEnemyUtilityPresentationSignal(
+                                    entry.EntityId,
+                                    EnemyUtilityPresentationKind.GravityFieldAura,
+                                    EnemyUtilityPresentationPhase.RecoverStarted,
+                                    effectState.recoverStartTick,
+                                    effectState.recoverEndTickExclusive,
+                                    recoverDurationTicks,
+                                    effectIndex,
+                                    effectState.activationSequence));
+                        }
 
                         continue;
                     }
@@ -1965,6 +1991,8 @@ namespace Game.Feature.Gameplay.Loop
                                 effectState.activationSequence)));
                 }
             }
+
+            AddEnemyGravityFieldAuraFieldPresentation(context, enemyGravityFieldAuraVisualStates);
         }
 
         private static void AddEnemyUtilityCooldownPresentationSignal(
@@ -2035,41 +2063,38 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
-            if (effectState.phase != EnemyUtilityEffectPhase.Active)
-            {
-                return;
-            }
+        }
 
-            var activeDurationTicks = Math.Max(0, effectState.activeEndTickExclusive - effectState.activeStartTick);
-            var activeTimerTicks = Math.Max(0, effectState.activeEndTickExclusive - context.CurrentTickIndex);
-            var startedThisTick = context.CurrentTickIndex == effectState.activeStartTick;
-            var activeCell = effectState.activeOriginCell;
-            enemyGravityFieldAuraVisualStates.Add(
-                new TickEnemyGravityFieldAuraVisualState(
-                    entityId,
-                    activeCell,
-                    effectState.phase,
-                    radius: 1,
-                    activeTimerTicks,
-                    activeDurationTicks,
-                    CalculateProgress01(activeTimerTicks, activeDurationTicks),
-                    effectIndex,
-                    effectState.activationSequence,
-                    BuildEnemyGravityFieldAuraFootprint(context, activeCell, radius: 1),
-                    startedThisTick));
-
-            if (startedThisTick)
+        private static void AddEnemyGravityFieldAuraFieldPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates)
+        {
+            var fieldEntries = new List<EnemyGravityFieldAuraFieldSnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumerateEnemyGravityFieldAuraFieldStatesOrdered(fieldEntries);
+            for (var i = 0; i < fieldEntries.Count; i++)
             {
-                enemyUtilitySignals.Add(
-                    new TickEnemyUtilityPresentationSignal(
-                        entityId,
-                        EnemyUtilityPresentationKind.GravityFieldAura,
-                        EnemyUtilityPresentationPhase.ActiveStarted,
-                        effectState.activeStartTick,
-                        effectState.activeEndTickExclusive,
+                var field = fieldEntries[i].State;
+                if (!field.IsActive(context.CurrentTickIndex))
+                {
+                    continue;
+                }
+
+                var activeDurationTicks = Math.Max(0, field.ExpiresTickExclusive - field.StartedTick);
+                var activeTimerTicks = Math.Max(0, field.ExpiresTickExclusive - context.CurrentTickIndex);
+                var startedThisTick = context.CurrentTickIndex == field.StartedTick;
+                enemyGravityFieldAuraVisualStates.Add(
+                    new TickEnemyGravityFieldAuraVisualState(
+                        field.SourceEntityId,
+                        field.OriginCell,
+                        EnemyUtilityEffectPhase.Active,
+                        field.Radius,
+                        activeTimerTicks,
                         activeDurationTicks,
-                        effectIndex,
-                        effectState.activationSequence));
+                        CalculateProgress01(activeTimerTicks, activeDurationTicks),
+                        field.SourceEffectIndex,
+                        field.ActivationSequence,
+                        BuildEnemyGravityFieldAuraFootprint(context, field.OriginCell, field.Radius),
+                        startedThisTick));
             }
         }
 

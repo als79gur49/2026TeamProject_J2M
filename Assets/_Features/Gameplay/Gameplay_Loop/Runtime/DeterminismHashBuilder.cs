@@ -86,6 +86,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("BoxInteractionLocks").Append('\n');
             AppendBoxInteractionLockLines(builder, GetOrderedBoxInteractionLockStates(finalSnapshot));
 
+            builder.Append("EnemyGravityFieldAuraFields").Append('\n');
+            AppendEnemyGravityFieldAuraFieldLines(builder, GetOrderedEnemyGravityFieldAuraFields(finalSnapshot));
+
             builder.Append("EnemyCharges").Append('\n');
             AppendEnemyChargeLines(builder, GetOrderedEnemyChargeStates(finalSnapshot));
 
@@ -230,6 +233,13 @@ namespace Game.Feature.Gameplay.Loop
             var boxInteractionLockEntries = new List<BoxInteractionLockSnapshotEntry>();
             finalSnapshot.EnumerateBoxInteractionLockStatesOrdered(boxInteractionLockEntries);
             return boxInteractionLockEntries;
+        }
+
+        private static List<EnemyGravityFieldAuraFieldSnapshotEntry> GetOrderedEnemyGravityFieldAuraFields(WorldSnapshot finalSnapshot)
+        {
+            var fieldEntries = new List<EnemyGravityFieldAuraFieldSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyGravityFieldAuraFieldStatesOrdered(fieldEntries);
+            return fieldEntries;
         }
 
         private static List<EntityExecutionLockSnapshotEntry> GetOrderedExecutionLockStates(WorldSnapshot finalSnapshot)
@@ -634,6 +644,36 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.BlocksFlip ? 1 : 0).Append('|')
                     .Append(entry.State.BlocksDestroy ? 1 : 0).Append('|')
                     .Append((int)entry.State.SourceReason).Append('\n');
+            }
+        }
+
+        private static void AppendEnemyGravityFieldAuraFieldLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyGravityFieldAuraFieldSnapshotEntry> fieldEntries)
+        {
+            if (fieldEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < fieldEntries.Count; i++)
+            {
+                var entry = fieldEntries[i];
+                builder
+                    .Append(entry.FieldId).Append('|')
+                    .Append(entry.State.SourceEntityId).Append('|')
+                    .Append(entry.State.SourceEffectIndex).Append('|')
+                    .Append(entry.State.ActivationSequence).Append('|')
+                    .Append((int)entry.State.OriginCell.face).Append('|')
+                    .Append(entry.State.OriginCell.x).Append('|')
+                    .Append(entry.State.OriginCell.y).Append('|')
+                    .Append(entry.State.Radius).Append('|')
+                    .Append(entry.State.StartedTick).Append('|')
+                    .Append(entry.State.ExpiresTickExclusive).Append('|')
+                    .Append(entry.State.BlocksPush ? 1 : 0).Append('|')
+                    .Append(entry.State.BlocksFlip ? 1 : 0).Append('|')
+                    .Append(entry.State.BlocksDestroy ? 1 : 0).Append('\n');
             }
         }
 

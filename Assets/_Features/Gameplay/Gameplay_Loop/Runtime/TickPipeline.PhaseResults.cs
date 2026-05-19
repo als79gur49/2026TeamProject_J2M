@@ -106,7 +106,8 @@ namespace Game.Feature.Gameplay.Loop
             bool consumesMovement,
             bool emitsFakePresentation,
             int targetEntityId = 0,
-            bool hasTarget = false)
+            bool hasTarget = false,
+            bool emitsVisualFeedback = true)
         {
             EntityId = entityId;
             ActionKind = actionKind;
@@ -116,6 +117,7 @@ namespace Game.Feature.Gameplay.Loop
             EmitsFakePresentation = emitsFakePresentation;
             TargetEntityId = targetEntityId;
             HasTarget = hasTarget && targetEntityId > 0;
+            EmitsVisualFeedback = emitsVisualFeedback;
         }
 
         public int EntityId { get; }
@@ -135,6 +137,8 @@ namespace Game.Feature.Gameplay.Loop
         public bool ConsumesMovement { get; }
 
         public bool EmitsFakePresentation { get; }
+
+        public bool EmitsVisualFeedback { get; }
     }
 
     internal sealed class PlanPhaseResult
@@ -423,11 +427,6 @@ namespace Game.Feature.Gameplay.Loop
 
             var batch = new FinalizationBatch();
             var eventLogEntries = new List<string>();
-            if (triggerIntents.Count == 0)
-            {
-                return new EnemyUtilityResolveResult(batch, eventLogEntries);
-            }
-
             var plannedStatesByBoxEntityId = new Dictionary<int, BoxInteractionLockState>();
             for (var intentIndex = 0; intentIndex < triggerIntents.Count; intentIndex++)
             {
@@ -453,6 +452,12 @@ namespace Game.Feature.Gameplay.Loop
                         eventLogEntries);
                 }
             }
+
+            ResolveActiveEnemyGravityFieldAuraFields(
+                projectedSnapshot,
+                tickIndex,
+                plannedStatesByBoxEntityId,
+                eventLogEntries);
 
             if (plannedStatesByBoxEntityId.Count == 0)
             {
@@ -645,6 +650,86 @@ namespace Game.Feature.Gameplay.Loop
                 aura.BlocksPush,
                 aura.BlocksFlip,
                 aura.BlocksDestroy,
+                BoxInteractionLockSourceReason.EnemyGravityFieldAura);
+            var orderedTargetEntityIds = new List<int>(targetEntityIds);
+            orderedTargetEntityIds.Sort();
+
+            for (var targetIndex = 0; targetIndex < orderedTargetEntityIds.Count; targetIndex++)
+            {
+                var boxEntityId = orderedTargetEntityIds[targetIndex];
+                var hasExistingPlannedState = plannedStatesByBoxEntityId.TryGetValue(boxEntityId, out var plannedState);
+                var hasExistingSnapshotState = snapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out var existingState);
+                var mergedState = !hasExistingPlannedState && !hasExistingSnapshotState
+                    ? newState
+                    : MergeBoxInteractionLockStates(
+                        hasExistingPlannedState ? plannedState : existingState,
+                        newState);
+                plannedStatesByBoxEntityId[boxEntityId] = mergedState;
+            }
+        }
+
+        private static void ResolveActiveEnemyGravityFieldAuraFields(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
+            List<string> eventLogEntries)
+        {
+            var fieldEntries = new List<EnemyGravityFieldAuraFieldSnapshotEntry>();
+            snapshot.EnumerateEnemyGravityFieldAuraFieldStatesOrdered(fieldEntries);
+            for (var fieldIndex = 0; fieldIndex < fieldEntries.Count; fieldIndex++)
+            {
+                var fieldEntry = fieldEntries[fieldIndex];
+                if (!fieldEntry.State.IsActive(tickIndex))
+                {
+                    continue;
+                }
+
+                ResolveGravityFieldAuraField(
+                    snapshot,
+                    fieldEntry.FieldId,
+                    fieldEntry.State,
+                    tickIndex,
+                    plannedStatesByBoxEntityId,
+                    eventLogEntries);
+            }
+        }
+
+        private static void ResolveGravityFieldAuraField(
+            WorldSnapshot snapshot,
+            int fieldId,
+            in EnemyGravityFieldAuraFieldState fieldState,
+            int tickIndex,
+            IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
+            List<string> eventLogEntries)
+        {
+            var targetEntityIds = new HashSet<int>();
+            var targetCellOffsets = BuildSquareOffsets(fieldState.Radius);
+            for (var offsetIndex = 0; offsetIndex < targetCellOffsets.Count; offsetIndex++)
+            {
+                var candidateCell = fieldState.OriginCell + targetCellOffsets[offsetIndex];
+                if (!snapshot.IsInsideBoard(candidateCell) ||
+                    !TryResolveGravityFieldAuraTargetBox(snapshot, candidateCell, out var box))
+                {
+                    continue;
+                }
+
+                targetEntityIds.Add(box.entityId);
+            }
+
+            if (targetEntityIds.Count == 0)
+            {
+                eventLogEntries.Add(
+                    $"EnemyGravityFieldAuraFieldNoTargets|Field={fieldId}|Source={fieldState.SourceEntityId}|Effect={fieldState.SourceEffectIndex}|Tick={tickIndex}|Origin={fieldState.OriginCell}");
+                return;
+            }
+
+            var newState = new BoxInteractionLockState(
+                fieldState.SourceEntityId,
+                fieldState.SourceEffectIndex,
+                tickIndex + 1,
+                fieldState.BlocksPush,
+                fieldState.BlocksFlip,
+                fieldState.BlocksDestroy,
                 BoxInteractionLockSourceReason.EnemyGravityFieldAura);
             var orderedTargetEntityIds = new List<int>(targetEntityIds);
             orderedTargetEntityIds.Sort();

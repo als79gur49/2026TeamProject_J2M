@@ -67,6 +67,8 @@ namespace Game.Feature.Gameplay.Loop
         SetGravityFieldState = 28,
         AddPendingCellImpact = 29,
         RemovePendingCellImpact = 30,
+        SetEnemyGravityFieldAuraFieldState = 31,
+        RemoveEnemyGravityFieldAuraFieldState = 32,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -231,6 +233,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityRuntimeState enemyUtilityState = null,
             EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
+            EnemyGravityFieldAuraFieldState enemyGravityFieldAuraFieldState = default,
             GravityFieldPhase gravityFieldPhase = default,
             int gravityFieldTimerTicks = 0,
             UnitKinematicRuntimeState unitKinematicState = default,
@@ -273,6 +276,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyUtilityState = enemyUtilityState;
             EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
+            EnemyGravityFieldAuraFieldState = enemyGravityFieldAuraFieldState;
             GravityFieldPhase = gravityFieldPhase;
             GravityFieldTimerTicks = gravityFieldTimerTicks;
             UnitKinematicState = unitKinematicState;
@@ -347,6 +351,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
+        public EnemyGravityFieldAuraFieldState EnemyGravityFieldAuraFieldState { get; }
+
         public GravityFieldPhase GravityFieldPhase { get; }
 
         public int GravityFieldTimerTicks { get; }
@@ -401,6 +407,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyUtilityState,
                 EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
+                EnemyGravityFieldAuraFieldState,
                 GravityFieldPhase,
                 GravityFieldTimerTicks,
                 UnitKinematicState,
@@ -666,6 +673,34 @@ namespace Game.Feature.Gameplay.Loop
                 entityId: entityId);
         }
 
+        public static FinalizationOperation SetEnemyGravityFieldAuraFieldState(
+            long sequence,
+            int fieldId,
+            EnemyGravityFieldAuraFieldState enemyGravityFieldAuraFieldState,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemyGravityFieldAuraFieldState,
+                metadata,
+                entityId: fieldId,
+                enemyGravityFieldAuraFieldState: enemyGravityFieldAuraFieldState);
+        }
+
+        public static FinalizationOperation RemoveEnemyGravityFieldAuraFieldState(
+            long sequence,
+            int fieldId,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.RemoveEnemyGravityFieldAuraFieldState,
+                metadata,
+                entityId: fieldId);
+        }
+
         public static FinalizationOperation SetGravityFieldState(
             long sequence,
             int entityId,
@@ -903,6 +938,21 @@ namespace Game.Feature.Gameplay.Loop
         public void RemoveBoxInteractionLockState(int entityId, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.RemoveBoxInteractionLockState(_nextSequence++, entityId, metadata));
+        }
+
+        public void SetEnemyGravityFieldAuraFieldState(
+            int fieldId,
+            EnemyGravityFieldAuraFieldState state,
+            FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemyGravityFieldAuraFieldState(_nextSequence++, fieldId, state, metadata));
+        }
+
+        public void RemoveEnemyGravityFieldAuraFieldState(
+            int fieldId,
+            FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.RemoveEnemyGravityFieldAuraFieldState(_nextSequence++, fieldId, metadata));
         }
 
         public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks, FinalizationOperationMetadata metadata = default)
@@ -1148,6 +1198,16 @@ namespace Game.Feature.Gameplay.Loop
                         writeContext.RemoveBoxInteractionLockState(operation.EntityId);
                         break;
 
+                    case FinalizationOperationKind.SetEnemyGravityFieldAuraFieldState:
+                        writeContext.SetEnemyGravityFieldAuraFieldState(
+                            operation.EntityId,
+                            operation.EnemyGravityFieldAuraFieldState);
+                        break;
+
+                    case FinalizationOperationKind.RemoveEnemyGravityFieldAuraFieldState:
+                        writeContext.RemoveEnemyGravityFieldAuraFieldState(operation.EntityId);
+                        break;
+
                     case FinalizationOperationKind.SetGravityFieldState:
                         ((IPreMovementStateCommitContext)writeContext).SetGravityFieldState(
                             operation.EntityId,
@@ -1301,6 +1361,11 @@ namespace Game.Feature.Gameplay.Loop
             _batch.SetBoxInteractionLockState(entityId, state);
         }
 
+        public void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state)
+        {
+            _batch.SetEnemyGravityFieldAuraFieldState(fieldId, state);
+        }
+
         public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks)
         {
             _batch.SetGravityFieldState(entityId, phase, timerTicks);
@@ -1367,6 +1432,11 @@ namespace Game.Feature.Gameplay.Loop
         public void RemoveBoxInteractionLockState(int entityId)
         {
             _batch.RemoveBoxInteractionLockState(entityId);
+        }
+
+        public void RemoveEnemyGravityFieldAuraFieldState(int fieldId)
+        {
+            _batch.RemoveEnemyGravityFieldAuraFieldState(fieldId);
         }
 
         public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)

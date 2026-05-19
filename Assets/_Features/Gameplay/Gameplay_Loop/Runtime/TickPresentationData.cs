@@ -1066,7 +1066,8 @@ namespace Game.Feature.Gameplay.Loop
             Direction direction,
             PlayerActionAttemptFeedbackKind feedbackKind,
             int targetEntityId = 0,
-            bool hasTarget = false)
+            bool hasTarget = false,
+            bool emitsVisualFeedback = true)
         {
             EntityId = entityId;
             ActionKind = actionKind;
@@ -1074,6 +1075,7 @@ namespace Game.Feature.Gameplay.Loop
             FeedbackKind = feedbackKind;
             TargetEntityId = targetEntityId;
             HasTarget = hasTarget && targetEntityId > 0;
+            EmitsVisualFeedback = emitsVisualFeedback;
         }
 
         public int EntityId { get; }
@@ -1087,6 +1089,8 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public bool HasTarget { get; }
+
+        public bool EmitsVisualFeedback { get; }
     }
 
     public enum TickPlayerActionResolutionKind
@@ -1480,6 +1484,7 @@ namespace Game.Feature.Gameplay.Loop
         WindupStarted = 1,
         RecoverStarted = 2,
         ActiveStarted = 3,
+        AttackStarted = 4,
     }
 
     public readonly struct TickEnemyUtilityPresentationSignal

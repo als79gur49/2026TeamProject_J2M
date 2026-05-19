@@ -617,7 +617,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAudioRequestPlanner_GravityFieldAuraPhases_EmitWindupAndActiveCues()
+        public void EnemyAudioRequestPlanner_GravityFieldAuraPhases_EmitWindupAttackAndRecoverCues()
         {
             var planner = new EnemyAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
@@ -633,17 +633,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new TickEnemyUtilityPresentationSignal(
                         30,
                         EnemyUtilityPresentationKind.GravityFieldAura,
-                        EnemyUtilityPresentationPhase.ActiveStarted,
+                        EnemyUtilityPresentationPhase.AttackStarted,
                         startTick: 2,
-                        executeTick: 4,
-                        durationTicks: 2),
+                        executeTick: 2,
+                        durationTicks: 0),
+                    new TickEnemyUtilityPresentationSignal(
+                        30,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.RecoverStarted,
+                        startTick: 2,
+                        executeTick: 3,
+                        durationTicks: 1),
                 }));
 
             var requests = planner.BuildRequests(result);
 
             Assert.That(
                 requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
-                Is.EqualTo(new[] { (30, EnemyAudioCue.Windup), (30, EnemyAudioCue.Active) }));
+                Is.EqualTo(new[] { (30, EnemyAudioCue.Windup), (30, EnemyAudioCue.Active), (30, EnemyAudioCue.Recover) }));
         }
 
         [Test]

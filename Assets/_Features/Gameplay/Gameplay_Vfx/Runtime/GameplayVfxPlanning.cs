@@ -566,8 +566,7 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < gravityFieldAuraStates.Count; i++)
             {
                 var state = gravityFieldAuraStates[i];
-                if (state.EntityId <= 0 ||
-                    DidEnemyExitThisTick(presentationData, state.EntityId))
+                if (state.EntityId <= 0)
                 {
                     continue;
                 }
