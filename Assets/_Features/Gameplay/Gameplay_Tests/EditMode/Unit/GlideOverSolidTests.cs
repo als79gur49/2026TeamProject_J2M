@@ -1432,10 +1432,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
             var wallCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var leftWallCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var rightWallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var downWallCell = new SurfaceCell(FaceId.Floor, 0, -1);
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateWall(30, wallCell),
+                    CreateWall(31, leftWallCell),
+                    CreateWall(32, new SurfaceCell(FaceId.Floor, 4, 3)),
+                    CreateWall(33, new SurfaceCell(FaceId.Floor, 4, 4)),
                     CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Patrol),
                 },
                 new GameplayTerrainData(new[]
@@ -1456,6 +1462,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     lockedStepX: 0,
                     lockedStepY: 1),
                 wallCell);
+            worldState.CreateWriteContext().MoveEntity(32, rightWallCell);
+            worldState.CreateWriteContext().MoveEntity(33, downWallCell);
 
             try
             {
@@ -1517,14 +1525,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
             var wallCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var rightWallCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateWall(30, wallCell),
+                    CreateWall(31, new SurfaceCell(FaceId.Floor, 1, 1)),
                     CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Patrol),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new GameplayTerrainData(new[]
+                {
+                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                }));
             MoveGliderOntoSolidAsLandingPending(
                 worldState,
                 40,
@@ -1539,6 +1553,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     lockedStepX: -1,
                     lockedStepY: 0),
                 wallCell);
+            worldState.CreateWriteContext().MoveEntity(31, rightWallCell);
 
             try
             {
@@ -1647,6 +1662,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GlideLandingPendingEgress_PatrolNoTarget_LockedStepBlocked_UsesRing1Fallback()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var nextWallCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var legalCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(30, wallCell),
+                CreateWall(31, nextWallCell),
+                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Patrol),
+            });
+            MoveGliderOntoSolidAsLandingPending(
+                worldState,
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 3,
+                    durationTicks: 3,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    landingPendingCell: wallCell,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0),
+                wallCell);
+
+            try
+            {
+                var logic = new EnemyLogic(40, profile);
+                var intents = new List<RawMovementIntent>();
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
+
+                Assert.That(intents.Any(intent => intent.Destination == nextWallCell.PlanarPosition), Is.False);
+                Assert.That(intents.Single(intent => intent.SourceId == 40).Destination, Is.EqualTo(legalCell.PlanarPosition));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GlideLandingPendingEgress_NoEgress_IsDeterministicAndSafe()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
@@ -1659,7 +1719,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateWall(30, wallCell),
                     CreateWall(31, rightWallCell),
-                    CreateUnit(41, teamId: 2, new SurfaceCell(FaceId.Floor, -1, 1), EnemyAiMode.None),
+                    CreateWall(32, new SurfaceCell(FaceId.Floor, -1, 1)),
                     CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, -1, 0), EnemyAiMode.Patrol),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 1)),
@@ -1681,7 +1741,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     lockedStepX: 1,
                     lockedStepY: 0),
                 wallCell);
-            worldState.CreateWriteContext().MoveEntity(41, new SurfaceCell(FaceId.Floor, -1, 0));
+            worldState.CreateWriteContext().MoveEntity(32, new SurfaceCell(FaceId.Floor, -1, 0));
 
             try
             {
