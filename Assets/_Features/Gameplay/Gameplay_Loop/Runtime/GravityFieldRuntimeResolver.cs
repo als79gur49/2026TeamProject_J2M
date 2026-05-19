@@ -353,7 +353,7 @@ namespace Game.Feature.Gameplay.Loop
                    !entity.markedForDeath &&
                    entity.state != EntityPhaseState.Sliding &&
                    !HasActivePhasedState(snapshot, entity.entityId) &&
-                   snapshot.Topology.IsFaceActive(entity.position.face);
+                   entity.position.face == snapshot.Topology.BottomFace;
         }
 
         private static void ApplyActiveField(

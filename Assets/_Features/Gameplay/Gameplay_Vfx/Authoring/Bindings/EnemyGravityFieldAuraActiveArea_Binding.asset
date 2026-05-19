@@ -16,12 +16,12 @@ MonoBehaviour:
   cueCode: 28
   styleKey:
     value: 
-  prefab: {fileID: 100000, guid: 75655d9cddfd4cd59e718f425d16d269, type: 3}
+  prefab: {fileID: 100000, guid: 8e3b60a8c2741ce4da4cd77565ebc577, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
   playbackMode: 1
   stopPolicy: 2
   defaultLifetimeSeconds: 0
-  tailSeconds: 0.3
+  tailSeconds: 1
   initialPoolSize: 4
   maxConcurrentInstances: 8
