@@ -1162,6 +1162,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayTickViewPresenter_TopologyMotion_SyncsTileFeaturePoseBeforePlayingRequests()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_TopologyMotion_SyncsTileFeaturePoseBeforePlayingRequests));
+            var targetObject = new GameObject("DestinationTileFeatureTarget");
+            var destinationCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var sourceTopology);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var target = targetObject.AddComponent<ActiveStateRecordingTileFeatureTarget>();
+                target.Configure(100, destinationCell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var poseResolver = new BoardSurfaceCellPresentationPoseResolver(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    1f,
+                    sourceTopology,
+                    1f);
+                var synchronizer = new TileFeatureVisualPoseSynchronizer(registry, poseResolver);
+                synchronizer.RefreshAll(sourceTopology);
+                presenter.AttachTileFeatureVisualRegistry(registry);
+                presenter.AttachTileFeatureVisualPoseSynchronizer(synchronizer);
+
+                Assert.That(targetObject.activeSelf, Is.False);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    destinationTopology,
+                    CreateTilePresentationDataWithTopologyMotion(
+                        new TickTopologyMotion(sourceTopology, destinationTopology, CubeRotationKind.Forward),
+                        CreateButtonActivatedTileEvent(100, destinationCell))));
+
+                Assert.That(target.PlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(target.WasActiveInHierarchyWhenButtonActivated, Is.True);
+                Assert.That(targetObject.activeSelf, Is.True);
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(presenter.CurrentTilePresentationRequests[0].TileId, Is.EqualTo(100));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayTickViewPresenter_DestroyTileRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_DestroyTileRequest_InvokesAttachedTileVisualTargetAndKeepsRequestCache));
@@ -6173,6 +6222,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tileEvents: tileEvents);
         }
 
+        private static TickPresentationData CreateTilePresentationDataWithTopologyMotion(
+            TickTopologyMotion topologyMotion,
+            params TilePresentationEvent[] tileEvents)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: tileEvents);
+        }
+
         private static TickPresentationData CreateGravityFieldPresentationData(
             params GravityFieldPresentationEvent[] gravityFieldEvents)
         {
@@ -6824,6 +6896,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityMoveDurationSeconds);
 
             return view;
+        }
+
+        private sealed class ActiveStateRecordingTileFeatureTarget : MonoBehaviour, ITileFeatureVisualTarget
+        {
+            public int TileId { get; private set; }
+
+            public SurfaceCell Cell { get; private set; }
+
+            public int PlayButtonActivatedCount { get; private set; }
+
+            public bool WasActiveInHierarchyWhenButtonActivated { get; private set; }
+
+            public void Configure(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public void PlayButtonActivated()
+            {
+                PlayButtonActivatedCount++;
+                WasActiveInHierarchyWhenButtonActivated = gameObject.activeInHierarchy;
+            }
         }
 
         private sealed class RecordingGravityFieldVisualTarget :

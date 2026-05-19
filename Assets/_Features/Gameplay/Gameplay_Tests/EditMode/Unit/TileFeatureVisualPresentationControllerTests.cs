@@ -1120,6 +1120,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureVisualPoseSynchronizer_RefreshAllWithTopology_UsesDestinationActiveFaces()
+        {
+            var rootObject = new GameObject(nameof(TileFeatureVisualPoseSynchronizer_RefreshAllWithTopology_UsesDestinationActiveFaces));
+            var floorObject = new GameObject("FloorTarget");
+            var ceilingObject = new GameObject("CeilingTarget");
+
+            try
+            {
+                floorObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                ceilingObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var floorCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var ceilingCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
+                floorObject.AddComponent<TileFeatureVisualTargetView>().ConfigureTileFeature(100, floorCell);
+                ceilingObject.AddComponent<TileFeatureVisualTargetView>().ConfigureTileFeature(101, ceilingCell);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var resolver = new BoardSurfaceCellPresentationPoseResolver(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    1f);
+                var synchronizer = new TileFeatureVisualPoseSynchronizer(registry, resolver);
+
+                synchronizer.RefreshAll();
+
+                Assert.That(floorObject.activeSelf, Is.True);
+                Assert.That(ceilingObject.activeSelf, Is.False);
+
+                synchronizer.RefreshAll(new CubeTopologyState(FaceId.Front));
+
+                Assert.That(floorObject.activeSelf, Is.False);
+                Assert.That(ceilingObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StageTileFeatureVisualBinding_DuplicateManualTarget_FirstRegisteredTargetWins()
         {
             var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_DuplicateManualTarget_FirstRegisteredTargetWins));
