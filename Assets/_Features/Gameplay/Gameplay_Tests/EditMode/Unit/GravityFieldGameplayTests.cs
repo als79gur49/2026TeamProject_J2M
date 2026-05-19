@@ -231,6 +231,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GravityField_FrontFaceEmitterResetsChargingAndDoesNotLock()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, -4, -4)),
+                CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
+                CreateBox(30, new SurfaceCell(FaceId.Front, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
+            });
+
+            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+
+            Assert.That(TryGetEntity(worldState, 30, out var updatedEmitter), Is.True);
+            Assert.That(updatedEmitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
+            Assert.That(updatedEmitter.gravityFieldTimerTicks, Is.EqualTo(8 * GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+            Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 1, out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(30, 1, out _), Is.False);
+            Assert.That(result.PresentationData.GravityFieldEvents, Is.Empty);
+            Assert.That(result.PresentationData.GravityFieldVisualStates.Single().AreaCells, Is.Empty);
+            Assert.That(result.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void GravityField_TimerDecrementWithoutTransition_CreatesNoPresentationEvent()
         {
             var worldState = CreateWorldState(new[]
