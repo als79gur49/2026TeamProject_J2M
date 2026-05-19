@@ -17,4 +17,4 @@ MonoBehaviour:
     attackPriority: 50
     recoverSeconds: 1
   locomotionTimingSettings:
-    moveCooldownSeconds: 1
+    moveCooldownSeconds: 0.85

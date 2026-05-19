@@ -57,7 +57,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_RocketFace.prefab");
 
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
-            StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
+            StringAssert.Contains("moveMotionDurationSeconds: 0.85", prefabText);
             StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
             StringAssert.Contains(
                 "attackWindupReferenceClip: {fileID: 3060872287085348379, guid: 1716406119d8be34d841f0d4eb033a2c, type: 3}",
