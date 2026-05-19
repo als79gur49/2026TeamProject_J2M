@@ -1476,6 +1476,7 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         LockNearbyBoxes = 1,
         GravityFieldAura = 2,
+        SummonMinion = 3,
     }
 
     public enum EnemyUtilityPresentationPhase

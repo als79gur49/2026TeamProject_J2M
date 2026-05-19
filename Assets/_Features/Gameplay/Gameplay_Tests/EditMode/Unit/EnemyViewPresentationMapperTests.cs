@@ -260,6 +260,136 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyViewPresentationMapper_MapsSummonUtilityWindupAndRecoverWithoutAttackSemantic()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 1,
+                    enemy,
+                    new TickEnemyUtilityPresentationSignal(
+                        enemyId,
+                        EnemyUtilityPresentationKind.SummonMinion,
+                        EnemyUtilityPresentationPhase.WindupStarted,
+                        startTick: 1,
+                        executeTick: 103,
+                        durationTicks: 102)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var windupState), Is.True);
+            Assert.That(windupState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
+            Assert.That(windupState.StartedUtilityWindupThisTick, Is.True);
+            Assert.That(windupState.StartedRecoveryThisTick, Is.False);
+            Assert.That(windupState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+            Assert.That(windupState.StartedWindupThisTick, Is.False);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 103,
+                    enemy,
+                    new TickEnemyUtilityPresentationSignal(
+                        enemyId,
+                        EnemyUtilityPresentationKind.SummonMinion,
+                        EnemyUtilityPresentationPhase.RecoverStarted,
+                        startTick: 103,
+                        executeTick: 145,
+                        durationTicks: 42)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var recoverState), Is.True);
+            Assert.That(recoverState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
+            Assert.That(recoverState.StartedUtilityWindupThisTick, Is.False);
+            Assert.That(recoverState.StartedRecoveryThisTick, Is.True);
+            Assert.That(recoverState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+            Assert.That(recoverState.ExecutedThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyUtilityScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot()
+        {
+            var rootObject = new UnityEngine.GameObject("EnemyUtilityScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot");
+            try
+            {
+                var view = rootObject.AddComponent<GameplayEntityView>();
+                var modelRoot = view.ModelRoot;
+                modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
+                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Patrol,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false,
+                    utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
+                    startedUtilityWindupThisTick: true));
+
+                driver.Advance(1.05f);
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1.1f).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.44f).Within(0.0001f));
+
+                driver.Advance(0.65f);
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(0.75f).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.3f).Within(0.0001f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 103,
+                    aiMode: EnemyAiMode.Patrol,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.None,
+                    chargePhase: EnemyChargePhase.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: true,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false,
+                    utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
+                    startedUtilityWindupThisTick: false));
+
+                driver.Advance(0.7f);
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(driver.IsPlaying, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic()
         {
             var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic");

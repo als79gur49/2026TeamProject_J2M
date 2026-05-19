@@ -27,6 +27,10 @@ MonoBehaviour:
       overrideHp: 1
       hpOverride: 1
       minionHp: 1
+      windupSeconds: 1.7
+      suppressMovementDuringWindup: 1
+      recoverySeconds: 0.7
+      suppressMovementDuringRecover: 1
     lockNearbyBoxes:
       radius: 1
       durationSeconds: 2

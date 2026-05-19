@@ -38,6 +38,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _playerDeathVisualOverrideEntityIds = new();
         private readonly List<int> _playerVisualHoldEntityIds = new();
         private readonly Dictionary<int, EnemyAnimatorDriver> _enemyAnimatorDriversByEntityId = new();
+        private readonly Dictionary<int, EnemyUtilityScalePulsePresentationDriver> _enemyScalePulseDriversByEntityId = new();
         private readonly EnemyViewPresentationMapper _enemyViewPresentationMapper = new();
         private readonly Dictionary<int, EnemyViewPresentationState> _enemyViewPresentationStates = new();
         private readonly Dictionary<int, PlayerAnimatorDriver> _playerAnimatorDriversByEntityId = new();
@@ -62,6 +63,11 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 driver.Apply(state);
+                if (TryGetEnemyScalePulseDriver(state.EntityId, viewsByEntityId, out var scalePulseDriver))
+                {
+                    scalePulseDriver.Apply(state);
+                }
+
                 driver.SyncRuntimeState(
                     committedLocalTargetPoses.ContainsKey(state.EntityId),
                     isMoving: false,
@@ -122,6 +128,11 @@ namespace Game.Feature.Gameplay.Host
                 if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
                     driver.Apply(state);
+                }
+
+                if (TryGetEnemyScalePulseDriver(pair.Key, viewsByEntityId, out var scalePulseDriver))
+                {
+                    scalePulseDriver.Apply(state);
                 }
             }
 
@@ -213,6 +224,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void AdvancePlayerPresentation(float deltaTime)
         {
+            foreach (var pair in _enemyScalePulseDriversByEntityId)
+            {
+                pair.Value?.Advance(deltaTime);
+            }
+
             _completedPlayerVisualHoldEntityIds.Clear();
             _playerVisualHoldEntityIds.Clear();
 
@@ -250,6 +266,7 @@ namespace Game.Feature.Gameplay.Host
         public void CacheDrivers(int entityId, GameplayEntityView view)
         {
             CacheEnemyAnimatorDriver(entityId, view);
+            CacheEnemyScalePulseDriver(entityId, view);
             CachePlayerAnimatorDriver(entityId, view);
         }
 
@@ -257,7 +274,13 @@ namespace Game.Feature.Gameplay.Host
         {
             _completedPlayerVisualHoldEntityIds.Clear();
             _playerVisualHoldEntityIds.Clear();
+            foreach (var pair in _enemyScalePulseDriversByEntityId)
+            {
+                pair.Value?.NormalizeToBaseScale();
+            }
+
             _enemyAnimatorDriversByEntityId.Clear();
+            _enemyScalePulseDriversByEntityId.Clear();
             _enemyViewPresentationStates.Clear();
             _contactDelayedEnemyDeathEntityIds.Clear();
             _playerAnimatorDriversByEntityId.Clear();
@@ -269,7 +292,14 @@ namespace Game.Feature.Gameplay.Host
 
         public void ReleaseEntity(int entityId)
         {
+            if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out var scalePulseDriver) &&
+                scalePulseDriver != null)
+            {
+                scalePulseDriver.NormalizeToBaseScale();
+            }
+
             _enemyAnimatorDriversByEntityId.Remove(entityId);
+            _enemyScalePulseDriversByEntityId.Remove(entityId);
             _enemyViewPresentationStates.Remove(entityId);
             _contactDelayedEnemyDeathEntityIds.Remove(entityId);
             _playerAnimatorDriversByEntityId.Remove(entityId);
@@ -527,6 +557,19 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void CacheEnemyScalePulseDriver(int entityId, GameplayEntityView view)
+        {
+            if (view != null &&
+                view.TryGetComponent<EnemyUtilityScalePulsePresentationDriver>(out var driver) &&
+                driver != null)
+            {
+                _enemyScalePulseDriversByEntityId[entityId] = driver;
+                return;
+            }
+
+            _enemyScalePulseDriversByEntityId.Remove(entityId);
+        }
+
         private void CachePlayerAnimatorDriver(int entityId, GameplayEntityView view)
         {
             if (view != null &&
@@ -715,6 +758,30 @@ namespace Game.Feature.Gameplay.Host
                 driver != null)
             {
                 _enemyAnimatorDriversByEntityId[entityId] = driver;
+                return true;
+            }
+
+            driver = null;
+            return false;
+        }
+
+        private bool TryGetEnemyScalePulseDriver(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            out EnemyUtilityScalePulsePresentationDriver driver)
+        {
+            if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out driver) &&
+                driver != null)
+            {
+                return true;
+            }
+
+            if (viewsByEntityId.TryGetValue(entityId, out var view) &&
+                view != null &&
+                view.TryGetComponent<EnemyUtilityScalePulsePresentationDriver>(out driver) &&
+                driver != null)
+            {
+                _enemyScalePulseDriversByEntityId[entityId] = driver;
                 return true;
             }
 

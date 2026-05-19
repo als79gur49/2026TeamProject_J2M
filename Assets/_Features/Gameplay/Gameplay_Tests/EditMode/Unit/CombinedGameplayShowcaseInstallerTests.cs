@@ -170,6 +170,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
             Assert.That(utility.Effects[0].Summon.OverrideHp, Is.True);
             Assert.That(utility.Effects[0].Summon.HpOverride, Is.EqualTo(1));
+            Assert.That(
+                utility.Effects[0].Summon.WindupTicks,
+                Is.EqualTo(GameplayTimingProfile.SecondsToTicks(
+                    1.7f,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond)));
+            Assert.That(
+                utility.Effects[0].Summon.RecoveryTicks,
+                Is.EqualTo(GameplayTimingProfile.SecondsToTicks(
+                    0.7f,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    allowZero: true)));
+            Assert.That(utility.Effects[0].Summon.SuppressMovementDuringWindup, Is.True);
+            Assert.That(utility.Effects[0].Summon.SuppressMovementDuringRecover, Is.True);
         }
 
         [Test]
