@@ -79,16 +79,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 221aa3bf1f4e4fec8fe376442cc63a61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
-  attackWindupAnimatorDurationSeconds: -1
+  attackWindupAnimatorDurationSeconds: 0.5
   jumpWindupAnimatorDurationSeconds: -1
   jumpAirborneAnimatorDurationSeconds: -1
-  recoverAnimatorDurationSeconds: -1
+  recoverAnimatorDurationSeconds: 0.5
   deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: -1
-  attackWindupReferenceClip: {fileID: 0}
+  attackWindupReferenceClip: {fileID: 7400000, guid: 19cc367ffcf133f42b0c772ae30ed0b1, type: 2}
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
-  recoverReferenceClip: {fileID: 0}
+  recoverReferenceClip: {fileID: 7400000, guid: c0977b05374049f46a273f93a78ed85e, type: 2}
   deathReferenceClip: {fileID: -5059006814000262888, guid: 53bc3845eefb86f408fcb05d70cdf7b0, type: 3}
 --- !u!114 &1141000000000008004
 MonoBehaviour:
