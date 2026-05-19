@@ -315,6 +315,24 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void AddExit_DefaultsActiveFaceNoneSelectorNone()
+        {
+            var feature = StageAuthoringPlacementCommands.CreateTileFeaturePreset(
+                TileFeatureKind.Exit,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                TileFeatureActivationRule.BottomFaceOnly,
+                Direction2D.Left,
+                TileFeatureBoxSelector.AnyPushableBox,
+                99,
+                string.Empty);
+
+            Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.ActiveFaceOnly));
+            Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
+            Assert.That(feature.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(feature.BoundEntityId, Is.EqualTo(0));
+        }
+
+        [Test]
         public void AddExit_RejectsSecondExit()
         {
             WithAuthoring(authoring =>
@@ -808,9 +826,13 @@ namespace Game.Feature.Stages.Editor.Tests
             TileFeatureKind kind,
             SurfaceCell cell)
         {
-            var activationRule = kind == TileFeatureKind.Slide || kind == TileFeatureKind.Barricade
-                ? TileFeatureActivationRule.FrontFaceOnly
-                : TileFeatureActivationRule.BottomFaceOnly;
+            var activationRule = kind switch
+            {
+                TileFeatureKind.Slide => TileFeatureActivationRule.FrontFaceOnly,
+                TileFeatureKind.Barricade => TileFeatureActivationRule.FrontFaceOnly,
+                TileFeatureKind.Exit => TileFeatureActivationRule.ActiveFaceOnly,
+                _ => TileFeatureActivationRule.BottomFaceOnly,
+            };
             return new StageTileFeatureDefinition
             {
                 TileId = tileId,

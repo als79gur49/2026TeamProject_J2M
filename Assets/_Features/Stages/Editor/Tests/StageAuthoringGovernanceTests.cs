@@ -280,7 +280,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     CreateTileFeature(
                         100,
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         Direction2D.None,
                         TileFeatureBoxSelector.None),
                 });
@@ -309,7 +309,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     CreateTileFeature(
                         100,
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.Always,
+                        TileFeatureActivationRule.BottomFaceOnly,
                         Direction2D.None,
                         TileFeatureBoxSelector.None),
                 });
@@ -336,13 +336,13 @@ namespace Game.Feature.Stages.Editor.Tests
                     CreateTileFeature(
                         100,
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         Direction2D.Right,
                         TileFeatureBoxSelector.AnyPushableBox),
                     CreateTileFeature(
                         101,
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         (Direction2D)99,
                         (TileFeatureBoxSelector)99,
                         new SurfaceCell(FaceId.Floor, 2, 1)),

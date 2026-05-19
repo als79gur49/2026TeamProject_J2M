@@ -2047,6 +2047,9 @@ namespace Game.Feature.Stages.Editor
                 case TileFeatureKind.Barricade:
                     draft.ActivationRule = TileFeatureActivationRule.FrontFaceOnly;
                     break;
+                case TileFeatureKind.Exit:
+                    draft.ActivationRule = TileFeatureActivationRule.ActiveFaceOnly;
+                    break;
             }
         }
 
