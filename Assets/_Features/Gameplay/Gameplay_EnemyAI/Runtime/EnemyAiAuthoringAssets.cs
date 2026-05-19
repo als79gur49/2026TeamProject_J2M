@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
@@ -9,10 +10,13 @@ namespace Game.Feature.Gameplay.Entities
     {
         [SerializeField] private int hp;
         [SerializeField] private EnemyAiMode initialAiMode;
+        [SerializeField] private UnitMobilityKind unitMobilityKind;
 
         public int Hp => hp;
 
         public EnemyAiMode InitialAiMode => initialAiMode;
+
+        public UnitMobilityKind UnitMobilityKind => unitMobilityKind;
 
         public void Validate(string paramName)
         {
@@ -26,12 +30,17 @@ namespace Game.Feature.Gameplay.Entities
             {
                 throw new ArgumentException("Enemy unit spawn defaults require a live initial AI mode.", paramName);
             }
+
+            if (!Enum.IsDefined(typeof(UnitMobilityKind), unitMobilityKind))
+            {
+                throw new ArgumentException("Enemy unit spawn defaults require a valid unit mobility kind.", paramName);
+            }
         }
 
         internal EnemyUnitSpawnDefaultsRuntime ToRuntime()
         {
             Validate(nameof(EnemyUnitSpawnDefaults));
-            return new EnemyUnitSpawnDefaultsRuntime(hp, initialAiMode);
+            return new EnemyUnitSpawnDefaultsRuntime(hp, initialAiMode, unitMobilityKind);
         }
 
         public static EnemyUnitSpawnDefaults CreateDefault()
@@ -40,6 +49,7 @@ namespace Game.Feature.Gameplay.Entities
             {
                 hp = 1,
                 initialAiMode = EnemyAiMode.Patrol,
+                unitMobilityKind = Game.Feature.Gameplay.BoardState.UnitMobilityKind.Ground,
             };
         }
     }

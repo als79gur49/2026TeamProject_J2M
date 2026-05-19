@@ -838,7 +838,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void EnemyUtilitySummon_InitializesCooldown_TriggersAndResetsThroughCanonicalState()
         {
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 2, cooldownTicks: 3, windupTicks: 1);
+            var airSummonedProfile = CreateUtilityProfile();
+            var airSummonedArchetype = CreateEnemyUnitArchetypeAsset(
+                "BasicMinion",
+                airSummonedProfile,
+                hp: 1,
+                initialAiMode: EnemyAiMode.Patrol,
+                unitMobilityKind: UnitMobilityKind.Air);
+            var profile = CreateUtilitySummonProfile(
+                initialDelayTicks: 2,
+                cooldownTicks: 3,
+                summonedArchetype: airSummonedArchetype,
+                windupTicks: 1);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(new[]
@@ -848,7 +859,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             try
             {
-                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                var pipeline = CreateSharedSummonTickPipeline(
+                    profile,
+                    worldState,
+                    out defaultProfile,
+                    out archetypeCatalog,
+                    airSummonedArchetype);
 
                 var firstTick = pipeline.RunTick(new TickInput(1));
                 var firstUtilityState = GetEnemyUtilityState(worldState, 40);
@@ -874,6 +890,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(thirdTick.PresentationData.SummonWindupWarnings, Is.Empty);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out var child), Is.True);
                 Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(child.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
                 Assert.That(thirdTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0"));
                 Assert.That(worldState.CreateSnapshot().TryGetSummonedEntityState(41, out var summonedState), Is.True);
                 Assert.That(summonedState.SourceEntityId, Is.EqualTo(40));
@@ -884,6 +901,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             finally
             {
                 UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                UnityEngine.Object.DestroyImmediate(airSummonedArchetype);
+                DestroyProfile(airSummonedProfile);
                 DestroyProfile(defaultProfile);
                 DestroyProfile(profile);
             }
@@ -8400,10 +8419,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static GameplayBootstrapper CreateSharedSummonBootstrapper(
             EnemyAiProfile summonerProfile,
             out EnemyAiProfile defaultProfile,
-            out EnemyUnitArchetypeCatalog archetypeCatalog)
+            out EnemyUnitArchetypeCatalog archetypeCatalog,
+            EnemyUnitArchetypeAsset summonedArchetype = null)
         {
             defaultProfile = CreateUtilityProfile();
-            archetypeCatalog = CreateEnemyUnitArchetypeCatalog(GetSharedSummonedArchetype());
+            archetypeCatalog = CreateEnemyUnitArchetypeCatalog(summonedArchetype ?? GetSharedSummonedArchetype());
 
             var runtimeSnapshot = new GameplaySceneHostConfiguration
             {
@@ -8432,9 +8452,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiProfile summonerProfile,
             WorldState worldState,
             out EnemyAiProfile defaultProfile,
-            out EnemyUnitArchetypeCatalog archetypeCatalog)
+            out EnemyUnitArchetypeCatalog archetypeCatalog,
+            EnemyUnitArchetypeAsset summonedArchetype = null)
         {
-            return CreateSharedSummonBootstrapper(summonerProfile, out defaultProfile, out archetypeCatalog)
+            return CreateSharedSummonBootstrapper(summonerProfile, out defaultProfile, out archetypeCatalog, summonedArchetype)
                 .CreateTickPipeline(worldState);
         }
 
@@ -8442,13 +8463,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             string archetypeId,
             EnemyAiProfile profile,
             int hp,
-            EnemyAiMode initialAiMode)
+            EnemyAiMode initialAiMode,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             var asset = ScriptableObject.CreateInstance<EnemyUnitArchetypeAsset>();
             asset.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(asset, "archetypeId", new EnemyUnitArchetypeId(archetypeId));
             EnemyAiProfileTestFactory.SetSerializedField(asset, "aiProfile", profile);
-            EnemyAiProfileTestFactory.SetSerializedField(asset, "spawnDefaults", CreateEnemyUnitSpawnDefaults(hp, initialAiMode));
+            EnemyAiProfileTestFactory.SetSerializedField(asset, "spawnDefaults", CreateEnemyUnitSpawnDefaults(hp, initialAiMode, unitMobilityKind));
             return asset;
         }
 
@@ -8475,11 +8497,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return SharedSummonedArchetype;
         }
 
-        private static EnemyUnitSpawnDefaults CreateEnemyUnitSpawnDefaults(int hp, EnemyAiMode initialAiMode)
+        private static EnemyUnitSpawnDefaults CreateEnemyUnitSpawnDefaults(
+            int hp,
+            EnemyAiMode initialAiMode,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             object boxed = EnemyUnitSpawnDefaults.CreateDefault();
             EnemyAiProfileTestFactory.SetSerializedField(boxed, "hp", hp);
             EnemyAiProfileTestFactory.SetSerializedField(boxed, "initialAiMode", initialAiMode);
+            EnemyAiProfileTestFactory.SetSerializedField(boxed, "unitMobilityKind", unitMobilityKind);
             return (EnemyUnitSpawnDefaults)boxed;
         }
 

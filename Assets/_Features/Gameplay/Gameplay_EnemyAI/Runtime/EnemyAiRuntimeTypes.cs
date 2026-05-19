@@ -490,16 +490,22 @@ namespace Game.Feature.Gameplay.Entities
 
     public readonly struct EnemyUnitSpawnDefaultsRuntime
     {
-        public EnemyUnitSpawnDefaultsRuntime(int hp, EnemyAiMode initialAiMode)
+        public EnemyUnitSpawnDefaultsRuntime(
+            int hp,
+            EnemyAiMode initialAiMode,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             Hp = hp;
             InitialAiMode = initialAiMode;
+            UnitMobilityKind = unitMobilityKind;
             Validate(nameof(EnemyUnitSpawnDefaultsRuntime));
         }
 
         public int Hp { get; }
 
         public EnemyAiMode InitialAiMode { get; }
+
+        public UnitMobilityKind UnitMobilityKind { get; }
 
         public void Validate(string paramName)
         {
@@ -512,6 +518,11 @@ namespace Game.Feature.Gameplay.Entities
                 InitialAiMode == EnemyAiMode.Dead)
             {
                 throw new ArgumentException("Enemy unit spawn defaults require a live initial AI mode.", paramName);
+            }
+
+            if (!Enum.IsDefined(typeof(UnitMobilityKind), UnitMobilityKind))
+            {
+                throw new ArgumentException("Enemy unit spawn defaults require a valid unit mobility kind.", paramName);
             }
         }
     }

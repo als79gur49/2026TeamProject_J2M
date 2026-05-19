@@ -18,3 +18,4 @@ MonoBehaviour:
   spawnDefaults:
     hp: 2
     initialAiMode: 1
+    unitMobilityKind: 1

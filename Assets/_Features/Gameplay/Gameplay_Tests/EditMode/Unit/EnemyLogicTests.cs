@@ -3629,7 +3629,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var defaultProfile = CreateDefaultMeleeProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
-            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
+            var archetype = CreateEnemyUnitArchetypeAsset(
+                "BasicMinion",
+                archetypeProfile,
+                hp: 4,
+                initialAiMode: EnemyAiMode.Patrol,
+                unitMobilityKind: UnitMobilityKind.Air);
             var catalog = CreateEnemyUnitArchetypeCatalog(archetype);
 
             try
@@ -3646,6 +3651,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.DefinitionsByArchetypeId.ContainsKey(new EnemyUnitArchetypeId("BasicMinion")), Is.True);
                 Assert.That(snapshot.SpawnDefaultsByArchetypeId[new EnemyUnitArchetypeId("BasicMinion")].Hp, Is.EqualTo(4));
                 Assert.That(snapshot.SpawnDefaultsByArchetypeId[new EnemyUnitArchetypeId("BasicMinion")].InitialAiMode, Is.EqualTo(EnemyAiMode.Patrol));
+                Assert.That(snapshot.SpawnDefaultsByArchetypeId[new EnemyUnitArchetypeId("BasicMinion")].UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
             }
             finally
             {
@@ -6224,13 +6230,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             string archetypeId,
             EnemyAiProfile profile,
             int hp,
-            EnemyAiMode initialAiMode)
+            EnemyAiMode initialAiMode,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             var asset = ScriptableObject.CreateInstance<EnemyUnitArchetypeAsset>();
             asset.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(asset, "archetypeId", new EnemyUnitArchetypeId(archetypeId));
             EnemyAiProfileTestFactory.SetSerializedField(asset, "aiProfile", profile);
-            EnemyAiProfileTestFactory.SetSerializedField(asset, "spawnDefaults", CreateEnemyUnitSpawnDefaults(hp, initialAiMode));
+            EnemyAiProfileTestFactory.SetSerializedField(asset, "spawnDefaults", CreateEnemyUnitSpawnDefaults(hp, initialAiMode, unitMobilityKind));
             return asset;
         }
 
@@ -6257,11 +6264,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return SharedSummonedArchetype;
         }
 
-        private static EnemyUnitSpawnDefaults CreateEnemyUnitSpawnDefaults(int hp, EnemyAiMode initialAiMode)
+        private static EnemyUnitSpawnDefaults CreateEnemyUnitSpawnDefaults(
+            int hp,
+            EnemyAiMode initialAiMode,
+            UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
             object boxed = EnemyUnitSpawnDefaults.CreateDefault();
             EnemyAiProfileTestFactory.SetSerializedField(boxed, "hp", hp);
             EnemyAiProfileTestFactory.SetSerializedField(boxed, "initialAiMode", initialAiMode);
+            EnemyAiProfileTestFactory.SetSerializedField(boxed, "unitMobilityKind", unitMobilityKind);
             return (EnemyUnitSpawnDefaults)boxed;
         }
 

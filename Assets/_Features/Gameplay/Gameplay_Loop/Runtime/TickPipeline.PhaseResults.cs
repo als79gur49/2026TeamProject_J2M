@@ -687,6 +687,7 @@ namespace Game.Feature.Gameplay.Loop
                 ? summonRuntime.HpOverride
                 : spawnDefaults.Hp;
             var initialAiMode = spawnDefaults.InitialAiMode;
+            var unitMobilityKind = spawnDefaults.UnitMobilityKind;
             var enemyDefinitionBindingState = new EnemyDefinitionBindingState(summonRuntime.SummonedArchetypeId);
             var sourceKey = new SourceEffectKey(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
             for (var spawnIndex = 0; spawnIndex < summonRuntime.SpawnCountPerTrigger; spawnIndex++)
@@ -724,6 +725,7 @@ namespace Game.Feature.Gameplay.Loop
                     spawnCell,
                     minionHp,
                     initialAiMode,
+                    unitMobilityKind,
                     tickIndex);
                 batch.SpawnEntity(
                     spawnedEntity,
@@ -1032,6 +1034,7 @@ namespace Game.Feature.Gameplay.Loop
             SurfaceCell spawnCell,
             int minionHp,
             EnemyAiMode initialAiMode,
+            UnitMobilityKind unitMobilityKind,
             int tickIndex)
         {
             return new EntityState
@@ -1043,6 +1046,7 @@ namespace Game.Feature.Gameplay.Loop
                 teamId = source.teamId,
                 type = EntityType.Unit,
                 unitRole = UnitRole.Enemy,
+                unitMobilityKind = unitMobilityKind,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = source.facing,

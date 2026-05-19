@@ -742,6 +742,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.name, Is.EqualTo("EnemyUnitArchetypeCatalog_CombinedGameplayShowcase"));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries.Count, Is.EqualTo(1));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries[0].ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+                Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries[0].SpawnDefaults.UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
             }
             finally
             {
