@@ -227,8 +227,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.InitialMoveDelayTicks, Is.EqualTo(0));
             Assert.That(profile.RepeatedMoveIntervalSeconds, Is.EqualTo(0.4f));
             Assert.That(profile.RepeatedMoveIntervalTicks, Is.EqualTo(24));
-            Assert.That(profile.BoxSlideStepIntervalSeconds, Is.EqualTo(0.2f));
-            Assert.That(profile.BoxSlideStepIntervalTicks, Is.EqualTo(12));
+            Assert.That(profile.BoxSlideStepIntervalSeconds, Is.EqualTo(0.12f));
+            Assert.That(profile.BoxSlideStepIntervalTicks, Is.EqualTo(7));
             Assert.That(profile.ProjectileStepIntervalSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.ProjectileStepIntervalTicks, Is.EqualTo(12));
             Assert.That(profile.MoveMotionDurationSeconds, Is.EqualTo(0.2f));
@@ -258,8 +258,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(sixtyTpsProfile.ProjectileStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.ProjectileStepIntervalSeconds));
             Assert.That(sixtyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(24));
             Assert.That(oneTwentyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(48));
-            Assert.That(sixtyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(12));
-            Assert.That(oneTwentyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(24));
+            Assert.That(sixtyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(7));
+            Assert.That(oneTwentyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(14));
             Assert.That(sixtyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(12));
             Assert.That(oneTwentyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(24));
         }

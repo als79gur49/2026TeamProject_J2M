@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Loop
         public const int DefaultSimulationTicksPerSecond = 60;
         public const float DefaultInitialMoveDelaySeconds = 0f;
         public const float DefaultRepeatedMoveIntervalSeconds = 0.4f;
-        public const float DefaultBoxSlideStepIntervalSeconds = 0.2f;
+        public const float DefaultBoxSlideStepIntervalSeconds = 0.12f;
         public const float DefaultProjectileStepIntervalSeconds = 0.2f;
         public const float DefaultMoveMotionDurationSeconds = 0.2f;
         public const float DefaultMoveOccupancyDurationSeconds = DefaultMoveMotionDurationSeconds;

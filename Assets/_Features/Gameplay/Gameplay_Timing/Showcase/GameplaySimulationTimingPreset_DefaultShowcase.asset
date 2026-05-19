@@ -25,5 +25,5 @@ MonoBehaviour:
   playerRespawnTiming:
     RespawnDelaySeconds: 1
   repeatedMoveIntervalSeconds: 0.6
-  boxSlideStepIntervalSeconds: 0.2
+  boxSlideStepIntervalSeconds: 0.12
   projectileStepIntervalSeconds: 0.2
