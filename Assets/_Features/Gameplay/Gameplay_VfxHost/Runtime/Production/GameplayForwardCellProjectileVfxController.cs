@@ -216,32 +216,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ReleaseMarker(signal.PresentationKey, pool);
             ReleaseFlight(signal.PresentationKey, pool);
 
-            if (!TryResolveCellLocalPosition(
-                    cellProjector,
-                    signal.TargetCell,
-                    context.Topology,
-                    GameplayVfxVisibilityMode.DefaultGameplay,
-                    out var targetLocalPosition,
-                    out var targetLocalRotation))
-            {
-                MissingAnchorCount++;
-                return;
-            }
-
-            var sourceLocalPosition = ResolveSourceLocalPosition(
-                context.StateStore,
-                context.Projector,
-                context.Topology,
-                signal,
-                targetLocalPosition);
-            PlayActiveOneShot(
-                context,
-                signal,
-                pool,
-                bindingResolver,
-                sourceLocalPosition,
-                targetLocalRotation,
-                visibilityContext);
             var cueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
             var request = new GameplayVfxRequest(
                 context.Result.TickIndex,
@@ -261,14 +235,59 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             policy.ValidateOrThrow();
-            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+            var sourceDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
                 request,
                 policy,
                 visibilityContext);
-            if (!decision.IsVisible)
+            if (!sourceDecision.IsVisible)
             {
                 return;
             }
+
+            var targetRequest = new GameplayVfxRequest(
+                context.Result.TickIndex,
+                signal.PresentationKey,
+                signal.PresentationKey,
+                signal.SourceEnemyId,
+                cueId,
+                VfxAnchor.ForCell(signal.TargetCell, context.Topology, VfxAnchorSlot.CellCenter),
+                VfxTimingKind.ImmediateOnTickPresentation);
+            var targetDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                targetRequest,
+                policy,
+                visibilityContext);
+            if (!targetDecision.IsVisible)
+            {
+                return;
+            }
+
+            if (!TryResolveCellLocalPosition(
+                    cellProjector,
+                    signal.TargetCell,
+                    context.Topology,
+                    policy.VisibilityMode,
+                    out var targetLocalPosition,
+                    out var targetLocalRotation))
+            {
+                MissingAnchorCount++;
+                return;
+            }
+
+            var sourceLocalPosition = ResolveSourceLocalPosition(
+                context.StateStore,
+                context.Projector,
+                context.Topology,
+                signal,
+                targetLocalPosition,
+                policy.VisibilityMode);
+            PlayActiveOneShot(
+                context,
+                signal,
+                pool,
+                bindingResolver,
+                sourceLocalPosition,
+                targetLocalRotation,
+                visibilityContext);
 
             var sourceAnchor = VfxResolvedAnchor.ForCell(
                 signal.SourceCell,
@@ -276,6 +295,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 VfxAnchorSlot.CellCenter,
                 sourceLocalPosition,
                 targetLocalRotation);
+            var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+                request,
+                policy,
+                sourceAnchor,
+                visibilityContext);
+            if (!postDecision.IsVisible)
+            {
+                return;
+            }
+
             var command = new ResolvedVfxPlaybackCommand(request, policy, sourceAnchor);
             var handle = pool.PlayAttachedTransient(command, null, controllerManagedLifetime: true);
             if (handle is GameplayVfxPlaybackHandle playbackHandle &&
@@ -538,7 +567,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayCubeProjector projector,
             CubeTopologyState topology,
             in TickForwardCellProjectileReleasePresentationSignal signal,
-            Vector3 targetFallback)
+            Vector3 targetFallback,
+            GameplayVfxVisibilityMode visibilityMode)
         {
             if (stateStore != null &&
                 stateStore.ViewsByEntityId.TryGetValue(signal.SourceEnemyId, out var view) &&
@@ -564,7 +594,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     cellProjector,
                     signal.SourceCell,
                     topology,
-                    GameplayVfxVisibilityMode.DefaultGameplay,
+                    visibilityMode,
                     out var sourceLocalPosition,
                     out _))
             {

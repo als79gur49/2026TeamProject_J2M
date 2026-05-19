@@ -238,6 +238,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void ProjectileVfx_InactiveTargetCell_Suppressed()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture(
+                "ForwardCellProjectileInactiveTarget",
+                GameplayVfxVisibilityMode.DefaultGameplay);
+
+            fixture.Present(CreatePresentationData(releaseSignals: new[]
+            {
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Front, 1, 0)),
+            }));
+
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
+            AssertActiveCarrierKeys(fixture.Runtime);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectileVfx_VisibleSurfaceAllowedTarget_AllowedOnlyWhenOptIn()
+        {
+            using var defaultFixture = new ForwardCellProjectileRuntimeFixture(
+                "ForwardCellProjectileVisibleSurfaceDefault",
+                GameplayVfxVisibilityMode.DefaultGameplay);
+            using var optInFixture = new ForwardCellProjectileRuntimeFixture(
+                "ForwardCellProjectileVisibleSurfaceOptIn",
+                GameplayVfxVisibilityMode.VisibleSurfaceAllowed);
+            var data = CreatePresentationData(releaseSignals: new[]
+            {
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Front, 1, 0)),
+            });
+
+            defaultFixture.Present(data);
+            optInFixture.Present(data);
+
+            Assert.That(defaultFixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
+            Assert.That(optInFixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectileVfx_PresentationOnly_BypassesGameplayFaceGate()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture(
+                "ForwardCellProjectilePresentationOnly",
+                GameplayVfxVisibilityMode.PresentationOnly);
+
+            fixture.Present(CreatePresentationData(releaseSignals: new[]
+            {
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Front, 1, 0)),
+            }));
+
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
+            AssertActiveCarrierKeys(fixture.Runtime, 4000001);
+        }
+
+        [Test]
         [Category("Extended")]
         public void ForwardCellProjectile_MissingSocketFallsBack()
         {
@@ -587,10 +643,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             ProjectileVfxCue cue,
             GameObject prefab,
             VfxPlaybackMode playbackMode,
-            VfxStopPolicy stopPolicy)
+            VfxStopPolicy stopPolicy,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             EnsureVfxPrefabModelRoot(prefab);
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            binding.name = visibilityMode == GameplayVfxVisibilityMode.PresentationOnly
+                ? $"PresentationOnly_{cue}_Binding"
+                : $"{cue}_Binding";
             SetField(binding, "family", GameplayVfxFamily.Projectile);
             SetField(binding, "cueCode", (int)cue);
             SetField(binding, "prefab", prefab);
@@ -598,6 +658,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
             SetField(binding, "playbackMode", playbackMode);
             SetField(binding, "stopPolicy", stopPolicy);
+            SetField(binding, "visibilityMode", visibilityMode);
             SetField(binding, "defaultLifetimeSeconds", 0.5f);
             SetField(binding, "tailSeconds", 0.05f);
             SetField(binding, "initialPoolSize", 0);
@@ -703,7 +764,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             private readonly VfxCueMapAsset cueMap;
             private readonly PresentationContextFactory contextFactory = new();
 
-            public ForwardCellProjectileRuntimeFixture(string name)
+            public ForwardCellProjectileRuntimeFixture(
+                string name,
+                GameplayVfxVisibilityMode flightVisibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
             {
                 owner = new GameObject(name);
                 markerPrefab = new GameObject($"{name}MarkerPrefab");
@@ -718,7 +781,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     ProjectileVfxCue.ForwardCellProjectileFlight,
                     flightPrefab,
                     VfxPlaybackMode.OneShot,
-                    VfxStopPolicy.AuthoredDuration);
+                    VfxStopPolicy.AuthoredDuration,
+                    flightVisibilityMode);
                 impactBinding = CreateBinding(
                     ProjectileVfxCue.ForwardCellImpact,
                     impactPrefab,

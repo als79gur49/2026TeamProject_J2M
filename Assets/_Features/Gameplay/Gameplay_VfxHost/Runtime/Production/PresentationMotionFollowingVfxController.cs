@@ -794,8 +794,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private static bool IsHandleLive(IVfxPlaybackHandle handle)
         {
             return handle != null &&
-                   handle.State != VfxLifetimeState.ReleasedToPool &&
-                   handle.State != VfxLifetimeState.HardCleanup;
+                   (handle.State == VfxLifetimeState.Spawned ||
+                    handle.State == VfxLifetimeState.Active);
         }
     }
 }

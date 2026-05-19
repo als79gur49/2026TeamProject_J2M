@@ -739,6 +739,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var plan = FilterByPlanningVisibility(
                 FilterByEnabledCues(planBuilder.Build()),
+                bindingResolver,
                 visibilityContext);
             var shouldPlayFlipDestroySelfMotion =
                 enableGameplayVfxFlipDestroySelfMotionMigration &&
@@ -1106,6 +1107,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private static GameplayVfxRequestPlan FilterByPlanningVisibility(
             GameplayVfxRequestPlan plan,
+            IVfxBindingResolver bindingResolver,
             in GameplayVfxVisibilityContext visibilityContext)
         {
             if (plan == null || plan.Requests.Count == 0)
@@ -1117,10 +1119,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < plan.Requests.Count; i++)
             {
                 var request = plan.Requests[i];
-                var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
-                    request,
-                    GameplayVfxVisibilityMode.DefaultGameplay,
-                    visibilityContext);
+                var decision = bindingResolver != null &&
+                               bindingResolver.TryResolve(request, out var policy)
+                    ? GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                        request,
+                        policy,
+                        visibilityContext)
+                    : GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                        request,
+                        GameplayVfxVisibilityMode.DefaultGameplay,
+                        visibilityContext);
                 if (decision.IsVisible)
                 {
                     filteredRequests.Add(request);
@@ -1590,15 +1598,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var plannedCommandCount = 0;
             var signals = presentationData.BoxSlideStopSignals;
+            var visibilityContext = BuildVisibilityContext(context.StateStore);
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                if (!BoxSlideSolidStopVfxCommandBuilder.TryBuild(
+                if (!BoxSlideSolidStopVfxCommandBuilder.TryCreateRequest(
                         context.Result.TickIndex,
                         signal,
-                        context.Projector,
-                        out var request,
-                        out var anchor))
+                        out var request))
                 {
                     if (BoxSlideSolidStopVfxCommandBuilder.IsCandidate(signal))
                     {
@@ -1608,13 +1615,38 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
+                if (!bindingResolver.TryResolve(request, out var policy))
+                {
+                    boxSlideSolidStopMissingBindingCount++;
+                    continue;
+                }
+
+                policy.ValidateOrThrow();
+                if (policy.CueId != request.CueId)
+                {
+                    throw new InvalidOperationException("Gameplay VFX binding cue does not match Box Slide solid stop request cue.");
+                }
+
+                if (!BoxSlideSolidStopVfxCommandBuilder.TryBuild(
+                        context.Result.TickIndex,
+                        signal,
+                        context.Projector,
+                        policy,
+                        visibilityContext,
+                        out request,
+                        out var anchor))
+                {
+                    boxSlideSolidStopMissingAnchorCount++;
+                    continue;
+                }
+
                 plannedCommandCount++;
                 if (playedBoxSlideSolidStopKeys.Contains(request.SequenceId))
                 {
                     continue;
                 }
 
-                if (TryPlayBoxSlideSolidStopCommand(request, anchor))
+                if (TryPlayBoxSlideSolidStopCommand(request, policy, anchor, visibilityContext))
                 {
                     playedBoxSlideSolidStopKeys.Add(request.SequenceId);
                 }
@@ -1625,18 +1657,27 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private bool TryPlayBoxSlideSolidStopCommand(
             in GameplayVfxRequest request,
-            in VfxResolvedAnchor anchor)
+            VfxBindingRuntimePolicy policy,
+            in VfxResolvedAnchor anchor,
+            in GameplayVfxVisibilityContext visibilityContext)
         {
-            if (!bindingResolver.TryResolve(request, out var policy))
+            var preDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+            if (!preDecision.IsVisible)
             {
-                boxSlideSolidStopMissingBindingCount++;
                 return false;
             }
 
-            policy.ValidateOrThrow();
-            if (policy.CueId != request.CueId)
+            var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+                request,
+                policy,
+                anchor,
+                visibilityContext);
+            if (!postDecision.IsVisible)
             {
-                throw new InvalidOperationException("Gameplay VFX binding cue does not match Box Slide solid stop request cue.");
+                return false;
             }
 
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);

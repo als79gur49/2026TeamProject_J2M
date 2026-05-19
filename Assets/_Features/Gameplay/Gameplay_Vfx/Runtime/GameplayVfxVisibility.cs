@@ -27,6 +27,15 @@ namespace Game.Feature.Gameplay.Vfx
         MissingSemanticState = 9,
     }
 
+    public enum GameplayVfxVisibilityAllowReason
+    {
+        None = 0,
+        DefaultGameplay = 1,
+        VisibleSurfaceProjectionOptIn = 2,
+        InactiveFaceExplicitOptIn = 3,
+        PresentationOnly = 4,
+    }
+
     public readonly struct GameplayVfxEntityVisibilityState
     {
         public GameplayVfxEntityVisibilityState(
@@ -105,24 +114,29 @@ namespace Game.Feature.Gameplay.Vfx
     {
         private GameplayVfxVisibilityDecision(
             bool isVisible,
-            GameplayVfxVisibilityBlockReason blockReason)
+            GameplayVfxVisibilityBlockReason blockReason,
+            GameplayVfxVisibilityAllowReason allowReason)
         {
             IsVisible = isVisible;
             BlockReason = blockReason;
+            AllowReason = allowReason;
         }
 
         public bool IsVisible { get; }
 
         public GameplayVfxVisibilityBlockReason BlockReason { get; }
 
-        public static GameplayVfxVisibilityDecision Allow()
+        public GameplayVfxVisibilityAllowReason AllowReason { get; }
+
+        public static GameplayVfxVisibilityDecision Allow(
+            GameplayVfxVisibilityAllowReason reason = GameplayVfxVisibilityAllowReason.DefaultGameplay)
         {
-            return new GameplayVfxVisibilityDecision(true, GameplayVfxVisibilityBlockReason.None);
+            return new GameplayVfxVisibilityDecision(true, GameplayVfxVisibilityBlockReason.None, reason);
         }
 
         public static GameplayVfxVisibilityDecision Block(GameplayVfxVisibilityBlockReason reason)
         {
-            return new GameplayVfxVisibilityDecision(false, reason);
+            return new GameplayVfxVisibilityDecision(false, reason, GameplayVfxVisibilityAllowReason.None);
         }
     }
 
@@ -189,7 +203,8 @@ namespace Game.Feature.Gameplay.Vfx
         {
             if (query.VisibilityMode == GameplayVfxVisibilityMode.PresentationOnly)
             {
-                return GameplayVfxVisibilityDecision.Allow();
+                return GameplayVfxVisibilityDecision.Allow(
+                    GameplayVfxVisibilityAllowReason.PresentationOnly);
             }
 
             var semanticDecision = EvaluateSourceEntity(query, context);
@@ -210,10 +225,16 @@ namespace Game.Feature.Gameplay.Vfx
                 }
             }
 
-            if (query.VisibilityMode == GameplayVfxVisibilityMode.VisibleSurfaceAllowed ||
-                query.VisibilityMode == GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed)
+            if (query.VisibilityMode == GameplayVfxVisibilityMode.VisibleSurfaceAllowed)
             {
-                return GameplayVfxVisibilityDecision.Allow();
+                return GameplayVfxVisibilityDecision.Allow(
+                    GameplayVfxVisibilityAllowReason.VisibleSurfaceProjectionOptIn);
+            }
+
+            if (query.VisibilityMode == GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed)
+            {
+                return GameplayVfxVisibilityDecision.Allow(
+                    GameplayVfxVisibilityAllowReason.InactiveFaceExplicitOptIn);
             }
 
             if (query.VisibilityMode == GameplayVfxVisibilityMode.ActiveGameplayFaceOnly ||

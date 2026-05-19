@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
@@ -22,41 +23,54 @@ namespace Game.Feature.Gameplay.Vfx.Host
             out GameplayVfxRequest request,
             out VfxResolvedAnchor anchor)
         {
+            var policy = VfxBindingRuntimePolicy.Optional(
+                GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop),
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration);
+            return TryBuild(
+                tickIndex,
+                signal,
+                projector,
+                policy,
+                default,
+                out request,
+                out anchor);
+        }
+
+        public static bool TryBuild(
+            int tickIndex,
+            in BoxSlideStopPresentationSignal signal,
+            GameplayCubeProjector projector,
+            VfxBindingRuntimePolicy policy,
+            GameplayVfxVisibilityContext visibilityContext,
+            out GameplayVfxRequest request,
+            out VfxResolvedAnchor anchor)
+        {
             request = default;
             anchor = default;
-            if (!IsCandidate(signal) || projector == null)
+            if (projector == null ||
+                !TryCreateRequest(tickIndex, signal, out request))
             {
                 return false;
             }
 
-            if (signal.SourceCell.face != signal.StopperCell.face)
+            if (!IsCellVisible(request, policy, visibilityContext))
             {
                 return false;
             }
 
-            var sequenceId = ComputeSequenceId(tickIndex, signal);
-            request = new GameplayVfxRequest(
-                tickIndex: tickIndex,
-                sequenceId: sequenceId,
-                presentationSeed: sequenceId,
-                sourceEntityId: signal.BoxEntityId,
-                cueId: GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop),
-                anchor: VfxAnchor.ForCell(
-                    signal.SourceCell,
-                    signal.Topology,
-                    VfxAnchorSlot.CellCenter),
-                timing: VfxTimingKind.ImmediateOnTickPresentation,
-                isPersistent: false,
-                persistentKey: VfxPersistentKey.None);
-
-            if (!signal.Topology.IsFaceActive(signal.SourceCell.face) ||
-                !projector.TryProjectSurfaceCell(signal.SourceCell, signal.Topology, out var sourcePose))
+            var stopperRequest = CreateRequest(tickIndex, signal, request.SequenceId, signal.StopperCell);
+            if (!IsCellVisible(stopperRequest, policy, visibilityContext))
             {
                 return false;
             }
 
-            if (signal.Topology.IsFaceActive(signal.StopperCell.face) &&
-                projector.TryProjectSurfaceCell(signal.StopperCell, signal.Topology, out var stopperPose))
+            if (!projector.TryProjectSurfaceCell(signal.SourceCell, signal.Topology, out var sourcePose))
+            {
+                return false;
+            }
+
+            if (projector.TryProjectSurfaceCell(signal.StopperCell, signal.Topology, out var stopperPose))
             {
                 var midpoint = Vector3.Lerp(sourcePose.LocalPosition, stopperPose.LocalPosition, 0.5f);
                 var approach = stopperPose.LocalPosition - sourcePose.LocalPosition;
@@ -80,6 +94,58 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 sourcePose.LocalRotation,
                 usedFallback: true);
             return true;
+        }
+
+        public static bool TryCreateRequest(
+            int tickIndex,
+            in BoxSlideStopPresentationSignal signal,
+            out GameplayVfxRequest request)
+        {
+            request = default;
+            if (!IsCandidate(signal) ||
+                signal.SourceCell.face != signal.StopperCell.face)
+            {
+                return false;
+            }
+
+            request = CreateRequest(
+                tickIndex,
+                signal,
+                ComputeSequenceId(tickIndex, signal),
+                signal.SourceCell);
+            return true;
+        }
+
+        private static GameplayVfxRequest CreateRequest(
+            int tickIndex,
+            in BoxSlideStopPresentationSignal signal,
+            int sequenceId,
+            SurfaceCell anchorCell)
+        {
+            return new GameplayVfxRequest(
+                tickIndex: tickIndex,
+                sequenceId: sequenceId,
+                presentationSeed: sequenceId,
+                sourceEntityId: signal.BoxEntityId,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop),
+                anchor: VfxAnchor.ForCell(
+                    anchorCell,
+                    signal.Topology,
+                    VfxAnchorSlot.CellCenter),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+        }
+
+        private static bool IsCellVisible(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy,
+            GameplayVfxVisibilityContext visibilityContext)
+        {
+            return GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext).IsVisible;
         }
 
         public static int ComputeSequenceId(
