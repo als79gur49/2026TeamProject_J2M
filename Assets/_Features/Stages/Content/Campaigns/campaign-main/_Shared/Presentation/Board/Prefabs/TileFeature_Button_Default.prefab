@@ -54,6 +54,11 @@ MonoBehaviour:
   animator: {fileID: 0}
   buttonActivatedTriggerName: ButtonActivated
   destroyTileTriggeredTriggerName: DestroyTileTriggered
+  destroyTileActivatedTriggerName: DestroyTileActivated
+  destroyTileDeactivatedTriggerName: DestroyTileDeactivated
+  destroyTileActiveBoolName: DestroyTileActive
+  destroyTileActiveStateName: DestroyTileActiveIdle
+  destroyTileInactiveStateName: DestroyTileInactiveIdle
   slideTileRedirectedTriggerName: SlideTileRedirected
   barricadeBlockedTriggerName: BarricadeBlocked
   barricadeCrushedTriggerName: BarricadeCrushed
@@ -88,6 +93,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   destroyTileTriggeredPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileDeactivatedPlayed:
     m_PersistentCalls:
       m_Calls: []
   slideTileRedirectedPlayed:
@@ -168,11 +179,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 6448f0036dc885f409ab41443afe68b0, type: 3}
       propertyPath: m_LocalScale.x
-      value: 7.25
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6448f0036dc885f409ab41443afe68b0, type: 3}
       propertyPath: m_LocalScale.y
-      value: 7.25
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6448f0036dc885f409ab41443afe68b0, type: 3}
       propertyPath: m_LocalScale.z

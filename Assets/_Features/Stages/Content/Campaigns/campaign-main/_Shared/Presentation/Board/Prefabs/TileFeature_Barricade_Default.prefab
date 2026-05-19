@@ -266,9 +266,15 @@ MonoBehaviour:
     face: 0
     x: 0
     y: 0
+  presentationRoot: {fileID: 0}
   animator: {fileID: 2191780658641707734}
   buttonActivatedTriggerName: ButtonActivated
   destroyTileTriggeredTriggerName: DestroyTileTriggered
+  destroyTileActivatedTriggerName: DestroyTileActivated
+  destroyTileDeactivatedTriggerName: DestroyTileDeactivated
+  destroyTileActiveBoolName: DestroyTileActive
+  destroyTileActiveStateName: DestroyTileActiveIdle
+  destroyTileInactiveStateName: DestroyTileInactiveIdle
   slideTileRedirectedTriggerName: SlideTileRedirected
   barricadeBlockedTriggerName: BarricadeBlocked
   barricadeCrushedTriggerName: BarricadeCrushed
@@ -279,7 +285,14 @@ MonoBehaviour:
   barricadeLoweredStateName: LoweredIdle
   exitOpenedTriggerName: ExitOpened
   exitEnteredTriggerName: ExitEntered
+  exitOpenBoolName: ExitOpen
+  exitOpenedStateName: ExitOpenedIdle
+  exitClosedStateName: ExitClosedIdle
   moonBlockGeneratedTriggerName: MoonBlockGenerated
+  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
+  moonBlockGeneratorBlockedUnitTriggerName: 
+  moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
+  moonBlockGeneratorBlockedPlacementTriggerName: 
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -288,10 +301,20 @@ MonoBehaviour:
   exitOpenedParticles: {fileID: 0}
   exitEnteredParticles: {fileID: 0}
   moonBlockGeneratedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedParticles: {fileID: 0}
+  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
+  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
+  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
   buttonActivatedPlayed:
     m_PersistentCalls:
       m_Calls: []
   destroyTileTriggeredPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileDeactivatedPlayed:
     m_PersistentCalls:
       m_Calls: []
   slideTileRedirectedPlayed:
@@ -316,6 +339,18 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   moonBlockGeneratedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedUnitPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedWallLikeSolidPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  moonBlockGeneratorBlockedPlacementPlayed:
     m_PersistentCalls:
       m_Calls: []
 --- !u!95 &2191780658641707734
@@ -368,7 +403,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: -0.3346}
-  m_LocalScale: {x: 7.25, y: 7.25, z: 9.88465}
+  m_LocalScale: {x: 7.9, y: 7.9, z: 9.88465}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1606180183361757203}
