@@ -21,6 +21,8 @@ namespace Game.Feature.Gameplay.Host
 
         private MaterialPropertyBlock _propertyBlock;
         private RendererCacheEntry[] _rendererEntries = Array.Empty<RendererCacheEntry>();
+        private ParticleSystem[] _childParticleSystems = Array.Empty<ParticleSystem>();
+        private TrailRenderer[] _childTrailRenderers = Array.Empty<TrailRenderer>();
 
         public EnemyVisualActivityState CurrentActivityState { get; private set; }
 
@@ -31,11 +33,13 @@ namespace Game.Feature.Gameplay.Host
         private void Awake()
         {
             CacheRenderers();
+            CacheChildEffects();
         }
 
         private void OnEnable()
         {
             CacheRenderers();
+            CacheChildEffects();
         }
 
         public void Apply(in EnemyVisualSemanticState state)
@@ -62,6 +66,11 @@ namespace Game.Feature.Gameplay.Host
 
             CurrentActivityState = activityState;
             CurrentInactiveBlend = inactiveBlend;
+
+            if (activityState == EnemyVisualActivityState.FrontFaceInactive)
+            {
+                StopAndClearChildEffects();
+            }
 
             if (_rendererEntries.Length == 0)
             {
@@ -107,6 +116,36 @@ namespace Game.Feature.Gameplay.Host
 
                 renderer.SetPropertyBlock(_propertyBlock);
                 _propertyBlock.Clear();
+            }
+        }
+
+        private void CacheChildEffects()
+        {
+            _childParticleSystems = GetComponentsInChildren<ParticleSystem>(includeInactive: true);
+            _childTrailRenderers = GetComponentsInChildren<TrailRenderer>(includeInactive: true);
+        }
+
+        private void StopAndClearChildEffects()
+        {
+            CacheChildEffects();
+            for (var i = 0; i < _childParticleSystems.Length; i++)
+            {
+                var particleSystem = _childParticleSystems[i];
+                if (particleSystem != null)
+                {
+                    particleSystem.Stop(
+                        withChildren: true,
+                        ParticleSystemStopBehavior.StopEmittingAndClear);
+                }
+            }
+
+            for (var i = 0; i < _childTrailRenderers.Length; i++)
+            {
+                var trailRenderer = _childTrailRenderers[i];
+                if (trailRenderer != null)
+                {
+                    trailRenderer.Clear();
+                }
             }
         }
 
