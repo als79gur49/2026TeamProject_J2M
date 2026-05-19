@@ -16,6 +16,7 @@ namespace Game.Feature.UI.HUD
         private const Ease HudDimTweenEase = Ease.OutQuad;
         private const bool HudDimUseUnscaledTime = true;
         private const string HudTopLeftStackName = "HudTopLeftStack";
+        private const string HudTopCenterStackName = "HudTopCenterStack";
         private const string HudTopRightStackName = "HudTopRightStack";
         private const string HudBottomRightStackName = "HudBottomRightStack";
 
@@ -30,7 +31,6 @@ namespace Game.Feature.UI.HUD
         [FormerlySerializedAs("_topologyBeltView")]
         [SerializeField] private SurfaceBeltIndicatorView _surfaceBeltIndicatorView;
         [SerializeField] private PlayerStatusView _playerStatusView;
-        [SerializeField] private NotificationView _notificationView;
 
         private HUDRootViewModel _viewModel;
         private StageInfoViewModel _stageInfoViewModel;
@@ -57,8 +57,6 @@ namespace Game.Feature.UI.HUD
         public ChancePanelView ChancePanelView => _chancePanelView;
 
         public SurfaceBeltIndicatorView SurfaceBeltIndicatorView => _surfaceBeltIndicatorView;
-
-        public NotificationView NotificationView => _notificationView;
 
         public HUDRootViewModel ViewModel => _viewModel;
 
@@ -172,27 +170,25 @@ namespace Game.Feature.UI.HUD
             RequireReference(_chancePanelView, nameof(_chancePanelView));
             RequireReference(_surfaceBeltIndicatorView, nameof(_surfaceBeltIndicatorView));
             RequireReference(_playerStatusView, nameof(_playerStatusView));
-            RequireReference(_notificationView, nameof(_notificationView));
             RequireSingleChildView<ChancePanelView>(nameof(ChancePanelView));
             RequireSingleChildView<SurfaceBeltIndicatorView>(nameof(SurfaceBeltIndicatorView));
 
             var authoredRoot = _root != null ? _root.transform : transform;
             var topLeftStack = RequireStack(authoredRoot, HudTopLeftStackName);
+            var topCenterStack = RequireStack(authoredRoot, HudTopCenterStackName);
             var topRightStack = RequireStack(authoredRoot, HudTopRightStackName);
             var bottomRightStack = RequireStack(authoredRoot, HudBottomRightStackName);
 
             RequireOwnedByStack(_objectiveHudView.transform, topLeftStack, nameof(_objectiveHudView));
+            RequireOwnedByStack(_chancePanelView.transform, topCenterStack, nameof(_chancePanelView));
             RequireOwnedByStack(_stageNameLabel.transform, topRightStack, nameof(_stageNameLabel));
             RequireOwnedByStack(_pauseButton.transform, topRightStack, nameof(_pauseButton));
             RequireOwnedByStack(_surfaceBeltIndicatorView.transform, topRightStack, nameof(_surfaceBeltIndicatorView));
-            RequireOwnedByStack(_notificationView.transform, bottomRightStack, nameof(_notificationView));
-            RequireOwnedByStack(_chancePanelView.transform, bottomRightStack, nameof(_chancePanelView));
 
             _objectiveHudView.ValidateAuthoredStructureOrThrow();
             _chancePanelView.ValidateAuthoredStructureOrThrow();
             _surfaceBeltIndicatorView.ValidateAuthoredStructureOrThrow();
             _playerStatusView.ValidateAuthoredStructureOrThrow();
-            _notificationView.ValidateAuthoredStructureOrThrow();
         }
 
         private void OnEnable()
@@ -227,7 +223,6 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_chancePanelView, nameof(_chancePanelView));
             ValidateSerializedReference(_surfaceBeltIndicatorView, nameof(_surfaceBeltIndicatorView));
             ValidateSerializedReference(_playerStatusView, nameof(_playerStatusView));
-            ValidateSerializedReference(_notificationView, nameof(_notificationView));
         }
 #endif
 

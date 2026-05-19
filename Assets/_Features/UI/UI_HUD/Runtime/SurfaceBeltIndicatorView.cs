@@ -186,16 +186,16 @@ namespace Game.Feature.UI.HUD
             ResetContentPosition();
 
             var destinationSlotIndex = viewModel.DestinationSlotIndex;
-            var authoredCellStepWidth = GetAuthoredCellStepWidth();
-            var targetX = viewModel.Direction == SurfaceBeltDirection.Forward
-                ? -authoredCellStepWidth
-                : authoredCellStepWidth;
+            var authoredCellStepHeight = GetAuthoredCellStepHeight();
+            var targetY = viewModel.Direction == SurfaceBeltDirection.Forward
+                ? -authoredCellStepHeight
+                : authoredCellStepHeight;
 
             PlayCenterArrowFeedback(viewModel.Direction);
             PlayCenterArrowShine(viewModel.Direction);
 
             _moveTween = _beltContent
-                .DOAnchorPosX(targetX, Mathf.Max(0.0f, _animationDurationSeconds))
+                .DOAnchorPosY(targetY, Mathf.Max(0.0f, _animationDurationSeconds))
                 .SetEase(_animationEase)
                 .SetUpdate(_useUnscaledTime)
                 .SetLink(gameObject, LinkBehaviour.KillOnDestroy)
@@ -226,7 +226,7 @@ namespace Game.Feature.UI.HUD
             }
 
             var duration = Mathf.Max(0.0f, _centerArrowAnimationDurationSeconds);
-            var target = _centerArrowBaseAnchoredPosition + new Vector2(nudge, 0.0f);
+            var target = _centerArrowBaseAnchoredPosition + new Vector2(0.0f, nudge);
             _centerArrowTween = DOTween.Sequence()
                 .Append(_centerArrow.DOAnchorPos(target, duration * 0.45f).SetEase(_centerArrowEase))
                 .Append(_centerArrow.DOAnchorPos(_centerArrowBaseAnchoredPosition, duration * 0.55f).SetEase(_centerArrowEase))
@@ -294,7 +294,7 @@ namespace Game.Feature.UI.HUD
             }
         }
 
-        private float GetAuthoredCellStepWidth()
+        private float GetAuthoredCellStepHeight()
         {
             if (_cells == null || _cells.Length < 5)
             {
@@ -304,11 +304,11 @@ namespace Game.Feature.UI.HUD
 
             var center = (RectTransform)_cells[3].transform;
             var next = (RectTransform)_cells[4].transform;
-            var step = Mathf.Abs(next.anchoredPosition.x - center.anchoredPosition.x);
+            var step = Mathf.Abs(next.anchoredPosition.y - center.anchoredPosition.y);
             if (step <= 0.0f)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(SurfaceBeltIndicatorView)} requires authored cells to have a positive horizontal step.");
+                    $"{nameof(SurfaceBeltIndicatorView)} requires authored cells to have a positive vertical step.");
             }
 
             return step;

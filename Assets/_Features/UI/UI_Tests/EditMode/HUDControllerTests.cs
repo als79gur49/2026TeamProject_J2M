@@ -33,19 +33,16 @@ namespace Game.Feature.UI.Tests
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot());
@@ -54,7 +51,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.StageInfoViewModel, Is.SameAs(controller.StageInfoViewModel));
                 Assert.That(hudView.ObjectiveHudView.ViewModel, Is.SameAs(controller.ObjectiveHudViewModel));
                 Assert.That(hudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
-                Assert.That(hudView.NotificationView.ViewModel, Is.SameAs(controller.NotificationViewModel));
             }
             finally
             {
@@ -77,23 +73,20 @@ namespace Game.Feature.UI.Tests
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
                 var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
                     surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
                     surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(hasRemainingChances: true, remainingChances: 2, maxChances: 3));
@@ -162,23 +155,20 @@ namespace Game.Feature.UI.Tests
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
                 var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
                     surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
                     surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(
@@ -188,10 +178,12 @@ namespace Game.Feature.UI.Tests
                     stageDisplayName: "Stage 1-1"));
 
                 var topLeftStack = FindRequiredRect(hudView.transform, "HudTopLeftStack");
+                var topCenterStack = FindRequiredRect(hudView.transform, "HudTopCenterStack");
                 var topRightStack = FindRequiredRect(hudView.transform, "HudTopRightStack");
                 var bottomRightStack = FindRequiredRect(hudView.transform, "HudBottomRightStack");
 
                 AssertStackTransform(topLeftStack, new Vector2(0.0f, 1.0f), new Vector2(0.0f, 1.0f), new Vector2(24.0f, -24.0f));
+                AssertStackTransform(topCenterStack, new Vector2(0.5f, 1.0f), new Vector2(0.5f, 1.0f), new Vector2(0.0f, -24.0f));
                 AssertStackTransform(topRightStack, new Vector2(1.0f, 1.0f), new Vector2(1.0f, 1.0f), new Vector2(-24.0f, -24.0f));
                 AssertStackTransform(bottomRightStack, new Vector2(1.0f, 0.0f), new Vector2(1.0f, 0.0f), new Vector2(-24.0f, 24.0f));
 
@@ -200,8 +192,7 @@ namespace Game.Feature.UI.Tests
                 AssertOwnedBy(GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel").transform, topRightStack);
                 AssertOwnedBy(GetSerializedReference<Button>(hudView, "_pauseButton").transform, topRightStack);
                 AssertOwnedBy(hudView.SurfaceBeltIndicatorView.transform, topRightStack);
-                AssertOwnedBy(hudView.NotificationView.transform, bottomRightStack);
-                AssertOwnedBy(hudView.ChancePanelView.transform, bottomRightStack);
+                AssertOwnedBy(hudView.ChancePanelView.transform, topCenterStack);
                 Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
                 Assert.That(hudView.SurfaceBeltIndicatorView.ViewModel, Is.SameAs(surfaceBeltIndicatorPresenter.ViewModel));
             }
@@ -236,23 +227,20 @@ namespace Game.Feature.UI.Tests
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
                 var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
                     surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
                     surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(
@@ -304,23 +292,20 @@ namespace Game.Feature.UI.Tests
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
                 var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
                     surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
                     surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(
@@ -375,12 +360,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(surfaceIndicators.Length, Is.EqualTo(1));
             Assert.That(surfaceIndicators[0], Is.SameAs(serializedSurfaceBeltIndicator));
 
+            var topCenterStack = FindRequiredRect(hudPrefab.transform, "HudTopCenterStack");
             var topRightStack = FindRequiredRect(hudPrefab.transform, "HudTopRightStack");
-            var bottomRightStack = FindRequiredRect(hudPrefab.transform, "HudBottomRightStack");
             AssertOwnedBy(GetSerializedReference<TMP_Text>(hudPrefab, "_stageNameLabel").transform, topRightStack);
             AssertOwnedBy(GetSerializedReference<Button>(hudPrefab, "_pauseButton").transform, topRightStack);
             AssertOwnedBy(serializedSurfaceBeltIndicator.transform, topRightStack);
-            AssertOwnedBy(serializedChancePanel.transform, bottomRightStack);
+            AssertOwnedBy(serializedChancePanel.transform, topCenterStack);
 
             var slotContainer = FindRequiredRect(serializedChancePanel.transform, "SlotContainer");
             var slotViews = serializedChancePanel.GetComponentsInChildren<ChanceSlotView>(true);
@@ -417,31 +402,48 @@ namespace Game.Feature.UI.Tests
             var indicatorLayout = surfaceBeltIndicator.GetComponent<LayoutElement>();
             var maskRoot = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_maskRoot");
             var beltContent = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_beltContent");
+            var centerArrow = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_centerArrow");
             var cells = surfaceBeltIndicator.Cells;
 
-            Assert.That(indicatorRoot.sizeDelta, Is.EqualTo(new Vector2(252.0f, 104.0f)));
+            AssertVector2Within(indicatorRoot.sizeDelta, new Vector2(146.6667f, 160.0f));
             Assert.That(indicatorLayout, Is.Not.Null);
-            Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(252.0f));
-            Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(104.0f));
-            Assert.That(maskRoot.sizeDelta, Is.EqualTo(new Vector2(232.0f, 52.0f)));
-            Assert.That(maskRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
-            Assert.That(beltContent.sizeDelta, Is.EqualTo(new Vector2(320.0f, 52.0f)));
+            Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(146.6667f).Within(0.01f));
+            Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(160.0f).Within(0.01f));
+            AssertVector2Within(maskRoot.sizeDelta, new Vector2(82.6667f, 141.3333f));
+            AssertVector2Within(maskRoot.anchoredPosition, new Vector2(-32.0f, 0.0f));
+            AssertVector2Within(beltContent.sizeDelta, new Vector2(82.6667f, 193.3333f));
+            AssertVector2Within(centerArrow.anchoredPosition, new Vector2(30.0f, 0.0f));
+            AssertVector2Within(centerArrow.sizeDelta, new Vector2(48.0f, 48.0f));
+            Assert.That(Mathf.DeltaAngle(90.0f, centerArrow.localEulerAngles.z), Is.EqualTo(0.0f).Within(0.01f));
+            Assert.That(centerArrow.anchoredPosition.x, Is.GreaterThan(maskRoot.anchoredPosition.x));
+            Assert.That(GetAuthoredVisualRight(centerArrow), Is.LessThanOrEqualTo(indicatorRoot.sizeDelta.x * 0.5f + 0.01f));
             Assert.That(cells.Length, Is.EqualTo(7));
 
-            var left = (RectTransform)cells[2].transform;
+            var below = (RectTransform)cells[2].transform;
             var center = (RectTransform)cells[3].transform;
-            var right = (RectTransform)cells[4].transform;
+            var above = (RectTransform)cells[4].transform;
+            var expectedCellPositions = new[] { -83.6667f, -57.6667f, -31.6667f, 0.0f, 31.6667f, 57.6667f, 83.6667f };
 
             Assert.That(center.localScale, Is.EqualTo(Vector3.one));
-            Assert.That(center.sizeDelta.x, Is.GreaterThan(left.sizeDelta.x));
-            Assert.That(center.sizeDelta.y, Is.GreaterThan(left.sizeDelta.y));
-            Assert.That(right.sizeDelta, Is.EqualTo(left.sizeDelta));
+            AssertVector2Within(center.sizeDelta, new Vector2(74.6667f, 33.3333f));
+            Assert.That(center.sizeDelta.x, Is.GreaterThan(below.sizeDelta.x));
+            Assert.That(center.sizeDelta.y, Is.GreaterThan(below.sizeDelta.y));
+            AssertVector2Within(above.sizeDelta, below.sizeDelta);
+
+            for (var i = 0; i < cells.Length; i++)
+            {
+                var cell = (RectTransform)cells[i].transform;
+                AssertVector2Within(cell.anchoredPosition, new Vector2(0.0f, expectedCellPositions[i]));
+                AssertVector2Within(
+                    cell.sizeDelta,
+                    i == 3 ? new Vector2(74.6667f, 33.3333f) : new Vector2(58.6667f, 26.0f));
+            }
 
             for (var i = 0; i < cells.Length - 1; i++)
             {
                 var current = (RectTransform)cells[i].transform;
                 var next = (RectTransform)cells[i + 1].transform;
-                var visualGap = GetAuthoredVisualLeft(next) - GetAuthoredVisualRight(current);
+                var visualGap = GetAuthoredVisualBottom(next) - GetAuthoredVisualTop(current);
 
                 Assert.That(
                     visualGap,
@@ -469,23 +471,20 @@ namespace Game.Feature.UI.Tests
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
                 var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
                     surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
                     surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 Assert.Throws<InvalidOperationException>(() => controller.AttachView(hudView));
                 Assert.That(hudView.GetComponentsInChildren<ChancePanelView>(true).Length, Is.EqualTo(2));
@@ -511,23 +510,20 @@ namespace Game.Feature.UI.Tests
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
                 var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
                     chancePanelPresenter,
                     surfaceBeltIndicatorPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
                     chancePanelPresenter.ViewModel,
                     surfaceBeltIndicatorPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
 
@@ -1849,19 +1845,16 @@ namespace Game.Feature.UI.Tests
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 using var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot(stageDisplayName: "Stage 1-1"));
@@ -2096,19 +2089,16 @@ namespace Game.Feature.UI.Tests
                 var playerStatusPresenter = new PlayerStatusPresenter();
                 var stageInfoPresenter = new StageInfoPresenter();
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
-                var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
                     stageInfoPresenter,
                     objectiveHudPresenter,
-                    playerStatusPresenter,
-                    notificationPresenter);
+                    playerStatusPresenter);
                 var controller = new HUDController(
                     rootPresenter.ViewModel,
                     stageInfoPresenter.ViewModel,
                     objectiveHudPresenter.ViewModel,
-                    playerStatusPresenter.ViewModel,
-                    notificationPresenter.ViewModel);
+                    playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 controller.Dispose();
@@ -2117,7 +2107,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.StageInfoViewModel, Is.Null);
                 Assert.That(hudView.ObjectiveHudView.ViewModel, Is.Null);
                 Assert.That(hudView.PlayerStatusView.ViewModel, Is.Null);
-                Assert.That(hudView.NotificationView.ViewModel, Is.Null);
             }
             finally
             {
@@ -2339,6 +2328,34 @@ namespace Game.Feature.UI.Tests
         private static float GetAuthoredVisualRight(RectTransform rectTransform)
         {
             return rectTransform.anchoredPosition.x + GetAuthoredVisualHalfWidth(rectTransform);
+        }
+
+        private static float GetAuthoredVisualHalfHeight(RectTransform rectTransform)
+        {
+            var halfHeight = rectTransform.sizeDelta.y * Mathf.Abs(rectTransform.localScale.y) * 0.5f;
+            var outline = rectTransform.GetComponent<Outline>();
+            if (outline != null && outline.enabled)
+            {
+                halfHeight += Mathf.Abs(outline.effectDistance.y) * Mathf.Abs(rectTransform.localScale.y);
+            }
+
+            return halfHeight;
+        }
+
+        private static float GetAuthoredVisualBottom(RectTransform rectTransform)
+        {
+            return rectTransform.anchoredPosition.y - GetAuthoredVisualHalfHeight(rectTransform);
+        }
+
+        private static float GetAuthoredVisualTop(RectTransform rectTransform)
+        {
+            return rectTransform.anchoredPosition.y + GetAuthoredVisualHalfHeight(rectTransform);
+        }
+
+        private static void AssertVector2Within(Vector2 actual, Vector2 expected)
+        {
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(0.01f));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(0.01f));
         }
 
         private static TReference GetSerializedReference<TReference>(
