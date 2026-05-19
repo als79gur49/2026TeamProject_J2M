@@ -834,6 +834,7 @@ namespace Game.Feature.Gameplay.Vfx
     public sealed class TileFeatureVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
     {
         private const int ActiveLoopEffectIndex = 1;
+        private const int VisibleLoopEffectIndex = 2;
 
         public GameplayVfxFamily Family => GameplayVfxFamily.TileFeature;
 
@@ -852,6 +853,7 @@ namespace Game.Feature.Gameplay.Vfx
 
             PlanEvents(context, builder, presentationData);
             PlanVisualStates(context, builder, presentationData);
+            PlanVisibleVisualStates(context, builder, presentationData);
         }
 
         private static void PlanEvents(
@@ -913,7 +915,10 @@ namespace Game.Feature.Gameplay.Vfx
                             VfxAnchorSlot.CellCenter),
                         timing: VfxTimingKind.ImmediateOnTickPresentation,
                         isPersistent: true,
-                        persistentKey: persistentKey));
+                        persistentKey: persistentKey,
+                        styleKey: ResolveTileFeatureStyleKey(
+                            context.TileFeatureVfxStyleBindings,
+                            activeVisualState.TileId)));
             }
         }
 
@@ -952,6 +957,47 @@ namespace Game.Feature.Gameplay.Vfx
                             state.Cell,
                             context.Topology,
                             VfxAnchorSlot.CellCenter),
+                        timing: VfxTimingKind.ImmediateOnTickPresentation,
+                        isPersistent: true,
+                        persistentKey: key,
+                        styleKey: ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId)));
+            }
+        }
+
+        private static void PlanVisibleVisualStates(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            TickPresentationData presentationData)
+        {
+            var states = presentationData.TileFeatureVisibleVisualStates;
+            for (var i = 0; i < states.Count; i++)
+            {
+                var state = states[i];
+                if (!state.IsActive || state.TileFeatureKind != TileFeatureKind.Button)
+                {
+                    continue;
+                }
+
+                var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.ButtonVisibleLoop);
+                var key = new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: state.TileId,
+                    cell: state.Cell,
+                    hasCell: true,
+                    effectIndex: VisibleLoopEffectIndex);
+                var sequenceId = ResolveVisibleStateSequenceId(context.TickIndex, i, state);
+                builder.Add(
+                    new GameplayVfxRequest(
+                        tickIndex: context.TickIndex,
+                        sequenceId: sequenceId,
+                        presentationSeed: sequenceId,
+                        sourceEntityId: state.SourceEntityId,
+                        cueId: cueId,
+                        anchor: VfxAnchor.ForCell(
+                            state.Cell,
+                            context.Topology,
+                            VfxAnchorSlot.CellFloor),
                         timing: VfxTimingKind.ImmediateOnTickPresentation,
                         isPersistent: true,
                         persistentKey: key,
@@ -1114,6 +1160,25 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ state.TileId;
                 hash = (hash * 397) ^ state.Cell.GetHashCode();
                 hash = (hash * 397) ^ (int)state.TileFeatureKind;
+                hash = (hash * 397) ^ state.SourceEntityId;
+                hash = (hash * 397) ^ state.OwnerEntityId;
+                hash = (hash * 397) ^ state.TeamId;
+                return hash != 0 ? hash : stateIndex + 1;
+            }
+        }
+
+        private static int ResolveVisibleStateSequenceId(
+            int tickIndex,
+            int stateIndex,
+            in TileFeatureVisualState state)
+        {
+            unchecked
+            {
+                var hash = (int)TileFeatureVfxCue.ButtonVisibleLoop;
+                hash = (hash * 397) ^ tickIndex;
+                hash = (hash * 397) ^ stateIndex;
+                hash = (hash * 397) ^ state.TileId;
+                hash = (hash * 397) ^ state.Cell.GetHashCode();
                 hash = (hash * 397) ^ state.SourceEntityId;
                 hash = (hash * 397) ^ state.OwnerEntityId;
                 hash = (hash * 397) ^ state.TeamId;

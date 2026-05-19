@@ -2272,6 +2272,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickContinuousLocomotionTrack> _continuousLocomotionTracks;
         private readonly ReadOnlyCollection<TilePresentationEvent> _tileEvents;
         private readonly ReadOnlyCollection<TileFeatureVisualState> _tileFeatureVisualStates;
+        private readonly ReadOnlyCollection<TileFeatureVisualState> _tileFeatureVisibleVisualStates;
         private readonly ReadOnlyCollection<GravityFieldPresentationEvent> _gravityFieldEvents;
         private readonly ReadOnlyCollection<GravityFieldVisualState> _gravityFieldVisualStates;
         private readonly ReadOnlyCollection<TileFeatureActiveVisualState> _tileFeatureActiveVisualStates;
@@ -2632,6 +2633,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisibleVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
@@ -2718,6 +2720,9 @@ namespace Game.Feature.Gameplay.Loop
             _tileFeatureVisualStates = new ReadOnlyCollection<TileFeatureVisualState>(
                 new List<TileFeatureVisualState>(
                     tileFeatureVisualStates ?? Array.Empty<TileFeatureVisualState>()));
+            _tileFeatureVisibleVisualStates = new ReadOnlyCollection<TileFeatureVisualState>(
+                new List<TileFeatureVisualState>(
+                    tileFeatureVisibleVisualStates ?? Array.Empty<TileFeatureVisualState>()));
             _gravityFieldEvents = new ReadOnlyCollection<GravityFieldPresentationEvent>(
                 new List<GravityFieldPresentationEvent>(
                     gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>()));
@@ -2841,6 +2846,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisibleVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
@@ -2873,6 +2879,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
+                tileFeatureVisibleVisualStates: tileFeatureVisibleVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
                 playerFlipResultTurnSignals: playerFlipResultTurnSignals,
                 flipFloorImpactSignals: flipFloorImpactSignals,
@@ -2947,6 +2954,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisibleVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
@@ -2983,6 +2991,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
+                tileFeatureVisibleVisualStates: tileFeatureVisibleVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
                 playerFlipResultTurnSignals: playerFlipResultTurnSignals,
                 flipFloorImpactSignals: flipFloorImpactSignals,
@@ -3035,6 +3044,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates = null,
             IEnumerable<BoxSlideStartPresentationSignal> boxSlideStartSignals = null,
             IEnumerable<TileFeatureVisualState> tileFeatureVisualStates = null,
+            IEnumerable<TileFeatureVisualState> tileFeatureVisibleVisualStates = null,
             IEnumerable<TileFeatureActiveVisualState> tileFeatureActiveVisualStates = null,
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
@@ -3072,6 +3082,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
                 boxSlideStartSignals: boxSlideStartSignals,
                 tileFeatureVisualStates: tileFeatureVisualStates,
+                tileFeatureVisibleVisualStates: tileFeatureVisibleVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
                 playerFlipResultTurnSignals: playerFlipResultTurnSignals,
                 flipFloorImpactSignals: flipFloorImpactSignals,
@@ -3110,6 +3121,9 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents;
 
         public IReadOnlyList<TileFeatureVisualState> TileFeatureVisualStates => _tileFeatureVisualStates;
+
+        public IReadOnlyList<TileFeatureVisualState> TileFeatureVisibleVisualStates =>
+            _tileFeatureVisibleVisualStates;
 
         public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldEvents => _gravityFieldEvents;
 

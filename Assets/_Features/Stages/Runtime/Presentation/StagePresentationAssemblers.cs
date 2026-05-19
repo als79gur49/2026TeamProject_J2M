@@ -482,7 +482,7 @@ namespace Game.Feature.Stages
                             catalogEntry.VisualPrefab,
                             catalogEntry.PlacementMode,
                             catalogEntry.FootprintMode,
-                            catalogEntry.VfxStyleKey));
+                            ResolveTileFeatureVfxStyleKey(tileFeature, catalogEntry.VfxStyleKey)));
                     }
                 }
             }
@@ -592,17 +592,37 @@ namespace Game.Feature.Stages
         {
             if (catalog == null)
             {
-                return VfxStyleKey.Default;
+                return ResolveTileFeatureVfxStyleKey(tileFeature, VfxStyleKey.Default);
             }
 
             var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
             if (string.IsNullOrEmpty(presentationKey) ||
                 !catalog.TryGetEntry(presentationKey, out var entry))
             {
-                return VfxStyleKey.Default;
+                return ResolveTileFeatureVfxStyleKey(tileFeature, VfxStyleKey.Default);
             }
 
-            return entry.VfxStyleKey;
+            return ResolveTileFeatureVfxStyleKey(tileFeature, entry.VfxStyleKey);
+        }
+
+        private static VfxStyleKey ResolveTileFeatureVfxStyleKey(
+            StageTileFeatureDefinition tileFeature,
+            VfxStyleKey fallback)
+        {
+            if (tileFeature.Kind != TileFeatureKind.Destroy)
+            {
+                return fallback;
+            }
+
+            switch (tileFeature.ActivationRule)
+            {
+                case TileFeatureActivationRule.FrontFaceOnly:
+                    return VfxStyleKey.Red;
+                case TileFeatureActivationRule.BottomFaceOnly:
+                    return VfxStyleKey.Blue;
+                default:
+                    return fallback;
+            }
         }
 
         private static IReadOnlyList<SurfaceCell> BuildSuppressedBaseTileCells(

@@ -41,6 +41,8 @@ MonoBehaviour:
     icon: {fileID: 0}
     isDefaultForKind: 1
     directionHint: 0
+    vfxStyleKey:
+      value: Blue
   - presentationKey: destroy.front
     displayName: Destroy Front
     kind: 2
@@ -49,6 +51,8 @@ MonoBehaviour:
     icon: {fileID: 0}
     isDefaultForKind: 0
     directionHint: 0
+    vfxStyleKey:
+      value: Red
   - presentationKey: destroy.active
     displayName: Destroy Active Face
     kind: 2

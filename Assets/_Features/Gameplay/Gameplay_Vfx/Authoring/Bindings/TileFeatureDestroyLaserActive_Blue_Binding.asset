@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e66b02300b114df386ca65b8417bb377, type: 3}
-  m_Name: TileFeature_SlideTileRedirectedLeft_Binding
-  m_EditorClassIdentifier: 
+  m_Name: TileFeatureDestroyLaserActive_Blue_Binding
+  m_EditorClassIdentifier:
   family: 4
-  cueCode: 12
+  cueCode: 21
   styleKey:
-    value: 
-  prefab: {fileID: 1579168213340724, guid: 3b2fb225f322eabc28e590c1331e4a8c, type: 3}
+    value: Blue
+  prefab: {fileID: 100000, guid: a8d3f10b3c214cf2a91c7d62e4b5f908, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
-  playbackMode: 0
-  stopPolicy: 1
-  defaultLifetimeSeconds: 0.6
-  tailSeconds: 0.2
+  playbackMode: 1
+  stopPolicy: 2
+  defaultLifetimeSeconds: 0
+  tailSeconds: 0.25
   initialPoolSize: 4
   maxConcurrentInstances: 16

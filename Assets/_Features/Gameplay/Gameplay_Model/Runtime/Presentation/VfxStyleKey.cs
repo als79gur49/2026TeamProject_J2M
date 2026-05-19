@@ -8,6 +8,8 @@ namespace Game.Feature.Gameplay
         public static readonly VfxStyleKey Default = new(nameof(Default));
         public static readonly VfxStyleKey Green = new(nameof(Green));
         public static readonly VfxStyleKey Yellow = new(nameof(Yellow));
+        public static readonly VfxStyleKey Red = new(nameof(Red));
+        public static readonly VfxStyleKey Blue = new(nameof(Blue));
 
         [UnityEngine.SerializeField] private string value;
 
