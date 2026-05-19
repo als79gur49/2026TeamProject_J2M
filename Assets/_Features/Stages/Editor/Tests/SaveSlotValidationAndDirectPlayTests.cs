@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Game.Feature.UI.Composition;
 using NUnit.Framework;
 using UnityEditor;
@@ -15,6 +16,7 @@ namespace Game.Feature.Stages.Editor.Tests
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             PlayerPrefs.DeleteKey(SaveSlotStore.DefaultPlayerPrefsKey);
+            PlayerPrefs.DeleteKey(new ActiveSlotProvider().PlayerPrefsKey);
             PlayerPrefs.Save();
         }
 
@@ -68,6 +70,93 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(slot.CurrentStageId, Is.EqualTo(stageId));
             Assert.That(slot.CurrentLevelGroupId, Is.EqualTo("level-3"));
             Assert.That(slot.RemainingChances, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void StandaloneCampaignSeedImport_PrimesDefaultSaveStoreAndActiveSlot()
+        {
+            var seedPath = CreateTempSeedPath();
+            var provider = CreateProvider("stage-2-2");
+            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var saveStore = new SaveSlotStore();
+            var activeSlotProvider = new ActiveSlotProvider();
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            try
+            {
+                File.WriteAllText(
+                    seedPath,
+                    StandaloneCampaignSaveSeedImporter.BuildSeedJson(
+                        StageId.CreateOrThrow("stage-2-2"),
+                        slotNumber: 2,
+                        remainingChances: 1));
+
+                Assert.That(
+                    StandaloneCampaignSaveSeedImporter.TryImportSeedFile(
+                        seedPath,
+                        saveStore,
+                        activeSlotProvider,
+                        resolver,
+                        provider.Provider,
+                        deleteAfterImport: true,
+                        out var result),
+                    Is.True);
+
+                var slot = saveStore.LoadSlot(2);
+                Assert.That(result.Status, Is.EqualTo(StandaloneCampaignSaveSeedImportStatus.Imported));
+                Assert.That(File.Exists(seedPath), Is.False);
+                Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
+                Assert.That(slot.CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-2-2")));
+                Assert.That(slot.CurrentLevelGroupId, Is.EqualTo("level-2"));
+                Assert.That(slot.RemainingChances, Is.EqualTo(1));
+            }
+            finally
+            {
+                DeleteFileIfExists(seedPath);
+                provider.Dispose();
+            }
+        }
+
+        [Test]
+        public void StandaloneCampaignSeedImport_RejectsMissingCatalogStageWithoutSaving()
+        {
+            var seedPath = CreateTempSeedPath();
+            var provider = CreateProvider("stage-0-1");
+            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var saveStore = new SaveSlotStore();
+            var activeSlotProvider = new ActiveSlotProvider();
+            saveStore.ClearAll();
+            activeSlotProvider.ClearActiveSlot();
+            try
+            {
+                File.WriteAllText(
+                    seedPath,
+                    StandaloneCampaignSaveSeedImporter.BuildSeedJson(
+                        StageId.CreateOrThrow("stage-2-2"),
+                        slotNumber: 2,
+                        remainingChances: 1));
+
+                Assert.That(
+                    StandaloneCampaignSaveSeedImporter.TryImportSeedFile(
+                        seedPath,
+                        saveStore,
+                        activeSlotProvider,
+                        resolver,
+                        provider.Provider,
+                        deleteAfterImport: false,
+                        out var result),
+                    Is.False);
+
+                Assert.That(result.Status, Is.EqualTo(StandaloneCampaignSaveSeedImportStatus.StageMissingFromCatalog));
+                Assert.That(saveStore.LoadSlot(2).IsEmpty, Is.True);
+                Assert.That(activeSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
+                Assert.That(File.Exists(seedPath), Is.True);
+            }
+            finally
+            {
+                DeleteFileIfExists(seedPath);
+                provider.Dispose();
+            }
         }
 
         [Test]
@@ -203,6 +292,21 @@ namespace Game.Feature.Stages.Editor.Tests
             catalog.SetEntries(entries);
             provider.AssignCatalog(catalog);
             return new ProviderHarness(provider, catalog, entries);
+        }
+
+        private static string CreateTempSeedPath()
+        {
+            var directory = Path.Combine("Temp", "StandaloneCampaignSeedTests");
+            Directory.CreateDirectory(directory);
+            return Path.Combine(directory, Guid.NewGuid().ToString("N") + ".json");
+        }
+
+        private static void DeleteFileIfExists(string path)
+        {
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
 
         private sealed class ProviderHarness : IDisposable

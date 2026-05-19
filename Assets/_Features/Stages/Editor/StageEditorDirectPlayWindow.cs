@@ -54,6 +54,14 @@ namespace Game.Feature.Stages.Editor
                     new[] { "1", "2", "3" },
                     new[] { 1, 2, 3 });
                 EditorGUILayout.HelpBox("Production slot mode overwrites real save data after confirmation.", MessageType.Warning);
+
+                if (GUILayout.Button("Export Standalone Save Seed..."))
+                {
+                    StageEditorDirectPlayLauncher.ExportStandaloneCampaignSaveSeedWithSavePanel(
+                        _stageIds[_selectedStageIndex],
+                        _remainingChances,
+                        _productionSlot);
+                }
             }
 
             using (new EditorGUILayout.HorizontalScope())

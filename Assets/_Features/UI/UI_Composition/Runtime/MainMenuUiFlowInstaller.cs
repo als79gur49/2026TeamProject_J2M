@@ -210,6 +210,7 @@ namespace Game.Feature.UI.Composition
                 ? _campaignStageSequenceDefinition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
             var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
+            ImportStandaloneCampaignSaveSeed(sequenceResolver);
             var saveSlotStore = new SaveSlotStore();
             var activeSlotProvider = new ActiveSlotProvider();
             var validationService = new SaveSlotValidationService(sequenceResolver, _stageCatalogProvider);
@@ -224,6 +225,26 @@ namespace Game.Feature.UI.Composition
             _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;
             _mainMenuScreenView.SaveSlotPanel.Bind(Controller.BuildViewModel());
+        }
+
+        private void ImportStandaloneCampaignSaveSeed(CampaignStageSequenceResolver sequenceResolver)
+        {
+            if (!StandaloneCampaignSaveSeedImporter.TryImportDefaultSeed(
+                    sequenceResolver,
+                    _stageCatalogProvider,
+                    out var importResult))
+            {
+                if (importResult.Status != StandaloneCampaignSaveSeedImportStatus.FileNotFound &&
+                    importResult.Status != StandaloneCampaignSaveSeedImportStatus.EditorRuntimeSkipped)
+                {
+                    Debug.LogWarning($"Standalone campaign save seed import skipped: {importResult.Message}");
+                }
+
+                return;
+            }
+
+            Debug.Log(
+                $"Standalone campaign save seed imported: slot={importResult.SlotNumber}, stage={importResult.StageId.Value}, path={importResult.SeedPath}");
         }
 
         private void BuildHubModule()

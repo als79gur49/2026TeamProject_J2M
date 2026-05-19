@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Game.Feature.UI.Composition;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -154,6 +155,66 @@ namespace Game.Feature.Stages.Editor
         public static void ClearTempDirectPlaySave()
         {
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+        }
+
+        public static bool ExportStandaloneCampaignSaveSeedWithSavePanel(
+            StageId stageId,
+            int remainingChances,
+            int productionSlotNumber = 1)
+        {
+            var seedPath = EditorUtility.SaveFilePanel(
+                "Export Standalone Campaign Save Seed",
+                string.Empty,
+                StandaloneCampaignSaveSeedImporter.SeedFileName,
+                "json");
+            if (string.IsNullOrWhiteSpace(seedPath))
+            {
+                return false;
+            }
+
+            ExportStandaloneCampaignSaveSeed(
+                stageId,
+                remainingChances,
+                productionSlotNumber,
+                seedPath);
+            return true;
+        }
+
+        public static void ExportStandaloneCampaignSaveSeed(
+            StageId stageId,
+            int remainingChances,
+            int productionSlotNumber,
+            string seedPath)
+        {
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException("Standalone campaign seed requires a valid StageId.", nameof(stageId));
+            }
+
+            SaveSlotStore.ThrowIfInvalidSlotNumber(productionSlotNumber);
+            if (string.IsNullOrWhiteSpace(seedPath))
+            {
+                throw new ArgumentException("Standalone campaign seed path is required.", nameof(seedPath));
+            }
+
+            var stageCatalogProvider = LoadStageCatalogProviderOrThrow();
+            var sequenceResolver = new CampaignStageSequenceResolver(LoadCampaignSequenceDefinition());
+            ValidateCampaignStage(stageId, stageCatalogProvider, sequenceResolver);
+
+            var directory = Path.GetDirectoryName(seedPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(
+                seedPath,
+                StandaloneCampaignSaveSeedImporter.BuildSeedJson(
+                    stageId,
+                    productionSlotNumber,
+                    remainingChances));
+            Debug.Log(
+                $"Standalone campaign save seed exported to '{seedPath}'. Place this file next to the standalone executable or in Application.persistentDataPath before launching the build.");
         }
 
         public static void PrimeCampaignTempSlotForTests(
