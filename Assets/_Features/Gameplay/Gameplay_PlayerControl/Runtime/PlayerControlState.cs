@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -647,11 +648,15 @@ namespace Game.Feature.Gameplay.PlayerControl
                     target.position,
                     delta,
                     out _,
-                    out var stopper) &&
-                snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(stopper.Cell, player.teamId, out _))
+                    out var stopper))
             {
-                contact = new PlayerActionTarget(target.entityId, inputDirection);
-                return true;
+                var impactTargets = new List<EntityState>();
+                snapshot.EnumerateUnitImpactTargetsAt(stopper.Cell, impactTargets);
+                if (impactTargets.Count > 0)
+                {
+                    contact = new PlayerActionTarget(target.entityId, inputDirection);
+                    return true;
+                }
             }
 
             contact = default;

@@ -91,6 +91,19 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
         {
+            ApplyTickPresentation(
+                result,
+                viewsByEntityId,
+                jumpLandingCompletionHoldEntityIds: null,
+                resolvePlayerMotionDurationSeconds);
+        }
+
+        public void ApplyTickPresentation(
+            TickResult result,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            IReadOnlyCollection<int> jumpLandingCompletionHoldEntityIds,
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
+        {
             BuildContactDelayedEnemyDeathEntityIds(result?.PresentationData);
             _enemyViewPresentationMapper.Build(result, viewsByEntityId, _enemyViewPresentationStates);
             foreach (var pair in _enemyViewPresentationStates)
@@ -99,6 +112,11 @@ namespace Game.Feature.Gameplay.Host
                 if (state.DidDie && _contactDelayedEnemyDeathEntityIds.Contains(pair.Key))
                 {
                     state = state.WithDidDie(false);
+                }
+
+                if (ContainsEntityId(jumpLandingCompletionHoldEntityIds, pair.Key))
+                {
+                    state = state.WithJumpLandingCompletionHold();
                 }
 
                 if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
@@ -271,6 +289,39 @@ namespace Game.Feature.Gameplay.Host
             {
                 driver.SyncRuntimeState(isVisible, isMoving, playbackSuppressed);
             }
+        }
+
+        public void CompleteEnemyJumpLandingPresentation(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
+            {
+                driver.CompleteJumpLandingPresentation();
+            }
+        }
+
+        private static bool ContainsEntityId(IReadOnlyCollection<int> entityIds, int entityId)
+        {
+            if (entityIds == null || entityIds.Count == 0)
+            {
+                return false;
+            }
+
+            if (entityIds is HashSet<int> hashSet)
+            {
+                return hashSet.Contains(entityId);
+            }
+
+            foreach (var candidateEntityId in entityIds)
+            {
+                if (candidateEntityId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public float BeginEnemyDeathPresentation(

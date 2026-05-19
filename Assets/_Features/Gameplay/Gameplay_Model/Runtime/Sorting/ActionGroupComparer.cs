@@ -54,6 +54,12 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
+            result = CompareLists(left.ImpactTargetIds, right.ImpactTargetIds, CompareInts);
+            if (result != 0)
+            {
+                return result;
+            }
+
             result = left.BoxKineticTargetId.CompareTo(right.BoxKineticTargetId);
             if (result != 0)
             {
@@ -115,6 +121,11 @@ namespace Game.Feature.Gameplay.Model.Sorting
             }
 
             return CompareLists(left.DelayedAttacks, right.DelayedAttacks, CompareDelayedAttackActions);
+        }
+
+        private static int CompareInts(int left, int right)
+        {
+            return left.CompareTo(right);
         }
 
         private static int CompareMoveActions(MoveAction left, MoveAction right)

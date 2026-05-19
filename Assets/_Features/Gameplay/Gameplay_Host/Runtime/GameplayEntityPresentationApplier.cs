@@ -331,6 +331,7 @@ namespace Game.Feature.Gameplay.Host
         public void ClearJumpPresentationState(int entityId)
         {
             _trackState.JumpTracks.Remove(entityId);
+            _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
         }
 
@@ -382,7 +383,14 @@ namespace Game.Feature.Gameplay.Host
         {
             for (var i = 0; i < _trackState.CompletedJumpTrackIds.Count; i++)
             {
-                _trackState.JumpTracks.Remove(_trackState.CompletedJumpTrackIds[i]);
+                var entityId = _trackState.CompletedJumpTrackIds[i];
+                var wasLandingCompletionHeld = _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
+                _trackState.JumpTracks.Remove(entityId);
+                _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
+                if (wasLandingCompletionHeld)
+                {
+                    _animationSync.CompleteEnemyJumpLandingPresentation(entityId, _stateStore.ViewsByEntityId);
+                }
             }
         }
 
@@ -764,6 +772,7 @@ namespace Game.Feature.Gameplay.Host
                 entityId,
                 out var transitionVisibilityState);
             var isJumpDetachedVisible = _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId);
+            var isJumpLandingCompletionHeld = _trackState.JumpLandingCompletionHoldEntityIds.Contains(entityId);
             var isTransitionOnlyVisible = isTransitionVisible && !isCommittedVisible;
             var hasEntityType = _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType);
             var hasUnitRole = _stateStore.UnitRolesByEntityId.TryGetValue(entityId, out var unitRole);
@@ -794,6 +803,7 @@ namespace Game.Feature.Gameplay.Host
                 isTransitionVisible,
                 isTransitionOnlyVisible,
                 isJumpDetachedVisible,
+                isJumpLandingCompletionHeld,
                 _committedFrameBuilder.ResolveProjectedSlot(
                     entityId,
                     isCommittedVisible,

@@ -8,11 +8,11 @@
   - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Commit/MovementCommitter.cs`
 - rule:
   - push execute tick에서 다음 칸이 비어 있으면 box를 이동 commit한다.
-  - 다음 칸이 적 유닛이면 `impact`다.
-  - Movement는 `ImpactReservation`만 만들고, Attack이 same-tick damage를 적용한다.
-  - target dies + landing accepted면 current runtime lethal follow-through formalization으로 same-tick advance를 commit한다.
-  - target survives면 `Stay`다.
-  - target dies + landing denied면 `Stay`다.
+  - 다음 칸이 유닛 점유 cell이면 `impact`다.
+  - Movement는 impact cell의 targetable unit 전체에 대해 `ImpactReservation`을 만들고, Attack이 same-tick damage를 적용한다.
+  - all targets die + landing accepted면 current runtime lethal follow-through formalization으로 same-tick advance를 commit한다.
+  - any target survives면 `Stay`다.
+  - all targets die + landing denied면 `Stay`다.
 
 ## Flip
 - 관련 코드:
@@ -20,11 +20,11 @@
   - `Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs`
 - rule:
   - flip execute tick에서 landing cell을 다시 판정한다.
-  - landing cell이 적 유닛이면 `impact`다.
+  - landing cell이 유닛 점유 cell이면 `impact`다.
   - current contract에서 flip impact는 impact-result-dependent action uplift다.
-  - target dies + landing accepted면 `FollowThrough`다.
-  - target survives면 `DestroySelf`다.
-  - target dies + landing denied면 `Stay`다.
+  - all targets die + landing accepted면 `FollowThrough`다.
+  - any target survives면 `DestroySelf`다.
+  - all targets die + landing denied면 `Stay`다.
   - landing cell이 wall, solid box, terrain, board edge면 `blocked`다.
   - `blocked`에서는 impact가 생기지 않는다.
 
@@ -35,12 +35,12 @@
 
 | Family | Attack outcome | Settlement outcome | Disposition | Note |
 | --- | --- | --- | --- | --- |
-| Push / Sliding Push | target survives | not asked | `Stay` | current runtime lethal follow-through formalization |
-| Push / Sliding Push | target dies | landing accepted | `FollowThrough` | current runtime lethal follow-through formalization |
-| Push / Sliding Push | target dies | landing denied | `Stay` | current runtime lethal follow-through formalization |
-| Flip | target survives | not asked | `DestroySelf` | impact-result-dependent action uplift |
-| Flip | target dies | landing accepted | `FollowThrough` | impact-result-dependent action uplift |
-| Flip | target dies | landing denied | `Stay` | current contract decision |
+| Push / Sliding Push | any target survives | not asked | `Stay` | current runtime lethal follow-through formalization |
+| Push / Sliding Push | all targets die | landing accepted | `FollowThrough` | current runtime lethal follow-through formalization |
+| Push / Sliding Push | all targets die | landing denied | `Stay` | current runtime lethal follow-through formalization |
+| Flip | any target survives | not asked | `DestroySelf` | impact-result-dependent action uplift |
+| Flip | all targets die | landing accepted | `FollowThrough` | impact-result-dependent action uplift |
+| Flip | all targets die | landing denied | `Stay` | current contract decision |
 
 - `Flip lethal but landing denied = Stay` is a current contract decision for the current Push/Flip impact-disposition plan. It is not a generalized impact principle.
 - Transient collision/break is a presentation-only track.

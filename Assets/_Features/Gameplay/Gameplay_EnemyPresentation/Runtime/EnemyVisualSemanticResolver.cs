@@ -39,7 +39,8 @@ namespace Game.Feature.Gameplay.Host
                 : EnemyVisualActivityState.Normal;
             var shouldPauseAnimatorPlayback = facts.IsEnemy &&
                                              facts.IsVisible &&
-                                             facts.IsGameplayAutonomySuppressed;
+                                             (facts.IsGameplayAutonomySuppressed ||
+                                              facts.IsJumpLandingCompletionHeld);
             return new EnemyVisualSemanticState(activityState, shouldPauseAnimatorPlayback);
         }
     }

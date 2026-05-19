@@ -77,5 +77,19 @@ namespace Game.Feature.Gameplay.Host
 
             return false;
         }
+
+        public bool HasActiveBlockingJumpLandingCompletion()
+        {
+            foreach (var entityId in _trackState.JumpLandingCompletionHoldEntityIds)
+            {
+                if (_trackState.JumpTracks.TryGetValue(entityId, out var jumpTrack) &&
+                    jumpTrack.HasClip)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

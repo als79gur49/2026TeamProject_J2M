@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplayTrackPlanner
     {
         internal const float FlipPeakPlayerHeightMultiplier = 1.4f;
+        private const float DefaultJumpLandingCompletionDurationSeconds = 0.12f;
 
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
         private readonly GameplayExitPresentationController _exitPresentationController;
@@ -915,7 +916,23 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < jumpSignals.Count; i++)
             {
                 var signal = jumpSignals[i];
-                if (signal.Phase != EnemyJumpPhase.Airborne || signal.LandedThisTick)
+                if (signal.LandedThisTick)
+                {
+                    if (TryStartJumpLandingCompletionTrack(
+                            signal,
+                            previousCommittedLocalTargetPoses,
+                            result,
+                            projector,
+                            timingProfile))
+                    {
+                        continue;
+                    }
+
+                    _entityPresentationApplier.ClearJumpPresentationState(signal.EntityId);
+                    continue;
+                }
+
+                if (signal.Phase != EnemyJumpPhase.Airborne)
                 {
                     _entityPresentationApplier.ClearJumpPresentationState(signal.EntityId);
                     continue;
@@ -976,6 +993,75 @@ namespace Game.Feature.Gameplay.Host
 
                 _entityPresentationApplier.ClearJumpPresentationState(visibilityChanges[i].EntityId);
             }
+        }
+
+        private bool TryStartJumpLandingCompletionTrack(
+            TickEnemyJumpPresentationSignal signal,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            TickResult result,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile)
+        {
+            if (!ShouldStartJumpLandingCompletionHold(signal, result.PresentationData.TopologyMotion))
+            {
+                return false;
+            }
+
+            if (!TryResolveJumpTrackStartPose(
+                    signal.EntityId,
+                    previousCommittedLocalTargetPoses,
+                    result,
+                    projector,
+                    out var startPose) ||
+                !TryResolveJumpTrackEndPose(signal, projector, out var endPose))
+            {
+                return false;
+            }
+
+            _trackState.JumpTracks.TryGetValue(signal.EntityId, out var existingTrack);
+            var jumpTrack = existingTrack ?? new JumpTrack();
+            jumpTrack.Replace(
+                JumpClip.Create(
+                    startPose,
+                    endPose,
+                    ResolveJumpLandingCompletionDurationSeconds(timingProfile, result.PresentationData.TopologyMotion),
+                    arcHeightWorld: 0f));
+
+            _trackState.JumpTracks[signal.EntityId] = jumpTrack;
+            _trackState.JumpLandingCompletionHoldEntityIds.Add(signal.EntityId);
+            _trackState.VisibilityTracks.Remove(signal.EntityId);
+            _stateStore.JumpDetachedVisibilityStates.Remove(signal.EntityId);
+            return true;
+        }
+
+        private static bool ShouldStartJumpLandingCompletionHold(
+            TickEnemyJumpPresentationSignal signal,
+            TickTopologyMotion? topologyMotion)
+        {
+            if (signal.PresentationTargetCell != signal.LockedTargetCell)
+            {
+                return true;
+            }
+
+            return IsTopologyTransitionPresentation(topologyMotion);
+        }
+
+        private float ResolveJumpLandingCompletionDurationSeconds(
+            GameplayTimingProfile timingProfile,
+            TickTopologyMotion? topologyMotion)
+        {
+            var landingDuration = Mathf.Max(
+                0.0001f,
+                Mathf.Min(DefaultJumpLandingCompletionDurationSeconds, timingProfile.SimulationTickIntervalSeconds));
+
+            if (!IsTopologyTransitionPresentation(topologyMotion))
+            {
+                return landingDuration;
+            }
+
+            return Mathf.Max(
+                landingDuration,
+                _motionTimingResolver.ResolveTopologyMotionDurationSeconds(timingProfile));
         }
 
         private GameplayEntityPose ResolveMotionEndPose(

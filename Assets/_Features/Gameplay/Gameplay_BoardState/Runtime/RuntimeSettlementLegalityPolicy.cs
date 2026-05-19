@@ -282,7 +282,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             if (!context.OccupancySnapshot.TryGetEntity(context.Actor.EntityId, out _) ||
-                !context.OccupancySnapshot.TryGetEntity(evidence.TargetId, out _))
+                !HasAnyExistingTarget(context.OccupancySnapshot, evidence.TargetIds))
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
@@ -303,7 +303,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             if (context.OccupancySnapshot.TryGetSolidSemanticAt(context.TerminalCell, out var solidOccupant) &&
-                solidOccupant.Entity.entityId != evidence.TargetId)
+                !ContainsTargetId(evidence.TargetIds, solidOccupant.Entity.entityId))
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
@@ -315,7 +315,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (TryGetSettlementBlockingOccupant(
                     context,
-                    shouldIgnoreOccupant: occupant => occupant.entityId == evidence.TargetId,
+                    shouldIgnoreOccupant: occupant => ContainsTargetId(evidence.TargetIds, occupant.entityId),
                     shouldTreatAsBlockingOccupant: null,
                     out var blockingOccupant))
             {
@@ -360,8 +360,44 @@ namespace Game.Feature.Gameplay.BoardState
                     reservationStatus),
                 new ImpactFollowThroughEvidence(
                     payload.AttackSourceEntityId,
-                    payload.TargetEntityId,
+                    payload.TargetEntityIds,
                     destroyResolutions));
+        }
+
+        private static bool HasAnyExistingTarget(WorldSnapshot snapshot, IReadOnlyList<int> targetIds)
+        {
+            if (targetIds == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < targetIds.Count; i++)
+            {
+                if (snapshot.TryGetEntity(targetIds[i], out _))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsTargetId(IReadOnlyList<int> targetIds, int entityId)
+        {
+            if (targetIds == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < targetIds.Count; i++)
+            {
+                if (targetIds[i] == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsImpactTargetSurviving(WorldSnapshot snapshot, int targetEntityId)

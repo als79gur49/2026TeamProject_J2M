@@ -17,6 +17,35 @@ namespace Game.Feature.Gameplay.Host
             bool isGameplayAutonomySuppressed,
             EnemyAiMode aiMode,
             bool hasActiveMotion)
+            : this(
+                entityId,
+                isEnemy,
+                isVisible,
+                isCommittedVisible,
+                isTransitionVisible,
+                isTransitionOnlyVisible,
+                isJumpDetachedVisible,
+                isJumpLandingCompletionHeld: false,
+                projectedSlot,
+                isGameplayAutonomySuppressed,
+                aiMode,
+                hasActiveMotion)
+        {
+        }
+
+        public EnemyVisualPresentationFacts(
+            int entityId,
+            bool isEnemy,
+            bool isVisible,
+            bool isCommittedVisible,
+            bool isTransitionVisible,
+            bool isTransitionOnlyVisible,
+            bool isJumpDetachedVisible,
+            bool isJumpLandingCompletionHeld,
+            GameplayProjectedFaceSlot? projectedSlot,
+            bool isGameplayAutonomySuppressed,
+            EnemyAiMode aiMode,
+            bool hasActiveMotion)
         {
             EntityId = entityId;
             IsEnemy = isEnemy;
@@ -25,6 +54,7 @@ namespace Game.Feature.Gameplay.Host
             IsTransitionVisible = isTransitionVisible;
             IsTransitionOnlyVisible = isTransitionOnlyVisible;
             IsJumpDetachedVisible = isJumpDetachedVisible;
+            IsJumpLandingCompletionHeld = isJumpLandingCompletionHeld;
             ProjectedSlot = projectedSlot;
             IsGameplayAutonomySuppressed = isGameplayAutonomySuppressed;
             AiMode = aiMode;
@@ -44,6 +74,8 @@ namespace Game.Feature.Gameplay.Host
         public bool IsTransitionOnlyVisible { get; }
 
         public bool IsJumpDetachedVisible { get; }
+
+        public bool IsJumpLandingCompletionHeld { get; }
 
         public GameplayProjectedFaceSlot? ProjectedSlot { get; }
 

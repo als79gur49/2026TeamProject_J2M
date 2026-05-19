@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Model.Groups
             Priority = priority;
             GroupKind = groupKind;
             AttackSourceKind = attackSourceKind;
+            ImpactTargetIds = new List<int>();
             Moves = new List<MoveAction>();
             Damages = new List<DamageAction>();
             Spawns = new List<SpawnAction>();
@@ -49,7 +50,9 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public int ImpactSourceId { get; private set; }
 
-        public int ImpactTargetId { get; private set; }
+        public int ImpactTargetId => ImpactTargetIds.Count > 0 ? ImpactTargetIds[0] : 0;
+
+        public IReadOnlyList<int> ImpactTargetIds { get; }
 
         public int DeferredImpactSourceId { get; private set; }
 
@@ -79,7 +82,7 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public List<DelayedAttackAction> DelayedAttacks { get; }
 
-        public bool HasResolvedImpact => ImpactSourceId > 0 && ImpactTargetId > 0;
+        public bool HasResolvedImpact => ImpactSourceId > 0 && ImpactTargetIds.Count > 0;
 
         public bool HasDeferredImpact => DeferredImpactSourceId > 0;
 
@@ -101,19 +104,37 @@ namespace Game.Feature.Gameplay.Model.Groups
             }
 
             ImpactSourceId = SourceId;
-            ImpactTargetId = targetId;
+            ((List<int>)ImpactTargetIds).Add(targetId);
         }
 
         public void AssignImpactReservation(int impactSourceId, int impactTargetId)
+        {
+            AssignImpactReservation(impactSourceId, new[] { impactTargetId });
+        }
+
+        public void AssignImpactReservation(int impactSourceId, IReadOnlyList<int> impactTargetIds)
         {
             if (impactSourceId <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(impactSourceId), "Impact source must be a positive entity ID.");
             }
 
-            if (impactTargetId <= 0)
+            if (impactTargetIds == null)
             {
-                throw new ArgumentOutOfRangeException(nameof(impactTargetId), "Impact target must be a positive entity ID.");
+                throw new ArgumentNullException(nameof(impactTargetIds));
+            }
+
+            if (impactTargetIds.Count == 0)
+            {
+                throw new ArgumentException("Impact target list must not be empty.", nameof(impactTargetIds));
+            }
+
+            for (var i = 0; i < impactTargetIds.Count; i++)
+            {
+                if (impactTargetIds[i] <= 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(impactTargetIds), "Impact targets must be positive entity IDs.");
+                }
             }
 
             if (HasResolvedImpact)
@@ -122,7 +143,11 @@ namespace Game.Feature.Gameplay.Model.Groups
             }
 
             ImpactSourceId = impactSourceId;
-            ImpactTargetId = impactTargetId;
+            var targetIds = (List<int>)ImpactTargetIds;
+            for (var i = 0; i < impactTargetIds.Count; i++)
+            {
+                targetIds.Add(impactTargetIds[i]);
+            }
         }
 
         public void AssignDeferredImpact(int impactSourceId, SurfaceCell impactCell)

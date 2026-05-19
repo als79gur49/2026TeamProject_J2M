@@ -148,20 +148,36 @@ namespace Game.Feature.Gameplay.BoardState
             int attackSourceId,
             int targetId,
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions)
+            : this(attackSourceId, new[] { targetId }, destroyResolutions)
         {
+        }
+
+        public ImpactFollowThroughEvidence(
+            int attackSourceId,
+            IReadOnlyList<int> targetIds,
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions)
+        {
+            if (targetIds == null)
+            {
+                throw new ArgumentNullException(nameof(targetIds));
+            }
+
             if (destroyResolutions == null)
             {
                 throw new ArgumentNullException(nameof(destroyResolutions));
             }
 
             AttackSourceId = attackSourceId;
-            TargetId = targetId;
+            TargetIds = targetIds;
+            TargetId = TargetIds.Count > 0 ? TargetIds[0] : 0;
             DestroyResolutions = destroyResolutions;
         }
 
         public int AttackSourceId { get; }
 
         public int TargetId { get; }
+
+        public IReadOnlyList<int> TargetIds { get; }
 
         public IReadOnlyList<DestroyResolutionRecord> DestroyResolutions { get; }
     }

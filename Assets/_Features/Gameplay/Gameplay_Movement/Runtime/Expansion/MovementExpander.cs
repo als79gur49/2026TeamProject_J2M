@@ -997,17 +997,17 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             bool skipActiveGlideTargets,
             List<ActionGroup> buffer)
         {
-            if (!TryResolveBoxImpactTeamId(actorSource, impactSourceBox, out var sourceTeamId))
+            var targets = new List<EntityState>();
+            snapshot.EnumerateUnitImpactTargetsAt(impactCell, targets);
+            if (targets.Count == 0)
             {
                 return false;
             }
 
-            var hasImpactTarget = skipActiveGlideTargets
-                ? snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(impactCell, sourceTeamId, out var target)
-                : snapshot.TryPickHostileUnitImpactTargetAt(impactCell, sourceTeamId, out target);
-            if (!hasImpactTarget)
+            var targetIds = new List<int>(targets.Count);
+            for (var i = 0; i < targets.Count; i++)
             {
-                return false;
+                targetIds.Add(targets[i].entityId);
             }
 
             var actionGroup = new ActionGroup(
@@ -1015,7 +1015,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.SourceId,
                 intent.Priority,
                 ActionGroupKind.BoxImpact);
-            actionGroup.AssignImpactReservation(impactSourceBox.entityId, target.entityId);
+            actionGroup.AssignImpactReservation(impactSourceBox.entityId, targetIds);
 
             if (stopSliding)
             {

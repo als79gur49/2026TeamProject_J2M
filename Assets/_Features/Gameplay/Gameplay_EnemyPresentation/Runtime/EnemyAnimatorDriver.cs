@@ -219,6 +219,21 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void CompleteJumpLandingPresentation()
+        {
+            var settledState = LastPresentationState.WithJumpLandingCompletionSettled();
+            LastPresentationState = settledState;
+            CurrentAiMode = settledState.AiMode;
+            CurrentActiveActionKind = settledState.ActiveActionKind;
+            IsMoving = settledState.IsMoving;
+
+            var targetAnimator = ResolveAnimator();
+            SyncOptionalParameters(targetAnimator, settledState);
+            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(settledState));
+            TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
+            SyncRuntimeState(IsVisible, IsMoving, playbackSuppressed: false);
+        }
+
         public void SyncRuntimeState(bool isVisible, bool isMoving, bool playbackSuppressed = false)
         {
             IsVisible = isVisible;

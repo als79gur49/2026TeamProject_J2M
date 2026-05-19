@@ -140,6 +140,45 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
+        public static void EnumerateUnitImpactTargetsAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            List<EntityState> buffer)
+        {
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell);
+
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            if (!topology.IsFaceActive(cell.face) ||
+                !stackedUnitsByCell.TryGetValue(cell, out var entityIds))
+            {
+                return;
+            }
+
+            foreach (var entityId in entityIds)
+            {
+                if (!entitiesById.TryGetValue(entityId, out var entity) ||
+                    !GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
+                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology)))
+                {
+                    continue;
+                }
+
+                buffer.Add(entity);
+            }
+
+            buffer.Sort((left, right) => left.entityId.CompareTo(right.entityId));
+        }
+
         public static bool TryGetPrimaryUnitAt(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,

@@ -128,10 +128,36 @@ namespace Game.Feature.Gameplay.Loop
             ActionPlanId = actionPlanId;
             ImpactSourceEntityId = impactSourceEntityId;
             ImpactTargetEntityId = impactTargetEntityId;
+            ImpactTargetEntityIds = new[] { impactTargetEntityId };
             ImpactCell = impactCell;
             PolicyKind = policyKind;
             DispositionKind = dispositionKind;
             TargetDestroyed = targetDestroyed;
+            AllTargetsDestroyed = targetDestroyed;
+            FollowThroughLegalityChecked = followThroughLegalityChecked;
+            FollowThroughAccepted = followThroughAccepted;
+        }
+
+        public ImpactDispositionResolutionRecord(
+            int actionPlanId,
+            int impactSourceEntityId,
+            IReadOnlyList<int> impactTargetEntityIds,
+            SurfaceCell impactCell,
+            ImpactDispositionPolicyKind policyKind,
+            ImpactDispositionKind dispositionKind,
+            bool allTargetsDestroyed,
+            bool followThroughLegalityChecked,
+            bool followThroughAccepted)
+        {
+            ActionPlanId = actionPlanId;
+            ImpactSourceEntityId = impactSourceEntityId;
+            ImpactTargetEntityIds = impactTargetEntityIds ?? throw new ArgumentNullException(nameof(impactTargetEntityIds));
+            ImpactTargetEntityId = ImpactTargetEntityIds.Count > 0 ? ImpactTargetEntityIds[0] : 0;
+            ImpactCell = impactCell;
+            PolicyKind = policyKind;
+            DispositionKind = dispositionKind;
+            TargetDestroyed = allTargetsDestroyed;
+            AllTargetsDestroyed = allTargetsDestroyed;
             FollowThroughLegalityChecked = followThroughLegalityChecked;
             FollowThroughAccepted = followThroughAccepted;
         }
@@ -142,6 +168,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public int ImpactTargetEntityId { get; }
 
+        public IReadOnlyList<int> ImpactTargetEntityIds { get; }
+
         public SurfaceCell ImpactCell { get; }
 
         public ImpactDispositionPolicyKind PolicyKind { get; }
@@ -149,6 +177,8 @@ namespace Game.Feature.Gameplay.Loop
         public ImpactDispositionKind DispositionKind { get; }
 
         public bool TargetDestroyed { get; }
+
+        public bool AllTargetsDestroyed { get; }
 
         public bool FollowThroughLegalityChecked { get; }
 
@@ -318,11 +348,53 @@ namespace Game.Feature.Gameplay.Loop
             Direction sourceFacing,
             ImpactDispositionPolicyKind dispositionPolicyKind,
             ResolvedActionSemanticKind contingentSemanticKind)
+            : this(
+                sourceEntityId,
+                attackSourceEntityId,
+                sourceCell,
+                new[] { targetEntityId },
+                impactCell,
+                damageAmount,
+                sequence,
+                contingentDestinationCell,
+                contingentSourceCell,
+                contingentFacing,
+                hasContingentStateChange,
+                contingentState,
+                contingentStateTimer,
+                hasSourceFacing,
+                sourceFacingEntityId,
+                sourceFacing,
+                dispositionPolicyKind,
+                contingentSemanticKind)
+        {
+        }
+
+        public MovementImpactReservationPayload(
+            int sourceEntityId,
+            int attackSourceEntityId,
+            SurfaceCell sourceCell,
+            IReadOnlyList<int> targetEntityIds,
+            SurfaceCell impactCell,
+            int damageAmount,
+            int sequence,
+            SurfaceCell contingentDestinationCell,
+            SurfaceCell contingentSourceCell,
+            Direction contingentFacing,
+            bool hasContingentStateChange,
+            EntityPhaseState contingentState,
+            int contingentStateTimer,
+            bool hasSourceFacing,
+            int sourceFacingEntityId,
+            Direction sourceFacing,
+            ImpactDispositionPolicyKind dispositionPolicyKind,
+            ResolvedActionSemanticKind contingentSemanticKind)
         {
             SourceEntityId = sourceEntityId;
             AttackSourceEntityId = attackSourceEntityId;
             SourceCell = sourceCell;
-            TargetEntityId = targetEntityId;
+            TargetEntityIds = targetEntityIds ?? throw new ArgumentNullException(nameof(targetEntityIds));
+            TargetEntityId = TargetEntityIds.Count > 0 ? TargetEntityIds[0] : 0;
             ImpactCell = impactCell;
             DamageAmount = damageAmount;
             Sequence = sequence;
@@ -346,6 +418,8 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell SourceCell { get; }
 
         public int TargetEntityId { get; }
+
+        public IReadOnlyList<int> TargetEntityIds { get; }
 
         public SurfaceCell ImpactCell { get; }
 
