@@ -24,7 +24,7 @@ MonoBehaviour:
       requireNoSolidAtSpawnCell: 1
       definitionMode: 1
       summonedArchetype: {fileID: 11400000, guid: 8da265900dc94540a0e150fa08ff4c7f, type: 2}
-      overrideHp: 0
+      overrideHp: 1
       hpOverride: 1
       minionHp: 1
     lockNearbyBoxes:
