@@ -28,6 +28,7 @@ namespace Game.Feature.UI.Application
             switch (intent.CommandKind)
             {
                 case MainMenuCommandKind.OpenSettings:
+                    _showSection(MainMenuSectionId.None);
                     _settingsPort.OpenSettings();
                     break;
 

@@ -19,7 +19,7 @@ namespace Game.Feature.UI.Screens
         private const int QuitCommandIndex = 2;
 
         private const string MissingAuthoredStructureMessage =
-            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, and command SelectionFrame slots.";
+            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, and command SelectionFrame slots.";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private RectTransform _topBar;
@@ -27,6 +27,9 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private RectTransform _bottomBar;
         [SerializeField] private RectTransform _mainCommandPanel;
         [SerializeField] private SaveSlotPanelView _saveSlotPanel;
+        [SerializeField] private GameObject _saveSlotBlockerRoot;
+        [SerializeField] private CanvasGroup _saveSlotBlockerCanvasGroup;
+        [SerializeField] private Image _saveSlotBlockerImage;
         [SerializeField] private Button _startButton;
         [SerializeField] private TMP_Text _startButtonLabel;
         [SerializeField] private Button _settingsButton;
@@ -70,6 +73,9 @@ namespace Game.Feature.UI.Screens
                 _bottomBar == null ||
                 _mainCommandPanel == null ||
                 _saveSlotPanel == null ||
+                _saveSlotBlockerRoot == null ||
+                _saveSlotBlockerCanvasGroup == null ||
+                _saveSlotBlockerImage == null ||
                 _startButton == null ||
                 _startButtonLabel == null ||
                 _settingsButton == null ||
@@ -88,6 +94,7 @@ namespace Game.Feature.UI.Screens
             RequireOwnedBy(_bottomBar, transform);
             RequireOwnedBy(_mainCommandPanel, transform);
             RequireOwnedBy(_saveSlotPanel.transform, _contentHost);
+            RequireOwnedBy(_saveSlotBlockerRoot.transform, _contentHost);
             RequireOwnedBy(_startButton.transform, _mainCommandPanel);
             RequireOwnedBy(_settingsButton.transform, _mainCommandPanel);
             RequireOwnedBy(_quitButton.transform, _mainCommandPanel);
@@ -219,10 +226,12 @@ namespace Game.Feature.UI.Screens
         {
             var previousSection = ActiveSection;
             ActiveSection = sectionId;
+            var showSaveSlots = sectionId == MainMenuSectionId.SaveSlots;
+
             if (_saveSlotPanel != null)
             {
-                _saveSlotPanel.gameObject.SetActive(sectionId == MainMenuSectionId.SaveSlots);
-                if (sectionId == MainMenuSectionId.SaveSlots)
+                _saveSlotPanel.gameObject.SetActive(showSaveSlots);
+                if (showSaveSlots)
                 {
                     TryEnterPendingSaveSlotNavigation();
                 }
@@ -236,6 +245,8 @@ namespace Game.Feature.UI.Screens
                     }
                 }
             }
+
+            ApplySaveSlotModalState(showSaveSlots);
 
             if (previousSection != ActiveSection)
             {
@@ -295,6 +306,7 @@ namespace Game.Feature.UI.Screens
         private void OnDisable()
         {
             UnwireButtons();
+            ApplyCommandButtonsInteractable(true);
         }
 
         private void EnsureSaveSlotCardOrder()
@@ -329,6 +341,50 @@ namespace Game.Feature.UI.Screens
             Unbind(_startButton, ClickStart);
             Unbind(_settingsButton, ClickSettings);
             Unbind(_quitButton, ClickQuit);
+        }
+
+        private void ApplySaveSlotModalState(bool showSaveSlots)
+        {
+            ApplySaveSlotBlockerState(showSaveSlots);
+            ApplyCommandButtonsInteractable(!showSaveSlots);
+        }
+
+        private void ApplySaveSlotBlockerState(bool showSaveSlots)
+        {
+            if (_saveSlotBlockerRoot != null)
+            {
+                _saveSlotBlockerRoot.SetActive(showSaveSlots);
+            }
+
+            if (_saveSlotBlockerCanvasGroup != null)
+            {
+                _saveSlotBlockerCanvasGroup.alpha = showSaveSlots ? 1f : 0f;
+                _saveSlotBlockerCanvasGroup.interactable = showSaveSlots;
+                _saveSlotBlockerCanvasGroup.blocksRaycasts = showSaveSlots;
+            }
+
+            if (_saveSlotBlockerImage != null)
+            {
+                _saveSlotBlockerImage.raycastTarget = showSaveSlots;
+            }
+        }
+
+        private void ApplyCommandButtonsInteractable(bool interactable)
+        {
+            if (_startButton != null)
+            {
+                _startButton.interactable = interactable;
+            }
+
+            if (_settingsButton != null)
+            {
+                _settingsButton.interactable = interactable;
+            }
+
+            if (_quitButton != null)
+            {
+                _quitButton.interactable = interactable;
+            }
         }
 
         private static void Rebind(Button button, UnityEngine.Events.UnityAction action)
