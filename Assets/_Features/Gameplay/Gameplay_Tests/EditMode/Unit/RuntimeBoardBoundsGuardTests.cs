@@ -350,15 +350,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_DefaultsToOneSecond()
+        public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_DefaultsToThreeQuarterSecond()
         {
             var snapshot = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = 60,
             }.CreatePlayerRespawnTimingSnapshot();
 
-            Assert.That(snapshot.RespawnDelaySeconds, Is.EqualTo(1f));
-            Assert.That(snapshot.RespawnDelayTicks, Is.EqualTo(60));
+            Assert.That(snapshot.RespawnDelaySeconds, Is.EqualTo(0.75f));
+            Assert.That(snapshot.RespawnDelayTicks, Is.EqualTo(45));
         }
 
         [Test]

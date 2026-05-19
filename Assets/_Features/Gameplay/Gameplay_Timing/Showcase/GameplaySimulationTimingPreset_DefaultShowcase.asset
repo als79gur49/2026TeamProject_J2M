@@ -23,7 +23,7 @@ MonoBehaviour:
   playerKinematicLocomotionTiming:
     KinematicMoveDurationSeconds: 0.33333334
   playerRespawnTiming:
-    RespawnDelaySeconds: 1
+    RespawnDelaySeconds: 0.75
   repeatedMoveIntervalSeconds: 0.6
   boxSlideStepIntervalSeconds: 0.12
   projectileStepIntervalSeconds: 0.2

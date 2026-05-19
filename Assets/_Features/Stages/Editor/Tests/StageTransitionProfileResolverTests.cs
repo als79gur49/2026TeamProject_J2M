@@ -46,8 +46,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var profile = resolver.Resolve(request, "UIAudioScene", "UIAudioScene");
 
-            Assert.That(profile.PreOverlayDelaySeconds, Is.GreaterThan(0f));
-            Assert.That(profile.MinimumVisibleSeconds, Is.EqualTo(2.5f));
+            Assert.That(profile.PreOverlayDelaySeconds, Is.EqualTo(0.75f));
+            Assert.That(profile.MinimumVisibleSeconds, Is.EqualTo(1.75f));
             Assert.That(profile.HoldSceneActivationUntilMinimumElapsed, Is.True);
         }
 

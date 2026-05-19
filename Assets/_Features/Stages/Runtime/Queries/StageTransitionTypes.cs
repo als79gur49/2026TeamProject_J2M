@@ -345,12 +345,12 @@ namespace Game.Feature.Stages
                 StageTransitionKind.DeathRetryChanceLost,
                 string.Empty,
                 string.Empty,
-                2.5f,
+                1.75f,
                 true,
                 true,
                 true,
                 TransitionOverlayKind.ChanceLost,
-                preOverlayDelaySeconds: 0.35f,
+                preOverlayDelaySeconds: 0.75f,
                 blockInputDuringPreOverlayDelay: true,
                 startAsyncLoadBeforeOverlay: true));
             AddProfile(new StageTransitionProfile(
