@@ -77,6 +77,45 @@ ensure_result_dirs() {
     mkdir -p "$RESULT_DIR" "$METRICS_DIR"
 }
 
+find_solution_file() {
+    local solution_candidates
+    local solution_count=0
+    local solution_file=""
+    local solution
+
+    solution_candidates="$(find "$PROJECT_PATH_WSL" -maxdepth 1 -type f -name '*.sln' -printf '%f\n' | sort)"
+    while IFS= read -r solution; do
+        if [ -z "$solution" ]; then
+            continue
+        fi
+        solution_count=$((solution_count + 1))
+        solution_file="$solution"
+    done <<EOF
+$solution_candidates
+EOF
+
+    if [ "$solution_count" -ne 1 ]; then
+        echo "ERROR: Expected exactly one .sln in current worktree, found $solution_count."
+        echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
+        printf '  Solution candidates:'
+        if [ "$solution_count" -eq 0 ]; then
+            printf ' <none>'
+        else
+            while IFS= read -r solution; do
+                if [ -n "$solution" ]; then
+                    printf ' %s' "$solution"
+                fi
+            done <<EOF
+$solution_candidates
+EOF
+        fi
+        printf '\n'
+        exit 1
+    fi
+
+    printf '%s\n' "$solution_file"
+}
+
 normalize_windows_path_for_compare() {
     local path="$1"
 
@@ -443,11 +482,14 @@ run_dotnet_ui() {
 }
 
 run_dotnet_full() {
+    local solution_file
+
     if [ "$DRY_RUN" -eq 0 ]; then
         : > "$DOTNET_FULL_LOG"
     fi
+    solution_file="$(find_solution_file)"
     echo "Running Windows dotnet full build..."
-    run_dotnet_build "$DOTNET_FULL_LOG" 2026TeamProject_J2M.sln -c Debug
+    run_dotnet_build "$DOTNET_FULL_LOG" "$solution_file" -c Debug
 }
 
 run_dotnet_integration() {

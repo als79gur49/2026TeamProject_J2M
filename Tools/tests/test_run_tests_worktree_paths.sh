@@ -6,10 +6,12 @@ cd "$ROOT_DIR"
 
 EXPECTED_PROJECT_PATH_WIN="$(wslpath -w "$ROOT_DIR")"
 printf -v EXPECTED_PROJECT_PATH_WIN_SHELL '%q' "$EXPECTED_PROJECT_PATH_WIN"
+EXPECTED_SOLUTION="$(find "$ROOT_DIR" -maxdepth 1 -type f -name '*.sln' -printf '%f\n' | sort)"
 PRINT_CONFIG_OUTPUT="$(mktemp)"
 MISMATCH_OUTPUT="$(mktemp)"
-DRY_RUN_OUTPUT="$(mktemp)"
-trap 'rm -f "$PRINT_CONFIG_OUTPUT" "$MISMATCH_OUTPUT" "$DRY_RUN_OUTPUT"' EXIT
+CORE_DRY_RUN_OUTPUT="$(mktemp)"
+FULL_DRY_RUN_OUTPUT="$(mktemp)"
+trap 'rm -f "$PRINT_CONFIG_OUTPUT" "$MISMATCH_OUTPUT" "$CORE_DRY_RUN_OUTPUT" "$FULL_DRY_RUN_OUTPUT"' EXIT
 
 assert_contains() {
     local path="$1"
@@ -54,10 +56,16 @@ assert_contains "$MISMATCH_OUTPUT" "PROJECT_PATH_WSL"
 assert_contains "$MISMATCH_OUTPUT" "Expected PROJECT_PATH_WIN"
 assert_contains "$MISMATCH_OUTPUT" "Actual PROJECT_PATH_WIN"
 
-./run_tests.sh --dry-run core > "$DRY_RUN_OUTPUT"
-assert_contains "$DRY_RUN_OUTPUT" "-projectPath $EXPECTED_PROJECT_PATH_WIN_SHELL"
-assert_contains "$DRY_RUN_OUTPUT" "Would run Windows dotnet build:"
-assert_contains "$DRY_RUN_OUTPUT" "Would run Unity core (EditMode):"
-assert_not_contains "$DRY_RUN_OUTPUT" "ALL TESTS PASSED"
+./run_tests.sh --dry-run core > "$CORE_DRY_RUN_OUTPUT"
+assert_contains "$CORE_DRY_RUN_OUTPUT" "-projectPath $EXPECTED_PROJECT_PATH_WIN_SHELL"
+assert_contains "$CORE_DRY_RUN_OUTPUT" "Would run Windows dotnet build:"
+assert_contains "$CORE_DRY_RUN_OUTPUT" "Would run Unity core (EditMode):"
+assert_not_contains "$CORE_DRY_RUN_OUTPUT" "ALL TESTS PASSED"
+
+./run_tests.sh --dry-run full > "$FULL_DRY_RUN_OUTPUT"
+assert_contains "$FULL_DRY_RUN_OUTPUT" "Would run Windows dotnet build:"
+assert_contains "$FULL_DRY_RUN_OUTPUT" "$EXPECTED_SOLUTION"
+assert_contains "$FULL_DRY_RUN_OUTPUT" "-projectPath $EXPECTED_PROJECT_PATH_WIN_SHELL"
+assert_not_contains "$FULL_DRY_RUN_OUTPUT" "ALL TESTS PASSED"
 
 echo "run_tests.sh worktree path checks passed"
