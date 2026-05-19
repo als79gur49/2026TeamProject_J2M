@@ -1233,12 +1233,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var tick = pipeline.RunTick(new TickInput(1));
                 var patrolState = GetEnemyPatrolState(worldState, 40);
 
+                Assert.That(tick.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|E=40|Label=Initialized"));
+                Assert.That(tick.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|").And.Contain("|E=40|").And.Contain("Label=CommittedMove"));
                 Assert.That(
                     tick.PresentationData.KinematicMotionTracks.Any(track =>
                         track.EntityId == 40 &&
                         track.MotionMode == MotionMode.Voluntary),
                     Is.True);
-                Assert.That(SemanticEventAssertions.ContainsEvent(tick.EventLog, "MoveCommitted", "E=40"), Is.True);
                 Assert.That(patrolState.IsInitialized, Is.True);
                 Assert.That(patrolState.homeCell, Is.EqualTo(homeCell));
                 Assert.That(patrolState.sequence, Is.GreaterThanOrEqualTo(2));

@@ -2985,7 +2985,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+                    CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));

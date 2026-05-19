@@ -2892,7 +2892,6 @@ namespace Game.Feature.Gameplay.Entities
             if (stage != EnemyAiTransitionStage.BeforeMovement ||
                 source.aiMode != EnemyAiMode.Patrol ||
                 decision.Mode == EnemyAiMode.Patrol ||
-                _patrolStrategyKind != PatrolStrategyKind.RandomWalk ||
                 writeContext is not IPreMovementStateCommitContext patrolWriteContext)
             {
                 return;
@@ -2901,6 +2900,7 @@ namespace Game.Feature.Gameplay.Entities
             var hadPreviousState = snapshot.TryGetEnemyPatrolState(_entityId, out var previousState);
             if (previousState.IsInitialized ||
                 !TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var proposal) ||
+                !proposal.ShouldCaptureOriginBeforeLeavingPatrol ||
                 !proposal.ShouldInitializeState)
             {
                 return;

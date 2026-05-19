@@ -11,13 +11,15 @@ namespace Game.Feature.Gameplay.Entities
             Direction plannedDirection,
             Direction plannedFacing,
             int candidateMask,
-            bool shouldInitializeState)
+            bool shouldInitializeState,
+            bool shouldCaptureOriginBeforeLeavingPatrol)
         {
             HasDirection = hasDirection;
             PlannedDirection = plannedDirection;
             PlannedFacing = plannedFacing;
             CandidateMask = candidateMask;
             ShouldInitializeState = shouldInitializeState;
+            ShouldCaptureOriginBeforeLeavingPatrol = shouldCaptureOriginBeforeLeavingPatrol;
         }
 
         public bool HasDirection { get; }
@@ -29,6 +31,8 @@ namespace Game.Feature.Gameplay.Entities
         public int CandidateMask { get; }
 
         public bool ShouldInitializeState { get; }
+
+        public bool ShouldCaptureOriginBeforeLeavingPatrol { get; }
     }
 
     internal static class EnemyPatrolDecisionPlanner
@@ -85,7 +89,8 @@ namespace Game.Feature.Gameplay.Entities
                     plannedDirection: Direction.None,
                     plannedFacing,
                     candidateMask: 0,
-                    shouldInitializeState: false);
+                    shouldInitializeState: false,
+                    shouldCaptureOriginBeforeLeavingPatrol: false);
             }
 
             if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, forwardDelta.Value, tileFeatureDefinitions))
@@ -95,7 +100,8 @@ namespace Game.Feature.Gameplay.Entities
                     plannedDirection: source.facing,
                     plannedFacing,
                     candidateMask: GetCandidateMaskBit(source.facing),
-                    shouldInitializeState: false);
+                    shouldInitializeState: false,
+                    shouldCaptureOriginBeforeLeavingPatrol: false);
             }
 
             if (patrolSettings.StopWhenForwardBlocked)
@@ -105,7 +111,8 @@ namespace Game.Feature.Gameplay.Entities
                     plannedDirection: Direction.None,
                     plannedFacing,
                     candidateMask: 0,
-                    shouldInitializeState: false);
+                    shouldInitializeState: false,
+                    shouldCaptureOriginBeforeLeavingPatrol: false);
             }
 
             var backwardDirection = ResolveOppositeDirection(source.facing);
@@ -119,7 +126,8 @@ namespace Game.Feature.Gameplay.Entities
                     plannedDirection: Direction.None,
                     plannedFacing,
                     candidateMask: 0,
-                    shouldInitializeState: false);
+                    shouldInitializeState: false,
+                    shouldCaptureOriginBeforeLeavingPatrol: false);
             }
 
             return new EnemyPatrolDecisionProposal(
@@ -127,7 +135,8 @@ namespace Game.Feature.Gameplay.Entities
                 plannedDirection: backwardDirection,
                 plannedFacing,
                 candidateMask: GetCandidateMaskBit(backwardDirection),
-                shouldInitializeState: false);
+                shouldInitializeState: false,
+                shouldCaptureOriginBeforeLeavingPatrol: false);
         }
 
         private static EnemyPatrolDecisionProposal BuildRandomWalkProposal(
@@ -150,7 +159,8 @@ namespace Game.Feature.Gameplay.Entities
                 plan.PlannedDirection,
                 plan.PlannedFacing,
                 plan.CandidateMask,
-                plan.ShouldInitializeState);
+                plan.ShouldInitializeState,
+                shouldCaptureOriginBeforeLeavingPatrol: true);
         }
 
         private static Direction ResolveOppositeDirection(Direction direction)
