@@ -16,6 +16,7 @@ namespace Game.Feature.UI.HUD
         private const Ease HudDimTweenEase = Ease.OutQuad;
         private const bool HudDimUseUnscaledTime = true;
         private const string HudTopLeftStackName = "HudTopLeftStack";
+        private const string HudTopCenterStackName = "HudTopCenterStack";
         private const string HudTopRightStackName = "HudTopRightStack";
         private const string HudBottomRightStackName = "HudBottomRightStack";
 
@@ -174,14 +175,15 @@ namespace Game.Feature.UI.HUD
 
             var authoredRoot = _root != null ? _root.transform : transform;
             var topLeftStack = RequireStack(authoredRoot, HudTopLeftStackName);
+            var topCenterStack = RequireStack(authoredRoot, HudTopCenterStackName);
             var topRightStack = RequireStack(authoredRoot, HudTopRightStackName);
             var bottomRightStack = RequireStack(authoredRoot, HudBottomRightStackName);
 
             RequireOwnedByStack(_objectiveHudView.transform, topLeftStack, nameof(_objectiveHudView));
+            RequireOwnedByStack(_chancePanelView.transform, topCenterStack, nameof(_chancePanelView));
             RequireOwnedByStack(_stageNameLabel.transform, topRightStack, nameof(_stageNameLabel));
             RequireOwnedByStack(_pauseButton.transform, topRightStack, nameof(_pauseButton));
             RequireOwnedByStack(_surfaceBeltIndicatorView.transform, topRightStack, nameof(_surfaceBeltIndicatorView));
-            RequireOwnedByStack(_chancePanelView.transform, bottomRightStack, nameof(_chancePanelView));
 
             _objectiveHudView.ValidateAuthoredStructureOrThrow();
             _chancePanelView.ValidateAuthoredStructureOrThrow();

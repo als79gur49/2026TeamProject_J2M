@@ -178,10 +178,12 @@ namespace Game.Feature.UI.Tests
                     stageDisplayName: "Stage 1-1"));
 
                 var topLeftStack = FindRequiredRect(hudView.transform, "HudTopLeftStack");
+                var topCenterStack = FindRequiredRect(hudView.transform, "HudTopCenterStack");
                 var topRightStack = FindRequiredRect(hudView.transform, "HudTopRightStack");
                 var bottomRightStack = FindRequiredRect(hudView.transform, "HudBottomRightStack");
 
                 AssertStackTransform(topLeftStack, new Vector2(0.0f, 1.0f), new Vector2(0.0f, 1.0f), new Vector2(24.0f, -24.0f));
+                AssertStackTransform(topCenterStack, new Vector2(0.5f, 1.0f), new Vector2(0.5f, 1.0f), new Vector2(0.0f, -24.0f));
                 AssertStackTransform(topRightStack, new Vector2(1.0f, 1.0f), new Vector2(1.0f, 1.0f), new Vector2(-24.0f, -24.0f));
                 AssertStackTransform(bottomRightStack, new Vector2(1.0f, 0.0f), new Vector2(1.0f, 0.0f), new Vector2(-24.0f, 24.0f));
 
@@ -190,7 +192,7 @@ namespace Game.Feature.UI.Tests
                 AssertOwnedBy(GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel").transform, topRightStack);
                 AssertOwnedBy(GetSerializedReference<Button>(hudView, "_pauseButton").transform, topRightStack);
                 AssertOwnedBy(hudView.SurfaceBeltIndicatorView.transform, topRightStack);
-                AssertOwnedBy(hudView.ChancePanelView.transform, bottomRightStack);
+                AssertOwnedBy(hudView.ChancePanelView.transform, topCenterStack);
                 Assert.That(hudView.ChancePanelView.ViewModel, Is.SameAs(chancePanelPresenter.ViewModel));
                 Assert.That(hudView.SurfaceBeltIndicatorView.ViewModel, Is.SameAs(surfaceBeltIndicatorPresenter.ViewModel));
             }
@@ -358,12 +360,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(surfaceIndicators.Length, Is.EqualTo(1));
             Assert.That(surfaceIndicators[0], Is.SameAs(serializedSurfaceBeltIndicator));
 
-            var bottomRightStack = FindRequiredRect(hudPrefab.transform, "HudBottomRightStack");
+            var topCenterStack = FindRequiredRect(hudPrefab.transform, "HudTopCenterStack");
             var topRightStack = FindRequiredRect(hudPrefab.transform, "HudTopRightStack");
             AssertOwnedBy(GetSerializedReference<TMP_Text>(hudPrefab, "_stageNameLabel").transform, topRightStack);
             AssertOwnedBy(GetSerializedReference<Button>(hudPrefab, "_pauseButton").transform, topRightStack);
             AssertOwnedBy(serializedSurfaceBeltIndicator.transform, topRightStack);
-            AssertOwnedBy(serializedChancePanel.transform, bottomRightStack);
+            AssertOwnedBy(serializedChancePanel.transform, topCenterStack);
 
             var slotContainer = FindRequiredRect(serializedChancePanel.transform, "SlotContainer");
             var slotViews = serializedChancePanel.GetComponentsInChildren<ChanceSlotView>(true);
