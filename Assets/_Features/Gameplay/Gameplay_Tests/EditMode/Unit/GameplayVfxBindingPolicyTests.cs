@@ -1,7 +1,13 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
+using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
+using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -20,7 +26,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 VfxStopPolicy.DetachThenStopEmittingThenRelease,
                 defaultLifetimeSeconds: 1.25f,
                 tailSeconds: 0.5f,
-                maxConcurrentInstances: 3);
+                maxConcurrentInstances: 3,
+                visibilityMode: GameplayVfxVisibilityMode.VisibleSurfaceAllowed);
 
             Assert.That(policy.CueId, Is.EqualTo(cueId));
             Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.Required));
@@ -30,7 +37,300 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(1.25f));
             Assert.That(policy.TailSeconds, Is.EqualTo(0.5f));
             Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(3));
+            Assert.That(policy.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.VisibleSurfaceAllowed));
             Assert.DoesNotThrow(() => new VfxBinding(policy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BindingPolicy_DefaultVisibilityMode_IsDefaultGameplay()
+        {
+            var policy = CreatePolicy();
+
+            Assert.That(policy.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.DefaultGameplay));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TopologyMotionVisualHelper_NotSuppressedByGameplayInactiveGate()
+        {
+            var request = new GameplayVfxRequest(
+                1,
+                1,
+                1,
+                GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail),
+                VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    new CubeTopologyState(FaceId.Floor),
+                    VfxAnchorSlot.CellCenter),
+                VfxTimingKind.QueuedUntilTopologyTransitionEnd);
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.PresentationOnly,
+                default);
+
+            Assert.That(decision.IsVisible, Is.True);
+            Assert.That(decision.BlockReason, Is.EqualTo(GameplayVfxVisibilityBlockReason.None));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_UsesBindingVisibilityMode_NotDefaultGameplay()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+            var plan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new SinglePolicyResolver(CreatePolicy(
+                    request.CueId,
+                    visibilityMode: GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed)));
+
+            Assert.That(plan.Requests.Select(item => item.CueId), Is.EqualTo(new[] { request.CueId }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_InactiveFaceExplicitCue_NotSuppressedByDefaultGameplay()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+
+            var plan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new SinglePolicyResolver(CreatePolicy(
+                    request.CueId,
+                    visibilityMode: GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed)));
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_VisibleSurfaceAllowedCue_NotSuppressedByDefaultGameplay()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(TerrainVfxCue.TerrainChanged));
+
+            var plan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new SinglePolicyResolver(CreatePolicy(
+                    request.CueId,
+                    visibilityMode: GameplayVfxVisibilityMode.VisibleSurfaceAllowed)));
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_PresentationOnlyCue_NotSuppressedByDefaultGameplay()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail));
+
+            var plan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new SinglePolicyResolver(CreatePolicy(
+                    request.CueId,
+                    visibilityMode: GameplayVfxVisibilityMode.PresentationOnly)));
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_DefaultGameplayCellCue_SuppressedOnInactiveFace()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+
+            var plan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new SinglePolicyResolver(CreatePolicy(request.CueId)));
+
+            Assert.That(plan.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_MissingBinding_UsesDocumentedFallback()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+
+            var plan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new MissingPolicyResolver());
+
+            Assert.That(plan.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibleSurfaceAllowed_AllowsVisibleSurfaceProjection()
+        {
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                CreateInactiveFaceCellRequest(GameplayVfxCueId.From(TerrainVfxCue.TerrainChanged)),
+                GameplayVfxVisibilityMode.VisibleSurfaceAllowed,
+                default);
+
+            Assert.That(decision.IsVisible, Is.True);
+            Assert.That(decision.AllowReason, Is.EqualTo(GameplayVfxVisibilityAllowReason.VisibleSurfaceProjectionOptIn));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void InactiveFaceExplicitlyAllowed_AllowsInactiveFaceCue()
+        {
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)),
+                GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed,
+                default);
+
+            Assert.That(decision.IsVisible, Is.True);
+            Assert.That(decision.AllowReason, Is.EqualTo(GameplayVfxVisibilityAllowReason.InactiveFaceExplicitOptIn));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void InactiveFaceExplicitlyAllowed_DoesNotActAsGenericPresentationOnlyBypass()
+        {
+            var request = new GameplayVfxRequest(
+                1,
+                1,
+                1,
+                sourceEntityId: 40,
+                GameplayVfxCueId.From(EnemyVfxCue.Spawn),
+                VfxAnchor.ForEntity(40),
+                VfxTimingKind.ImmediateOnTickPresentation);
+            var context = new GameplayVfxVisibilityContext(
+                new System.Collections.Generic.Dictionary<int, GameplayVfxEntityVisibilityState>
+                {
+                    {
+                        40,
+                        new GameplayVfxEntityVisibilityState(
+                            hasView: true,
+                            isViewActiveInHierarchy: true,
+                            hasSemanticState: true,
+                            isFrontFaceInactive: true)
+                    },
+                });
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed,
+                context);
+
+            Assert.That(decision.IsVisible, Is.False);
+            Assert.That(decision.BlockReason, Is.EqualTo(GameplayVfxVisibilityBlockReason.FrontFaceInactive));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityDecision_ReasonDistinguishesVisibleSurfaceFromInactiveFaceOptIn()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+
+            var visibleSurface = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.VisibleSurfaceAllowed,
+                default);
+            var inactiveFace = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed,
+                default);
+
+            Assert.That(visibleSurface.AllowReason, Is.EqualTo(GameplayVfxVisibilityAllowReason.VisibleSurfaceProjectionOptIn));
+            Assert.That(inactiveFace.AllowReason, Is.EqualTo(GameplayVfxVisibilityAllowReason.InactiveFaceExplicitOptIn));
+            Assert.That(visibleSurface.AllowReason, Is.Not.EqualTo(inactiveFace.AllowReason));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationOnlyBinding_GameplayCue_ValidationFailsOrWarns()
+        {
+            var binding = CreateBindingAsset(
+                "PlayerDamage_Binding",
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                GameplayVfxVisibilityMode.PresentationOnly);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_PRESENTATION_ONLY_REQUIRES_ALLOWLIST" &&
+                    message.Severity == VfxAuthoringValidationSeverity.Error), Is.True);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationOnlyBinding_TopologyVisualHelper_Allowed()
+        {
+            var binding = CreateBindingAsset(
+                "TopologyMotionVisualHelper_Binding",
+                GameplayVfxFamily.Box,
+                (int)BoxVfxCue.FlipImpactStayTrail,
+                GameplayVfxVisibilityMode.PresentationOnly);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_PRESENTATION_ONLY_REQUIRES_ALLOWLIST"), Is.False);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyMotionVisualHelper_NotSuppressedByGameplayInactiveGate_RealBindingPath()
+        {
+            var binding = CreateBindingAsset(
+                "TopologyMotionVisualHelper_Binding",
+                GameplayVfxFamily.Box,
+                (int)BoxVfxCue.FlipImpactStayTrail,
+                GameplayVfxVisibilityMode.PresentationOnly);
+            try
+            {
+                var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail));
+                var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                    request,
+                    binding.BuildRuntimePolicy(),
+                    default);
+
+                Assert.That(decision.IsVisible, Is.True);
+                Assert.That(decision.AllowReason, Is.EqualTo(GameplayVfxVisibilityAllowReason.PresentationOnly));
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxBindingDiagnostics_IncludesVisibilityMode()
+        {
+            var binding = CreateBindingAsset(
+                "VisibleSurfaceBinding",
+                GameplayVfxFamily.Terrain,
+                (int)TerrainVfxCue.TerrainChanged,
+                GameplayVfxVisibilityMode.VisibleSurfaceAllowed);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_VISIBILITY_MODE" &&
+                    message.Message.Contains(nameof(GameplayVfxVisibilityMode.VisibleSurfaceAllowed))), Is.True);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
         }
 
         [Test]
@@ -135,7 +435,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             VfxStopPolicy stopPolicy = VfxStopPolicy.AuthoredDuration,
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
-            int maxConcurrentInstances = 0)
+            int maxConcurrentInstances = 0,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             return new VfxBindingRuntimePolicy(
                 cueId.IsNone ? GameplayVfxCueId.From(PlayerVfxCue.Damage) : cueId,
@@ -145,13 +446,115 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stopPolicy,
                 defaultLifetimeSeconds,
                 tailSeconds,
-                maxConcurrentInstances);
+                maxConcurrentInstances,
+                visibilityMode: visibilityMode);
+        }
+
+        private static GameplayVfxRequest CreateInactiveFaceCellRequest(GameplayVfxCueId cueId)
+        {
+            return new GameplayVfxRequest(
+                1,
+                1,
+                1,
+                cueId,
+                VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    new CubeTopologyState(FaceId.Floor),
+                    VfxAnchorSlot.CellCenter),
+                VfxTimingKind.ImmediateOnTickPresentation);
+        }
+
+        private static GameplayVfxRequestPlan FilterByPlanningVisibility(
+            GameplayVfxRequestPlan plan,
+            IVfxBindingResolver resolver)
+        {
+            var method = typeof(GameplayVfxProductionRuntime).GetMethod(
+                "FilterByPlanningVisibility",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (GameplayVfxRequestPlan)method.Invoke(
+                null,
+                new object[]
+                {
+                    plan,
+                    resolver,
+                    default(GameplayVfxVisibilityContext),
+                });
         }
 
         private static void AssertInvalid(VfxBindingRuntimePolicy policy)
         {
             Assert.That(policy.IsValid, Is.False);
             Assert.Throws<InvalidOperationException>(() => policy.ValidateOrThrow());
+        }
+
+        private static VfxBindingDefinitionAsset CreateBindingAsset(
+            string assetName,
+            GameplayVfxFamily family,
+            int cueCode,
+            GameplayVfxVisibilityMode visibilityMode)
+        {
+            var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            binding.name = assetName;
+            SetPrivateField(binding, "family", family);
+            SetPrivateField(binding, "cueCode", cueCode);
+            SetPrivateField(binding, "requirement", VfxBindingRequirement.Optional);
+            SetPrivateField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.SkipOptional);
+            SetPrivateField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetPrivateField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
+            SetPrivateField(binding, "visibilityMode", visibilityMode);
+            var prefab = new GameObject($"{assetName}_Prefab");
+            new GameObject("ModelRoot").transform.SetParent(prefab.transform, worldPositionStays: false);
+            SetPrivateField(binding, "prefab", prefab);
+            return binding;
+        }
+
+        private static void DestroyBindingAsset(VfxBindingDefinitionAsset binding)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            var prefab = binding.Prefab;
+            if (prefab != null)
+            {
+                Object.DestroyImmediate(prefab);
+            }
+
+            Object.DestroyImmediate(binding);
+        }
+
+        private static void SetPrivateField<T>(object target, string fieldName, T value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            field.SetValue(target, value);
+        }
+
+        private sealed class SinglePolicyResolver : IVfxBindingResolver
+        {
+            private readonly VfxBindingRuntimePolicy policy;
+
+            public SinglePolicyResolver(VfxBindingRuntimePolicy policy)
+            {
+                this.policy = policy;
+            }
+
+            public bool TryResolve(in GameplayVfxRequest request, out VfxBindingRuntimePolicy resolvedPolicy)
+            {
+                resolvedPolicy = policy;
+                return true;
+            }
+        }
+
+        private sealed class MissingPolicyResolver : IVfxBindingResolver
+        {
+            public bool TryResolve(in GameplayVfxRequest request, out VfxBindingRuntimePolicy policy)
+            {
+                policy = default;
+                return false;
+            }
         }
     }
 }

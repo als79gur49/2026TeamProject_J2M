@@ -17,8 +17,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             SurfaceCell cell,
             CubeTopologyState topology,
             VfxAnchorSlot slot,
+            GameplayVfxVisibilityMode visibilityMode,
             out VfxResolvedAnchor resolvedAnchor)
         {
+            if (!AllowsSurfaceProjection(cell, topology, visibilityMode))
+            {
+                resolvedAnchor = VfxResolvedAnchor.Unresolved(VfxMissingAnchorPolicy.SkipOptional);
+                return false;
+            }
+
             if (!IsSupportedSlot(slot) ||
                 !projector.TryProjectSurfaceCell(cell, topology, out var projectedPose))
             {
@@ -48,6 +55,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return slot == VfxAnchorSlot.CellFloor ||
                    slot == VfxAnchorSlot.CellCenter ||
                    slot == VfxAnchorSlot.CellAboveOccupant;
+        }
+
+        private static bool AllowsSurfaceProjection(
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            GameplayVfxVisibilityMode visibilityMode)
+        {
+            var effectiveMode = visibilityMode == GameplayVfxVisibilityMode.DefaultGameplay
+                ? GameplayVfxVisibilityMode.ActiveGameplayFaceOnly
+                : visibilityMode;
+            return effectiveMode == GameplayVfxVisibilityMode.VisibleSurfaceAllowed ||
+                   effectiveMode == GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed ||
+                   effectiveMode == GameplayVfxVisibilityMode.PresentationOnly ||
+                   topology.IsFaceActive(cell.face);
         }
     }
 }

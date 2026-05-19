@@ -46,6 +46,20 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            messages.Add(VfxAuthoringValidationResult.Info(
+                "VFX_BINDING_VISIBILITY_MODE",
+                $"{binding.name} cue '{cueId}' uses visibility mode '{binding.VisibilityMode}'.",
+                binding));
+
+            if (binding.VisibilityMode == GameplayVfxVisibilityMode.PresentationOnly &&
+                !IsPresentationOnlyBindingAllowed(binding))
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_PRESENTATION_ONLY_REQUIRES_ALLOWLIST",
+                    $"{binding.name} cue '{cueId}' uses PresentationOnly visibility without an explicit presentation/topology helper allowlist marker.",
+                    binding));
+            }
+
             if (binding.Requirement == VfxBindingRequirement.Required &&
                 binding.MissingAnchorPolicy == VfxMissingAnchorPolicy.SkipOptional)
             {
@@ -78,6 +92,13 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
             {
                 messages.Add(modelRootValidation.Messages[i]);
             }
+        }
+
+        private static bool IsPresentationOnlyBindingAllowed(VfxBindingDefinitionAsset binding)
+        {
+            var assetName = binding.name ?? string.Empty;
+            return assetName.IndexOf("Topology", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   assetName.IndexOf("PresentationOnly", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

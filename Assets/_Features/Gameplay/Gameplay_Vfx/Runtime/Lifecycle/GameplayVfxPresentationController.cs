@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Vfx
         private readonly IVfxBindingResolver bindingResolver;
         private readonly VfxPersistentHandleRegistry persistentRegistry;
         private readonly VfxLifetimeRunner lifetimeRunner;
+        private GameplayVfxVisibilityContext visibilityContext;
 
         public GameplayVfxPresentationController(
             IVfxPool pool,
@@ -31,6 +32,15 @@ namespace Game.Feature.Gameplay.Vfx
         public int MissingAnchorCount { get; private set; }
 
         public int CompatibilityFailureCount { get; private set; }
+
+        public int VisibilityBlockedCount { get; private set; }
+
+        public GameplayVfxVisibilityBlockReason LastVisibilityBlockReason { get; private set; }
+
+        public void SetVisibilityContext(GameplayVfxVisibilityContext context)
+        {
+            visibilityContext = context;
+        }
 
         public void Refresh(GameplayVfxRequestPlan plan)
         {
@@ -98,12 +108,33 @@ namespace Game.Feature.Gameplay.Vfx
             policy.ValidateOrThrow();
             ValidateCompatibility(request, policy);
 
-            if (!anchorResolver.TryResolve(request, out var anchor) || !anchor.IsResolved)
+            var preAnchorVisibility = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+            if (!preAnchorVisibility.IsVisible)
+            {
+                HandleVisibilityBlocked(request, policy, preAnchorVisibility.BlockReason);
+                return;
+            }
+
+            if (!anchorResolver.TryResolve(request, policy, out var anchor) || !anchor.IsResolved)
             {
                 if (!TryHandleMissingAnchor(request, policy, out anchor))
                 {
                     return;
                 }
+            }
+
+            var postAnchorVisibility = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+                request,
+                policy,
+                anchor,
+                visibilityContext);
+            if (!postAnchorVisibility.IsVisible)
+            {
+                HandleVisibilityBlocked(request, policy, postAnchorVisibility.BlockReason);
+                return;
             }
 
             var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
@@ -118,6 +149,22 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             pool.PlayTransient(command);
+        }
+
+        private void HandleVisibilityBlocked(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy,
+            GameplayVfxVisibilityBlockReason reason)
+        {
+            VisibilityBlockedCount++;
+            LastVisibilityBlockReason = reason;
+            if (request.IsPersistent && !request.PersistentKey.IsNone)
+            {
+                persistentRegistry.StopIfActive(
+                    request.PersistentKey,
+                    policy.StopPolicy,
+                    lifetimeRunner);
+            }
         }
 
         private void ValidateCompatibility(

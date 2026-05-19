@@ -14,7 +14,8 @@ namespace Game.Feature.Gameplay.Vfx
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
             int maxConcurrentInstances = 0,
-            VfxStyleKey styleKey = default)
+            VfxStyleKey styleKey = default,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             CueId = cueId;
             StyleKey = styleKey;
@@ -25,6 +26,7 @@ namespace Game.Feature.Gameplay.Vfx
             DefaultLifetimeSeconds = defaultLifetimeSeconds;
             TailSeconds = tailSeconds;
             MaxConcurrentInstances = maxConcurrentInstances;
+            VisibilityMode = visibilityMode;
         }
 
         public GameplayVfxCueId CueId { get; }
@@ -45,6 +47,8 @@ namespace Game.Feature.Gameplay.Vfx
 
         public int MaxConcurrentInstances { get; }
 
+        public GameplayVfxVisibilityMode VisibilityMode { get; }
+
         public bool IsValid => TryGetValidationError(out _) == false;
 
         public static VfxBindingRuntimePolicy Optional(
@@ -55,7 +59,8 @@ namespace Game.Feature.Gameplay.Vfx
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
             int maxConcurrentInstances = 0,
-            VfxStyleKey styleKey = default)
+            VfxStyleKey styleKey = default,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -66,7 +71,8 @@ namespace Game.Feature.Gameplay.Vfx
                 defaultLifetimeSeconds,
                 tailSeconds,
                 maxConcurrentInstances,
-                styleKey);
+                styleKey,
+                visibilityMode);
         }
 
         public static VfxBindingRuntimePolicy Required(
@@ -77,7 +83,8 @@ namespace Game.Feature.Gameplay.Vfx
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
             int maxConcurrentInstances = 0,
-            VfxStyleKey styleKey = default)
+            VfxStyleKey styleKey = default,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -88,7 +95,8 @@ namespace Game.Feature.Gameplay.Vfx
                 defaultLifetimeSeconds,
                 tailSeconds,
                 maxConcurrentInstances,
-                styleKey);
+                styleKey,
+                visibilityMode);
         }
 
         public void ValidateOrThrow()
@@ -109,7 +117,8 @@ namespace Game.Feature.Gameplay.Vfx
                 && StopPolicy == other.StopPolicy
                 && DefaultLifetimeSeconds.Equals(other.DefaultLifetimeSeconds)
                 && TailSeconds.Equals(other.TailSeconds)
-                && MaxConcurrentInstances == other.MaxConcurrentInstances;
+                && MaxConcurrentInstances == other.MaxConcurrentInstances
+                && VisibilityMode == other.VisibilityMode;
         }
 
         public override bool Equals(object obj)
@@ -130,6 +139,7 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ DefaultLifetimeSeconds.GetHashCode();
                 hash = (hash * 397) ^ TailSeconds.GetHashCode();
                 hash = (hash * 397) ^ MaxConcurrentInstances;
+                hash = (hash * 397) ^ (int)VisibilityMode;
                 return hash;
             }
         }

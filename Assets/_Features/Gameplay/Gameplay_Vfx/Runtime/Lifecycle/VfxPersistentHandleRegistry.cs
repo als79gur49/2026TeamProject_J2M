@@ -13,6 +13,10 @@ namespace Game.Feature.Gameplay.Vfx
 
         public int ActiveCount => activeHandles.Count;
 
+        public string LastStopReason { get; private set; }
+
+        public string LastRestartReason { get; private set; }
+
         public bool TryGet(VfxPersistentKey key, out IVfxPlaybackHandle handle)
         {
             return activeHandles.TryGetValue(key, out handle);
@@ -30,36 +34,44 @@ namespace Game.Feature.Gameplay.Vfx
 
             if (activeHandles.TryGetValue(command.PersistentKey, out var existing))
             {
-                if (!IsSameBinding(command.PersistentKey, command.Policy))
+                if (!IsReusable(existing))
                 {
-                    if (!CanStop(existing))
-                    {
-                        stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
-                        return existing;
-                    }
+                    RemoveActiveEntry(command.PersistentKey);
+                    LastRestartReason = $"ReplaceNonReusableState:{existing?.State.ToString() ?? "Null"}";
+                }
+                else if (IsSameBinding(command.PersistentKey, command.Policy))
+                {
+                    stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+                    return existing;
+                }
 
-                    var oldStopPolicy = stopPolicies.TryGetValue(command.PersistentKey, out var storedPolicy)
-                        ? storedPolicy
-                        : VfxStopPolicy.StopEmittingThenRelease;
+                if (activeHandles.TryGetValue(command.PersistentKey, out existing) &&
+                    IsReusable(existing) &&
+                    !IsSameBinding(command.PersistentKey, command.Policy))
+                {
                     if (lifetimeRunner == null)
                     {
                         throw new ArgumentNullException(nameof(lifetimeRunner));
                     }
 
+                    var oldStopPolicy = stopPolicies.TryGetValue(command.PersistentKey, out var storedPolicy)
+                        ? storedPolicy
+                        : VfxStopPolicy.StopEmittingThenRelease;
                     lifetimeRunner.Stop(existing, oldStopPolicy);
-                    activeHandles.Remove(command.PersistentKey);
-                    activePolicies.Remove(command.PersistentKey);
-                    stopPolicies.Remove(command.PersistentKey);
-                }
-                else
-                {
-                    stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
-                    return existing;
+                    LastStopReason = "ReplaceBinding";
+                    LastRestartReason = "ReplaceBinding";
+                    RemoveActiveEntry(command.PersistentKey);
                 }
             }
 
             if (activeHandles.TryGetValue(command.PersistentKey, out existing))
             {
+                if (!IsSameBinding(command.PersistentKey, command.Policy))
+                {
+                    stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+                    return existing;
+                }
+
                 stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
                 return existing;
             }
@@ -81,6 +93,31 @@ namespace Game.Feature.Gameplay.Vfx
             desiredKeys.Add(key);
         }
 
+        public bool StopIfActive(
+            VfxPersistentKey key,
+            VfxStopPolicy fallbackStopPolicy,
+            VfxLifetimeRunner lifetimeRunner)
+        {
+            if (lifetimeRunner == null)
+            {
+                throw new ArgumentNullException(nameof(lifetimeRunner));
+            }
+
+            if (!activeHandles.TryGetValue(key, out var handle) ||
+                !CanStop(handle))
+            {
+                return false;
+            }
+
+            var stopPolicy = stopPolicies.TryGetValue(key, out var storedPolicy)
+                ? storedPolicy
+                : fallbackStopPolicy;
+            lifetimeRunner.Stop(handle, stopPolicy);
+            LastStopReason = "ExplicitStop";
+            RemoveActiveEntry(key);
+            return true;
+        }
+
         public void BeginReconcile()
         {
             desiredKeys.Clear();
@@ -95,8 +132,14 @@ namespace Game.Feature.Gameplay.Vfx
 
             foreach (var pair in activeHandles.ToArray())
             {
-                if (desiredKeys.Contains(pair.Key) || !CanStop(pair.Value))
+                if (desiredKeys.Contains(pair.Key))
                 {
+                    continue;
+                }
+
+                if (!CanStop(pair.Value))
+                {
+                    RemoveActiveEntry(pair.Key);
                     continue;
                 }
 
@@ -104,6 +147,8 @@ namespace Game.Feature.Gameplay.Vfx
                     ? storedPolicy
                     : VfxStopPolicy.StopEmittingThenRelease;
                 lifetimeRunner.Stop(pair.Value, stopPolicy);
+                LastStopReason = "EndReconcileMissingDesired";
+                RemoveActiveEntry(pair.Key);
             }
         }
 
@@ -149,11 +194,24 @@ namespace Game.Feature.Gameplay.Vfx
                    existingPolicy == policy;
         }
 
+        private void RemoveActiveEntry(VfxPersistentKey key)
+        {
+            activeHandles.Remove(key);
+            activePolicies.Remove(key);
+            stopPolicies.Remove(key);
+            desiredKeys.Remove(key);
+        }
+
+        private static bool IsReusable(IVfxPlaybackHandle handle)
+        {
+            return handle != null &&
+                   (handle.State == VfxLifetimeState.Spawned ||
+                    handle.State == VfxLifetimeState.Active);
+        }
+
         private static bool CanStop(IVfxPlaybackHandle handle)
         {
-            return handle.State == VfxLifetimeState.Spawned
-                || handle.State == VfxLifetimeState.Active
-                || handle.State == VfxLifetimeState.None;
+            return IsReusable(handle);
         }
     }
 }

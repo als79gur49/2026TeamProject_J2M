@@ -21,7 +21,8 @@ MonoBehaviour:
   missingAnchorPolicy: 2
   playbackMode: 2
   stopPolicy: 3
+  visibilityMode: 0
   defaultLifetimeSeconds: 0
-  tailSeconds: 1
+  tailSeconds: 0.5
   initialPoolSize: 2
   maxConcurrentInstances: 8

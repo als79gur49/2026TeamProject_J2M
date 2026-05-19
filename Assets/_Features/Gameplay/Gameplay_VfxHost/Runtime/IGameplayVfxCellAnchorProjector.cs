@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             SurfaceCell cell,
             CubeTopologyState topology,
             VfxAnchorSlot slot,
+            GameplayVfxVisibilityMode visibilityMode,
             out VfxResolvedAnchor resolvedAnchor);
     }
 }

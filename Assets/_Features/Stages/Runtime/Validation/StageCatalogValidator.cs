@@ -478,12 +478,13 @@ namespace Game.Feature.Stages
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.Exit &&
-                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly)
+                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly &&
+                    tileFeature.ActivationRule != TileFeatureActivationRule.ActiveFaceOnly)
                 {
                     report.Add(
                         severity,
                         "authoring.tile-feature.exit-activation-unsupported",
-                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Exit must use BottomFaceOnly activation.",
+                        $"StageAuthoringDefinition '{authoring.name}' tileFeature[{i}] Exit must use BottomFaceOnly or ActiveFaceOnly activation.",
                         authoring,
                         authoringPath,
                         options.Timing);

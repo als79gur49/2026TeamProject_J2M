@@ -126,6 +126,130 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void AttachedFollower_ViewActiveButSemanticInactive_DetachesAndStops()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+
+                var visibilityContext = new GameplayVfxVisibilityContext(
+                    new Dictionary<int, GameplayVfxEntityVisibilityState>
+                    {
+                        {
+                            40,
+                            new GameplayVfxEntityVisibilityState(
+                                hasView: true,
+                                isViewActiveInHierarchy: true,
+                                hasSemanticState: true,
+                                isFrontFaceInactive: true)
+                        },
+                    });
+                fixture.Controller.Refresh(
+                    11,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: false,
+                    visibilityContext: visibilityContext,
+                    attachedDesiredStates: new[] { DesiredCharge() },
+                    attachedFollowersEnabled: true);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.Controller.VisibilityBlockedCount, Is.GreaterThanOrEqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FollowVfx_SemanticInactiveThenActive_ReattachesWhenDesiredAgain()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                var desired = DesiredCharge();
+                var activeContext = new GameplayVfxVisibilityContext(
+                    new Dictionary<int, GameplayVfxEntityVisibilityState>
+                    {
+                        {
+                            40,
+                            new GameplayVfxEntityVisibilityState(
+                                hasView: true,
+                                isViewActiveInHierarchy: true,
+                                hasSemanticState: true)
+                        },
+                    });
+                var inactiveContext = new GameplayVfxVisibilityContext(
+                    new Dictionary<int, GameplayVfxEntityVisibilityState>
+                    {
+                        {
+                            40,
+                            new GameplayVfxEntityVisibilityState(
+                                hasView: true,
+                                isViewActiveInHierarchy: true,
+                                hasSemanticState: true,
+                                isFrontFaceInactive: true)
+                        },
+                    });
+
+                fixture.Controller.Refresh(
+                    10,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: false,
+                    visibilityContext: activeContext,
+                    attachedDesiredStates: new[] { desired },
+                    attachedFollowersEnabled: true);
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+                var firstInstance = fixture.View.ModelRoot.GetChild(0);
+
+                fixture.Controller.Refresh(
+                    11,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: false,
+                    visibilityContext: inactiveContext,
+                    attachedDesiredStates: new[] { desired },
+                    attachedFollowersEnabled: true);
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.EqualTo(1));
+                Assert.That(firstInstance.parent, Is.EqualTo(fixture.Root.TailRoot));
+
+                fixture.Controller.Refresh(
+                    12,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: false,
+                    visibilityContext: activeContext,
+                    attachedDesiredStates: new[] { desired },
+                    attachedFollowersEnabled: true);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.GetChild(0), Is.Not.EqualTo(firstInstance));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayEntityView_TryGetVfxAttachPoint_IgnoresInvalidAttachPoint()
         {
             var viewObject = new GameObject("AttachPointView");

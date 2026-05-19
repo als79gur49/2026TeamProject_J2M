@@ -5703,6 +5703,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyInactiveVisualController_FrontFaceInactive_StopsAndClearsChildParticles()
+        {
+            var rootObject = new GameObject("EnemyInactiveVisualController_FrontFaceInactive_StopsAndClearsChildParticles");
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                var particleObject = new GameObject("ChildParticles");
+                particleObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var particles = particleObject.AddComponent<ParticleSystem>();
+                particles.Play(withChildren: true);
+                particles.Emit(5);
+
+                Assert.That(particles.particleCount, Is.GreaterThan(0));
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                Assert.That(particles.isPlaying, Is.False);
+                Assert.That(particles.particleCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_EnablesLegacyColorFallback()
         {
             var rootObject = new GameObject("DefaultGameplayEntityViewFactory_PrimitiveEnemy_EnablesLegacyColorFallback");

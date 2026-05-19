@@ -199,6 +199,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertVector(anchor.LocalPosition, sourcePose.LocalPosition);
         }
 
+        [Test]
+        [Category("Core")]
+        public void BoxSlideSolidStopVfx_InactiveStopperCell_Suppressed()
+        {
+            var signal = CreateInactiveFaceSignal();
+            var projector = CreateProjector();
+
+            var built = BoxSlideSolidStopVfxCommandBuilder.TryBuild(
+                7,
+                signal,
+                projector,
+                CreatePolicy(GameplayVfxVisibilityMode.DefaultGameplay),
+                default,
+                out _,
+                out _);
+
+            Assert.That(built, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxSlideSolidStopVfx_UsesBindingVisibilityPolicy()
+        {
+            var signal = CreateInactiveFaceSignal();
+            var projector = CreateProjector();
+
+            var defaultBuilt = BoxSlideSolidStopVfxCommandBuilder.TryBuild(
+                7,
+                signal,
+                projector,
+                CreatePolicy(GameplayVfxVisibilityMode.DefaultGameplay),
+                default,
+                out _,
+                out _);
+            var optInBuilt = BoxSlideSolidStopVfxCommandBuilder.TryBuild(
+                7,
+                signal,
+                projector,
+                CreatePolicy(GameplayVfxVisibilityMode.VisibleSurfaceAllowed),
+                default,
+                out var request,
+                out var anchor);
+
+            Assert.That(defaultBuilt, Is.False);
+            Assert.That(optInBuilt, Is.True);
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)));
+            Assert.That(anchor.HasLocalPose, Is.True);
+        }
+
         private static GameplayVfxRequest PlanSingle(in BoxSlideStopPresentationSignal signal)
         {
             var builder = new GameplayVfxRequestPlanBuilder();
@@ -239,6 +288,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 solidKind: SolidKind.Box,
                 topology: new CubeTopologyState(FaceId.Floor),
                 cause: BoxSlideStopCause.SlidingContinuationBlocked);
+        }
+
+        private static BoxSlideStopPresentationSignal CreateInactiveFaceSignal()
+        {
+            return new BoxSlideStopPresentationSignal(
+                boxEntityId: 20,
+                sourceCell: new SurfaceCell(FaceId.Front, 1, 1),
+                stopperCell: new SurfaceCell(FaceId.Front, 2, 1),
+                slideDirection: Direction.Right,
+                stopperKind: BoxSlideStopperKind.SolidEntity,
+                stopperEntityId: 90,
+                solidKind: SolidKind.Box,
+                topology: new CubeTopologyState(FaceId.Floor),
+                cause: BoxSlideStopCause.SlidingContinuationBlocked);
+        }
+
+        private static VfxBindingRuntimePolicy CreatePolicy(GameplayVfxVisibilityMode visibilityMode)
+        {
+            return VfxBindingRuntimePolicy.Optional(
+                GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop),
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                visibilityMode: visibilityMode);
         }
 
         private static GameplayCubeProjector CreateProjector()

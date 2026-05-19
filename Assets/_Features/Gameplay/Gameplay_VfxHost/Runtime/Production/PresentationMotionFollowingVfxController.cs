@@ -10,6 +10,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         private readonly Dictionary<PresentationMotionInstanceKey, IVfxPlaybackHandle> activeMotionHandlesByKey = new();
         private readonly Dictionary<AttachedVfxFollowerKey, IVfxPlaybackHandle> activeAttachedHandlesByKey = new();
+        private readonly Dictionary<PresentationMotionInstanceKey, VfxBindingRuntimePolicy> activeMotionPoliciesByKey = new();
+        private readonly Dictionary<AttachedVfxFollowerKey, VfxBindingRuntimePolicy> activeAttachedPoliciesByKey = new();
         private readonly Dictionary<AttachedVfxFollowerKey, AttachedVfxFollowerRetentionPolicy> activeAttachedRetentionPoliciesByKey = new();
         private readonly HashSet<PresentationMotionInstanceKey> desiredMotionKeys = new();
         private readonly HashSet<AttachedVfxFollowerKey> desiredAttachedKeys = new();
@@ -42,6 +44,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int PlannedAttachCount { get; private set; }
 
+        public int VisibilityBlockedCount { get; private set; }
+
         public void Refresh(
             int tickIndex,
             GameplayPresentationTrackState trackState,
@@ -49,6 +53,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
             bool enabled,
+            GameplayVfxVisibilityContext visibilityContext = default,
             IReadOnlyList<AttachedVfxFollowerDesiredState> attachedDesiredStates = null,
             IReadOnlyList<AttachedVfxFollowerKey> explicitAttachedStopStates = null,
             bool attachedFollowersEnabled = false)
@@ -74,7 +79,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     trackState,
                     stateStore,
                     pool,
-                    bindingResolver);
+                    bindingResolver,
+                    visibilityContext);
             }
 
             if (!attachedFollowersEnabled)
@@ -90,7 +96,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     explicitAttachedStopStates,
                     stateStore,
                     pool,
-                    bindingResolver);
+                    bindingResolver,
+                    visibilityContext);
             }
 
             PruneMissingKeyState();
@@ -106,6 +113,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             AttachedMissingBindingCount = 0;
             AttachedMissingOwnerViewCount = 0;
             PlannedAttachCount = 0;
+            VisibilityBlockedCount = 0;
             ClearMissingKeyState();
         }
 
@@ -123,6 +131,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             activeMotionHandlesByKey.Clear();
             activeAttachedHandlesByKey.Clear();
+            activeMotionPoliciesByKey.Clear();
+            activeAttachedPoliciesByKey.Clear();
             activeAttachedRetentionPoliciesByKey.Clear();
             ClearMissingKeyState();
             PlannedAttachCount = 0;
@@ -150,7 +160,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayPresentationTrackState trackState,
             GameplayPresentationStateStore stateStore,
             GameplayVfxGameObjectPool pool,
-            IVfxBindingResolver bindingResolver)
+            IVfxBindingResolver bindingResolver,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             desiredMotionKeys.Clear();
             foreach (var pair in trackState.OriginalViewMotionTracks)
@@ -164,6 +175,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 var key = track.InstanceKey;
+                if (!IsMotionFollowerVisible(track, visibilityContext))
+                {
+                    VisibilityBlockedCount++;
+                    StopMotion(key, tail: true);
+                    continue;
+                }
+
                 desiredMotionKeys.Add(key);
                 if (activeMotionHandlesByKey.TryGetValue(key, out var existingHandle) &&
                     IsHandleLive(existingHandle))
@@ -178,15 +196,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 activeMotionHandlesByKey.Remove(key);
+                activeMotionPoliciesByKey.Remove(key);
                 if (!TryResolveAttachParent(stateStore, track.EntityId, out var parent))
                 {
                     CountMissingMotionOwnerOnce(key);
                     continue;
                 }
 
-                if (TryStartAttached(tickIndex, track, parent, pool, bindingResolver, out var handle))
+                if (TryStartAttached(
+                        tickIndex,
+                        track,
+                        parent,
+                        pool,
+                        bindingResolver,
+                        visibilityContext,
+                        out var policy,
+                        out var handle))
                 {
                     activeMotionHandlesByKey[key] = handle;
+                    activeMotionPoliciesByKey[key] = policy;
                     missingMotionBindingKeys.Remove(key);
                     missingMotionOwnerViewKeys.Remove(key);
                     PlannedAttachCount++;
@@ -202,9 +230,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform parent,
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
+            GameplayVfxVisibilityContext visibilityContext,
+            out VfxBindingRuntimePolicy policy,
             out IVfxPlaybackHandle handle)
         {
             handle = null;
+            policy = default;
             var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail);
             var sequenceId = track.InstanceKey.CorrelationId != 0
                 ? track.InstanceKey.CorrelationId
@@ -220,7 +251,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 isPersistent: false,
                 persistentKey: VfxPersistentKey.None);
 
-            if (!bindingResolver.TryResolve(request, out var policy))
+            if (!bindingResolver.TryResolve(request, out policy))
             {
                 CountMissingMotionBindingOnce(track.InstanceKey);
                 return false;
@@ -230,6 +261,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (policy.CueId != request.CueId)
             {
                 throw new InvalidOperationException("Gameplay VFX binding cue does not match FlipImpactStayTrail request cue.");
+            }
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+            if (!decision.IsVisible)
+            {
+                VisibilityBlockedCount++;
+                return false;
             }
 
             var anchor = VfxResolvedAnchor.ForEntity(
@@ -272,7 +313,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             IReadOnlyList<AttachedVfxFollowerKey> explicitStopStates,
             GameplayPresentationStateStore stateStore,
             GameplayVfxGameObjectPool pool,
-            IVfxBindingResolver bindingResolver)
+            IVfxBindingResolver bindingResolver,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             desiredAttachedKeys.Clear();
             explicitAttachedStopKeys.Clear();
@@ -297,6 +339,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         continue;
                     }
 
+                    if (!IsAttachedFollowerVisible(key, visibilityContext))
+                    {
+                        VisibilityBlockedCount++;
+                        StopAttached(key, tail: true);
+                        continue;
+                    }
+
                     desiredAttachedKeys.Add(key);
                     if (activeAttachedHandlesByKey.TryGetValue(key, out var existingHandle) &&
                         IsHandleLive(existingHandle))
@@ -317,6 +366,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     }
 
                     activeAttachedHandlesByKey.Remove(key);
+                    activeAttachedPoliciesByKey.Remove(key);
                     activeAttachedRetentionPoliciesByKey.Remove(key);
                     if (!TryResolveAttachParent(
                             stateStore,
@@ -335,9 +385,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                             parent,
                             pool,
                             bindingResolver,
+                            visibilityContext,
+                            out var policy,
                             out var handle))
                     {
                         activeAttachedHandlesByKey[key] = handle;
+                        activeAttachedPoliciesByKey[key] = policy;
                         activeAttachedRetentionPoliciesByKey[key] = desiredState.RetentionPolicy;
                         missingAttachedBindingKeys.Remove(key);
                         missingAttachedOwnerViewKeys.Remove(key);
@@ -346,7 +399,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
             }
 
-            StopStaleAttachedHandles(stateStore);
+            StopStaleAttachedHandles(stateStore, visibilityContext);
         }
 
         private bool TryStartAttachedFollower(
@@ -355,9 +408,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform parent,
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
+            GameplayVfxVisibilityContext visibilityContext,
+            out VfxBindingRuntimePolicy policy,
             out IVfxPlaybackHandle handle)
         {
             handle = null;
+            policy = default;
             var sequenceId = desiredState.SequenceId != 0
                 ? desiredState.SequenceId
                 : desiredState.SourceEntityId;
@@ -373,7 +429,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 persistentKey: VfxPersistentKey.None);
 
             var key = desiredState.Key;
-            if (!bindingResolver.TryResolve(request, out var policy))
+            if (!bindingResolver.TryResolve(request, out policy))
             {
                 CountMissingAttachedBindingOnce(key);
                 return false;
@@ -383,6 +439,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (policy.CueId != request.CueId)
             {
                 throw new InvalidOperationException("Gameplay VFX binding cue does not match attached follower request cue.");
+            }
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+            if (!decision.IsVisible)
+            {
+                VisibilityBlockedCount++;
+                return false;
             }
 
             var anchor = VfxResolvedAnchor.ForEntity(
@@ -418,7 +484,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        private void StopStaleAttachedHandles(GameplayPresentationStateStore stateStore)
+        private void StopStaleAttachedHandles(
+            GameplayPresentationStateStore stateStore,
+            GameplayVfxVisibilityContext visibilityContext)
         {
             attachedStopBuffer.Clear();
             foreach (var pair in activeAttachedHandlesByKey)
@@ -440,6 +508,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     out var retentionPolicy);
                 if (retentionPolicy == AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop)
                 {
+                    if (!IsAttachedFollowerVisible(key, visibilityContext))
+                    {
+                        VisibilityBlockedCount++;
+                        attachedStopBuffer.Add(key);
+                        continue;
+                    }
+
                     if (!TryResolveAttachParent(
                             stateStore,
                             key.SourceEntityId,
@@ -505,6 +580,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             activeMotionHandlesByKey.Remove(key);
+            activeMotionPoliciesByKey.Remove(key);
             StopHandle(handle, tail);
         }
 
@@ -512,11 +588,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             if (!activeAttachedHandlesByKey.TryGetValue(key, out var handle))
             {
+                activeAttachedPoliciesByKey.Remove(key);
                 activeAttachedRetentionPoliciesByKey.Remove(key);
                 return;
             }
 
             activeAttachedHandlesByKey.Remove(key);
+            activeAttachedPoliciesByKey.Remove(key);
             activeAttachedRetentionPoliciesByKey.Remove(key);
             StopHandle(handle, tail);
         }
@@ -573,6 +651,61 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 AttachedMissingOwnerViewCount++;
                 MissingOwnerViewCount++;
             }
+        }
+
+        private bool IsMotionFollowerVisible(
+            PresentationMotionTrack track,
+            GameplayVfxVisibilityContext visibilityContext)
+        {
+            if (track == null)
+            {
+                return false;
+            }
+
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail);
+            var sequenceId = track.InstanceKey.CorrelationId != 0
+                ? track.InstanceKey.CorrelationId
+                : track.EntityId;
+            var request = new GameplayVfxRequest(
+                tickIndex: 0,
+                sequenceId: sequenceId,
+                presentationSeed: track.InstanceKey.CorrelationId,
+                sourceEntityId: track.EntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForEntity(track.EntityId, VfxAnchorSlot.EntityCenter),
+                timing: VfxTimingKind.DuringMotion,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+            var visibilityMode = activeMotionPoliciesByKey.TryGetValue(track.InstanceKey, out var policy)
+                ? policy.VisibilityMode
+                : GameplayVfxVisibilityMode.DefaultGameplay;
+            return GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                visibilityMode,
+                visibilityContext).IsVisible;
+        }
+
+        private bool IsAttachedFollowerVisible(
+            AttachedVfxFollowerKey key,
+            GameplayVfxVisibilityContext visibilityContext)
+        {
+            var request = new GameplayVfxRequest(
+                tickIndex: 0,
+                sequenceId: key.SequenceId,
+                presentationSeed: key.SequenceId,
+                sourceEntityId: key.SourceEntityId,
+                cueId: key.CueId,
+                anchor: VfxAnchor.ForEntity(key.SourceEntityId, VfxAnchorSlot.EntityCenter),
+                timing: VfxTimingKind.DuringMotion,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
+            var visibilityMode = activeAttachedPoliciesByKey.TryGetValue(key, out var policy)
+                ? policy.VisibilityMode
+                : GameplayVfxVisibilityMode.DefaultGameplay;
+            return GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                visibilityMode,
+                visibilityContext).IsVisible;
         }
 
         private bool TryResolveAttachParent(
@@ -661,8 +794,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private static bool IsHandleLive(IVfxPlaybackHandle handle)
         {
             return handle != null &&
-                   handle.State != VfxLifetimeState.ReleasedToPool &&
-                   handle.State != VfxLifetimeState.HardCleanup;
+                   (handle.State == VfxLifetimeState.Spawned ||
+                    handle.State == VfxLifetimeState.Active);
         }
     }
 }

@@ -452,7 +452,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public bool ResolveSuccess { get; set; } = true;
 
-            public bool TryResolve(in GameplayVfxRequest request, out VfxResolvedAnchor resolvedAnchor)
+            public bool TryResolve(
+                in GameplayVfxRequest request,
+                VfxBindingRuntimePolicy policy,
+                out VfxResolvedAnchor resolvedAnchor)
             {
                 if (!ResolveSuccess)
                 {

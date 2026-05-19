@@ -743,17 +743,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void StageRuntimeBuilder_Exit_UnsupportedActivationRejects()
+        public void StageRuntimeBuilder_Exit_ActiveFaceOnlyNoDirectionAndNoSelectorAccepted()
         {
+            var exitCell = new SurfaceCell(FaceId.Floor, 1, 1);
             var condition = CreatePlayerAtAnyZoneCondition("goal");
             var stage = CreateStageWithExitObjective(
-                "ExitUnsupportedActivation",
-                new SurfaceCell(FaceId.Floor, 1, 1),
+                "ExitActiveFaceValid",
+                exitCell,
                 CreateRegion(1, 1, 1, 1),
                 condition,
-                activationRule: TileFeatureActivationRule.Always);
+                activationRule: TileFeatureActivationRule.ActiveFaceOnly);
 
-            AssertBuildThrows(stage, "Exit must use BottomFaceOnly activation", condition);
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.TileFeatureDefinitions[0].ActivationRule, Is.EqualTo(TileFeatureActivationRule.ActiveFaceOnly));
+                Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(Direction2D.None));
+                Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+                Assert.That(buildResult.InitialTileFeatures[0].Kind, Is.EqualTo(TileFeatureKind.Exit));
+                Assert.That(
+                    buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime().CreateStatus().ConditionType,
+                    Is.EqualTo(PlayerAtActiveExitConditionRuntimeDefinition.RuntimeConditionType));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_Exit_UnsupportedActivationRejects()
+        {
+            var unsupportedRules = new[]
+            {
+                TileFeatureActivationRule.Always,
+                TileFeatureActivationRule.FrontFaceOnly,
+                TileFeatureActivationRule.InactiveFaceOnly,
+            };
+
+            for (var i = 0; i < unsupportedRules.Length; i++)
+            {
+                var condition = CreatePlayerAtAnyZoneCondition("goal");
+                var stage = CreateStageWithExitObjective(
+                    $"ExitUnsupportedActivation{i}",
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    CreateRegion(1, 1, 1, 1),
+                    condition,
+                    activationRule: unsupportedRules[i]);
+
+                AssertBuildThrows(stage, "Exit must use BottomFaceOnly or ActiveFaceOnly activation", condition);
+            }
         }
 
         [Test]
