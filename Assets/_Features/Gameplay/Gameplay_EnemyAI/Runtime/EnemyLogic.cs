@@ -553,15 +553,39 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var utilityState = GetUtilityStateForStartPrediction(snapshot);
+            List<SummonedEntitySnapshotEntry> summonedEntries = null;
+            var hasEnumeratedSummonedEntries = false;
             for (var effectIndex = 0; effectIndex < _utilityCapability.Effects.Count; effectIndex++)
             {
                 var effectRuntime = _utilityCapability.Effects[effectIndex];
                 var effectState = GetEffectStateForStartPrediction(utilityState, effectIndex, effectRuntime);
 
-                if (CanStartDelayedUtilityWindupThisTick(effectRuntime, effectState))
+                if (!CanStartDelayedUtilityWindupThisTick(effectRuntime, effectState))
                 {
-                    return true;
+                    continue;
                 }
+
+                if (effectRuntime.Kind == EnemyUtilityEffectKind.SummonMinion)
+                {
+                    summonedEntries ??= new List<SummonedEntitySnapshotEntry>();
+                    if (!hasEnumeratedSummonedEntries)
+                    {
+                        snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
+                        hasEnumeratedSummonedEntries = true;
+                    }
+
+                    if (EnemyUtilitySummonPolicy.IsMaxAliveReached(
+                            snapshot,
+                            summonedEntries,
+                            source.entityId,
+                            effectIndex,
+                            effectRuntime.Summon))
+                    {
+                        continue;
+                    }
+                }
+
+                return true;
             }
 
             return false;

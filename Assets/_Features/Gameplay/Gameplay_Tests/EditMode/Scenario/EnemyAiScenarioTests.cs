@@ -1222,6 +1222,53 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyUtilitySummon_MaxAliveBlocked_WithWindupSuppression_CanMove()
+        {
+            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+            });
+            var profile = CreateMovingUtilityProfile(
+                CreateSummonUtilityEffect(
+                    initialDelayTicks: 0,
+                    cooldownTicks: 5,
+                    spawnCountPerTrigger: 1,
+                    maxAliveChildren: 1,
+                    summonedArchetype: GetSharedSummonedArchetype(),
+                    windupTicks: 2,
+                    suppressMovementDuringWindup: true));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 1), hp: 1, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            worldState.SetSummonedEntityState(50, new SummonedEntityState(40, 0));
+            var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(GetSharedSummonedArchetype());
+
+            try
+            {
+                var pipeline = CreateTickPipeline(defaultProfile, profile, archetypeCatalog, worldState);
+                var blockedTick = pipeline.RunTick(new TickInput(1));
+                var blockedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(blockedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(blockedTick.EventLog, Has.None.Contains("EnemyUtilityWindupStarted|E=40|Effect=0"));
+                Assert.That(blockedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(blockedState.cooldownTicksRemaining, Is.EqualTo(0));
+                Assert.That(blockedTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Not.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyUtilityLockNearbyBoxes_OffBottomExistingUtilityState_DoesNotAdvance()
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
