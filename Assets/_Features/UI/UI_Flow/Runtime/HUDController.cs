@@ -14,8 +14,7 @@ namespace Game.Feature.UI.Flow
             ObjectiveHudViewModel objectiveHudViewModel,
             ChancePanelViewModel chancePanelViewModel,
             SurfaceBeltViewModel surfaceBeltViewModel,
-            PlayerStatusViewModel playerStatusViewModel,
-            NotificationViewModel notificationViewModel)
+            PlayerStatusViewModel playerStatusViewModel)
         {
             RootViewModel = rootViewModel ?? throw new ArgumentNullException(nameof(rootViewModel));
             StageInfoViewModel = stageInfoViewModel ?? throw new ArgumentNullException(nameof(stageInfoViewModel));
@@ -23,23 +22,20 @@ namespace Game.Feature.UI.Flow
             ChancePanelViewModel = chancePanelViewModel ?? throw new ArgumentNullException(nameof(chancePanelViewModel));
             SurfaceBeltViewModel = surfaceBeltViewModel ?? throw new ArgumentNullException(nameof(surfaceBeltViewModel));
             PlayerStatusViewModel = playerStatusViewModel ?? throw new ArgumentNullException(nameof(playerStatusViewModel));
-            NotificationViewModel = notificationViewModel ?? throw new ArgumentNullException(nameof(notificationViewModel));
         }
 
         public HUDController(
             HUDRootViewModel rootViewModel,
             StageInfoViewModel stageInfoViewModel,
             ObjectiveHudViewModel objectiveHudViewModel,
-            PlayerStatusViewModel playerStatusViewModel,
-            NotificationViewModel notificationViewModel)
+            PlayerStatusViewModel playerStatusViewModel)
             : this(
                 rootViewModel,
                 stageInfoViewModel,
                 objectiveHudViewModel,
                 new ChancePanelViewModel(),
                 new SurfaceBeltViewModel(),
-                playerStatusViewModel,
-                notificationViewModel)
+                playerStatusViewModel)
         {
         }
 
@@ -54,8 +50,6 @@ namespace Game.Feature.UI.Flow
         public SurfaceBeltViewModel SurfaceBeltViewModel { get; }
 
         public PlayerStatusViewModel PlayerStatusViewModel { get; }
-
-        public NotificationViewModel NotificationViewModel { get; }
 
         public bool IsGameplayReadOnly => RootViewModel.IsGameplayReadOnly;
 
@@ -76,7 +70,6 @@ namespace Game.Feature.UI.Flow
             _view.ChancePanelView?.Bind(ChancePanelViewModel);
             _view.SurfaceBeltIndicatorView?.Bind(SurfaceBeltViewModel);
             _view.PlayerStatusView.Bind(PlayerStatusViewModel);
-            _view.NotificationView.Bind(NotificationViewModel);
             _view.IsVisible = true;
         }
 
@@ -92,7 +85,6 @@ namespace Game.Feature.UI.Flow
                 return;
             }
 
-            _view.NotificationView.Bind(null);
             _view.PlayerStatusView.Bind(null);
             _view.SurfaceBeltIndicatorView?.Bind(null);
             _view.ChancePanelView?.Bind(null);

@@ -18,20 +18,17 @@ namespace Game.Feature.UI.Tests
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
-            var notificationPresenter = new NotificationPresenter();
 
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter,
-                notificationPresenter);
+                playerStatusPresenter);
             using var controller = new HUDController(
                 rootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
                 objectiveHudPresenter.ViewModel,
-                playerStatusPresenter.ViewModel,
-                notificationPresenter.ViewModel);
+                playerStatusPresenter.ViewModel);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
             Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
@@ -44,13 +41,11 @@ namespace Game.Feature.UI.Tests
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
-            var notificationPresenter = new NotificationPresenter();
             var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter,
-                notificationPresenter);
+                playerStatusPresenter);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
             Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
@@ -70,15 +65,13 @@ namespace Game.Feature.UI.Tests
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-            var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
                 surfaceBeltIndicatorPresenter,
-                playerStatusPresenter,
-                notificationPresenter);
+                playerStatusPresenter);
 
             source.PublishSnapshot(CreateSnapshot(
                 isPaused: false,
@@ -101,18 +94,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(chancePanelPresenter.ViewModel.HasChances, Is.False);
             Assert.That(surfaceBeltIndicatorPresenter.ViewModel.CenterSlotIndex, Is.EqualTo(1));
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.False);
-            Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void NotificationPresenter_DoesNotExposePlayerActionOrOutcomeEvents()
-        {
-            var presenter = new NotificationPresenter();
-
-            presenter.Apply(CreateSnapshot().Notifications);
-
-            Assert.That(presenter.ViewModel.Items.Count, Is.EqualTo(1));
-            Assert.That(presenter.ViewModel.Items[0].MessageText, Is.EqualTo("T3: Took 1 damage."));
         }
 
         [Test]
@@ -410,13 +391,11 @@ namespace Game.Feature.UI.Tests
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
-            var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter,
-                notificationPresenter);
+                playerStatusPresenter);
 
             source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice(summary: "Move to the exit zone.")));
 
@@ -432,13 +411,11 @@ namespace Game.Feature.UI.Tests
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
             var objectiveHudPresenter = new ObjectiveHudPresenter();
-            var notificationPresenter = new NotificationPresenter();
             using var rootPresenter = new HUDRootPresenter(
                 source,
                 stageInfoPresenter,
                 objectiveHudPresenter,
-                playerStatusPresenter,
-                notificationPresenter);
+                playerStatusPresenter);
 
             source.PublishSnapshot(CreateSnapshot(isPaused: true));
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);

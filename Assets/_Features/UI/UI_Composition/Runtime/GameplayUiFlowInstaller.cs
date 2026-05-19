@@ -193,15 +193,13 @@ namespace Game.Feature.UI.Composition
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
-            var notificationPresenter = new NotificationPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 chancePanelPresenter,
                 surfaceBeltIndicatorPresenter,
-                playerStatusPresenter,
-                notificationPresenter);
+                playerStatusPresenter);
 
             var accessibilitySettingsStore = new AccessibilitySettingsStore();
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
@@ -222,8 +220,7 @@ namespace Game.Feature.UI.Composition
                 objectiveHudPresenter.ViewModel,
                 chancePanelPresenter.ViewModel,
                 surfaceBeltIndicatorPresenter.ViewModel,
-                playerStatusPresenter.ViewModel,
-                notificationPresenter.ViewModel);
+                playerStatusPresenter.ViewModel);
             _hudUiAudioFeedbackController = new HudUiAudioFeedbackController(
                 uiAudioPort,
                 chancePanelPresenter.ViewModel,

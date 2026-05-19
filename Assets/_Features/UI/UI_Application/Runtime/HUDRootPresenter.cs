@@ -11,7 +11,6 @@ namespace Game.Feature.UI.Application
         private readonly ObjectiveHudPresenter _objectiveHudPresenter;
         private readonly ChancePanelPresenter _chancePanelPresenter;
         private readonly SurfaceBeltIndicatorPresenter _surfaceBeltIndicatorPresenter;
-        private readonly NotificationPresenter _notificationPresenter;
 
         public HUDRootPresenter(
             IGameplayUiPresentationSource presentationSource,
@@ -19,8 +18,7 @@ namespace Game.Feature.UI.Application
             ObjectiveHudPresenter objectiveHudPresenter,
             ChancePanelPresenter chancePanelPresenter,
             SurfaceBeltIndicatorPresenter surfaceBeltIndicatorPresenter,
-            PlayerStatusPresenter playerStatusPresenter,
-            NotificationPresenter notificationPresenter)
+            PlayerStatusPresenter playerStatusPresenter)
         {
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _stageInfoPresenter = stageInfoPresenter ?? throw new ArgumentNullException(nameof(stageInfoPresenter));
@@ -28,7 +26,6 @@ namespace Game.Feature.UI.Application
             _chancePanelPresenter = chancePanelPresenter ?? throw new ArgumentNullException(nameof(chancePanelPresenter));
             _surfaceBeltIndicatorPresenter = surfaceBeltIndicatorPresenter ?? throw new ArgumentNullException(nameof(surfaceBeltIndicatorPresenter));
             _playerStatusPresenter = playerStatusPresenter ?? throw new ArgumentNullException(nameof(playerStatusPresenter));
-            _notificationPresenter = notificationPresenter ?? throw new ArgumentNullException(nameof(notificationPresenter));
 
             ViewModel = new HUDRootViewModel();
             _presentationSource.SnapshotChanged += HandleSnapshotChanged;
@@ -40,16 +37,14 @@ namespace Game.Feature.UI.Application
             IGameplayUiPresentationSource presentationSource,
             StageInfoPresenter stageInfoPresenter,
             ObjectiveHudPresenter objectiveHudPresenter,
-            PlayerStatusPresenter playerStatusPresenter,
-            NotificationPresenter notificationPresenter)
+            PlayerStatusPresenter playerStatusPresenter)
             : this(
                 presentationSource,
                 stageInfoPresenter,
                 objectiveHudPresenter,
                 new ChancePanelPresenter(),
                 new SurfaceBeltIndicatorPresenter(),
-                playerStatusPresenter,
-                notificationPresenter)
+                playerStatusPresenter)
         {
         }
 
@@ -85,7 +80,6 @@ namespace Game.Feature.UI.Application
             _chancePanelPresenter.Apply(snapshot.Chance);
             _surfaceBeltIndicatorPresenter.Apply(snapshot.SurfaceBelt);
             _playerStatusPresenter.Apply(snapshot.Tick, snapshot.Interaction, snapshot.Player);
-            _notificationPresenter.Apply(snapshot.Notifications);
         }
     }
 
