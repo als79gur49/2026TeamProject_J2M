@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   family: 4
   cueCode: 11
+  styleKey:
+    value: 
   prefab: {fileID: 1579168213340724, guid: 3b2fb225f322eabc28e590c1331e4a8c, type: 3}
   requirement: 1
   missingAnchorPolicy: 2
