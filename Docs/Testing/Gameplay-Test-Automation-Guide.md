@@ -719,6 +719,27 @@ WSL CLI
 - `Core` test
   - validates a pure comparer, normalizer, ordering rule, or buffer behavior with deterministic inputs
 
+## 13-1. Assertion Contract Rules / 테스트 assertion 계약 규칙
+### 한국어
+- 테스트 assertion은 먼저 아래 세 범주 중 무엇을 검증하는지 구분해야 한다.
+  - `Structural contract`: 깨지면 wiring, ownership, prefab 구조, 참조 경계가 깨지는 값이다. 정확한 참조나 축, 필수 component 존재 여부는 고정해도 된다.
+  - `Behavior contract`: 알고리즘 의미나 런타임 동작이 깨지는 값이다. 테스트가 직접 설정한 fixture 값은 exact assertion으로 검증해도 된다.
+  - `Tuning value`: prefab, ScriptableObject, asset authoring에서 감각적으로 조정될 수 있는 연출, 밸런스, 타이밍 값이다. 기본값은 exact assertion으로 고정하지 않는다.
+- prefab / ScriptableObject / asset 검증에서 numeric tuning 값을 검사할 때는 exact equality보다 유효 범위, 양수 여부, null 아님, 참조 연결, fallback 미사용 같은 계약을 우선한다.
+- exact numeric assertion은 테스트가 직접 설정한 fixture 값이거나, 문서화된 locked design profile / timing preset / constant contract일 때만 사용한다.
+- locked tuning을 검증해야 한다면 테스트 이름, assertion message, 관련 변경 설명이 그 값이 튜닝 자유도가 아니라 의도적으로 잠긴 계약임을 드러내야 한다.
+- 테스트 이름은 assertion 범위를 벗어나면 안 된다. 예를 들어 `Binds...ToModelRoot` 테스트는 binding과 ownership만 검증하고 연출 튜닝값을 고정하지 않는다.
+
+### English Original
+- Test assertions must first classify what they are protecting.
+  - `Structural contract`: values that would break wiring, ownership, prefab structure, or reference boundaries if changed. Exact references, axes, and required component presence may be pinned.
+  - `Behavior contract`: values that would break algorithm semantics or runtime behavior. Fixture values set directly by the test may use exact assertions.
+  - `Tuning value`: presentation, balance, or timing values authored on prefabs, ScriptableObjects, or assets for iteration. Do not pin these with exact assertions by default.
+- For prefab / ScriptableObject / asset tests, prefer contract checks such as valid ranges, positive values, non-null references, connected references, and no fallback use over exact numeric equality for tuning values.
+- Use exact numeric assertions only for values set by the test fixture itself, or for documented locked design profiles, timing presets, or constant contracts.
+- When a locked tuning value must be tested, the test name, assertion message, and change description must make it clear that the value is an intentionally locked contract rather than ordinary tuning.
+- Test names must not overreach their assertion scope. For example, a `Binds...ToModelRoot` test should verify binding and ownership, not pin presentation tuning values.
+
 ## 14. Failure Output & Debugging / 실패 출력과 디버깅
 ### 한국어
 - 테스트 실행이 성공으로 인정되려면 XML은 다음을 모두 만족해야 한다.
