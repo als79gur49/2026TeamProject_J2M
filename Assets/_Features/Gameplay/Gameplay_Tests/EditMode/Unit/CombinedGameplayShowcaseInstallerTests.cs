@@ -301,60 +301,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayBoxCapabilityLabelViewFactory_AddsCapabilityTextOnlyToBoxes()
-        {
-            var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactoryTests");
-
-            try
-            {
-                var factory = new GameplayBoxCapabilityLabelViewFactory(parentObject.transform, 1f, playerEntityId: 10);
-
-                var boxView = factory.CreateView(
-                    new EntityState
-                    {
-                        entityId = 30,
-                        position = new SurfaceCell(FaceId.Floor, 0, 0),
-                        hp = 1,
-                        maxHp = 1,
-                        teamId = 0,
-                        type = EntityType.Box,
-                        state = EntityPhaseState.Idle,
-                        facing = Direction.Right,
-                        boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy,
-                    });
-
-                var label = boxView.transform.Find("CapabilityLabel");
-                Assert.That(label, Is.Not.Null);
-                Assert.That(label.GetComponent<GameplayFloatingTextBillboard>(), Is.Not.Null);
-
-                var textMesh = label.GetComponent<TextMesh>();
-                Assert.That(textMesh, Is.Not.Null);
-                Assert.That(textMesh.text, Is.EqualTo("Push\nFlip\nDestroy"));
-
-                var unitView = factory.CreateView(
-                    new EntityState
-                    {
-                        entityId = 31,
-                        position = new SurfaceCell(FaceId.Floor, 1, 0),
-                        hp = 3,
-                        maxHp = 3,
-                        teamId = 1,
-                        type = EntityType.Unit,
-                        state = EntityPhaseState.Idle,
-                        facing = Direction.Up,
-                    });
-
-                Assert.That(unitView.transform.Find("CapabilityLabel"), Is.Null);
-            }
-            finally
-            {
-                Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_UsesPrefabOnlyForPlayerAndKeepsBoxLabels()
+        public void CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_UsesPrefabOnlyForPlayerAndDoesNotCreateBoxLabels()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory");
             var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_BoardRoot");
@@ -414,7 +361,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
                     });
 
-                Assert.That(boxView.transform.Find("CapabilityLabel"), Is.Not.Null);
+                Assert.That(boxView.transform.Find("CapabilityLabel"), Is.Null);
             }
             finally
             {
@@ -427,49 +374,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayBoxCapabilityLabelViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_ThrowsWhenCreatingPlayerView()
+        public void DefaultGameplayEntityViewFactory_StaticBoxPrefab_DoesNotCreateCapabilityLabel()
         {
-            var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_ThrowsWhenCreatingPlayerView");
-            var playerPrefabObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_PlayerPrefab");
-
-            try
-            {
-                var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
-                playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
-
-                var factory = new GameplayBoxCapabilityLabelViewFactory(
-                    parentObject.transform,
-                    1f,
-                    playerEntityId: 10,
-                    playerViewPrefab: playerPrefabView);
-
-                Assert.Throws<System.InvalidOperationException>(
-                    () => factory.CreateView(
-                        new EntityState
-                        {
-                            entityId = 10,
-                            position = new SurfaceCell(FaceId.Floor, 0, 0),
-                            hp = 3,
-                            maxHp = 3,
-                            teamId = 1,
-                            type = EntityType.Unit,
-                            state = EntityPhaseState.Idle,
-                            facing = Direction.Right,
-                        }));
-            }
-            finally
-            {
-                Object.DestroyImmediate(playerPrefabObject);
-                Object.DestroyImmediate(parentObject);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab_KeepsCapabilityLabelDecorator()
-        {
-            var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab_KeepsCapabilityLabelDecorator");
-            var prefabObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab");
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxPrefab_DoesNotCreateCapabilityLabel");
+            var prefabObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxPrefab");
 
             try
             {
@@ -484,7 +392,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Object.DestroyImmediate(collider);
                 }
 
-                var factory = new GameplayBoxCapabilityLabelViewFactory(
+                var factory = new DefaultGameplayEntityViewFactory(
                     parentObject.transform,
                     1f,
                     playerEntityId: 10,
@@ -508,9 +416,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     });
 
                 Assert.That(boxView.transform.Find("PrefabMarker"), Is.Not.Null);
-                var label = boxView.transform.Find("CapabilityLabel");
-                Assert.That(label, Is.Not.Null);
-                Assert.That(label.GetComponent<TextMesh>().text, Is.EqualTo("Push\nItem"));
+                Assert.That(boxView.transform.Find("CapabilityLabel"), Is.Null);
             }
             finally
             {

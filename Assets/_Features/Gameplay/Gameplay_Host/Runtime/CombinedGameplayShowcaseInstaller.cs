@@ -28,7 +28,7 @@ namespace Game.Feature.Gameplay.Host
                 return null;
             }
 
-            return new GameplayBoxCapabilityLabelViewFactory(
+            return new DefaultGameplayEntityViewFactory(
                 boardRoot.EntityRoot,
                 CellSize,
                 initialState.PlayerEntityId,
