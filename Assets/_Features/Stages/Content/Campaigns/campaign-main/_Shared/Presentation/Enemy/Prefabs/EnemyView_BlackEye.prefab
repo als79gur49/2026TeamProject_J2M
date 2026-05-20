@@ -81,6 +81,7 @@ GameObject:
   - component: {fileID: 3687895322971148646}
   - component: {fileID: 5500000000000000101}
   - component: {fileID: 5500000000000000201}
+  - component: {fileID: 5500000000000000301}
   m_Layer: 0
   m_Name: EnemyView_BlackEye
   m_TagString: Untagged
@@ -244,10 +245,27 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 83dd8d3d4b6c4e9da655db27cb7b3c91, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   projectileMuzzleAttachPointId: ProjectileMuzzle
   attackCooldownAttachPointId: StatusAura
+--- !u!114 &5500000000000000301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1253227309742569353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc2487fe48e64e0b97b2e72569db7f2e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  target: {fileID: 1730374851651807525}
+  localAxis: {x: 0, y: 0, z: 1}
+  amplitude: 0.17
+  frequencyHz: 0.8
+  phaseOffsetSeconds: 0
 --- !u!1 &2671696761220166410
 GameObject:
   m_ObjectHideFlags: 0

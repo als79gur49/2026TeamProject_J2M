@@ -203,6 +203,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertEnemyDeathAuthoringSurface(BlackEyePrefabPath, expectedReferenceClipName: "Die");
         }
 
+        [Test]
+        [Category("Full")]
+        public void BlackEyePrefab_BindsFloatingPresentationDriverToModelRoot()
+        {
+            var view = LoadGameplayPrefab(BlackEyePrefabPath);
+            var driver = view.GetComponent<EnemyFloatingPresentationDriver>();
+
+            Assert.That(driver, Is.Not.Null, $"Missing {nameof(EnemyFloatingPresentationDriver)} on '{BlackEyePrefabPath}'.");
+            Assert.That(driver.gameObject, Is.SameAs(view.gameObject));
+            Assert.That(driver.Target, Is.SameAs(view.ModelRoot));
+            AssertVector(driver.LocalAxis, Vector3.forward);
+            Assert.That(driver.Amplitude, Is.GreaterThan(0f));
+            Assert.That(driver.FrequencyHz, Is.GreaterThan(0f));
+            Assert.That(driver.PhaseOffsetSeconds, Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyFloatingPresentationDriver_AdvancesTargetOnlyAndRestoresBasePosition()
+        {
+            var rootObject = new GameObject("EnemyFloatingPresentationDriver_Root");
+            var targetObject = new GameObject("ModelRoot");
+
+            try
+            {
+                targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                rootObject.transform.localPosition = new Vector3(4f, 5f, 6f);
+                targetObject.transform.localPosition = new Vector3(1f, 2f, 3f);
+
+                var driver = rootObject.AddComponent<EnemyFloatingPresentationDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "target", targetObject.transform);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "localAxis", Vector3.forward);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "amplitude", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "frequencyHz", 1f);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "phaseOffsetSeconds", 0f);
+
+                driver.CaptureBaseLocalPosition();
+                driver.Advance(0.25f);
+
+                AssertVector(rootObject.transform.localPosition, new Vector3(4f, 5f, 6f));
+                AssertVector(targetObject.transform.localPosition, new Vector3(1f, 2f, 3.5f));
+                AssertVector(driver.CurrentOffset, new Vector3(0f, 0f, 0.5f));
+
+                driver.RestoreBaseLocalPosition();
+
+                AssertVector(rootObject.transform.localPosition, new Vector3(4f, 5f, 6f));
+                AssertVector(targetObject.transform.localPosition, new Vector3(1f, 2f, 3f));
+                AssertVector(driver.CurrentOffset, Vector3.zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(targetObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         [TestCase(StartisPrefabPath)]
         [TestCase(BlackEyePrefabPath)]
         public void GameplayPrefabs_HaveEntityEffectPresentationAuthoringOnRoot(string prefabPath)
@@ -278,6 +334,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             EnemyViewPrefabRequirements.ValidateEnemyViewPrefab(view, prefabPath);
+        }
+
+        private static void AssertVector(Vector3 actual, Vector3 expected)
+        {
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(0.0001f));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(0.0001f));
+            Assert.That(actual.z, Is.EqualTo(expected.z).Within(0.0001f));
         }
 
         private static void ValidatePlayerPrefabThroughFactory(GameplayEntityView playerViewPrefab)
