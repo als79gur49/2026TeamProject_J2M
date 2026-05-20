@@ -771,12 +771,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Player_Free2D_SameFaceApproachActiveDestroyTile_BlocksBeforeLocalOffsetMoves()
+        public void Player_Free2D_SameFaceApproachActiveDestroyTile_ClampsAtCollisionRadiusThreshold()
         {
             const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var accessThresholdX = KinematicFixed.HalfCellUnits - radius;
+            var expectedClampX = KinematicFixed.HalfCellUnits - radius;
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
@@ -784,7 +784,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
-            SetPlayerContinuousLocalOffset(worldState, accessThresholdX - speed, 0, speed);
+            SetPlayerContinuousLocalOffset(worldState, expectedClampX - speed, 0, speed);
             var pipeline = CreatePipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -797,37 +797,92 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(accessThresholdX - speed));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(expectedClampX));
             Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(0));
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("Stage=Free2D") &&
-                reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked") &&
-                reason.Contains("Cell=(1,0)")), Is.True);
+                reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked")), Is.True);
             Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                 operation.EntityId == 10 &&
-                (operation.Kind == FinalizationOperationKind.MoveEntity ||
-                 operation.Kind == FinalizationOperationKind.SetUnitContinuousLocomotionState)),
+                operation.Kind == FinalizationOperationKind.MoveEntity),
                 Is.False);
+            Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track =>
+                track.EntityId == 10 &&
+                track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
+                track.DestinationLocalOffset.X.RawValue == expectedClampX),
+                Is.True);
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
             Assert.That(result.FinalEntities.Single(entity => entity.entityId == 10).markedForDeath, Is.False);
         }
 
         [Test]
         [Category("Core")]
-        public void Player_Free2D_AirPlayerApproachActiveDestroyTile_Blocks()
+        public void Player_Free2D_SameFaceApproachActiveDestroyTile_ClampFollowsCollisionRadius()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
-            const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var accessThresholdX = KinematicFixed.HalfCellUnits - radius;
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var worldState = CreateWorldState(
-                new[] { CreatePlayer(10, unitMobilityKind: UnitMobilityKind.Air) },
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var largeRadiusClampX = KinematicFixed.HalfCellUnits - KinematicFixed.UnitsPerCell * 3 / 16;
+            var smallRadiusClampX = KinematicFixed.HalfCellUnits - KinematicFixed.UnitsPerCell / 8;
+
+            var largeRadiusWorldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
-            SetPlayerContinuousLocalOffset(worldState, accessThresholdX - speed, 0, speed);
+            SetPlayerContinuousLocalOffset(largeRadiusWorldState, largeRadiusClampX - speed, 0, speed);
+            var largeRadiusPipeline = CreatePipelineWithCollisionRadius(
+                largeRadiusWorldState,
+                collisionRadiusCells: 0.1875f,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var largeRadiusResult = largeRadiusPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var largeRadiusSnapshot = largeRadiusWorldState.CreateSnapshot();
+
+            Assert.That(largeRadiusSnapshot.TryGetUnitContinuousLocomotionState(10, out var largeRadiusState), Is.True);
+            Assert.That(largeRadiusState.localOffset.X.RawValue, Is.EqualTo(largeRadiusClampX));
+            Assert.That(largeRadiusResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked")), Is.True);
+
+            var smallRadiusWorldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerContinuousLocalOffset(smallRadiusWorldState, smallRadiusClampX - speed, 0, speed);
+            var smallRadiusPipeline = CreatePipelineWithCollisionRadius(
+                smallRadiusWorldState,
+                collisionRadiusCells: 0.125f,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var smallRadiusResult = smallRadiusPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var smallRadiusSnapshot = smallRadiusWorldState.CreateSnapshot();
+
+            Assert.That(smallRadiusSnapshot.TryGetUnitContinuousLocomotionState(10, out var smallRadiusState), Is.True);
+            Assert.That(smallRadiusState.localOffset.X.RawValue, Is.EqualTo(smallRadiusClampX));
+            Assert.That(smallRadiusResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked")), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Player_Free2D_AirPlayerApproachActiveDestroyTile_ClampsAtCollisionRadiusThreshold()
+        {
+            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var expectedClampX = KinematicFixed.HalfCellUnits - radius;
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell, unitMobilityKind: UnitMobilityKind.Air) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerContinuousLocalOffset(worldState, expectedClampX - speed, 0, speed);
             var pipeline = CreatePipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -837,24 +892,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(player.position, Is.EqualTo(sourceCell));
             Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(accessThresholdX - speed));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(expectedClampX));
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("Stage=Free2D") &&
                 reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked")), Is.True);
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(result.FinalEntities.Single(entity => entity.entityId == 10).markedForDeath, Is.False);
         }
 
         [Test]
         [Category("Core")]
-        public void Player_Free2D_SameFaceApproachInactiveDestroyTile_AllowsLocalOffset()
+        public void Player_Free2D_SameFaceInactiveDestroyTile_AllowsApproachAndEntry()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var accessThresholdX = KinematicFixed.HalfCellUnits - radius;
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
@@ -862,7 +916,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
-            SetPlayerContinuousLocalOffset(worldState, accessThresholdX - speed, 0, speed);
+            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
             var pipeline = CreatePipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -872,14 +926,70 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(player.position, Is.EqualTo(destroyCell));
             Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(accessThresholdX));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked")), Is.False);
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
             Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Player_Free2D_AdjacentActiveDestroyTile_MoveAwayOrParallel_IsAllowed()
+        {
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+            var moveAwayWorldState = CreateWorldState(
+                new[] { CreatePlayer(10) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerContinuousLocalOffset(moveAwayWorldState, speed, 0, speed);
+            var moveAwayPipeline = CreatePipelineWithCollisionRadius(
+                moveAwayWorldState,
+                radiusCells,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var moveAwayResult = moveAwayPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Left)));
+            var moveAwaySnapshot = moveAwayWorldState.CreateSnapshot();
+
+            Assert.That(moveAwaySnapshot.TryGetEntity(10, out var moveAwayPlayer), Is.True);
+            Assert.That(moveAwayPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(moveAwaySnapshot.TryGetUnitContinuousLocomotionState(10, out var moveAwayState), Is.True);
+            Assert.That(moveAwayState.localOffset.X.RawValue, Is.EqualTo(0));
+            Assert.That(moveAwayResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked")), Is.False);
+            Assert.That(moveAwayResult.PresentationData.TileEvents, Is.Empty);
+
+            var parallelWorldState = CreateWorldState(
+                new[] { CreatePlayer(10) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerContinuousLocalOffset(parallelWorldState, 0, 0, speed);
+            var parallelPipeline = CreatePipelineWithCollisionRadius(
+                parallelWorldState,
+                radiusCells,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var parallelResult = parallelPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var parallelSnapshot = parallelWorldState.CreateSnapshot();
+
+            Assert.That(parallelSnapshot.TryGetEntity(10, out var parallelPlayer), Is.True);
+            Assert.That(parallelPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(parallelSnapshot.TryGetUnitContinuousLocomotionState(10, out var parallelState), Is.True);
+            Assert.That(parallelState.localOffset.X.RawValue, Is.EqualTo(0));
+            Assert.That(parallelState.localOffset.Y.RawValue, Is.EqualTo(speed));
+            Assert.That(parallelResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked")), Is.False);
+            Assert.That(parallelResult.PresentationData.TileEvents, Is.Empty);
         }
 
         [Test]
@@ -899,7 +1009,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(
                 worldState,
-                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.ActiveFaceOnly) });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();

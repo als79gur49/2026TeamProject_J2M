@@ -13,7 +13,13 @@ namespace Game.Feature.Gameplay.BoardState
         NonCardinalDelta = 3,
         TopologySeam = 4,
         TraversalBlocked = 5,
+        PlayerVoluntaryDestroyTileEntryBlocked = 6,
     }
+
+    internal delegate bool ContinuousLocomotionCandidateBlocker(
+        SurfaceCell candidateCell,
+        CubeTopologyState evaluationTopology,
+        out ContinuousLocomotionRejectionReason rejectedBy);
 
     public readonly struct ContinuousLocomotionSweepResult
     {
@@ -62,7 +68,8 @@ namespace Game.Feature.Gameplay.BoardState
             KinematicVelocity2 delta,
             int collisionRadiusUnits,
             out ContinuousLocomotionSweepResult result,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            ContinuousLocomotionCandidateBlocker scopedCandidateBlocker = null)
         {
             if (snapshot == null)
             {
@@ -104,7 +111,8 @@ namespace Game.Feature.Gameplay.BoardState
                         approachAnchorDelta,
                         out var approachCandidateAnchor,
                         out var rejectionReason,
-                        tileFeatureDefinitions))
+                        tileFeatureDefinitions,
+                        scopedCandidateBlocker))
                 {
                     result = CreateClamped(
                         entityId,
@@ -169,7 +177,8 @@ namespace Game.Feature.Gameplay.BoardState
                     anchorDelta,
                     out candidateAnchor,
                     out var rejectedBy,
-                    tileFeatureDefinitions))
+                    tileFeatureDefinitions,
+                    scopedCandidateBlocker))
             {
                 result = CreateClamped(entityId, pose, anchorDelta, collisionRadiusUnits, rejectedBy);
                 return true;
@@ -194,7 +203,8 @@ namespace Game.Feature.Gameplay.BoardState
             Vector2Int anchorDelta,
             out SurfaceCell candidateAnchor,
             out ContinuousLocomotionRejectionReason rejectedBy,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            ContinuousLocomotionCandidateBlocker scopedCandidateBlocker = null)
         {
             candidateAnchor = pose.AnchorCell + anchorDelta;
             if (candidateAnchor.face != pose.AnchorCell.face)
@@ -215,6 +225,12 @@ namespace Game.Feature.Gameplay.BoardState
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
                 rejectedBy = ContinuousLocomotionRejectionReason.TraversalBlocked;
+                return false;
+            }
+
+            if (scopedCandidateBlocker != null &&
+                scopedCandidateBlocker(candidateAnchor, snapshot.Topology, out rejectedBy))
+            {
                 return false;
             }
 
