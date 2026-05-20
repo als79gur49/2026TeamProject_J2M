@@ -2641,7 +2641,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     RunWindupContractMetrics(controlWorld, controlProfile, ticks: 4),
                     "forward baseline self-check",
                     expectedRecoverTicks);
-                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 6);
+                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 7);
                 var baselineMetrics = comparison.Baseline;
                 var pilotMetrics = comparison.Pilot;
                 TestContext.Progress.WriteLine($"WindupGateSummary|Label=baseline direct-lane|{BuildWindupMetricsSummary(baselineMetrics)}");
