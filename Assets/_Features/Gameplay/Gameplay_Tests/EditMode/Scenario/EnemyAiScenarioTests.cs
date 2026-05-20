@@ -3821,7 +3821,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var landingImpactTick = pipeline.RunTick(new TickInput(3));
                 var snapshot = worldState.CreateSnapshot();
 
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(player.hp, Is.EqualTo(2));
                 Assert.That(enemy.position, Is.EqualTo(targetCell));
                 Assert.That(enemy.hp, Is.EqualTo(2));
                 Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1)));
@@ -3829,6 +3831,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CollectionAssert.AreEqual(
                     new[]
                     {
+                        (SourceId: 50, TargetId: 10, Position: new SurfaceCell(FaceId.Floor, 3, 1), Damage: 1),
                         (SourceId: 50, TargetId: 40, Position: new SurfaceCell(FaceId.Floor, 3, 1), Damage: 1),
                     },
                     landingImpactTick.AttackPhaseResult
