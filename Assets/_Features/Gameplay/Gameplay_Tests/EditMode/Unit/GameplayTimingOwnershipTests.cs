@@ -3468,7 +3468,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DeathAnimatorDuration_DoesNotRequireNewActionKinds()
+        public void DeathAnimatorDuration_AllowsKnownActionKindsOnly()
         {
             CollectionAssert.AreEqual(
                 new[]
@@ -3483,6 +3483,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     nameof(EnemyActionKind.None),
                     nameof(EnemyActionKind.Melee),
+                    nameof(EnemyActionKind.ForwardCellProjectile),
                 },
                 Enum.GetNames(typeof(EnemyActionKind)));
         }

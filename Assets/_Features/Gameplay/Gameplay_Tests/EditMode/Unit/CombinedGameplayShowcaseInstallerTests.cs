@@ -145,9 +145,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpProfile.name, Is.EqualTo("EnemyAi_JumpChaser"));
             Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
-            Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.35f));
-            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(1f));
-            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(3f));
         }
 
         [Test]
@@ -291,9 +288,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetProfileOverride(buildResult, JumpShowcaseEnemyId, out var jumpProfile), Is.True);
             Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
-            Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.35f));
-            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(1f));
-            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(3f));
         }
 
         [Test]

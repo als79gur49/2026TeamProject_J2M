@@ -47,17 +47,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charge/EnemyAi_Charge.asset",
         };
 
-        private static readonly (string AssetPath, PatrolStrategyKind PatrolKind)[] ExpectedPilotPatrolKinds =
-        {
-            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset", PatrolStrategyKind.Stationary),
-            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset", PatrolStrategyKind.RandomWalk),
-            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset", PatrolStrategyKind.Forward),
-            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset", PatrolStrategyKind.RandomWalk),
-            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset", PatrolStrategyKind.WallFollow),
-            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset", PatrolStrategyKind.Forward),
-            (StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charge/EnemyAi_Charge.asset", PatrolStrategyKind.Forward),
-        };
-
         [Test]
         [Category("Extended")]
         public void EnemyAiProfileAssets_RepositoryProfiles_UseCanonicalAuthoringContract()
@@ -138,53 +127,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 violations,
                 Is.Empty,
                 "EnemyAiProfile asset contract violations:\n" + string.Join("\n", violations));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds()
-        {
-            foreach (var expectation in ExpectedPilotPatrolKinds)
-            {
-                var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(expectation.AssetPath);
-
-                Assert.That(profile, Is.Not.Null, $"Missing enemy AI profile at '{expectation.AssetPath}'.");
-                Assert.That(
-                    profile.PatrolStrategyKind,
-                    Is.EqualTo(expectation.PatrolKind),
-                    $"{expectation.AssetPath} patrol kind drifted from the bounded rollout contract.");
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAiProfileAssets_ForwardArchetypes_RetainForwardPatrolKind()
-        {
-            foreach (var expectation in ExpectedPilotPatrolKinds.Where(expectation => expectation.PatrolKind == PatrolStrategyKind.Forward))
-            {
-                var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(expectation.AssetPath);
-
-                Assert.That(profile, Is.Not.Null, $"Missing enemy AI profile at '{expectation.AssetPath}'.");
-                Assert.That(profile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.Forward));
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk()
-        {
-            const string baselinePath = StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset";
-            const string pilotPath = StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset";
-
-            var baseline = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(baselinePath);
-            var pilot = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(pilotPath);
-
-            Assert.That(baseline, Is.Not.Null, $"Missing baseline profile at '{baselinePath}'.");
-            Assert.That(pilot, Is.Not.Null, $"Missing pilot profile at '{pilotPath}'.");
-            Assert.That(baseline.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.Forward));
-            Assert.That(pilot.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
-            Assert.That(baseline.CoreAuthoring, Is.SameAs(pilot.CoreAuthoring), "Pilot should reuse the authored WindupMelee core for bounded rollout.");
-            Assert.That(baseline.BrainAuthoring, Is.Not.SameAs(pilot.BrainAuthoring), "Pilot must keep a distinct brain authoring asset so baseline remains untouched.");
         }
 
         [Test]

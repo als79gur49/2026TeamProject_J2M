@@ -2688,7 +2688,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     RunWindupContractMetrics(controlWorld, controlProfile, ticks: 4),
                     "forward baseline self-check",
                     expectedRecoverTicks);
-                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 6);
+                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 7);
                 var baselineMetrics = comparison.Baseline;
                 var pilotMetrics = comparison.Pilot;
                 TestContext.Progress.WriteLine($"WindupGateSummary|Label=baseline direct-lane|{BuildWindupMetricsSummary(baselineMetrics)}");
@@ -3032,7 +3032,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+                    CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
@@ -3868,7 +3868,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var landingImpactTick = pipeline.RunTick(new TickInput(3));
                 var snapshot = worldState.CreateSnapshot();
 
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(player.hp, Is.EqualTo(2));
                 Assert.That(enemy.position, Is.EqualTo(targetCell));
                 Assert.That(enemy.hp, Is.EqualTo(2));
                 Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1)));
@@ -3876,6 +3878,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CollectionAssert.AreEqual(
                     new[]
                     {
+                        (SourceId: 50, TargetId: 10, Position: new SurfaceCell(FaceId.Floor, 3, 1), Damage: 1),
                         (SourceId: 50, TargetId: 40, Position: new SurfaceCell(FaceId.Floor, 3, 1), Damage: 1),
                     },
                     landingImpactTick.AttackPhaseResult
