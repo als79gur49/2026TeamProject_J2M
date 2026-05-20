@@ -268,8 +268,7 @@ namespace Game.Feature.UI.Popups
                 return;
             }
 
-            // Product policy: destructive confirmations intentionally default to Confirm.
-            _actionNavigationGroup.SetSelectedIndexSilently(ConfirmSelectionIndex);
+            _actionNavigationGroup.SetSelectedIndexSilently(CancelSelectionIndex);
             _actionNavigationGroup.HideAllFrames();
         }
 

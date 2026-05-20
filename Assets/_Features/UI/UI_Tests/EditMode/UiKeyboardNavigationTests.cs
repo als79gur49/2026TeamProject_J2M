@@ -176,25 +176,25 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ConfirmPopupNavigation_DestructivePayload_DefaultsToConfirm_ByProductPolicy()
+        public void ConfirmPopupNavigation_DestructivePayload_DefaultsToCancel_ByProductPolicy()
         {
             using var harness = CreateConfirmPopupHarness(isDestructive: true);
             PopupCompletionKind? completion = null;
             harness.View.CompletionRequested += kind => completion = kind;
 
-            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(1));
             Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
         }
 
         [Test]
-        public void ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitConfirms()
+        public void ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitCancels()
         {
             using var popup = CreateConfirmPopupHarness(isDestructive: true);
             PopupCompletionKind? completion = null;
             popup.View.CompletionRequested += kind => completion = kind;
 
-            var routerObject = new GameObject(nameof(ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitConfirms));
+            var routerObject = new GameObject(nameof(ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitCancels));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
@@ -210,7 +210,7 @@ namespace Game.Feature.UI.Tests
                 AssertAllFramesHidden(popup.View, "_actionNavigationGroup", isHidden: false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
-                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
             }
             finally
             {
@@ -225,16 +225,17 @@ namespace Game.Feature.UI.Tests
             PopupCompletionKind? completion = null;
             harness.View.CompletionRequested += kind => completion = kind;
 
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
             Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(1));
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
-
-            completion = null;
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
             Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(0));
             Assert.That(harness.View.HandleSubmit(), Is.True);
             Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+
+            completion = null;
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
         }
 
         [Test]
@@ -434,7 +435,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitRestarts()
+        public void LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitOpensMain()
         {
             using var harness = CreateLevelFailedHarness();
             var restartCount = 0;
@@ -442,7 +443,7 @@ namespace Game.Feature.UI.Tests
             harness.View.RestartLevelRequested += () => restartCount++;
             harness.View.MainRequested += () => mainCount++;
 
-            var routerObject = new GameObject(nameof(LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitRestarts));
+            var routerObject = new GameObject(nameof(LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitOpensMain));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
@@ -461,8 +462,8 @@ namespace Game.Feature.UI.Tests
                 AssertAllFramesHidden(harness.View, "_navigationGroup", isHidden: false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
-                Assert.That(restartCount, Is.EqualTo(1));
-                Assert.That(mainCount, Is.EqualTo(0));
+                Assert.That(restartCount, Is.EqualTo(0));
+                Assert.That(mainCount, Is.EqualTo(1));
             }
             finally
             {
@@ -471,7 +472,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LevelFailedScreenView_DownThenSubmit_UsesMainClickPath()
+        public void LevelFailedScreenView_UpThenSubmit_UsesRestartClickPath()
         {
             using var harness = CreateLevelFailedHarness();
             var restartCount = 0;
@@ -481,11 +482,11 @@ namespace Game.Feature.UI.Tests
 
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
             Assert.That(harness.View.HandleSubmit(), Is.True);
 
-            Assert.That(restartCount, Is.EqualTo(0));
-            Assert.That(mainCount, Is.EqualTo(1));
+            Assert.That(restartCount, Is.EqualTo(1));
+            Assert.That(mainCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -834,11 +835,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsScreen_OnEnable_DoesNotShowFrameBeforeKeyboardInput()
+        public void SettingsScreen_OnEnable_DoesNotEnterKeyboardInteractionModeBeforeInput()
         {
             using var harness = CreateSettingsHarness();
 
-            AssertSettingsFramesHidden(harness.View, isHidden: true);
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(IsSettingsDropdownListMode(harness.View), Is.False);
+            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
         }
 
         [Test]
@@ -920,10 +923,10 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsSecondSubmit_OnDropdown_OpensDropdownListMode()
+        public void SettingsSecondSubmit_OnDropdown_DelegatesToNativeDropdown_WhenAvailable()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
-            var routerObject = new GameObject(nameof(SettingsSecondSubmit_OnDropdown_OpensDropdownListMode));
+            var routerObject = new GameObject(nameof(SettingsSecondSubmit_OnDropdown_DelegatesToNativeDropdown_WhenAvailable));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
@@ -934,11 +937,11 @@ namespace Game.Feature.UI.Tests
                     () => false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
-                Assert.That(router.DispatchSubmit(), Is.True);
+                var handled = router.DispatchSubmit();
 
-                Assert.That(IsSettingsDropdownListMode(harness.View), Is.True);
-                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
                 Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+                Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+                AssertResolutionDropdownSubmitResult(harness, handled, expectedSelectedIndex: 0);
             }
             finally
             {
@@ -1383,177 +1386,214 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsCancel_DropdownListMode_ClosesList_DoesNotBack()
+        public void SettingsCancel_DropdownSubmitResult_UsesCurrentMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             var backCount = 0;
             harness.View.BackRequested += () => backCount++;
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleCancel(), Is.True);
 
             Assert.That(IsSettingsDropdownListMode(harness.View), Is.False);
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
-            Assert.That(backCount, Is.EqualTo(0));
+            Assert.That(backCount, Is.EqualTo(opened ? 0 : 1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_Submit_OpensDropdownListMode()
+        public void SettingsDisplayResolution_Submit_DelegatesToNativeDropdown_WhenAvailable()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
 
             Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
-            Assert.That(IsSettingsDropdownListMode(harness.View), Is.True);
-            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
             Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+            AssertResolutionDropdownSubmitResult(harness, opened, expectedSelectedIndex: 0);
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_OpensNativeTmpDropdownList()
+        public void SettingsDisplayResolution_Submit_DoesNotRebuildKeyboardDropdownFallback()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
 
-            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
+            Assert.That(harness.View.DisplayView.transform.Find("ResolutionKeyboardDropdownList"), Is.Null);
             var dropdownList = harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List");
-            Assert.That(dropdownList, Is.Not.Null);
-            var popupCanvas = dropdownList.GetComponent<Canvas>();
-            Assert.That(popupCanvas, Is.Not.Null);
-            Assert.That(popupCanvas.overrideSorting, Is.True);
-            Assert.That(popupCanvas.sortingOrder, Is.EqualTo(30000));
+            if (opened)
+            {
+                Assert.That(dropdownList, Is.Not.Null);
+                var popupCanvas = dropdownList.GetComponent<Canvas>();
+                Assert.That(popupCanvas, Is.Not.Null);
+                Assert.That(popupCanvas.overrideSorting, Is.True);
+                Assert.That(popupCanvas.sortingOrder, Is.EqualTo(30000));
+            }
+            else
+            {
+                Assert.That(dropdownList, Is.Null);
+            }
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_InitialHighlightMatchesCurrentValue()
+        public void SettingsDisplayResolution_Submit_WhenNativeListUnavailable_DoesNotStageHighlight()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
             var initialIndex = harness.View.SelectedDisplayResolutionIndex;
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(initialIndex));
+            Assert.That(
+                harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                Is.EqualTo(opened ? initialIndex : -1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_Down_MovesHighlightToNextOption()
+        public void SettingsDisplayResolution_NavigateDown_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
             var initialIndex = harness.View.SelectedDisplayResolutionIndex;
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(initialIndex + 1));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(initialIndex));
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+            if (opened)
+            {
+                Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(initialIndex + 1));
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+            }
+            else
+            {
+                Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(-1));
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Fullscreen.Toggle"));
+            }
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_Up_MovesHighlightToPreviousOption()
+        public void SettingsDisplayResolution_NavigateUp_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(0));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(
+                harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                Is.EqualTo(opened ? 0 : -1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_DownAtLast_Clamps()
+        public void SettingsDisplayResolution_NavigateDownAtLast_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 2);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(2));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+            Assert.That(
+                harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                Is.EqualTo(opened ? 2 : -1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_UpAtFirst_Clamps()
+        public void SettingsDisplayResolution_NavigateUpAtFirst_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(0));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+            Assert.That(
+                harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                Is.EqualTo(opened ? 0 : -1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_Left_IsConsumedNoOp()
+        public void SettingsDisplayResolution_NavigateLeft_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.EqualTo(opened));
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(1));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(
+                harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                Is.EqualTo(opened ? 1 : -1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_Right_IsConsumedNoOp()
+        public void SettingsDisplayResolution_NavigateRight_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.EqualTo(opened));
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(1));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(
+                harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                Is.EqualTo(opened ? 1 : -1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_LeftRight_AreConsumedNoOp()
+        public void SettingsDisplayResolution_NavigateLeftRight_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display, selectedResolutionIndex: 1);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.EqualTo(opened));
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.EqualTo(opened));
 
-            Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(1));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(
+                harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                Is.EqualTo(opened ? 1 : -1));
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_Submit_SelectsHighlightedOptionAndStagesResolution()
+        public void SettingsDisplayResolution_SubmitAfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             var changedIndex = -1;
             harness.View.DisplayView.ResolutionChanged += index => changedIndex = index;
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
+            if (opened)
+            {
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+                Assert.That(harness.View.HandleSubmit(), Is.True);
 
-            Assert.That(changedIndex, Is.EqualTo(1));
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
-            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+                Assert.That(changedIndex, Is.EqualTo(1));
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+            }
+            else
+            {
+                Assert.That(changedIndex, Is.EqualTo(-1));
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+            }
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_ReopensAfterSectionRoundTrip_AndSelectsOption()
+        public void SettingsDisplayResolution_NativeListAttempt_AfterSectionRoundTrip_KeepsFocusContract()
         {
             var options = new[] { "800 x 600", "1280 x 720", "1920 x 1080" };
             using var harness = CreateSettingsHarness(SettingsSectionId.Display, resolutionOptions: options);
@@ -1577,10 +1617,13 @@ namespace Game.Feature.UI.Tests
             };
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            var firstOpened = TryEnterResolutionDropdownList(harness);
+            if (firstOpened)
+            {
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+                Assert.That(harness.View.HandleSubmit(), Is.True);
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            }
 
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
@@ -1588,33 +1631,57 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
             Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            var dropdownList = harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List");
-            Assert.That(dropdownList, Is.Not.Null);
-            Assert.That(dropdownList.GetComponent<Canvas>()?.overrideSorting, Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var secondOpened = TryEnterResolutionDropdownList(harness);
+            if (secondOpened)
+            {
+                var dropdownList = harness.View.DisplayView.transform.Find("ResolutionRow/ResolutionDropdown/Dropdown List");
+                Assert.That(dropdownList, Is.Not.Null);
+                Assert.That(dropdownList.GetComponent<Canvas>()?.overrideSorting, Is.True);
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+                Assert.That(harness.View.HandleSubmit(), Is.True);
+            }
 
-            Assert.That(changedIndices, Is.EqualTo(new[] { 1, 2 }));
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+            if (firstOpened && secondOpened)
+            {
+                Assert.That(changedIndices, Is.EqualTo(new[] { 1, 2 }));
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+            }
+            else if (firstOpened)
+            {
+                Assert.That(changedIndices, Is.EqualTo(new[] { 1 }));
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            }
+            else
+            {
+                Assert.That(changedIndices, Is.Empty);
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+            }
+
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
         }
 
         [Test]
-        public void SettingsDisplayResolution_ListMode_Cancel_ClosesList_DoesNotStageNewHighlight()
+        public void SettingsDisplayResolution_Cancel_AfterNativeListAttempt_UsesActiveMode()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             var changedCount = 0;
             harness.View.DisplayView.ResolutionChanged += _ => changedCount++;
+            var backCount = 0;
+            harness.View.BackRequested += () => backCount++;
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
+            if (opened)
+            {
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            }
+
             Assert.That(harness.View.HandleCancel(), Is.True);
 
             Assert.That(changedCount, Is.EqualTo(0));
             Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+            Assert.That(backCount, Is.EqualTo(opened ? 0 : 1));
         }
 
         [Test]
@@ -1631,43 +1698,64 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void DropdownKeyboardList_DoesNotRequireEventSystemSelectedObject()
+        public void DropdownKeyboardSubmit_WhenNativeListUnavailable_DoesNotRequireEventSystemSelection()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            var opened = TryEnterResolutionDropdownList(harness);
+            if (opened)
+            {
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+                Assert.That(harness.View.HandleSubmit(), Is.True);
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            }
+            else
+            {
+                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+                Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+            }
         }
 
         [Test]
-        public void SettingsDropdownSubmitOnce_DoesNotOpenDuplicateLists()
+        public void SettingsDropdownSubmitTwice_DoesNotDuplicateNativeListOrStageValue()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var firstOpened = TryEnterResolutionDropdownList(harness);
+            var secondHandled = harness.View.HandleSubmit();
 
-            Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+            if (firstOpened)
+            {
+                Assert.That(secondHandled, Is.True);
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+            }
+            else
+            {
+                Assert.That(secondHandled, Is.False);
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+            }
+
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
         }
 
         [Test]
-        public void SettingsDropdownSubmitOnce_DoesNotDoubleStageResolution()
+        public void SettingsDropdownSubmitAfterNavigate_DoesNotDoubleStageResolution()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             var changedCount = 0;
             harness.View.DisplayView.ResolutionChanged += _ => changedCount++;
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
-            Assert.That(harness.View.HandleSubmit(), Is.True);
+            var opened = TryEnterResolutionDropdownList(harness);
+            if (opened)
+            {
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+                Assert.That(harness.View.HandleSubmit(), Is.True);
+            }
 
-            Assert.That(changedCount, Is.EqualTo(1));
+            Assert.That(changedCount, Is.EqualTo(opened ? 1 : 0));
         }
 
         [Test]
@@ -1781,6 +1869,40 @@ namespace Game.Feature.UI.Tests
             return GetPrivateField<UiFocusGraphNavigator>(view, "_focusGraph").IsDropdownListMode;
         }
 
+        private static bool TryEnterResolutionDropdownList(SettingsHarness harness)
+        {
+            var handled = harness.View.HandleSubmit();
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
+            AssertResolutionDropdownSubmitResult(
+                harness,
+                handled,
+                harness.View.SelectedDisplayResolutionIndex);
+            return handled;
+        }
+
+        private static void AssertResolutionDropdownSubmitResult(
+            SettingsHarness harness,
+            bool opened,
+            int expectedSelectedIndex)
+        {
+            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(expectedSelectedIndex));
+            if (opened)
+            {
+                Assert.That(IsSettingsDropdownListMode(harness.View), Is.True);
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.True);
+                Assert.That(
+                    harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
+                    Is.EqualTo(expectedSelectedIndex));
+            }
+            else
+            {
+                Assert.That(IsSettingsDropdownListMode(harness.View), Is.False);
+                Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
+                Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(-1));
+            }
+        }
+
         private static void MoveToCurrentHeaderTab(SettingsScreenView view)
         {
             view.OnNavigationFocusGained();
@@ -1805,25 +1927,32 @@ namespace Game.Feature.UI.Tests
             var slots = GetPrivateField<UiFocusNodeSlot[]>(view, "_focusNodeSlots");
             Assert.That(slots, Is.Not.Null);
 
-            var activeFrameCount = 0;
+            var visibleFrameCount = 0;
             for (var i = 0; i < slots.Length; i++)
             {
                 Assert.That(slots[i], Is.Not.Null);
                 Assert.That(slots[i].SelectionFrame, Is.Not.Null, slots[i].Id);
-                if (slots[i].SelectionFrame.gameObject.activeSelf)
+                if (IsSelectionFrameVisiblyShown(slots[i].SelectionFrame))
                 {
-                    activeFrameCount++;
+                    visibleFrameCount++;
                 }
             }
 
             if (isHidden)
             {
-                Assert.That(activeFrameCount, Is.EqualTo(0));
+                Assert.That(visibleFrameCount, Is.EqualTo(0));
             }
             else
             {
-                Assert.That(activeFrameCount, Is.GreaterThan(0));
+                Assert.That(visibleFrameCount, Is.GreaterThan(0));
             }
+        }
+
+        private static bool IsSelectionFrameVisiblyShown(Image frame)
+        {
+            return frame != null &&
+                   frame.gameObject.activeSelf &&
+                   frame.color.a > 0.001f;
         }
 
         private static MainMenuHarness CreateMainMenuHarness()

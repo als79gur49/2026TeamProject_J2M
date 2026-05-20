@@ -8,6 +8,8 @@ namespace Game.Feature.UI.Screens
 {
     public sealed class LevelFailedScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
     {
+        private const int MainSelectionIndex = 1;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _detailLabel;
@@ -128,7 +130,7 @@ namespace Game.Feature.UI.Screens
 
         public void OnNavigationFocusGained()
         {
-            _navigationGroup?.SetSelectedIndex(0);
+            _navigationGroup?.SetSelectedIndex(MainSelectionIndex);
         }
 
         public void OnNavigationFocusLost()
