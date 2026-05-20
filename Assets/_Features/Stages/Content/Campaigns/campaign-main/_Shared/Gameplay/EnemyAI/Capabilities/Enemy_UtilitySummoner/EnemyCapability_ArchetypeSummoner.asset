@@ -15,10 +15,10 @@ MonoBehaviour:
   effects:
   - kind: 0
     initialDelaySeconds: 0
-    cooldownSeconds: 2
+    cooldownSeconds: 10
     summon:
       spawnCountPerTrigger: 1
-      maxAliveChildren: 3
+      maxAliveChildren: 2
       candidatePattern: 0
       requireNoUnitAtSpawnCell: 1
       requireNoSolidAtSpawnCell: 1
