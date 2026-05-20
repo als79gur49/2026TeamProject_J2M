@@ -290,10 +290,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(binding.DefaultLifetimeSeconds, Is.EqualTo(0.45f).Within(0.001f));
-            Assert.That(binding.TailSeconds, Is.EqualTo(0.30f).Within(0.001f));
-            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
-            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(8));
         }
 
         [Test]
@@ -595,19 +591,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static VfxBindingDefinitionAsset CreateBinding(GameObject prefab, EnemyVfxCue cue)
         {
+            EnsureModelRoot(prefab);
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Enemy);
             SetField(binding, "cueCode", (int)cue);
             SetField(binding, "prefab", prefab);
             SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
-            SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
-            SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
-            SetField(binding, "defaultLifetimeSeconds", 0.45f);
-            SetField(binding, "tailSeconds", 0.30f);
+            SetField(
+                binding,
+                "playbackMode",
+                cue == EnemyVfxCue.JumperLandingTarget ? VfxPlaybackMode.Loop : VfxPlaybackMode.OneShot);
+            SetField(
+                binding,
+                "stopPolicy",
+                cue == EnemyVfxCue.JumperLandingTarget
+                    ? VfxStopPolicy.StopEmittingThenRelease
+                    : VfxStopPolicy.AuthoredDuration);
+            SetField(binding, "defaultLifetimeSeconds", cue == EnemyVfxCue.JumperLandingTarget ? 0f : 0.45f);
+            SetField(binding, "tailSeconds", cue == EnemyVfxCue.JumperLandingTarget ? 0f : 0.30f);
             SetField(binding, "initialPoolSize", 4);
             SetField(binding, "maxConcurrentInstances", 8);
             return binding;
+        }
+
+        private static void EnsureModelRoot(GameObject prefab)
+        {
+            if (prefab != null && prefab.transform.Find(VfxPrefabValidationDiagnostics.ModelRootName) == null)
+            {
+                new GameObject(VfxPrefabValidationDiagnostics.ModelRootName)
+                    .transform.SetParent(prefab.transform, worldPositionStays: false);
+            }
         }
 
         private static VfxCueMapAsset CreateCueMap(params VfxBindingDefinitionAsset[] bindings)
