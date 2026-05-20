@@ -2138,8 +2138,9 @@ namespace Game.Feature.Gameplay.Entities
                         source,
                         nextState,
                         input.TickIndex,
-                        out nextState))
+                        out var startedState))
                 {
+                    nextState = startedState;
                     var jumpFacing = EnemyJumpQueries.ResolveJumpBasisFacing(
                         nextState.sourceCell,
                         nextState.lockedTargetCell,

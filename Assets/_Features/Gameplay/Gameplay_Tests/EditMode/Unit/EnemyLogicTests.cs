@@ -1885,6 +1885,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
             var logic = new EnemyLogic(entityId: 40, profile);
 
             try
