@@ -4000,6 +4000,12 @@ namespace Game.Feature.Gameplay.Loop
                     postMovementChargeState,
                     hasFinalState,
                     finalChargeState);
+                if (resolvedState.phase != EnemyChargePhase.None &&
+                    !IsEnemyChargePresentationEligible(context.FinalAuthoritativeSnapshot, entityId))
+                {
+                    continue;
+                }
+
                 if (!ShouldEmitChargeSignal(
                         hasBaselineState,
                         baselineChargeState,
@@ -4269,6 +4275,18 @@ namespace Game.Feature.Gameplay.Loop
             return hasPreviousState
                 ? previousChargeState
                 : default;
+        }
+
+        private static bool IsEnemyChargePresentationEligible(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetEntity(entityId, out var entity) &&
+                   EntityRolePolicy.IsEnemyUnit(entity) &&
+                   entity.boardPresence == EntityBoardPresence.Occupying &&
+                   entity.hp > 0 &&
+                   !entity.markedForDeath &&
+                   entity.aiMode != EnemyAiMode.None &&
+                   entity.aiMode != EnemyAiMode.Dead &&
+                   entity.position.face == snapshot.Topology.BottomFace;
         }
 
         private static bool ShouldEmitChargeSignal(

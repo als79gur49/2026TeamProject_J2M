@@ -1338,6 +1338,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ChargePresentation_InactiveTopology_DoesNotEmitActiveSignal()
+        {
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var enemy = CreateEnemyEntity(40, enemyCell, EnemyAiMode.Charge, Direction.Right);
+            var activeChargeState = new EnemyChargeRuntimeState
+            {
+                phase = EnemyChargePhase.Active,
+                sequence = 2,
+                lockedDirection = Direction.Right,
+                remainingActiveSteps = 1,
+            };
+            var preMovementSnapshot = CreateSnapshotWithEnemyChargeStates(
+                new[] { enemy },
+                new EnemyChargeStateSeed(40, activeChargeState));
+            var finalWorld = CreateWorldState(
+                new[] { enemy },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Front));
+            CreateWriteContext(finalWorld).SetEnemyChargeState(40, activeChargeState);
+            var finalSnapshot = CreateSnapshot(finalWorld);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 2));
+
+            Assert.That(presentationData.EnemyChargeSignals, Is.Empty);
+            Assert.That(finalSnapshot.TryGetEnemyChargeState(40, out var finalChargeState), Is.True);
+            Assert.That(finalChargeState.phase, Is.EqualTo(EnemyChargePhase.Active));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
