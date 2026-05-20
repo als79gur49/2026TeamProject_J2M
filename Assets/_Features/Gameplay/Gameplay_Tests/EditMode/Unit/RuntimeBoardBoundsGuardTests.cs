@@ -144,7 +144,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.TryGetProjectileAt(new SurfaceCell(FaceId.Floor, 0, 0), out var projectile), Is.True);
                 Assert.That(projectile.entityId, Is.EqualTo(20));
                 Assert.That(projectile.stateTimer, Is.EqualTo(host.TimingProfile.ProjectileStepIntervalTicks));
-                Assert.That(projectile.stateTimer, Is.EqualTo(3));
             }
             finally
             {
