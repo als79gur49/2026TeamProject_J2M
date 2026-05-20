@@ -235,6 +235,20 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 ? snapshot.Topology
                 : updatedTopology;
 
+            if (intent.CommandKind == MovementCommandKind.Move &&
+                usesPlayerTraversal &&
+                EntityRolePolicy.IsPlayerUnit(source) &&
+                TileFeatureAccessQueries.IsActiveDestroyTile(
+                    snapshot,
+                    tileFeatureDefinitions,
+                    destinationCell,
+                    movementTopology))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PlayerVoluntaryDestroyTileEntryBlocked|Cell={FormatCell(destinationCell)}");
+                return;
+            }
+
             var hasSolidOccupant = snapshot.TryGetSolidSemanticAt(
                 movementTopology,
                 destinationCell,

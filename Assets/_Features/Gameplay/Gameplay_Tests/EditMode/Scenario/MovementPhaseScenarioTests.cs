@@ -69,7 +69,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerMovement_GroundPlayer_CanEnterActiveDestroyTile_AndDies()
+        public void MovementExpander_PlayerTraversalMoveIntoActiveDestroyTile_IsBlocked()
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
@@ -81,20 +81,39 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 new[] { CreateDestroyTile(100, destroyCell) });
-            var pipeline = CreatePlayerTileFeaturePipeline(
-                worldState,
-                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
 
-            var result = pipeline.RunTick(new TickInput(1));
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: new HashSet<int> { 10 },
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
 
-            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("DestroyTile", StringComparison.Ordinal)), Is.False);
-            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted", StringComparison.Ordinal)), Is.True);
-            Assert.That(result.FinalEntities.Any(entity => entity.entityId == 10), Is.False);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    rejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=PlayerVoluntaryDestroyTileEntryBlocked",
+                    "Cell=(1,0)"),
+                Is.True);
+            Assert.That(expandedCandidates, Is.Empty);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(10, out var finalPlayer), Is.True);
+            Assert.That(finalPlayer.hp, Is.EqualTo(3));
         }
 
         [Test]
         [Category("Core")]
-        public void PlayerMovement_AirPlayer_CanEnterActiveDestroyTile_AndSurvives()
+        public void MovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsBlocked()
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var player = CreateUnit(
@@ -109,17 +128,178 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 new[] { CreateDestroyTile(100, destroyCell) });
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: new HashSet<int> { 10 },
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    rejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=PlayerVoluntaryDestroyTileEntryBlocked",
+                    "Cell=(1,0)"),
+                Is.True);
+            Assert.That(expandedCandidates, Is.Empty);
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(10, out var finalPlayer), Is.True);
+            Assert.That(finalPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(finalPlayer.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            Assert.That(finalPlayer.hp, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementExpander_PlayerTraversalMoveIntoInactiveDestroyTile_IsAllowed()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: new HashSet<int> { 10 },
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            Assert.That(
+                rejectedReasons.Any(reason =>
+                    reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(expandedCandidates, Is.Not.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyMovement_OrdinaryMoveIntoActiveDestroyTile_StillEntersAndDies()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var enemy = CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 0), teamId: 2);
+            enemy.unitRole = UnitRole.Enemy;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    enemy,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(1, 0))),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.FinalEntities.Any(entity => entity.entityId == 20), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PushBoxIntoActiveDestroyTile_IsNotBlockedByPlayerVoluntaryAccessGuard()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.FinalEntities.Any(entity => entity.entityId == 20), Is.False);
+            Assert.That(result.FinalEntities.Single(entity => entity.entityId == 10).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyResolvedDestinationActiveDestroyTile_IsBlocked()
+        {
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1));
+            player.unitRole = UnitRole.Player;
+            var resolvedDestination = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[] { CreateDestroyTile(100, resolvedDestination) });
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
 
-            var result = pipeline.RunTick(new TickInput(1));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("DestroyTile", StringComparison.Ordinal)), Is.False);
-            Assert.That(result.EventLog.Any(evt => evt.Contains("DestroyTile", StringComparison.Ordinal)), Is.False);
-            var finalPlayer = result.FinalEntities.Single(entity => entity.entityId == 10);
-            Assert.That(finalPlayer.position, Is.EqualTo(destroyCell));
-            Assert.That(finalPlayer.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=PlayerVoluntaryDestroyTileEntryBlocked",
+                    "Cell=Front(0,0)"),
+                Is.True);
+            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("TopologyCommitted", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
         }
 
         [Test]
@@ -5033,10 +5213,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldState worldState,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
+            return CreateTileFeaturePipeline(
+                worldState,
+                tileFeatureDefinitions,
+                new IEntityLogic[] { new PlayerLogic(10) });
+        }
+
+        private static TickPipeline CreateTileFeaturePipeline(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            IReadOnlyList<IEntityLogic> entityLogics)
+        {
             var timingProfile = GameplayTimingProfile.CreateDefault();
             return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
-                new IEntityLogic[] { new StubMovementLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0))) },
+                entityLogics,
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
                 playerRespawnDelayTicks: 1,

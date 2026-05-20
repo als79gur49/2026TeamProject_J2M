@@ -83,7 +83,9 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 - DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, not final snapshot scanning.
 - Stationary boxes and stationary units are not destroyed.
-- Unit targets are destroyed only when ordinary Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection.
+- Player-authored ordinary Move into an active DestroyTile is rejected during movement expansion using the topology-resolved destination cell.
+- The player DestroyTile access guard is not a traversal blocker and does not apply to enemy, box, projectile, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.
+- Unit targets are destroyed only when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection.
 - Player and Enemy are both Unit targets; Player death presentation/audio is transported through `TickResult` presentation facts, not direct gameplay UI/audio calls.
 - Projectile and non-box solid occupants are not destroyed in v1.
 - MoonBlock is a Box, so a moving MoonBlock contact is destroyed.

@@ -2157,6 +2157,13 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
+                    if (nativeTopologyDisposition == PlayerFree2DNativeTopologyDisposition.AccessBlocked)
+                    {
+                        consumedFree2DIntentIds.Add(intent.IntentId);
+                        settledApproachPlayerIds.Add(entity.entityId);
+                        continue;
+                    }
+
                     var handoffDisposition = ResolvePlayerFree2DTopologyHandoffIntent(
                             snapshot,
                             entity,
@@ -2294,6 +2301,17 @@ namespace Game.Feature.Gameplay.Loop
                     : PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
+            if (TileFeatureAccessQueries.IsActiveDestroyTile(
+                    snapshot,
+                    _tileFeatureDefinitions,
+                    transition.TargetAnchor,
+                    transition.UpdatedTopology))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Free2DTopology|Source={entity.entityId}|I={intent.IntentId}|Reason=PlayerVoluntaryDestroyTileEntryBlocked|Cell={FormatCell(transition.TargetAnchor)}");
+                return PlayerFree2DNativeTopologyDisposition.AccessBlocked;
+            }
+
             var movementMetadata = new FinalizationOperationMetadata(
                 TickPhase.Plan,
                 ResolvedActionSemanticKind.Move,
@@ -2380,6 +2398,7 @@ namespace Game.Feature.Gameplay.Loop
             NotCandidate = 0,
             Materialized = 1,
             TargetRejected = 2,
+            AccessBlocked = 3,
         }
 
         private PlayerFree2DTopologyHandoffIntentDisposition ResolvePlayerFree2DTopologyHandoffIntent(
@@ -2700,6 +2719,19 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
+            if (TryResolvePlayerFree2DDestroyTileAccessCell(
+                    snapshot,
+                    pose,
+                    directionDelta,
+                    delta,
+                    sweep,
+                    out var blockedAccessCell))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Free2D|Source={entity.entityId}|Reason=PlayerVoluntaryDestroyTileEntryBlocked|Cell={FormatCell(blockedAccessCell)}");
+                return;
+            }
+
             if (sweep.Blocked &&
                 sweep.RejectedBy == ContinuousLocomotionRejectionReason.TopologySeam &&
                 !skipTopologyApproachSettleFallback &&
@@ -2759,6 +2791,109 @@ namespace Game.Feature.Gameplay.Loop
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={entity.entityId}|Reason=Free2DContinuousBlocked|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
             }
+        }
+
+        private bool TryResolvePlayerFree2DDestroyTileAccessCell(
+            WorldSnapshot snapshot,
+            UnitContinuousLocomotionPose pose,
+            Vector2Int directionDelta,
+            KinematicVelocity2 delta,
+            ContinuousLocomotionSweepResult sweep,
+            out SurfaceCell accessCell)
+        {
+            if (sweep.AnchorChanged)
+            {
+                return TryResolveActiveDestroyTileAccessCell(
+                    snapshot,
+                    sweep.ResolvedAnchorCell,
+                    out accessCell);
+            }
+
+            if (!TryResolvePlayerFree2DApproachCell(pose, directionDelta, delta, out var approachCell))
+            {
+                accessCell = default;
+                return false;
+            }
+
+            return TryResolveActiveDestroyTileAccessCell(snapshot, approachCell, out accessCell);
+        }
+
+        private bool TryResolveActiveDestroyTileAccessCell(
+            WorldSnapshot snapshot,
+            SurfaceCell candidateCell,
+            out SurfaceCell accessCell)
+        {
+            if (TileFeatureAccessQueries.IsActiveDestroyTile(
+                    snapshot,
+                    _tileFeatureDefinitions,
+                    candidateCell,
+                    snapshot.Topology))
+            {
+                accessCell = candidateCell;
+                return true;
+            }
+
+            accessCell = default;
+            return false;
+        }
+
+        private bool TryResolvePlayerFree2DApproachCell(
+            UnitContinuousLocomotionPose pose,
+            Vector2Int directionDelta,
+            KinematicVelocity2 delta,
+            out SurfaceCell approachCell)
+        {
+            var targetX = pose.LocalOffset.X.RawValue + delta.X.RawValue;
+            var targetY = pose.LocalOffset.Y.RawValue + delta.Y.RawValue;
+            var radiusUnits = NormalizePlayerFree2DCollisionRadiusUnits(_playerContinuousLocomotion.CollisionRadiusUnits);
+
+            if (delta.X.RawValue > 0 && targetX >= GetPositivePlayerFree2DAccessThreshold(radiusUnits))
+            {
+                approachCell = new SurfaceCell(pose.AnchorCell.face, pose.AnchorCell.x + 1, pose.AnchorCell.y);
+                return directionDelta.x > 0;
+            }
+
+            if (delta.X.RawValue < 0 && targetX <= GetNegativePlayerFree2DAccessThreshold(radiusUnits))
+            {
+                approachCell = new SurfaceCell(pose.AnchorCell.face, pose.AnchorCell.x - 1, pose.AnchorCell.y);
+                return directionDelta.x < 0;
+            }
+
+            if (delta.Y.RawValue > 0 && targetY >= GetPositivePlayerFree2DAccessThreshold(radiusUnits))
+            {
+                approachCell = new SurfaceCell(pose.AnchorCell.face, pose.AnchorCell.x, pose.AnchorCell.y + 1);
+                return directionDelta.y > 0;
+            }
+
+            if (delta.Y.RawValue < 0 && targetY <= GetNegativePlayerFree2DAccessThreshold(radiusUnits))
+            {
+                approachCell = new SurfaceCell(pose.AnchorCell.face, pose.AnchorCell.x, pose.AnchorCell.y - 1);
+                return directionDelta.y < 0;
+            }
+
+            approachCell = default;
+            return false;
+        }
+
+        private static int NormalizePlayerFree2DCollisionRadiusUnits(int collisionRadiusUnits)
+        {
+            return Math.Max(0, Math.Min(KinematicFixed.HalfCellUnits - 1, collisionRadiusUnits));
+        }
+
+        private static int GetPositivePlayerFree2DAccessThreshold(int collisionRadiusUnits)
+        {
+            return collisionRadiusUnits <= 0
+                ? KinematicFixed.MaxPositiveLocalOffset
+                : Math.Min(
+                    KinematicFixed.MaxPositiveLocalOffset,
+                    KinematicFixed.HalfCellUnits - collisionRadiusUnits);
+        }
+
+        private static int GetNegativePlayerFree2DAccessThreshold(int collisionRadiusUnits)
+        {
+            return collisionRadiusUnits <= 0
+                ? KinematicFixed.MinLocalOffset
+                : KinematicFixed.MinLocalOffset + collisionRadiusUnits;
         }
 
         private void CollectPreMovementPlayerActionAttemptResolutions(
