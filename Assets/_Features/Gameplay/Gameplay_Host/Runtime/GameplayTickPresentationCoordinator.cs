@@ -399,6 +399,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshGravityFieldPresentationRequests(result.PresentationData);
             RefreshTileFeatureVisualStates(result.PresentationData);
             RefreshGravityFieldVisualStates(result.PresentationData);
+            SyncTileFeatureVisualPoseForTopologyMotionIfNeeded(result.PresentationData);
             _tileFeatureAudioPresentationController.ReplacePendingPlan(
                 _tileFeatureAudioRequestPlanner.BuildRequests(_currentTilePresentationRequests, result.TickIndex));
             _gravityFieldAudioPresentationController.ReplacePendingPlan(
@@ -757,6 +758,19 @@ namespace Game.Feature.Gameplay.Host
                 ? EmptyGravityFieldVisualStates
                 : new ReadOnlyCollection<GravityFieldVisualState>(
                     new List<GravityFieldVisualState>(visualStates));
+        }
+
+        private void SyncTileFeatureVisualPoseForTopologyMotionIfNeeded(TickPresentationData presentationData)
+        {
+            if (_tileFeatureVisualPoseSynchronizer == null ||
+                !presentationData.TopologyMotion.HasValue ||
+                presentationData.TopologyMotion.Value.RotationKind == CubeRotationKind.None)
+            {
+                return;
+            }
+
+            _tileFeatureVisualPoseSynchronizer.RefreshAll(
+                presentationData.TopologyMotion.Value.DestinationTopology);
         }
 
         internal void HardCleanupPresentationExtensions()

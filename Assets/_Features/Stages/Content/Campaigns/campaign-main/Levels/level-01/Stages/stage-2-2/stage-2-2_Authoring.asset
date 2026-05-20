@@ -2273,7 +2273,7 @@ MonoBehaviour:
       x: 13
       y: 2
     Kind: 6
-    ActivationRule: 1
+    ActivationRule: 3
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0

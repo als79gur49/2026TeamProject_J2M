@@ -181,11 +181,10 @@ namespace Game.Feature.Stages
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.Exit &&
-                    tileFeature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly &&
                     tileFeature.ActivationRule != TileFeatureActivationRule.ActiveFaceOnly)
                 {
                     throw new InvalidOperationException(
-                        $"Stage '{stageName}' {label} Exit must use BottomFaceOnly or ActiveFaceOnly activation.");
+                        $"Stage '{stageName}' {label} Exit must use ActiveFaceOnly activation.");
                 }
 
                 if (tileFeature.Kind == TileFeatureKind.Entrance &&

@@ -242,7 +242,7 @@ namespace Game.Feature.Stages.Editor
                     feature.ActivationRule = TileFeatureActivationRule.FrontFaceOnly;
                     break;
                 case TileFeatureKind.Exit:
-                    feature.ActivationRule = TileFeatureActivationRule.BottomFaceOnly;
+                    feature.ActivationRule = TileFeatureActivationRule.ActiveFaceOnly;
                     break;
                 case TileFeatureKind.Entrance:
                     feature.ActivationRule = TileFeatureActivationRule.BottomFaceOnly;
@@ -691,12 +691,12 @@ namespace Game.Feature.Stages.Editor
 
                     break;
                 case TileFeatureKind.Exit:
-                    if (feature.ActivationRule != TileFeatureActivationRule.BottomFaceOnly ||
+                    if (feature.ActivationRule != TileFeatureActivationRule.ActiveFaceOnly ||
                         feature.Direction != Direction2D.None ||
                         feature.BoxSelector != TileFeatureBoxSelector.None ||
                         feature.BoundEntityId != 0)
                     {
-                        error = "Exit must use BottomFaceOnly, Direction None, BoxSelector None, and BoundEntityId 0.";
+                        error = "Exit must use ActiveFaceOnly, Direction None, BoxSelector None, and BoundEntityId 0.";
                         return false;
                     }
 
