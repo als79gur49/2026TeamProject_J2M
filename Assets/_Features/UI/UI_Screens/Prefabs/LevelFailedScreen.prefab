@@ -1994,7 +1994,7 @@ MonoBehaviour:
       SelectionFrame: {fileID: 2894300349721154915}
     _wrap: 0
     _skipNonInteractable: 1
-    _selectedIndex: 0
+    _selectedIndex: 1
 --- !u!114 &3911303664466256932
 MonoBehaviour:
   m_ObjectHideFlags: 0

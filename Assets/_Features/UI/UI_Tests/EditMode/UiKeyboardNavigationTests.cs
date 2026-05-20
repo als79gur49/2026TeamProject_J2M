@@ -176,25 +176,25 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ConfirmPopupNavigation_DestructivePayload_DefaultsToConfirm_ByProductPolicy()
+        public void ConfirmPopupNavigation_DestructivePayload_DefaultsToCancel_ByProductPolicy()
         {
             using var harness = CreateConfirmPopupHarness(isDestructive: true);
             PopupCompletionKind? completion = null;
             harness.View.CompletionRequested += kind => completion = kind;
 
-            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(1));
             Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
         }
 
         [Test]
-        public void ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitConfirms()
+        public void ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitCancels()
         {
             using var popup = CreateConfirmPopupHarness(isDestructive: true);
             PopupCompletionKind? completion = null;
             popup.View.CompletionRequested += kind => completion = kind;
 
-            var routerObject = new GameObject(nameof(ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitConfirms));
+            var routerObject = new GameObject(nameof(ConfirmPopup_FirstSubmit_RevealsOnly_SecondSubmitCancels));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
@@ -210,7 +210,7 @@ namespace Game.Feature.UI.Tests
                 AssertAllFramesHidden(popup.View, "_actionNavigationGroup", isHidden: false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
-                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+                Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
             }
             finally
             {
@@ -225,16 +225,17 @@ namespace Game.Feature.UI.Tests
             PopupCompletionKind? completion = null;
             harness.View.CompletionRequested += kind => completion = kind;
 
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
             Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(1));
-            Assert.That(harness.View.HandleSubmit(), Is.True);
-            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
-
-            completion = null;
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.True);
             Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(0));
             Assert.That(harness.View.HandleSubmit(), Is.True);
             Assert.That(completion, Is.EqualTo(PopupCompletionKind.Confirmed));
+
+            completion = null;
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.True);
+            Assert.That(harness.View.SelectedActionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+            Assert.That(completion, Is.EqualTo(PopupCompletionKind.Cancelled));
         }
 
         [Test]
@@ -434,7 +435,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitRestarts()
+        public void LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitOpensMain()
         {
             using var harness = CreateLevelFailedHarness();
             var restartCount = 0;
@@ -442,7 +443,7 @@ namespace Game.Feature.UI.Tests
             harness.View.RestartLevelRequested += () => restartCount++;
             harness.View.MainRequested += () => mainCount++;
 
-            var routerObject = new GameObject(nameof(LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitRestarts));
+            var routerObject = new GameObject(nameof(LevelFailedScreenView_FirstSubmit_RevealsOnly_SecondSubmitOpensMain));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
@@ -461,8 +462,8 @@ namespace Game.Feature.UI.Tests
                 AssertAllFramesHidden(harness.View, "_navigationGroup", isHidden: false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
-                Assert.That(restartCount, Is.EqualTo(1));
-                Assert.That(mainCount, Is.EqualTo(0));
+                Assert.That(restartCount, Is.EqualTo(0));
+                Assert.That(mainCount, Is.EqualTo(1));
             }
             finally
             {
@@ -471,7 +472,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LevelFailedScreenView_DownThenSubmit_UsesMainClickPath()
+        public void LevelFailedScreenView_UpThenSubmit_UsesRestartClickPath()
         {
             using var harness = CreateLevelFailedHarness();
             var restartCount = 0;
@@ -481,11 +482,11 @@ namespace Game.Feature.UI.Tests
 
             harness.View.OnNavigationFocusGained();
 
-            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
             Assert.That(harness.View.HandleSubmit(), Is.True);
 
-            Assert.That(restartCount, Is.EqualTo(0));
-            Assert.That(mainCount, Is.EqualTo(1));
+            Assert.That(restartCount, Is.EqualTo(1));
+            Assert.That(mainCount, Is.EqualTo(0));
         }
 
         [Test]
