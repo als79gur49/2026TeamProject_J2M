@@ -2523,8 +2523,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
                 CreateUnit(entityId: 12, position: new Vector2Int(1, 1), teamId: 1),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
-                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 1),
-                CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 1, teamId: 1),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
+                CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -3358,26 +3358,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
                 GameplayTerrainData.Empty);
+            var timingProfile = GameplayTimingProfile.CreateDefault();
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
                     new PlayerLogic(10),
-                });
+                },
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    result.MovementPhaseResult.RejectedReasons,
-                    "MovementRejected",
-                    "Stage=Expand",
-                    "Source=10",
-                    "I=1",
-                    "Reason=BlockedDestination",
-                    "Cell=Front(0,-1)"),
-                Is.True);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
 
@@ -3423,7 +3418,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Movement_RawPushIntentAcrossBottomFrontSharedEdge_IsRejectedAsCrossFaceInteraction()
+        public void Movement_RawPushIntentAcrossBottomFrontSharedEdge_UsesUnitTraversalAndRejectsMissingPushTarget()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -3450,11 +3445,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Stage=Expand",
                     "Source=10",
                     "I=1",
-                    "Reason=InteractionCrossesFaceBoundary",
-                    "Command=Push",
-                    "From=(0,1)",
-                    "Cell=Front(0,0)",
-                    "Target=20"),
+                    "Reason=PushTargetNotBox",
+                    "Cell=(0,2)",
+                    "Target=0",
+                    "Type=None"),
                 Is.True);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
             Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
