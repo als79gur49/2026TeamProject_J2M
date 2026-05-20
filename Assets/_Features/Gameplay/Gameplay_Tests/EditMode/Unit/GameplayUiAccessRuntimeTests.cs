@@ -760,7 +760,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             PlayerControlTimingSettings playerControlTiming = null,
             ICampaignChancesReadSource campaignChancesReadSource = null)
         {
-            return new GameplaySceneHostConfiguration
+            var configuration = new GameplaySceneHostConfiguration
             {
                 AutoAdvanceTicks = false,
                 AutoCreateViews = false,
@@ -772,6 +772,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
                 CampaignChancesReadSource = campaignChancesReadSource,
             };
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            return configuration;
         }
 
         private static StageObjectiveRuntimeDefinition CreateUiObjectiveDefinition()

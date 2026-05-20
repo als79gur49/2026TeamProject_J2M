@@ -207,6 +207,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AppendOccupancyEntries(builder, "Solids", snapshot, static (source, buffer) => source.EnumerateSolidOccupancyOrdered(buffer));
             AppendOccupancyEntries(builder, "Projectiles", snapshot, static (source, buffer) => source.EnumerateProjectileOccupancyOrdered(buffer));
             AppendPlayerControlEntries(builder, snapshot);
+            AppendUnitKinematicEntries(builder, snapshot);
             AppendPlayerDamageEntries(builder, snapshot);
             AppendEnemyActionEntries(builder, snapshot);
             AppendEnemyJumpEntries(builder, snapshot);
@@ -257,6 +258,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .Append(action.executeTick).Append('|')
                     .Append(action.recoveryEndTick).Append('|')
                     .Append(action.executionAttempted).Append('\n');
+            }
+        }
+
+        private static void AppendUnitKinematicEntries(StringBuilder builder, WorldSnapshot snapshot)
+        {
+            var entries = new List<UnitKinematicSnapshotEntry>();
+            snapshot.EnumerateUnitKinematicStatesOrdered(entries);
+            builder.Append("UnitKinematic=").Append(entries.Count).Append('\n');
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var state = entries[i].State;
+                builder
+                    .Append(entries[i].EntityId).Append('|')
+                    .Append(state.mode).Append('|')
+                    .Append(state.localOffset.X.RawValue).Append('|')
+                    .Append(state.localOffset.Y.RawValue).Append('|')
+                    .Append(state.remainingTicks).Append('|')
+                    .Append(state.elapsedTicks).Append('|')
+                    .Append(state.totalTicks).Append('|')
+                    .Append(state.startedTick).Append('|')
+                    .Append(state.commitTick).Append('|')
+                    .Append(state.stepDirectionX).Append('|')
+                    .Append(state.stepDirectionY).Append('\n');
             }
         }
 
@@ -355,7 +379,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoardBounds? boardBounds = null,
             PlayerControlTimingSettings playerControlTiming = null)
         {
-            return new GameplaySceneHostConfiguration
+            var configuration = new GameplaySceneHostConfiguration
             {
                 AutoAdvanceTicks = false,
                 AutoCreateViews = false,
@@ -366,6 +390,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerEntityId = 10,
                 PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
             };
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            return configuration;
         }
 
         private static EntityState CreatePlayerEntity(
