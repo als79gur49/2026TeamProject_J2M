@@ -126,6 +126,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ReleaseInternal(playbackHandle, forceHardCleanup: false);
         }
 
+        public void HardClearActiveForTopologyTransition()
+        {
+            foreach (var handle in activeHandles.ToArray())
+            {
+                if (handle == null ||
+                    handle.IsTerminal ||
+                    handle.TopologyStopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt)
+                {
+                    continue;
+                }
+
+                handle.Stop(GameplayVfxStopMode.TopologyTransitionHardClear);
+                ReleaseInternal(handle, forceHardCleanup: false);
+            }
+        }
+
         public void HardCleanupAll()
         {
             foreach (var handle in activeHandles.ToArray())

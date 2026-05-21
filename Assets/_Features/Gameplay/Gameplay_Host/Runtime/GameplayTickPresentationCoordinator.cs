@@ -89,6 +89,8 @@ namespace Game.Feature.Gameplay.Host
         private TileFeatureVisualPoseSynchronizer _tileFeatureVisualPoseSynchronizer;
         private IGameplayAudioPlaybackPort _rawGameplayAudioPlaybackPort;
         private GameplaySfxArbitratingPlaybackPort _arbitratingGameplayAudioPlaybackPort;
+        private TickResult _lastPresentedResult;
+        private int _topologyTransitionEpoch;
 
         public GameplayTickPresentationCoordinator()
         {
@@ -131,6 +133,8 @@ namespace Game.Feature.Gameplay.Host
                 _exitPresentationController,
                 _entityPresentationApplier);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
+            _topologyTransitionController.TopologyTransitionPresentationCompleted +=
+                HandleTopologyTransitionPresentationCompleted;
         }
 
         public event Action<CubeTopologyState> TopologyCommitted;
@@ -416,6 +420,12 @@ namespace Game.Feature.Gameplay.Host
                 _viewBinder,
                 TopologyCommitted);
             _gravityFieldVisualPresentationController.RefreshContinuousStates(_currentGravityFieldVisualStates);
+            if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
+            {
+                _topologyTransitionEpoch++;
+            }
+
+            _lastPresentedResult = result;
             PresentExtensions(result);
             TraceStep("RefreshUtilityWindupWarnings");
             _utilityWindupVfxPresenter.RefreshSummonWarnings(
@@ -523,6 +533,8 @@ namespace Game.Feature.Gameplay.Host
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
             _topologyTransitionController.Reset();
+            _lastPresentedResult = null;
+            _topologyTransitionEpoch = 0;
 
             _committedFrameBuilder.StoreCommittedFrame(
                 entities,
@@ -797,7 +809,9 @@ namespace Game.Feature.Gameplay.Host
                 _enemyPresentationCatalog,
                 _enemyPresentationBindings,
                 _timingProfile,
-                _tileFeatureVfxStyleBindings);
+                _tileFeatureVfxStyleBindings,
+                _topologyTransitionEpoch,
+                isTopologyTransitionCompletionReconcile: false);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);
@@ -836,6 +850,41 @@ namespace Game.Feature.Gameplay.Host
         private void HandleTopologyPresentationCompleted(CubeTopologyState topology)
         {
             _tileFeatureVisualPoseSynchronizer?.RefreshAll(topology);
+        }
+
+        private void HandleTopologyTransitionPresentationCompleted(CubeTopologyState topology)
+        {
+            _tileFeatureVisualPoseSynchronizer?.RefreshAll(topology);
+            if (_lastPresentedResult == null ||
+                _presentationExtensions.Count == 0)
+            {
+                return;
+            }
+
+            var context = new GameplayTickPresentationExtensionContext(
+                _lastPresentedResult,
+                topology,
+                _stateStore,
+                _projector,
+                _enemyPresentationCatalog,
+                _enemyPresentationBindings,
+                _timingProfile,
+                _tileFeatureVfxStyleBindings,
+                _topologyTransitionEpoch,
+                isTopologyTransitionCompletionReconcile: true);
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayTopologyTransitionCompletionPresentationExtension extension)
+                {
+                    extension.ReconcileTopologyTransitionCompleted(context);
+                }
+            }
+        }
+
+        private static bool IsTopologyTransitionPresentation(TickTopologyMotion? topologyMotion)
+        {
+            return topologyMotion.HasValue &&
+                   topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
         private void RefreshPresentationMotionVfx(int tickIndex)

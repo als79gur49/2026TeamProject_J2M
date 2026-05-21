@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Vfx
         private readonly Dictionary<VfxPersistentKey, IVfxPlaybackHandle> activeHandles = new();
         private readonly Dictionary<VfxPersistentKey, VfxBindingRuntimePolicy> activePolicies = new();
         private readonly Dictionary<VfxPersistentKey, VfxStopPolicy> stopPolicies = new();
+        private readonly Dictionary<VfxPersistentKey, GameplayVfxTopologyStopMode> topologyStopModes = new();
         private readonly HashSet<VfxPersistentKey> desiredKeys = new();
 
         public int ActiveCount => activeHandles.Count;
@@ -25,7 +26,8 @@ namespace Game.Feature.Gameplay.Vfx
         public IVfxPlaybackHandle GetOrStart(
             in ResolvedVfxPlaybackCommand command,
             IVfxPool pool,
-            VfxLifetimeRunner lifetimeRunner = null)
+            VfxLifetimeRunner lifetimeRunner = null,
+            bool suppressTopologyTransitionStarts = false)
         {
             if (pool == null)
             {
@@ -42,6 +44,7 @@ namespace Game.Feature.Gameplay.Vfx
                 else if (IsSameBinding(command.PersistentKey, command.Policy))
                 {
                     stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+                    topologyStopModes[command.PersistentKey] = command.Request.TopologyStopMode;
                     return existing;
                 }
 
@@ -69,11 +72,19 @@ namespace Game.Feature.Gameplay.Vfx
                 if (!IsSameBinding(command.PersistentKey, command.Policy))
                 {
                     stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+                    topologyStopModes[command.PersistentKey] = command.Request.TopologyStopMode;
                     return existing;
                 }
 
                 stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+                topologyStopModes[command.PersistentKey] = command.Request.TopologyStopMode;
                 return existing;
+            }
+
+            if (suppressTopologyTransitionStarts &&
+                command.Request.TopologySpawnMode != GameplayVfxTopologySpawnMode.TopologyHelperExempt)
+            {
+                return null;
             }
 
             var handle = pool.StartPersistent(command);
@@ -85,6 +96,7 @@ namespace Game.Feature.Gameplay.Vfx
             activeHandles.Add(command.PersistentKey, handle);
             activePolicies.Add(command.PersistentKey, command.Policy);
             stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
+            topologyStopModes[command.PersistentKey] = command.Request.TopologyStopMode;
             return handle;
         }
 
@@ -123,7 +135,9 @@ namespace Game.Feature.Gameplay.Vfx
             desiredKeys.Clear();
         }
 
-        public void EndReconcile(VfxLifetimeRunner lifetimeRunner)
+        public void EndReconcile(
+            VfxLifetimeRunner lifetimeRunner,
+            bool preserveTopologyHelperExempt = false)
         {
             if (lifetimeRunner == null)
             {
@@ -133,6 +147,13 @@ namespace Game.Feature.Gameplay.Vfx
             foreach (var pair in activeHandles.ToArray())
             {
                 if (desiredKeys.Contains(pair.Key))
+                {
+                    continue;
+                }
+
+                if (preserveTopologyHelperExempt &&
+                    topologyStopModes.TryGetValue(pair.Key, out var topologyStopMode) &&
+                    topologyStopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt)
                 {
                     continue;
                 }
@@ -152,6 +173,38 @@ namespace Game.Feature.Gameplay.Vfx
             }
         }
 
+        public void ClearForTopologyTransitionStart(IVfxPool pool)
+        {
+            if (pool == null)
+            {
+                throw new ArgumentNullException(nameof(pool));
+            }
+
+            foreach (var pair in activeHandles.ToArray())
+            {
+                var key = pair.Key;
+                var handle = pair.Value;
+                if (handle == null)
+                {
+                    RemoveActiveEntry(key);
+                    continue;
+                }
+
+                var stopMode = topologyStopModes.TryGetValue(key, out var storedStopMode)
+                    ? storedStopMode
+                    : handle.TopologyStopMode;
+                if (stopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt)
+                {
+                    continue;
+                }
+
+                handle.Stop(GameplayVfxStopMode.TopologyTransitionHardClear);
+                pool.Release(handle);
+                LastStopReason = "TopologyTransitionHardClear";
+                RemoveActiveEntry(key);
+            }
+        }
+
         public void ReleaseCompleted()
         {
             foreach (var pair in activeHandles.ToArray())
@@ -162,6 +215,7 @@ namespace Game.Feature.Gameplay.Vfx
                     activeHandles.Remove(pair.Key);
                     activePolicies.Remove(pair.Key);
                     stopPolicies.Remove(pair.Key);
+                    topologyStopModes.Remove(pair.Key);
                 }
             }
         }
@@ -185,6 +239,7 @@ namespace Game.Feature.Gameplay.Vfx
             activeHandles.Clear();
             activePolicies.Clear();
             stopPolicies.Clear();
+            topologyStopModes.Clear();
             desiredKeys.Clear();
         }
 
@@ -199,6 +254,7 @@ namespace Game.Feature.Gameplay.Vfx
             activeHandles.Remove(key);
             activePolicies.Remove(key);
             stopPolicies.Remove(key);
+            topologyStopModes.Remove(key);
             desiredKeys.Remove(key);
         }
 

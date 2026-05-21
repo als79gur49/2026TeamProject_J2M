@@ -12,6 +12,8 @@ namespace Game.Feature.Gameplay.Vfx
         private readonly VfxPersistentHandleRegistry persistentRegistry;
         private readonly VfxLifetimeRunner lifetimeRunner;
         private GameplayVfxVisibilityContext visibilityContext;
+        private bool topologyTransitionStartsSuppressed;
+        private int topologyTransitionSuppressEpoch;
 
         public GameplayVfxPresentationController(
             IVfxPool pool,
@@ -44,23 +46,47 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void Refresh(GameplayVfxRequestPlan plan)
         {
+            Refresh(plan, default);
+        }
+
+        public void Refresh(GameplayVfxRequestPlan plan, GameplayVfxRefreshOptions options)
+        {
             persistentRegistry.ReleaseCompleted();
+
             persistentRegistry.BeginReconcile();
 
             if (plan != null)
             {
                 foreach (var request in plan.Requests)
                 {
-                    Process(request);
+                    Process(request, options);
                 }
             }
 
-            persistentRegistry.EndReconcile(lifetimeRunner);
+            persistentRegistry.EndReconcile(
+                lifetimeRunner,
+                preserveTopologyHelperExempt: options.PreserveTopologyHelperExempt);
+        }
+
+        public void SetTopologyTransitionStartSuppression(bool suppressed, int epoch)
+        {
+            topologyTransitionStartsSuppressed = suppressed;
+            topologyTransitionSuppressEpoch = suppressed ? epoch : 0;
+        }
+
+        public void ClearForTopologyTransitionStart(int epoch)
+        {
+            delayedRequests.Clear();
+            topologyTransitionStartsSuppressed = true;
+            topologyTransitionSuppressEpoch = epoch;
+            persistentRegistry.ClearForTopologyTransitionStart(pool);
         }
 
         public void HardCleanupAll()
         {
             delayedRequests.Clear();
+            topologyTransitionStartsSuppressed = false;
+            topologyTransitionSuppressEpoch = 0;
             persistentRegistry.HardCleanupAll(pool);
             pool.HardCleanupAll();
         }
@@ -86,19 +112,37 @@ namespace Game.Feature.Gameplay.Vfx
             }
         }
 
-        private void Process(in GameplayVfxRequest request)
+        private void Process(in GameplayVfxRequest request, in GameplayVfxRefreshOptions options)
         {
-            if (request.DelaySeconds > 0f && !request.IsPersistent)
+            if (IsSuppressedByTopologyTransition(request, options))
             {
-                delayedRequests.Add(new ScheduledGameplayVfxRequest(request, request.DelaySeconds));
                 return;
             }
 
-            ProcessNow(request);
+            if (request.DelaySeconds > 0f)
+            {
+                delayedRequests.Add(new ScheduledGameplayVfxRequest(
+                    request,
+                    request.DelaySeconds,
+                    topologyTransitionSuppressEpoch));
+                return;
+            }
+
+            ProcessNow(request, options);
         }
 
         private void ProcessNow(in GameplayVfxRequest request)
         {
+            ProcessNow(request, default);
+        }
+
+        private void ProcessNow(in GameplayVfxRequest request, in GameplayVfxRefreshOptions options)
+        {
+            if (IsSuppressedByTopologyTransition(request, options))
+            {
+                return;
+            }
+
             if (!bindingResolver.TryResolve(request, out var policy))
             {
                 MissingBindingCount++;
@@ -140,7 +184,11 @@ namespace Game.Feature.Gameplay.Vfx
             var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
             if (request.IsPersistent)
             {
-                if (persistentRegistry.GetOrStart(command, pool, lifetimeRunner) != null)
+                if (persistentRegistry.GetOrStart(
+                        command,
+                        pool,
+                        lifetimeRunner,
+                        topologyTransitionStartsSuppressed || options.DeferNewTopologyTransitionStarts) != null)
                 {
                     persistentRegistry.MarkDesired(request.PersistentKey);
                 }
@@ -149,6 +197,14 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             pool.PlayTransient(command);
+        }
+
+        private bool IsSuppressedByTopologyTransition(
+            in GameplayVfxRequest request,
+            in GameplayVfxRefreshOptions options)
+        {
+            return (topologyTransitionStartsSuppressed || options.DeferNewTopologyTransitionStarts) &&
+                   request.TopologySpawnMode != GameplayVfxTopologySpawnMode.TopologyHelperExempt;
         }
 
         private void HandleVisibilityBlocked(
@@ -252,20 +308,56 @@ namespace Game.Feature.Gameplay.Vfx
 
         private readonly struct ScheduledGameplayVfxRequest
         {
-            public ScheduledGameplayVfxRequest(GameplayVfxRequest request, float remainingSeconds)
+            public ScheduledGameplayVfxRequest(
+                GameplayVfxRequest request,
+                float remainingSeconds,
+                int topologyTransitionEpoch)
             {
                 Request = request;
                 RemainingSeconds = Math.Max(0f, remainingSeconds);
+                TopologyTransitionEpoch = topologyTransitionEpoch;
             }
 
             public GameplayVfxRequest Request { get; }
 
             public float RemainingSeconds { get; }
 
+            public int TopologyTransitionEpoch { get; }
+
             public ScheduledGameplayVfxRequest Advance(float deltaTime)
             {
-                return new ScheduledGameplayVfxRequest(Request, RemainingSeconds - Math.Max(0f, deltaTime));
+                return new ScheduledGameplayVfxRequest(
+                    Request,
+                    RemainingSeconds - Math.Max(0f, deltaTime),
+                    TopologyTransitionEpoch);
             }
+        }
+    }
+
+    public readonly struct GameplayVfxRefreshOptions
+    {
+        public GameplayVfxRefreshOptions(
+            bool deferNewTopologyTransitionStarts,
+            bool preserveTopologyHelperExempt = false)
+        {
+            DeferNewTopologyTransitionStarts = deferNewTopologyTransitionStarts;
+            PreserveTopologyHelperExempt = preserveTopologyHelperExempt;
+        }
+
+        public bool DeferNewTopologyTransitionStarts { get; }
+
+        public bool PreserveTopologyHelperExempt { get; }
+
+        public static GameplayVfxRefreshOptions TopologyTransitionStart()
+        {
+            return new GameplayVfxRefreshOptions(deferNewTopologyTransitionStarts: true);
+        }
+
+        public static GameplayVfxRefreshOptions TopologyTransitionCompletion()
+        {
+            return new GameplayVfxRefreshOptions(
+                deferNewTopologyTransitionStarts: false,
+                preserveTopologyHelperExempt: true);
         }
     }
 }

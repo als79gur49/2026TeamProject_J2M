@@ -148,6 +148,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayVfxVisibilityPolicy_DoesNotMaskTopologyTransitionLifecycleMismatch()
+        {
+            var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop);
+            var request = new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: 1,
+                presentationSeed: 1,
+                cueId,
+                VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    new CubeTopologyState(FaceId.Floor)),
+                VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: 10,
+                    cell: new SurfaceCell(FaceId.Floor, 1, 1),
+                    hasCell: true),
+                topologyStopMode: GameplayVfxTopologyStopMode.HardClearAtTransitionStart,
+                topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition);
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.ActiveGameplayFaceOnly,
+                default);
+
+            Assert.That(decision.IsVisible, Is.True);
+            Assert.That(request.TopologyStopMode, Is.EqualTo(GameplayVfxTopologyStopMode.HardClearAtTransitionStart));
+            Assert.That(request.TopologySpawnMode, Is.EqualTo(GameplayVfxTopologySpawnMode.SuppressDuringTransition));
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlannerVisibility_MissingBinding_UsesDocumentedFallback()
         {
             var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
@@ -458,7 +492,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 1,
                 cueId,
                 VfxAnchor.ForCell(
-                    new SurfaceCell(FaceId.Front, 0, 0),
+                    new SurfaceCell(FaceId.Back, 0, 0),
                     new CubeTopologyState(FaceId.Floor),
                     VfxAnchorSlot.CellCenter),
                 VfxTimingKind.ImmediateOnTickPresentation);

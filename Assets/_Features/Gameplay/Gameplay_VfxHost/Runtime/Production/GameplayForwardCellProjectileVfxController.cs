@@ -70,6 +70,24 @@ namespace Game.Feature.Gameplay.Vfx.Host
             PlayedThisTickCount = 0;
         }
 
+        public void ClearForTopologyTransitionStart(GameplayVfxGameObjectPool pool = null)
+        {
+            foreach (var pair in markerHandlesByKey)
+            {
+                StopForTopologyTransition(pair.Value, pool);
+            }
+
+            foreach (var pair in activeFlightsByKey)
+            {
+                StopForTopologyTransition(pair.Value.Handle, pool);
+                StopForTopologyTransition(pair.Value.FollowHandle, pool);
+            }
+
+            markerHandlesByKey.Clear();
+            activeFlightsByKey.Clear();
+            PlayedThisTickCount = 0;
+        }
+
         public void Present(
             in GameplayTickPresentationExtensionContext context,
             GameplayVfxGameObjectPool pool,
@@ -768,6 +786,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             markerHandlesByKey.Clear();
             activeFlightsByKey.Clear();
+        }
+
+        private static void StopForTopologyTransition(
+            IVfxPlaybackHandle handle,
+            GameplayVfxGameObjectPool pool)
+        {
+            if (handle == null)
+            {
+                return;
+            }
+
+            handle.Stop(GameplayVfxStopMode.TopologyTransitionHardClear);
+            pool?.Release(handle);
         }
 
         private readonly struct ActiveFlight

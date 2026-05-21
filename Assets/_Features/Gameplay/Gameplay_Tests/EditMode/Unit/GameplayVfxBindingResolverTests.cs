@@ -494,6 +494,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
             }
 
+            public void HardClearActiveForTopologyTransition()
+            {
+            }
+
             public void HardCleanupAll()
             {
             }

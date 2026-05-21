@@ -14,6 +14,77 @@ namespace Game.Feature.Gameplay.Vfx
         void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder);
     }
 
+    public readonly struct GameplayVfxTopologyTransitionContext
+    {
+        public GameplayVfxTopologyTransitionContext(
+            TickTopologyMotion topologyMotion,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeTopologyState anchorTopology,
+            int transitionEpoch,
+            bool isTransitionStartTick,
+            bool isTransitionCompletionReconcile)
+        {
+            HasTopologyMotion = true;
+            TopologyMotion = topologyMotion;
+            SourceTopology = sourceTopology;
+            DestinationTopology = destinationTopology;
+            AnchorTopology = anchorTopology;
+            TransitionEpoch = transitionEpoch;
+            IsTransitionStartTick = isTransitionStartTick;
+            IsTransitionCompletionReconcile = isTransitionCompletionReconcile;
+        }
+
+        public bool HasTopologyMotion { get; }
+
+        public TickTopologyMotion TopologyMotion { get; }
+
+        public CubeTopologyState SourceTopology { get; }
+
+        public CubeTopologyState DestinationTopology { get; }
+
+        public CubeTopologyState AnchorTopology { get; }
+
+        public int TransitionEpoch { get; }
+
+        public bool IsTransitionStartTick { get; }
+
+        public bool IsTransitionCompletionReconcile { get; }
+
+        public static GameplayVfxTopologyTransitionContext None(CubeTopologyState topology)
+        {
+            return new GameplayVfxTopologyTransitionContext(
+                hasTopologyMotion: false,
+                topologyMotion: default,
+                sourceTopology: topology,
+                destinationTopology: topology,
+                anchorTopology: topology,
+                transitionEpoch: 0,
+                isTransitionStartTick: false,
+                isTransitionCompletionReconcile: false);
+        }
+
+        private GameplayVfxTopologyTransitionContext(
+            bool hasTopologyMotion,
+            TickTopologyMotion topologyMotion,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeTopologyState anchorTopology,
+            int transitionEpoch,
+            bool isTransitionStartTick,
+            bool isTransitionCompletionReconcile)
+        {
+            HasTopologyMotion = hasTopologyMotion;
+            TopologyMotion = topologyMotion;
+            SourceTopology = sourceTopology;
+            DestinationTopology = destinationTopology;
+            AnchorTopology = anchorTopology;
+            TransitionEpoch = transitionEpoch;
+            IsTransitionStartTick = isTransitionStartTick;
+            IsTransitionCompletionReconcile = isTransitionCompletionReconcile;
+        }
+    }
+
     public readonly struct GameplayVfxPlanningContext
     {
         public GameplayVfxPlanningContext(int tickIndex)
@@ -27,7 +98,8 @@ namespace Game.Feature.Gameplay.Vfx
             CubeTopologyState topology,
             GameplayTimingProfile timingProfile = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            GameplayVfxVisibilityContext visibilityContext = default)
+            GameplayVfxVisibilityContext visibilityContext = default,
+            GameplayVfxTopologyTransitionContext topologyTransition = default)
         {
             TickIndex = tickIndex;
             PresentationData = presentationData;
@@ -35,6 +107,9 @@ namespace Game.Feature.Gameplay.Vfx
             TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? Array.Empty<TileFeatureVfxStyleBinding>();
             VisibilityContext = visibilityContext;
+            TopologyTransition = topologyTransition.HasTopologyMotion
+                ? topologyTransition
+                : GameplayVfxTopologyTransitionContext.None(topology);
         }
 
         public int TickIndex { get; }
@@ -48,6 +123,8 @@ namespace Game.Feature.Gameplay.Vfx
         public IReadOnlyList<TileFeatureVfxStyleBinding> TileFeatureVfxStyleBindings { get; }
 
         public GameplayVfxVisibilityContext VisibilityContext { get; }
+
+        public GameplayVfxTopologyTransitionContext TopologyTransition { get; }
     }
 
     public sealed class PlayerVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
@@ -859,6 +936,24 @@ namespace Game.Feature.Gameplay.Vfx
             PlanVisibleVisualStates(context, builder, presentationData);
         }
 
+        public void PlanPersistentLoops(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
+        {
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var presentationData = context.PresentationData;
+            if (presentationData == null)
+            {
+                return;
+            }
+
+            PlanVisualStates(context, builder, presentationData);
+            PlanVisibleVisualStates(context, builder, presentationData);
+            PlanActiveVisualStates(context, builder, presentationData);
+        }
+
         private static void PlanEvents(
             GameplayVfxPlanningContext context,
             GameplayVfxRequestPlanBuilder builder,
@@ -888,6 +983,14 @@ namespace Game.Feature.Gameplay.Vfx
                         timing: VfxTimingKind.ImmediateOnTickPresentation));
             }
 
+            PlanActiveVisualStates(context, builder, presentationData);
+        }
+
+        private static void PlanActiveVisualStates(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            TickPresentationData presentationData)
+        {
             var activeVisualStates = presentationData.TileFeatureActiveVisualStates;
             for (var i = 0; i < activeVisualStates.Count; i++)
             {
@@ -905,23 +1008,17 @@ namespace Game.Feature.Gameplay.Vfx
                     cell: activeVisualState.Cell,
                     hasCell: true);
                 var sequenceId = ResolveActiveVisualStateSequenceId(activeVisualState);
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: sequenceId,
-                        presentationSeed: sequenceId,
-                        sourceEntityId: activeVisualState.SourceEntityId,
-                        cueId: cueId,
-                        anchor: VfxAnchor.ForCell(
-                            activeVisualState.Cell,
-                            context.Topology,
-                            VfxAnchorSlot.CellCenter),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation,
-                        isPersistent: true,
-                        persistentKey: persistentKey,
-                        styleKey: ResolveTileFeatureStyleKey(
-                            context.TileFeatureVfxStyleBindings,
-                            activeVisualState.TileId)));
+                builder.Add(CreateTopologySensitivePersistentRequest(
+                    context,
+                    sequenceId,
+                    activeVisualState.SourceEntityId,
+                    cueId,
+                    activeVisualState.Cell,
+                    VfxAnchorSlot.CellCenter,
+                    persistentKey,
+                    ResolveTileFeatureStyleKey(
+                        context.TileFeatureVfxStyleBindings,
+                        activeVisualState.TileId)));
             }
         }
 
@@ -949,21 +1046,15 @@ namespace Game.Feature.Gameplay.Vfx
                     hasCell: true,
                     effectIndex: ActiveLoopEffectIndex);
                 var sequenceId = ResolveStateSequenceId(context.TickIndex, i, state);
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: sequenceId,
-                        presentationSeed: sequenceId,
-                        sourceEntityId: state.SourceEntityId,
-                        cueId: cueId,
-                        anchor: VfxAnchor.ForCell(
-                            state.Cell,
-                            context.Topology,
-                            VfxAnchorSlot.CellCenter),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation,
-                        isPersistent: true,
-                        persistentKey: key,
-                        styleKey: ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId)));
+                builder.Add(CreateTopologySensitivePersistentRequest(
+                    context,
+                    sequenceId,
+                    state.SourceEntityId,
+                    cueId,
+                    state.Cell,
+                    VfxAnchorSlot.CellCenter,
+                    key,
+                    ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId)));
             }
         }
 
@@ -990,22 +1081,57 @@ namespace Game.Feature.Gameplay.Vfx
                     hasCell: true,
                     effectIndex: VisibleLoopEffectIndex);
                 var sequenceId = ResolveVisibleStateSequenceId(context.TickIndex, i, state);
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: sequenceId,
-                        presentationSeed: sequenceId,
-                        sourceEntityId: state.SourceEntityId,
-                        cueId: cueId,
-                        anchor: VfxAnchor.ForCell(
-                            state.Cell,
-                            context.Topology,
-                            VfxAnchorSlot.CellFloor),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation,
-                        isPersistent: true,
-                        persistentKey: key,
-                        styleKey: ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId)));
+                builder.Add(CreateTopologySensitivePersistentRequest(
+                    context,
+                    sequenceId,
+                    state.SourceEntityId,
+                    cueId,
+                    state.Cell,
+                    VfxAnchorSlot.CellFloor,
+                    key,
+                    ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId)));
             }
+        }
+
+        private static GameplayVfxRequest CreateTopologySensitivePersistentRequest(
+            GameplayVfxPlanningContext context,
+            int sequenceId,
+            int sourceEntityId,
+            GameplayVfxCueId cueId,
+            SurfaceCell cell,
+            VfxAnchorSlot slot,
+            VfxPersistentKey key,
+            VfxStyleKey styleKey)
+        {
+            var transition = context.TopologyTransition;
+            var anchorTopology = transition.HasTopologyMotion
+                ? transition.AnchorTopology
+                : context.Topology;
+            var anchorMode = transition.HasTopologyMotion && !transition.IsTransitionCompletionReconcile
+                ? GameplayVfxTopologyAnchorMode.SourceDuringTransition
+                : GameplayVfxTopologyAnchorMode.DestinationAfterTransition;
+            if (!transition.HasTopologyMotion)
+            {
+                anchorMode = GameplayVfxTopologyAnchorMode.Committed;
+            }
+
+            return new GameplayVfxRequest(
+                tickIndex: context.TickIndex,
+                sequenceId: sequenceId,
+                presentationSeed: sequenceId,
+                sourceEntityId: sourceEntityId,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    cell,
+                    anchorTopology,
+                    slot),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: key,
+                styleKey: styleKey,
+                topologyAnchorMode: anchorMode,
+                topologyStopMode: GameplayVfxTopologyStopMode.HardClearAtTransitionStart,
+                topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition);
         }
 
         private static VfxStyleKey ResolveTileFeatureStyleKey(

@@ -296,6 +296,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
             }
 
+            public void HardClearActiveForTopologyTransition()
+            {
+            }
+
             public void HardCleanupAll()
             {
             }
@@ -308,6 +312,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CueId = request.CueId;
                 PersistentKey = request.PersistentKey;
                 IsPersistent = request.IsPersistent;
+                TopologyStopMode = request.TopologyStopMode;
+                TopologySpawnMode = request.TopologySpawnMode;
                 State = VfxLifetimeState.Active;
             }
 
@@ -321,6 +327,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public VfxLifetimeState State { get; private set; }
 
+            public GameplayVfxTopologyStopMode TopologyStopMode { get; }
+
+            public GameplayVfxTopologySpawnMode TopologySpawnMode { get; }
+
             public void MarkSpawned()
             {
                 State = VfxLifetimeState.Spawned;
@@ -329,6 +339,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void MarkActive()
             {
                 State = VfxLifetimeState.Active;
+            }
+
+            public void Stop(GameplayVfxStopMode mode)
+            {
+                State = mode == GameplayVfxStopMode.TopologyTransitionHardClear
+                    ? VfxLifetimeState.ReleasedToPool
+                    : VfxLifetimeState.StopEmitting;
             }
 
             public void StopEmitting()
@@ -344,6 +361,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void MarkTailPlaying()
             {
                 State = VfxLifetimeState.TailPlaying;
+            }
+
+            public void Reanchor(in VfxResolvedAnchor anchor)
+            {
             }
 
             public void ReleaseToPool()

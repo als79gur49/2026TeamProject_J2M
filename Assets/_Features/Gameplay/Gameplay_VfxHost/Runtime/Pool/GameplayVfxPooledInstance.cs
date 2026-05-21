@@ -56,6 +56,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             RestartParticles();
         }
 
+        public void Reanchor(in VfxResolvedAnchor anchor)
+        {
+            Transform.localPosition = anchor.HasLocalPose ? anchor.LocalPosition : Vector3.zero;
+            Transform.localRotation = anchor.HasLocalPose ? anchor.LocalRotation : Quaternion.identity;
+        }
+
         public void ActivateParameterizedMotion(
             int prefabInstanceId,
             GameplayVfxPlaybackHandle playbackHandle,
@@ -120,6 +126,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public void StopEmittingAndClear()
+        {
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                var particleSystem = particleSystems[i];
+                if (particleSystem != null)
+                {
+                    particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                    particleSystem.Clear(true);
+                }
+            }
+
+            ClearTrails();
+        }
+
         public void DetachToTailRoot()
         {
             Transform.SetParent(tailRoot, worldPositionStays: true);
@@ -138,7 +159,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void DeactivateForPool(Transform poolRoot)
         {
-            StopEmitting();
+            StopEmittingAndClear();
             ClearTrails();
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
