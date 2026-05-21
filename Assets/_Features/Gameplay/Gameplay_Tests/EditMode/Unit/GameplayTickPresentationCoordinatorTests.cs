@@ -4835,8 +4835,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
                             playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
                             playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                            enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
                             enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
                             enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
                             entityExitSignals: new[]
                             {
                                 new TickEntityExitPresentationSignal(
@@ -4846,6 +4850,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     topology,
                                     Direction.Right,
                                     EntityType.Unit),
+                            },
+                            impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                            flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                            playerDeathHoldSignals: new[]
+                            {
+                                new TickPlayerDeathHoldPresentationSignal(
+                                    10,
+                                    startTick: 1,
+                                    eligibleTick: 2,
+                                    remainingTicks: 1,
+                                    startedThisTick: true),
                             }),
                         string.Empty,
                         TickTrace.Empty));
