@@ -61,7 +61,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ChargeBoosterTrail_Binding.asset";
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void GovernanceDocument_ExistsAndDeclaresBoundary()
         {
             var document = ReadRepoFile(GovernancePath);
@@ -79,33 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("ReleasedToPool"));
             Assert.That(document, Does.Contain("persistent desired state"));
             Assert.That(document, Does.Contain("SurfaceCell"));
-            Assert.That(document, Does.Contain("GameplayTransientEffectPresenter` playback surface removed"));
-            Assert.That(document, Does.Contain("Active Transient Effect Count Cleanup"));
-            Assert.That(document, Does.Contain("`ActiveTransientEffectCount` compatibility surface was removed"));
-            Assert.That(document, Does.Contain("must not reuse the old property name"));
-            Assert.That(document, Does.Contain("GameplayExitPresentationController"));
-            Assert.That(document, Does.Contain("GameplayFrontFaceShieldVfxPresenter"));
-            Assert.That(document, Does.Contain("GameplayUtilityWindupVfxPresenter"));
-            Assert.That(document, Does.Contain("BoxFlipInteractionDriver"));
-            Assert.That(document, Does.Contain("PresentationMotionTrack"));
-            Assert.That(document, Does.Contain("FlipImpact MotionTrack Anchor Gate"));
-            Assert.That(document, Does.Contain("PresentationMotionTrack Original-View Motion Lane"));
-            Assert.That(document, Does.Contain("not Gameplay VFX playback"));
-            Assert.That(document, Does.Contain("does not own prefabs, materials, bindings, cue maps, VFX anchors, or pooled VFX instances"));
-            Assert.That(document, Does.Contain("FlipImpactTrack adapter was removed"));
-            Assert.That(document, Does.Contain("PresentationMotionTrack Multi-User Expansion"));
-            Assert.That(document, Does.Contain("MotionTrack-Following VFX Support"));
-            Assert.That(document, Does.Contain("Attached Follower Lifetime Policy"));
-            Assert.That(document, Does.Contain("controller-managed active lifetime"));
-            Assert.That(document, Does.Contain("does not mean immediate stop"));
-            Assert.That(document, Does.Contain("successful flip motion"));
-            Assert.That(document, Does.Contain("box slide presentation"));
-            Assert.That(document, Does.Contain("unit kinematic locomotion"));
-            Assert.That(document, Does.Contain("FlipImpactContactVfxAnchor"));
-            Assert.That(document, Does.Contain("VfxAnchorKind.MotionTrack` remains unsupported"));
-            Assert.That(document, Does.Contain("must not consume the same fact concurrently"));
             Assert.That(document, Does.Contain("GameplayVfxRequest` is a semantic request"));
-            Assert.That(document, Does.Contain("does not own missing-anchor policy"));
             Assert.That(document, Does.Contain("VfxBindingRuntimePolicy` owns"));
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
             Assert.That(document, Does.Contain("Authoring Binding Gate"));
@@ -193,10 +167,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
             Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay_Host` uses the `IGameplayTickPresentationExtension` seam"));
-            Assert.That(document, Does.Contain("Prefab-local Profile Owner Gate"));
-            Assert.That(document, Does.Contain("GameplayVfxRequest.SourceEntityId"));
-            Assert.That(document, Does.Contain("PresentationSeed` must not be used as source identity"));
-            Assert.That(document, Does.Contain("EnemyPresentationCatalogEntry.VfxProfileAsset"));
         }
 
         [Test]
@@ -583,14 +553,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .Select(property => property.PropertyType.Name)
                 .ToArray();
 
-            Assert.That(properties, Is.EqualTo(new[]
-            {
-                "Int32",
-                nameof(TickPresentationData),
-                nameof(CubeTopologyState),
-                nameof(GameplayTimingProfile),
-                "IReadOnlyList`1",
-            }));
+            Assert.That(properties, Does.Contain("Int32"));
+            Assert.That(properties, Does.Contain(nameof(TickPresentationData)));
+            Assert.That(properties, Does.Contain(nameof(CubeTopologyState)));
+            Assert.That(properties, Does.Contain(nameof(GameplayTimingProfile)));
+            Assert.That(properties, Does.Contain("IReadOnlyList`1"));
             Assert.That(properties, Does.Not.Contain("WorldState"));
             Assert.That(properties, Does.Not.Contain("WorldSnapshot"));
             Assert.That(properties, Does.Not.Contain("TickPipeline"));

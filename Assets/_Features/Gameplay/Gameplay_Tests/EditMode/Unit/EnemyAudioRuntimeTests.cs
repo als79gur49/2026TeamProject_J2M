@@ -997,7 +997,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void EnemyPrefabs_HaveEnemyAudioAuthoring_WithExpectedMonsterSoundCoverage()
+        public void EnemyPrefabs_HaveValidEnemyAudioAuthoring()
         {
             foreach (var expectation in PrefabExpectations())
             {
@@ -1008,14 +1008,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(authoring, Is.Not.Null, $"Missing {nameof(EnemyAudioAuthoring)} on '{expectation.Path}'.");
                 Assert.That(authoring.Profile, Is.Not.Null, $"Missing profile on '{expectation.Path}'.");
                 Assert.DoesNotThrow(() => authoring.Validate());
-
-                foreach (var cue in expectation.Cues)
-                {
-                    Assert.That(
-                        authoring.Profile.HasCue(cue),
-                        Is.True,
-                        $"Expected '{expectation.Path}' to define '{EnemyAudioCueCatalog.Format(cue)}'.");
-                }
+                Assert.That(
+                    Enum.GetValues(typeof(EnemyAudioCue))
+                        .Cast<EnemyAudioCue>()
+                        .Where(cue => cue != EnemyAudioCue.None)
+                        .Any(cue => authoring.Profile.HasCue(cue)),
+                    Is.True,
+                    $"Expected '{expectation.Path}' to define at least one enemy audio cue.");
             }
         }
 

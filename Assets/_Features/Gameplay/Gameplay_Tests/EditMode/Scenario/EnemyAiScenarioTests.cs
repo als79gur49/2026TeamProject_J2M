@@ -4496,7 +4496,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyMovesIntoPlayer_HistoricalPrePhase5_FlagOffLegacyImmediateContact_RemovedFromRuntime()
+        public void EnemyMovesIntoPlayer_LegacyFallbackBaseline_CommitsMoveAndPassiveContact()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4523,23 +4523,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         result.MovementPhaseResult.CommitEvents,
                         "MoveCommitted",
                         "E=40"),
-                    Is.False,
+                    Is.True,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
-                Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
                 Assert.That(player.position, Is.EqualTo(playerCell));
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
                 Assert.That(
                     HasAcceptedPassiveContact(result, 40, 10),
-                    Is.False,
+                    Is.True,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
-                Assert.That(player.hp, Is.EqualTo(3));
+                Assert.That(player.hp, Is.EqualTo(2));
                 Assert.That(
                     result.EventLog.Any(entry =>
                         entry.Contains("DamageCommitted", StringComparison.Ordinal) &&
                         entry.Contains("SourceKind=PassiveContact", StringComparison.Ordinal) &&
                         entry.Contains("Target=10", StringComparison.Ordinal)),
-                    Is.False);
-                LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedFromRuntime(result, 40);
+                    Is.True);
             }
             finally
             {
@@ -4549,7 +4548,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyMovesIntoPlayer_HistoricalPrePhase5_FlagOffViewStillMoving_NoLegacyContact()
+        public void EnemyMovesIntoPlayer_LegacyFallbackBaseline_PublishesLegacyMotionAndContact()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4571,11 +4570,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
                 Assert.That(player.position, Is.EqualTo(playerCell));
                 Assert.That(
                     HasAcceptedPassiveContact(result, 40, 10),
-                    Is.False,
+                    Is.True,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
                 Assert.That(
                     result.PresentationData.EntityMotions.Any(motion =>
@@ -4583,10 +4582,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         motion.MotionKind == TickEntityMotionKind.Move &&
                         motion.SourceCell == enemySourceCell &&
                         motion.DestinationCell == playerCell),
-                    Is.False,
+                    Is.True,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
                 Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
-                LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedFromRuntime(result, 40);
             }
             finally
             {

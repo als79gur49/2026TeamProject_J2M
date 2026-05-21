@@ -2,6 +2,36 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxArchitectureTests.GovernanceDocument_ExistsAndDeclaresBoundary",
+      "category": "Core",
+      "contracts": [
+        "gameplay_vfx_governance",
+        "vfx_authoring_removal_contract"
+      ],
+      "reason": "Locked Core coverage for the Gameplay VFX governance boundary and PR69 non-particle authoring removal contract.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitAuthoring_RemovesNonParticleObjectPrefabs",
+      "category": "Core",
+      "contracts": [
+        "box_exit_vfx_authoring",
+        "vfx_authoring_removal_contract"
+      ],
+      "reason": "Locked Core coverage that removed non-particle box exit prefabs stay absent after PR69.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitBindings_KeepSmokeAndRemoveNonParticleObjectBindings",
+      "category": "Core",
+      "contracts": [
+        "box_exit_vfx_authoring",
+        "vfx_authoring_removal_contract"
+      ],
+      "reason": "Locked Core coverage that the host keeps smoke authoring while removed shrink/item bindings stay absent.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxForwardCellProjectileTests.ForwardCellProjectile_WindupSignalCreatesMarkerRequest",
       "category": "Core",
       "contracts": [
@@ -915,7 +945,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_HistoricalPrePhase5_FlagOffLegacyImmediateContact_RemovedFromRuntime",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_LegacyFallbackBaseline_CommitsMoveAndPassiveContact",
       "category": "Core",
       "contracts": [
         "damage_affects_movement",

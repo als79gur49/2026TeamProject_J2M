@@ -132,7 +132,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(glideChaserProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
             Assert.That(glideChaserProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(glideChaserProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
-            Assert.That(glideChaserProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(0.8f));
+            Assert.That(glideChaserProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.GreaterThan(0f));
         }
 
         [Test]

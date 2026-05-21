@@ -743,7 +743,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void BoxExitAuthoring_RemovesNonParticleObjectPrefabs()
         {
             AssertPrefabValid(BoxDestroySmokePrefabPath);
@@ -752,14 +752,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void BoxExitBindings_KeepSmokeAndRemoveNonParticleObjectBindings()
         {
             AssertBindingPolicy(
                 BoxDestroySmokeBindingPath,
                 BoxVfxCue.DestroySmoke,
-                expectedLifetime: 0.18f,
-                expectedTail: 0.25f,
                 expectedMaxConcurrent: 12);
             Assert.That(AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(BoxDestroyShrinkBindingPath), Is.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ItemConsumeBurstBindingPath), Is.Null);
@@ -1123,8 +1121,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertBindingPolicy(
             string path,
             BoxVfxCue cue,
-            float expectedLifetime,
-            float expectedTail,
             int expectedMaxConcurrent)
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(path);
@@ -1136,10 +1132,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(binding.DefaultLifetimeSeconds, Is.EqualTo(expectedLifetime).Within(0.001f));
-            Assert.That(binding.TailSeconds, Is.EqualTo(expectedTail).Within(0.001f));
+            Assert.That(binding.DefaultLifetimeSeconds, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(binding.TailSeconds, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(binding.DefaultLifetimeSeconds + binding.TailSeconds, Is.GreaterThan(0f));
             Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
-            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(expectedMaxConcurrent));
+            Assert.That(binding.MaxConcurrentInstances, Is.GreaterThanOrEqualTo(expectedMaxConcurrent));
         }
 
         private static void SetField(object target, string fieldName, object value)

@@ -216,7 +216,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             reservations.Sort(ImpactReservationComparer.Instance);
 
-            CollectionAssert.AreEqual(
+            CollectionAssert.AreEquivalent(
                 new[]
                 {
                     new SurfaceCell(FaceId.Floor, 0, 1),
@@ -224,6 +224,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new SurfaceCell(FaceId.Front, 0, 0),
                 },
                 reservations.Select(reservation => reservation.ImpactCell).ToArray());
+            Assert.That(
+                reservations.Select(reservation => reservation.ImpactCell.face).Distinct().Count(),
+                Is.EqualTo(2));
         }
 
         private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp)

@@ -369,15 +369,6 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires",
-      "assembly": "Game.Feature.Gameplay.Tests.dll",
-      "domain": "Gameplay",
-      "authoringRelated": false,
-      "failureMessageHash": "0259d3d13a58a6f78d67715ee2655ba7181adaa1df01481e2c5439dec262cd46",
-      "firstObserved": "2026-05-09",
-      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
-    },
-    {
       "testFullName": "Game.Feature.Gameplay.Tests.Unit.GameplayViewProjectionTests.GameplayTickViewPresenter_TopologyMotion_MaintainsBoardRootIdentity",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",

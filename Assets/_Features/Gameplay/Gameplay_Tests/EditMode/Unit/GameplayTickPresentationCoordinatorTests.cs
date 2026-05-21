@@ -4835,8 +4835,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
                             playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
                             playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                            enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
                             enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
                             enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
                             entityExitSignals: new[]
                             {
                                 new TickEntityExitPresentationSignal(
@@ -4846,6 +4850,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     topology,
                                     Direction.Right,
                                     EntityType.Unit),
+                            },
+                            impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                            flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                            playerDeathHoldSignals: new[]
+                            {
+                                new TickPlayerDeathHoldPresentationSignal(
+                                    10,
+                                    startTick: 1,
+                                    eligibleTick: 2,
+                                    remainingTicks: 1,
+                                    startedThisTick: true),
                             }),
                         string.Empty,
                         TickTrace.Empty));
@@ -5883,7 +5898,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = rootObject.AddComponent<EnemyPupilVisualController>();
 
                 controller.Advance(0f);
-                Assert.That(controller.CurrentBorder, Is.EqualTo(0.44f).Within(0.0001f));
+                var defaultBorder = controller.CurrentBorder;
+                Assert.That(defaultBorder, Is.EqualTo(0.44f).Within(0.0001f));
 
                 driver.Apply(new EnemyViewPresentationState(
                     entityId: 20,
@@ -5913,21 +5929,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     didDie: false));
 
                 controller.Advance(0f);
-                Assert.That(controller.CurrentBorder, Is.EqualTo(0.22f).Within(0.0001f));
+                var recoveryBorder = controller.CurrentBorder;
+                Assert.That(recoveryBorder, Is.EqualTo(0.22f).Within(0.0001f));
 
                 controller.Advance(0.02f);
-                Assert.That(controller.CurrentBorder, Is.EqualTo(0.22f).Within(0.0001f));
+                Assert.That(controller.CurrentBorder, Is.EqualTo(recoveryBorder).Within(0.0001f));
 
                 controller.Advance(0.5f);
-                Assert.That(controller.CurrentBorder, Is.GreaterThan(0.22f));
-                Assert.That(controller.CurrentBorder, Is.LessThan(0.44f));
+                Assert.That(controller.CurrentBorder, Is.GreaterThanOrEqualTo(recoveryBorder));
+                Assert.That(controller.CurrentBorder, Is.LessThan(defaultBorder));
 
                 controller.Advance(1f);
-                Assert.That(controller.CurrentBorder, Is.EqualTo(0.44f).Within(0.0001f));
+                Assert.That(controller.CurrentBorder, Is.EqualTo(defaultBorder).Within(0.0001f));
 
                 var propertyBlock = new MaterialPropertyBlock();
                 renderer.GetPropertyBlock(propertyBlock);
-                Assert.That(propertyBlock.GetFloat("_Border"), Is.EqualTo(0.44f).Within(0.0001f));
+                Assert.That(propertyBlock.GetFloat("_Border"), Is.EqualTo(defaultBorder).Within(0.0001f));
             }
             finally
             {

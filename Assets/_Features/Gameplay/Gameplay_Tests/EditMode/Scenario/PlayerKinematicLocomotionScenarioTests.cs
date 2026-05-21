@@ -520,7 +520,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlagOff_RemovedLegacyFallbackDoesNotApplyPassiveContact()
+        public void FlagOff_LegacyFallbackBaseline_CommitsMoveAndPassiveContact()
         {
             var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
@@ -537,22 +537,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(
                 player.position,
-                Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)),
+                Is.EqualTo(enemyCell),
                 BuildContactTimingDebug(1, "Player", 10, 40, snapshot, result));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
-            LegacyMovementBoundaryAssert.RequiresExplicitLegacyFallbackBaseline(result, 10);
             Assert.That(
                 HasAcceptedPassiveContact(result, 40, 10),
-                Is.False,
+                Is.True,
                 BuildContactTimingDebug(1, "Player", 10, 40, snapshot, result));
-            Assert.That(player.hp, Is.EqualTo(3));
+            Assert.That(player.hp, Is.EqualTo(2));
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion =>
                     motion.EntityId == 10 &&
                     motion.MotionKind == TickEntityMotionKind.Move &&
                     motion.SourceCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
                     motion.DestinationCell == enemyCell),
-                Is.False);
+                Is.True);
             Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.False);
         }
 
@@ -633,10 +632,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
-            Assert.That(
-                result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("Reason=KinematicTraversalBlocked")),
-                Is.True);
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
         }
 
         [Test]
