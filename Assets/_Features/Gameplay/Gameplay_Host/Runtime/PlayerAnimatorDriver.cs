@@ -186,6 +186,16 @@ namespace Game.Feature.Gameplay.Host
                 resolvedMotionDurationSeconds);
         }
 
+        public float GetActionHoldPresentationDurationSeconds(
+            PlayerActionKind actionKind,
+            float resolvedMotionDurationSeconds = 0f)
+        {
+            return ResolveActionHoldPresentationDurationSeconds(
+                ResolveAnimator(),
+                actionKind,
+                resolvedMotionDurationSeconds);
+        }
+
         public float GetDeathClipLengthSeconds()
         {
             return ResolveStateReferenceClipLengthSeconds(ResolveAnimator(), deathStateName);
@@ -577,6 +587,39 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return ResolveActionReferenceClipLengthSeconds(targetAnimator, actionKind);
+        }
+
+        private float ResolveActionHoldPresentationDurationSeconds(
+            Animator targetAnimator,
+            PlayerActionKind actionKind,
+            float resolvedMotionDurationSeconds)
+        {
+            if (actionKind != PlayerActionKind.Push &&
+                actionKind != PlayerActionKind.Flip)
+            {
+                return 0f;
+            }
+
+            var animationTiming = ResolveAnimationTiming();
+            if (animationTiming.TryGetLegacyAnimatorDurationOverride(actionKind, out var legacyDurationSeconds))
+            {
+                return legacyDurationSeconds;
+            }
+
+            var windupPhase = ResolveWindupPhase(actionKind);
+            var recoveryPhase = ResolveRecoveryPhase(actionKind);
+            var hasWindupOverride = animationTiming.TryGetAnimatorDurationOverride(windupPhase, out _);
+            var hasRecoveryOverride = animationTiming.TryGetAnimatorDurationOverride(recoveryPhase, out _);
+            if (hasWindupOverride || hasRecoveryOverride)
+            {
+                return ResolvePhasePresentationDurationSeconds(targetAnimator, windupPhase, resolvedMotionDurationSeconds) +
+                       ResolvePhasePresentationDurationSeconds(targetAnimator, recoveryPhase, resolvedMotionDurationSeconds);
+            }
+
+            return ResolveActionPresentationDurationSeconds(
+                targetAnimator,
+                actionKind,
+                resolvedMotionDurationSeconds);
         }
 
         private float ResolvePhasePresentationDurationSeconds(

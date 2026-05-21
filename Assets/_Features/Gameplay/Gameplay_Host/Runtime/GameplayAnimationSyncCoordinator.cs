@@ -607,7 +607,7 @@ namespace Game.Feature.Gameplay.Host
             if (state.StartedThisTick &&
                 TryResolveActionAnimationState(state.ActiveActionKind, out var animationState))
             {
-                var presentationDurationSeconds = driver.GetPresentationDurationSeconds(
+                var presentationDurationSeconds = driver.GetActionHoldPresentationDurationSeconds(
                     state.ActiveActionKind,
                     resolvePlayerMotionDurationSeconds != null
                         ? resolvePlayerMotionDurationSeconds(entityId, state.ActiveActionKind)
