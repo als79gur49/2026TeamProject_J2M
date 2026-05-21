@@ -17,6 +17,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             PersistentKey = command.PersistentKey;
             IsPersistent = command.IsPersistent;
             Policy = command.Policy;
+            TopologyStopMode = command.Request.TopologyStopMode;
+            TopologySpawnMode = command.Request.TopologySpawnMode;
             Instance = instance;
             StartedAtSeconds = startedAtSeconds;
             this.timeProvider = timeProvider;
@@ -34,6 +36,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public bool IsPersistent { get; }
 
         public VfxLifetimeState State { get; private set; }
+
+        public GameplayVfxTopologyStopMode TopologyStopMode { get; }
+
+        public GameplayVfxTopologySpawnMode TopologySpawnMode { get; }
 
         internal VfxBindingRuntimePolicy Policy { get; }
 
@@ -69,6 +75,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
+        public void Stop(GameplayVfxStopMode mode)
+        {
+            switch (mode)
+            {
+                case GameplayVfxStopMode.Default:
+                case GameplayVfxStopMode.StopWithTail:
+                    StopEmitting();
+                    MarkTailPlaying();
+                    break;
+                case GameplayVfxStopMode.StopEmittingAndClear:
+                case GameplayVfxStopMode.ReleaseImmediately:
+                case GameplayVfxStopMode.TopologyTransitionHardClear:
+                    StopEmittingAndClear();
+                    break;
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(mode), mode, null);
+            }
+        }
+
         public void StopEmitting()
         {
             if (IsTerminal)
@@ -78,6 +103,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             Instance?.StopEmitting();
             State = VfxLifetimeState.StopEmitting;
+        }
+
+        private void StopEmittingAndClear()
+        {
+            if (IsTerminal)
+            {
+                return;
+            }
+
+            Instance?.StopEmittingAndClear();
+            State = VfxLifetimeState.ReleasedToPool;
         }
 
         public void Detach()
@@ -94,6 +130,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void MarkTailPlaying()
         {
             MarkTailPlaying(timeProvider?.TimeSeconds ?? 0f);
+        }
+
+        public void Reanchor(in VfxResolvedAnchor anchor)
+        {
+            if (IsTerminal ||
+                State == VfxLifetimeState.StopEmitting ||
+                State == VfxLifetimeState.Detached ||
+                State == VfxLifetimeState.TailPlaying)
+            {
+                return;
+            }
+
+            Instance?.Reanchor(anchor);
         }
 
         internal void MarkTailPlaying(float nowSeconds)

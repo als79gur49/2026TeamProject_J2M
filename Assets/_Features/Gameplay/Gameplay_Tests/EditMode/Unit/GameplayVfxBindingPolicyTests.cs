@@ -148,6 +148,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayVfxVisibilityPolicy_DoesNotMaskTopologyTransitionLifecycleMismatch()
+        {
+            var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop);
+            var request = new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: 1,
+                presentationSeed: 1,
+                cueId,
+                VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    new CubeTopologyState(FaceId.Floor)),
+                VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: 10,
+                    cell: new SurfaceCell(FaceId.Floor, 1, 1),
+                    hasCell: true),
+                topologyStopMode: GameplayVfxTopologyStopMode.HardClearAtTransitionStart,
+                topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition);
+
+            var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                GameplayVfxVisibilityMode.ActiveGameplayFaceOnly,
+                default);
+
+            Assert.That(decision.IsVisible, Is.True);
+            Assert.That(request.TopologyStopMode, Is.EqualTo(GameplayVfxTopologyStopMode.HardClearAtTransitionStart));
+            Assert.That(request.TopologySpawnMode, Is.EqualTo(GameplayVfxTopologySpawnMode.SuppressDuringTransition));
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlannerVisibility_MissingBinding_UsesDocumentedFallback()
         {
             var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
@@ -334,6 +368,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyHelperExempt_CannotBeImplicitPresentationOnlyBypass()
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail);
+
+            Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
+                cueId,
+                GameplayVfxTopologyStopMode.Default), Is.False);
+            Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsSpawnExemption(
+                cueId,
+                GameplayVfxTopologySpawnMode.Default), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyHelperExempt_GameplayCue_ValidationFails()
+        {
+            var binding = CreateBindingAsset(
+                "PresentationOnly_PlayerDamage_Binding",
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                GameplayVfxVisibilityMode.PresentationOnly,
+                allowTopologyHelperExempt: true);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_TOPOLOGY_HELPER_EXEMPT_REQUIRES_HELPER_CUE" &&
+                    message.Severity == VfxAuthoringValidationSeverity.Error), Is.True);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyHelperExempt_ExplicitTopologyHelperCue_Allowed()
+        {
+            var binding = CreateBindingAsset(
+                "TopologyMotionVisualHelper_Binding",
+                GameplayVfxFamily.Box,
+                (int)BoxVfxCue.FlipImpactStayTrail,
+                GameplayVfxVisibilityMode.PresentationOnly,
+                allowTopologyHelperExempt: true);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_TOPOLOGY_HELPER_EXEMPT_REQUIRES_HELPER_CUE"), Is.False);
+                Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
+                    binding.CueId,
+                    GameplayVfxTopologyStopMode.TopologyHelperExempt), Is.True);
+                Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsSpawnExemption(
+                    binding.CueId,
+                    GameplayVfxTopologySpawnMode.TopologyHelperExempt), Is.True);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void BindingPolicy_RejectsInvalidDurationsAndCounts()
         {
@@ -458,7 +559,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 1,
                 cueId,
                 VfxAnchor.ForCell(
-                    new SurfaceCell(FaceId.Front, 0, 0),
+                    new SurfaceCell(FaceId.Back, 0, 0),
                     new CubeTopologyState(FaceId.Floor),
                     VfxAnchorSlot.CellCenter),
                 VfxTimingKind.ImmediateOnTickPresentation);
@@ -492,7 +593,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             string assetName,
             GameplayVfxFamily family,
             int cueCode,
-            GameplayVfxVisibilityMode visibilityMode)
+            GameplayVfxVisibilityMode visibilityMode,
+            bool allowTopologyHelperExempt = false)
         {
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             binding.name = assetName;
@@ -503,6 +605,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(binding, "playbackMode", VfxPlaybackMode.OneShot);
             SetPrivateField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
             SetPrivateField(binding, "visibilityMode", visibilityMode);
+            SetPrivateField(binding, "allowTopologyHelperExempt", allowTopologyHelperExempt);
             var prefab = new GameObject($"{assetName}_Prefab");
             new GameObject("ModelRoot").transform.SetParent(prefab.transform, worldPositionStays: false);
             SetPrivateField(binding, "prefab", prefab);

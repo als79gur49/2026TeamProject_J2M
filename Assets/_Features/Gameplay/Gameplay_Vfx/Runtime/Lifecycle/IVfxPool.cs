@@ -8,6 +8,8 @@ namespace Game.Feature.Gameplay.Vfx
 
         void Release(IVfxPlaybackHandle handle);
 
+        void HardClearActiveForTopologyTransition();
+
         void HardCleanupAll();
     }
 }

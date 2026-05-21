@@ -594,40 +594,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ShieldBindings_ValidateAndHostDefaultMapResolves()
+        public void ShieldBindings_RemovedFromDefaultAuthoring()
         {
             var activeBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ActiveBindingPath);
             var blockBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(BlockBindingPath);
             var windupBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(WindupBindingPath);
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
-            Assert.That(activeBinding, Is.Not.Null, ActiveBindingPath);
-            Assert.That(blockBinding, Is.Not.Null, BlockBindingPath);
-            Assert.That(windupBinding, Is.Not.Null, WindupBindingPath);
-            Assert.That(activeBinding.ValidateAuthoring().HasErrors, Is.False);
-            Assert.That(blockBinding.ValidateAuthoring().HasErrors, Is.False);
-            Assert.That(windupBinding.ValidateAuthoring().HasErrors, Is.False);
-            Assert.That(activeBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive)));
-            Assert.That(activeBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
-            Assert.That(activeBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
-            Assert.That(blockBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock)));
-            Assert.That(blockBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
-            Assert.That(blockBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(windupBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup)));
-            Assert.That(windupBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
-            Assert.That(windupBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive), out _), Is.True);
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock), out _), Is.True);
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup), out _), Is.True);
+            Assert.That(activeBinding, Is.Null, ActiveBindingPath);
+            Assert.That(blockBinding, Is.Null, BlockBindingPath);
+            Assert.That(windupBinding, Is.Null, WindupBindingPath);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive), out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock), out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup), out _), Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void ShieldPrefabs_PassVfxPrefabValidation()
+        public void ShieldPrefabs_RemovedFromDefaultAuthoring()
         {
-            AssertPrefabValid(ActivePrefabPath);
-            AssertPrefabValid(BlockPrefabPath);
-            AssertPrefabValid(WindupPrefabPath);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(ActivePrefabPath), Is.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(BlockPrefabPath), Is.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(WindupPrefabPath), Is.Null);
         }
 
         [Test]

@@ -259,43 +259,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyDamageBurstPrefab_PassesVfxPrefabValidation()
+        public void EnemyDamageBurstPrefab_RemovedFromDefaultAuthoring()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyDamageBurstPrefabPath);
 
-            Assert.That(prefab, Is.Not.Null, EnemyDamageBurstPrefabPath);
-            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
-
-            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+            Assert.That(prefab, Is.Null, EnemyDamageBurstPrefabPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyDamageBurstBinding_ValidatesAndUsesOneShotAuthoredDuration()
+        public void EnemyDamageBurstBinding_RemovedFromDefaultAuthoring()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(EnemyDamageBurstBindingPath);
 
-            Assert.That(binding, Is.Not.Null, EnemyDamageBurstBindingPath);
-            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
-            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
-            Assert.That(binding.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
-            Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
-            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
-            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(binding.DefaultLifetimeSeconds, Is.EqualTo(0.30f).Within(0.001f));
-            Assert.That(binding.TailSeconds, Is.EqualTo(0.20f).Within(0.001f));
-            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
-            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(12));
+            Assert.That(binding, Is.Null, EnemyDamageBurstBindingPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultCueMap_ResolvesEnemyDamageBurst()
+        public void HostDefaultCueMap_DoesNotResolveRemovedEnemyDamageBurst()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
@@ -303,11 +285,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 cueMap.BuildRuntimeMap().TryResolve(
                     GameplayVfxCueId.From(EnemyVfxCue.Damage),
-                    out var policy),
-                Is.True);
-            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
-            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(12));
+                    out _),
+                Is.False);
         }
 
         [Test]

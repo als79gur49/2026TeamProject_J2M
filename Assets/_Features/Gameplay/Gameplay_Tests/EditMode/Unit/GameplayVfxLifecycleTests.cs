@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -288,6 +290,441 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyTransitionRunning_SuppressesNewGameplayVfxStarts()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.Refresh(
+                new GameplayVfxRequestPlan(new[] { request }),
+                GameplayVfxRefreshOptions.TopologyTransitionStart());
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionStart_ClearsPersistentGameplayVfxImmediatelyWithoutTail()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var runner = new VfxLifetimeRunner();
+            var controller = CreateController(pool, registry, runner);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(handle.LastStopMode, Is.EqualTo(GameplayVfxStopMode.TopologyTransitionHardClear));
+            Assert.That(handle.StopEmittingCount, Is.Zero);
+            Assert.That(handle.TailPlayingCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+            Assert.That(pool.ReleaseCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionCompletion_SpawnsDestinationPersistentVfxWithSoftStart()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var runner = new VfxLifetimeRunner();
+            var controller = CreateController(pool, registry, runner);
+            var request = CreateTileFeatureLoopRequest().WithSoftSpawnDelay(0.12f);
+
+            controller.Refresh(
+                new GameplayVfxRequestPlan(new[] { request }),
+                GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+
+            controller.Update(0.119f);
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+
+            controller.Update(0.001f);
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionStart_DropsPendingSoftSpawn()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var runner = new VfxLifetimeRunner();
+            var controller = CreateController(pool, registry, runner);
+            var request = CreateTileFeatureLoopRequest().WithSoftSpawnDelay(0.12f);
+
+            controller.Refresh(
+                new GameplayVfxRequestPlan(new[] { request }),
+                GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+            controller.ClearForTopologyTransitionStart(epoch: 2);
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+            controller.Update(1f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActiveBothVfx_IsClearedAtStartAndSoftRespawnedAtCompletion()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var runner = new VfxLifetimeRunner();
+            var controller = CreateController(pool, registry, runner);
+            var sourceActive = CreateTileFeatureLoopRequest();
+            var destinationActive = new GameplayVfxRequest(
+                tickIndex: 2,
+                sequenceId: 2,
+                presentationSeed: 32,
+                cueId: sourceActive.CueId,
+                anchor: VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Front, 1, 1),
+                    new CubeTopologyState(FaceId.Front)),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: new VfxPersistentKey(
+                    sourceActive.CueId,
+                    VfxAnchorKind.Cell,
+                    tileId: 11,
+                    cell: new SurfaceCell(FaceId.Front, 1, 1),
+                    hasCell: true,
+                    effectIndex: 1));
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { sourceActive }));
+            var sourceHandle = pool.CreatedHandles[0];
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+
+            controller.Refresh(
+                new GameplayVfxRequestPlan(new[] { destinationActive.WithSoftSpawnDelay(0.12f) }),
+                GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+            controller.Update(0.12f);
+
+            Assert.That(sourceHandle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(2));
+            Assert.That(pool.CreatedHandles[1], Is.Not.SameAs(sourceHandle));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionRunning_DoesNotMarkDesiredOrReanchorClearedHandles()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+
+            controller.Refresh(
+                new GameplayVfxRequestPlan(new[] { request }),
+                GameplayVfxRefreshOptions.TopologyTransitionStart());
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVfx_TopologyTransition_CompletionReconcile_DoesNotReviveDestinationInactiveVfx()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var runner = new VfxLifetimeRunner();
+            var controller = CreateController(pool, registry, runner);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+            controller.Refresh(
+                GameplayVfxRequestPlan.Empty,
+                GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationOnlyTopologyHelper_ClearPolicy_IsExplicitlyExempt()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail);
+            var request = new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: 1,
+                presentationSeed: 31,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    new CubeTopologyState(FaceId.Floor)),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: 0,
+                    cell: new SurfaceCell(FaceId.Floor, 1, 1),
+                    hasCell: true),
+                topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt,
+                topologySpawnMode: GameplayVfxTopologySpawnMode.TopologyHelperExempt);
+            var policy = new VfxBindingRuntimePolicy(
+                cueId,
+                VfxBindingRequirement.Optional,
+                VfxMissingAnchorPolicy.SkipOptional,
+                VfxPlaybackMode.Loop,
+                VfxStopPolicy.StopEmittingThenRelease,
+                visibilityMode: GameplayVfxVisibilityMode.PresentationOnly);
+            var controller = CreateController(pool, registry, policy: policy);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+            controller.Refresh(
+                GameplayVfxRequestPlan.Empty,
+                GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+            Assert.That(pool.CreatedHandles[0].State, Is.EqualTo(VfxLifetimeState.Active));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityPolicy_DoesNotOverrideTopologyTransitionHardClear()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.SetTopologyTransitionStartSuppression(true, epoch: 1);
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityPolicy_DoesNotOverrideTopologyTransitionHardClear_DirectControllerPath()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var policy = CreatePolicy(
+                GameplayVfxCueId.From(EnemyVfxCue.Spawn),
+                VfxPlaybackMode.Loop,
+                VfxStopPolicy.StopEmittingThenRelease,
+                visibilityMode: GameplayVfxVisibilityMode.PresentationOnly);
+            var controller = CreateController(pool, registry, policy: policy);
+            var request = CreateRequest(isPersistent: true, persistentKey: CreatePersistentKey());
+
+            controller.SetTopologyTransitionStartSuppression(true, epoch: 1);
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionCompletion_FilterPersistentOnly_RejectsActionImpactProjectile()
+        {
+            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), VfxAnchorKind.Entity);
+            var impact = CreatePersistentRequest(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak), VfxAnchorKind.Cell);
+            var projectile = CreatePersistentRequest(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight), VfxAnchorKind.Cell);
+
+            var filtered = FilterPersistentOnly(new GameplayVfxRequestPlan(new[] { action, impact, projectile }));
+
+            Assert.That(filtered.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionCompletion_AllowsSteadyStatePersistentLoopsOnly()
+        {
+            var steadyLoop = CreateTileFeatureLoopRequest();
+            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), VfxAnchorKind.Entity);
+
+            var filtered = FilterPersistentOnly(new GameplayVfxRequestPlan(new[] { steadyLoop, action }));
+
+            Assert.That(filtered.Requests.Count, Is.EqualTo(1));
+            Assert.That(filtered.Requests[0].CueId, Is.EqualTo(steadyLoop.CueId));
+            Assert.That(filtered.Requests[0].CompletionReplayPolicy, Is.EqualTo(GameplayVfxCompletionReplayPolicy.SteadyStatePersistentLoop));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionCompletion_DoesNotReplayPersistentActionCue()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), VfxAnchorKind.Entity);
+            var filtered = FilterPersistentOnly(new GameplayVfxRequestPlan(new[] { action }));
+
+            controller.Refresh(filtered, GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionCompletion_DoesNotReplayTransientOneShots()
+        {
+            var transient = CreateRequest(isPersistent: false);
+
+            var filtered = FilterPersistentOnly(new GameplayVfxRequestPlan(new[] { transient }));
+
+            Assert.That(filtered.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionHardClear_RegistryAndPoolStayConsistent()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            pool.HardClearActiveForTopologyTransition();
+
+            Assert.That(registry.ActiveCount, Is.Zero);
+            Assert.That(pool.ActiveCount, Is.Zero);
+            Assert.That(pool.ReleaseCallCount, Is.EqualTo(1));
+            Assert.That(pool.ReleasedHandles, Does.Contain(handle));
+            Assert.That(handle.LastStopMode, Is.EqualTo(GameplayVfxStopMode.TopologyTransitionHardClear));
+            Assert.That(handle.TailPlayingCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionHardClear_DoesNotReuseClearedHandles()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var clearedHandle = pool.CreatedHandles[0];
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.Refresh(
+                new GameplayVfxRequestPlan(new[] { request }),
+                GameplayVfxRefreshOptions.TopologyTransitionStart());
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+            controller.Refresh(
+                new GameplayVfxRequestPlan(new[] { request.WithSoftSpawnDelay(0.12f) }),
+                GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+            controller.Update(0.12f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(2));
+            Assert.That(pool.CreatedHandles[1], Is.Not.SameAs(clearedHandle));
+            Assert.That(clearedHandle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionHardClear_ExemptHandlesRemainConsistentAcrossRegistryAndPool()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var gameplay = CreateTileFeatureLoopRequest();
+            var helper = CreateTopologyHelperExemptRequest();
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { gameplay, helper }));
+            var gameplayHandle = FindCreatedHandle(pool, gameplay.CueId);
+            var helperHandle = FindCreatedHandle(pool, helper.CueId);
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            pool.HardClearActiveForTopologyTransition();
+
+            Assert.That(gameplayHandle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(helperHandle.State, Is.EqualTo(VfxLifetimeState.Active));
+            Assert.That(pool.ActiveCount, Is.EqualTo(1));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+            Assert.That(registry.TryGet(helper.PersistentKey, out var current), Is.True);
+            Assert.That(current, Is.SameAs(helperHandle));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionHardClear_RepeatedStartIsIdempotent()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest();
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.ClearForTopologyTransitionStart(epoch: 2);
+            pool.HardClearActiveForTopologyTransition();
+            pool.HardClearActiveForTopologyTransition();
+
+            Assert.That(registry.ActiveCount, Is.Zero);
+            Assert.That(pool.ActiveCount, Is.Zero);
+            Assert.That(pool.ReleaseCallCount, Is.EqualTo(1));
+            Assert.That(pool.CreatedHandles[0].LastStopMode, Is.EqualTo(GameplayVfxStopMode.TopologyTransitionHardClear));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionHardClear_ZeroDurationTransition_OrderingIsSafe()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var source = CreateTileFeatureLoopRequest();
+            var destination = CreateTileFeatureLoopRequest(tileId: 11, effectIndex: 2);
+            var transient = CreateRequest(sequenceId: 9, isPersistent: false);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { source }));
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+            var completionPlan = FilterPersistentOnly(new GameplayVfxRequestPlan(new[]
+            {
+                destination.WithSoftSpawnDelay(0.12f),
+                transient,
+            }));
+            controller.Refresh(completionPlan, GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+            controller.Update(0.12f);
+            controller.Refresh(completionPlan, GameplayVfxRefreshOptions.TopologyTransitionCompletion());
+            controller.Update(0.12f);
+
+            Assert.That(pool.PlayTransientCallCount, Is.Zero);
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(2));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+        }
+
+        [Test]
         [Category("Extended")]
         public void DetachThenStopEmittingPolicy_PreservesTailUntilCompletion()
         {
@@ -371,7 +808,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayVfxCueId cueId,
             VfxPlaybackMode playbackMode,
             VfxStopPolicy stopPolicy,
-            VfxStyleKey styleKey = default)
+            VfxStyleKey styleKey = default,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -379,7 +817,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 VfxMissingAnchorPolicy.SkipOptional,
                 playbackMode,
                 stopPolicy,
-                styleKey: styleKey);
+                styleKey: styleKey,
+                visibilityMode: visibilityMode);
         }
 
         private static VfxPersistentKey CreatePersistentKey()
@@ -388,6 +827,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayVfxCueId.From(EnemyVfxCue.Spawn),
                 VfxAnchorKind.Entity,
                 entityId: 7);
+        }
+
+        private static GameplayVfxRequest CreatePersistentRequest(
+            GameplayVfxCueId cueId,
+            VfxAnchorKind anchorKind,
+            GameplayVfxCompletionReplayPolicy replayPolicy = GameplayVfxCompletionReplayPolicy.None)
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var key = anchorKind == VfxAnchorKind.Entity
+                ? new VfxPersistentKey(cueId, VfxAnchorKind.Entity, entityId: 7)
+                : new VfxPersistentKey(cueId, VfxAnchorKind.Cell, tileId: 10, cell: cell, hasCell: true);
+            var anchor = anchorKind == VfxAnchorKind.Entity
+                ? VfxAnchor.ForEntity(7)
+                : VfxAnchor.ForCell(cell, new CubeTopologyState(FaceId.Floor));
+            return new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: cueId.Code,
+                presentationSeed: cueId.Code * 31,
+                cueId,
+                anchor,
+                VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: key,
+                completionReplayPolicy: replayPolicy);
+        }
+
+        private static GameplayVfxRequest CreateTopologyHelperExemptRequest()
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 2);
+            return new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: 20,
+                presentationSeed: 20,
+                cueId,
+                VfxAnchor.ForCell(cell, new CubeTopologyState(FaceId.Floor)),
+                VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: new VfxPersistentKey(cueId, VfxAnchorKind.Cell, tileId: 20, cell: cell, hasCell: true),
+                topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt,
+                topologySpawnMode: GameplayVfxTopologySpawnMode.TopologyHelperExempt);
+        }
+
+        private static GameplayVfxRequestPlan FilterPersistentOnly(GameplayVfxRequestPlan plan)
+        {
+            var method = typeof(GameplayVfxProductionRuntime).GetMethod(
+                "FilterPersistentOnly",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (GameplayVfxRequestPlan)method.Invoke(null, new object[] { plan });
+        }
+
+        private static FakeVfxPlaybackHandle FindCreatedHandle(FakeVfxPool pool, GameplayVfxCueId cueId)
+        {
+            for (var i = 0; i < pool.CreatedHandles.Count; i++)
+            {
+                var handle = pool.CreatedHandles[i];
+                if (handle.CueId.Equals(cueId))
+                {
+                    return handle;
+                }
+            }
+
+            Assert.Fail($"Expected a created handle for cue '{cueId}'.");
+            return null;
+        }
+
+        private static GameplayVfxRequest CreateTileFeatureLoopRequest(
+            TileFeatureVfxCue cue = TileFeatureVfxCue.BarricadeActiveLoop,
+            int tileId = 10,
+            int effectIndex = 1)
+        {
+            var cueId = GameplayVfxCueId.From(cue);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            return new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: 1,
+                presentationSeed: 31,
+                sourceEntityId: 0,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(cell, new CubeTopologyState(FaceId.Floor)),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    tileId: tileId,
+                    cell: cell,
+                    hasCell: true,
+                    effectIndex: effectIndex),
+                topologyStopMode: GameplayVfxTopologyStopMode.HardClearAtTransitionStart,
+                topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition,
+                completionReplayPolicy: GameplayVfxCompletionReplayPolicy.SteadyStatePersistentLoop);
         }
 
         private sealed class FakeVfxPool : IVfxPool
@@ -401,6 +933,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public int ReleaseCallCount { get; private set; }
 
             public int HardCleanupCallCount { get; private set; }
+
+            public int ActiveCount
+            {
+                get
+                {
+                    var count = 0;
+                    for (var i = 0; i < CreatedHandles.Count; i++)
+                    {
+                        var state = CreatedHandles[i].State;
+                        if (state != VfxLifetimeState.ReleasedToPool &&
+                            state != VfxLifetimeState.HardCleanup)
+                        {
+                            count++;
+                        }
+                    }
+
+                    return count;
+                }
+            }
 
             public List<FakeVfxPlaybackHandle> CreatedHandles { get; } = new();
 
@@ -422,6 +973,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 ReleaseCallCount++;
                 ReleasedHandles.Add(handle);
+            }
+
+            public void HardClearActiveForTopologyTransition()
+            {
+                foreach (var handle in CreatedHandles)
+                {
+                    if (handle.State == VfxLifetimeState.Active ||
+                        handle.State == VfxLifetimeState.Spawned ||
+                        handle.State == VfxLifetimeState.StopEmitting ||
+                        handle.State == VfxLifetimeState.TailPlaying)
+                    {
+                        if (GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
+                                handle.CueId,
+                                handle.TopologyStopMode))
+                        {
+                            continue;
+                        }
+
+                        handle.Stop(GameplayVfxStopMode.TopologyTransitionHardClear);
+                        Release(handle);
+                    }
+                }
             }
 
             public void HardCleanupAll()
@@ -454,6 +1027,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CueId = request.CueId;
                 PersistentKey = request.PersistentKey;
                 IsPersistent = request.IsPersistent;
+                TopologyStopMode = request.TopologyStopMode;
+                TopologySpawnMode = request.TopologySpawnMode;
             }
 
             public int HandleId { get; }
@@ -466,13 +1041,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public VfxLifetimeState State { get; private set; }
 
+            public GameplayVfxTopologyStopMode TopologyStopMode { get; }
+
+            public GameplayVfxTopologySpawnMode TopologySpawnMode { get; }
+
             public int StopEmittingCount { get; private set; }
 
             public int DetachCount { get; private set; }
 
+            public int TailPlayingCount { get; private set; }
+
             public int ReleaseCount { get; private set; }
 
             public int HardCleanupCount { get; private set; }
+
+            public int ReanchorCount { get; private set; }
+
+            public GameplayVfxStopMode LastStopMode { get; private set; }
 
             public void MarkSpawned()
             {
@@ -482,6 +1067,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void MarkActive()
             {
                 State = VfxLifetimeState.Active;
+            }
+
+            public void Stop(GameplayVfxStopMode mode)
+            {
+                LastStopMode = mode;
+                switch (mode)
+                {
+                    case GameplayVfxStopMode.Default:
+                    case GameplayVfxStopMode.StopWithTail:
+                        StopEmitting();
+                        MarkTailPlaying();
+                        break;
+                    case GameplayVfxStopMode.StopEmittingAndClear:
+                    case GameplayVfxStopMode.ReleaseImmediately:
+                    case GameplayVfxStopMode.TopologyTransitionHardClear:
+                        State = VfxLifetimeState.ReleasedToPool;
+                        break;
+                    default:
+                        throw new System.ArgumentOutOfRangeException(nameof(mode), mode, null);
+                }
             }
 
             public void StopEmitting()
@@ -498,7 +1103,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void MarkTailPlaying()
             {
+                TailPlayingCount++;
                 State = VfxLifetimeState.TailPlaying;
+            }
+
+            public void Reanchor(in VfxResolvedAnchor anchor)
+            {
+                ReanchorCount++;
             }
 
             public void ReleaseToPool()
@@ -543,7 +1154,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 resolvedPolicy = policy ?? CreatePolicy(
                     request.CueId,
                     request.IsPersistent ? VfxPlaybackMode.Loop : VfxPlaybackMode.OneShot,
-                    VfxStopPolicy.StopEmittingThenRelease);
+                    VfxStopPolicy.StopEmittingThenRelease,
+                    visibilityMode: GameplayVfxVisibilityMode.PresentationOnly);
                 return true;
             }
         }

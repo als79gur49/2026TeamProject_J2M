@@ -238,6 +238,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.PersistentKey.TileId, Is.EqualTo(901));
             Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
             Assert.That(request.StyleKey, Is.EqualTo(VfxStyleKey.Green));
+            AssertTileFeatureTransitionStartStopPolicy(request);
         }
 
         [Test]
@@ -285,11 +286,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(requests[0].PersistentKey.TileId, Is.EqualTo(901));
             Assert.That(requests[0].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
             Assert.That(requests[0].StyleKey, Is.EqualTo(VfxStyleKey.Red));
+            AssertTileFeatureTransitionStartStopPolicy(requests[0]);
             Assert.That(requests[1].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
             Assert.That(requests[1].IsPersistent, Is.True);
             Assert.That(requests[1].PersistentKey.TileId, Is.EqualTo(902));
             Assert.That(requests[1].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
             Assert.That(requests[1].StyleKey, Is.EqualTo(VfxStyleKey.Blue));
+            AssertTileFeatureTransitionStartStopPolicy(requests[1]);
         }
 
         [Test]
@@ -340,12 +343,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(requests[0].PersistentKey.EffectIndex, Is.EqualTo(2));
             Assert.That(requests[0].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
             Assert.That(requests[0].StyleKey, Is.EqualTo(VfxStyleKey.Green));
+            AssertTileFeatureTransitionStartStopPolicy(requests[0]);
             Assert.That(requests[1].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonVisibleLoop)));
             Assert.That(requests[1].IsPersistent, Is.True);
             Assert.That(requests[1].PersistentKey.TileId, Is.EqualTo(902));
             Assert.That(requests[1].PersistentKey.EffectIndex, Is.EqualTo(2));
             Assert.That(requests[1].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
             Assert.That(requests[1].StyleKey, Is.EqualTo(VfxStyleKey.Yellow));
+            AssertTileFeatureTransitionStartStopPolicy(requests[1]);
         }
 
         [Test]
@@ -397,6 +402,125 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 effectIndex: 1)));
             Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
             Assert.That(request.Anchor.Cell, Is.EqualTo(cell));
+            AssertTileFeatureTransitionStartStopPolicy(request);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVfx_TopologyMotion_SourceDestinationTopology_AvailableToPlannerOrExplicitlyAbsent()
+        {
+            var planner = new TileFeatureVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var motion = new TickTopologyMotion(
+                sourceTopology,
+                destinationTopology,
+                CubeRotationKind.Forward);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var presentationData = CreatePresentationData(
+                topologyMotion: motion,
+                tileFeatureVisualStates: new[]
+                {
+                    new TileFeatureVisualState(
+                        902,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        true,
+                        sourceEntityId: 10,
+                        ownerEntityId: 0,
+                        teamId: 1),
+                });
+            var context = new GameplayVfxPlanningContext(
+                12,
+                presentationData,
+                destinationTopology,
+                topologyTransition: new GameplayVfxTopologyTransitionContext(
+                    motion,
+                    sourceTopology,
+                    destinationTopology,
+                    sourceTopology,
+                    transitionEpoch: 1,
+                    isTransitionStartTick: true,
+                    isTransitionCompletionReconcile: false));
+
+            planner.Plan(context, builder);
+            var request = builder.Build().Requests.Single();
+
+            Assert.That(context.TopologyTransition.HasTopologyMotion, Is.True);
+            Assert.That(context.TopologyTransition.SourceTopology, Is.EqualTo(sourceTopology));
+            Assert.That(context.TopologyTransition.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(request.Anchor.Topology, Is.EqualTo(sourceTopology));
+            Assert.That(request.TopologyAnchorMode, Is.EqualTo(GameplayVfxTopologyAnchorMode.SourceDuringTransition));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVfx_ActivationDeactivationEvents_MappingPolicyIsExplicit()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var plan = PlanTileFeature(
+                topology,
+                new TilePresentationEvent(TilePresentationEventKind.DestroyTileActivated, 1, cell, TileFeatureKind.Destroy, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.DestroyTileDeactivated, 2, cell, TileFeatureKind.Destroy, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeActivated, 3, cell, TileFeatureKind.Barricade, 10, 0, 1),
+                new TilePresentationEvent(TilePresentationEventKind.BarricadeDeactivated, 4, cell, TileFeatureKind.Barricade, 10, 0, 1));
+
+            Assert.That(plan.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVfx_TopologyTransition_CompletionReconcile_DoesNotReplayTransientOneShots()
+        {
+            var owner = new GameObject("TileFeatureCompletionReconcileRuntime");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var motion = new TickTopologyMotion(sourceTopology, destinationTopology, CubeRotationKind.Forward);
+                var data = CreatePresentationData(
+                    topologyMotion: motion,
+                    tileEvents: new[]
+                    {
+                        new TilePresentationEvent(
+                            TilePresentationEventKind.ButtonActivated,
+                            1,
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            TileFeatureKind.Button,
+                            10,
+                            0,
+                            1),
+                    },
+                    tileFeatureVisualStates: new[]
+                    {
+                        new TileFeatureVisualState(
+                            901,
+                            new SurfaceCell(FaceId.Floor, 1, 0),
+                            TileFeatureKind.Barricade,
+                            true,
+                            sourceEntityId: 10,
+                            ownerEntityId: 0,
+                            teamId: 1),
+                    });
+                runtime.Present(CreateExtensionContext(data, destinationTopology));
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+
+                runtime.ReconcileTopologyTransitionCompleted(
+                    CreateExtensionContext(
+                        data,
+                        destinationTopology,
+                        topologyTransitionEpoch: 1,
+                        isTopologyTransitionCompletionReconcile: true));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
         }
 
         [Test]
@@ -436,7 +560,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Authoring_DefaultCueMapContainsDestroyTileAndBarricadeBindings()
+        public void Authoring_DefaultCueMapContainsDestroyTileAndOmitsRemovedBarricadeBinding()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
@@ -466,7 +590,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(laserBinding, Is.Not.Null);
             Assert.That(redLaserBinding, Is.Not.Null);
             Assert.That(blueLaserBinding, Is.Not.Null);
-            Assert.That(barricadeBinding, Is.Not.Null);
+            Assert.That(barricadeBinding, Is.Null);
             Assert.That(greenButtonBinding, Is.Not.Null);
             Assert.That(yellowButtonBinding, Is.Not.Null);
             Assert.That(greenButtonVisibleBinding, Is.Not.Null);
@@ -476,7 +600,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(laserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
             Assert.That(redLaserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
             Assert.That(blueLaserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
-            Assert.That(barricadeBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop)));
             Assert.That(greenButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
             Assert.That(yellowButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
             Assert.That(
@@ -498,8 +621,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(laserBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             AssertDestroyLaserActiveLoopBinding(redLaserBinding);
             AssertDestroyLaserActiveLoopBinding(blueLaserBinding);
-            Assert.That(barricadeBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
-            Assert.That(barricadeBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             AssertButtonActiveLoopBinding(greenButtonBinding);
             AssertButtonActiveLoopBinding(yellowButtonBinding);
             AssertButtonActiveLoopBinding(greenButtonVisibleBinding);
@@ -513,7 +634,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), VfxStyleKey.Red, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), VfxStyleKey.Blue, out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Green, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Yellow, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Default, out _), Is.False);
@@ -532,7 +653,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Authoring_DefaultCueMapContainsExitSliderAndGravityBindings()
+        public void Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
@@ -564,9 +685,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertOneShotBinding(slideLeftBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), 16);
             AssertOneShotBinding(exitOpenedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), 8);
             AssertOneShotBinding(exitObjectiveClearedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), 8);
-            AssertOneShotBinding(gravityChargeStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), 8);
-            AssertOneShotBinding(gravityActiveStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), 8);
-            AssertPersistentLoopBinding(gravityChargingAreaBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), 8);
+            Assert.That(gravityChargeStartedBinding, Is.Null);
+            Assert.That(gravityActiveStartedBinding, Is.Null);
+            Assert.That(gravityChargingAreaBinding, Is.Null);
             AssertPersistentLoopBinding(gravityActiveAreaBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), 8);
 
             var runtimeMap = cueMap.BuildRuntimeMap();
@@ -576,9 +697,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), out _), Is.False);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.False);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), out _), Is.True);
         }
 
@@ -671,9 +792,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static GameplayTickPresentationExtensionContext CreateExtensionContext(TickPresentationData presentationData)
+        private static GameplayTickPresentationExtensionContext CreateExtensionContext(
+            TickPresentationData presentationData,
+            CubeTopologyState? topologyOverride = null,
+            int topologyTransitionEpoch = 0,
+            bool isTopologyTransitionCompletionReconcile = false)
         {
-            var topology = new CubeTopologyState(FaceId.Floor);
+            var topology = topologyOverride ?? new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
             stateStore.ResetSession(topology);
             stateStore.CommittedLocalTargetPoses[10] = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
@@ -686,7 +811,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateResult(presentationData, topology),
                 topology,
                 stateStore,
-                projector);
+                projector,
+                topologyTransitionEpoch: topologyTransitionEpoch,
+                isTopologyTransitionCompletionReconcile: isTopologyTransitionCompletionReconcile);
         }
 
         private static TickResult CreateResult(TickPresentationData presentationData, CubeTopologyState topology)
@@ -711,11 +838,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GravityFieldVisualState[] gravityFieldVisualStates = null,
             TileFeatureVisualState[] tileFeatureVisualStates = null,
             TileFeatureVisualState[] tileFeatureVisibleVisualStates = null,
-            TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null)
+            TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null,
+            TickTopologyMotion? topologyMotion = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
-                topologyMotion: null,
+                topologyMotion: topologyMotion,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),
@@ -750,6 +878,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private static GameplayVfxRequestPlan PlanTileFeature(
+            CubeTopologyState topology,
+            params TilePresentationEvent[] events)
+        {
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var data = CreatePresentationData(tileEvents: events);
+            new TileFeatureVfxRequestPlanner().Plan(
+                new GameplayVfxPlanningContext(21, data, topology),
+                builder);
+            return builder.Build();
+        }
+
+        private static void AssertTileFeatureTransitionStartStopPolicy(in GameplayVfxRequest request)
+        {
+            Assert.That(request.TopologyStopMode, Is.EqualTo(GameplayVfxTopologyStopMode.HardClearAtTransitionStart));
+            Assert.That(request.TopologySpawnMode, Is.EqualTo(GameplayVfxTopologySpawnMode.SuppressDuringTransition));
         }
 
         private static string ReadRepoFile(string relativePath)

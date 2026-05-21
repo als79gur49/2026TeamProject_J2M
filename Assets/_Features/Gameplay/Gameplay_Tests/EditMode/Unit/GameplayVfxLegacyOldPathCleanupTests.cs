@@ -371,24 +371,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldActiveRemovedField()));
             Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldBlockRemovedField()));
             Assert.That(document, Does.Contain("old FrontFaceShield active/block prefab and material assets were removed after GUID reference scans confirmed zero external references"));
-            Assert.That(document, Does.Contain("FrontFaceShieldActiveVfx"));
-            Assert.That(document, Does.Contain("FrontFaceShieldBlockVfx"));
+            Assert.That(document, Does.Contain("non-particle Gameplay VFX prefab authoring was removed"));
             Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
             Assert.That(document, Does.Contain("M_FrontFaceShield_Telegraph.mat"));
         }
 
         [Test]
         [Category("Extended")]
-        public void ProtectedVfxAssets_AreStillPresent()
+        public void ProtectedVfxAssets_KeepSharedAssetsAndRemoveNonParticleAuthoring()
         {
-            AssertFileExists(CurrentFrontFaceShieldActivePrefabPath);
-            AssertFileExists(CurrentFrontFaceShieldBlockPrefabPath);
+            AssertFileDoesNotExist(CurrentFrontFaceShieldActivePrefabPath);
+            AssertFileDoesNotExist(CurrentFrontFaceShieldBlockPrefabPath);
             AssertFileExists(CurrentFrontFaceShieldActiveMaterialPath);
             AssertFileExists(CurrentFrontFaceShieldBlockMaterialPath);
-            AssertFileExists(CurrentFrontFaceShieldActiveBindingPath);
-            AssertFileExists(CurrentFrontFaceShieldBlockBindingPath);
+            AssertFileDoesNotExist(CurrentFrontFaceShieldActiveBindingPath);
+            AssertFileDoesNotExist(CurrentFrontFaceShieldBlockBindingPath);
             AssertFileExists(HostDefaultCueMapPath);
-            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab"), Is.True);
+            Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab"), Is.False);
             AssertFileExists(LegacyFrontFaceShieldTelegraphPrefabPath);
             AssertFileExists(LegacyFrontFaceShieldTelegraphMaterialPath);
         }

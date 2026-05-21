@@ -142,16 +142,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("EnemyVfxCue.Death"));
             Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathBurstMigration"));
             Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
-            Assert.That(document, Does.Contain("EnemyDeathBurstVfx.prefab"));
-            Assert.That(document, Does.Contain("EnemyDeathBurst_Binding.asset"));
+            Assert.That(document, Does.Contain("non-particle Gameplay VFX prefab authoring was removed"));
             Assert.That(document, Does.Contain("old clone/arc/fade"));
             Assert.That(document, Does.Contain("Enemy Death Motion VFX Migration"));
             Assert.That(document, Does.Contain("EnemyVfxCue.DeathMotion"));
             Assert.That(document, Does.Contain("EnemyDeathMotionVfxCommand"));
             Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathMotionMigration"));
             Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
-            Assert.That(document, Does.Contain("EnemyDeathMotionVfx.prefab"));
-            Assert.That(document, Does.Contain("EnemyDeathMotion_Binding.asset"));
             Assert.That(document, Does.Contain("FlipImpact DestroySelf Motion VFX Migration"));
             Assert.That(document, Does.Contain("BoxVfxCue.FlipDestroySelfMotion"));
             Assert.That(document, Does.Contain("EnableGameplayVfxFlipDestroySelfMotionMigration"));
@@ -189,8 +186,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
             Assert.That(document, Does.Contain("cleanup-only empty refresh"));
             Assert.That(document, Does.Contain("VfxPersistentKey"));
-            Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraphVfx.prefab"));
-            Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraph_Binding.asset"));
             Assert.That(document, Does.Contain("OutOfBounds Exit VFX Migration"));
             Assert.That(document, Does.Contain("dormant/reserved"));
             Assert.That(document, Does.Contain("missing binding no fallback"));
@@ -264,10 +259,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var bindingPaths = new[]
             {
-                FlipImpactStayTrailBindingPath,
                 GlideWindTrailBindingPath,
                 ChargeBoosterTrailBindingPath,
             };
+
+            Assert.That(File.Exists(FlipImpactStayTrailBindingPath), Is.False);
 
             foreach (var bindingPath in bindingPaths)
             {

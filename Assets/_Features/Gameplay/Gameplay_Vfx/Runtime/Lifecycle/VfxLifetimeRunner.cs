@@ -32,6 +32,16 @@ namespace Game.Feature.Gameplay.Vfx
             }
         }
 
+        public void Stop(IVfxPlaybackHandle handle, GameplayVfxStopMode stopMode)
+        {
+            if (handle == null)
+            {
+                throw new ArgumentNullException(nameof(handle));
+            }
+
+            handle.Stop(stopMode);
+        }
+
         public void AdvanceTail(IVfxPlaybackHandle handle, bool tailComplete, IVfxPool pool)
         {
             if (handle == null)

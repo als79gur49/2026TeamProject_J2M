@@ -179,6 +179,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyTransitionStart_ClearsParticleAndTrailResiduals()
+        {
+            var prefabTrail = prefab.AddComponent<TrailRenderer>();
+            prefabTrail.time = 10f;
+            var handle = pool.PlayTransient(CreateCommand(
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                defaultLifetimeSeconds: 10f));
+            var instance = root.OneShotRoot.GetChild(0).gameObject;
+            var trail = instance.GetComponent<TrailRenderer>();
+            trail.AddPosition(Vector3.zero);
+            trail.AddPosition(Vector3.one);
+            Assert.That(trail.positionCount, Is.GreaterThan(0));
+
+            pool.HardClearActiveForTopologyTransition();
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.ReleasedToPool));
+            Assert.That(pool.ActiveCount, Is.Zero);
+            Assert.That(pool.PooledCount, Is.EqualTo(1));
+            Assert.That(instance.activeSelf, Is.False);
+            Assert.That(trail.positionCount, Is.Zero);
+            Assert.That(instance.GetComponent<ParticleSystem>().IsAlive(true), Is.False);
+        }
+
+        [Test]
         [Category("Extended")]
         public void AuthoredDurationOneShot_DefaultLifetimeZero_BehaviorUnchanged()
         {
