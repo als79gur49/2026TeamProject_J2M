@@ -218,6 +218,7 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     ShouldPlayPlayerWalkLoop(entityId),
                     HasActivePlayerWalkMotion(entityId));
+                var wasViewActiveInHierarchy = view.gameObject.activeInHierarchy;
                 var enemySemanticState = UpdateEnemyVisualPresentationState(entityId, isVisible, hasActiveMotion, view);
                 _animationSync.SyncEnemyRuntimeState(
                     entityId,
@@ -247,6 +248,11 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 view.SetVisible(true);
+                if (!wasViewActiveInHierarchy && view.gameObject.activeInHierarchy)
+                {
+                    _animationSync.ResyncEnemyAnimatorState(entityId, _stateStore.ViewsByEntityId);
+                }
+
                 view.ApplyLocalPose(localPose.Position, localPose.Rotation);
                 ApplyMotionVisualScale(entityId, view, motionVisualScaleMultiplier);
                 _stateStore.PresentedLocalPosesByEntityId[entityId] = localPose;

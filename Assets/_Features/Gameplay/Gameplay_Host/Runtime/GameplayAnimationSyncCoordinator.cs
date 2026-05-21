@@ -321,6 +321,16 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void ResyncEnemyAnimatorState(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
+            {
+                driver.ResyncAnimatorStateFromLastPresentation();
+            }
+        }
+
         public void CompleteEnemyJumpLandingPresentation(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)

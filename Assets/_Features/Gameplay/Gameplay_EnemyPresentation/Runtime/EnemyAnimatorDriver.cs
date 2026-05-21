@@ -246,6 +246,44 @@ namespace Game.Feature.Gameplay.Host
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
         }
 
+        public bool ResyncAnimatorStateFromLastPresentation()
+        {
+            if (LastPresentationState.EntityId == 0)
+            {
+                return false;
+            }
+
+            var targetAnimator = ResolveAnimator();
+            SyncOptionalParameters(targetAnimator, LastPresentationState);
+            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
+
+            switch (LastPresentationState.GlidePhase)
+            {
+                case EnemyGlidePhase.Windup:
+                    return TryApplyNamedStateCrossFade(targetAnimator, glideWindupStateName, requireOverride: true);
+
+                case EnemyGlidePhase.Active:
+                    return TryApplyNamedStateCrossFade(targetAnimator, glideActiveStateName, requireOverride: true);
+
+                case EnemyGlidePhase.Recovery:
+                    return TryApplyNamedStateCrossFade(targetAnimator, glideRecoveryStateName, requireOverride: true);
+            }
+
+            var phase = ResolvePresentationPhase(LastPresentationState);
+            switch (phase)
+            {
+                case EnemyPresentationPhase.Windup:
+                case EnemyPresentationPhase.Recovery:
+                case EnemyPresentationPhase.JumpWindup:
+                case EnemyPresentationPhase.JumpAirborne:
+                case EnemyPresentationPhase.ChargeActive:
+                    return TryApplyPresentationCrossFade(targetAnimator, phase);
+
+                default:
+                    return false;
+            }
+        }
+
         public void PlayUtilityWindup(EnemyUtilityPresentationKind kind)
         {
             var targetAnimator = ResolveAnimator();
