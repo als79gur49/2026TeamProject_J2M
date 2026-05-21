@@ -46,6 +46,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
         private readonly GravityFieldLockedBoxOneShotState _gravityFieldLockedBoxOneShotState = new();
+        private readonly List<EntityState> _legacyUnitOccupantBuffer = new();
         private readonly List<EntityState> _playerRespawnTemplates;
         private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _moveOccupancyTicks;
@@ -1928,7 +1929,7 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool IsAllowedLegacyGridTransactionIntent(
+        private bool IsAllowedLegacyGridTransactionIntent(
             WorldSnapshot snapshot,
             in EntityState entity,
             MoveIntent intent)
@@ -1955,13 +1956,38 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
-            if (!snapshot.TryGetSolidSemanticAt(updatedTopology, destination, out var targetSemantic) ||
-                targetSemantic.Kind != SolidKind.Box)
+            if (!snapshot.TryGetSolidSemanticAt(updatedTopology, destination, out var targetSemantic))
+            {
+                return HasDifferentUnitAt(snapshot, updatedTopology, destination, entity.entityId);
+            }
+
+            if (targetSemantic.Kind != SolidKind.Box)
             {
                 return false;
             }
 
             return (targetSemantic.Entity.boxCapabilities & BoxCapabilities.Item) == BoxCapabilities.Item;
+        }
+
+        private bool HasDifferentUnitAt(
+            WorldSnapshot snapshot,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int entityId)
+        {
+            _legacyUnitOccupantBuffer.Clear();
+            snapshot.EnumerateUnitsAt(topology, cell, _legacyUnitOccupantBuffer);
+            for (var i = 0; i < _legacyUnitOccupantBuffer.Count; i++)
+            {
+                if (_legacyUnitOccupantBuffer[i].entityId != entityId)
+                {
+                    _legacyUnitOccupantBuffer.Clear();
+                    return true;
+                }
+            }
+
+            _legacyUnitOccupantBuffer.Clear();
+            return false;
         }
 
         private string FormatLocomotionFeatureFlags()
