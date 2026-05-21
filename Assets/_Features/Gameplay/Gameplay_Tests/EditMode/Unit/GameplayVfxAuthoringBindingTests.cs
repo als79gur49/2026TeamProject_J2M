@@ -15,6 +15,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingTarget_Binding.asset";
         private const string UtilityWindupBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyUtilityWindupTelegraph_Binding.asset";
+        private const string ForwardCellDangerMarkerBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ForwardCellDangerMarker_Binding.asset";
+        private const string ForwardCellProjectileActiveBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ForwardCellProjectileActive_Binding.asset";
+        private const string ForwardCellProjectileFlightFollowBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ForwardCellProjectileFlightFollow_Binding.asset";
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
 
@@ -67,6 +73,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(UtilityWindupBindingPath);
 
             Assert.That(binding, Is.Null, UtilityWindupBindingPath);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellOptionalProjectileBindings_RemovedFromDefaultAuthoring()
+        {
+            var dangerMarkerBinding =
+                AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ForwardCellDangerMarkerBindingPath);
+            var activeBinding =
+                AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ForwardCellProjectileActiveBindingPath);
+            var flightFollowBinding =
+                AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ForwardCellProjectileFlightFollowBindingPath);
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+
+            Assert.That(dangerMarkerBinding, Is.Null, ForwardCellDangerMarkerBindingPath);
+            Assert.That(activeBinding, Is.Null, ForwardCellProjectileActiveBindingPath);
+            Assert.That(flightFollowBinding, Is.Null, ForwardCellProjectileFlightFollowBindingPath);
+            Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(
+                GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellDangerMarker),
+                out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(
+                GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileActive),
+                out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(
+                GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlightFollow),
+                out _), Is.False);
         }
 
         [Test]
