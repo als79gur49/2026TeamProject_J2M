@@ -25,6 +25,36 @@ namespace Game.Feature.Gameplay.Vfx
         TopologyHelperExempt = 3,
     }
 
+    public enum GameplayVfxCompletionReplayPolicy
+    {
+        None = 0,
+        SteadyStatePersistentLoop = 1,
+    }
+
+    public static class GameplayVfxTopologyHelperExemptionPolicy
+    {
+        public static bool IsTopologyHelperCue(GameplayVfxCueId cueId)
+        {
+            return cueId.Equals(GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail));
+        }
+
+        public static bool AllowsStopExemption(
+            GameplayVfxCueId cueId,
+            GameplayVfxTopologyStopMode stopMode)
+        {
+            return stopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt &&
+                   IsTopologyHelperCue(cueId);
+        }
+
+        public static bool AllowsSpawnExemption(
+            GameplayVfxCueId cueId,
+            GameplayVfxTopologySpawnMode spawnMode)
+        {
+            return spawnMode == GameplayVfxTopologySpawnMode.TopologyHelperExempt &&
+                   IsTopologyHelperCue(cueId);
+        }
+    }
+
     public readonly struct GameplayVfxSoftSpawnPolicy : IEquatable<GameplayVfxSoftSpawnPolicy>
     {
         public GameplayVfxSoftSpawnPolicy(bool enabled, float delaySeconds)
@@ -80,7 +110,8 @@ namespace Game.Feature.Gameplay.Vfx
             GameplayVfxTopologyAnchorMode topologyAnchorMode = GameplayVfxTopologyAnchorMode.Committed,
             GameplayVfxTopologyStopMode topologyStopMode = GameplayVfxTopologyStopMode.Default,
             GameplayVfxTopologySpawnMode topologySpawnMode = GameplayVfxTopologySpawnMode.Default,
-            GameplayVfxSoftSpawnPolicy softSpawnPolicy = default)
+            GameplayVfxSoftSpawnPolicy softSpawnPolicy = default,
+            GameplayVfxCompletionReplayPolicy completionReplayPolicy = GameplayVfxCompletionReplayPolicy.None)
             : this(
                 tickIndex,
                 sequenceId,
@@ -96,7 +127,8 @@ namespace Game.Feature.Gameplay.Vfx
                 topologyAnchorMode,
                 topologyStopMode,
                 topologySpawnMode,
-                softSpawnPolicy)
+                softSpawnPolicy,
+                completionReplayPolicy)
         {
         }
 
@@ -115,7 +147,8 @@ namespace Game.Feature.Gameplay.Vfx
             GameplayVfxTopologyAnchorMode topologyAnchorMode = GameplayVfxTopologyAnchorMode.Committed,
             GameplayVfxTopologyStopMode topologyStopMode = GameplayVfxTopologyStopMode.Default,
             GameplayVfxTopologySpawnMode topologySpawnMode = GameplayVfxTopologySpawnMode.Default,
-            GameplayVfxSoftSpawnPolicy softSpawnPolicy = default)
+            GameplayVfxSoftSpawnPolicy softSpawnPolicy = default,
+            GameplayVfxCompletionReplayPolicy completionReplayPolicy = GameplayVfxCompletionReplayPolicy.None)
         {
             TickIndex = tickIndex;
             SequenceId = sequenceId;
@@ -132,6 +165,7 @@ namespace Game.Feature.Gameplay.Vfx
             TopologyStopMode = topologyStopMode;
             TopologySpawnMode = topologySpawnMode;
             SoftSpawnPolicy = softSpawnPolicy;
+            CompletionReplayPolicy = completionReplayPolicy;
         }
 
         public int TickIndex { get; }
@@ -164,6 +198,8 @@ namespace Game.Feature.Gameplay.Vfx
 
         public GameplayVfxSoftSpawnPolicy SoftSpawnPolicy { get; }
 
+        public GameplayVfxCompletionReplayPolicy CompletionReplayPolicy { get; }
+
         public GameplayVfxRequest WithTopologyLifecycle(
             GameplayVfxTopologyStopMode stopMode,
             GameplayVfxTopologySpawnMode spawnMode)
@@ -183,7 +219,29 @@ namespace Game.Feature.Gameplay.Vfx
                 TopologyAnchorMode,
                 stopMode,
                 spawnMode,
-                SoftSpawnPolicy);
+                SoftSpawnPolicy,
+                CompletionReplayPolicy);
+        }
+
+        public GameplayVfxRequest WithCompletionReplayPolicy(GameplayVfxCompletionReplayPolicy replayPolicy)
+        {
+            return new GameplayVfxRequest(
+                TickIndex,
+                SequenceId,
+                PresentationSeed,
+                SourceEntityId,
+                CueId,
+                Anchor,
+                Timing,
+                IsPersistent,
+                PersistentKey,
+                StyleKey,
+                DelaySeconds,
+                TopologyAnchorMode,
+                TopologyStopMode,
+                TopologySpawnMode,
+                SoftSpawnPolicy,
+                replayPolicy);
         }
 
         public GameplayVfxRequest WithSoftSpawnDelay(float delaySeconds)
@@ -204,7 +262,8 @@ namespace Game.Feature.Gameplay.Vfx
                 TopologyAnchorMode,
                 TopologyStopMode,
                 GameplayVfxTopologySpawnMode.DeferUntilCompletionWithDelay,
-                policy);
+                policy,
+                CompletionReplayPolicy);
         }
 
         public int CompareTo(GameplayVfxRequest other)
@@ -300,9 +359,15 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             var softSpawnEnabledCompare = SoftSpawnPolicy.Enabled.CompareTo(other.SoftSpawnPolicy.Enabled);
-            return softSpawnEnabledCompare != 0
-                ? softSpawnEnabledCompare
-                : SoftSpawnPolicy.DelaySeconds.CompareTo(other.SoftSpawnPolicy.DelaySeconds);
+            if (softSpawnEnabledCompare != 0)
+            {
+                return softSpawnEnabledCompare;
+            }
+
+            var softSpawnDelayCompare = SoftSpawnPolicy.DelaySeconds.CompareTo(other.SoftSpawnPolicy.DelaySeconds);
+            return softSpawnDelayCompare != 0
+                ? softSpawnDelayCompare
+                : CompletionReplayPolicy.CompareTo(other.CompletionReplayPolicy);
         }
 
         public bool Equals(GameplayVfxRequest other)
@@ -321,7 +386,8 @@ namespace Game.Feature.Gameplay.Vfx
                 && TopologyAnchorMode == other.TopologyAnchorMode
                 && TopologyStopMode == other.TopologyStopMode
                 && TopologySpawnMode == other.TopologySpawnMode
-                && SoftSpawnPolicy.Equals(other.SoftSpawnPolicy);
+                && SoftSpawnPolicy.Equals(other.SoftSpawnPolicy)
+                && CompletionReplayPolicy == other.CompletionReplayPolicy;
         }
 
         public override bool Equals(object obj)
@@ -348,6 +414,7 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ (int)TopologyStopMode;
                 hash = (hash * 397) ^ (int)TopologySpawnMode;
                 hash = (hash * 397) ^ SoftSpawnPolicy.GetHashCode();
+                hash = (hash * 397) ^ (int)CompletionReplayPolicy;
                 return hash;
             }
         }
@@ -370,7 +437,8 @@ namespace Game.Feature.Gameplay.Vfx
                 $"{nameof(TopologyAnchorMode)}={TopologyAnchorMode}, " +
                 $"{nameof(TopologyStopMode)}={TopologyStopMode}, " +
                 $"{nameof(TopologySpawnMode)}={TopologySpawnMode}, " +
-                $"{nameof(SoftSpawnPolicy)}={SoftSpawnPolicy.DelaySeconds})";
+                $"{nameof(SoftSpawnPolicy)}={SoftSpawnPolicy.DelaySeconds}, " +
+                $"{nameof(CompletionReplayPolicy)}={CompletionReplayPolicy})";
         }
     }
 }

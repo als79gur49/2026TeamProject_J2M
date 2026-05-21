@@ -1131,7 +1131,8 @@ namespace Game.Feature.Gameplay.Vfx
                 styleKey: styleKey,
                 topologyAnchorMode: anchorMode,
                 topologyStopMode: GameplayVfxTopologyStopMode.HardClearAtTransitionStart,
-                topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition);
+                topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition,
+                completionReplayPolicy: GameplayVfxCompletionReplayPolicy.SteadyStatePersistentLoop);
         }
 
         private static VfxStyleKey ResolveTileFeatureStyleKey(
@@ -1452,7 +1453,8 @@ namespace Game.Feature.Gameplay.Vfx
                         VfxAnchorSlot.CellCenter),
                     timing: VfxTimingKind.ImmediateOnTickPresentation,
                     isPersistent: true,
-                    persistentKey: key));
+                    persistentKey: key,
+                    completionReplayPolicy: GameplayVfxCompletionReplayPolicy.SteadyStatePersistentLoop));
         }
 
         private static void AddLockedTargetRequest(

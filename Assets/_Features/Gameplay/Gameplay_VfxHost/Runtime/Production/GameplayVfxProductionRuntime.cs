@@ -580,6 +580,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
         internal int[] ActiveForwardCellProjectileFlightKeys =>
             forwardCellProjectileVfxController.ActiveFlightKeys;
 
+        internal int PendingDelayedSpecialVfxCount =>
+            scheduledDelayedBoxDestroyExitVfxKeys.Count +
+            pendingDelayedBoxDestroyExitVfx.Count +
+            readyDelayedBoxDestroyExitVfx.Count +
+            scheduledDelayedEnemyDeathMotionVfxKeys.Count +
+            pendingDelayedEnemyDeathMotionVfx.Count +
+            readyDelayedEnemyDeathMotionVfx.Count;
+
         internal int GetActiveVfxInstanceCount(GameplayVfxCueId cueId)
         {
             return pool?.GetActiveCount(cueId) ?? 0;
@@ -1259,7 +1267,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < plan.Requests.Count; i++)
             {
                 var request = plan.Requests[i];
-                if (request.IsPersistent)
+                if (request.IsPersistent &&
+                    request.CompletionReplayPolicy == GameplayVfxCompletionReplayPolicy.SteadyStatePersistentLoop)
                 {
                     persistentRequests.Add(request);
                 }

@@ -132,7 +132,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 if (handle == null ||
                     handle.IsTerminal ||
-                    handle.TopologyStopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt)
+                    GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
+                        handle.CueId,
+                        handle.TopologyStopMode))
                 {
                     continue;
                 }

@@ -82,7 +82,9 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             if (suppressTopologyTransitionStarts &&
-                command.Request.TopologySpawnMode != GameplayVfxTopologySpawnMode.TopologyHelperExempt)
+                !GameplayVfxTopologyHelperExemptionPolicy.AllowsSpawnExemption(
+                    command.CueId,
+                    command.Request.TopologySpawnMode))
             {
                 return null;
             }
@@ -153,7 +155,9 @@ namespace Game.Feature.Gameplay.Vfx
 
                 if (preserveTopologyHelperExempt &&
                     topologyStopModes.TryGetValue(pair.Key, out var topologyStopMode) &&
-                    topologyStopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt)
+                    GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
+                        pair.Value.CueId,
+                        topologyStopMode))
                 {
                     continue;
                 }
@@ -193,7 +197,7 @@ namespace Game.Feature.Gameplay.Vfx
                 var stopMode = topologyStopModes.TryGetValue(key, out var storedStopMode)
                     ? storedStopMode
                     : handle.TopologyStopMode;
-                if (stopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt)
+                if (GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(handle.CueId, stopMode))
                 {
                     continue;
                 }

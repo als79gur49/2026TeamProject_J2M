@@ -121,6 +121,21 @@ namespace Game.Feature.Gameplay.Vfx
 
             if (request.DelaySeconds > 0f)
             {
+                if (request.IsPersistent &&
+                    !request.PersistentKey.IsNone &&
+                    persistentRegistry.TryGet(request.PersistentKey, out var existing) &&
+                    existing.State != VfxLifetimeState.ReleasedToPool &&
+                    existing.State != VfxLifetimeState.HardCleanup)
+                {
+                    persistentRegistry.MarkDesired(request.PersistentKey);
+                    return;
+                }
+
+                if (HasPendingDelayedPersistentRequest(request))
+                {
+                    return;
+                }
+
                 delayedRequests.Add(new ScheduledGameplayVfxRequest(
                     request,
                     request.DelaySeconds,
@@ -204,7 +219,29 @@ namespace Game.Feature.Gameplay.Vfx
             in GameplayVfxRefreshOptions options)
         {
             return (topologyTransitionStartsSuppressed || options.DeferNewTopologyTransitionStarts) &&
-                   request.TopologySpawnMode != GameplayVfxTopologySpawnMode.TopologyHelperExempt;
+                   !GameplayVfxTopologyHelperExemptionPolicy.AllowsSpawnExemption(
+                       request.CueId,
+                       request.TopologySpawnMode);
+        }
+
+        private bool HasPendingDelayedPersistentRequest(in GameplayVfxRequest request)
+        {
+            if (!request.IsPersistent || request.PersistentKey.IsNone)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < delayedRequests.Count; i++)
+            {
+                var pending = delayedRequests[i].Request;
+                if (pending.IsPersistent &&
+                    pending.PersistentKey.Equals(request.PersistentKey))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void HandleVisibilityBlocked(

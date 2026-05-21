@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         [SerializeField] private float tailSeconds;
         [SerializeField] private int initialPoolSize;
         [SerializeField] private int maxConcurrentInstances;
+        [SerializeField] private bool allowTopologyHelperExempt;
 #pragma warning restore 0649
 
         public GameplayVfxCueId CueId => new GameplayVfxCueId(family, cueCode);
@@ -47,6 +48,8 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         public int InitialPoolSize => initialPoolSize;
 
         public int MaxConcurrentInstances => maxConcurrentInstances;
+
+        public bool AllowTopologyHelperExempt => allowTopologyHelperExempt;
 
         private void OnValidate()
         {
