@@ -16,6 +16,7 @@ using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
+using Game.Feature.Gameplay.UIAccess.Models;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEditor;
@@ -144,7 +145,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.TryGetProjectileAt(new SurfaceCell(FaceId.Floor, 0, 0), out var projectile), Is.True);
                 Assert.That(projectile.entityId, Is.EqualTo(20));
                 Assert.That(projectile.stateTimer, Is.EqualTo(host.TimingProfile.ProjectileStepIntervalTicks));
-                Assert.That(projectile.stateTimer, Is.EqualTo(3));
             }
             finally
             {
@@ -611,8 +611,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 Assert.That(playerViewPrefab.GetComponent<PlayerAnimationTimingAuthoring>(), Is.Not.Null);
 
-                host.Initialize(
-                    new GameplaySceneHostConfiguration
+                var configuration = new GameplaySceneHostConfiguration
                     {
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
@@ -664,9 +663,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                    });
+                    };
+                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                host.Initialize(configuration);
 
-                host.InputHost.SetRawMoveInput(Vector2.right);
+                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
                 var startTick = host.InputHost.RunSingleTick();
                 var windupTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();
@@ -766,8 +767,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
-                host.Initialize(
-                    new GameplaySceneHostConfiguration
+                var configuration = new GameplaySceneHostConfiguration
                     {
                         AutoAdvanceTicks = false,
                         AutoCreateViews = false,
@@ -818,11 +818,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                    });
+                    };
+                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                host.Initialize(configuration);
 
                 Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
 
-                host.InputHost.SetRawMoveInput(Vector2.right);
+                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
                 var startTick = host.InputHost.RunSingleTick();
                 var windupTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();

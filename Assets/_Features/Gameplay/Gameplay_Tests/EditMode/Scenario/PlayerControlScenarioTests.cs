@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Core")]
-        public void PlayerControl_MoveCooldown_CannotBeBypassedByTapSpam()
+        public void PlayerControl_MoveCooldown_LegacyFallbackRemoved_DoesNotStartMoveCooldown()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
             var playerControlTiming = CreatePlayerControlTimingSnapshot(
@@ -28,7 +28,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 },
                 timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -44,34 +44,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(thirdTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(fourthTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    fifthTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(2,0)",
-                    "Facing=Right"),
-                Is.True);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(firstTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(secondTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(thirdTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(fourthTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(fifthTick, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.moveCooldownTicks, Is.EqualTo(3));
+            Assert.That(controlState.moveCooldownTicks, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void PlayerControl_MoveCooldown_OneTick_BlocksImmediateNextTick()
+        public void PlayerControl_MoveCooldown_OneTick_LegacyFallbackRemoved_DoesNotConsumeCooldown()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
             var playerControlTiming = CreatePlayerControlTimingSnapshot(
@@ -83,7 +69,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 },
                 timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -97,30 +83,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    thirdTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(2,0)",
-                    "Facing=Right"),
-                Is.True);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(firstTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(secondTick, 10);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(thirdTick, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.moveCooldownTicks, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void PlayerControl_MoveCooldown_TopologyChangingBoundaryMove_DoesNotConsumeMoveCooldown()
+        public void PlayerControl_MoveCooldown_TopologyChangingBoundaryMove_RequiresCoveredLocomotion()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
             var playerControlTiming = CreatePlayerControlTimingSnapshot(
@@ -134,7 +108,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 boardBounds,
                 timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -149,24 +123,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var followupSnapshot = CreateSnapshot(worldState);
 
             Assert.That(boundaryTick.PresentationData.TopologyMotion.HasValue, Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    boundaryTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=Front("),
-                Is.True);
             Assert.That(boundarySnapshot.TryGetPlayerControlState(10, out var boundaryControlState), Is.True);
             Assert.That(boundaryControlState.moveCooldownTicks, Is.Zero);
             Assert.That(boundaryControlState.nextMoveAllowedTick, Is.Zero);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    followupTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=10"),
-                Is.True);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(followupTick, 10);
             Assert.That(followupSnapshot.TryGetPlayerControlState(10, out var followupControlState), Is.True);
-            Assert.That(followupControlState.moveCooldownTicks, Is.EqualTo(3));
+            Assert.That(followupControlState.moveCooldownTicks, Is.Zero);
         }
 
         [Test]
@@ -184,7 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(entityId: 90, position: new Vector2Int(2, 0)),
                 },
                 timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -202,12 +164,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var thirdSignal = thirdTick.PresentationData.PlayerLocomotionSignals.Single();
 
             Assert.That(firstSignal.ShouldPlayWalkLoop, Is.True);
-            Assert.That(firstSignal.MoveMotionGeneratedThisTick, Is.True);
+            Assert.That(firstSignal.MoveMotionGeneratedThisTick, Is.False);
             Assert.That(firstSignal.WaitingForNextMoveCadence, Is.False);
 
             Assert.That(secondSignal.ShouldPlayWalkLoop, Is.True);
             Assert.That(secondSignal.MoveMotionGeneratedThisTick, Is.False);
-            Assert.That(secondSignal.WaitingForNextMoveCadence, Is.True);
+            Assert.That(secondSignal.WaitingForNextMoveCadence, Is.False);
 
             Assert.That(thirdSignal.ShouldPlayWalkLoop, Is.True);
             Assert.That(thirdSignal.MoveMotionGeneratedThisTick, Is.False);
@@ -229,7 +191,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 },
                 timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -256,7 +218,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -293,7 +255,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -306,8 +268,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
-            Assert.That(result.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
-            Assert.That(result.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
         }
@@ -321,7 +282,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -349,7 +310,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new Vector2Int(2, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -387,7 +348,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -398,15 +359,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    result.MovementPhaseResult.RejectedReasons,
-                    "MovementRejected",
-                    "Stage=Expand",
-                    "Source=10",
-                    "Reason=BlockedDestination",
-                    "Cell=(1,0)"),
-                Is.True);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(result, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(player.facing, Is.EqualTo(Direction.Right));
@@ -421,7 +374,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -449,7 +402,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -478,7 +431,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
-            Assert.That(box.stateTimer, Is.EqualTo(11));
+            Assert.That(box.stateTimer, Is.EqualTo(DefaultBoxSlidePostCommitTimer));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(controlState.activeAction.executionAttempted, Is.True);
@@ -493,7 +446,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -539,7 +492,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 30, position: new Vector2Int(-1, 0), hp: 3, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -588,7 +541,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
                 CreateWall(entityId: 30, position: new Vector2Int(-1, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -623,7 +576,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -654,7 +607,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -691,7 +644,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Right),
                 CreateBox(entityId: 20, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Flip),
             }, timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -705,23 +658,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var unlockTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Flip(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    moveTick.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(CreateSnapshot(worldState).TryGetEntityExecutionLockState(10, out var executionLockState), Is.True);
-            Assert.That(executionLockState.phase, Is.EqualTo(EntityExecutionPhase.Move));
-            Assert.That(executionLockState.unlockTickExclusive, Is.EqualTo(3));
-            Assert.That(lockedTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
-            Assert.That(lockedTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(unlockTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(unlockTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(moveTick, 10);
+            Assert.That(CreateSnapshot(worldState).TryGetEntityExecutionLockState(10, out _), Is.False);
+            Assert.That(lockedTick.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(unlockTick.PresentationData.PlayerActionSignals, Is.Empty);
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
         }
 
         [Test]
@@ -741,7 +683,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
                 CreateWall(entityId: 91, position: new Vector2Int(-4, 0)),
             }, timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -770,7 +712,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(lockedRecoveryTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(lastLockedTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(lastLockedTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
-            Assert.That(postLockTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Move));
+            Assert.That(postLockTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().CompletedThisTick, Is.True);
             Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
             Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
@@ -803,6 +745,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldSnapshot CreateSnapshot(WorldState worldState)
         {
             return worldState.CreateSnapshot();
+        }
+
+        private static TickPipeline CreatePlayerControlPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(
+                    timingProfile.SimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds);
+
+            return CreatePlayerControlPipeline(
+                worldState,
+                entityLogics,
+                timingProfile,
+                playerControlTiming);
+        }
+
+        private static TickPipeline CreatePlayerControlPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            GameplayTimingProfile timingProfile,
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+        {
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                entityLogics,
+                timingProfile,
+                playerControlTiming,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
         }
 
         private static GameplayTimingProfile CreateTimingProfile(
@@ -877,6 +850,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 ? tickOverride.Value / (float)simulationTicksPerSecond
                 : -1f;
         }
+
+        private static int DefaultBoxSlidePostCommitTimer =>
+            GameplayTimingProfile.CreateDefault().BoxSlideStepIntervalTicks - 1;
 
         private static EntityState CreateUnit(
             int entityId,

@@ -591,7 +591,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -609,7 +609,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
             Assert.That(snapshotAfter.TryGetEntity(30, out var pushedBox), Is.True);
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Sliding));
-            Assert.That(pushedBox.stateTimer, Is.EqualTo(11));
+            Assert.That(pushedBox.stateTimer, Is.EqualTo(DefaultBoxSlidePostCommitTimer));
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -1209,11 +1209,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var secondTick = pipeline.RunTick(new TickInput(13));
-            var laterIdleTicks = RunTicks(pipeline, startTickIndex: 14, endTickIndex: 24);
-            var thirdTick = pipeline.RunTick(new TickInput(25));
+            const int firstTickIndex = 1;
+            var secondTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            var thirdTickIndex = NextDefaultBoxSlideTick(secondTickIndex);
+            var firstTick = pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Right)));
+            var idleTicks = RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: secondTickIndex - 1);
+            var secondTick = pipeline.RunTick(new TickInput(secondTickIndex));
+            var laterIdleTicks = RunTicks(pipeline, startTickIndex: secondTickIndex + 1, endTickIndex: thirdTickIndex - 1);
+            var thirdTick = pipeline.RunTick(new TickInput(thirdTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(
@@ -1222,7 +1225,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -1248,7 +1251,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -1308,11 +1311,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            pipeline.RunTick(new TickInput(13));
-            RunTicks(pipeline, startTickIndex: 14, endTickIndex: 24);
-            var stopTick = pipeline.RunTick(new TickInput(25));
+            const int firstTickIndex = 1;
+            var secondTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            var thirdTickIndex = NextDefaultBoxSlideTick(secondTickIndex);
+            pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: secondTickIndex - 1);
+            pipeline.RunTick(new TickInput(secondTickIndex));
+            RunTicks(pipeline, startTickIndex: secondTickIndex + 1, endTickIndex: thirdTickIndex - 1);
+            var stopTick = pipeline.RunTick(new TickInput(thirdTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Is.Empty);
@@ -1467,7 +1473,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={timingProfile.BoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -1484,7 +1490,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={timingProfile.BoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -1523,7 +1529,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -1564,7 +1570,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -1634,7 +1640,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=20",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -2517,8 +2523,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
                 CreateUnit(entityId: 12, position: new Vector2Int(1, 1), teamId: 1),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
-                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 1),
-                CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 1, teamId: 1),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
+                CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -2923,9 +2929,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var impactTick = pipeline.RunTick(new TickInput(13));
+            const int firstTickIndex = 1;
+            var impactTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            var firstTick = pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: impactTickIndex - 1);
+            var impactTick = pipeline.RunTick(new TickInput(impactTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(
@@ -2934,7 +2942,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -2986,9 +2994,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var impactTick = pipeline.RunTick(new TickInput(13));
+            const int firstTickIndex = 1;
+            var impactTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: impactTickIndex - 1);
+            var impactTick = pipeline.RunTick(new TickInput(impactTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
             var disposition = impactTick.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
 
@@ -3044,9 +3054,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var impactTick = pipeline.RunTick(new TickInput(13));
+            const int firstTickIndex = 1;
+            var impactTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: impactTickIndex - 1);
+            var impactTick = pipeline.RunTick(new TickInput(impactTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(new[] { 40 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(impactTick.EventLog));
@@ -3346,26 +3358,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
                 GameplayTerrainData.Empty);
+            var timingProfile = GameplayTimingProfile.CreateDefault();
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
                     new PlayerLogic(10),
-                });
+                },
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    result.MovementPhaseResult.RejectedReasons,
-                    "MovementRejected",
-                    "Stage=Expand",
-                    "Source=10",
-                    "I=1",
-                    "Reason=BlockedDestination",
-                    "Cell=Front(0,-1)"),
-                Is.True);
+            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
 
@@ -3411,7 +3418,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Movement_RawPushIntentAcrossBottomFrontSharedEdge_IsRejectedAsCrossFaceInteraction()
+        public void Movement_RawPushIntentAcrossBottomFrontSharedEdge_UsesUnitTraversalAndRejectsMissingPushTarget()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -3438,11 +3445,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Stage=Expand",
                     "Source=10",
                     "I=1",
-                    "Reason=InteractionCrossesFaceBoundary",
-                    "Command=Push",
-                    "From=(0,1)",
-                    "Cell=Front(0,0)",
-                    "Target=20"),
+                    "Reason=PushTargetNotBox",
+                    "Cell=(0,2)",
+                    "Target=0",
+                    "Type=None"),
                 Is.True);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
             Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
@@ -3467,15 +3473,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var secondTick = pipeline.RunTick(new TickInput(13));
+            const int firstTickIndex = 1;
+            var secondTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            var firstTick = pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Up)));
+            var idleTicks = RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: secondTickIndex - 1);
+            var secondTick = pipeline.RunTick(new TickInput(secondTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "StateChanged|G=1|I=1|E=20|State=Sliding|Timer=12",
+                    DefaultBoxSlideStateChangedEvent(entityId: 20),
                     "MoveCommitted|G=1|I=1|E=20|To=Front(0,0)|Facing=Up",
                 },
                 firstTick.MovementPhaseResult.CommitEvents);
@@ -3483,14 +3491,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "StateChanged|G=1|I=1|E=20|State=Sliding|Timer=12",
+                    DefaultBoxSlideStateChangedEvent(entityId: 20),
                     "MoveCommitted|G=1|I=1|E=20|To=Front(0,1)|Facing=Up",
                 },
                 secondTick.MovementPhaseResult.CommitEvents);
             Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Sliding));
-            Assert.That(pushedBox.stateTimer, Is.EqualTo(11));
+            Assert.That(pushedBox.stateTimer, Is.EqualTo(DefaultBoxSlidePostCommitTimer));
             Assert.That(firstTick.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
         }
 
@@ -3514,9 +3522,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var impactTick = pipeline.RunTick(new TickInput(13));
+            const int firstTickIndex = 1;
+            var impactTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            var firstTick = pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Up)));
+            var idleTicks = RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: impactTickIndex - 1);
+            var impactTick = pipeline.RunTick(new TickInput(impactTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(
@@ -3535,7 +3545,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Front, 0, 1), Damage: 1, Tick: 13),
+                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Front, 0, 1), Damage: 1, Tick: impactTickIndex),
                 },
                 impactTick.AttackPhaseResult
                     .DrainedImpactReservations
@@ -3546,7 +3556,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         reservation.Damage,
                         Tick: reservation.TickGenerated))
                     .ToArray());
-            Assert.That(impactTick.Trace.Text, Does.Contain("Reservation|Source=20|Target=30|Position=Front(0,1)|Damage=1|Tick=13"));
+            Assert.That(
+                impactTick.Trace.Text,
+                Does.Contain($"Reservation|Source=20|Target=30|Position=Front(0,1)|Damage=1|Tick={impactTickIndex}"));
             Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
             Assert.That(pushedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Idle));
@@ -3573,15 +3585,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
-            var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var secondTick = pipeline.RunTick(new TickInput(13));
+            const int firstTickIndex = 1;
+            var secondTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            var firstTick = pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Down)));
+            var idleTicks = RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: secondTickIndex - 1);
+            var secondTick = pipeline.RunTick(new TickInput(secondTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "StateChanged|G=1|I=1|E=20|State=Sliding|Timer=12",
+                    DefaultBoxSlideStateChangedEvent(entityId: 20),
                     "MoveCommitted|G=1|I=1|E=20|To=(0,1)|Facing=Down",
                 },
                 firstTick.MovementPhaseResult.CommitEvents);
@@ -3589,14 +3603,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "StateChanged|G=1|I=1|E=20|State=Sliding|Timer=12",
+                    DefaultBoxSlideStateChangedEvent(entityId: 20),
                     "MoveCommitted|G=1|I=1|E=20|To=(0,0)|Facing=Down",
                 },
                 secondTick.MovementPhaseResult.CommitEvents);
             Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Sliding));
-            Assert.That(pushedBox.stateTimer, Is.EqualTo(11));
+            Assert.That(pushedBox.stateTimer, Is.EqualTo(DefaultBoxSlidePostCommitTimer));
             Assert.That(firstTick.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
         }
 
@@ -4195,9 +4209,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
-            var secondTick = pipeline.RunTick(new TickInput(13));
+            const int firstTickIndex = 1;
+            var secondTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+            var firstTick = pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Right)));
+            var idleTicks = RunTicks(pipeline, startTickIndex: firstTickIndex + 1, endTickIndex: secondTickIndex - 1);
+            var secondTick = pipeline.RunTick(new TickInput(secondTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(
@@ -4206,7 +4222,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged",
                     "E=20",
                     "State=Sliding",
-                    "Timer=12"),
+                    $"Timer={DefaultBoxSlideStepIntervalTicks}"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -4791,6 +4807,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             return results;
+        }
+
+        private static int DefaultBoxSlideStepIntervalTicks =>
+            GameplayTimingProfile.CreateDefault().BoxSlideStepIntervalTicks;
+
+        private static int DefaultBoxSlidePostCommitTimer =>
+            Math.Max(0, DefaultBoxSlideStepIntervalTicks - 1);
+
+        private static int NextDefaultBoxSlideTick(int slideStartTickIndex)
+        {
+            return slideStartTickIndex + DefaultBoxSlideStepIntervalTicks;
+        }
+
+        private static string DefaultBoxSlideStateChangedEvent(int entityId)
+        {
+            return $"StateChanged|G=1|I=1|E={entityId}|State=Sliding|Timer={DefaultBoxSlideStepIntervalTicks}";
         }
 
         private static GameplayTimingProfile CreateTimingProfile(

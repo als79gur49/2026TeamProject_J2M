@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Extended")]
-        public void PlayerSameFaceContinuousLocomotion_FlagOff_UsesLegacyDiscreteMove()
+        public void PlayerSameFaceContinuousLocomotion_FlagOff_RequiresExplicitLegacyFallbackBaseline()
         {
             var worldState = CreateWorldState(CreatePlayer(10));
             var pipeline = CreatePipeline(worldState, GameplayRuntimeFeatureFlags.None);
@@ -23,9 +23,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
-            LegacyMovementBoundaryAssert.HasLegacyFallbackMove(result, 10);
+            LegacyMovementBoundaryAssert.RequiresExplicitLegacyFallbackBaseline(result, 10);
         }
 
         [Test]
@@ -520,7 +520,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlagOff_BaselineContactTiming()
+        public void FlagOff_RemovedLegacyFallbackDoesNotApplyPassiveContact()
         {
             var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
@@ -535,20 +535,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(enemyCell), BuildContactTimingDebug(1, "Player", 10, 40, snapshot, result));
+            Assert.That(
+                player.position,
+                Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)),
+                BuildContactTimingDebug(1, "Player", 10, 40, snapshot, result));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
+            LegacyMovementBoundaryAssert.RequiresExplicitLegacyFallbackBaseline(result, 10);
             Assert.That(
                 HasAcceptedPassiveContact(result, 40, 10),
-                Is.True,
+                Is.False,
                 BuildContactTimingDebug(1, "Player", 10, 40, snapshot, result));
-            Assert.That(player.hp, Is.EqualTo(2));
+            Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion =>
                     motion.EntityId == 10 &&
                     motion.MotionKind == TickEntityMotionKind.Move &&
                     motion.SourceCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
                     motion.DestinationCell == enemyCell),
-                Is.True);
+                Is.False);
             Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.False);
         }
 

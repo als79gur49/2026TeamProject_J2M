@@ -543,7 +543,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         pushExecuteDelayTicks: 1,
                         pushInputLockDurationTicks: 3)));
 
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
 
                 var startTick = host.InputHost.RunSingleTick();
                 var startHud = host.UiAccess.QueryFacade.PlayerHud.Read();
@@ -760,7 +760,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             PlayerControlTimingSettings playerControlTiming = null,
             ICampaignChancesReadSource campaignChancesReadSource = null)
         {
-            return new GameplaySceneHostConfiguration
+            var configuration = new GameplaySceneHostConfiguration
             {
                 AutoAdvanceTicks = false,
                 AutoCreateViews = false,
@@ -772,6 +772,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
                 CampaignChancesReadSource = campaignChancesReadSource,
             };
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            return configuration;
         }
 
         private static StageObjectiveRuntimeDefinition CreateUiObjectiveDefinition()
