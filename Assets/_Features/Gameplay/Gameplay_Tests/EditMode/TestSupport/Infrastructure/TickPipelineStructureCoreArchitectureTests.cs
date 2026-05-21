@@ -284,7 +284,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 constructors.Any(constructor =>
                     HasParameterTypes(
                         constructor,
-                        typeof(PlayerControlTimingAuthoritativeSnapshot))),
+                        typeof(PlayerControlTimingAuthoritativeSnapshot),
+                        typeof(GameplayTimingProfile))),
                 Is.True);
             Assert.That(
                 constructors.Any(constructor =>
@@ -301,58 +302,40 @@ namespace Game.Feature.Gameplay.Tests.Core
         [Category("Extended")]
         public void GameplayCompositionRoot_AndBootstrapper_ExposeExplicitGeneralAndPlayerTimingOverloads()
         {
-            var compositionRootPipelineFactory = typeof(GameplayCompositionRoot).GetMethod(
+            var compositionRootPipelineFactory = FindMethodWithLeadingParameterTypes(
+                typeof(GameplayCompositionRoot),
                 nameof(GameplayCompositionRoot.CreateTickPipeline),
                 BindingFlags.Static | BindingFlags.Public,
-                binder: null,
-                types: new[]
-                {
-                    typeof(WorldState),
-                    typeof(IEnumerable<IEntityLogic>),
-                    typeof(GameplayTimingProfile),
-                    typeof(PlayerControlTimingAuthoritativeSnapshot),
-                },
-                modifiers: null);
-            var compositionRootRunnerFactory = typeof(GameplayCompositionRoot).GetMethod(
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(GameplayTimingProfile),
+                typeof(PlayerControlTimingAuthoritativeSnapshot));
+            var compositionRootRunnerFactory = FindMethodWithLeadingParameterTypes(
+                typeof(GameplayCompositionRoot),
                 nameof(GameplayCompositionRoot.CreateTickRunner),
                 BindingFlags.Static | BindingFlags.Public,
-                binder: null,
-                types: new[]
-                {
-                    typeof(WorldState),
-                    typeof(IEnumerable<IEntityLogic>),
-                    typeof(TickInputBuffer),
-                    typeof(GameplayTimingProfile),
-                    typeof(PlayerControlTimingAuthoritativeSnapshot),
-                    typeof(int),
-                },
-                modifiers: null);
-            var bootstrapperPipelineFactory = typeof(GameplayBootstrapper).GetMethod(
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(TickInputBuffer),
+                typeof(GameplayTimingProfile),
+                typeof(PlayerControlTimingAuthoritativeSnapshot));
+            var bootstrapperPipelineFactory = FindMethodWithLeadingParameterTypes(
+                typeof(GameplayBootstrapper),
                 nameof(GameplayBootstrapper.CreateTickPipeline),
                 BindingFlags.Instance | BindingFlags.Public,
-                binder: null,
-                types: new[]
-                {
-                    typeof(WorldState),
-                    typeof(IEnumerable<IEntityLogic>),
-                    typeof(GameplayTimingProfile),
-                    typeof(PlayerControlTimingAuthoritativeSnapshot),
-                },
-                modifiers: null);
-            var bootstrapperRunnerFactory = typeof(GameplayBootstrapper).GetMethod(
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(GameplayTimingProfile),
+                typeof(PlayerControlTimingAuthoritativeSnapshot));
+            var bootstrapperRunnerFactory = FindMethodWithLeadingParameterTypes(
+                typeof(GameplayBootstrapper),
                 nameof(GameplayBootstrapper.CreateTickRunner),
                 BindingFlags.Instance | BindingFlags.Public,
-                binder: null,
-                types: new[]
-                {
-                    typeof(WorldState),
-                    typeof(IEnumerable<IEntityLogic>),
-                    typeof(TickInputBuffer),
-                    typeof(GameplayTimingProfile),
-                    typeof(PlayerControlTimingAuthoritativeSnapshot),
-                    typeof(int),
-                },
-                modifiers: null);
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(TickInputBuffer),
+                typeof(GameplayTimingProfile),
+                typeof(PlayerControlTimingAuthoritativeSnapshot));
 
             Assert.That(compositionRootPipelineFactory, Is.Not.Null);
             Assert.That(compositionRootRunnerFactory, Is.Not.Null);
@@ -419,6 +402,19 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(bootstrapperRunnerFactory, Is.Null);
         }
 
+        private static MethodInfo FindMethodWithLeadingParameterTypes(
+            Type type,
+            string methodName,
+            BindingFlags bindingFlags,
+            params Type[] parameterTypes)
+        {
+            return type
+                .GetMethods(bindingFlags)
+                .FirstOrDefault(method =>
+                    method.Name == methodName &&
+                    HasLeadingParameterTypes(method, parameterTypes));
+        }
+
         private static bool HasParameterTypes(
             MethodBase methodBase,
             params Type[] parameterTypes)
@@ -427,6 +423,21 @@ namespace Game.Feature.Gameplay.Tests.Core
                 .GetParameters()
                 .Select(parameter => parameter.ParameterType)
                 .SequenceEqual(parameterTypes);
+        }
+
+        private static bool HasLeadingParameterTypes(
+            MethodBase methodBase,
+            params Type[] parameterTypes)
+        {
+            var actualParameterTypes = methodBase
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType)
+                .ToArray();
+
+            return actualParameterTypes.Length >= parameterTypes.Length &&
+                   actualParameterTypes
+                       .Take(parameterTypes.Length)
+                       .SequenceEqual(parameterTypes);
         }
     }
 }
