@@ -5063,8 +5063,8 @@ ParticleSystem:
     startLifetime:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 2
-      minScalar: 1
+      scalar: 1.3
+      minScalar: 0.8
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -9978,7 +9978,7 @@ ParticleSystem:
     startLifetime:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 0.6
+      scalar: 0.5
       minScalar: 0.3
       maxCurve:
         serializedVersion: 2
@@ -14942,7 +14942,7 @@ ParticleSystem:
     startLifetime:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 1
+      scalar: 0.9
       minScalar: 0.35
       maxCurve:
         serializedVersion: 2
@@ -19902,7 +19902,7 @@ ParticleSystem:
     startLifetime:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 1.2
+      scalar: 1
       minScalar: 0.35
       maxCurve:
         serializedVersion: 2
@@ -20893,27 +20893,18 @@ ParticleSystem:
         m_Curve:
         - serializedVersion: 3
           time: 0
-          value: 0
-          inSlope: 0
-          outSlope: 0
-          tangentMode: 0
-          weightedMode: 0
-          inWeight: 0.33333334
-          outWeight: 0.33333334
-        - serializedVersion: 3
-          time: 0.5052356
           value: 1
-          inSlope: 0
-          outSlope: 0
+          inSlope: -1.2402259
+          outSlope: -1.2402259
           tangentMode: 0
           weightedMode: 0
           inWeight: 0.33333334
           outWeight: 0.33333334
         - serializedVersion: 3
-          time: 1
-          value: 0
-          inSlope: 0
-          outSlope: 0
+          time: 0.9980469
+          value: 0.21806854
+          inSlope: -0.35176715
+          outSlope: -0.35176715
           tangentMode: 0
           weightedMode: 0
           inWeight: 0.33333334
@@ -20972,8 +20963,8 @@ ParticleSystem:
           inWeight: 0.33333334
           outWeight: 0.33333334
         - serializedVersion: 3
-          time: 0.5052356
-          value: 1
+          time: 0.523241
+          value: 0.21893501
           inSlope: 0
           outSlope: 0
           tangentMode: 0
