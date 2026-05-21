@@ -421,6 +421,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyTransitionStart_ClearsFollowerGameplayVfxImmediately()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.TrackState.OriginalViewMotionTracks[30] = CreateTrack(entityId: 30);
+                fixture.Controller.Refresh(10, fixture.TrackState, fixture.StateStore, fixture.Pool, fixture.BindingResolver, enabled: true);
+
+                fixture.Controller.ClearForTopologyTransitionStart(fixture.Pool);
+
+                Assert.That(fixture.Controller.ActiveHandleCount, Is.Zero);
+                Assert.That(fixture.Pool.ActiveCount, Is.Zero);
+                Assert.That(fixture.Root.TailRoot.childCount, Is.Zero);
+                Assert.That(fixture.View.ModelRoot.childCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void FlipImpactStayTrailPrefab_PassesValidation()
         {

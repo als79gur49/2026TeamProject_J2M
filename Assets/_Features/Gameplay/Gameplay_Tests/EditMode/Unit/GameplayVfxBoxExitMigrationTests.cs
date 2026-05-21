@@ -543,6 +543,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyTransitionStart_DropsPendingDelayedSpecialVfxQueues()
+        {
+            var scenario = CreatePresenterScenario("TopologyDropsPendingDelayedSpecialVfx");
+            var vfxPrefab = new GameObject("TopologyDropsPendingDelayedSpecialVfx_Prefab");
+            var modelRoot = new GameObject("ModelRoot");
+            modelRoot.transform.SetParent(vfxPrefab.transform, worldPositionStays: false);
+            modelRoot.AddComponent<ParticleSystem>();
+            VfxBindingDefinitionAsset smokeBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
+                cueMap = CreateCueMap(smokeBinding);
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                scenario.Presenter.AttachPresentationExtension(runtime);
+
+                var sourceCell = scenario.BoxCell;
+                var destroyCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                var motion = new TickEntityMotion(
+                    20,
+                    TickEntityMotionKind.Push,
+                    sourceCell,
+                    destroyCell,
+                    scenario.Topology,
+                    scenario.Topology,
+                    Direction.Right,
+                    Direction.Right);
+                var exitSignal = CreateExitSignal(
+                    20,
+                    TickEntityExitCause.BoxDestroy,
+                    destroyCell,
+                    scenario.Topology,
+                    timing: EntityExitPresentationTiming.AfterEntityMotion);
+
+                scenario.Presenter.PresentInitial(
+                    new[] { CreateBox(20, sourceCell) },
+                    scenario.Topology);
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(
+                        new[] { exitSignal },
+                        entityMotions: new[] { motion }),
+                    scenario.Topology,
+                    Array.Empty<EntityState>()));
+
+                Assert.That(runtime.PendingDelayedSpecialVfxCount, Is.GreaterThan(0));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                scenario.Presenter.Present(CreateResult(
+                    CreatePresentationData(
+                        Array.Empty<TickEntityExitPresentationSignal>(),
+                        topologyMotion: new TickTopologyMotion(
+                            scenario.Topology,
+                            destinationTopology,
+                            CubeRotationKind.Forward)),
+                    destinationTopology,
+                    Array.Empty<EntityState>()));
+                scenario.Presenter.UpdatePresentation(GameplayTimingProfile.DefaultPushMotionDurationSeconds + 0.01f);
+
+                Assert.That(runtime.PendingDelayedSpecialVfxCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+            }
+            finally
+            {
+                Destroy(cueMap, smokeBinding, vfxPrefab);
+                scenario.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect()
         {
@@ -942,11 +1016,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TickEntityExitPresentationSignal[] exitSignals,
             TickEntityMotion[] entityMotions = null,
             TickImpactTransientPresentationSignal[] impactTransientSignals = null,
-            FlipImpactPresentationSignal[] flipImpactSignals = null)
+            FlipImpactPresentationSignal[] flipImpactSignals = null,
+            TickTopologyMotion? topologyMotion = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
-                topologyMotion: null,
+                topologyMotion: topologyMotion,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),

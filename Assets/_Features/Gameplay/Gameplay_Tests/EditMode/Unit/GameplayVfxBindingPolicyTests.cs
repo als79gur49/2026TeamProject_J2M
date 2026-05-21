@@ -368,6 +368,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyHelperExempt_CannotBeImplicitPresentationOnlyBypass()
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail);
+
+            Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
+                cueId,
+                GameplayVfxTopologyStopMode.Default), Is.False);
+            Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsSpawnExemption(
+                cueId,
+                GameplayVfxTopologySpawnMode.Default), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyHelperExempt_GameplayCue_ValidationFails()
+        {
+            var binding = CreateBindingAsset(
+                "PresentationOnly_PlayerDamage_Binding",
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                GameplayVfxVisibilityMode.PresentationOnly,
+                allowTopologyHelperExempt: true);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_TOPOLOGY_HELPER_EXEMPT_REQUIRES_HELPER_CUE" &&
+                    message.Severity == VfxAuthoringValidationSeverity.Error), Is.True);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyHelperExempt_ExplicitTopologyHelperCue_Allowed()
+        {
+            var binding = CreateBindingAsset(
+                "TopologyMotionVisualHelper_Binding",
+                GameplayVfxFamily.Box,
+                (int)BoxVfxCue.FlipImpactStayTrail,
+                GameplayVfxVisibilityMode.PresentationOnly,
+                allowTopologyHelperExempt: true);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_TOPOLOGY_HELPER_EXEMPT_REQUIRES_HELPER_CUE"), Is.False);
+                Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
+                    binding.CueId,
+                    GameplayVfxTopologyStopMode.TopologyHelperExempt), Is.True);
+                Assert.That(GameplayVfxTopologyHelperExemptionPolicy.AllowsSpawnExemption(
+                    binding.CueId,
+                    GameplayVfxTopologySpawnMode.TopologyHelperExempt), Is.True);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void BindingPolicy_RejectsInvalidDurationsAndCounts()
         {
@@ -526,7 +593,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             string assetName,
             GameplayVfxFamily family,
             int cueCode,
-            GameplayVfxVisibilityMode visibilityMode)
+            GameplayVfxVisibilityMode visibilityMode,
+            bool allowTopologyHelperExempt = false)
         {
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             binding.name = assetName;
@@ -537,6 +605,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(binding, "playbackMode", VfxPlaybackMode.OneShot);
             SetPrivateField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
             SetPrivateField(binding, "visibilityMode", visibilityMode);
+            SetPrivateField(binding, "allowTopologyHelperExempt", allowTopologyHelperExempt);
             var prefab = new GameObject($"{assetName}_Prefab");
             new GameObject("ModelRoot").transform.SetParent(prefab.transform, worldPositionStays: false);
             SetPrivateField(binding, "prefab", prefab);
