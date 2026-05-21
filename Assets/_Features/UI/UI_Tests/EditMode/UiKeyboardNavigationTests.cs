@@ -116,6 +116,45 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SaveSlotCard_SelectionFeedback_FollowsActionSelectionAndSubmit()
+        {
+            var root = new GameObject(nameof(SaveSlotCard_SelectionFeedback_FollowsActionSelectionAndSubmit));
+            try
+            {
+                var card = CreateSaveSlotCard("SaveSlotCard", root.transform);
+                var primaryButton = GetPrivateField<Button>(card, "_primaryButton");
+                var deleteButton = GetPrivateField<Button>(card, "_deleteButton");
+                var primaryFeedback = primaryButton.gameObject.AddComponent<TrackingSelectionFeedback>();
+                var deleteFeedback = deleteButton.gameObject.AddComponent<TrackingSelectionFeedback>();
+                card.Bind(CreateCardViewModel(1, SaveSlotIntentKind.Continue, showDelete: true));
+
+                card.SetActionSelection(SaveSlotActionSelection.Primary, showFrame: true);
+
+                Assert.That(primaryFeedback.IsFocused, Is.True);
+                Assert.That(deleteFeedback.IsFocused, Is.False);
+
+                Assert.That(card.MoveActionRight(), Is.True);
+
+                Assert.That(primaryFeedback.IsFocused, Is.False);
+                Assert.That(deleteFeedback.IsFocused, Is.True);
+
+                Assert.That(card.SubmitSelectedAction(), Is.True);
+
+                Assert.That(primaryFeedback.SubmitFeedbackCount, Is.Zero);
+                Assert.That(deleteFeedback.SubmitFeedbackCount, Is.EqualTo(1));
+
+                card.HideNavigationFrames();
+
+                Assert.That(primaryFeedback.IsFocused, Is.False);
+                Assert.That(deleteFeedback.IsFocused, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void SaveSlotPanel_SubmitPrimary_ReusesExistingPrimaryClickPath()
         {
             using var harness = CreateMainMenuSaveSlotHarness();
@@ -635,6 +674,168 @@ namespace Game.Feature.UI.Tests
             {
                 UnityEngine.Object.DestroyImmediate(root);
                 UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void UiSelectableButtonGroup_SelectionFeedback_FollowsKeyboardSelection()
+        {
+            var root = new GameObject(nameof(UiSelectableButtonGroup_SelectionFeedback_FollowsKeyboardSelection));
+            var profile = UiSelectionVisualProfile.CreateRuntimeDefault();
+            try
+            {
+                var first = CreateButton("One", root.transform);
+                var second = CreateButton("Two", root.transform);
+                var firstFeedback = first.gameObject.AddComponent<TrackingSelectionFeedback>();
+                var secondFeedback = second.gameObject.AddComponent<TrackingSelectionFeedback>();
+                var group = new UiSelectableButtonGroup();
+                group.Configure(
+                    new[]
+                    {
+                        new UiSelectableButtonSlot(first, CreateFrame(first.transform)),
+                        new UiSelectableButtonSlot(second, CreateFrame(second.transform)),
+                    },
+                    profile,
+                    wrap: false,
+                    skipNonInteractable: true);
+
+                Assert.That(firstFeedback.IsFocused, Is.True);
+                Assert.That(secondFeedback.IsFocused, Is.False);
+
+                Assert.That(group.TryMove(1), Is.True);
+
+                Assert.That(firstFeedback.IsFocused, Is.False);
+                Assert.That(secondFeedback.IsFocused, Is.True);
+
+                group.PlaySelectedSubmitFeedback();
+
+                Assert.That(firstFeedback.SubmitFeedbackCount, Is.Zero);
+                Assert.That(secondFeedback.SubmitFeedbackCount, Is.EqualTo(1));
+
+                group.HideAllFrames();
+
+                Assert.That(firstFeedback.IsFocused, Is.False);
+                Assert.That(secondFeedback.IsFocused, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void UiFocusGraph_SelectionFeedback_FollowsFocusAndSubmit()
+        {
+            var root = new GameObject(nameof(UiFocusGraph_SelectionFeedback_FollowsFocusAndSubmit));
+            var graph = new UiFocusGraphNavigator();
+            try
+            {
+                var firstFrame = CreateFrame(root.transform);
+                var secondFrame = CreateFrame(root.transform);
+                var firstFeedback = firstFrame.gameObject.AddComponent<TrackingSelectionFeedback>();
+                var secondFeedback = secondFrame.gameObject.AddComponent<TrackingSelectionFeedback>();
+                graph.AddNode(
+                    new UiFocusNodeSlot
+                    {
+                        Id = "First",
+                        Region = UiFocusRegion.Audio,
+                        Kind = UiFocusNodeKind.Button,
+                        Row = 0,
+                        Column = 0,
+                        SelectionFrame = firstFrame,
+                    },
+                    new UiDelegateFocusAdapter(() => true));
+                graph.AddNode(
+                    new UiFocusNodeSlot
+                    {
+                        Id = "Second",
+                        Region = UiFocusRegion.Audio,
+                        Kind = UiFocusNodeKind.Button,
+                        Row = 1,
+                        Column = 0,
+                        SelectionFrame = secondFrame,
+                    },
+                    new UiDelegateFocusAdapter(() => true));
+
+                graph.FocusFirst();
+
+                Assert.That(firstFeedback.IsFocused, Is.True);
+                Assert.That(secondFeedback.IsFocused, Is.False);
+
+                Assert.That(graph.Navigate(UiNavigationCommand.Down), Is.EqualTo(UiFocusMoveResult.Moved));
+
+                Assert.That(firstFeedback.IsFocused, Is.False);
+                Assert.That(secondFeedback.IsFocused, Is.True);
+
+                Assert.That(graph.Submit(), Is.EqualTo(UiFocusMoveResult.Submitted));
+
+                Assert.That(firstFeedback.SubmitFeedbackCount, Is.Zero);
+                Assert.That(secondFeedback.SubmitFeedbackCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiFocusGraph_SliderEdit_DoesNotPlaySubmitFeedback()
+        {
+            var root = new GameObject(nameof(UiFocusGraph_SliderEdit_DoesNotPlaySubmitFeedback));
+            var graph = new UiFocusGraphNavigator();
+            try
+            {
+                var frame = CreateFrame(root.transform);
+                var feedback = frame.gameObject.AddComponent<TrackingSelectionFeedback>();
+                graph.AddNode(
+                    new UiFocusNodeSlot
+                    {
+                        Id = "Slider",
+                        Region = UiFocusRegion.Audio,
+                        Kind = UiFocusNodeKind.Slider,
+                        Row = 0,
+                        Column = 0,
+                        SelectionFrame = frame,
+                    },
+                    new UiDelegateFocusAdapter(submit: null, adjust: _ => true));
+
+                graph.FocusFirst();
+
+                Assert.That(graph.Submit(), Is.EqualTo(UiFocusMoveResult.EnteredEditMode));
+                Assert.That(graph.Submit(), Is.EqualTo(UiFocusMoveResult.ExitedEditMode));
+                Assert.That(feedback.IsFocused, Is.True);
+                Assert.That(feedback.SubmitFeedbackCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiHoverScaleEffect_InactiveNavigationFocusChange_RestoresScaleImmediately()
+        {
+            var root = new GameObject(
+                nameof(UiHoverScaleEffect_InactiveNavigationFocusChange_RestoresScaleImmediately),
+                typeof(RectTransform));
+            try
+            {
+                var target = root.GetComponent<RectTransform>();
+                var feedback = root.AddComponent<UiHoverScaleEffect>();
+                SetPrivateField(feedback, "_baseScale", Vector3.one);
+                SetPrivateField(feedback, "_hasBaseScale", true);
+                target.localScale = Vector3.one * 2f;
+                root.SetActive(false);
+                target.localScale = Vector3.one * 2f;
+
+                feedback.SetNavigationFocused(false);
+
+                Assert.That(target.localScale, Is.EqualTo(Vector3.one));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
             }
         }
 
@@ -2448,6 +2649,23 @@ namespace Game.Feature.UI.Tests
             public UiNavigationTargetResolution Resolve()
             {
                 return UiNavigationTargetResolution.Open(_target);
+            }
+        }
+
+        private sealed class TrackingSelectionFeedback : MonoBehaviour, IUiSelectionFeedback
+        {
+            public bool IsFocused { get; private set; }
+
+            public int SubmitFeedbackCount { get; private set; }
+
+            public void SetNavigationFocused(bool focused)
+            {
+                IsFocused = focused;
+            }
+
+            public void PlaySubmitFeedback()
+            {
+                SubmitFeedbackCount++;
             }
         }
 

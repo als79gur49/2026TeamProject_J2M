@@ -126,8 +126,21 @@ namespace Game.Feature.UI.ViewShared
         public int Column;
         public Image SelectionFrame;
         public UiSelectionVisualProfile VisualProfile;
+        public MonoBehaviour SelectionFeedback;
 
         public UiFocusNodeId NodeId => new UiFocusNodeId(Id);
+
+        public IUiSelectionFeedback ResolveSelectionFeedback()
+        {
+            if (SelectionFeedback is IUiSelectionFeedback explicitFeedback)
+            {
+                return explicitFeedback;
+            }
+
+            return SelectionFrame != null
+                ? SelectionFrame.GetComponentInParent<IUiSelectionFeedback>(includeInactive: true)
+                : null;
+        }
     }
 
     public sealed class UiFocusGraphNavigator
@@ -384,6 +397,11 @@ namespace Game.Feature.UI.ViewShared
                 var committed = dropdown.CommitHighlighted();
                 _isDropdownListMode = false;
                 RefreshCurrentVisual();
+                if (committed)
+                {
+                    PlayCurrentSubmitFeedback();
+                }
+
                 return committed ? UiFocusMoveResult.Submitted : UiFocusMoveResult.ExitedListMode;
             }
 
@@ -414,9 +432,13 @@ namespace Game.Feature.UI.ViewShared
                 return UiFocusMoveResult.EnteredListMode;
             }
 
-            return _current.Adapter != null && _current.Adapter.Activate()
-                ? UiFocusMoveResult.Submitted
-                : UiFocusMoveResult.NotHandled;
+            if (_current.Adapter == null || !_current.Adapter.Activate())
+            {
+                return UiFocusMoveResult.NotHandled;
+            }
+
+            PlayCurrentSubmitFeedback();
+            return UiFocusMoveResult.Submitted;
         }
 
         public UiFocusMoveResult Cancel()
@@ -452,6 +474,7 @@ namespace Game.Feature.UI.ViewShared
             for (var i = 0; i < _nodes.Count; i++)
             {
                 var node = _nodes[i];
+                node.Feedback?.SetNavigationFocused(false);
                 if (node.Frame == null)
                 {
                     continue;
@@ -713,8 +736,14 @@ namespace Game.Feature.UI.ViewShared
             }
         }
 
+        private void PlayCurrentSubmitFeedback()
+        {
+            _current?.Feedback?.PlaySubmitFeedback();
+        }
+
         private static void ApplyFrame(Node node, bool selected, bool editing)
         {
+            node.Feedback?.SetNavigationFocused(selected);
             if (node.Frame == null)
             {
                 return;
@@ -742,6 +771,7 @@ namespace Game.Feature.UI.ViewShared
                 Column = slot.Column;
                 Frame = slot.SelectionFrame;
                 Profile = slot.VisualProfile;
+                Feedback = slot.ResolveSelectionFeedback();
                 Adapter = adapter;
             }
 
@@ -758,6 +788,8 @@ namespace Game.Feature.UI.ViewShared
             public Image Frame { get; }
 
             public UiSelectionVisualProfile Profile { get; }
+
+            public IUiSelectionFeedback Feedback { get; }
 
             public IUiFocusableControlAdapter Adapter { get; }
         }

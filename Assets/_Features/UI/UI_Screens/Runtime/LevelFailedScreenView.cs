@@ -109,16 +109,19 @@ namespace Game.Feature.UI.Screens
             var selected = _navigationGroup != null ? _navigationGroup.GetSelectedButton() : null;
             if (selected == _mainButton)
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickMain();
                 return true;
             }
 
             if (selected == _restartLevelButton || selected == null)
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickRestartLevel();
                 return true;
             }
 
+            _navigationGroup?.PlaySelectedSubmitFeedback();
             selected.onClick.Invoke();
             return true;
         }

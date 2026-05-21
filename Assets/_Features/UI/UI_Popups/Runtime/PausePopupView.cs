@@ -180,26 +180,32 @@ namespace Game.Feature.UI.Popups
             var selected = _navigationGroup != null ? _navigationGroup.GetSelectedButton() : null;
             if (selected == _resumeButton || selected == null)
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickResume();
             }
             else if (selected == _objectiveButton)
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickObjective();
             }
             else if (selected == _settingsButton)
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickSettings();
             }
             else if (selected == _retryButton)
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickRetry();
             }
             else if (selected == _mainMenuButton)
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickMainMenu();
             }
             else
             {
+                _navigationGroup?.PlaySelectedSubmitFeedback();
                 selected.onClick.Invoke();
             }
 

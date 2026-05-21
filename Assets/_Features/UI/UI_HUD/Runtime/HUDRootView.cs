@@ -141,6 +141,7 @@ namespace Game.Feature.UI.HUD
                 return false;
             }
 
+            _navigationGroup?.PlaySelectedSubmitFeedback();
             ClickPause();
             return true;
         }

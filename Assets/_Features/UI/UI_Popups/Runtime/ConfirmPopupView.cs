@@ -145,10 +145,12 @@ namespace Game.Feature.UI.Popups
 
             if (_actionNavigationGroup.SelectedIndex == CancelSelectionIndex)
             {
+                _actionNavigationGroup.PlaySelectedSubmitFeedback();
                 ClickCancel();
                 return true;
             }
 
+            _actionNavigationGroup.PlaySelectedSubmitFeedback();
             ClickConfirm();
             return true;
         }

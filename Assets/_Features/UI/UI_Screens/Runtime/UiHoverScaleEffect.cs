@@ -1,4 +1,5 @@
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -11,7 +12,8 @@ namespace Game.Feature.UI.Screens
         IPointerUpHandler,
         IPointerClickHandler,
         ISelectHandler,
-        IDeselectHandler
+        IDeselectHandler,
+        IUiSelectionFeedback
     {
         [SerializeField] private RectTransform _target;
         [SerializeField] private float _hoverScale = 1.1f;
@@ -76,6 +78,22 @@ namespace Game.Feature.UI.Screens
             _isSelected = false;
             _isPressed = false;
             RefreshScale(animate: true);
+        }
+
+        public void SetNavigationFocused(bool focused)
+        {
+            _isSelected = focused;
+            if (!focused)
+            {
+                _isPressed = false;
+            }
+
+            RefreshScale(animate: CanAnimateScale());
+        }
+
+        public void PlaySubmitFeedback()
+        {
+            PlayClickPunch();
         }
 
         private void Reset()
@@ -159,7 +177,10 @@ namespace Game.Feature.UI.Screens
             _scaleTween = target
                 .DOScale(targetScale, _durationSeconds)
                 .SetEase(_ease)
-                .SetUpdate(_useUnscaledTime);
+                .SetUpdate(_useUnscaledTime)
+                .SetLink(gameObject, LinkBehaviour.KillOnDestroy)
+                .OnComplete(() => _scaleTween = null)
+                .OnKill(() => _scaleTween = null);
         }
 
         private void PlayClickPunch()
@@ -211,6 +232,11 @@ namespace Game.Feature.UI.Screens
         private RectTransform ResolveTarget()
         {
             return _target != null ? _target : transform as RectTransform;
+        }
+
+        private bool CanAnimateScale()
+        {
+            return isActiveAndEnabled && gameObject.activeInHierarchy;
         }
 
         private void KillTween()
