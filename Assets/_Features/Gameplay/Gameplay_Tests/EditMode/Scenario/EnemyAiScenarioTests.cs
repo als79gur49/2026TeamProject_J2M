@@ -5426,6 +5426,59 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyCharge_TopologySuspend_DoesNotClearChargeIntoStuckPendingState()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Front));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, chargeStepCooldownTicks: 0);
+            SeedActiveCharge(worldState, 40, Direction.Right, remainingActiveSteps: 2);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(
+                    worldState,
+                    profile,
+                    GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled);
+                var suspendedTick = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEnemyChargeState(40, out var chargeState), Is.True);
+                Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.Active));
+                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("ClearNonParticipant"));
+                Assert.That(
+                    suspendedTick.PresentationData.EnemyChargeSignals.Any(signal =>
+                        signal.EntityId == 40 &&
+                        signal.Phase == EnemyChargePhase.Active),
+                    Is.False,
+                    BuildChargeKinematicDebug(1, worldState, suspendedTick));
+
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+                var resumedTick = pipeline.RunTick(new TickInput(2));
+                snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEnemyChargeState(40, out chargeState), Is.True);
+                Assert.That(chargeState.phase, Is.Not.EqualTo(EnemyChargePhase.None));
+                Assert.That(GetEntityAfterTick(resumedTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(
+                    resumedTick.PresentationData.EnemyChargeSignals.Any(signal =>
+                        signal.EntityId == 40 &&
+                        signal.Phase == EnemyChargePhase.Active),
+                    Is.True,
+                    BuildChargeKinematicDebug(2, worldState, resumedTick));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyCharge_ChargeKinematicFlagOff_PatrolToChargeWaitsForOrdinarySettleThenRejectsLegacyChargeMove()
         {
             var worldState = CreateWorldState(

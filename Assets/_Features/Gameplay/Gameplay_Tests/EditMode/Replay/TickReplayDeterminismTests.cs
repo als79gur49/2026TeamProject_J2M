@@ -1619,6 +1619,61 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void DeterminismHash_EnemyChargePresentationGuard_DoesNotMutateCanonicalStateOrHash()
+        {
+            var enemy = CreateUnit(
+                entityId: 40,
+                teamId: 2,
+                position: new Vector2Int(0, 1),
+                hp: 2,
+                aiMode: EnemyAiMode.Charge);
+            var worldState = CreateWorldState(
+                new[] { enemy },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Front));
+            var chargeState = new EnemyChargeRuntimeState
+            {
+                phase = EnemyChargePhase.Active,
+                sequence = 7,
+                lockedDirection = Direction.Right,
+                remainingActiveSteps = 2,
+            };
+            worldState.CreateWriteContext().SetEnemyChargeState(40, chargeState);
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    CanonicalPhaseResultFactory.CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 4));
+            var baselineData = new TickResultData(
+                new[] { enemy },
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                TickPresentationData.Empty);
+            var guardedPresentationData = new TickResultData(
+                new[] { enemy },
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                presentationData);
+            var hashBuilder = new DeterminismHashBuilder();
+
+            Assert.That(presentationData.EnemyChargeSignals, Is.Empty);
+            Assert.That(finalSnapshot.TryGetEnemyChargeState(40, out var finalChargeState), Is.True);
+            Assert.That(finalChargeState.phase, Is.EqualTo(EnemyChargePhase.Active));
+            Assert.That(
+                hashBuilder.Build(4, finalSnapshot, baselineData),
+                Is.EqualTo(hashBuilder.Build(4, finalSnapshot, guardedPresentationData)));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyUtilityState_IsIncludedInCanonicalState()
         {
             var baselineWorldState = CreateWorldState(new[]

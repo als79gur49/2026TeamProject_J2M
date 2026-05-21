@@ -23,6 +23,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class AudioArchitectureTests
     {
+        private const string GameplayAudioMapPath =
+            "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
+        private const string PlayerHurtDefinitionPath =
+            "Assets/_Shared/Audio/Definitions/Sfx/PlayerSounds/Player_Hurt_Def.asset";
+        private const string PlayerHurtClipPath =
+            "Assets/_Shared/Audio/Clips/Sfx/PlayerSounds/Player_hurt.mp3";
+
         [Test]
         [Category("Extended")]
         public void AudioDefinition_OnValidate_AndResolve_ShareReservedMasterCategoryRule()
@@ -376,6 +383,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayAudioMap_PlayerDamage_UsesPlayerHurtDefinition()
+        {
+            var map = AssetDatabase.LoadAssetAtPath<GameplayAudioMap>(GameplayAudioMapPath);
+            var definition = AssetDatabase.LoadAssetAtPath<SingleAudioDefinition>(PlayerHurtDefinitionPath);
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(PlayerHurtClipPath);
+
+            Assert.That(map, Is.Not.Null, GameplayAudioMapPath);
+            Assert.That(definition, Is.Not.Null, PlayerHurtDefinitionPath);
+            Assert.That(clip, Is.Not.Null, PlayerHurtClipPath);
+
+            var binding = map.ResolveOrThrow(GameplayAudioSemanticId.PlayerDamage);
+            var playback = definition.Resolve(default);
+
+            Assert.That(binding.Definition, Is.SameAs(definition));
+            Assert.That(definition.Category, Is.EqualTo(AudioCategory.Sfx));
+            Assert.That(definition.Loop, Is.False);
+            Assert.That(playback.Clip, Is.SameAs(clip));
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayAudioRequestPlanner_EmitsTypedIdsOnly_ForDamageAndExitFamilies()
         {
@@ -427,6 +455,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayAudioGovernanceAssertions.AssertOnlyApprovedHostFamilies(
                 requests.Select(request => request.SemanticId),
                 "Planner output");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayAudioRequestPlanner_PlayerDeathOnly_EmitsPlayerDamageFallback()
+        {
+            var planner = new GameplayAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                playerDeathSignals: new[]
+                {
+                    CreatePlayerDeathSignal(10),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests.Select(request => request.SemanticId).ToArray(), Is.EqualTo(new[]
+            {
+                GameplayAudioSemanticId.PlayerDamage,
+            }));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(10));
+            Assert.That(
+                requests[0].Context.DebugTag,
+                Is.EqualTo(GameplayAudioSemanticCatalog.Format(GameplayAudioSemanticId.PlayerDamage)));
+            GameplayAudioGovernanceAssertions.AssertOnlyApprovedHostFamilies(
+                requests.Select(request => request.SemanticId),
+                "Player death fallback planner output");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayAudioRequestPlanner_PlayerDamageAndDeathSameTick_DoesNotDuplicatePlayerDamage()
+        {
+            var planner = new GameplayAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                playerDamageSignals: new[]
+                {
+                    new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                },
+                playerDeathSignals: new[]
+                {
+                    CreatePlayerDeathSignal(10),
+                },
+                enemyDamageSignals: new[]
+                {
+                    new TickEnemyDamagePresentationSignal(20, tookDamageThisTick: true, damageAmount: 1),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests.Select(request => request.SemanticId).ToArray(), Is.EqualTo(new[]
+            {
+                GameplayAudioSemanticId.PlayerDamage,
+                GameplayAudioSemanticId.EnemyDamage,
+            }));
+            Assert.That(
+                requests.Count(request => request.SemanticId == GameplayAudioSemanticId.PlayerDamage),
+                Is.EqualTo(1));
         }
 
         [Test]
@@ -637,6 +722,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            TickPlayerDamagePresentationSignal[] playerDamageSignals = null,
+            TickPlayerDeathPresentationSignal[] playerDeathSignals = null,
+            TickEnemyDamagePresentationSignal[] enemyDamageSignals = null,
+            TickEntityExitPresentationSignal[] entityExitSignals = null)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals ?? Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals ?? Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals ?? Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>());
+        }
+
+        private static TickPlayerDeathPresentationSignal CreatePlayerDeathSignal(int entityId)
+        {
+            return new TickPlayerDeathPresentationSignal(
+                entityId,
+                didDieThisTick: true,
+                sourceEntityId: 0,
+                fallbackFacing: Direction.Up,
+                resolvedDamageSourceAvailable: false,
+                damageAmountAtFatalHit: 1,
+                DeathDirectionHintKind.FacingReverse);
         }
 
         private static void InvokeOnValidate(ScriptableObject scriptableObject)

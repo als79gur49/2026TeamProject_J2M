@@ -29,11 +29,26 @@ namespace Game.Feature.Gameplay.Audio
             TickPresentationData presentationData,
             ICollection<GameplayAudioRequest> requests)
         {
+            var playerDamageRequestEntityIds = new HashSet<int>();
             var playerDamageSignals = presentationData.PlayerDamageSignals;
             for (var i = 0; i < playerDamageSignals.Count; i++)
             {
                 var signal = playerDamageSignals[i];
                 if (!signal.TookDamageThisTick)
+                {
+                    continue;
+                }
+
+                requests.Add(CreateRequest(GameplayAudioSemanticId.PlayerDamage, signal.EntityId));
+                playerDamageRequestEntityIds.Add(signal.EntityId);
+            }
+
+            var playerDeathSignals = presentationData.PlayerDeathSignals;
+            for (var i = 0; i < playerDeathSignals.Count; i++)
+            {
+                var signal = playerDeathSignals[i];
+                if (!signal.DidDieThisTick ||
+                    !playerDamageRequestEntityIds.Add(signal.EntityId))
                 {
                     continue;
                 }

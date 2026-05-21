@@ -834,6 +834,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_ChargeActiveLoop_StopsWhenActiveSignalDisappears()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_ChargeActiveLoop_StopsWhenActiveSignalDisappears));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(
+                    EnemyAudioCue.ChargeActiveLoop,
+                    CreateDefinitionSpec(loop: true),
+                    attachmentSlotId: "charge-active-loop"));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(40, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(enemyChargeSignals: new[]
+                    {
+                        CreateChargeSignal(enemy.entityId, sequence: 1, EnemyChargePhase.Active, startedActiveThisTick: true),
+                    }),
+                    new[] { enemy },
+                    tickIndex: 1));
+
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(),
+                    new[] { enemy },
+                    tickIndex: 2));
+
+                Assert.That(playbackPort.AttachedLoopCalls, Has.Count.EqualTo(1));
+                Assert.That(playbackPort.AttachedLoopCalls[0].Controller.StopCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_Present_ChargeActiveLoop_RestartsWhenSequenceChanges()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_ChargeActiveLoop_RestartsWhenSequenceChanges));
