@@ -277,18 +277,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ReservedHookAssets_AreInHostDefaultMap()
+        public void ReservedHookAssets_RemovedFromHostDefaultMap()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
             Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak), out var impact), Is.True);
-            Assert.That(impact.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(impact.MaxConcurrentInstances, Is.EqualTo(8));
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit), out var boxOutOfBounds), Is.True);
-            Assert.That(boxOutOfBounds.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit), out var enemyOutOfBounds), Is.True);
-            Assert.That(enemyOutOfBounds.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak), out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit), out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit), out _), Is.False);
         }
 
         [Test]

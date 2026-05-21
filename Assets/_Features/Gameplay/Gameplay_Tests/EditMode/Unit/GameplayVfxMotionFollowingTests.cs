@@ -445,38 +445,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactStayTrailPrefab_PassesValidation()
+        public void FlipImpactStayTrailPrefab_RemovedFromDefaultAuthoring()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(StayTrailPrefabPath);
 
-            Assert.That(prefab, Is.Not.Null, StayTrailPrefabPath);
-            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
-
-            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+            Assert.That(prefab, Is.Null, StayTrailPrefabPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void FlipImpactStayTrailBinding_Validates()
+        public void FlipImpactStayTrailBinding_RemovedFromDefaultAuthoring()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(StayTrailBindingPath);
 
-            Assert.That(binding, Is.Not.Null, StayTrailBindingPath);
-            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail)));
-            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Follow));
-            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.DetachThenStopEmittingThenRelease));
-            Assert.That(binding.TailSeconds, Is.EqualTo(0.25f).Within(0.0001f));
-            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+            Assert.That(binding, Is.Null, StayTrailBindingPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultMap_ResolvesFlipImpactStayTrail()
+        public void HostDefaultMap_DoesNotResolveRemovedFlipImpactStayTrail()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
@@ -492,8 +479,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 VfxTimingKind.DuringMotion);
 
             Assert.That(composition.Succeeded, Is.True, string.Join("\n", composition.Validation.Messages));
-            Assert.That(composition.Resolver.TryResolve(request, out var policy), Is.True);
-            Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail)));
+            Assert.That(composition.Resolver.TryResolve(request, out _), Is.False);
         }
 
         private static MotionFollowerFixture CreateFixture(

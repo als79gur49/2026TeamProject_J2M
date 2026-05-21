@@ -560,7 +560,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Authoring_DefaultCueMapContainsDestroyTileAndBarricadeBindings()
+        public void Authoring_DefaultCueMapContainsDestroyTileAndOmitsRemovedBarricadeBinding()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
@@ -590,7 +590,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(laserBinding, Is.Not.Null);
             Assert.That(redLaserBinding, Is.Not.Null);
             Assert.That(blueLaserBinding, Is.Not.Null);
-            Assert.That(barricadeBinding, Is.Not.Null);
+            Assert.That(barricadeBinding, Is.Null);
             Assert.That(greenButtonBinding, Is.Not.Null);
             Assert.That(yellowButtonBinding, Is.Not.Null);
             Assert.That(greenButtonVisibleBinding, Is.Not.Null);
@@ -600,7 +600,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(laserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
             Assert.That(redLaserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
             Assert.That(blueLaserBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive)));
-            Assert.That(barricadeBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop)));
             Assert.That(greenButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
             Assert.That(yellowButtonBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
             Assert.That(
@@ -622,8 +621,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(laserBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             AssertDestroyLaserActiveLoopBinding(redLaserBinding);
             AssertDestroyLaserActiveLoopBinding(blueLaserBinding);
-            Assert.That(barricadeBinding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
-            Assert.That(barricadeBinding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
             AssertButtonActiveLoopBinding(greenButtonBinding);
             AssertButtonActiveLoopBinding(yellowButtonBinding);
             AssertButtonActiveLoopBinding(greenButtonVisibleBinding);
@@ -637,7 +634,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), VfxStyleKey.Red, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileLaserActive), VfxStyleKey.Blue, out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Green, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Yellow, out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Default, out _), Is.False);
@@ -656,7 +653,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Authoring_DefaultCueMapContainsExitSliderAndGravityBindings()
+        public void Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
                 "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
@@ -688,9 +685,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertOneShotBinding(slideLeftBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), 16);
             AssertOneShotBinding(exitOpenedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), 8);
             AssertOneShotBinding(exitObjectiveClearedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), 8);
-            AssertOneShotBinding(gravityChargeStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), 8);
-            AssertOneShotBinding(gravityActiveStartedBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), 8);
-            AssertPersistentLoopBinding(gravityChargingAreaBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), 8);
+            Assert.That(gravityChargeStartedBinding, Is.Null);
+            Assert.That(gravityActiveStartedBinding, Is.Null);
+            Assert.That(gravityChargingAreaBinding, Is.Null);
             AssertPersistentLoopBinding(gravityActiveAreaBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), 8);
 
             var runtimeMap = cueMap.BuildRuntimeMap();
@@ -700,9 +697,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.True);
-            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargeStarted), out _), Is.False);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.False);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), out _), Is.True);
         }
 

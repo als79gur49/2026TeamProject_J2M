@@ -62,25 +62,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void UtilityWindupTelegraph_BindingAsset_ValidatesPersistentPolicy()
+        public void UtilityWindupTelegraph_BindingAsset_RemovedFromDefaultAuthoring()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(UtilityWindupBindingPath);
 
-            Assert.That(binding, Is.Not.Null, UtilityWindupBindingPath);
-            var validation = binding.ValidateAuthoring();
-            var policy = binding.BuildRuntimePolicy();
-
-            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)));
-            Assert.That(binding.Prefab, Is.Not.Null);
-            Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
-            Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
-            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
-            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
-            Assert.That(policy.DefaultLifetimeSeconds, Is.Zero);
-            Assert.That(policy.TailSeconds, Is.EqualTo(0.30f).Within(0.0001f));
-            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
-            Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(8));
+            Assert.That(binding, Is.Null, UtilityWindupBindingPath);
         }
 
         [Test]

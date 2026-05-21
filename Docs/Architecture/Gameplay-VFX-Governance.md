@@ -57,6 +57,14 @@ The new Gameplay VFX lane must not consume the same fact concurrently with these
 
 Guard phrase: existing presenter migration is a future slice.
 
+## Non-Particle Default Authoring Cleanup
+
+The non-particle Gameplay VFX prefab authoring was removed for mesh-only or empty default host bindings. Cue ids, planners, feature flags, and runtime diagnostic/no-op behavior remain in place. The removed default authoring must not be treated as a cue sunset.
+
+Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, EnemyDeathMotion, UtilityWindup, FrontFaceShield active/block/windup, BoxDestroyShrink, ItemConsume, FlipDestroySelfMotion, FlipImpactStayTrail, reserved OutOfBounds/ImpactTransientBreak, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
+
+`TileFeatureDestroyLaserActiveRedVfx` and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
+
 ## FlipImpact MotionTrack Anchor Gate
 
 FlipImpact is not pure VFX. `FlipImpactPresentationDisposition.Stay` is an actual box view pose override track, while `FlipImpactPresentationDisposition.DestroySelf` is a transient clone/effect path where the source-to-impact flight overlaps break and fade presentation.
@@ -275,10 +283,8 @@ Feature flag:
 
 Visual parity:
 
-- v1 uses a stylized clone-like prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FlipDestroySelfMotionVfx.prefab`
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FlipDestroySelfMotion_Impact.mat`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FlipDestroySelfMotion_Binding.asset`
-- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 - exact source-view mesh clone/material parity remains future work
 
 Boundaries:
@@ -386,13 +392,12 @@ Old presenter bypass:
 - Missing Gameplay VFX binding is diagnostic/no-op with no old fallback whenever the corresponding migration flag is on.
 - If `EnableGameplayVfxFrontFaceShieldWindupMigration` is false, no windup warning VFX plays and no old telegraph fallback is restored.
 
-Binding precedence remains source presentation-local profile, then family profile, then host default map. The host default bindings are `FrontFaceShieldActive_Binding.asset`, `FrontFaceShieldBlock_Binding.asset`, and `FrontFaceShieldWindup_Binding.asset`.
+Binding precedence remains source presentation-local profile, then family profile, then host default map. The old host default FrontFaceShield active/block/windup bindings were removed in the non-particle authoring cleanup.
 
 Windup visual assets:
 
-- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldWindupVfx.prefab`
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldWindup_Telegraph.mat`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldWindup_Binding.asset`
+- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 - `telegraphPrefab`, `VFX_FrontFaceShield_Telegraph`, and `M_FrontFaceShield_Telegraph.mat` are retained for deferred serialized reference and asset cleanup, not as fallback playback.
 
 ## FlipDestroySelf Source-View Clone Parity
@@ -587,10 +592,8 @@ Flag policy:
 
 Default binding:
 
-- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/PlayerDamageBurstVfx.prefab`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/PlayerDamageBurst_Binding.asset`
-- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
-- playback is `OneShot`, stop policy is `AuthoredDuration`, lifetime is `0.28` seconds, tail is `0.20` seconds.
+- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- missing binding remains diagnostic/no-op with no old presenter fallback.
 
 Duplicate-prevention tests for this slice must cover flag off no VFX after legacy cleanup, flag on new-only, same fact not double-playing, missing binding no old fallback, and no authority/snapshot materialization impact.
 
@@ -623,11 +626,9 @@ Source fact and suppression:
 
 Default binding:
 
-- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDamageBurstVfx.prefab`
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDamageBurst_Red.mat`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDamageBurst_Binding.asset`
-- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
-- playback is `OneShot`, stop policy is `AuthoredDuration`, lifetime is `0.30` seconds, tail is `0.20` seconds, initial pool size is `4`, and max concurrent instances is `12`.
+- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- missing binding remains diagnostic/no-op with no legacy transient presenter fallback.
 
 Duplicate-prevention tests for this slice cover flag filtering, missing binding diagnostic/no-op, source profile precedence, host fallback, no authority/snapshot materialization, and checked presenter files not directly referencing `EnemyVfxCue.Damage`.
 
@@ -671,13 +672,10 @@ Default bindings:
 - destroy smoke prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab`
 - destroy smoke material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxDestroySmoke_SoftGray.mat`
 - destroy smoke binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroySmoke_Binding.asset`
-- destroy shrink prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroyShrinkVfx.prefab`
 - destroy shrink material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxDestroyShrink_Fade.mat`
-- destroy shrink binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroyShrink_Binding.asset`
-- item consume prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ItemConsumeBurstVfx.prefab`
 - item consume material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_ItemConsumeBurst_Gold.mat`
-- item consume binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ItemConsumeBurst_Binding.asset`
 - host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- destroy shrink and item consume default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 
 Excluded from this slice:
 
@@ -708,11 +706,8 @@ Migration flag and bypass:
 
 Default binding:
 
-- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDeathBurstVfx.prefab`
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDeathBurst_DarkRed.mat`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathBurst_Binding.asset`
-- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
-- playback is `OneShot`, stop policy is `AuthoredDuration`, lifetime is `0.35` seconds, tail is `0.25` seconds, initial pool size is `4`, and max concurrent instances is `8`.
+- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 
 Visual parity:
 
@@ -766,11 +761,8 @@ Runtime policy:
 
 Default binding:
 
-- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDeathMotionVfx.prefab`
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDeathMotion_Fade.mat`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathMotion_Binding.asset`
-- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
-- playback is parameterized one-shot, stop policy is `AuthoredDuration`, authored lifetime is `0`, tail is `0.2` seconds, initial pool size is `4`, and max concurrent instances is `8`.
+- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 
 Boundaries:
 
@@ -802,11 +794,8 @@ Migration flag and bypass:
 
 Default binding:
 
-- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab`
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyUtilityWindupTelegraph_Amber.mat`
-- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyUtilityWindupTelegraph_Binding.asset`
-- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
-- playback is `Loop`, stop policy is `StopEmittingThenRelease`, tail is `0.30` seconds, initial pool size is `4`, and max concurrent instances is `8`.
+- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 
 Boundaries:
 
@@ -1219,7 +1208,7 @@ Serialized reference cleanup status:
 - removed fields: `EntityEffectPresentationAuthoring.hitVfxPrefab`, `EntityEffectPresentationAuthoring.deathVfxPrefab`, `EnemyUtilityWindupPresentationAuthoring.summonWindupWarningPrefab`, `EnemyFrontFaceShieldPresentationAuthoring.activeLoopPrefab`, and `EnemyFrontFaceShieldPresentationAuthoring.blockBurstPrefab`.
 - retained fields: `telegraphPrefab`, `deathViewTailSeconds`, timing overrides, ownership mode, and death anchor.
 - removed-field YAML residue is cleaned for the active/block FrontFaceShield prefab references and stale null hit/death prefab keys.
-- old FrontFaceShield active/block prefab and material assets were removed after GUID reference scans confirmed zero external references. The active/block replacements are `FrontFaceShieldActiveVfx` and `FrontFaceShieldBlockVfx` in the current Gameplay VFX lane.
+- old FrontFaceShield active/block prefab and material assets were removed after GUID reference scans confirmed zero external references. The later mesh-only `FrontFaceShieldActiveVfx` and `FrontFaceShieldBlockVfx` default authoring was also removed in the non-particle authoring cleanup.
 - `VFX_FrontFaceShield_Telegraph` and `M_FrontFaceShield_Telegraph.mat` are retained for a deferred FrontFaceShield windup serialized reference cleanup and old telegraph asset removal slice after GUID reference scans confirm zero required references.
 
 Authority and carrier boundaries remain unchanged: no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, `DeterminismHashBuilder`, `TickPresentationData`, `TickEntityExitPresentationSignal`, `TickEntityMotion`, or `TickResultBuilder` changes are part of legacy old path cleanup.

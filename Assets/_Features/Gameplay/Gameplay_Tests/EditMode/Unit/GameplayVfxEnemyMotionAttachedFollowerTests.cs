@@ -1393,7 +1393,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop));
-            AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
+            AssertDoesNotResolve(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop));
             AssertResolves(composition.Resolver, GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura));
@@ -1404,7 +1404,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void NewPersistentFollowBindings_Validate()
         {
             AssertFollowBinding(BoxSlideFollowBindingPath, GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop));
-            AssertFollowBinding(JumperWindupBindingPath, GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop));
+            Assert.That(AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(JumperWindupBindingPath), Is.Null);
             AssertFollowBinding(GlideWindupBindingPath, GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop));
             AssertFollowBinding(GlideRecoverBindingPath, GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop));
             AssertFollowBinding(EnemyWeaponWindupAuraBindingPath, GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura));
@@ -1864,6 +1864,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(resolver.TryResolve(request, out var policy), Is.True);
             Assert.That(policy.CueId, Is.EqualTo(cueId));
+        }
+
+        private static void AssertDoesNotResolve(IVfxBindingResolver resolver, GameplayVfxCueId cueId)
+        {
+            var request = new GameplayVfxRequest(
+                1,
+                7,
+                7,
+                sourceEntityId: 40,
+                cueId,
+                VfxAnchor.ForEntity(40),
+                VfxTimingKind.DuringMotion);
+
+            Assert.That(resolver.TryResolve(request, out _), Is.False);
         }
 
         private static Transform CreateAttachPoint(Transform parent, string id)

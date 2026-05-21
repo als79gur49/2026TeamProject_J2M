@@ -744,16 +744,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BoxExitPrefabs_PassVfxPrefabValidation()
+        public void BoxExitAuthoring_RemovesNonParticleObjectPrefabs()
         {
             AssertPrefabValid(BoxDestroySmokePrefabPath);
-            AssertPrefabValid(BoxDestroyShrinkPrefabPath);
-            AssertPrefabValid(ItemConsumeBurstPrefabPath);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(BoxDestroyShrinkPrefabPath), Is.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(ItemConsumeBurstPrefabPath), Is.Null);
         }
 
         [Test]
         [Category("Extended")]
-        public void BoxExitBindings_ValidateAndUseExpectedPolicy()
+        public void BoxExitBindings_KeepSmokeAndRemoveNonParticleObjectBindings()
         {
             AssertBindingPolicy(
                 BoxDestroySmokeBindingPath,
@@ -761,23 +761,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 expectedLifetime: 0.18f,
                 expectedTail: 0.25f,
                 expectedMaxConcurrent: 12);
-            AssertBindingPolicy(
-                BoxDestroyShrinkBindingPath,
-                BoxVfxCue.DestroyShrink,
-                expectedLifetime: 0f,
-                expectedTail: 0.18f,
-                expectedMaxConcurrent: 12);
-            AssertBindingPolicy(
-                ItemConsumeBurstBindingPath,
-                BoxVfxCue.ItemConsume,
-                expectedLifetime: 0.18f,
-                expectedTail: 0.20f,
-                expectedMaxConcurrent: 8);
+            Assert.That(AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(BoxDestroyShrinkBindingPath), Is.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ItemConsumeBurstBindingPath), Is.Null);
         }
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultCueMap_ResolvesBoxExitCues()
+        public void HostDefaultCueMap_ResolvesOnlyParticleBoxExitAuthoring()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
@@ -786,14 +776,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(smoke.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(smoke.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
             Assert.That(smoke.MaxConcurrentInstances, Is.EqualTo(12));
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink), out var shrink), Is.True);
-            Assert.That(shrink.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
-            Assert.That(shrink.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(shrink.MaxConcurrentInstances, Is.EqualTo(12));
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.ItemConsume), out var item), Is.True);
-            Assert.That(item.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
-            Assert.That(item.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(item.MaxConcurrentInstances, Is.EqualTo(8));
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink), out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.ItemConsume), out _), Is.False);
         }
 
         [Test]
