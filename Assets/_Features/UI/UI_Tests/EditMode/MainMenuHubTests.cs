@@ -11,6 +11,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
@@ -18,6 +19,28 @@ namespace Game.Feature.UI.Tests
     public sealed class MainMenuHubTests
     {
         private const string MainMenuScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab";
+
+        [Test]
+        public void UiHoverScaleEffect_Defaults_EnablePointerClickPunch()
+        {
+            var root = new GameObject(nameof(UiHoverScaleEffect_Defaults_EnablePointerClickPunch), typeof(RectTransform));
+            try
+            {
+                var effect = root.AddComponent<UiHoverScaleEffect>();
+
+                Assert.That(effect, Is.AssignableTo<IPointerClickHandler>());
+
+                var serialized = new SerializedObject(effect);
+                Assert.That(serialized.FindProperty("_clickPunchStrength").floatValue, Is.EqualTo(0.08f).Within(0.001f));
+                Assert.That(serialized.FindProperty("_clickPunchDurationSeconds").floatValue, Is.EqualTo(0.18f).Within(0.001f));
+                Assert.That(serialized.FindProperty("_clickPunchVibrato").intValue, Is.EqualTo(6));
+                Assert.That(serialized.FindProperty("_clickPunchElasticity").floatValue, Is.EqualTo(0.65f).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
 
         [Test]
         public void MainMenuScreenPrefab_HasTopBarContentHostBottomBar()
@@ -839,6 +862,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(serialized.FindProperty("_target").objectReferenceValue, Is.EqualTo(buttonRect), button.name);
             Assert.That(serialized.FindProperty("_hoverScale").floatValue, Is.EqualTo(1.10f).Within(0.001f), button.name);
             Assert.That(serialized.FindProperty("_pressedScale").floatValue, Is.EqualTo(1.04f).Within(0.001f), button.name);
+            Assert.That(serialized.FindProperty("_clickPunchStrength").floatValue, Is.EqualTo(0.08f).Within(0.001f), button.name);
+            Assert.That(serialized.FindProperty("_clickPunchDurationSeconds").floatValue, Is.EqualTo(0.18f).Within(0.001f), button.name);
+            Assert.That(serialized.FindProperty("_clickPunchVibrato").intValue, Is.EqualTo(6), button.name);
+            Assert.That(serialized.FindProperty("_clickPunchElasticity").floatValue, Is.EqualTo(0.65f).Within(0.001f), button.name);
             Assert.That(serialized.FindProperty("_durationSeconds").floatValue, Is.EqualTo(0.12f).Within(0.001f), button.name);
             Assert.That(serialized.FindProperty("_useUnscaledTime").boolValue, Is.True, button.name);
             Assert.That(serialized.FindProperty("_restoreOnDisable").boolValue, Is.True, button.name);
