@@ -14,4 +14,11 @@ namespace Game.Feature.UI.ViewShared
 
         void OnNavigationFocusLost();
     }
+
+    public interface IUiSelectionFeedback
+    {
+        void SetNavigationFocused(bool focused);
+
+        void PlaySubmitFeedback();
+    }
 }

@@ -165,6 +165,7 @@ namespace Game.Feature.UI.Screens
                         return false;
                     }
 
+                    PlayActionSubmitFeedback(SaveSlotActionSelection.Primary);
                     HandlePrimaryClicked();
                     return true;
 
@@ -174,6 +175,7 @@ namespace Game.Feature.UI.Screens
                         return false;
                     }
 
+                    PlayActionSubmitFeedback(SaveSlotActionSelection.Delete);
                     HandleDeleteClicked();
                     return true;
 
@@ -187,6 +189,8 @@ namespace Game.Feature.UI.Screens
             _navigationFrameVisible = false;
             ApplyFrame(_primarySelectionFrame, false, CanFocusPrimary);
             ApplyFrame(_deleteSelectionFrame, false, CanFocusDelete);
+            ApplyActionFeedback(SaveSlotActionSelection.Primary, focused: false);
+            ApplyActionFeedback(SaveSlotActionSelection.Delete, focused: false);
         }
 
         public void RefreshNavigationVisuals()
@@ -206,6 +210,12 @@ namespace Game.Feature.UI.Screens
                 _deleteSelectionFrame,
                 _currentSelection == SaveSlotActionSelection.Delete && CanFocusDelete,
                 CanFocusDelete);
+            ApplyActionFeedback(
+                SaveSlotActionSelection.Primary,
+                _currentSelection == SaveSlotActionSelection.Primary && CanFocusPrimary);
+            ApplyActionFeedback(
+                SaveSlotActionSelection.Delete,
+                _currentSelection == SaveSlotActionSelection.Delete && CanFocusDelete);
         }
 
         public SaveSlotActionSelection NormalizeSelection(SaveSlotActionSelection desired)
@@ -277,6 +287,30 @@ namespace Game.Feature.UI.Screens
             frame.gameObject.SetActive(isFocusable && (isSelected ||
                                                        _selectionVisualProfile == null ||
                                                        !_selectionVisualProfile.HideUnselectedFrames));
+        }
+
+        private void ApplyActionFeedback(SaveSlotActionSelection selection, bool focused)
+        {
+            ResolveActionFeedback(selection)?.SetNavigationFocused(focused);
+        }
+
+        private void PlayActionSubmitFeedback(SaveSlotActionSelection selection)
+        {
+            ResolveActionFeedback(selection)?.PlaySubmitFeedback();
+        }
+
+        private IUiSelectionFeedback ResolveActionFeedback(SaveSlotActionSelection selection)
+        {
+            var button = selection == SaveSlotActionSelection.Delete ? _deleteButton : _primaryButton;
+            if (button != null && button.TryGetComponent<IUiSelectionFeedback>(out var buttonFeedback))
+            {
+                return buttonFeedback;
+            }
+
+            var frame = selection == SaveSlotActionSelection.Delete ? _deleteSelectionFrame : _primarySelectionFrame;
+            return frame != null
+                ? frame.GetComponentInParent<IUiSelectionFeedback>(includeInactive: true)
+                : null;
         }
 
         private static void SetOptionalLabel(TMP_Text label, string text)

@@ -173,15 +173,18 @@ namespace Game.Feature.UI.Screens
             {
                 case StartCommandIndex:
                     _pendingEnterSaveSlotNavigation = _navigationFocusVisible;
+                    _commandNavigationGroup.PlaySelectedSubmitFeedback();
                     ClickStart();
                     TryEnterPendingSaveSlotNavigation();
                     return true;
 
                 case SettingsCommandIndex:
+                    _commandNavigationGroup.PlaySelectedSubmitFeedback();
                     ClickSettings();
                     return true;
 
                 case QuitCommandIndex:
+                    _commandNavigationGroup.PlaySelectedSubmitFeedback();
                     ClickQuit();
                     return true;
 

@@ -148,6 +148,11 @@ namespace Game.Feature.UI.ViewShared
             return slot != null ? slot.Button : null;
         }
 
+        public void PlaySelectedSubmitFeedback()
+        {
+            GetSlot(_selectedIndex)?.ResolveSelectionFeedback()?.PlaySubmitFeedback();
+        }
+
         public void RefreshVisuals()
         {
             if (_slots == null)
@@ -158,13 +163,15 @@ namespace Game.Feature.UI.ViewShared
             var profile = _visualProfile;
             for (var i = 0; i < _slots.Length; i++)
             {
-                var frame = _slots[i] != null ? _slots[i].SelectionFrame : null;
+                var slot = _slots[i];
+                var frame = slot != null ? slot.SelectionFrame : null;
+                var isSelected = i == _selectedIndex;
+                ApplySelectionFeedback(slot, isSelected);
                 if (frame == null)
                 {
                     continue;
                 }
 
-                var isSelected = i == _selectedIndex;
                 if (profile != null && profile.FrameSprite != null)
                 {
                     frame.sprite = profile.FrameSprite;
@@ -186,7 +193,10 @@ namespace Game.Feature.UI.ViewShared
 
             for (var i = 0; i < _slots.Length; i++)
             {
-                var frame = _slots[i] != null ? _slots[i].SelectionFrame : null;
+                var slot = _slots[i];
+                ApplySelectionFeedback(slot, focused: false);
+
+                var frame = slot != null ? slot.SelectionFrame : null;
                 if (frame == null)
                 {
                     continue;
@@ -240,6 +250,11 @@ namespace Game.Feature.UI.ViewShared
             return button != null &&
                    button.gameObject.activeInHierarchy &&
                    (!_skipNonInteractable || button.interactable);
+        }
+
+        private static void ApplySelectionFeedback(UiSelectableButtonSlot slot, bool focused)
+        {
+            slot?.ResolveSelectionFeedback()?.SetNavigationFocused(focused);
         }
     }
 }

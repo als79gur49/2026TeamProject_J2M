@@ -1,4 +1,5 @@
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -9,18 +10,25 @@ namespace Game.Feature.UI.Screens
         IPointerExitHandler,
         IPointerDownHandler,
         IPointerUpHandler,
+        IPointerClickHandler,
         ISelectHandler,
-        IDeselectHandler
+        IDeselectHandler,
+        IUiSelectionFeedback
     {
         [SerializeField] private RectTransform _target;
         [SerializeField] private float _hoverScale = 1.1f;
         [SerializeField] private float _pressedScale = 1.04f;
+        [SerializeField] private float _clickPunchStrength = 0.08f;
+        [SerializeField] private float _clickPunchDurationSeconds = 0.18f;
+        [SerializeField] private int _clickPunchVibrato = 6;
+        [SerializeField] private float _clickPunchElasticity = 0.65f;
         [SerializeField] private float _durationSeconds = 0.12f;
         [SerializeField] private Ease _ease = Ease.OutQuad;
         [SerializeField] private bool _useUnscaledTime = true;
         [SerializeField] private bool _restoreOnDisable = true;
 
         private Tween _scaleTween;
+        private Tween _clickPunchTween;
         private Vector3 _baseScale = Vector3.one;
         private bool _hasBaseScale;
         private bool _isHovered;
@@ -54,6 +62,11 @@ namespace Game.Feature.UI.Screens
             RefreshScale(animate: true);
         }
 
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            PlayClickPunch();
+        }
+
         public void OnSelect(BaseEventData eventData)
         {
             _isSelected = true;
@@ -65,6 +78,22 @@ namespace Game.Feature.UI.Screens
             _isSelected = false;
             _isPressed = false;
             RefreshScale(animate: true);
+        }
+
+        public void SetNavigationFocused(bool focused)
+        {
+            _isSelected = focused;
+            if (!focused)
+            {
+                _isPressed = false;
+            }
+
+            RefreshScale(animate: CanAnimateScale());
+        }
+
+        public void PlaySubmitFeedback()
+        {
+            PlayClickPunch();
         }
 
         private void Reset()
@@ -86,6 +115,7 @@ namespace Game.Feature.UI.Screens
         private void OnDisable()
         {
             KillTween();
+            KillClickPunchTween();
             _isHovered = false;
             _isPressed = false;
             _isSelected = false;
@@ -103,6 +133,7 @@ namespace Game.Feature.UI.Screens
         private void OnDestroy()
         {
             KillTween();
+            KillClickPunchTween();
         }
 
         private void CaptureBaseScale()
@@ -135,6 +166,7 @@ namespace Game.Feature.UI.Screens
             var scaleMultiplier = ResolveScaleMultiplier();
             var targetScale = _baseScale * scaleMultiplier;
 
+            KillClickPunchTween();
             KillTween();
             if (!animate || _durationSeconds <= 0f)
             {
@@ -145,7 +177,46 @@ namespace Game.Feature.UI.Screens
             _scaleTween = target
                 .DOScale(targetScale, _durationSeconds)
                 .SetEase(_ease)
-                .SetUpdate(_useUnscaledTime);
+                .SetUpdate(_useUnscaledTime)
+                .SetLink(gameObject, LinkBehaviour.KillOnDestroy)
+                .OnComplete(() => _scaleTween = null)
+                .OnKill(() => _scaleTween = null);
+        }
+
+        private void PlayClickPunch()
+        {
+            CaptureBaseScale();
+
+            var target = ResolveTarget();
+            if (target == null ||
+                !_hasBaseScale ||
+                _clickPunchStrength <= 0f ||
+                _clickPunchDurationSeconds <= 0f)
+            {
+                return;
+            }
+
+            KillTween();
+            KillClickPunchTween();
+
+            var restScale = _baseScale * ResolveScaleMultiplier();
+            target.localScale = restScale;
+
+            _clickPunchTween = target
+                .DOPunchScale(
+                    restScale * Mathf.Max(0f, _clickPunchStrength),
+                    Mathf.Max(0.01f, _clickPunchDurationSeconds),
+                    Mathf.Max(0, _clickPunchVibrato),
+                    Mathf.Max(0f, _clickPunchElasticity))
+                .SetEase(_ease)
+                .SetUpdate(_useUnscaledTime)
+                .SetLink(gameObject, LinkBehaviour.KillOnDestroy)
+                .OnComplete(() =>
+                {
+                    _clickPunchTween = null;
+                    RefreshScale(animate: true);
+                })
+                .OnKill(() => _clickPunchTween = null);
         }
 
         private float ResolveScaleMultiplier()
@@ -163,6 +234,11 @@ namespace Game.Feature.UI.Screens
             return _target != null ? _target : transform as RectTransform;
         }
 
+        private bool CanAnimateScale()
+        {
+            return isActiveAndEnabled && gameObject.activeInHierarchy;
+        }
+
         private void KillTween()
         {
             if (_scaleTween == null)
@@ -172,6 +248,17 @@ namespace Game.Feature.UI.Screens
 
             _scaleTween.Kill();
             _scaleTween = null;
+        }
+
+        private void KillClickPunchTween()
+        {
+            if (_clickPunchTween == null)
+            {
+                return;
+            }
+
+            _clickPunchTween.Kill();
+            _clickPunchTween = null;
         }
     }
 }

@@ -112,6 +112,7 @@ namespace Game.Feature.UI.Popups
                 return false;
             }
 
+            _navigationGroup?.PlaySelectedSubmitFeedback();
             ClickAcknowledge();
             return true;
         }

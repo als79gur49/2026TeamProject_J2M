@@ -82,6 +82,7 @@ namespace Game.Feature.UI.Screens
                 return false;
             }
 
+            _navigationGroup?.PlaySelectedSubmitFeedback();
             ClickContinue();
             return true;
         }
