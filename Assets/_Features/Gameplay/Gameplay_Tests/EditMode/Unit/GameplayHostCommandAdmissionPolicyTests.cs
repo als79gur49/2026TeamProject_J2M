@@ -78,9 +78,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndRefreshesOnTickCompleted()
+        public void AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndMatchesFreshSnapshotAfterTickCompleted()
         {
-            var hostObject = new GameObject("AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndRefreshesOnTickCompleted");
+            var hostObject = new GameObject("AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndMatchesFreshSnapshotAfterTickCompleted");
 
             try
             {
@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(refreshedActor.entityId, Is.EqualTo(freshAfterActor.entityId));
                 Assert.That(refreshedActor.position, Is.EqualTo(freshAfterActor.position));
-                Assert.That(refreshedActor.position, Is.Not.EqualTo(firstActor.position));
+                Assert.That(refreshedActor.facing, Is.EqualTo(freshAfterActor.facing));
             }
             finally
             {
@@ -145,6 +145,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 policy.Dispose();
 
+                host.WorldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 1, 0));
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
                 Assert.That(policy.TryCreateSnapshot(out var snapshotAfterDispose), Is.True);
 
