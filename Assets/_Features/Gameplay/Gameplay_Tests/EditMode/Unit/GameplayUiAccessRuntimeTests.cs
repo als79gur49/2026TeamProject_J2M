@@ -543,7 +543,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         pushExecuteDelayTicks: 1,
                         pushInputLockDurationTicks: 3)));
 
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
 
                 var startTick = host.InputHost.RunSingleTick();
                 var startHud = host.UiAccess.QueryFacade.PlayerHud.Read();

@@ -781,41 +781,59 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
 
-                Assert.DoesNotThrow(
-                    () => host.Initialize(
-                        new GameplaySceneHostConfiguration
+                var configuration = new GameplaySceneHostConfiguration
+                {
+                    AutoAdvanceTicks = false,
+                    AutoCreateViews = false,
+                    InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                    RepeatedMoveIntervalSeconds = 1f / 60f,
+                    InitialEntities = new[]
+                    {
+                        new EntityState
                         {
-                            AutoAdvanceTicks = false,
-                            AutoCreateViews = false,
-                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                            RepeatedMoveIntervalSeconds = 1f / 60f,
-                            InitialEntities = new[]
-                            {
-                                new EntityState
-                                {
-                                    entityId = 10,
-                                    position = new SurfaceCell(FaceId.Floor, 0, 0),
-                                    hp = 3,
-                                    maxHp = 3,
-                                    teamId = 1,
-                                    type = EntityType.Unit,
-                                    state = EntityPhaseState.Idle,
-                                    facing = Direction.Right,
-                                },
-                            },
-                            InitialTopology = new CubeTopologyState(FaceId.Floor),
-                            PlayerEntityId = 10,
-                            StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        }));
+                            entityId = 10,
+                            position = new SurfaceCell(FaceId.Floor, 0, 0),
+                            hp = 3,
+                            maxHp = 3,
+                            teamId = 1,
+                            type = EntityType.Unit,
+                            unitRole = UnitRole.Player,
+                            state = EntityPhaseState.Idle,
+                            facing = Direction.Right,
+                            boardPresence = EntityBoardPresence.Occupying,
+                        },
+                        new EntityState
+                        {
+                            entityId = 20,
+                            position = new SurfaceCell(FaceId.Floor, 1, 0),
+                            hp = 1,
+                            maxHp = 1,
+                            teamId = 0,
+                            type = EntityType.Box,
+                            state = EntityPhaseState.Idle,
+                            facing = Direction.Right,
+                            boxCapabilities = BoxCapabilities.Push,
+                            boardPresence = EntityBoardPresence.Occupying,
+                        },
+                    },
+                    InitialTopology = new CubeTopologyState(FaceId.Floor),
+                    PlayerEntityId = 10,
+                    StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                };
+                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
-                host.InputHost.SetRawMoveInput(Vector2.right);
-                var firstTick = host.InputHost.RunSingleTick();
-                var secondTick = host.InputHost.RunSingleTick();
+                Assert.DoesNotThrow(() => host.Initialize(configuration));
 
-                CollectionAssert.AreEqual(
-                    new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
-                    firstTick.MovementPhaseResult.CommitEvents);
-                Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
+                var firstTick = host.TickRunner.RunTick(
+                    new TickInput(host.TickRunner.NextTickIndex, PlayerTickCommand.Push(Direction.Right)));
+                var secondTick = host.TickRunner.RunTick(new TickInput(host.TickRunner.NextTickIndex));
+
+                Assert.That(firstTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+                Assert.That(firstTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
+                Assert.That(
+                    secondTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind,
+                    Is.EqualTo(PlayerActionKind.Push));
+                Assert.That(secondTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
                 Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
             }
             finally
