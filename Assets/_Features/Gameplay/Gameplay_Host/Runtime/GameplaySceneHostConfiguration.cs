@@ -139,9 +139,16 @@ namespace Game.Feature.Gameplay.Host
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         public StaticEntityPresentationCatalog StaticEntityPresentationCatalog;
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
+        public BoardPresentationProfile BoardPresentationProfile;
         public BoardTilePresentationCatalog BoardTilePresentationCatalog;
+        public BoardTileStyleCatalog BoardTileStyleCatalog;
+        public BoardTileOverlayCatalog BoardTileOverlayCatalog;
         public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =
             Array.Empty<BoardTilePresentationOverride>();
+        public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides =
+            Array.Empty<BoardTilePaintOverride>();
+        public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides =
+            Array.Empty<BoardTileOverlayOverride>();
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings =
             Array.Empty<TileFeaturePresentationResolvedBinding>();
         public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells =

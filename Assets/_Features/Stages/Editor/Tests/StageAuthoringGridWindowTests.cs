@@ -793,7 +793,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             WithBoardTileWindow((window, authoring, presentation, catalog, material) =>
             {
-                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePrefabOverride);
                 window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
                 window.SetBoardTilePresentationKeyForTests("cell-key");
 
@@ -817,7 +817,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     MaxInclusive = new Vector2Int(1, 0),
                     InitialBottomFace = FaceId.Floor,
                 });
-                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePrefabOverride);
                 window.SetBoardTilePresentationKeyForTests("cell-key");
                 window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
                 Assert.That(window.SetBoardTileOverrideForTests(out _), Is.True);
@@ -840,7 +840,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 authoring.SetPlacements(new[] { Placement("occupied", FaceId.Floor, 0, 0) });
                 authoring.SetTileFeatures(new[] { TileFeature(1, FaceId.Floor, 0, 0) });
-                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePrefabOverride);
                 window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
                 window.SetBoardTilePresentationKeyForTests("cell-key");
 
@@ -864,7 +864,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     (window, authoring) =>
                     {
                         authoring.AssignGeneratedDefinitions(null, presentation);
-                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePresentation);
+                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePrefabOverride);
                         window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
                         window.SetBoardTilePresentationKeyForTests("cell-key");
 
@@ -880,6 +880,96 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 Object.DestroyImmediate(presentation);
             }
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTilePaint_NullProfileReportsCatalogMissingWithoutException()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentation);
+                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePaint);
+                        window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+
+                        var status = window.GetBoardTilePaintStatusForTests();
+                        var options = window.GetBoardTileStyleOptionsForTests();
+
+                        Assert.That(status.Kind, Is.EqualTo(BoardTilePaintOverrideStatusKind.CatalogMissing));
+                        Assert.That(options, Is.Empty);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTileOverlay_NullProfileReportsCatalogMissingWithoutException()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentation);
+                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTileOverlay);
+                        window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+
+                        var status = window.GetBoardTileOverlayStatusForTests();
+                        var options = window.GetBoardTileOverlayOptionsForTests();
+
+                        Assert.That(status.Kind, Is.EqualTo(BoardTileOverlayCellStatusKind.CatalogMissing));
+                        Assert.That(options, Is.Empty);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTilePaint_WritesPresentationOverride()
+        {
+            WithBoardTileStyleWindow((window, authoring, presentation, styleCatalog, profile) =>
+            {
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePaint);
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                window.SetBoardTileStyleKeyForTests("grass");
+
+                var changed = window.SetBoardTilePaintOverrideForTests(out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(presentation.BoardTilePaintOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTilePaintOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(presentation.BoardTilePaintOverrides[0].StyleKey, Is.EqualTo("grass"));
+            });
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTileOverlay_AddAndClearWritesPresentationOverrides()
+        {
+            WithBoardTileOverlayWindow((window, authoring, presentation, overlayCatalog, profile) =>
+            {
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTileOverlay);
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+                window.SetBoardTileOverlayKeyForTests("guide");
+
+                var added = window.AddBoardTileOverlayOverrideForTests(out var addError);
+                var cleared = window.ClearBoardTileOverlayOverridesForTests(out var clearError);
+
+                Assert.That(added, Is.True, addError);
+                Assert.That(cleared, Is.True, clearError);
+                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
+            });
         }
 
         private static void WithWindow(
@@ -948,6 +1038,57 @@ namespace Game.Feature.Stages.Editor.Tests
                 Object.DestroyImmediate(presentation);
                 Object.DestroyImmediate(catalog);
                 Object.DestroyImmediate(material);
+            }
+        }
+
+        private static void WithBoardTileStyleWindow(
+            System.Action<StageAuthoringGridWindow, StageAuthoringDefinition, StagePresentationDefinition, BoardTileStyleCatalog, BoardPresentationProfile> action)
+        {
+            var styleCatalog = CreateStyleCatalog(StyleEntry("grass", "Grass", Color.green));
+            var profile = CreateBoardPresentationProfile(styleCatalog, overlayCatalog: null);
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(presentation, "boardPresentationProfile", profile);
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentation);
+                        action(window, authoring, presentation, styleCatalog, profile);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(presentation);
+                Object.DestroyImmediate(profile);
+                Object.DestroyImmediate(styleCatalog);
+            }
+        }
+
+        private static void WithBoardTileOverlayWindow(
+            System.Action<StageAuthoringGridWindow, StageAuthoringDefinition, StagePresentationDefinition, BoardTileOverlayCatalog, BoardPresentationProfile> action)
+        {
+            var overlayCatalog = CreateOverlayCatalog(
+                OverlayEntry("guide", "Guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.5f, 10));
+            var profile = CreateBoardPresentationProfile(null, overlayCatalog);
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(presentation, "boardPresentationProfile", profile);
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentation);
+                        action(window, authoring, presentation, overlayCatalog, profile);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(presentation);
+                Object.DestroyImmediate(profile);
+                Object.DestroyImmediate(overlayCatalog);
             }
         }
 
@@ -1069,6 +1210,63 @@ namespace Game.Feature.Stages.Editor.Tests
             catalog.name = "StageAuthoringGridWindowTests_BoardTileCatalog";
             SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTilePresentationCatalogEntry>());
             return catalog;
+        }
+
+        private static BoardTileStyleCatalogEntry StyleEntry(
+            string styleKey,
+            string displayName,
+            Color tint)
+        {
+            var entry = new BoardTileStyleCatalogEntry();
+            SetPrivateField(entry, "styleKey", styleKey);
+            SetPrivateField(entry, "displayName", displayName);
+            SetPrivateField(entry, "tint", tint);
+            return entry;
+        }
+
+        private static BoardTileStyleCatalog CreateStyleCatalog(params BoardTileStyleCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<BoardTileStyleCatalog>();
+            catalog.name = "StageAuthoringGridWindowTests_StyleCatalog";
+            SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTileStyleCatalogEntry>());
+            return catalog;
+        }
+
+        private static BoardTileOverlayCatalogEntry OverlayEntry(
+            string overlayKey,
+            string displayName,
+            BoardTileOverlayLayer layer,
+            Color tint,
+            float alpha,
+            int order)
+        {
+            var entry = new BoardTileOverlayCatalogEntry();
+            SetPrivateField(entry, "overlayKey", overlayKey);
+            SetPrivateField(entry, "displayName", displayName);
+            SetPrivateField(entry, "layer", layer);
+            SetPrivateField(entry, "tint", tint);
+            SetPrivateField(entry, "alpha", alpha);
+            SetPrivateField(entry, "order", order);
+            return entry;
+        }
+
+        private static BoardTileOverlayCatalog CreateOverlayCatalog(params BoardTileOverlayCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<BoardTileOverlayCatalog>();
+            catalog.name = "StageAuthoringGridWindowTests_OverlayCatalog";
+            SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTileOverlayCatalogEntry>());
+            return catalog;
+        }
+
+        private static BoardPresentationProfile CreateBoardPresentationProfile(
+            BoardTileStyleCatalog styleCatalog,
+            BoardTileOverlayCatalog overlayCatalog)
+        {
+            var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
+            profile.name = "StageAuthoringGridWindowTests_BoardProfile";
+            SetPrivateField(profile, "defaultBoardTileStyleCatalog", styleCatalog);
+            SetPrivateField(profile, "defaultBoardTileOverlayCatalog", overlayCatalog);
+            return profile;
         }
 
         private static Material CreateMaterial(string materialName)

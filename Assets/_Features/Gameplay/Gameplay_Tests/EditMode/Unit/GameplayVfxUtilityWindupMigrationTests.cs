@@ -523,37 +523,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void UtilityWindupBinding_ValidatesAndIsPersistentCompatible()
+        public void UtilityWindupBinding_RemovedFromDefaultAuthoring()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(UtilityWindupBindingPath);
 
-            Assert.That(binding, Is.Not.Null, UtilityWindupBindingPath);
-            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
-            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)));
-            Assert.That(binding.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
-            Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
-            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
-            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
-            Assert.That(binding.DefaultLifetimeSeconds, Is.Zero);
-            Assert.That(binding.TailSeconds, Is.EqualTo(0.30f).Within(0.001f));
-            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
-            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(8));
+            Assert.That(binding, Is.Null, UtilityWindupBindingPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultCueMap_ResolvesUtilityWindup()
+        public void HostDefaultCueMap_DoesNotResolveRemovedUtilityWindup()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
             Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
             Assert.That(
-                cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), out var policy),
-                Is.True);
-            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
-            Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
-            Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), out var prefab), Is.True);
-            Assert.That(prefab, Is.Not.Null);
+                cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), out _),
+                Is.False);
+            Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), out _), Is.False);
         }
 
         [Test]
@@ -571,19 +558,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void UtilityWindupPrefab_PassesVfxPrefabValidation()
+        public void UtilityWindupPrefab_RemovedFromDefaultAuthoring()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UtilityWindupPrefabPath);
 
-            Assert.That(prefab, Is.Not.Null, UtilityWindupPrefabPath);
-            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
-
-            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+            Assert.That(prefab, Is.Null, UtilityWindupPrefabPath);
         }
 
         [Test]

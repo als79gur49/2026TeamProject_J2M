@@ -1071,6 +1071,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     InitialStaticEntityPresentationCatalogOverride,
                     Array.Empty<StaticEntityPresentationBinding>(),
                     null,
+                    null,
+                    null,
+                    null,
                     Array.Empty<TileFeaturePresentationResolvedBinding>());
             }
 

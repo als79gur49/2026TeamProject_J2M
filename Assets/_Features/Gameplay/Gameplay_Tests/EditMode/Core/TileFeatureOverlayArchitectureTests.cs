@@ -859,6 +859,11 @@ namespace Game.Feature.Gameplay.Tests.Core
         public void BoardTileCatalog_DoesNotEnterGameplayLoopOrBoardState()
         {
             var boardTileCatalog = "BoardTile" + "PresentationCatalog";
+            var boardTileStyleCatalog = "BoardTile" + "StyleCatalog";
+            var boardTileStyle = "BoardTile" + "Style";
+            var boardTilePaintOverride = "BoardTile" + "PaintOverride";
+            var boardTileOverlayCatalog = "BoardTile" + "OverlayCatalog";
+            var boardTileOverlayOverride = "BoardTile" + "OverlayOverride";
             var gameplayLoopSources = Directory.GetFiles(
                 GetAbsolutePath(GameplayLoopRuntimePath),
                 "*.cs",
@@ -872,12 +877,22 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 var source = File.ReadAllText(sourcePath);
                 Assert.That(source, Does.Not.Contain(boardTileCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileStyleCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileStyle), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTilePaintOverride), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayOverride), sourcePath);
             }
 
             foreach (var sourcePath in boardStateSources)
             {
                 var source = File.ReadAllText(sourcePath);
                 Assert.That(source, Does.Not.Contain(boardTileCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileStyleCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileStyle), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTilePaintOverride), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayOverride), sourcePath);
             }
         }
 

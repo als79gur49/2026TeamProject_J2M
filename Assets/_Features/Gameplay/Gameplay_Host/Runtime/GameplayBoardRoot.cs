@@ -5,6 +5,7 @@ namespace Game.Feature.Gameplay.Host
     [DisallowMultipleComponent]
     public sealed class GameplayBoardRoot : MonoBehaviour
     {
+        private const string BoardSkinRootObjectName = "BoardSkinRoot";
         private const string BoardSurfaceRootObjectName = "BoardSurfaceRoot";
         private const string EntityRootObjectName = "EntityRoot";
         private const string CameraTargetRootObjectName = "CameraTargetRoot";
@@ -12,6 +13,7 @@ namespace Game.Feature.Gameplay.Host
         private const string CameraPoseRootObjectName = "CameraPoseRoot";
         private const string CameraEffectsRootObjectName = "CameraEffectsRoot";
 
+        [SerializeField] private Transform boardSkinRoot;
         [SerializeField] private Transform boardSurfaceRoot;
         [SerializeField] private Transform entityRoot;
         [SerializeField] private Transform cameraTargetRoot;
@@ -19,6 +21,10 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private Transform cameraPoseRoot;
         [SerializeField] private Transform cameraEffectsRoot;
         [SerializeField] private Vector3 presentationPivotLocalPoint;
+
+        private GameObject _boardSkinInstance;
+
+        public Transform BoardSkinRoot => boardSkinRoot;
 
         public Transform BoardSurfaceRoot => boardSurfaceRoot;
 
@@ -103,9 +109,45 @@ namespace Game.Feature.Gameplay.Host
             return surfaceRenderer;
         }
 
+        public void AttachBoardPresentationProfile(Game.Feature.Stages.BoardPresentationProfile profile)
+        {
+            if (profile == null || profile.BoardRootPrefab == null)
+            {
+                return;
+            }
+
+            boardSkinRoot = EnsureChild(boardSkinRoot, BoardSkinRootObjectName);
+            DestroyBoardSkinInstance();
+
+            _boardSkinInstance = Instantiate(profile.BoardRootPrefab, boardSkinRoot, worldPositionStays: false);
+            _boardSkinInstance.name = profile.BoardRootPrefab.name;
+            _boardSkinInstance.transform.localPosition = Vector3.zero;
+            _boardSkinInstance.transform.localRotation = Quaternion.identity;
+            _boardSkinInstance.transform.localScale = Vector3.one;
+        }
+
         private Transform EnsureChild(Transform existingChild, string childName)
         {
             return EnsureChild(transform, existingChild, childName);
+        }
+
+        private void DestroyBoardSkinInstance()
+        {
+            if (_boardSkinInstance == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(_boardSkinInstance);
+            }
+            else
+            {
+                DestroyImmediate(_boardSkinInstance);
+            }
+
+            _boardSkinInstance = null;
         }
 
         private static Transform EnsureChild(Transform parent, Transform existingChild, string childName)

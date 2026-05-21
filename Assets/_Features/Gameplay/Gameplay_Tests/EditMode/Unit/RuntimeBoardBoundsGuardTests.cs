@@ -17,6 +17,7 @@ using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEditor;
@@ -730,6 +731,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.BoardRoot.BoardSurfaceRoot.parent, Is.EqualTo(host.BoardRoot.transform));
                 Assert.That(host.BoardRoot.EntityRoot.parent, Is.EqualTo(host.BoardRoot.transform));
                 Assert.That(host.BoardRoot.CameraTargetRoot.parent, Is.EqualTo(host.BoardRoot.transform));
+                Assert.That(host.BoardRoot.BoardSkinRoot, Is.Null);
+                Assert.That(host.BoardRoot.transform.Find("BoardSkinRoot"), Is.Null);
                 Assert.That(host.BoardSurfaceRenderer, Is.Not.Null);
                 Assert.That(host.BoardSurfaceRenderer.transform, Is.EqualTo(host.BoardRoot.BoardSurfaceRoot));
                 Assert.That(host.ViewCameraTarget, Is.SameAs(host.BoardRoot.CameraTargetRoot));
@@ -754,6 +757,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplaySceneHost_Initialize_AttachesConfiguredBoardRootPrefabUnderSkinRoot()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_AttachesConfiguredBoardRootPrefabUnderSkinRoot");
+            var prefab = new GameObject("ConfiguredBoardRootPrefab");
+            prefab.transform.localPosition = new Vector3(5f, 6f, 7f);
+            prefab.transform.localRotation = Quaternion.Euler(10f, 20f, 30f);
+            prefab.transform.localScale = new Vector3(2f, 3f, 4f);
+            prefab.AddComponent<BoardRootPrefabTestMarker>();
+            var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
+            PlayerViewPrefabTestUtility.SetSerializedField(profile, "boardRootPrefab", prefab);
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        BoardPresentationProfile = profile,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                        InitialEntities = Array.Empty<EntityState>(),
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                    });
+
+                Assert.That(host.BoardRoot.BoardSkinRoot, Is.Not.Null);
+                Assert.That(host.BoardRoot.BoardSkinRoot.parent, Is.EqualTo(host.BoardRoot.transform));
+                var instance = host.BoardRoot.BoardSkinRoot.Find("ConfiguredBoardRootPrefab");
+                Assert.That(instance, Is.Not.Null);
+                Assert.That(instance.GetComponent<BoardRootPrefabTestMarker>(), Is.Not.Null);
+                Assert.That(instance.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(Quaternion.Angle(instance.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(instance.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(host.BoardSurfaceRenderer, Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.transform, Is.EqualTo(host.BoardRoot.BoardSurfaceRoot));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(prefab);
             }
         }
 
@@ -864,6 +917,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldFactories);
         }
 
+        private sealed class BoardRootPrefabTestMarker : MonoBehaviour
+        {
+        }
     }
 
     internal static class PlayerViewPrefabTestUtility

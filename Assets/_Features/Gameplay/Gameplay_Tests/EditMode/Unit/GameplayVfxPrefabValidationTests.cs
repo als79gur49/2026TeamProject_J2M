@@ -40,55 +40,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void UtilityWindupPrefab_PassesVfxPrefabValidation()
+        public void UtilityWindupPrefab_RemovedFromDefaultAuthoring()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UtilityWindupPrefabPath);
 
-            Assert.That(prefab, Is.Not.Null, UtilityWindupPrefabPath);
-            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
-
-            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+            Assert.That(prefab, Is.Null, UtilityWindupPrefabPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void FrontFaceShieldWindupPrefab_PassesVfxPrefabValidation()
+        public void FrontFaceShieldWindupPrefab_RemovedFromDefaultAuthoring()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(FrontFaceShieldWindupPrefabPath);
 
-            Assert.That(prefab, Is.Not.Null, FrontFaceShieldWindupPrefabPath);
-            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
-
-            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty);
+            Assert.That(prefab, Is.Null, FrontFaceShieldWindupPrefabPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void ReservedHookPrefabs_PassVfxPrefabValidation()
+        public void ReservedHookPrefabs_RemovedFromDefaultAuthoring()
         {
             foreach (var path in ReservedHookPrefabPaths)
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
 
-                Assert.That(prefab, Is.Not.Null, path);
-                var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
-
-                Assert.That(validation.HasErrors, Is.False, $"{path}\n{string.Join("\n", validation.Messages)}");
-                Assert.That(validation.HasWarnings, Is.False, $"{path}\n{string.Join("\n", validation.Messages)}");
-                Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty, path);
-                Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty, path);
-                Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty, path);
-                Assert.That(prefab.GetComponentsInChildren<UnityEngine.AI.NavMeshAgent>(true), Is.Empty, path);
+                Assert.That(prefab, Is.Null, path);
             }
         }
 

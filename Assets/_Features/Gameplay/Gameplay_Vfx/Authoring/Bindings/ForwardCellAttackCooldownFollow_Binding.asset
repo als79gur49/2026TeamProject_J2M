@@ -23,6 +23,7 @@ MonoBehaviour:
   stopPolicy: 3
   visibilityMode: 0
   defaultLifetimeSeconds: 0
-  tailSeconds: 0.5
+  tailSeconds: 1
   initialPoolSize: 2
   maxConcurrentInstances: 8
+  allowTopologyHelperExempt: 0

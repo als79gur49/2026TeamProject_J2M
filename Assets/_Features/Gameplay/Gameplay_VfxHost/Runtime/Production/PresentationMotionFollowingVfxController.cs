@@ -138,6 +138,29 @@ namespace Game.Feature.Gameplay.Vfx.Host
             PlannedAttachCount = 0;
         }
 
+        public void ClearForTopologyTransitionStart(GameplayVfxGameObjectPool pool)
+        {
+            foreach (var pair in activeMotionHandlesByKey)
+            {
+                StopHandleForTopologyTransition(pair.Value, pool);
+            }
+
+            foreach (var pair in activeAttachedHandlesByKey)
+            {
+                StopHandleForTopologyTransition(pair.Value, pool);
+            }
+
+            activeMotionHandlesByKey.Clear();
+            activeAttachedHandlesByKey.Clear();
+            activeMotionPoliciesByKey.Clear();
+            activeAttachedPoliciesByKey.Clear();
+            activeAttachedRetentionPoliciesByKey.Clear();
+            desiredMotionKeys.Clear();
+            desiredAttachedKeys.Clear();
+            explicitAttachedStopKeys.Clear();
+            PlannedAttachCount = 0;
+        }
+
         public void StopAttachedFollowersForCue(GameplayVfxCueId cueId, bool tail)
         {
             attachedStopBuffer.Clear();
@@ -615,6 +638,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             handle.HardCleanup();
+        }
+
+        private static void StopHandleForTopologyTransition(
+            IVfxPlaybackHandle handle,
+            GameplayVfxGameObjectPool pool)
+        {
+            if (handle == null)
+            {
+                return;
+            }
+
+            handle.Stop(GameplayVfxStopMode.TopologyTransitionHardClear);
+            pool?.Release(handle);
         }
 
         private void CountMissingMotionBindingOnce(PresentationMotionInstanceKey key)

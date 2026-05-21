@@ -61,7 +61,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ChargeBoosterTrail_Binding.asset";
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void GovernanceDocument_ExistsAndDeclaresBoundary()
         {
             var document = ReadRepoFile(GovernancePath);
@@ -89,6 +89,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("prefab validation"));
             Assert.That(document, Does.Contain("Composition Ownership Gate"));
             Assert.That(document, Does.Contain("GameplayVfxBindingComposition"));
+            Assert.That(document, Does.Contain("Host default map is optional"));
+            Assert.That(document, Does.Contain("Family profiles override the host default map"));
+            Assert.That(document, Does.Contain("Duplicate family profiles are invalid"));
+            Assert.That(document, Does.Contain("Null profile entries are invalid"));
+            Assert.That(document, Does.Contain("Stage map composition is a future slice"));
+            Assert.That(document, Does.Contain("Future Owner Binding"));
+            Assert.That(document, Does.Contain("This stage does not add fields to `StagePresentationDefinition`"));
+            Assert.That(document, Does.Contain("does not add runtime prefab references or production playback connection"));
+            Assert.That(document, Does.Contain("Host Anchor Resolver Gate"));
+            Assert.That(document, Does.Contain("Anchor Resolver Ownership"));
+            Assert.That(document, Does.Contain("resolver true/false is independent from missing-anchor policy"));
+            Assert.That(document, Does.Contain("transition-aware VFX anchors are future"));
+            Assert.That(document, Does.Contain("First Production Cue Gate"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.JumperLandingTarget"));
+            Assert.That(document, Does.Contain("TickPresentationData.EnemyJumpSignals"));
+            Assert.That(document, Does.Contain("StartedWindupThisTick"));
+            Assert.That(document, Does.Contain("TickEnemyJumpPresentationOutcome.WindupStarted"));
+            Assert.That(document, Does.Contain("PresentationTargetCell"));
+            Assert.That(document, Does.Contain("VfxAnchorSlot.CellFloor"));
+            Assert.That(document, Does.Contain("EnableEnemyJumpTargetVfx"));
+            Assert.That(document, Does.Contain("JumperLandingTargetVfx.prefab"));
+            Assert.That(document, Does.Contain("JumperLandingTarget_Binding.asset"));
+            Assert.That(document, Does.Contain("GameplayVfxHostDefaultCueMap.asset"));
+            Assert.That(document, Does.Contain("Enemy Death Burst Migration"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.Death"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathBurstMigration"));
+            Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
+            Assert.That(document, Does.Contain("non-particle Gameplay VFX prefab authoring was removed"));
+            Assert.That(document, Does.Contain("old clone/arc/fade"));
+            Assert.That(document, Does.Contain("Enemy Death Motion VFX Migration"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.DeathMotion"));
+            Assert.That(document, Does.Contain("EnemyDeathMotionVfxCommand"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathMotionMigration"));
+            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+            Assert.That(document, Does.Contain("FlipImpact DestroySelf Motion VFX Migration"));
+            Assert.That(document, Does.Contain("BoxVfxCue.FlipDestroySelfMotion"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFlipDestroySelfMotionMigration"));
+            Assert.That(document, Does.Contain("old clone/fade fallback"));
+            Assert.That(document, Does.Contain("red/orange danger palette"));
+            Assert.That(document, Does.Contain("AuthoredDuration"));
+            Assert.That(document, Does.Contain("Parameterized Motion VFX Generalization"));
+            Assert.That(document, Does.Contain("Parameterized Motion Sampler Modes"));
+            Assert.That(document, Does.Contain("`FlipArc`"));
+            Assert.That(document, Does.Contain("`Linear`"));
+            Assert.That(document, Does.Contain("`LegacyEnemyDeathFlyAway`"));
+            Assert.That(document, Does.Contain("Position uses direct linear interpolation"));
+            Assert.That(document, Does.Contain("Sampler modes are presentation-only"));
+            Assert.That(document, Does.Contain("FlipDestroySelf Source-View Clone Parity"));
+            Assert.That(document, Does.Contain("ParameterizedMotionVfxCommand"));
+            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+            Assert.That(document, Does.Contain("Box Slide trail"));
+            Assert.That(document, Does.Contain("Unit movement trail"));
+            Assert.That(document, Does.Contain("Projectile trail"));
+            Assert.That(document, Does.Contain("Utility Windup VFX Migration"));
+            Assert.That(document, Does.Contain("TickPresentationData.SummonWindupWarnings"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.UtilityWindup"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxUtilityWindupMigration"));
+            Assert.That(document, Does.Contain("cleanup-only empty refresh"));
+            Assert.That(document, Does.Contain("FrontFace Shield VFX Migration"));
+            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldSources"));
+            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldBlocks"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldActive"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldBlock"));
+            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldWindup"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldActiveMigration"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldBlockMigration"));
+            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldWindupMigration"));
+            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldWindupWarnings"));
+            Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
+            Assert.That(document, Does.Contain("cleanup-only empty refresh"));
+            Assert.That(document, Does.Contain("VfxPersistentKey"));
+            Assert.That(document, Does.Contain("OutOfBounds Exit VFX Migration"));
+            Assert.That(document, Does.Contain("dormant/reserved"));
+            Assert.That(document, Does.Contain("missing binding no fallback"));
             Assert.That(document, Does.Contain("VFX Planner Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
             Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));
@@ -155,10 +229,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var bindingPaths = new[]
             {
-                FlipImpactStayTrailBindingPath,
                 GlideWindTrailBindingPath,
                 ChargeBoosterTrailBindingPath,
             };
+
+            Assert.That(File.Exists(FlipImpactStayTrailBindingPath), Is.False);
 
             foreach (var bindingPath in bindingPaths)
             {

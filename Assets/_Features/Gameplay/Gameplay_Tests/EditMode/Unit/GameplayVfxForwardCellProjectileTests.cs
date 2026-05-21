@@ -256,6 +256,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TopologyTransitionStart_ClearsProjectileGameplayVfxImmediately()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture("ForwardCellProjectileTopologyClear");
+            fixture.Present(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() }));
+            AssertActiveCarrierKeys(fixture.Runtime, 4000001);
+
+            fixture.Present(CreatePresentationData(
+                topologyMotion: new TickTopologyMotion(
+                    new CubeTopologyState(FaceId.Floor),
+                    new CubeTopologyState(FaceId.Front),
+                    CubeRotationKind.Forward)));
+
+            AssertActiveMarkerKeys(fixture.Runtime);
+            AssertActiveCarrierKeys(fixture.Runtime);
+            Assert.That(fixture.Runtime.ActiveVfxInstanceCount, Is.Zero);
+            Assert.That(fixture.Runtime.GetReleaseToPoolCount(FlightCueId), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransitionRunning_SuppressesProjectileStarts()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture("ForwardCellProjectileTopologySuppress");
+            fixture.Present(CreatePresentationData(
+                topologyMotion: new TickTopologyMotion(
+                    new CubeTopologyState(FaceId.Floor),
+                    new CubeTopologyState(FaceId.Front),
+                    CubeRotationKind.Forward)));
+
+            fixture.Present(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() }));
+
+            AssertActiveMarkerKeys(fixture.Runtime);
+            AssertActiveCarrierKeys(fixture.Runtime);
+            Assert.That(fixture.Runtime.ActiveVfxInstanceCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ProjectileVfx_VisibleSurfaceAllowedTarget_AllowedOnlyWhenOptIn()
         {
             using var defaultFixture = new ForwardCellProjectileRuntimeFixture(
@@ -530,11 +568,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TickForwardCellImpactPresentationSignal[] forwardCellImpactSignals = null,
             TickForwardCellProjectileWindupPresentationSignal[] windupSignals = null,
             TickForwardCellProjectileReleasePresentationSignal[] releaseSignals = null,
-            TickForwardCellProjectileClearPresentationSignal[] clearSignals = null)
+            TickForwardCellProjectileClearPresentationSignal[] clearSignals = null,
+            TickTopologyMotion? topologyMotion = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
-                topologyMotion: null,
+                topologyMotion: topologyMotion,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),

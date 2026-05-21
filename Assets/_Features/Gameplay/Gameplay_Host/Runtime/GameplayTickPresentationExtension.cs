@@ -16,7 +16,9 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             GameplayTimingProfile timingProfile = null,
-            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            int topologyTransitionEpoch = 0,
+            bool isTopologyTransitionCompletionReconcile = false)
         {
             Result = result;
             Topology = topology;
@@ -26,6 +28,8 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationBindings = enemyPresentationBindings ?? System.Array.Empty<EnemyPresentationBinding>();
             TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? System.Array.Empty<TileFeatureVfxStyleBinding>();
+            TopologyTransitionEpoch = topologyTransitionEpoch;
+            IsTopologyTransitionCompletionReconcile = isTopologyTransitionCompletionReconcile;
         }
 
         public TickResult Result { get; }
@@ -43,6 +47,10 @@ namespace Game.Feature.Gameplay.Host
         public GameplayTimingProfile TimingProfile { get; }
 
         public IReadOnlyList<TileFeatureVfxStyleBinding> TileFeatureVfxStyleBindings { get; }
+
+        public int TopologyTransitionEpoch { get; }
+
+        public bool IsTopologyTransitionCompletionReconcile { get; }
     }
 
     public interface IGameplayTickPresentationExtension
@@ -91,6 +99,11 @@ namespace Game.Feature.Gameplay.Host
     public interface IGameplayPresentationMotionVfxExtension
     {
         void RefreshPresentationMotionVfx(in GameplayPresentationMotionVfxContext context);
+    }
+
+    public interface IGameplayTopologyTransitionCompletionPresentationExtension
+    {
+        void ReconcileTopologyTransitionCompleted(in GameplayTickPresentationExtensionContext context);
     }
 
 }

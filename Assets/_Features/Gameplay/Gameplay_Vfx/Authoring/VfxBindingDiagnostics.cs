@@ -60,6 +60,15 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            if (binding.AllowTopologyHelperExempt &&
+                !GameplayVfxTopologyHelperExemptionPolicy.IsTopologyHelperCue(cueId))
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_TOPOLOGY_HELPER_EXEMPT_REQUIRES_HELPER_CUE",
+                    $"{binding.name} cue '{cueId}' enables topology helper exemption for a non-helper gameplay cue.",
+                    binding));
+            }
+
             if (binding.Requirement == VfxBindingRequirement.Required &&
                 binding.MissingAnchorPolicy == VfxMissingAnchorPolicy.SkipOptional)
             {
@@ -97,7 +106,8 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         private static bool IsPresentationOnlyBindingAllowed(VfxBindingDefinitionAsset binding)
         {
             var assetName = binding.name ?? string.Empty;
-            return assetName.IndexOf("Topology", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            return binding.AllowTopologyHelperExempt ||
+                   assetName.IndexOf("Topology", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    assetName.IndexOf("PresentationOnly", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }

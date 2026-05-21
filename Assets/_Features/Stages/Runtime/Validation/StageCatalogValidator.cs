@@ -1137,6 +1137,10 @@ namespace Game.Feature.Stages
                 ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
                 ValidateBoardTilePresentationCatalog(entry, options, report);
                 ValidateBoardTilePresentationOverrides(entry, options, report);
+                ValidateBoardTileStyleCatalog(entry, options, report);
+                ValidateBoardTilePaintOverrides(entry, options, report);
+                ValidateBoardTileOverlayCatalog(entry, options, report);
+                ValidateBoardTileOverlayOverrides(entry, options, report);
                 ValidateTileFeaturePresentationCatalog(entry, options, report);
                 ValidateTileFeaturePresentationBindings(entry, options, report);
             }
@@ -1383,6 +1387,357 @@ namespace Game.Feature.Stages
                         StageValidationSeverity.Warning,
                         "presentation.board-tile.override-material-only",
                         $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} PresentationKey '{presentationKey}' resolves to a material-only board tile entry.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateBoardTileStyleCatalog(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation != null ? presentation.BoardTileStyleCatalog : null;
+            if (catalog == null)
+            {
+                return;
+            }
+
+            var catalogPath = GetAssetPath(catalog, options);
+            var entries = catalog.Entries;
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var catalogEntry = entries[i];
+                var fieldPrefix = $"BoardTileStyleCatalog.Entries[{i}]";
+                if (catalogEntry == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-style.catalog.entry-null",
+                        $"BoardTileStyleCatalog '{catalog.name}' entry[{i}] is null.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var styleKey = catalogEntry.StyleKey;
+                if (string.IsNullOrEmpty(styleKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-style.catalog.key-empty",
+                        $"BoardTileStyleCatalog '{catalog.name}' {fieldPrefix} must declare a non-empty StyleKey.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+                else if (!seenKeys.Add(styleKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-style.catalog.key-duplicate",
+                        $"BoardTileStyleCatalog '{catalog.name}' contains duplicate StyleKey '{styleKey}'.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateBoardTilePaintOverrides(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            if (presentation == null)
+            {
+                return;
+            }
+
+            var overrides = presentation.BoardTilePaintOverrides;
+            if (overrides.Count == 0)
+            {
+                return;
+            }
+
+            var catalog = presentation.BoardTileStyleCatalog;
+            var presentationPath = GetAssetPath(presentation, options);
+            var boardBoundsValid = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
+            var cells = new HashSet<SurfaceCell>();
+            for (var i = 0; i < overrides.Count; i++)
+            {
+                var paintOverride = overrides[i];
+                var fieldPrefix = $"BoardTilePaintOverrides[{i}]";
+                if (paintOverride == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-paint.override-null",
+                        $"StagePresentationDefinition '{presentation.name}' board tile paint override[{i}] is null.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var cell = paintOverride.Cell;
+                if (!Enum.IsDefined(typeof(FaceId), cell.face))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-paint.override-cell-face-invalid",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} has invalid SurfaceCell face value {(int)cell.face}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (boardBoundsValid && !boardBounds.Contains(cell.PlanarPosition))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-paint.override-cell-outside-bounds",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} cell {cell} is outside board bounds.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (!cells.Add(cell))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-paint.override-cell-duplicate",
+                        $"StagePresentationDefinition '{presentation.name}' contains duplicate board tile paint override for cell {cell}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                var styleKey = paintOverride.StyleKey;
+                if (string.IsNullOrEmpty(styleKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-paint.override-key-empty",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must declare a non-empty StyleKey.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (catalog == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-paint.override-catalog-missing",
+                        $"StagePresentationDefinition '{presentation.name}' has board tile paint override key '{styleKey}' but no BoardTileStyleCatalog.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!catalog.TryGetEntry(styleKey, out _))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-paint.override-key-missing",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} StyleKey '{styleKey}' is missing from BoardTileStyleCatalog '{catalog.name}'.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateBoardTileOverlayCatalog(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            var catalog = presentation != null ? presentation.BoardTileOverlayCatalog : null;
+            if (catalog == null)
+            {
+                return;
+            }
+
+            var catalogPath = GetAssetPath(catalog, options);
+            var entries = catalog.Entries;
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var catalogEntry = entries[i];
+                var fieldPrefix = $"BoardTileOverlayCatalog.Entries[{i}]";
+                if (catalogEntry == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.catalog.entry-null",
+                        $"BoardTileOverlayCatalog '{catalog.name}' entry[{i}] is null.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var overlayKey = catalogEntry.OverlayKey;
+                if (string.IsNullOrEmpty(overlayKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.catalog.key-empty",
+                        $"BoardTileOverlayCatalog '{catalog.name}' {fieldPrefix} must declare a non-empty OverlayKey.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+                else if (!seenKeys.Add(overlayKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.catalog.key-duplicate",
+                        $"BoardTileOverlayCatalog '{catalog.name}' contains duplicate OverlayKey '{overlayKey}'.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (!Enum.IsDefined(typeof(BoardTileOverlayLayer), catalogEntry.Layer))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.catalog.layer-invalid",
+                        $"BoardTileOverlayCatalog '{catalog.name}' {fieldPrefix} has invalid Layer value {(int)catalogEntry.Layer}.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (catalogEntry.Alpha < 0f || catalogEntry.Alpha > 1f)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.catalog.alpha-out-of-range",
+                        $"BoardTileOverlayCatalog '{catalog.name}' {fieldPrefix} Alpha must be between 0 and 1.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateBoardTileOverlayOverrides(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            if (presentation == null)
+            {
+                return;
+            }
+
+            var overrides = presentation.BoardTileOverlayOverrides;
+            if (overrides.Count == 0)
+            {
+                return;
+            }
+
+            var catalog = presentation.BoardTileOverlayCatalog;
+            var presentationPath = GetAssetPath(presentation, options);
+            var boardBoundsValid = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
+            var cellsAndKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < overrides.Count; i++)
+            {
+                var overlayOverride = overrides[i];
+                var fieldPrefix = $"BoardTileOverlayOverrides[{i}]";
+                if (overlayOverride == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.override-null",
+                        $"StagePresentationDefinition '{presentation.name}' board tile overlay override[{i}] is null.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var cell = overlayOverride.Cell;
+                if (!Enum.IsDefined(typeof(FaceId), cell.face))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.override-cell-face-invalid",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} has invalid SurfaceCell face value {(int)cell.face}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (boardBoundsValid && !boardBounds.Contains(cell.PlanarPosition))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.override-cell-outside-bounds",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} cell {cell} is outside board bounds.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                var overlayKey = overlayOverride.OverlayKey;
+                if (string.IsNullOrEmpty(overlayKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.override-key-empty",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must declare a non-empty OverlayKey.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var duplicateKey = $"{(int)cell.face}:{cell.x}:{cell.y}:{overlayKey}";
+                if (!cellsAndKeys.Add(duplicateKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.override-cell-key-duplicate",
+                        $"StagePresentationDefinition '{presentation.name}' contains duplicate board tile overlay override for cell {cell} and key '{overlayKey}'.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (catalog == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.override-catalog-missing",
+                        $"StagePresentationDefinition '{presentation.name}' has board tile overlay override key '{overlayKey}' but no BoardTileOverlayCatalog.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!catalog.TryGetEntry(overlayKey, out _))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.board-tile-overlay.override-key-missing",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} OverlayKey '{overlayKey}' is missing from BoardTileOverlayCatalog '{catalog.name}'.",
                         presentation,
                         presentationPath,
                         options.Timing);

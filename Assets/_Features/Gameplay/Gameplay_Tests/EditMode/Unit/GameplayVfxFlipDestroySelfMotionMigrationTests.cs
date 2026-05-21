@@ -495,49 +495,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Prefab_PassesValidation()
+        public void Prefab_RemovedFromDefaultAuthoring()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MotionPrefabPath);
 
-            Assert.That(prefab, Is.Not.Null, MotionPrefabPath);
-            var validation = VfxPrefabValidationDiagnostics.ValidatePrefab(prefab);
-
-            Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
-            Assert.That(prefab.GetComponentsInChildren<Collider>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
-            Assert.That(prefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
-            Assert.That(HasComponentTypeNamed(prefab, "NavMeshAgent"), Is.False);
+            Assert.That(prefab, Is.Null, MotionPrefabPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void Binding_Validates()
+        public void Binding_RemovedFromDefaultAuthoring()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(MotionBindingPath);
 
-            Assert.That(binding, Is.Not.Null, MotionBindingPath);
-            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)));
-            Assert.That(binding.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
-            Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
-            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
-            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
-            Assert.That(binding.TailSeconds, Is.InRange(0.10f, 0.25f));
-            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(8));
-            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+            Assert.That(binding, Is.Null, MotionBindingPath);
         }
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultMap_ResolvesCue()
+        public void HostDefaultMap_DoesNotResolveRemovedCue()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
             Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
             Assert.That(
                 cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion), out var policy),
-                Is.True);
-            Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+                Is.False);
         }
 
         [Test]

@@ -40,9 +40,14 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationBinding[] enemyPresentationBindings,
                 StaticEntityPresentationCatalog staticEntityPresentationCatalog,
                 StaticEntityPresentationBinding[] staticEntityPresentationBindings,
+                BoardPresentationProfile boardPresentationProfile,
                 BoardTilePresentationCatalog boardTilePresentationCatalog,
+                BoardTileStyleCatalog boardTileStyleCatalog,
+                BoardTileOverlayCatalog boardTileOverlayCatalog,
                 IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
                 IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
+                IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
+                IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides = null,
                 IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
             {
                 BoardBounds = boardBounds;
@@ -62,9 +67,16 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
                 StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
                 StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+                BoardPresentationProfile = boardPresentationProfile;
                 BoardTilePresentationCatalog = boardTilePresentationCatalog;
+                BoardTileStyleCatalog = boardTileStyleCatalog;
+                BoardTileOverlayCatalog = boardTileOverlayCatalog;
                 BoardTilePresentationOverrides =
                     boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
+                BoardTilePaintOverrides =
+                    boardTilePaintOverrides ?? Array.Empty<BoardTilePaintOverride>();
+                BoardTileOverlayOverrides =
+                    boardTileOverlayOverrides ?? Array.Empty<BoardTileOverlayOverride>();
                 TileFeaturePresentationBindings =
                     tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
                 SuppressedBaseTileCells = suppressedBaseTileCells ?? Array.Empty<SurfaceCell>();
@@ -104,9 +116,19 @@ namespace Game.Feature.Gameplay.Host
 
             public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
 
+            public BoardPresentationProfile BoardPresentationProfile { get; }
+
             public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
 
+            public BoardTileStyleCatalog BoardTileStyleCatalog { get; }
+
+            public BoardTileOverlayCatalog BoardTileOverlayCatalog { get; }
+
             public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
+
+            public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides { get; }
+
+            public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides { get; }
 
             public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
 
@@ -343,8 +365,13 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationCatalog = ResolveConfiguredEnemyPresentationCatalog(initialState),
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
                 StaticEntityPresentationCatalog = ResolveConfiguredStaticEntityPresentationCatalog(initialState),
+                BoardPresentationProfile = initialState.BoardPresentationProfile,
                 BoardTilePresentationCatalog = initialState.BoardTilePresentationCatalog,
+                BoardTileStyleCatalog = initialState.BoardTileStyleCatalog,
+                BoardTileOverlayCatalog = initialState.BoardTileOverlayCatalog,
                 BoardTilePresentationOverrides = initialState.BoardTilePresentationOverrides,
+                BoardTilePaintOverrides = initialState.BoardTilePaintOverrides,
+                BoardTileOverlayOverrides = initialState.BoardTileOverlayOverrides,
                 TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
                 SuppressedBaseTileCells = initialState.SuppressedBaseTileCells,
                 InitialBoardBounds = initialState.BoardBounds,
