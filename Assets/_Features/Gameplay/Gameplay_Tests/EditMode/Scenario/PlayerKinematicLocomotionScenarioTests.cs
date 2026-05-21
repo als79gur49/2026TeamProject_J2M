@@ -633,10 +633,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
-            Assert.That(
-                result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("Reason=KinematicTraversalBlocked")),
-                Is.True);
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
         }
 
         [Test]
