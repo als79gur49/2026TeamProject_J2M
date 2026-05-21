@@ -126,6 +126,7 @@ namespace Game.Feature.Gameplay.Host
                 moonBlockRespawnDefinitions: moonBlockRespawnDefinitions);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
+            boardRoot.AttachBoardPresentationProfile(configuration.BoardPresentationProfile);
             var boardSurfaceRenderer = boardRoot.EnsureBoardSurfaceRenderer();
             viewRegistry.ConfigureSearchRoot(boardRoot.EntityRoot);
             tileFeatureVisualRegistry.ConfigureSearchRoot(boardRoot.transform);
@@ -187,6 +188,8 @@ namespace Game.Feature.Gameplay.Host
                 configuration.BoardSurfaceTexture,
                 configuration.BoardTilePresentationCatalog,
                 configuration.BoardTilePresentationOverrides,
+                configuration.BoardTileStyleCatalog,
+                configuration.BoardTilePaintOverrides,
                 configuration.SuppressedBaseTileCells);
 
             var viewCameraTarget = boardRoot.CameraTargetRoot;

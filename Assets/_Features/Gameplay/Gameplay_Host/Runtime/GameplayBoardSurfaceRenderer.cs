@@ -6,11 +6,42 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public readonly struct TileVisualHandle
+    {
+        public TileVisualHandle(
+            SurfaceCell cell,
+            GameObject gameObject,
+            Transform transform,
+            BoardTileVisualRole visualRole,
+            IReadOnlyList<Renderer> styleRenderers)
+        {
+            Cell = cell;
+            GameObject = gameObject;
+            Transform = transform;
+            VisualRole = visualRole;
+            StyleRenderers = styleRenderers ?? Array.Empty<Renderer>();
+        }
+
+        public SurfaceCell Cell { get; }
+
+        public GameObject GameObject { get; }
+
+        public Transform Transform { get; }
+
+        public BoardTileVisualRole VisualRole { get; }
+
+        public IReadOnlyList<Renderer> StyleRenderers { get; }
+
+        public bool IsActive => GameObject != null && GameObject.activeSelf;
+    }
+
     [DisallowMultipleComponent]
     public sealed class GameplayBoardSurfaceRenderer : MonoBehaviour
     {
         private const string VisibleTilePoolObjectName = "VisibleTilePool";
         private const string TransitionTilePoolObjectName = "TransitionTilePool";
+        private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
         [SerializeField] private bool renderDecorativeFaces = false;
         [SerializeField] private Transform visibleTilePoolRoot;
         [SerializeField] private Transform transitionTilePoolRoot;
@@ -21,14 +52,20 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<SurfaceTileView> _transitionActiveTiles = new();
         private readonly Dictionary<BoardTilePoolKey, List<SurfaceTileView>> _steadyTilePools = new();
         private readonly Dictionary<BoardTilePoolKey, List<SurfaceTileView>> _transitionTilePools = new();
+        private readonly Dictionary<SurfaceCell, TileVisualHandle> _tileVisualHandles = new();
 
         private BoardBounds _boardBounds;
         private float _cellSize;
         private BoardTilePresentationCatalog _boardTilePresentationCatalog;
         private BoardTilePresentationOverride[] _boardTilePresentationOverrides =
             Array.Empty<BoardTilePresentationOverride>();
+        private BoardTileStyleCatalog _boardTileStyleCatalog;
+        private BoardTilePaintOverride[] _boardTilePaintOverrides =
+            Array.Empty<BoardTilePaintOverride>();
         private Dictionary<SurfaceCell, string> _boardTilePresentationOverrideLookup = new();
+        private Dictionary<SurfaceCell, string> _boardTilePaintOverrideLookup = new();
         private HashSet<SurfaceCell> _suppressedBaseTileCells = new();
+        private MaterialPropertyBlock _stylePropertyBlock;
         private Material _activeBottomFaceMaterial;
         private Material _activeFrontFaceMaterial;
         private Material _decorativeBackFaceMaterial;
@@ -50,6 +87,8 @@ namespace Game.Feature.Gameplay.Host
         public CubeTopologyState SteadyTopology => _steadyTopology;
 
         public int TransitionTileCount { get; private set; }
+
+        public int TileVisualHandleCount => _tileVisualHandles.Count;
 
         public Transform VisibleTilePoolRoot => visibleTilePoolRoot != null ? visibleTilePoolRoot : EnsureVisibleTilePoolRoot();
 
@@ -92,6 +131,8 @@ namespace Game.Feature.Gameplay.Host
             Texture2D sharedTileTexture = null,
             BoardTilePresentationCatalog boardTilePresentationCatalog = null,
             IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
+            BoardTileStyleCatalog boardTileStyleCatalog = null,
+            IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             if (!boardBounds.IsBounded)
@@ -122,6 +163,10 @@ namespace Game.Feature.Gameplay.Host
 
             _boardTilePresentationOverrideLookup =
                 BuildBoardTileOverrideLookup(_boardTilePresentationOverrides);
+            _boardTileStyleCatalog = boardTileStyleCatalog;
+            _boardTilePaintOverrides = CloneBoardTilePaintOverrides(boardTilePaintOverrides);
+            _boardTilePaintOverrideLookup =
+                BuildBoardTilePaintOverrideLookup(_boardTilePaintOverrides);
             _suppressedBaseTileCells = BuildSuppressedBaseTileCellSet(suppressedBaseTileCells);
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
@@ -256,11 +301,25 @@ namespace Game.Feature.Gameplay.Host
             SetSteadyTilesActive(isActive: true);
             DeactivateAllTileViews(_transitionTilePools);
             _transitionActiveTiles.Clear();
+            RebuildSteadyTileVisualHandles();
+        }
+
+        public bool TryGetTileVisualHandle(SurfaceCell cell, out TileVisualHandle handle)
+        {
+            if (_tileVisualHandles.TryGetValue(cell, out handle) &&
+                handle.IsActive)
+            {
+                return true;
+            }
+
+            handle = default;
+            return false;
         }
 
         private void RefreshSteadyTopology(CubeTopologyState topology)
         {
             _steadyTopology = topology;
+            ClearTileVisualHandles();
             DeactivateAllTileViews(_steadyTilePools);
             _steadyActiveTiles.Clear();
             var tileScale = ResolveTileScale();
@@ -505,8 +564,9 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var renderer = tileObject.GetComponent<MeshRenderer>();
+            var styleRenderers = tileObject.GetComponentsInChildren<Renderer>(includeInactive: true);
             tileObject.SetActive(false);
-            return new SurfaceTileView(tileObject, tileObject.transform, renderer, descriptor);
+            return new SurfaceTileView(tileObject, tileObject.transform, renderer, styleRenderers, descriptor);
         }
 
         private int PopulateFaceTiles(
@@ -628,6 +688,7 @@ namespace Game.Feature.Gameplay.Host
             Vector3 tileScale)
         {
             tileView.GameObject.name = $"{tileRole}_{cell.face}_{cell.x}_{cell.y}";
+            tileView.AssignCell(cell, tileRole);
             tileView.Transform.localPosition = localPose.Position;
             tileView.Transform.localRotation = localPose.Rotation;
             tileView.Transform.localScale = tileScale;
@@ -636,7 +697,9 @@ namespace Game.Feature.Gameplay.Host
                 tileView.Renderer.sharedMaterial = tileView.Descriptor.MaterialFallback ?? ResolveMaterial(tileRole);
             }
 
+            ApplyTileStyle(tileView, cell);
             tileView.SetActive(true);
+            RegisterTileVisualHandle(cell, tileRole, tileView);
         }
 
         private int GetRequiredTileCount()
@@ -796,6 +859,121 @@ namespace Game.Feature.Gameplay.Host
             return lookup;
         }
 
+        private static BoardTilePaintOverride[] CloneBoardTilePaintOverrides(
+            IReadOnlyList<BoardTilePaintOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTilePaintOverride>();
+            }
+
+            var overrides = new BoardTilePaintOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTilePaintOverride(entry.Cell, entry.StyleKey);
+            }
+
+            return overrides;
+        }
+
+        private static Dictionary<SurfaceCell, string> BuildBoardTilePaintOverrideLookup(
+            IReadOnlyList<BoardTilePaintOverride> source)
+        {
+            var lookup = new Dictionary<SurfaceCell, string>();
+            if (source == null)
+            {
+                return lookup;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                if (entry == null ||
+                    !Enum.IsDefined(typeof(FaceId), entry.Cell.face) ||
+                    lookup.ContainsKey(entry.Cell))
+                {
+                    continue;
+                }
+
+                lookup.Add(entry.Cell, entry.StyleKey);
+            }
+
+            return lookup;
+        }
+
+        private void ApplyTileStyle(
+            SurfaceTileView tileView,
+            SurfaceCell cell)
+        {
+            if (!TryResolveBoardTileStyle(cell, out var styleEntry))
+            {
+                ClearTileStyle(tileView);
+                return;
+            }
+
+            var renderers = tileView.StyleRenderers;
+            if (renderers == null || renderers.Count == 0)
+            {
+                return;
+            }
+
+            _stylePropertyBlock ??= new MaterialPropertyBlock();
+            for (var i = 0; i < renderers.Count; i++)
+            {
+                var targetRenderer = renderers[i];
+                if (targetRenderer == null)
+                {
+                    continue;
+                }
+
+                _stylePropertyBlock.Clear();
+                _stylePropertyBlock.SetColor(BaseColorPropertyId, styleEntry.Tint);
+                _stylePropertyBlock.SetColor(ColorPropertyId, styleEntry.Tint);
+                targetRenderer.SetPropertyBlock(_stylePropertyBlock);
+            }
+        }
+
+        private bool TryResolveBoardTileStyle(
+            SurfaceCell cell,
+            out BoardTileStyleCatalogEntry styleEntry)
+        {
+            styleEntry = null;
+            if (_boardTileStyleCatalog == null ||
+                _boardTilePaintOverrideLookup == null ||
+                !_boardTilePaintOverrideLookup.TryGetValue(cell, out var styleKey) ||
+                string.IsNullOrEmpty(styleKey))
+            {
+                return false;
+            }
+
+            return _boardTileStyleCatalog.TryGetEntry(styleKey, out styleEntry);
+        }
+
+        private void ClearTileStyle(SurfaceTileView tileView)
+        {
+            var renderers = tileView?.StyleRenderers;
+            if (renderers == null || renderers.Count == 0)
+            {
+                return;
+            }
+
+            _stylePropertyBlock ??= new MaterialPropertyBlock();
+            _stylePropertyBlock.Clear();
+            for (var i = 0; i < renderers.Count; i++)
+            {
+                var targetRenderer = renderers[i];
+                if (targetRenderer == null)
+                {
+                    continue;
+                }
+
+                targetRenderer.SetPropertyBlock(_stylePropertyBlock);
+            }
+        }
+
         private bool IsBaseTileSuppressed(SurfaceCell cell)
         {
             return _suppressedBaseTileCells != null &&
@@ -911,6 +1089,11 @@ namespace Game.Feature.Gameplay.Host
             {
                 _steadyActiveTiles[i].SetActive(isActive);
             }
+
+            if (!isActive)
+            {
+                ClearTileVisualHandles();
+            }
         }
 
         private void MarkSteadySurfaceDirty()
@@ -957,6 +1140,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void DestroyAllTilePools()
         {
+            ClearTileVisualHandles();
             DestroyTilePools(_steadyTilePools);
             DestroyTilePools(_transitionTilePools);
             _steadyActiveTiles.Clear();
@@ -965,6 +1149,54 @@ namespace Game.Feature.Gameplay.Host
             SteadyTileCount = 0;
             TransitionTileCount = 0;
             ResetAppliedSteadyTopology();
+        }
+
+        private void ClearTileVisualHandles()
+        {
+            _tileVisualHandles.Clear();
+        }
+
+        private void RebuildSteadyTileVisualHandles()
+        {
+            ClearTileVisualHandles();
+            if (!_areSteadyTilesVisible)
+            {
+                return;
+            }
+
+            for (var i = 0; i < SteadyTileCount && i < _steadyActiveTiles.Count; i++)
+            {
+                var tileView = _steadyActiveTiles[i];
+                if (tileView == null ||
+                    tileView.GameObject == null ||
+                    !tileView.GameObject.activeSelf ||
+                    !tileView.HasAssignedCell)
+                {
+                    continue;
+                }
+
+                RegisterTileVisualHandle(tileView.Cell, tileView.TileRole, tileView);
+            }
+        }
+
+        private void RegisterTileVisualHandle(
+            SurfaceCell cell,
+            SurfaceTileRole tileRole,
+            SurfaceTileView tileView)
+        {
+            if (tileView == null ||
+                tileView.GameObject == null ||
+                !tileView.GameObject.activeSelf)
+            {
+                return;
+            }
+
+            _tileVisualHandles[cell] = new TileVisualHandle(
+                cell,
+                tileView.GameObject,
+                tileView.Transform,
+                ToBoardTileVisualRole(tileRole),
+                tileView.StyleRenderers);
         }
 
         private void DestroyTilePools(Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools)
@@ -994,14 +1226,21 @@ namespace Game.Feature.Gameplay.Host
             tilePools.Clear();
         }
 
-        private static void DeactivateAllTileViews(Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools)
+        private void DeactivateAllTileViews(Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools)
         {
             foreach (var pair in tilePools)
             {
                 var tilePool = pair.Value;
                 for (var i = 0; i < tilePool.Count; i++)
                 {
-                    tilePool[i]?.SetActive(false);
+                    var tileView = tilePool[i];
+                    if (tileView == null)
+                    {
+                        continue;
+                    }
+
+                    ClearTileStyle(tileView);
+                    tileView.SetActive(false);
                 }
             }
         }
@@ -1169,11 +1408,13 @@ namespace Game.Feature.Gameplay.Host
                 GameObject gameObject,
                 Transform transform,
                 MeshRenderer renderer,
+                Renderer[] styleRenderers,
                 BoardTileVisualDescriptor descriptor)
             {
                 GameObject = gameObject;
                 Transform = transform;
                 Renderer = renderer;
+                StyleRenderers = styleRenderers ?? Array.Empty<Renderer>();
                 Descriptor = descriptor;
             }
 
@@ -1183,7 +1424,22 @@ namespace Game.Feature.Gameplay.Host
 
             public MeshRenderer Renderer { get; }
 
+            public IReadOnlyList<Renderer> StyleRenderers { get; }
+
             public Transform Transform { get; }
+
+            public bool HasAssignedCell { get; private set; }
+
+            public SurfaceCell Cell { get; private set; }
+
+            public SurfaceTileRole TileRole { get; private set; }
+
+            public void AssignCell(SurfaceCell cell, SurfaceTileRole tileRole)
+            {
+                Cell = cell;
+                TileRole = tileRole;
+                HasAssignedCell = true;
+            }
 
             public void SetActive(bool isActive)
             {

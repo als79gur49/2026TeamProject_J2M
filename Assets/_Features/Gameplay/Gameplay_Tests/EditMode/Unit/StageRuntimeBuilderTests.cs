@@ -2054,8 +2054,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { 40, 50 },
                     Array.ConvertAll(staticBindings, binding => binding.EntityId));
                 Assert.That(
-                    typeof(StageRuntimeBuildResult).GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
-                        .Any(member => member.Name.Contains("PresentationBinding", StringComparison.Ordinal)),
+                    typeof(StageRuntimeBuildResult)
+                        .GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+                        .Any(member =>
+                            member.Name.Contains("PresentationBinding", StringComparison.Ordinal) ||
+                            member.Name.Contains("BoardPresentation", StringComparison.Ordinal) ||
+                            member.Name.Contains("BoardRootPrefab", StringComparison.Ordinal) ||
+                            member.Name.Contains("BoardTilePresentation", StringComparison.Ordinal) ||
+                            member.Name.Contains("BoardTileStyle", StringComparison.Ordinal) ||
+                            member.Name.Contains("BoardTilePaint", StringComparison.Ordinal) ||
+                            member.Name.Contains("Catalog", StringComparison.Ordinal) ||
+                            member.Name.Contains("Material", StringComparison.Ordinal) ||
+                            member.Name.Contains("Color", StringComparison.Ordinal)),
                     Is.False);
                 Assert.That(buildResult.InitialEntities.Any(entity => entity.entityId == 10), Is.True);
             }
@@ -2079,6 +2089,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var resolved = StagePresentationAssembler.Resolve(presentation);
                 Assert.That(resolved.TileFeatureBindings, Is.Not.Null);
                 Assert.That(resolved.TileFeatureBindings, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_DefaultsBoardPresentationProfileToNull()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+
+            try
+            {
+                Assert.That(presentation.BoardPresentationProfile, Is.Null);
+                Assert.That(presentation.BoardTileStyleCatalog, Is.Null);
+                Assert.That(presentation.BoardTilePaintOverrides, Is.Not.Null);
+                Assert.That(presentation.BoardTilePaintOverrides, Is.Empty);
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+                Assert.That(resolved.BoardPresentationProfile, Is.Null);
+                Assert.That(resolved.BoardTileStyleCatalog, Is.Null);
+                Assert.That(resolved.BoardTilePaintOverrides, Is.Not.Null);
+                Assert.That(resolved.BoardTilePaintOverrides, Is.Empty);
             }
             finally
             {
@@ -2156,6 +2191,100 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(copy);
+                UnityEngine.Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_ApplyResolvedData_PreservesBoardPresentationProfile()
+        {
+            var source = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
+
+            try
+            {
+                SetPrivateField(source, "boardPresentationProfile", profile);
+
+                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
+                var roundTrip = StagePresentationAssembler.Resolve(copy);
+
+                Assert.That(roundTrip.BoardPresentationProfile, Is.SameAs(profile));
+                Assert.That(copy.BoardPresentationProfile, Is.SameAs(profile));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(copy);
+                UnityEngine.Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationAssembler_ResolvesBoardTileStyleCatalogFromProfileAndPaintOverrides()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
+            var styleCatalog = ScriptableObject.CreateInstance<BoardTileStyleCatalog>();
+
+            try
+            {
+                SetPrivateField(profile, "defaultBoardTileStyleCatalog", styleCatalog);
+                SetPrivateField(presentation, "boardPresentationProfile", profile);
+                SetPrivateField(
+                    presentation,
+                    "boardTilePaintOverrides",
+                    new[]
+                    {
+                        new BoardTilePaintOverride(new SurfaceCell(FaceId.Floor, 0, 0), "paint-key"),
+                    });
+
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+
+                Assert.That(resolved.BoardPresentationProfile, Is.SameAs(profile));
+                Assert.That(resolved.BoardTileStyleCatalog, Is.SameAs(styleCatalog));
+                Assert.That(resolved.BoardTilePaintOverrides, Is.InstanceOf<ReadOnlyCollection<BoardTilePaintOverride>>());
+                Assert.That(resolved.BoardTilePaintOverrides, Has.Count.EqualTo(1));
+                Assert.That(resolved.BoardTilePaintOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(resolved.BoardTilePaintOverrides[0].StyleKey, Is.EqualTo("paint-key"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(styleCatalog);
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_ApplyResolvedData_PreservesBoardTilePaintOverrides()
+        {
+            var source = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+
+            try
+            {
+                SetPrivateField(
+                    source,
+                    "boardTilePaintOverrides",
+                    new[]
+                    {
+                        new BoardTilePaintOverride(new SurfaceCell(FaceId.Front, 1, 0), "front-style"),
+                    });
+
+                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
+                var roundTrip = StagePresentationAssembler.Resolve(copy);
+
+                Assert.That(roundTrip.BoardTilePaintOverrides, Has.Count.EqualTo(1));
+                Assert.That(roundTrip.BoardTilePaintOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+                Assert.That(roundTrip.BoardTilePaintOverrides[0].StyleKey, Is.EqualTo("front-style"));
+            }
+            finally
+            {
                 UnityEngine.Object.DestroyImmediate(copy);
                 UnityEngine.Object.DestroyImmediate(source);
             }

@@ -48,9 +48,12 @@ namespace Game.Feature.Stages
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
+        [SerializeField] private BoardPresentationProfile boardPresentationProfile;
         [SerializeField] private BoardTilePresentationCatalog boardTilePresentationCatalog;
         [SerializeField] private BoardTilePresentationOverride[] boardTilePresentationOverrides =
             Array.Empty<BoardTilePresentationOverride>();
+        [SerializeField] private BoardTilePaintOverride[] boardTilePaintOverrides =
+            Array.Empty<BoardTilePaintOverride>();
         [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
         [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
         [SerializeField] private string resultTitle = "Stage Cleared";
@@ -79,10 +82,18 @@ namespace Game.Feature.Stages
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings =>
             staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
 
+        public BoardPresentationProfile BoardPresentationProfile => boardPresentationProfile;
+
         public BoardTilePresentationCatalog BoardTilePresentationCatalog => boardTilePresentationCatalog;
+
+        public BoardTileStyleCatalog BoardTileStyleCatalog =>
+            boardPresentationProfile != null ? boardPresentationProfile.DefaultBoardTileStyleCatalog : null;
 
         public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =>
             boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
+
+        public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides =>
+            boardTilePaintOverrides ?? Array.Empty<BoardTilePaintOverride>();
 
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog => tileFeaturePresentationCatalog;
 
@@ -111,10 +122,14 @@ namespace Game.Feature.Stages
             staticEntityPresentationCatalog = resolvedData.StaticEntityPresentationCatalog;
             staticEntityPresentationBindings =
                 resolvedData.StaticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            boardPresentationProfile = resolvedData.BoardPresentationProfile;
             boardTilePresentationCatalog = resolvedData.BoardTilePresentationCatalog;
             boardTilePresentationOverrides =
                 StagePresentationAssembler.ToAuthoringBoardTilePresentationOverrides(
                     resolvedData.BoardTilePresentationOverrides);
+            boardTilePaintOverrides =
+                StagePresentationAssembler.ToAuthoringBoardTilePaintOverrides(
+                    resolvedData.BoardTilePaintOverrides);
             tileFeaturePresentationCatalog = resolvedData.TileFeaturePresentationCatalog;
             tileFeaturePresentationBindings =
                 StagePresentationAssembler.ToAuthoringBindings(resolvedData.TileFeatureBindings);
