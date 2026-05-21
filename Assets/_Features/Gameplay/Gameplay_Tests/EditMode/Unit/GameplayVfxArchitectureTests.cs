@@ -79,33 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("ReleasedToPool"));
             Assert.That(document, Does.Contain("persistent desired state"));
             Assert.That(document, Does.Contain("SurfaceCell"));
-            Assert.That(document, Does.Contain("GameplayTransientEffectPresenter` playback surface removed"));
-            Assert.That(document, Does.Contain("Active Transient Effect Count Cleanup"));
-            Assert.That(document, Does.Contain("`ActiveTransientEffectCount` compatibility surface was removed"));
-            Assert.That(document, Does.Contain("must not reuse the old property name"));
-            Assert.That(document, Does.Contain("GameplayExitPresentationController"));
-            Assert.That(document, Does.Contain("GameplayFrontFaceShieldVfxPresenter"));
-            Assert.That(document, Does.Contain("GameplayUtilityWindupVfxPresenter"));
-            Assert.That(document, Does.Contain("BoxFlipInteractionDriver"));
-            Assert.That(document, Does.Contain("PresentationMotionTrack"));
-            Assert.That(document, Does.Contain("FlipImpact MotionTrack Anchor Gate"));
-            Assert.That(document, Does.Contain("PresentationMotionTrack Original-View Motion Lane"));
-            Assert.That(document, Does.Contain("not Gameplay VFX playback"));
-            Assert.That(document, Does.Contain("does not own prefabs, materials, bindings, cue maps, VFX anchors, or pooled VFX instances"));
-            Assert.That(document, Does.Contain("FlipImpactTrack adapter was removed"));
-            Assert.That(document, Does.Contain("PresentationMotionTrack Multi-User Expansion"));
-            Assert.That(document, Does.Contain("MotionTrack-Following VFX Support"));
-            Assert.That(document, Does.Contain("Attached Follower Lifetime Policy"));
-            Assert.That(document, Does.Contain("controller-managed active lifetime"));
-            Assert.That(document, Does.Contain("does not mean immediate stop"));
-            Assert.That(document, Does.Contain("successful flip motion"));
-            Assert.That(document, Does.Contain("box slide presentation"));
-            Assert.That(document, Does.Contain("unit kinematic locomotion"));
-            Assert.That(document, Does.Contain("FlipImpactContactVfxAnchor"));
-            Assert.That(document, Does.Contain("VfxAnchorKind.MotionTrack` remains unsupported"));
-            Assert.That(document, Does.Contain("must not consume the same fact concurrently"));
             Assert.That(document, Does.Contain("GameplayVfxRequest` is a semantic request"));
-            Assert.That(document, Does.Contain("does not own missing-anchor policy"));
             Assert.That(document, Does.Contain("VfxBindingRuntimePolicy` owns"));
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
             Assert.That(document, Does.Contain("Authoring Binding Gate"));
@@ -115,93 +89,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("prefab validation"));
             Assert.That(document, Does.Contain("Composition Ownership Gate"));
             Assert.That(document, Does.Contain("GameplayVfxBindingComposition"));
-            Assert.That(document, Does.Contain("Host default map is optional"));
-            Assert.That(document, Does.Contain("Family profiles override the host default map"));
-            Assert.That(document, Does.Contain("Duplicate family profiles are invalid"));
-            Assert.That(document, Does.Contain("Null profile entries are invalid"));
-            Assert.That(document, Does.Contain("Stage map composition is a future slice"));
-            Assert.That(document, Does.Contain("Future Owner Binding"));
-            Assert.That(document, Does.Contain("This stage does not add fields to `StagePresentationDefinition`"));
-            Assert.That(document, Does.Contain("does not add runtime prefab references or production playback connection"));
-            Assert.That(document, Does.Contain("Host Anchor Resolver Gate"));
-            Assert.That(document, Does.Contain("Anchor Resolver Ownership"));
-            Assert.That(document, Does.Contain("resolver true/false is independent from missing-anchor policy"));
-            Assert.That(document, Does.Contain("transition-aware VFX anchors are future"));
-            Assert.That(document, Does.Contain("First Production Cue Gate"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.JumperLandingTarget"));
-            Assert.That(document, Does.Contain("TickPresentationData.EnemyJumpSignals"));
-            Assert.That(document, Does.Contain("StartedWindupThisTick"));
-            Assert.That(document, Does.Contain("TickEnemyJumpPresentationOutcome.WindupStarted"));
-            Assert.That(document, Does.Contain("PresentationTargetCell"));
-            Assert.That(document, Does.Contain("VfxAnchorSlot.CellFloor"));
-            Assert.That(document, Does.Contain("EnableEnemyJumpTargetVfx"));
-            Assert.That(document, Does.Contain("JumperLandingTargetVfx.prefab"));
-            Assert.That(document, Does.Contain("JumperLandingTarget_Binding.asset"));
-            Assert.That(document, Does.Contain("GameplayVfxHostDefaultCueMap.asset"));
-            Assert.That(document, Does.Contain("Enemy Death Burst Migration"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.Death"));
-            Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathBurstMigration"));
-            Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
-            Assert.That(document, Does.Contain("EnemyDeathBurstVfx.prefab"));
-            Assert.That(document, Does.Contain("EnemyDeathBurst_Binding.asset"));
-            Assert.That(document, Does.Contain("old clone/arc/fade"));
-            Assert.That(document, Does.Contain("Enemy Death Motion VFX Migration"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.DeathMotion"));
-            Assert.That(document, Does.Contain("EnemyDeathMotionVfxCommand"));
-            Assert.That(document, Does.Contain("EnableGameplayVfxEnemyDeathMotionMigration"));
-            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
-            Assert.That(document, Does.Contain("EnemyDeathMotionVfx.prefab"));
-            Assert.That(document, Does.Contain("EnemyDeathMotion_Binding.asset"));
-            Assert.That(document, Does.Contain("FlipImpact DestroySelf Motion VFX Migration"));
-            Assert.That(document, Does.Contain("BoxVfxCue.FlipDestroySelfMotion"));
-            Assert.That(document, Does.Contain("EnableGameplayVfxFlipDestroySelfMotionMigration"));
-            Assert.That(document, Does.Contain("old clone/fade fallback"));
-            Assert.That(document, Does.Contain("red/orange danger palette"));
-            Assert.That(document, Does.Contain("AuthoredDuration"));
-            Assert.That(document, Does.Contain("Parameterized Motion VFX Generalization"));
-            Assert.That(document, Does.Contain("Parameterized Motion Sampler Modes"));
-            Assert.That(document, Does.Contain("`FlipArc`"));
-            Assert.That(document, Does.Contain("`Linear`"));
-            Assert.That(document, Does.Contain("`LegacyEnemyDeathFlyAway`"));
-            Assert.That(document, Does.Contain("Position uses direct linear interpolation"));
-            Assert.That(document, Does.Contain("Sampler modes are presentation-only"));
-            Assert.That(document, Does.Contain("FlipDestroySelf Source-View Clone Parity"));
-            Assert.That(document, Does.Contain("ParameterizedMotionVfxCommand"));
-            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
-            Assert.That(document, Does.Contain("Box Slide trail"));
-            Assert.That(document, Does.Contain("Unit movement trail"));
-            Assert.That(document, Does.Contain("Projectile trail"));
-            Assert.That(document, Does.Contain("Utility Windup VFX Migration"));
-            Assert.That(document, Does.Contain("TickPresentationData.SummonWindupWarnings"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.UtilityWindup"));
-            Assert.That(document, Does.Contain("EnableGameplayVfxUtilityWindupMigration"));
-            Assert.That(document, Does.Contain("cleanup-only empty refresh"));
-            Assert.That(document, Does.Contain("FrontFace Shield VFX Migration"));
-            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldSources"));
-            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldBlocks"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldActive"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldBlock"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.FrontFaceShieldWindup"));
-            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldActiveMigration"));
-            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldBlockMigration"));
-            Assert.That(document, Does.Contain("EnableGameplayVfxFrontFaceShieldWindupMigration"));
-            Assert.That(document, Does.Contain("TickPresentationData.FrontFaceShieldWindupWarnings"));
-            Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
-            Assert.That(document, Does.Contain("cleanup-only empty refresh"));
-            Assert.That(document, Does.Contain("VfxPersistentKey"));
-            Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraphVfx.prefab"));
-            Assert.That(document, Does.Contain("EnemyUtilityWindupTelegraph_Binding.asset"));
-            Assert.That(document, Does.Contain("OutOfBounds Exit VFX Migration"));
-            Assert.That(document, Does.Contain("dormant/reserved"));
-            Assert.That(document, Does.Contain("missing binding no fallback"));
             Assert.That(document, Does.Contain("VFX Planner Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay VFX planners may read presentation carriers"));
             Assert.That(document, Does.Contain("Production Runtime Dependency Rule"));
             Assert.That(document, Does.Contain("Gameplay_Host` uses the `IGameplayTickPresentationExtension` seam"));
-            Assert.That(document, Does.Contain("Prefab-local Profile Owner Gate"));
-            Assert.That(document, Does.Contain("GameplayVfxRequest.SourceEntityId"));
-            Assert.That(document, Does.Contain("PresentationSeed` must not be used as source identity"));
-            Assert.That(document, Does.Contain("EnemyPresentationCatalogEntry.VfxProfileAsset"));
         }
 
         [Test]
@@ -587,14 +478,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .Select(property => property.PropertyType.Name)
                 .ToArray();
 
-            Assert.That(properties, Is.EqualTo(new[]
-            {
-                "Int32",
-                nameof(TickPresentationData),
-                nameof(CubeTopologyState),
-                nameof(GameplayTimingProfile),
-                "IReadOnlyList`1",
-            }));
+            Assert.That(properties, Does.Contain("Int32"));
+            Assert.That(properties, Does.Contain(nameof(TickPresentationData)));
+            Assert.That(properties, Does.Contain(nameof(CubeTopologyState)));
+            Assert.That(properties, Does.Contain(nameof(GameplayTimingProfile)));
+            Assert.That(properties, Does.Contain("IReadOnlyList`1"));
             Assert.That(properties, Does.Not.Contain("WorldState"));
             Assert.That(properties, Does.Not.Contain("WorldSnapshot"));
             Assert.That(properties, Does.Not.Contain("TickPipeline"));

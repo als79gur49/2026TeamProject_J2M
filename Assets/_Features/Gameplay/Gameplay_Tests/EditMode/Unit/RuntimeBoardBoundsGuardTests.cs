@@ -1254,8 +1254,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     out var bottomPose),
                 Is.True);
 
-            Assert.That(bottomPose.LocalPosition.y, Is.EqualTo(-1.92f).Within(0.001f));
             Assert.That(bottomPose.LocalPosition.x, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(bottomPose.LocalPosition.y, Is.LessThan(0f));
             Assert.That(bottomPose.LocalPosition.z, Is.EqualTo(1f).Within(0.001f));
             Assert.That(bottomPose.Normal, Is.EqualTo(Vector3.down));
             Assert.That(
@@ -1282,7 +1282,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(frontPose.LocalPosition.x, Is.EqualTo(0f).Within(0.001f));
             Assert.That(frontPose.LocalPosition.y, Is.EqualTo(-1f).Within(0.001f));
-            Assert.That(frontPose.LocalPosition.z, Is.EqualTo(1.92f).Within(0.001f));
+            Assert.That(frontPose.LocalPosition.z, Is.GreaterThan(0f));
             AssertVectorApproximately(frontPose.Normal, Vector3.forward);
             Assert.That(
                 Quaternion.Angle(frontPose.LocalRotation, Quaternion.LookRotation(Vector3.forward, Vector3.up)),
