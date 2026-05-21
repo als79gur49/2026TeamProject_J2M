@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
@@ -281,6 +282,321 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [Test]
+        public void SetBoardTilePaintOverride_ReplacesExistingCellPaint()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "grass",
+                    out var firstError), Is.True, firstError);
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "danger",
+                    out var secondError), Is.True, secondError);
+
+                Assert.That(presentation.BoardTilePaintOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTilePaintOverrides[0].Cell, Is.EqualTo(cell));
+                Assert.That(presentation.BoardTilePaintOverrides[0].StyleKey, Is.EqualTo("danger"));
+                Assert.That(EditorUtility.IsDirty(presentation), Is.True);
+            });
+        }
+
+        [Test]
+        public void ClearBoardTilePaintOverride_RemovesOnlySelectedCell()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var first = new SurfaceCell(FaceId.Floor, 0, 0);
+                var second = new SurfaceCell(FaceId.Floor, 1, 0);
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    first,
+                    "grass",
+                    out _), Is.True);
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    second,
+                    "danger",
+                    out _), Is.True);
+
+                var cleared = StageAuthoringPresentationBindingCommands.TryClearBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    first,
+                    out var error);
+
+                Assert.That(cleared, Is.True, error);
+                Assert.That(presentation.BoardTilePaintOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTilePaintOverrides[0].Cell, Is.EqualTo(second));
+                Assert.That(presentation.BoardTilePaintOverrides[0].StyleKey, Is.EqualTo("danger"));
+            });
+        }
+
+        [Test]
+        public void AddBoardTileOverlayOverride_AllowsDifferentKeysOnSameCell()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "guide",
+                    out var guideError), Is.True, guideError);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "danger",
+                    out var dangerError), Is.True, dangerError);
+
+                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(2));
+                Assert.That(
+                    presentation.BoardTileOverlayOverrides.Select(entry => entry.OverlayKey).ToArray(),
+                    Is.EqualTo(new[] { "danger", "guide" }));
+            });
+        }
+
+        [Test]
+        public void AddBoardTileOverlayOverride_DoesNotDuplicateSameCellAndKey()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "guide",
+                    out _), Is.True);
+                EditorUtility.ClearDirty(presentation);
+
+                var changed = StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    " guide ",
+                    out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
+                Assert.That(EditorUtility.IsDirty(presentation), Is.False);
+            });
+        }
+
+        [Test]
+        public void RemoveBoardTileOverlayOverride_RemovesOnlySelectedKey()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "guide",
+                    out _), Is.True);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "danger",
+                    out _), Is.True);
+
+                var removed = StageAuthoringPresentationBindingCommands.TryRemoveBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "guide",
+                    out var error);
+
+                Assert.That(removed, Is.True, error);
+                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
+            });
+        }
+
+        [Test]
+        public void ClearBoardTileOverlayOverrides_RemovesOnlySelectedCell()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var first = new SurfaceCell(FaceId.Floor, 0, 0);
+                var second = new SurfaceCell(FaceId.Floor, 1, 0);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    first,
+                    "guide",
+                    out _), Is.True);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    second,
+                    "danger",
+                    out _), Is.True);
+
+                var cleared = StageAuthoringPresentationBindingCommands.TryClearBoardTileOverlayOverrides(
+                    presentation,
+                    authoring,
+                    first,
+                    out var error);
+
+                Assert.That(cleared, Is.True, error);
+                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTileOverlayOverrides[0].Cell, Is.EqualTo(second));
+                Assert.That(presentation.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
+            });
+        }
+
+        [Test]
+        public void ClearBoardTileOverlayOverridesByLayer_RemovesOnlyMatchingLayer()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "guide",
+                    out _), Is.True);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "danger",
+                    out _), Is.True);
+
+                var cleared = StageAuthoringPresentationBindingCommands.TryClearBoardTileOverlayOverridesByLayer(
+                    presentation,
+                    authoring,
+                    cell,
+                    BoardTileOverlayLayer.Guide,
+                    out var error);
+
+                Assert.That(cleared, Is.True, error);
+                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
+                Assert.That(presentation.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
+            });
+        }
+
+        [Test]
+        public void BoardTilePaintAndOverlayCommands_RejectInvalidCellsAndKeys()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var invalidFace = new SurfaceCell((FaceId)999, 0, 0);
+                var outsideBounds = new SurfaceCell(FaceId.Floor, 9, 9);
+
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    invalidFace,
+                    "grass",
+                    out _), Is.False);
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    outsideBounds,
+                    "grass",
+                    out _), Is.False);
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    " ",
+                    out _), Is.False);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    invalidFace,
+                    "guide",
+                    out _), Is.False);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    outsideBounds,
+                    "guide",
+                    out _), Is.False);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    "",
+                    out _), Is.False);
+
+                Assert.That(presentation.BoardTilePaintOverrides, Is.Empty);
+                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
+            });
+        }
+
+        [Test]
+        public void BoardTilePaintAndOverlayCommands_RejectMissingCatalogAndMissingCatalogKey()
+        {
+            WithBoardTileFixture((authoring, presentation) =>
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "missing-style",
+                    out _), Is.False);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    presentation,
+                    authoring,
+                    cell,
+                    "missing-overlay",
+                    out _), Is.False);
+                Assert.That(presentation.BoardTilePaintOverrides, Is.Empty);
+                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
+            });
+
+            var missingCatalogAuthoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var missingCatalogPresentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            try
+            {
+                missingCatalogAuthoring.SetBoard(new StageBoardDefinition
+                {
+                    MinInclusive = Vector2Int.zero,
+                    MaxInclusive = Vector2Int.one,
+                    InitialBottomFace = FaceId.Floor,
+                });
+
+                Assert.That(StageAuthoringPresentationBindingCommands.TrySetBoardTilePaintOverride(
+                    missingCatalogPresentation,
+                    missingCatalogAuthoring,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    "grass",
+                    out _), Is.False);
+                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
+                    missingCatalogPresentation,
+                    missingCatalogAuthoring,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    "guide",
+                    out _), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(missingCatalogPresentation);
+                Object.DestroyImmediate(missingCatalogAuthoring);
+            }
+        }
+
         private static void WithFixture(
             System.Action<StageAuthoringDefinition, StagePresentationDefinition, GameObject> action)
         {
@@ -299,6 +615,39 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 Object.DestroyImmediate(prefab);
+                Object.DestroyImmediate(presentation);
+                Object.DestroyImmediate(authoring);
+            }
+        }
+
+        private static void WithBoardTileFixture(
+            System.Action<StageAuthoringDefinition, StagePresentationDefinition> action)
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var styleCatalog = CreateStyleCatalog(
+                StyleEntry("grass", "Grass", Color.green),
+                StyleEntry("danger", "Danger", Color.red));
+            var overlayCatalog = CreateOverlayCatalog(
+                OverlayEntry("guide", "Guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.5f, 10),
+                OverlayEntry("danger", "Danger", BoardTileOverlayLayer.Danger, Color.red, 0.75f, 20));
+            var profile = CreateBoardPresentationProfile(styleCatalog, overlayCatalog);
+            try
+            {
+                authoring.SetBoard(new StageBoardDefinition
+                {
+                    MinInclusive = Vector2Int.zero,
+                    MaxInclusive = new Vector2Int(2, 2),
+                    InitialBottomFace = FaceId.Floor,
+                });
+                SetPrivateField(presentation, "boardPresentationProfile", profile);
+                action(authoring, presentation);
+            }
+            finally
+            {
+                Object.DestroyImmediate(profile);
+                Object.DestroyImmediate(overlayCatalog);
+                Object.DestroyImmediate(styleCatalog);
                 Object.DestroyImmediate(presentation);
                 Object.DestroyImmediate(authoring);
             }
@@ -339,6 +688,72 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static BoardTileStyleCatalogEntry StyleEntry(
+            string styleKey,
+            string displayName,
+            Color tint)
+        {
+            var entry = new BoardTileStyleCatalogEntry();
+            SetPrivateField(entry, "styleKey", styleKey);
+            SetPrivateField(entry, "displayName", displayName);
+            SetPrivateField(entry, "tint", tint);
+            return entry;
+        }
+
+        private static BoardTileStyleCatalog CreateStyleCatalog(params BoardTileStyleCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<BoardTileStyleCatalog>();
+            catalog.name = "StageAuthoringPresentationBindingCommandTests_StyleCatalog";
+            SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTileStyleCatalogEntry>());
+            return catalog;
+        }
+
+        private static BoardTileOverlayCatalogEntry OverlayEntry(
+            string overlayKey,
+            string displayName,
+            BoardTileOverlayLayer layer,
+            Color tint,
+            float alpha,
+            int order)
+        {
+            var entry = new BoardTileOverlayCatalogEntry();
+            SetPrivateField(entry, "overlayKey", overlayKey);
+            SetPrivateField(entry, "displayName", displayName);
+            SetPrivateField(entry, "layer", layer);
+            SetPrivateField(entry, "tint", tint);
+            SetPrivateField(entry, "alpha", alpha);
+            SetPrivateField(entry, "order", order);
+            return entry;
+        }
+
+        private static BoardTileOverlayCatalog CreateOverlayCatalog(params BoardTileOverlayCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<BoardTileOverlayCatalog>();
+            catalog.name = "StageAuthoringPresentationBindingCommandTests_OverlayCatalog";
+            SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTileOverlayCatalogEntry>());
+            return catalog;
+        }
+
+        private static BoardPresentationProfile CreateBoardPresentationProfile(
+            BoardTileStyleCatalog styleCatalog,
+            BoardTileOverlayCatalog overlayCatalog)
+        {
+            var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
+            profile.name = "StageAuthoringPresentationBindingCommandTests_BoardProfile";
+            SetPrivateField(profile, "defaultBoardTileStyleCatalog", styleCatalog);
+            SetPrivateField(profile, "defaultBoardTileOverlayCatalog", overlayCatalog);
+            return profile;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
     }
 }
