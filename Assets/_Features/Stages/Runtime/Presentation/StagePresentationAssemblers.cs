@@ -79,8 +79,10 @@ namespace Game.Feature.Stages
             BoardPresentationProfile boardPresentationProfile,
             BoardTilePresentationCatalog boardTilePresentationCatalog,
             BoardTileStyleCatalog boardTileStyleCatalog,
+            BoardTileOverlayCatalog boardTileOverlayCatalog,
             IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides,
             IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides,
+            IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides,
             TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             string resultTitle,
@@ -102,8 +104,10 @@ namespace Game.Feature.Stages
             BoardPresentationProfile = boardPresentationProfile;
             BoardTilePresentationCatalog = boardTilePresentationCatalog;
             BoardTileStyleCatalog = boardTileStyleCatalog;
+            BoardTileOverlayCatalog = boardTileOverlayCatalog;
             BoardTilePresentationOverrides = CloneReadOnlyBoardTileOverrides(boardTilePresentationOverrides);
             BoardTilePaintOverrides = CloneReadOnlyBoardTilePaintOverrides(boardTilePaintOverrides);
+            BoardTileOverlayOverrides = CloneReadOnlyBoardTileOverlayOverrides(boardTileOverlayOverrides);
             TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
             TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
             SuppressedBaseTileCells = CloneReadOnlySurfaceCells(suppressedBaseTileCells);
@@ -139,9 +143,13 @@ namespace Game.Feature.Stages
 
         public BoardTileStyleCatalog BoardTileStyleCatalog { get; }
 
+        public BoardTileOverlayCatalog BoardTileOverlayCatalog { get; }
+
         public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
 
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides { get; }
+
+        public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides { get; }
 
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog { get; }
 
@@ -214,6 +222,26 @@ namespace Game.Feature.Stages
             return new ReadOnlyCollection<BoardTilePaintOverride>(overrides);
         }
 
+        private static IReadOnlyList<BoardTileOverlayOverride> CloneReadOnlyBoardTileOverlayOverrides(
+            IReadOnlyList<BoardTileOverlayOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTileOverlayOverride>();
+            }
+
+            var overrides = new BoardTileOverlayOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey);
+            }
+
+            return new ReadOnlyCollection<BoardTileOverlayOverride>(overrides);
+        }
+
         private static IReadOnlyList<SurfaceCell> CloneReadOnlySurfaceCells(
             IReadOnlyList<SurfaceCell> source)
         {
@@ -268,8 +296,10 @@ namespace Game.Feature.Stages
             null,
             null,
             null,
+            null,
             Array.Empty<BoardTilePresentationOverride>(),
             Array.Empty<BoardTilePaintOverride>(),
+            Array.Empty<BoardTileOverlayOverride>(),
             null,
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
             string.Empty,
@@ -299,8 +329,10 @@ namespace Game.Feature.Stages
                 definition.BoardPresentationProfile,
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTileStyleCatalog,
+                definition.BoardTileOverlayCatalog,
                 definition.BoardTilePresentationOverrides,
                 definition.BoardTilePaintOverrides,
+                definition.BoardTileOverlayOverrides,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
                 definition.ResultTitle,
@@ -338,8 +370,10 @@ namespace Game.Feature.Stages
                 definition.BoardPresentationProfile,
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTileStyleCatalog,
+                definition.BoardTileOverlayCatalog,
                 definition.BoardTilePresentationOverrides,
                 definition.BoardTilePaintOverrides,
+                definition.BoardTileOverlayOverrides,
                 definition.TileFeaturePresentationCatalog,
                 tileFeatureBindings,
                 definition.ResultTitle,
@@ -405,6 +439,26 @@ namespace Game.Feature.Stages
                 overrides[i] = entry == null
                     ? null
                     : new BoardTilePaintOverride(entry.Cell, entry.StyleKey);
+            }
+
+            return overrides;
+        }
+
+        public static BoardTileOverlayOverride[] ToAuthoringBoardTileOverlayOverrides(
+            IReadOnlyList<BoardTileOverlayOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTileOverlayOverride>();
+            }
+
+            var overrides = new BoardTileOverlayOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey);
             }
 
             return overrides;

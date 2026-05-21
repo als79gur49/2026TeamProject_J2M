@@ -1073,6 +1073,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     null,
                     null,
                     null,
+                    null,
                     Array.Empty<TileFeaturePresentationResolvedBinding>());
             }
 

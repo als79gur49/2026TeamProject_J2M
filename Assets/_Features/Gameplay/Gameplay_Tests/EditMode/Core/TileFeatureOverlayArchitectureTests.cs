@@ -862,6 +862,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             var boardTileStyleCatalog = "BoardTile" + "StyleCatalog";
             var boardTileStyle = "BoardTile" + "Style";
             var boardTilePaintOverride = "BoardTile" + "PaintOverride";
+            var boardTileOverlayCatalog = "BoardTile" + "OverlayCatalog";
+            var boardTileOverlayOverride = "BoardTile" + "OverlayOverride";
             var gameplayLoopSources = Directory.GetFiles(
                 GetAbsolutePath(GameplayLoopRuntimePath),
                 "*.cs",
@@ -878,6 +880,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Assert.That(source, Does.Not.Contain(boardTileStyleCatalog), sourcePath);
                 Assert.That(source, Does.Not.Contain(boardTileStyle), sourcePath);
                 Assert.That(source, Does.Not.Contain(boardTilePaintOverride), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayOverride), sourcePath);
             }
 
             foreach (var sourcePath in boardStateSources)
@@ -887,6 +891,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Assert.That(source, Does.Not.Contain(boardTileStyleCatalog), sourcePath);
                 Assert.That(source, Does.Not.Contain(boardTileStyle), sourcePath);
                 Assert.That(source, Does.Not.Contain(boardTilePaintOverride), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayCatalog), sourcePath);
+                Assert.That(source, Does.Not.Contain(boardTileOverlayOverride), sourcePath);
             }
         }
 

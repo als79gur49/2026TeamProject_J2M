@@ -54,6 +54,8 @@ namespace Game.Feature.Stages
             Array.Empty<BoardTilePresentationOverride>();
         [SerializeField] private BoardTilePaintOverride[] boardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
+        [SerializeField] private BoardTileOverlayOverride[] boardTileOverlayOverrides =
+            Array.Empty<BoardTileOverlayOverride>();
         [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
         [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
         [SerializeField] private string resultTitle = "Stage Cleared";
@@ -89,11 +91,17 @@ namespace Game.Feature.Stages
         public BoardTileStyleCatalog BoardTileStyleCatalog =>
             boardPresentationProfile != null ? boardPresentationProfile.DefaultBoardTileStyleCatalog : null;
 
+        public BoardTileOverlayCatalog BoardTileOverlayCatalog =>
+            boardPresentationProfile != null ? boardPresentationProfile.DefaultBoardTileOverlayCatalog : null;
+
         public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =>
             boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
 
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides =>
             boardTilePaintOverrides ?? Array.Empty<BoardTilePaintOverride>();
+
+        public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides =>
+            boardTileOverlayOverrides ?? Array.Empty<BoardTileOverlayOverride>();
 
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog => tileFeaturePresentationCatalog;
 
@@ -130,6 +138,9 @@ namespace Game.Feature.Stages
             boardTilePaintOverrides =
                 StagePresentationAssembler.ToAuthoringBoardTilePaintOverrides(
                     resolvedData.BoardTilePaintOverrides);
+            boardTileOverlayOverrides =
+                StagePresentationAssembler.ToAuthoringBoardTileOverlayOverrides(
+                    resolvedData.BoardTileOverlayOverrides);
             tileFeaturePresentationCatalog = resolvedData.TileFeaturePresentationCatalog;
             tileFeaturePresentationBindings =
                 StagePresentationAssembler.ToAuthoringBindings(resolvedData.TileFeatureBindings);

@@ -190,6 +190,8 @@ namespace Game.Feature.Gameplay.Host
                 configuration.BoardTilePresentationOverrides,
                 configuration.BoardTileStyleCatalog,
                 configuration.BoardTilePaintOverrides,
+                configuration.BoardTileOverlayCatalog,
+                configuration.BoardTileOverlayOverrides,
                 configuration.SuppressedBaseTileCells);
 
             var viewCameraTarget = boardRoot.CameraTargetRoot;

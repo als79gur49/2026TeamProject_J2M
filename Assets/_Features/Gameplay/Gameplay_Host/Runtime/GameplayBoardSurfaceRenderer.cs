@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Stages;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -13,13 +14,17 @@ namespace Game.Feature.Gameplay.Host
             GameObject gameObject,
             Transform transform,
             BoardTileVisualRole visualRole,
-            IReadOnlyList<Renderer> styleRenderers)
+            IReadOnlyList<Renderer> styleRenderers,
+            Transform overlayRoot,
+            IReadOnlyList<Renderer> overlayRenderers)
         {
             Cell = cell;
             GameObject = gameObject;
             Transform = transform;
             VisualRole = visualRole;
             StyleRenderers = styleRenderers ?? Array.Empty<Renderer>();
+            OverlayRoot = overlayRoot;
+            OverlayRenderers = overlayRenderers ?? Array.Empty<Renderer>();
         }
 
         public SurfaceCell Cell { get; }
@@ -32,6 +37,10 @@ namespace Game.Feature.Gameplay.Host
 
         public IReadOnlyList<Renderer> StyleRenderers { get; }
 
+        public Transform OverlayRoot { get; }
+
+        public IReadOnlyList<Renderer> OverlayRenderers { get; }
+
         public bool IsActive => GameObject != null && GameObject.activeSelf;
     }
 
@@ -40,6 +49,10 @@ namespace Game.Feature.Gameplay.Host
     {
         private const string VisibleTilePoolObjectName = "VisibleTilePool";
         private const string TransitionTilePoolObjectName = "TransitionTilePool";
+        private const string TileOverlayRootObjectName = "BoardTileOverlays";
+        private const float OverlayLocalZ = 0.515f;
+        private const float OverlayLocalZStep = 0.006f;
+        private const float OverlayLocalScale = 0.92f;
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
         [SerializeField] private bool renderDecorativeFaces = false;
@@ -62,14 +75,20 @@ namespace Game.Feature.Gameplay.Host
         private BoardTileStyleCatalog _boardTileStyleCatalog;
         private BoardTilePaintOverride[] _boardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
+        private BoardTileOverlayCatalog _boardTileOverlayCatalog;
+        private BoardTileOverlayOverride[] _boardTileOverlayOverrides =
+            Array.Empty<BoardTileOverlayOverride>();
         private Dictionary<SurfaceCell, string> _boardTilePresentationOverrideLookup = new();
         private Dictionary<SurfaceCell, string> _boardTilePaintOverrideLookup = new();
+        private Dictionary<SurfaceCell, List<BoardTileOverlayOverride>> _boardTileOverlayOverrideLookup = new();
         private HashSet<SurfaceCell> _suppressedBaseTileCells = new();
         private MaterialPropertyBlock _stylePropertyBlock;
+        private MaterialPropertyBlock _overlayPropertyBlock;
         private Material _activeBottomFaceMaterial;
         private Material _activeFrontFaceMaterial;
         private Material _decorativeBackFaceMaterial;
         private Material _decorativeTopFaceMaterial;
+        private Material _overlayMaterial;
         private bool _isInitialized;
         private bool _areSteadyTilesVisible = true;
         private bool _hasAppliedSteadyTopology;
@@ -133,6 +152,8 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
             BoardTileStyleCatalog boardTileStyleCatalog = null,
             IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
+            BoardTileOverlayCatalog boardTileOverlayCatalog = null,
+            IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides = null,
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             if (!boardBounds.IsBounded)
@@ -167,6 +188,16 @@ namespace Game.Feature.Gameplay.Host
             _boardTilePaintOverrides = CloneBoardTilePaintOverrides(boardTilePaintOverrides);
             _boardTilePaintOverrideLookup =
                 BuildBoardTilePaintOverrideLookup(_boardTilePaintOverrides);
+            _boardTileOverlayCatalog = boardTileOverlayCatalog;
+            _boardTileOverlayOverrides = CloneBoardTileOverlayOverrides(boardTileOverlayOverrides);
+            _boardTileOverlayOverrideLookup =
+                BuildBoardTileOverlayOverrideLookup(_boardTileOverlayOverrides);
+            if (_boardTileOverlayCatalog == null && _boardTileOverlayOverrides.Length > 0)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "BoardTileOverlayOverride entries are configured but no BoardTileOverlayCatalog is assigned. Overlay visuals will be skipped.");
+            }
+
             _suppressedBaseTileCells = BuildSuppressedBaseTileCellSet(suppressedBaseTileCells);
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
@@ -441,6 +472,7 @@ namespace Game.Feature.Gameplay.Host
                 _activeFrontFaceMaterial = sharedTileMaterial;
                 _decorativeTopFaceMaterial = sharedTileMaterial;
                 _decorativeBackFaceMaterial = sharedTileMaterial;
+                EnsureOverlayMaterial();
                 return;
             }
 
@@ -450,6 +482,7 @@ namespace Game.Feature.Gameplay.Host
                 _decorativeBackFaceMaterial != null &&
                 _ownedMaterials.Count > 0)
             {
+                EnsureOverlayMaterial();
                 return;
             }
 
@@ -464,6 +497,64 @@ namespace Game.Feature.Gameplay.Host
             _activeFrontFaceMaterial = CreateMaterial(shader, "BoardSurface_ActiveFront", new Color(0.63f, 0.72f, 0.82f));
             _decorativeTopFaceMaterial = CreateMaterial(shader, "BoardSurface_DecorativeTop", new Color(0.45f, 0.5f, 0.58f));
             _decorativeBackFaceMaterial = CreateMaterial(shader, "BoardSurface_DecorativeBack", new Color(0.33f, 0.37f, 0.44f));
+            EnsureOverlayMaterial();
+        }
+
+        private void EnsureOverlayMaterial()
+        {
+            if (_overlayMaterial != null)
+            {
+                return;
+            }
+
+            var shader = Shader.Find("Universal Render Pipeline/Unlit") ??
+                         Shader.Find("Sprites/Default") ??
+                         Shader.Find("Standard");
+            if (shader == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "GameplayBoardSurfaceRenderer could not find a shader for board tile overlays. Overlay visuals will be skipped.");
+                return;
+            }
+
+            _overlayMaterial = new Material(shader)
+            {
+                name = "BoardSurface_Overlay",
+                color = Color.white,
+            };
+            ConfigureTransparentMaterial(_overlayMaterial);
+            _ownedMaterials.Add(_overlayMaterial);
+        }
+
+        private static void ConfigureTransparentMaterial(Material material)
+        {
+            if (material == null)
+            {
+                return;
+            }
+
+            if (material.HasProperty("_Surface"))
+            {
+                material.SetFloat("_Surface", 1f);
+            }
+
+            if (material.HasProperty("_SrcBlend"))
+            {
+                material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+            }
+
+            if (material.HasProperty("_DstBlend"))
+            {
+                material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            }
+
+            if (material.HasProperty("_ZWrite"))
+            {
+                material.SetInt("_ZWrite", 0);
+            }
+
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)RenderQueue.Transparent;
         }
 
         private Material CreateMaterial(Shader shader, string materialName, Color color)
@@ -565,8 +656,35 @@ namespace Game.Feature.Gameplay.Host
 
             var renderer = tileObject.GetComponent<MeshRenderer>();
             var styleRenderers = tileObject.GetComponentsInChildren<Renderer>(includeInactive: true);
+            var overlayRoot = CreateTileOverlayRoot(tileObject.transform);
             tileObject.SetActive(false);
-            return new SurfaceTileView(tileObject, tileObject.transform, renderer, styleRenderers, descriptor);
+            return new SurfaceTileView(
+                tileObject,
+                tileObject.transform,
+                renderer,
+                styleRenderers,
+                overlayRoot,
+                descriptor);
+        }
+
+        private static Transform CreateTileOverlayRoot(Transform tileRoot)
+        {
+            var existingRoot = tileRoot.Find(TileOverlayRootObjectName);
+            if (existingRoot != null)
+            {
+                existingRoot.localPosition = Vector3.zero;
+                existingRoot.localRotation = Quaternion.identity;
+                existingRoot.localScale = Vector3.one;
+                return existingRoot;
+            }
+
+            var overlayRootObject = new GameObject(TileOverlayRootObjectName);
+            var overlayRoot = overlayRootObject.transform;
+            overlayRoot.SetParent(tileRoot, worldPositionStays: false);
+            overlayRoot.localPosition = Vector3.zero;
+            overlayRoot.localRotation = Quaternion.identity;
+            overlayRoot.localScale = Vector3.one;
+            return overlayRoot;
         }
 
         private int PopulateFaceTiles(
@@ -697,9 +815,10 @@ namespace Game.Feature.Gameplay.Host
                 tileView.Renderer.sharedMaterial = tileView.Descriptor.MaterialFallback ?? ResolveMaterial(tileRole);
             }
 
-            ApplyTileStyle(tileView, cell);
             tileView.SetActive(true);
             RegisterTileVisualHandle(cell, tileRole, tileView);
+            ApplyTileStyle(tileView, cell);
+            ApplyTileOverlays(tileView, cell);
         }
 
         private int GetRequiredTileCount()
@@ -904,6 +1023,57 @@ namespace Game.Feature.Gameplay.Host
             return lookup;
         }
 
+        private static BoardTileOverlayOverride[] CloneBoardTileOverlayOverrides(
+            IReadOnlyList<BoardTileOverlayOverride> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<BoardTileOverlayOverride>();
+            }
+
+            var overrides = new BoardTileOverlayOverride[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                overrides[i] = entry == null
+                    ? null
+                    : new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey);
+            }
+
+            return overrides;
+        }
+
+        private static Dictionary<SurfaceCell, List<BoardTileOverlayOverride>> BuildBoardTileOverlayOverrideLookup(
+            IReadOnlyList<BoardTileOverlayOverride> source)
+        {
+            var lookup = new Dictionary<SurfaceCell, List<BoardTileOverlayOverride>>();
+            if (source == null)
+            {
+                return lookup;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                if (entry == null ||
+                    !Enum.IsDefined(typeof(FaceId), entry.Cell.face) ||
+                    string.IsNullOrEmpty(entry.OverlayKey))
+                {
+                    continue;
+                }
+
+                if (!lookup.TryGetValue(entry.Cell, out var overlays))
+                {
+                    overlays = new List<BoardTileOverlayOverride>();
+                    lookup.Add(entry.Cell, overlays);
+                }
+
+                overlays.Add(entry);
+            }
+
+            return lookup;
+        }
+
         private void ApplyTileStyle(
             SurfaceTileView tileView,
             SurfaceCell cell)
@@ -971,6 +1141,164 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 targetRenderer.SetPropertyBlock(_stylePropertyBlock);
+            }
+        }
+
+        private void ApplyTileOverlays(
+            SurfaceTileView tileView,
+            SurfaceCell cell)
+        {
+            ClearTileOverlays(tileView);
+            if (tileView == null ||
+                _boardTileOverlayCatalog == null ||
+                _boardTileOverlayOverrideLookup == null ||
+                !_boardTileOverlayOverrideLookup.TryGetValue(cell, out var overlays) ||
+                overlays == null ||
+                overlays.Count == 0)
+            {
+                return;
+            }
+
+            var resolved = new List<ResolvedBoardTileOverlay>(overlays.Count);
+            for (var i = 0; i < overlays.Count; i++)
+            {
+                var overlay = overlays[i];
+                if (overlay == null ||
+                    string.IsNullOrEmpty(overlay.OverlayKey))
+                {
+                    continue;
+                }
+
+                if (_boardTileOverlayCatalog.TryGetEntry(overlay.OverlayKey, out var entry))
+                {
+                    resolved.Add(new ResolvedBoardTileOverlay(overlay.OverlayKey, entry, i));
+                    continue;
+                }
+
+                UnityEngine.Debug.LogWarning(
+                    $"BoardTileOverlayOverride for cell '{cell}' could not resolve OverlayKey '{overlay.OverlayKey}' in BoardTileOverlayCatalog '{_boardTileOverlayCatalog.name}'. Overlay visual will be skipped.");
+            }
+
+            if (resolved.Count == 0)
+            {
+                return;
+            }
+
+            resolved.Sort(CompareResolvedBoardTileOverlays);
+            for (var i = 0; i < resolved.Count; i++)
+            {
+                if (!TryCreateOverlayRenderer(tileView, resolved[i], i))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"GameplayBoardSurfaceRenderer could not create board tile overlay '{resolved[i].OverlayKey}' for cell '{cell}'.");
+                }
+            }
+        }
+
+        private static int CompareResolvedBoardTileOverlays(
+            ResolvedBoardTileOverlay left,
+            ResolvedBoardTileOverlay right)
+        {
+            var orderComparison = left.Entry.Order.CompareTo(right.Entry.Order);
+            return orderComparison != 0 ? orderComparison : left.AuthoredIndex.CompareTo(right.AuthoredIndex);
+        }
+
+        private bool TryCreateOverlayRenderer(
+            SurfaceTileView tileView,
+            ResolvedBoardTileOverlay overlay,
+            int sortedIndex)
+        {
+            if (tileView?.OverlayRoot == null ||
+                _overlayMaterial == null)
+            {
+                return false;
+            }
+
+            var overlayObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            overlayObject.name = $"Overlay_{sortedIndex}_{overlay.OverlayKey}";
+            var overlayTransform = overlayObject.transform;
+            overlayTransform.SetParent(tileView.OverlayRoot, worldPositionStays: false);
+            overlayTransform.localPosition = new Vector3(
+                0f,
+                0f,
+                OverlayLocalZ + (OverlayLocalZStep * sortedIndex));
+            overlayTransform.localRotation = Quaternion.identity;
+            overlayTransform.localScale = new Vector3(OverlayLocalScale, OverlayLocalScale, 1f);
+
+            var collider = overlayObject.GetComponent<Collider>();
+            if (collider != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(collider);
+                }
+                else
+                {
+                    DestroyImmediate(collider);
+                }
+            }
+
+            var overlayRenderer = overlayObject.GetComponent<MeshRenderer>();
+            if (overlayRenderer == null)
+            {
+                DestroyOverlayObject(overlayObject);
+                return false;
+            }
+
+            overlayRenderer.sharedMaterial = _overlayMaterial;
+            ApplyOverlayPropertyBlock(overlayRenderer, overlay.Entry);
+            tileView.AddOverlayRenderer(overlayRenderer);
+            return true;
+        }
+
+        private void ApplyOverlayPropertyBlock(
+            Renderer targetRenderer,
+            BoardTileOverlayCatalogEntry entry)
+        {
+            if (targetRenderer == null ||
+                entry == null)
+            {
+                return;
+            }
+
+            var overlayColor = entry.Tint;
+            overlayColor.a = Mathf.Clamp01(entry.Alpha);
+            _overlayPropertyBlock ??= new MaterialPropertyBlock();
+            _overlayPropertyBlock.Clear();
+            _overlayPropertyBlock.SetColor(BaseColorPropertyId, overlayColor);
+            _overlayPropertyBlock.SetColor(ColorPropertyId, overlayColor);
+            targetRenderer.SetPropertyBlock(_overlayPropertyBlock);
+        }
+
+        private void ClearTileOverlays(SurfaceTileView tileView)
+        {
+            tileView?.ClearOverlayRenderers();
+            var overlayRoot = tileView?.OverlayRoot;
+            if (overlayRoot == null)
+            {
+                return;
+            }
+
+            for (var i = overlayRoot.childCount - 1; i >= 0; i--)
+            {
+                DestroyOverlayObject(overlayRoot.GetChild(i).gameObject);
+            }
+        }
+
+        private static void DestroyOverlayObject(GameObject overlayObject)
+        {
+            if (overlayObject == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(overlayObject);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(overlayObject);
             }
         }
 
@@ -1196,7 +1524,9 @@ namespace Game.Feature.Gameplay.Host
                 tileView.GameObject,
                 tileView.Transform,
                 ToBoardTileVisualRole(tileRole),
-                tileView.StyleRenderers);
+                tileView.StyleRenderers,
+                tileView.OverlayRoot,
+                tileView.OverlayRenderers);
         }
 
         private void DestroyTilePools(Dictionary<BoardTilePoolKey, List<SurfaceTileView>> tilePools)
@@ -1240,6 +1570,7 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     ClearTileStyle(tileView);
+                    ClearTileOverlays(tileView);
                     tileView.SetActive(false);
                 }
             }
@@ -1402,19 +1733,42 @@ namespace Game.Feature.Gameplay.Host
             public GameplayEntityPose LocalPose { get; }
         }
 
+        private readonly struct ResolvedBoardTileOverlay
+        {
+            public ResolvedBoardTileOverlay(
+                string overlayKey,
+                BoardTileOverlayCatalogEntry entry,
+                int authoredIndex)
+            {
+                OverlayKey = overlayKey;
+                Entry = entry;
+                AuthoredIndex = authoredIndex;
+            }
+
+            public string OverlayKey { get; }
+
+            public BoardTileOverlayCatalogEntry Entry { get; }
+
+            public int AuthoredIndex { get; }
+        }
+
         private sealed class SurfaceTileView
         {
+            private readonly List<Renderer> _overlayRenderers = new();
+
             public SurfaceTileView(
                 GameObject gameObject,
                 Transform transform,
                 MeshRenderer renderer,
                 Renderer[] styleRenderers,
+                Transform overlayRoot,
                 BoardTileVisualDescriptor descriptor)
             {
                 GameObject = gameObject;
                 Transform = transform;
                 Renderer = renderer;
                 StyleRenderers = styleRenderers ?? Array.Empty<Renderer>();
+                OverlayRoot = overlayRoot;
                 Descriptor = descriptor;
             }
 
@@ -1425,6 +1779,10 @@ namespace Game.Feature.Gameplay.Host
             public MeshRenderer Renderer { get; }
 
             public IReadOnlyList<Renderer> StyleRenderers { get; }
+
+            public Transform OverlayRoot { get; }
+
+            public IReadOnlyList<Renderer> OverlayRenderers => _overlayRenderers;
 
             public Transform Transform { get; }
 
@@ -1439,6 +1797,19 @@ namespace Game.Feature.Gameplay.Host
                 Cell = cell;
                 TileRole = tileRole;
                 HasAssignedCell = true;
+            }
+
+            public void AddOverlayRenderer(Renderer overlayRenderer)
+            {
+                if (overlayRenderer != null)
+                {
+                    _overlayRenderers.Add(overlayRenderer);
+                }
+            }
+
+            public void ClearOverlayRenderers()
+            {
+                _overlayRenderers.Clear();
             }
 
             public void SetActive(bool isActive)

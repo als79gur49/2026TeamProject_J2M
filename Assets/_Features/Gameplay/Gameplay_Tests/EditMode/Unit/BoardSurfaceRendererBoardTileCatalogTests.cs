@@ -886,6 +886,269 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_OverlayAppliesToFallbackTileWithoutMutatingBasePaintOrMaterial()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_OverlayAppliesToFallbackTileWithoutMutatingBasePaintOrMaterial");
+            var fallbackMaterial = CreateMaterial("OverlayFallbackMaterial");
+            fallbackMaterial.color = Color.green;
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, null, fallbackMaterial, isDefault: true),
+                Entry("front", BoardTileVisualRole.ActiveFront, null, fallbackMaterial, isDefault: true));
+            var styleCatalog = CreateStyleCatalog(StyleEntry("paint-red", Color.red));
+            var overlayCatalog = CreateOverlayCatalog(
+                OverlayEntry("guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.35f, 20));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog,
+                    boardTileStyleCatalog: styleCatalog,
+                    boardTilePaintOverrides: new[]
+                    {
+                        PaintOverride(new SurfaceCell(FaceId.Floor, 0, 0), "paint-red"),
+                    },
+                    boardTileOverlayCatalog: overlayCatalog,
+                    boardTileOverlayOverrides: new[]
+                    {
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"),
+                    });
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out var handle),
+                    Is.True);
+                Assert.That(handle.StyleRenderers, Is.Not.Empty);
+                Assert.That(handle.OverlayRoot, Is.Not.Null);
+                Assert.That(handle.OverlayRenderers.Count, Is.EqualTo(1));
+
+                var baseRenderer = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0").GetComponent<MeshRenderer>();
+                AssertRendererTint(baseRenderer, Color.red);
+                AssertRendererTint(handle.OverlayRenderers[0], new Color(Color.yellow.r, Color.yellow.g, Color.yellow.b, 0.35f));
+                Assert.That(baseRenderer.sharedMaterial.color, Is.EqualTo(Color.green));
+                Assert.That(handle.OverlayRenderers[0].sharedMaterial.color, Is.EqualTo(Color.white));
+            }
+            finally
+            {
+                DestroyObjects(rootObject, catalog, styleCatalog, overlayCatalog, fallbackMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_OverlayAppliesToPrefabTileAndUsesCatalogOrder()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_OverlayAppliesToPrefabTileAndUsesCatalogOrder");
+            var prefab = CreatePrefab("OverlayPrefabTile");
+            var frontMaterial = CreateMaterial("OverlayPrefabFrontMaterial");
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, prefab, null, isDefault: true),
+                Entry("front", BoardTileVisualRole.ActiveFront, null, frontMaterial, isDefault: true));
+            var overlayCatalog = CreateOverlayCatalog(
+                OverlayEntry("hover", BoardTileOverlayLayer.Hover, Color.white, 0.2f, 30),
+                OverlayEntry("danger", BoardTileOverlayLayer.Danger, Color.red, 0.6f, 10));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTilePresentationCatalog: catalog,
+                    boardTileOverlayCatalog: overlayCatalog,
+                    boardTileOverlayOverrides: new[]
+                    {
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "hover"),
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "danger"),
+                    });
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out var handle),
+                    Is.True);
+                Assert.That(handle.StyleRenderers, Is.Not.Empty);
+                Assert.That(handle.OverlayRenderers.Count, Is.EqualTo(2));
+                Assert.That(handle.OverlayRenderers[0].gameObject.name, Does.Contain("danger"));
+                Assert.That(handle.OverlayRenderers[1].gameObject.name, Does.Contain("hover"));
+                AssertRendererTint(handle.OverlayRenderers[0], new Color(Color.red.r, Color.red.g, Color.red.b, 0.6f));
+                AssertRendererTint(handle.OverlayRenderers[1], new Color(Color.white.r, Color.white.g, Color.white.b, 0.2f));
+            }
+            finally
+            {
+                DestroyObjects(rootObject, prefab, catalog, overlayCatalog, frontMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_MissingOverlayCatalogOrKeySkipsOverlay()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_MissingOverlayCatalogOrKeySkipsOverlay");
+            var overlayCatalog = CreateOverlayCatalog(
+                OverlayEntry("known", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 0));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    new Regex("BoardTileOverlayOverride.*no BoardTileOverlayCatalog"));
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTileOverlayOverrides: new[]
+                    {
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "known"),
+                    });
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out var handle),
+                    Is.True);
+                Assert.That(handle.OverlayRenderers, Is.Empty);
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    new Regex("BoardTileOverlayOverride.*missing.*Overlay visual will be skipped"));
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTileOverlayCatalog: overlayCatalog,
+                    boardTileOverlayOverrides: new[]
+                    {
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "missing"),
+                    });
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out handle),
+                    Is.True);
+                Assert.That(handle.OverlayRenderers, Is.Empty);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, overlayCatalog);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_ReinitializeAndTransitionClearStaleOverlays()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_ReinitializeAndTransitionClearStaleOverlays");
+            var overlayCatalog = CreateOverlayCatalog(
+                OverlayEntry("guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 0));
+            var bounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0));
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    bounds,
+                    1f,
+                    sourceTopology,
+                    boardTileOverlayCatalog: overlayCatalog,
+                    boardTileOverlayOverrides: new[]
+                    {
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"),
+                        OverlayOverride(new SurfaceCell(FaceId.Front, 0, 0), "guide"),
+                    });
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out _),
+                    Is.True);
+
+                renderer.Initialize(
+                    bounds,
+                    1f,
+                    sourceTopology,
+                    boardTileOverlayCatalog: overlayCatalog,
+                    boardTileOverlayOverrides: new[]
+                    {
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 1, 0), "guide"),
+                        OverlayOverride(new SurfaceCell(FaceId.Front, 0, 0), "guide"),
+                    });
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out var oldHandle),
+                    Is.True);
+                Assert.That(oldHandle.OverlayRenderers, Is.Empty);
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 1, 0), out var newHandle),
+                    Is.True);
+                Assert.That(newHandle.OverlayRenderers.Count, Is.EqualTo(1));
+
+                renderer.BeginTopologyTransition(sourceTopology, destinationTopology);
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Front, 0, 0), out var transitionHandle),
+                    Is.True);
+                Assert.That(transitionHandle.OverlayRenderers.Count, Is.EqualTo(1));
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out _),
+                    Is.False);
+
+                renderer.CompleteTopologyTransition(destinationTopology);
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Front, 0, 0), out var steadyHandle),
+                    Is.True);
+                Assert.That(steadyHandle.OverlayRenderers.Count, Is.EqualTo(1));
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out _),
+                    Is.False);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, overlayCatalog);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void BoardSurfaceRenderer_SuppressedCellsDoNotExposeOverlayHandles()
+        {
+            var rootObject = new GameObject("BoardSurfaceRenderer_SuppressedCellsDoNotExposeOverlayHandles");
+            var overlayCatalog = CreateOverlayCatalog(
+                OverlayEntry("guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 0));
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+
+                renderer.Initialize(
+                    new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                    1f,
+                    new CubeTopologyState(FaceId.Floor),
+                    boardTileOverlayCatalog: overlayCatalog,
+                    boardTileOverlayOverrides: new[]
+                    {
+                        OverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"),
+                    },
+                    suppressedBaseTileCells: new[]
+                    {
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                    });
+
+                Assert.That(
+                    renderer.TryGetTileVisualHandle(new SurfaceCell(FaceId.Floor, 0, 0), out _),
+                    Is.False);
+            }
+            finally
+            {
+                DestroyObjects(rootObject, overlayCatalog);
+            }
+        }
+
         private static GameObject FindTile(Transform root, string tileName)
         {
             Assert.That(root, Is.Not.Null);
@@ -972,6 +1235,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static BoardTilePaintOverride PaintOverride(SurfaceCell cell, string styleKey)
         {
             return new BoardTilePaintOverride(cell, styleKey);
+        }
+
+        private static BoardTileOverlayCatalogEntry OverlayEntry(
+            string overlayKey,
+            BoardTileOverlayLayer layer,
+            Color tint,
+            float alpha,
+            int order)
+        {
+            var entry = new BoardTileOverlayCatalogEntry();
+            SetPrivateField(entry, "overlayKey", overlayKey);
+            SetPrivateField(entry, "displayName", overlayKey);
+            SetPrivateField(entry, "layer", layer);
+            SetPrivateField(entry, "tint", tint);
+            SetPrivateField(entry, "alpha", alpha);
+            SetPrivateField(entry, "order", order);
+            return entry;
+        }
+
+        private static BoardTileOverlayCatalog CreateOverlayCatalog(
+            params BoardTileOverlayCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<BoardTileOverlayCatalog>();
+            catalog.name = "BoardSurfaceRendererBoardTileOverlayCatalogTests";
+            SetPrivateField(catalog, "entries", entries ?? Array.Empty<BoardTileOverlayCatalogEntry>());
+            return catalog;
+        }
+
+        private static BoardTileOverlayOverride OverlayOverride(SurfaceCell cell, string overlayKey)
+        {
+            return new BoardTileOverlayOverride(cell, overlayKey);
         }
 
         private static void AssertRendererTint(Renderer renderer, Color expected)

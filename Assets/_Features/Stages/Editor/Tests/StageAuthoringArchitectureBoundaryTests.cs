@@ -392,16 +392,22 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileStyleCatalog"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePaintOverride"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileOverlayCatalog"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileOverlayOverride"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileVisualRole"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTilePresentationCatalogEntry"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileStyleCatalogEntry"));
+            Assert.That(stageDefinitionSource, Does.Not.Contain("BoardTileOverlayCatalogEntry"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationCatalog"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTileStyleCatalog"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTilePaintOverride"));
+            Assert.That(buildResultSource, Does.Not.Contain("BoardTileOverlayCatalog"));
+            Assert.That(buildResultSource, Does.Not.Contain("BoardTileOverlayOverride"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTileVisualRole"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTilePresentationCatalogEntry"));
             Assert.That(buildResultSource, Does.Not.Contain("BoardTileStyleCatalogEntry"));
+            Assert.That(buildResultSource, Does.Not.Contain("BoardTileOverlayCatalogEntry"));
         }
 
         [Test]
@@ -415,8 +421,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationOverride"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationCatalog"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePaintOverride"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTileOverlayOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePaintOverride"));
+            Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTileOverlayOverride"));
         }
 
         [Test]
@@ -469,6 +477,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(source, Does.Not.Contain("BoardTilePresentationOverride"), sourcePath);
                 Assert.That(source, Does.Not.Contain("BoardTileStyleCatalog"), sourcePath);
                 Assert.That(source, Does.Not.Contain("BoardTilePaintOverride"), sourcePath);
+                Assert.That(source, Does.Not.Contain("BoardTileOverlayCatalog"), sourcePath);
+                Assert.That(source, Does.Not.Contain("BoardTileOverlayOverride"), sourcePath);
             }
         }
 
