@@ -4068,6 +4068,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "windupStateName",
                     "jumpWindupStateName",
                     "jumpAirborneStateName",
+                    "chargeActiveStateName",
                     "recoveryStateName",
                     "glideWindupStateName",
                     "glideActiveStateName",

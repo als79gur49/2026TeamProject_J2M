@@ -362,6 +362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             params VfxBindingDefinitionAsset[] bindings)
         {
             var profile = ScriptableObject.CreateInstance<VfxProfileAsset>();
+            profile.name = $"TestVfxProfile_{family}";
             SetField(profile, "family", family);
             SetField(profile, "bindings", bindings);
             return profile;
@@ -374,6 +375,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int maxConcurrentInstances = 0)
         {
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            binding.name = $"TestVfxBinding_{family}_{cueCode}";
+            new GameObject(VfxPrefabValidationDiagnostics.ModelRootName).transform.SetParent(prefab.transform, worldPositionStays: false);
             SetField(binding, "family", family);
             SetField(binding, "cueCode", cueCode);
             SetField(binding, "prefab", prefab);

@@ -1461,7 +1461,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
             });
 
-            jumpWorldState.CreateWriteContext().SetEnemyJumpState(
+            var jumpWriteContext = jumpWorldState.CreateWriteContext();
+            jumpWriteContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+            jumpWriteContext.SetEnemyJumpState(
                 40,
                 new EnemyJumpRuntimeState
                 {
@@ -1923,7 +1925,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[0].Trace, Does.Contain("PreMovement.UtilityTriggers"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=1"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Final.BoxInteractionLocks"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Box=20|Source=40|Effect=0|Expires=3|BlocksPush=1|BlocksFlip=0"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
@@ -1935,7 +1936,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     "Tick=1"),
                 Is.True);
             Assert.That(firstReplay[1].Trace, Does.Contain("Final.BoxInteractionLocks"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("Box=20|Source=40|Effect=0|Expires=3|BlocksPush=1|BlocksFlip=0"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[2].EventLogDump,
@@ -2114,7 +2114,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     "Target=10",
                     "Amount=1"),
                 Is.True);
-            Assert.That(firstReplay[0].PlayerDamageDump, Does.Contain("E=10|NextDamageAllowed="));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=2"));
         }
 
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()

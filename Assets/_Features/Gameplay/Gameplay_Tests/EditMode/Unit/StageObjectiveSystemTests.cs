@@ -1183,7 +1183,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     100,
                     exitCell,
                     TileFeatureKind.Exit,
-                    TileFeatureActivationRule.BottomFaceOnly,
+                    TileFeatureActivationRule.ActiveFaceOnly,
                     TileFeatureBoxSelector.None);
                 var firstBuild = BuildExitObjectiveStage(firstCondition, tileFeature);
                 var secondBuild = BuildExitObjectiveStage(secondCondition, tileFeature);
@@ -1422,7 +1422,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         100,
                         exitCell,
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         TileFeatureBoxSelector.None));
                 var worldState = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreatePlayerEntity(10, exitCell) },
@@ -1490,7 +1490,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void ExitPresentation_NonPlayerOccupantsOrInactiveExitDoNotEmitEntered()
         {
-            var exitCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var exitCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
             var primaryGoal = CreatePlayerAtAnyZoneCondition("goal");
 
             try
@@ -1501,7 +1501,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         100,
                         exitCell,
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         TileFeatureBoxSelector.None));
                 var inactiveWorld = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreatePlayerEntity(10, exitCell) },
@@ -1525,7 +1525,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         100,
                         activeExitCell,
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         TileFeatureBoxSelector.None));
                 var activeWorld = GameplayCompositionRoot.CreateWorldState(
                     new[]

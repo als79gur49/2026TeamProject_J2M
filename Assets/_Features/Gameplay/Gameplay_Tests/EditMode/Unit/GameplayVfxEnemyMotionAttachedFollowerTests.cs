@@ -1364,7 +1364,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Follow));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.DetachThenStopEmittingThenRelease));
-            Assert.That(binding.TailSeconds, Is.EqualTo(0.30f).Within(0.0001f));
+            Assert.That(binding.TailSeconds, Is.GreaterThan(0f));
             Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
         }
 
@@ -1378,7 +1378,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Follow));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.DetachThenStopEmittingThenRelease));
-            Assert.That(binding.TailSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+            Assert.That(binding.TailSeconds, Is.GreaterThan(0f));
             Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
         }
 

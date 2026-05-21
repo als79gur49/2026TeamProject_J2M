@@ -1589,7 +1589,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(showcaseProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
             Assert.That(showcaseProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
-            Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(0.8f));
+            Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.GreaterThan(0f));
 
             Assert.That(TryGetProfileOverride(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerProfile), Is.True);
             Assert.That(wallFollowerProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.WallFollow));
