@@ -170,6 +170,7 @@ namespace Game.Feature.Gameplay.Loop
             PreMovementStatePhaseResult preMovementStatePhaseResult,
             WorldSnapshot postEnemyAiSnapshot,
             WorldSnapshot planSnapshot,
+            WorldSnapshot topologyActivationPreviousSnapshot,
             FinalizationBatch planFinalizationBatch,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldPresentationEvents = null,
             IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
@@ -201,6 +202,7 @@ namespace Game.Feature.Gameplay.Loop
             PreMovementStatePhaseResult = preMovementStatePhaseResult ?? throw new ArgumentNullException(nameof(preMovementStatePhaseResult));
             PostEnemyAiSnapshot = postEnemyAiSnapshot ?? throw new ArgumentNullException(nameof(postEnemyAiSnapshot));
             PlanSnapshot = planSnapshot ?? throw new ArgumentNullException(nameof(planSnapshot));
+            TopologyActivationPreviousSnapshot = topologyActivationPreviousSnapshot ?? planSnapshot;
             PlanFinalizationBatch = planFinalizationBatch ?? throw new ArgumentNullException(nameof(planFinalizationBatch));
             GravityFieldPresentationEvents = gravityFieldPresentationEvents ?? Array.Empty<GravityFieldPresentationEvent>();
             GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
@@ -258,6 +260,8 @@ namespace Game.Feature.Gameplay.Loop
         public WorldSnapshot PostEnemyAiSnapshot { get; }
 
         public WorldSnapshot PlanSnapshot { get; }
+
+        public WorldSnapshot TopologyActivationPreviousSnapshot { get; }
 
         public FinalizationBatch PlanFinalizationBatch { get; }
 

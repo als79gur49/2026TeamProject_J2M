@@ -3212,6 +3212,88 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void TopologyDestroyTileActivation_RearmsAfterInactiveCycle_DestroysSecondBox()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var definition = CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateBox(entityId: 20, position: destroyCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: KinematicFixed.MaxPositiveLocalOffset, Direction.Up);
+            var resolver = new RecordingTileEffectResolver();
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { definition },
+                resolver,
+                GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+
+            var firstActivation = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            AssertActivationDestroyedBox(firstActivation, worldState, expectedBoxId: 20);
+            var firstContext = resolver.Contexts.Single(context => context.TickIndex == 1);
+            AssertActivationFact(
+                firstContext,
+                definition,
+                destroyCell,
+                expectedBoxId: 20,
+                expectedFactMessage: "first activation");
+
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: KinematicFixed.MinLocalOffset, Direction.Down);
+            var inactiveTransition = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Down)));
+            var inactiveSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(
+                inactiveTransition.MovementPhaseResult.ResolvedOperations.Any(IsSetTopologyOperation),
+                Is.True,
+                "inactive transition source topology operation");
+            Assert.That(
+                TileFeatureActivationQueries.IsActive(
+                    GetTileFeature(inactiveSnapshot, 100),
+                    definition,
+                    inactiveSnapshot.Topology),
+                Is.False,
+                "second activation previous topology should be logically inactive");
+
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(entityId: 21, position: destroyCell));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: KinematicFixed.MaxPositiveLocalOffset, Direction.Up);
+            var secondPreviousSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(secondPreviousSnapshot.TryGetEntity(21, out var boxBeforeSecond), Is.True);
+            Assert.That(boxBeforeSecond.type, Is.EqualTo(EntityType.Box));
+            Assert.That(boxBeforeSecond.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(boxBeforeSecond.hp, Is.GreaterThan(0));
+            Assert.That(boxBeforeSecond.markedForDeath, Is.False);
+            Assert.That(
+                TileFeatureActivationQueries.IsActive(
+                    GetTileFeature(secondPreviousSnapshot, 100),
+                    definition,
+                    secondPreviousSnapshot.Topology),
+                Is.False,
+                "second activation previous topology");
+
+            var secondActivation = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Up)));
+
+            Assert.That(
+                secondActivation.MovementPhaseResult.ResolvedOperations.Any(IsSetTopologyOperation),
+                Is.True,
+                "second activation source topology operation");
+            AssertActivationDestroyedBox(secondActivation, worldState, expectedBoxId: 21);
+            var secondContext = resolver.Contexts.Single(context => context.TickIndex == 3);
+            AssertActivationFact(
+                secondContext,
+                definition,
+                destroyCell,
+                expectedBoxId: 21,
+                expectedFactMessage: "second activation");
+        }
+
+        [Test]
         [Category("Extended")]
         public void Movement_TopologyChangingTick_RejectsOrdinaryCandidateInSameTick()
         {
@@ -5099,6 +5181,87 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.Trace.Text, Does.Not.Contain("Boundary=Unknown"));
         }
 
+        private static void AssertActivationDestroyedBox(
+            TickResult result,
+            WorldState worldState,
+            int expectedBoxId)
+        {
+            var destroyEvent = result.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered &&
+                tileEvent.TargetEntityId == expectedBoxId);
+
+            Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(expectedBoxId));
+            Assert.That(result.EventLog, Does.Contain($"CleanupRemoved|E={expectedBoxId}"));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(expectedBoxId, out _), Is.False);
+        }
+
+        private static void AssertActivationFact(
+            TileEffectResolutionContext context,
+            TileFeatureRuntimeDefinition definition,
+            SurfaceCell expectedCell,
+            int expectedBoxId,
+            string expectedFactMessage)
+        {
+            var facts = context.ActivationOccupantFacts;
+            Assert.That(facts, Has.Count.EqualTo(1), expectedFactMessage);
+            Assert.That(facts[0].FeatureTileId, Is.EqualTo(definition.TileId), expectedFactMessage);
+            Assert.That(facts[0].FeatureCell, Is.EqualTo(expectedCell), expectedFactMessage);
+            Assert.That(facts[0].FeatureKind, Is.EqualTo(TileFeatureKind.Destroy), expectedFactMessage);
+            Assert.That(facts[0].OccupantEntityId, Is.EqualTo(expectedBoxId), expectedFactMessage);
+            Assert.That(facts[0].OccupantType, Is.EqualTo(EntityType.Box), expectedFactMessage);
+            Assert.That(facts[0].SourceKind, Is.EqualTo(TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant), expectedFactMessage);
+            Assert.That(facts[0].SourceOperationOrdinal.HasValue, Is.True, expectedFactMessage);
+
+            Assert.That(context.Snapshot.TryGetTileFeature(definition.TileId, out var tileFeature), Is.True, expectedFactMessage);
+            Assert.That(tileFeature.Kind, Is.EqualTo(TileFeatureKind.Destroy), expectedFactMessage);
+            Assert.That(tileFeature.Cell, Is.EqualTo(expectedCell), expectedFactMessage);
+            Assert.That(
+                TileFeatureActivationQueries.IsActive(tileFeature, definition, context.Snapshot.Topology),
+                Is.True,
+                expectedFactMessage);
+            Assert.That(context.Snapshot.TryGetEntity(expectedBoxId, out var box), Is.True, expectedFactMessage);
+            Assert.That(box.type, Is.EqualTo(EntityType.Box), expectedFactMessage);
+            Assert.That(box.position, Is.EqualTo(expectedCell), expectedFactMessage);
+            Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying), expectedFactMessage);
+            Assert.That(box.hp, Is.GreaterThan(0), expectedFactMessage);
+            Assert.That(box.markedForDeath, Is.False, expectedFactMessage);
+        }
+
+        private static bool IsSetTopologyOperation(FinalizationOperation operation)
+        {
+            return operation.Kind == FinalizationOperationKind.SetTopology;
+        }
+
+        private static TileFeatureState GetTileFeature(WorldSnapshot snapshot, int tileId)
+        {
+            Assert.That(snapshot.TryGetTileFeature(tileId, out var tileFeature), Is.True);
+            return tileFeature;
+        }
+
+        private static void SetPlayerFree2DSeamOffset(
+            WorldState worldState,
+            int entityId,
+            int x,
+            int y,
+            Direction direction)
+        {
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                entityId,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.FromRaw(x),
+                        KinematicFixed.FromRaw(y)),
+                    velocity = KinematicVelocity2.Zero,
+                    facing = direction,
+                    lastMoveDirection = direction,
+                    speedUnitsPerTick = KinematicFixed.DefaultPlayerUnitsPerTick,
+                    mode = ContinuousLocomotionMode.Moving,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
+            worldState.CreateWriteContext().SetPlayerControlState(entityId, default);
+        }
+
         private static IMovementEntityLogic CreateImmediatePushPlayerLogic(int entityId)
         {
             return new ImmediatePlayerInteractionLogic(entityId, MovementCommandKind.Push);
@@ -5278,6 +5441,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 facing = facing,
                 state = EntityPhaseState.Idle,
             };
+        }
+
+        private static EntityState CreatePlayerUnit(int entityId, SurfaceCell position)
+        {
+            var player = CreateUnit(entityId, position);
+            player.unitRole = UnitRole.Player;
+            return player;
         }
 
         private static TileFeatureState CreateDestroyTile(int tileId, SurfaceCell cell)
@@ -5482,6 +5652,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new IEntityLogic[] { new PlayerLogic(10) });
         }
 
+        private static TickPipeline CreatePlayerTileFeaturePipeline(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            ITileEffectResolver tileEffectResolver,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        {
+            return CreateTileFeaturePipeline(
+                worldState,
+                tileFeatureDefinitions,
+                new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
+                tileEffectResolver,
+                runtimeFeatureFlags);
+        }
+
         private static TickPipeline CreateTileFeaturePipeline(
             WorldState worldState,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
@@ -5496,6 +5680,32 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 playerRespawnDelayTicks: 1,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
                 tileFeatureDefinitions: tileFeatureDefinitions);
+        }
+
+        private static TickPipeline CreateTileFeaturePipeline(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            IReadOnlyList<IEntityLogic> entityLogics,
+            ITileEffectResolver tileEffectResolver,
+            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return new TickPipeline(
+                worldState,
+                entityLogics,
+                GameplayEntityLogicProviderFactory.CreateDefault(),
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
+                playerRespawnDelayTicks: 1,
+                objectiveDefinition: null,
+                enemySpawnDefaultsByArchetypeId: null,
+                allowPlayerRespawn: true,
+                runtimeFeatureFlags: runtimeFeatureFlags,
+                playerKinematicLocomotionTiming: default,
+                playerContinuousLocomotion: default,
+                tileFeatureDefinitions: tileFeatureDefinitions,
+                moonBlockRespawnDefinitions: null,
+                tileEffectResolver: tileEffectResolver);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)
@@ -5562,6 +5772,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     payloads,
                     resolutionRecords,
                 });
+        }
+
+        private sealed class RecordingTileEffectResolver : ITileEffectResolver
+        {
+            private readonly List<TileEffectResolutionContext> _contexts = new();
+
+            public IReadOnlyList<TileEffectResolutionContext> Contexts => _contexts;
+
+            public TileEffectResolutionResult Resolve(in TileEffectResolutionContext context)
+            {
+                _contexts.Add(context);
+                return TileFeatureEffectResolver.Instance.Resolve(context);
+            }
         }
 
         private sealed class StubMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding

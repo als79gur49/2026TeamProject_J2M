@@ -560,7 +560,13 @@ namespace Game.Feature.Gameplay.Loop
                 snapshot,
                 in input,
                 beforeMovementAiContext);
+            WorldSnapshot topologyActivationPreviousSnapshot = null;
             planFinalizationBatch.MergeFrom(beforeMovementAiBatch);
+            CaptureTopologyActivationPreviousSnapshot(
+                ref topologyActivationPreviousSnapshot,
+                projectedWorld,
+                beforeMovementAiBatch,
+                ProjectedWorldSnapshotReason.PlanAfterEnemyAi);
             projectedWorld.ApplyBatch(beforeMovementAiBatch, ProjectedWorldBatchReason.PlanBeforeMovementAi);
             var snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterEnemyAi);
 
@@ -576,6 +582,11 @@ namespace Game.Feature.Gameplay.Loop
                     closePlayerKinematics: _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion,
                     closeEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion);
                 planFinalizationBatch.MergeFrom(kinematicClosureBatch);
+                CaptureTopologyActivationPreviousSnapshot(
+                    ref topologyActivationPreviousSnapshot,
+                    projectedWorld,
+                    kinematicClosureBatch,
+                    ProjectedWorldSnapshotReason.PlanAfterKinematicClosure);
                 projectedWorld.ApplyBatch(kinematicClosureBatch, ProjectedWorldBatchReason.PlanKinematicClosure);
                 snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterKinematicClosure);
             }
@@ -591,6 +602,11 @@ namespace Game.Feature.Gameplay.Loop
             if (gravityFieldBatch.Operations.Count > 0)
             {
                 planFinalizationBatch.MergeFrom(gravityFieldBatch);
+                CaptureTopologyActivationPreviousSnapshot(
+                    ref topologyActivationPreviousSnapshot,
+                    projectedWorld,
+                    gravityFieldBatch,
+                    ProjectedWorldSnapshotReason.PlanAfterGravityField);
                 projectedWorld.ApplyBatch(gravityFieldBatch, ProjectedWorldBatchReason.PlanGravityField);
                 snapshotAfterEnemyAi = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterGravityField);
             }
@@ -618,12 +634,22 @@ namespace Game.Feature.Gameplay.Loop
             utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
             planFinalizationBatch.MergeFrom(preMovementBatch);
+            CaptureTopologyActivationPreviousSnapshot(
+                ref topologyActivationPreviousSnapshot,
+                projectedWorld,
+                preMovementBatch,
+                ProjectedWorldSnapshotReason.PlanPostPreMovement);
             projectedWorld.ApplyBatch(preMovementBatch, ProjectedWorldBatchReason.PlanPreMovementState);
             var preMovementUtilityResolveResult = EnemyUtilityResolver.ResolvePreMovementProjectedEffects(
                 projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanPreMovementUtilityInput),
                 preMovementStateResult.UtilityTriggerIntents,
                 input.TickIndex);
             planFinalizationBatch.MergeFrom(preMovementUtilityResolveResult.Batch);
+            CaptureTopologyActivationPreviousSnapshot(
+                ref topologyActivationPreviousSnapshot,
+                projectedWorld,
+                preMovementUtilityResolveResult.Batch,
+                ProjectedWorldSnapshotReason.PlanPostPreMovement);
             projectedWorld.ApplyBatch(preMovementUtilityResolveResult.Batch, ProjectedWorldBatchReason.PlanPreMovementUtility);
             AddRange(preMovementStateResult.EventLogEntries, preMovementUtilityResolveResult.EventLogEntries);
 
@@ -667,6 +693,11 @@ namespace Game.Feature.Gameplay.Loop
                 playerActionAttemptBatch.TileFeatureOperations.Count > 0)
             {
                 planFinalizationBatch.MergeFrom(playerActionAttemptBatch);
+                CaptureTopologyActivationPreviousSnapshot(
+                    ref topologyActivationPreviousSnapshot,
+                    projectedWorld,
+                    playerActionAttemptBatch,
+                    ProjectedWorldSnapshotReason.PlanAfterPlayerActionAttempt);
                 projectedWorld.ApplyBatch(playerActionAttemptBatch, ProjectedWorldBatchReason.PlanPlayerActionAttempt);
                 planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterPlayerActionAttempt);
             }
@@ -696,6 +727,11 @@ namespace Game.Feature.Gameplay.Loop
                     free2DBatch,
                     consumedPlayerActionAttemptEntityIds);
                 planFinalizationBatch.MergeFrom(free2DBatch);
+                CaptureTopologyActivationPreviousSnapshot(
+                    ref topologyActivationPreviousSnapshot,
+                    projectedWorld,
+                    free2DBatch,
+                    ProjectedWorldSnapshotReason.PlanAfterPlayerFree2DLocomotion);
                 projectedWorld.ApplyBatch(free2DBatch, ProjectedWorldBatchReason.PlanPlayerFree2DLocomotion);
                 planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterPlayerFree2DLocomotion);
             }
@@ -817,10 +853,27 @@ namespace Game.Feature.Gameplay.Loop
                 preMovementStateResult,
                 snapshotAfterEnemyAi,
                 planSnapshot,
+                topologyActivationPreviousSnapshot,
                 planFinalizationBatch,
                 gravityFieldResult.PresentationEvents,
                 gravityFieldResult.LockedTargetFacts,
                 playerActionAttemptResolutions);
+        }
+
+        private static void CaptureTopologyActivationPreviousSnapshot(
+            ref WorldSnapshot topologyActivationPreviousSnapshot,
+            ProjectedWorld projectedWorld,
+            FinalizationBatch batch,
+            ProjectedWorldSnapshotReason snapshotReason)
+        {
+            if (topologyActivationPreviousSnapshot != null ||
+                projectedWorld == null ||
+                !TryGetFirstTopologySourceOperationOrdinal(new[] { batch }, out _))
+            {
+                return;
+            }
+
+            topologyActivationPreviousSnapshot = projectedWorld.CreateSnapshot(snapshotReason);
         }
 
         private ResolvePhaseResult RunResolvePhase(
@@ -1124,7 +1177,7 @@ namespace Game.Feature.Gameplay.Loop
                 attackReadSnapshot,
                 movementStageBatch);
             var tileFeatureActivationOccupantFacts = BuildDestroyTileActivationOccupantFacts(
-                planSnapshot,
+                planPhaseResult.TopologyActivationPreviousSnapshot,
                 postMovementSnapshot,
                 _tileFeatureDefinitions,
                 TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
