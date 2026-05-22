@@ -984,6 +984,256 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DestroyTileActivationFact_InactiveToActiveTransition_DestroysSameCellBox()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var previousSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var topologyBatch = new FinalizationBatch();
+            topologyBatch.SetTopology(currentSnapshot.Topology);
+
+            var facts = TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                previousSnapshot,
+                currentSnapshot,
+                new[] { CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly) },
+                TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                topologyBatch);
+            var result = ResolveWithActivationFacts(
+                currentSnapshot,
+                facts,
+                CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly));
+
+            Assert.That(facts, Has.Count.EqualTo(1));
+            Assert.That(facts[0].FeatureCell, Is.EqualTo(cell));
+            Assert.That(facts[0].OccupantEntityId, Is.EqualTo(20));
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.TileEvents.Single().EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.TileEvents.Single().TargetEntityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTileActivationFact_NonActivationTransitions_DoNotCreateFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly);
+            var inactiveSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var activeSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var inactiveTopologyBatch = new FinalizationBatch();
+            inactiveTopologyBatch.SetTopology(inactiveSnapshot.Topology);
+
+            Assert.That(
+                TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                    activeSnapshot,
+                    activeSnapshot,
+                    new[] { definition },
+                    TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                    inactiveTopologyBatch),
+                Is.Empty,
+                "active to active");
+            Assert.That(
+                TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                    inactiveSnapshot,
+                    inactiveSnapshot,
+                    new[] { definition },
+                    TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                    inactiveTopologyBatch),
+                Is.Empty,
+                "inactive to inactive");
+            Assert.That(
+                TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                    activeSnapshot,
+                    inactiveSnapshot,
+                    new[] { definition },
+                    TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                    inactiveTopologyBatch),
+                Is.Empty,
+                "active to inactive");
+            Assert.That(
+                TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                    inactiveSnapshot,
+                    activeSnapshot,
+                    new[] { definition },
+                    TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant),
+                Is.Empty,
+                "missing topology source");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTileActivationFact_InvalidOccupantsAndDifferentFaces_DoNotCreateFacts()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var definition = CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly);
+            var topologyBatch = new FinalizationBatch();
+            topologyBatch.SetTopology(new CubeTopologyState(FaceId.Front));
+            var cases = new[]
+            {
+                new object[] { "Unit", new[] { CreateUnit(20, destroyCell) } },
+                new object[] { "Projectile", new[] { CreateProjectile(21, destroyCell) } },
+                new object[] { "DeadBox", new[] { CreateBox(22, destroyCell, hp: 0) } },
+                new object[] { "DetachedBox", new[] { CreateBox(23, destroyCell, boardPresence: EntityBoardPresence.Detached) } },
+                new object[] { "MarkedBox", new[] { CreateBox(24, destroyCell, markedForDeath: true) } },
+                new object[] { "DifferentFaceSamePlanar", new[] { CreateBox(25, new SurfaceCell(FaceId.Floor, 1, 1)) } },
+            };
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var name = (string)cases[i][0];
+                var entities = (EntityState[])cases[i][1];
+                var previousSnapshot = CreateWorldState(
+                        entities,
+                        new[] { CreateTileFeature(10, destroyCell, TileFeatureKind.Destroy) },
+                        topology: new CubeTopologyState(FaceId.Floor))
+                    .CreateSnapshot();
+                var currentSnapshot = CreateWorldState(
+                        entities,
+                        new[] { CreateTileFeature(10, destroyCell, TileFeatureKind.Destroy) },
+                        topology: new CubeTopologyState(FaceId.Front))
+                    .CreateSnapshot();
+
+                Assert.That(
+                    TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                        previousSnapshot,
+                        currentSnapshot,
+                        new[] { definition },
+                        TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                        topologyBatch),
+                    Is.Empty,
+                    name);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTileActivationFact_ExcludedSourceKinds_DoNotCreateFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var previousSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var topologyBatch = new FinalizationBatch();
+            topologyBatch.SetTopology(currentSnapshot.Topology);
+            var excludedSources = new[]
+            {
+                TileEffectTriggerSourceKind.SpawnSettlement,
+                TileEffectTriggerSourceKind.RespawnSettlement,
+                TileEffectTriggerSourceKind.ScriptedRelocation,
+                TileEffectTriggerSourceKind.PersistentOverlapDiagnosticOnly,
+            };
+
+            for (var i = 0; i < excludedSources.Length; i++)
+            {
+                Assert.That(
+                    TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                        previousSnapshot,
+                        currentSnapshot,
+                        new[] { CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly) },
+                        excludedSources[i],
+                        topologyBatch),
+                    Is.Empty,
+                    excludedSources[i].ToString());
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTileActivationFact_DedupesWithMovementContact()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var contacts = new[]
+            {
+                new TileEffectBoxContact(20, cell, TileEffectBoxContactKind.PushEnter),
+            };
+            var facts = new[]
+            {
+                CreateActivationFact(10, cell, 20),
+            };
+
+            var result = Resolve(
+                snapshot,
+                null,
+                contacts,
+                facts,
+                CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly));
+
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTileActivationFact_BarricadeCrushSameTick_DedupesAndDestroyTileWins()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var previousSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[]
+                    {
+                        CreateTileFeature(10, cell, TileFeatureKind.Destroy),
+                        CreateTileFeature(11, cell, TileFeatureKind.Barricade),
+                    },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell) },
+                    new[]
+                    {
+                        CreateTileFeature(10, cell, TileFeatureKind.Destroy),
+                        CreateTileFeature(11, cell, TileFeatureKind.Barricade),
+                    },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+
+            var result = Resolve(
+                currentSnapshot,
+                previousSnapshot,
+                Array.Empty<TileEffectBoxContact>(),
+                new[] { CreateActivationFact(10, cell, 20) },
+                CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly),
+                CreateDefinition(11, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None));
+
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTile_ActiveBottomFace_DestroysMovingGroundUnit()
         {
             var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -3136,6 +3386,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new TileEffectResolutionContext(7, snapshot, definitions, boxStops: stops));
         }
 
+        private static TileEffectResolutionResult ResolveWithActivationFacts(
+            WorldSnapshot snapshot,
+            IReadOnlyList<TileFeatureActivationOccupantFact> facts,
+            params TileFeatureRuntimeDefinition[] definitions)
+        {
+            return TileFeatureEffectResolver.Instance.Resolve(
+                new TileEffectResolutionContext(
+                    7,
+                    snapshot,
+                    definitions,
+                    activationOccupantFacts: facts));
+        }
+
         private static TileEffectResolutionResult Resolve(
             WorldSnapshot snapshot,
             WorldSnapshot previousSnapshot,
@@ -3158,6 +3421,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             WorldSnapshot snapshot,
             WorldSnapshot previousSnapshot,
             IReadOnlyList<TileEffectBoxContact> contacts,
+            IReadOnlyList<TileFeatureActivationOccupantFact> facts,
+            params TileFeatureRuntimeDefinition[] definitions)
+        {
+            return TileFeatureEffectResolver.Instance.Resolve(
+                new TileEffectResolutionContext(
+                    7,
+                    snapshot,
+                    definitions,
+                    contacts,
+                    previousSnapshot,
+                    activationOccupantFacts: facts));
+        }
+
+        private static TileEffectResolutionResult Resolve(
+            WorldSnapshot snapshot,
+            WorldSnapshot previousSnapshot,
+            IReadOnlyList<TileEffectBoxContact> contacts,
             IReadOnlyList<TileEffectBoxStop> stops,
             params TileFeatureRuntimeDefinition[] definitions)
         {
@@ -3171,6 +3451,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TileEffectBoxMovementFamily movementFamily)
         {
             return new TileEffectBoxStop(boxEntityId, cell, movementFamily);
+        }
+
+        private static TileFeatureActivationOccupantFact CreateActivationFact(
+            int tileId,
+            SurfaceCell cell,
+            int occupantEntityId)
+        {
+            return new TileFeatureActivationOccupantFact(
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                occupantEntityId,
+                EntityType.Box,
+                TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                sourceOperationOrdinal: 0);
         }
 
         private static TileEffectBoxStop CreateStop(

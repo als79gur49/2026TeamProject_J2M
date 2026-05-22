@@ -106,6 +106,52 @@ namespace Game.Feature.Gameplay.Loop
         }
     }
 
+    internal enum TileEffectTriggerSourceKind
+    {
+        MoveEntityAccepted = 0,
+        ImpactFollowThroughSettlement = 1,
+        FeatureActivatedUnderOccupant = 2,
+        SpawnSettlement = 3,
+        RespawnSettlement = 4,
+        ScriptedRelocation = 5,
+        PersistentOverlapDiagnosticOnly = 6,
+    }
+
+    internal readonly struct TileFeatureActivationOccupantFact
+    {
+        public TileFeatureActivationOccupantFact(
+            int featureTileId,
+            SurfaceCell featureCell,
+            TileFeatureKind featureKind,
+            int occupantEntityId,
+            EntityType occupantType,
+            TileEffectTriggerSourceKind sourceKind,
+            int? sourceOperationOrdinal)
+        {
+            FeatureTileId = featureTileId;
+            FeatureCell = featureCell;
+            FeatureKind = featureKind;
+            OccupantEntityId = occupantEntityId;
+            OccupantType = occupantType;
+            SourceKind = sourceKind;
+            SourceOperationOrdinal = sourceOperationOrdinal;
+        }
+
+        public int FeatureTileId { get; }
+
+        public SurfaceCell FeatureCell { get; }
+
+        public TileFeatureKind FeatureKind { get; }
+
+        public int OccupantEntityId { get; }
+
+        public EntityType OccupantType { get; }
+
+        public TileEffectTriggerSourceKind SourceKind { get; }
+
+        public int? SourceOperationOrdinal { get; }
+    }
+
     internal enum TileEffectBoxMovementFamily
     {
         None = 0,
@@ -266,14 +312,16 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             IReadOnlyList<TileEffectBoxContact> boxContacts = null,
             WorldSnapshot previousSnapshot = null,
-            IReadOnlyList<TileEffectBoxStop> boxStops = null)
+            IReadOnlyList<TileEffectBoxStop> boxStops = null,
+            IReadOnlyList<TileFeatureActivationOccupantFact> activationOccupantFacts = null)
             : this(
                 tickIndex,
                 snapshot,
                 tileFeatureDefinitions,
                 ConvertBoxContacts(boxContacts),
                 previousSnapshot,
-                boxStops)
+                boxStops,
+                activationOccupantFacts)
         {
         }
 
@@ -283,7 +331,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             IReadOnlyList<TileEffectEntityContact> entityContacts,
             WorldSnapshot previousSnapshot = null,
-            IReadOnlyList<TileEffectBoxStop> boxStops = null)
+            IReadOnlyList<TileEffectBoxStop> boxStops = null,
+            IReadOnlyList<TileFeatureActivationOccupantFact> activationOccupantFacts = null)
         {
             TickIndex = tickIndex;
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
@@ -291,6 +340,7 @@ namespace Game.Feature.Gameplay.Loop
             EntityContacts = entityContacts ?? Array.Empty<TileEffectEntityContact>();
             PreviousSnapshot = previousSnapshot;
             BoxStops = boxStops ?? Array.Empty<TileEffectBoxStop>();
+            ActivationOccupantFacts = activationOccupantFacts ?? Array.Empty<TileFeatureActivationOccupantFact>();
         }
 
         public int TickIndex { get; }
@@ -302,6 +352,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TileEffectEntityContact> EntityContacts { get; }
 
         public IReadOnlyList<TileEffectBoxStop> BoxStops { get; }
+
+        public IReadOnlyList<TileFeatureActivationOccupantFact> ActivationOccupantFacts { get; }
 
         public WorldSnapshot PreviousSnapshot { get; }
 
@@ -458,7 +510,8 @@ namespace Game.Feature.Gameplay.Loop
             tileEvents = new List<TilePresentationEvent>();
             var batch = new FinalizationBatch();
             destroyedBoxIds = new HashSet<int>();
-            if (context.EntityContacts.Count == 0)
+            if (context.EntityContacts.Count == 0 &&
+                context.ActivationOccupantFacts.Count == 0)
             {
                 return batch;
             }
@@ -489,37 +542,151 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    var metadata = CreateDestroyTileMetadata(
-                        context.TickIndex,
+                    AddDestroyTileDestroy(
+                        context,
+                        batch,
+                        tileEvents,
+                        destroyedEntityIds,
+                        destroyedBoxIds,
+                        contact.EntityId,
                         target,
+                        tileFeature,
                         contact.TileCell);
-                    batch.SetBoardPresence(
-                        contact.EntityId,
-                        EntityBoardPresence.Detached,
-                        metadata);
-                    batch.MarkDestroy(
-                        contact.EntityId,
-                        metadata);
-                    tileEvents.Add(new TilePresentationEvent(
-                        TilePresentationEventKind.DestroyTileTriggered,
-                        tileFeature.TileId,
-                        tileFeature.Cell,
-                        tileFeature.Kind,
-                        tileFeature.SourceEntityId,
-                        tileFeature.OwnerEntityId,
-                        tileFeature.TeamId,
-                        targetEntityId: contact.EntityId));
-                    destroyedEntityIds.Add(contact.EntityId);
-                    if (target.type == EntityType.Box)
-                    {
-                        destroyedBoxIds.Add(contact.EntityId);
-                    }
-
                     break;
                 }
             }
 
+            if (context.ActivationOccupantFacts.Count > 0)
+            {
+                var orderedFacts = new List<TileFeatureActivationOccupantFact>(context.ActivationOccupantFacts);
+                orderedFacts.Sort(CompareTileFeatureActivationOccupantFacts);
+
+                for (var i = 0; i < orderedFacts.Count; i++)
+                {
+                    var fact = orderedFacts[i];
+                    if (fact.SourceKind != TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant ||
+                        fact.FeatureKind != TileFeatureKind.Destroy ||
+                        fact.OccupantType != EntityType.Box ||
+                        fact.OccupantEntityId <= 0 ||
+                        destroyedEntityIds.Contains(fact.OccupantEntityId) ||
+                        !context.Snapshot.TryGetTileFeature(fact.FeatureTileId, out var tileFeature) ||
+                        tileFeature.Kind != TileFeatureKind.Destroy ||
+                        tileFeature.Cell != fact.FeatureCell ||
+                        !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                        !TileFeatureActivationQueries.IsActive(tileFeature, definition, context.Snapshot.Topology) ||
+                        !TryGetValidDestroyBoxTarget(
+                            context.Snapshot,
+                            fact.OccupantEntityId,
+                            fact.FeatureCell,
+                            out var target))
+                    {
+                        continue;
+                    }
+
+                    AddDestroyTileDestroy(
+                        context,
+                        batch,
+                        tileEvents,
+                        destroyedEntityIds,
+                        destroyedBoxIds,
+                        fact.OccupantEntityId,
+                        target,
+                        tileFeature,
+                        fact.FeatureCell);
+                }
+            }
+
             return batch;
+        }
+
+        private static void AddDestroyTileDestroy(
+            in TileEffectResolutionContext context,
+            FinalizationBatch batch,
+            List<TilePresentationEvent> tileEvents,
+            HashSet<int> destroyedEntityIds,
+            HashSet<int> destroyedBoxIds,
+            int targetEntityId,
+            in EntityState target,
+            TileFeatureState tileFeature,
+            SurfaceCell tileCell)
+        {
+            var metadata = CreateDestroyTileMetadata(
+                context.TickIndex,
+                target,
+                tileCell);
+            batch.SetBoardPresence(
+                targetEntityId,
+                EntityBoardPresence.Detached,
+                metadata);
+            batch.MarkDestroy(
+                targetEntityId,
+                metadata);
+            tileEvents.Add(new TilePresentationEvent(
+                TilePresentationEventKind.DestroyTileTriggered,
+                tileFeature.TileId,
+                tileFeature.Cell,
+                tileFeature.Kind,
+                tileFeature.SourceEntityId,
+                tileFeature.OwnerEntityId,
+                tileFeature.TeamId,
+                targetEntityId: targetEntityId));
+            destroyedEntityIds.Add(targetEntityId);
+            if (target.type == EntityType.Box)
+            {
+                destroyedBoxIds.Add(targetEntityId);
+            }
+        }
+
+        private static int CompareTileFeatureActivationOccupantFacts(
+            TileFeatureActivationOccupantFact left,
+            TileFeatureActivationOccupantFact right)
+        {
+            var cellCompare = CompareSurfaceCells(left.FeatureCell, right.FeatureCell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var kindCompare = left.FeatureKind.CompareTo(right.FeatureKind);
+            if (kindCompare != 0)
+            {
+                return kindCompare;
+            }
+
+            var tileCompare = left.FeatureTileId.CompareTo(right.FeatureTileId);
+            if (tileCompare != 0)
+            {
+                return tileCompare;
+            }
+
+            var occupantCompare = left.OccupantEntityId.CompareTo(right.OccupantEntityId);
+            if (occupantCompare != 0)
+            {
+                return occupantCompare;
+            }
+
+            var sourceCompare = left.SourceKind.CompareTo(right.SourceKind);
+            if (sourceCompare != 0)
+            {
+                return sourceCompare;
+            }
+
+            if (!left.SourceOperationOrdinal.HasValue && !right.SourceOperationOrdinal.HasValue)
+            {
+                return 0;
+            }
+
+            if (!left.SourceOperationOrdinal.HasValue)
+            {
+                return -1;
+            }
+
+            if (!right.SourceOperationOrdinal.HasValue)
+            {
+                return 1;
+            }
+
+            return left.SourceOperationOrdinal.Value.CompareTo(right.SourceOperationOrdinal.Value);
         }
 
         private static FinalizationBatch ResolveBarricadeCrushes(

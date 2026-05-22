@@ -83,14 +83,17 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 ## DestroyTile Policy
 
-- DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, not final snapshot scanning.
-- Stationary boxes and stationary units are not destroyed.
+- DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, and valid same-cell Box occupants through explicit `FeatureActivatedUnderOccupant` activation-transition facts, not final snapshot scanning.
+- Persistent overlap with an already-active DestroyTile does not destroy stationary boxes.
+- A logical TileFeature activation transition may produce an occupant effect for a valid Box on the same `SurfaceCell`.
 - Player-authored ordinary Move into an active DestroyTile is rejected during movement expansion using the topology-resolved destination cell.
 - DestroyTile is not a global traversal blocker; do not model it as runtime traversal, placement, or settlement blockage.
 - The player DestroyTile access guard applies only to voluntary player movement and does not apply to enemy, box, projectile, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.
 - Free2D same-face voluntary player movement injects a scoped active DestroyTile predicate into the existing CollisionRadius-based continuous locomotion blocker/clamp structure.
 - Free2D same-face DestroyTile access must not use DestroyTile-specific approach helpers or manual local-offset clamps.
 - Free2D native topology transition checks `transition.TargetAnchor` under `transition.UpdatedTopology` before topology or anchor materialization.
+- Topology relocation is not movement-derived entity contact.
+- A topology-caused logical feature activation may emit a separate activation-transition occupant fact.
 - Air units may have DestroyTile hazard lethal exceptions, but player voluntary access guards still block active DestroyTile destination or Free2D scoped blocker entry.
 - Unit targets are destroyed only when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection.
 - Player and Enemy are both Unit targets; Player death presentation/audio is transported through `TickResult` presentation facts, not direct gameplay UI/audio calls.
@@ -99,7 +102,8 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - DestroyTile itself is not consumed, updated, or removed.
 - Contact facts are transient and are not authoritative state or direct determinism hash input.
 - DestroyTile contact facts come from accepted `MoveEntity` operations only.
-- Phase relocation, spawn/respawn, topology relocation, and projectile movement are not DestroyTile contact sources in v1.
+- DestroyTile v1 consumes movement-derived contacts and `FeatureActivatedUnderOccupant` facts; spawn, respawn, scripted relocation, projectile movement, and persistent overlap remain excluded.
+- Phase relocation, spawn/respawn, topology relocation, and projectile movement are not movement-derived DestroyTile contact sources in v1.
 - Follow-up: Ground JumpChaser landing candidate should prefer Neutral over LethalOnEnter.
 - Follow-up: Ground JumpChaser should cancel or fallback when all landing candidates are LethalOnEnter.
 - Follow-up: Air JumpChaser may ignore DestroyTile hazard.

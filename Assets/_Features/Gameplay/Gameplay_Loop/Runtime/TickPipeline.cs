@@ -1123,6 +1123,15 @@ namespace Game.Feature.Gameplay.Loop
                 planSnapshot,
                 attackReadSnapshot,
                 movementStageBatch);
+            var tileFeatureActivationOccupantFacts = BuildDestroyTileActivationOccupantFacts(
+                planSnapshot,
+                postMovementSnapshot,
+                _tileFeatureDefinitions,
+                TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                planPhaseResult.PlanFinalizationBatch,
+                movementStageBatch,
+                jumpLandingResolveBatch,
+                phaseRelocationResolveBatch);
             IReadOnlyList<TilePresentationEvent> tilePresentationEvents = Array.Empty<TilePresentationEvent>();
             var tileEffectResult = _tileEffectResolver.Resolve(
                 new TileEffectResolutionContext(
@@ -1131,7 +1140,8 @@ namespace Game.Feature.Gameplay.Loop
                     _tileFeatureDefinitions,
                     tileEffectEntityContacts,
                     planSnapshot,
-                    tileEffectBoxStops));
+                    tileEffectBoxStops,
+                    tileFeatureActivationOccupantFacts));
             tilePresentationEvents = tileEffectResult.TileEvents;
             if (!tileEffectResult.IsEmpty)
             {
@@ -7630,6 +7640,194 @@ namespace Game.Feature.Gameplay.Loop
 
             contacts.Sort(CompareTileEffectEntityContacts);
             return contacts;
+        }
+
+        internal static List<TileFeatureActivationOccupantFact> BuildDestroyTileActivationOccupantFacts(
+            WorldSnapshot previousSnapshot,
+            WorldSnapshot currentSnapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            TileEffectTriggerSourceKind sourceKind,
+            params FinalizationBatch[] sourceBatches)
+        {
+            var facts = new List<TileFeatureActivationOccupantFact>();
+            if (previousSnapshot == null ||
+                currentSnapshot == null ||
+                tileFeatureDefinitions == null ||
+                sourceKind != TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant ||
+                previousSnapshot.Topology.Equals(currentSnapshot.Topology) ||
+                !TryGetFirstTopologySourceOperationOrdinal(sourceBatches, out var sourceOperationOrdinal))
+            {
+                return facts;
+            }
+
+            var entities = new List<EntityState>();
+            var tileFeaturesAtCell = new List<TileFeatureState>();
+            currentSnapshot.EnumerateEntitiesOrdered(entities);
+            for (var entityIndex = 0; entityIndex < entities.Count; entityIndex++)
+            {
+                var entity = entities[entityIndex];
+                if (!IsValidDestroyTileActivationOccupant(currentSnapshot, entity))
+                {
+                    continue;
+                }
+
+                currentSnapshot.EnumerateTileFeaturesAt(entity.position, tileFeaturesAtCell);
+                for (var tileIndex = 0; tileIndex < tileFeaturesAtCell.Count; tileIndex++)
+                {
+                    var tileFeature = tileFeaturesAtCell[tileIndex];
+                    if (tileFeature.Kind != TileFeatureKind.Destroy ||
+                        !TryFindTileFeatureDefinition(tileFeatureDefinitions, tileFeature.TileId, out var definition) ||
+                        !IsDestroyTileActivationTransition(
+                            previousSnapshot,
+                            currentSnapshot,
+                            tileFeature,
+                            definition))
+                    {
+                        continue;
+                    }
+
+                    facts.Add(new TileFeatureActivationOccupantFact(
+                        tileFeature.TileId,
+                        tileFeature.Cell,
+                        tileFeature.Kind,
+                        entity.entityId,
+                        entity.type,
+                        sourceKind,
+                        sourceOperationOrdinal));
+                }
+            }
+
+            facts.Sort(CompareTileFeatureActivationOccupantFacts);
+            return facts;
+        }
+
+        private static bool TryGetFirstTopologySourceOperationOrdinal(
+            FinalizationBatch[] sourceBatches,
+            out int sourceOperationOrdinal)
+        {
+            sourceOperationOrdinal = default;
+            if (sourceBatches == null)
+            {
+                return false;
+            }
+
+            for (var batchIndex = 0; batchIndex < sourceBatches.Length; batchIndex++)
+            {
+                var batch = sourceBatches[batchIndex];
+                if (batch == null)
+                {
+                    continue;
+                }
+
+                var operations = batch.Operations;
+                for (var operationIndex = 0; operationIndex < operations.Count; operationIndex++)
+                {
+                    if (operations[operationIndex].Kind == FinalizationOperationKind.SetTopology)
+                    {
+                        sourceOperationOrdinal = (batchIndex * 100000) + operationIndex;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsValidDestroyTileActivationOccupant(
+            WorldSnapshot snapshot,
+            EntityState entity)
+        {
+            return entity.type == EntityType.Box &&
+                   entity.boardPresence == EntityBoardPresence.Occupying &&
+                   entity.hp > 0 &&
+                   !entity.markedForDeath;
+        }
+
+        private static bool IsDestroyTileActivationTransition(
+            WorldSnapshot previousSnapshot,
+            WorldSnapshot currentSnapshot,
+            TileFeatureState currentTileFeature,
+            TileFeatureRuntimeDefinition definition)
+        {
+            if (!previousSnapshot.TryGetTileFeature(currentTileFeature.TileId, out var previousTileFeature) ||
+                previousTileFeature.Kind != TileFeatureKind.Destroy ||
+                previousTileFeature.Cell != currentTileFeature.Cell)
+            {
+                return false;
+            }
+
+            return !TileFeatureActivationQueries.IsActive(previousTileFeature, definition, previousSnapshot.Topology) &&
+                   TileFeatureActivationQueries.IsActive(currentTileFeature, definition, currentSnapshot.Topology);
+        }
+
+        private static bool TryFindTileFeatureDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            for (var i = 0; i < definitions.Count; i++)
+            {
+                if (definitions[i].TileId == tileId)
+                {
+                    definition = definitions[i];
+                    return true;
+                }
+            }
+
+            definition = default;
+            return false;
+        }
+
+        private static int CompareTileFeatureActivationOccupantFacts(
+            TileFeatureActivationOccupantFact left,
+            TileFeatureActivationOccupantFact right)
+        {
+            var cellCompare = CompareSurfaceCells(left.FeatureCell, right.FeatureCell);
+            if (cellCompare != 0)
+            {
+                return cellCompare;
+            }
+
+            var kindCompare = left.FeatureKind.CompareTo(right.FeatureKind);
+            if (kindCompare != 0)
+            {
+                return kindCompare;
+            }
+
+            var tileCompare = left.FeatureTileId.CompareTo(right.FeatureTileId);
+            if (tileCompare != 0)
+            {
+                return tileCompare;
+            }
+
+            var occupantCompare = left.OccupantEntityId.CompareTo(right.OccupantEntityId);
+            if (occupantCompare != 0)
+            {
+                return occupantCompare;
+            }
+
+            var sourceCompare = left.SourceKind.CompareTo(right.SourceKind);
+            if (sourceCompare != 0)
+            {
+                return sourceCompare;
+            }
+
+            if (!left.SourceOperationOrdinal.HasValue && !right.SourceOperationOrdinal.HasValue)
+            {
+                return 0;
+            }
+
+            if (!left.SourceOperationOrdinal.HasValue)
+            {
+                return -1;
+            }
+
+            if (!right.SourceOperationOrdinal.HasValue)
+            {
+                return 1;
+            }
+
+            return left.SourceOperationOrdinal.Value.CompareTo(right.SourceOperationOrdinal.Value);
         }
 
         internal static List<TileEffectBoxStop> BuildTileEffectBoxStops(
