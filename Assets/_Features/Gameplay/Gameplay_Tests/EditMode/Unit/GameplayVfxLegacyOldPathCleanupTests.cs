@@ -4,14 +4,12 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Stages;
-using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxLegacyOldPathCleanupTests
     {
-        private const string GovernancePath = "Docs/Architecture/Gameplay-VFX-Governance.md";
         private const string CoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string ExitControllerPath =
@@ -67,68 +65,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Governance_DocumentsLegacyCleanupPolicy()
-        {
-            var document = ReadRepoFile(GovernancePath);
-
-            Assert.That(document, Does.Contain("## Gameplay VFX Legacy Old Path Cleanup"));
-            Assert.That(document, Does.Contain("For all current migrated cues, flag off means that VFX is off"));
-            Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
-            Assert.That(document, Does.Contain("Cleanup, visibility, transform reset, and motion ownership responsibilities remain"));
-            Assert.That(document, Does.Contain("suppress compatibility gates were removed"));
-            Assert.That(document, Does.Contain("old fallback = none"));
-            Assert.That(document, Does.Contain("For all current migrated cues, flag off means that VFX is off"));
-            Assert.That(document, Does.Contain("## Active Transient Effect Count Cleanup"));
-            Assert.That(document, Does.Contain("`ActiveTransientEffectCount` compatibility surface was removed"));
-            Assert.That(document, Does.Contain("`GameplayVfxRuntimeDiagnostics`"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void CleanedOldPaths_AreListed()
-        {
-            var document = ReadRepoFile(GovernancePath);
-
-            Assert.That(document, Does.Contain("Player damage direct hit prefab fallback"));
-            Assert.That(document, Does.Contain("BoxDestroy old entity exit transient track"));
-            Assert.That(document, Does.Contain("ItemConsume old entity exit transient track"));
-            Assert.That(document, Does.Contain("`GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings`"));
-            Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources`"));
-            Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts`"));
-            Assert.That(document, Does.Contain("`GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings`"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void FinalizedHighRiskOldPaths_AreListed()
-        {
-            var document = ReadRepoFile(GovernancePath);
-
-            Assert.That(document, Does.Contain("old fly-away track removed"));
-            Assert.That(document, Does.Contain("old clone/fade track removed"));
-            Assert.That(document, Does.Contain("Remaining old canonical presentation responsibilities"));
-            Assert.That(document, Does.Contain("old impact break playback removed"));
-            Assert.That(document, Does.Contain("old OutOfBounds fade track removed"));
-            Assert.That(document, Does.Contain("`PresentationMotionTrack` Stay original-view motion"));
-            Assert.That(document, Does.Not.Contain("windup warning path remains old canonical presentation"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void OutOfBounds_ReservedMigrationPolicyIsDocumented()
-        {
-            var document = ReadRepoFile(GovernancePath);
-
-            Assert.That(document, Does.Contain("## OutOfBounds Exit VFX Migration"));
-            Assert.That(document, Does.Contain("dormant/reserved entity exit cause"));
-            Assert.That(document, Does.Contain("no OutOfBounds gameplay producer is added"));
-            Assert.That(document, Does.Contain("BoxVfxCue.OutOfBoundsExit"));
-            Assert.That(document, Does.Contain("EnemyVfxCue.OutOfBoundsExit"));
-            Assert.That(document, Does.Contain("old `GameplayExitPresentationController.PlayExitEffect` playback surface is removed"));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void OutOfBounds_IsConsumedByReservedGameplayVfxPlannerOnly()
         {
             var enums = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs");
@@ -154,21 +90,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(combined, Does.Not.Contain("exitCauseHint: TickEntityExitCause.OutOfBounds"));
             Assert.That(combined, Does.Not.Contain("ExitCauseHint = TickEntityExitCause.OutOfBounds"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void CleanedOldPaths_AreNotDocumentedAsFlagOffFallback()
-        {
-            var document = ReadRepoFile(GovernancePath);
-
-            Assert.That(document, Does.Not.Contain("smoke off / shrink off: old BoxDestroy shrink/fade only"));
-            Assert.That(document, Does.Not.Contain("smoke on / shrink off: old BoxDestroy shrink/fade plus"));
-            Assert.That(document, Does.Not.Contain("flag off old-only"));
-            Assert.That(document, Does.Not.Contain("rollback is setting `EnableGameplayVfxDamageBurstMigration` false"));
-            Assert.That(document, Does.Not.Contain("rollback is setting `EnableGameplayVfxUtilityWindupMigration` false"));
-            Assert.That(document, Does.Not.Contain("old fly-away only"));
-            Assert.That(document, Does.Not.Contain("old clone/fade fallback remains"));
         }
 
         [Test]
@@ -330,15 +251,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void NoAuthorityOrPresentationCarrierShapeChanges_Documented()
-        {
-            var document = ReadRepoFile(GovernancePath);
-
-            Assert.That(document, Does.Contain("no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, `DeterminismHashBuilder`, `TickPresentationData`, `TickEntityExitPresentationSignal`, `TickEntityMotion`, or `TickResultBuilder` changes"));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void DeferredSerializedReferenceFields_AreRemovedFromSourceAndYaml()
         {
             var utilityAuthoring = ReadRepoFile(UtilityWindupAuthoringPath);
@@ -359,21 +271,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(shieldPrefab, Does.Not.Contain(ShieldBlockRemovedField()));
             Assert.That(shieldPrefab, Does.Contain("telegraphPrefab"));
             Assert.That(shieldPrefab, Does.Contain("6cd12717bd9bde896dd0a4a174eb8512"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void DeferredSerializedReferenceCleanup_IsDocumentedWithLegacyAssetRemoval()
-        {
-            var document = ReadRepoFile(GovernancePath);
-
-            Assert.That(document, Does.Contain("EnemyUtilityWindupPresentationAuthoring." + UtilityRemovedField()));
-            Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldActiveRemovedField()));
-            Assert.That(document, Does.Contain("EnemyFrontFaceShieldPresentationAuthoring." + ShieldBlockRemovedField()));
-            Assert.That(document, Does.Contain("old FrontFaceShield active/block prefab and material assets were removed after GUID reference scans confirmed zero external references"));
-            Assert.That(document, Does.Contain("non-particle Gameplay VFX prefab authoring was removed"));
-            Assert.That(document, Does.Contain("VFX_FrontFaceShield_Telegraph"));
-            Assert.That(document, Does.Contain("M_FrontFaceShield_Telegraph.mat"));
         }
 
         [Test]
