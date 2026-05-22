@@ -405,10 +405,13 @@ namespace Game.Feature.Gameplay.Host
             RefreshGravityFieldVisualStates(result.PresentationData);
             SyncTileFeatureVisualPoseForTopologyMotionIfNeeded(result.PresentationData);
             _tileFeatureAudioPresentationController.ReplacePendingPlan(
-                _tileFeatureAudioRequestPlanner.BuildRequests(_currentTilePresentationRequests, result.TickIndex));
+                _tileFeatureAudioRequestPlanner.BuildRequests(
+                    _currentTilePresentationRequests,
+                    result.TickIndex,
+                    _timingProfile));
             _gravityFieldAudioPresentationController.ReplacePendingPlan(
                 _gravityFieldAudioRequestPlanner.BuildRequests(_currentGravityFieldPresentationRequests));
-            _tileFeatureVisualPresentationController.PlayRequests(_currentTilePresentationRequests);
+            _tileFeatureVisualPresentationController.PlayRequests(_currentTilePresentationRequests, _timingProfile);
             _moonBlockEmergencePresentationController.QueueRequests(_currentTilePresentationRequests, result.TickIndex);
             _gravityFieldVisualPresentationController.PlayRequests(_currentGravityFieldPresentationRequests);
             _tileFeatureVisualPresentationController.RefreshContinuousStates(_currentTileFeatureVisualStates);
@@ -524,6 +527,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Reset();
             _frontFaceShieldVfxPresenter.Clear();
             _utilityWindupVfxPresenter.Clear();
+            _tileFeatureVisualPresentationController.ResetSession();
             _moonBlockEmergencePresentationController.ResetSession();
             ResetExtensions();
             _animationSync.Reset();
@@ -570,7 +574,9 @@ namespace Game.Feature.Gameplay.Host
             _enemyAudioPresentationController.Update(_lastPresentedTickIndex, deltaTime);
             _blockAudioPresentationController.Update(deltaTime);
             _playerLocomotionAudioPresentationController.Update(deltaTime);
+            _tileFeatureAudioPresentationController.Update(deltaTime);
             _frontFaceShieldVfxPresenter.Update(deltaTime);
+            _tileFeatureVisualPresentationController.Update(deltaTime);
             _moonBlockEmergencePresentationController.UpdatePresentation(deltaTime);
             UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(

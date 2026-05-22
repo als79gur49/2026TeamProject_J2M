@@ -86,7 +86,7 @@ namespace Game.Feature.Gameplay.Loop
         JumpLanding = 10,
     }
 
-    internal enum MovementSemanticKind
+    public enum MovementSemanticKind
     {
         None = 0,
         Move = 1,

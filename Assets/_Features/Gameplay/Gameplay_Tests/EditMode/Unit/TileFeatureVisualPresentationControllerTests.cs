@@ -45,6 +45,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ButtonActivatedRequest_WithMotionContactTiming_WaitsUntilDelayElapses()
+        {
+            var rootObject = new GameObject(nameof(ButtonActivatedRequest_WithMotionContactTiming_WaitsUntilDelayElapses));
+            var targetObject = new GameObject("ButtonVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+                var request = new TilePresentationRequest(
+                    TilePresentationRequestKind.ButtonActivated,
+                    100,
+                    cell,
+                    TileFeatureKind.Button,
+                    sourceEntityId: 20,
+                    ownerEntityId: 0,
+                    teamId: 1,
+                    timingAnchor: PresentationTimingAnchor.MotionContact(
+                        sourceEntityId: 20,
+                        targetEntityId: 0,
+                        actionPlanId: 45,
+                        localActionIndex: 0,
+                        movementSemanticKind: MovementSemanticKind.Flip,
+                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                        barrierKey: barrierKey),
+                    barrierKey: barrierKey);
+                var delaySeconds = GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                                   GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
+
+                controller.PlayRequests(new[] { request });
+                controller.Update(delaySeconds - 0.001f);
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+
+                controller.Update(0.001f);
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void DestroyTileTriggeredRequest_WithSupportedTargetView_CallsPlayDestroyTileTriggeredOnce()
         {
             var rootObject = new GameObject(nameof(DestroyTileTriggeredRequest_WithSupportedTargetView_CallsPlayDestroyTileTriggeredOnce));
@@ -370,6 +421,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(target.DebugDestroyTileActive, Is.False);
                 Assert.That(target.DebugPlayDestroyTileActivatedCount, Is.Zero);
                 Assert.That(target.DebugPlayDestroyTileDeactivatedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ButtonVisualState_WithVisibilityGate_DoesNotPlayPressedVisualFromContinuousSync()
+        {
+            var rootObject = new GameObject(nameof(ButtonVisualState_WithVisibilityGate_DoesNotPlayPressedVisualFromContinuousSync));
+            var targetObject = new GameObject("ButtonVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+                var timingAnchor = PresentationTimingAnchor.MotionContact(
+                    sourceEntityId: 20,
+                    targetEntityId: 0,
+                    actionPlanId: 77,
+                    localActionIndex: 0,
+                    movementSemanticKind: MovementSemanticKind.Flip,
+                    visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                    barrierKey: barrierKey);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Button,
+                        isActive: true,
+                        sourceEntityId: 20,
+                        ownerEntityId: 0,
+                        teamId: 1,
+                        visibilityGate: new PresentationVisibilityGate(timingAnchor, barrierKey)),
+                });
+
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
             }
             finally
             {

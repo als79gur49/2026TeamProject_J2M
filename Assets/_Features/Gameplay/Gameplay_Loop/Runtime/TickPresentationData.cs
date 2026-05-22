@@ -51,6 +51,310 @@ namespace Game.Feature.Gameplay.Loop
         ExitObjectiveCleared = 14,
     }
 
+    public enum PresentationTimingKind
+    {
+        Immediate = 0,
+        DelaySeconds = 1,
+        MotionContact = 2,
+        MotionEnd = 3,
+        Barrier = 4,
+    }
+
+    public enum PresentationBarrierKind
+    {
+        None = 0,
+        ButtonActivated = 1,
+        EntityExit = 2,
+        ObjectiveCondition = 3,
+        StageClear = 4,
+    }
+
+    public readonly struct PresentationBarrierKey : IEquatable<PresentationBarrierKey>
+    {
+        private PresentationBarrierKey(PresentationBarrierKind kind, int primaryId)
+        {
+            Kind = kind;
+            PrimaryId = primaryId;
+        }
+
+        public PresentationBarrierKind Kind { get; }
+
+        public int PrimaryId { get; }
+
+        public bool IsValid => Kind != PresentationBarrierKind.None;
+
+        public static PresentationBarrierKey None()
+        {
+            return default;
+        }
+
+        public static PresentationBarrierKey ButtonActivated(int tileId)
+        {
+            return tileId > 0
+                ? new PresentationBarrierKey(PresentationBarrierKind.ButtonActivated, tileId)
+                : default;
+        }
+
+        public static PresentationBarrierKey EntityExit(int entityId)
+        {
+            return entityId > 0
+                ? new PresentationBarrierKey(PresentationBarrierKind.EntityExit, entityId)
+                : default;
+        }
+
+        public static PresentationBarrierKey ObjectiveCondition(int conditionId)
+        {
+            return conditionId > 0
+                ? new PresentationBarrierKey(PresentationBarrierKind.ObjectiveCondition, conditionId)
+                : default;
+        }
+
+        public static PresentationBarrierKey StageClear(int stageRunId)
+        {
+            return stageRunId > 0
+                ? new PresentationBarrierKey(PresentationBarrierKind.StageClear, stageRunId)
+                : default;
+        }
+
+        public bool Equals(PresentationBarrierKey other)
+        {
+            return Kind == other.Kind && PrimaryId == other.PrimaryId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationBarrierKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((int)Kind * 397) ^ PrimaryId;
+            }
+        }
+    }
+
+    public readonly struct PresentationTimingAnchor : IEquatable<PresentationTimingAnchor>
+    {
+        private PresentationTimingAnchor(
+            PresentationTimingKind kind,
+            float delaySeconds,
+            int sourceEntityId,
+            int targetEntityId,
+            int actionPlanId,
+            int localActionIndex,
+            MovementSemanticKind movementSemanticKind,
+            float visualContactNormalizedTime,
+            PresentationBarrierKey barrierKey)
+        {
+            Kind = kind;
+            DelaySeconds = Math.Max(0f, delaySeconds);
+            SourceEntityId = sourceEntityId;
+            TargetEntityId = targetEntityId;
+            ActionPlanId = actionPlanId;
+            LocalActionIndex = localActionIndex;
+            MovementSemanticKind = movementSemanticKind;
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+            BarrierKey = barrierKey;
+        }
+
+        public PresentationTimingKind Kind { get; }
+
+        public float DelaySeconds { get; }
+
+        public int SourceEntityId { get; }
+
+        public int TargetEntityId { get; }
+
+        public int ActionPlanId { get; }
+
+        public int LocalActionIndex { get; }
+
+        public MovementSemanticKind MovementSemanticKind { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
+        public PresentationBarrierKey BarrierKey { get; }
+
+        public bool IsImmediate => Kind == PresentationTimingKind.Immediate;
+
+        public static PresentationTimingAnchor Immediate()
+        {
+            return default;
+        }
+
+        public static PresentationTimingAnchor Delayed(
+            float delaySeconds,
+            PresentationBarrierKey barrierKey = default)
+        {
+            return delaySeconds > 0f
+                ? new PresentationTimingAnchor(
+                    PresentationTimingKind.DelaySeconds,
+                    delaySeconds,
+                    0,
+                    0,
+                    0,
+                    0,
+                    MovementSemanticKind.None,
+                    0f,
+                    barrierKey)
+                : default;
+        }
+
+        public static PresentationTimingAnchor MotionContact(
+            int sourceEntityId,
+            int targetEntityId,
+            int actionPlanId,
+            int localActionIndex,
+            MovementSemanticKind movementSemanticKind,
+            float visualContactNormalizedTime,
+            PresentationBarrierKey barrierKey = default)
+        {
+            return new PresentationTimingAnchor(
+                PresentationTimingKind.MotionContact,
+                0f,
+                sourceEntityId,
+                targetEntityId,
+                actionPlanId,
+                localActionIndex,
+                movementSemanticKind,
+                visualContactNormalizedTime,
+                barrierKey);
+        }
+
+        public bool Equals(PresentationTimingAnchor other)
+        {
+            return Kind == other.Kind &&
+                   DelaySeconds.Equals(other.DelaySeconds) &&
+                   SourceEntityId == other.SourceEntityId &&
+                   TargetEntityId == other.TargetEntityId &&
+                   ActionPlanId == other.ActionPlanId &&
+                   LocalActionIndex == other.LocalActionIndex &&
+                   MovementSemanticKind == other.MovementSemanticKind &&
+                   VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime) &&
+                   BarrierKey.Equals(other.BarrierKey);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationTimingAnchor other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (int)Kind;
+                hash = (hash * 397) ^ DelaySeconds.GetHashCode();
+                hash = (hash * 397) ^ SourceEntityId;
+                hash = (hash * 397) ^ TargetEntityId;
+                hash = (hash * 397) ^ ActionPlanId;
+                hash = (hash * 397) ^ LocalActionIndex;
+                hash = (hash * 397) ^ (int)MovementSemanticKind;
+                hash = (hash * 397) ^ VisualContactNormalizedTime.GetHashCode();
+                hash = (hash * 397) ^ BarrierKey.GetHashCode();
+                return hash;
+            }
+        }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
+    }
+
+    public static class PresentationTimingResolver
+    {
+        public static float ResolveDelaySeconds(
+            PresentationTimingAnchor anchor,
+            GameplayTimingProfile timingProfile)
+        {
+            switch (anchor.Kind)
+            {
+                case PresentationTimingKind.DelaySeconds:
+                    return Math.Max(0f, anchor.DelaySeconds);
+                case PresentationTimingKind.MotionContact:
+                    return ResolveMotionDurationSeconds(anchor.MovementSemanticKind, timingProfile) *
+                           anchor.VisualContactNormalizedTime;
+                case PresentationTimingKind.Immediate:
+                case PresentationTimingKind.MotionEnd:
+                case PresentationTimingKind.Barrier:
+                default:
+                    return 0f;
+            }
+        }
+
+        private static float ResolveMotionDurationSeconds(
+            MovementSemanticKind movementSemanticKind,
+            GameplayTimingProfile timingProfile)
+        {
+            var profile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            switch (movementSemanticKind)
+            {
+                case MovementSemanticKind.Flip:
+                    return profile.FlipMotionDurationSeconds;
+                case MovementSemanticKind.Push:
+                    return profile.PushMotionDurationSeconds;
+                case MovementSemanticKind.Move:
+                case MovementSemanticKind.Item:
+                    return profile.MoveMotionDurationSeconds;
+                case MovementSemanticKind.Slide:
+                    return profile.BoxSlideStepIntervalSeconds;
+                case MovementSemanticKind.ProjectileMove:
+                    return profile.ProjectileStepIntervalSeconds;
+                default:
+                    return 0f;
+            }
+        }
+    }
+
+    public readonly struct PresentationVisibilityGate : IEquatable<PresentationVisibilityGate>
+    {
+        public PresentationVisibilityGate(
+            PresentationTimingAnchor timingAnchor,
+            PresentationBarrierKey barrierKey = default)
+        {
+            TimingAnchor = timingAnchor;
+            BarrierKey = barrierKey.IsValid ? barrierKey : timingAnchor.BarrierKey;
+        }
+
+        public PresentationTimingAnchor TimingAnchor { get; }
+
+        public PresentationBarrierKey BarrierKey { get; }
+
+        public bool HasGate => BarrierKey.IsValid && !TimingAnchor.IsImmediate;
+
+        public static PresentationVisibilityGate Immediate()
+        {
+            return default;
+        }
+
+        public bool Equals(PresentationVisibilityGate other)
+        {
+            return TimingAnchor.Equals(other.TimingAnchor) &&
+                   BarrierKey.Equals(other.BarrierKey);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationVisibilityGate other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (TimingAnchor.GetHashCode() * 397) ^ BarrierKey.GetHashCode();
+            }
+        }
+    }
+
     public enum MoonBlockGeneratorBlockedReason
     {
         None = 0,
@@ -96,7 +400,9 @@ namespace Game.Feature.Gameplay.Loop
             Direction direction = Direction.None,
             MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
             int spawnTick = 0,
-            int spawnInteractionLockTicks = 0)
+            int spawnInteractionLockTicks = 0,
+            PresentationTimingAnchor timingAnchor = default,
+            PresentationBarrierKey barrierKey = default)
         {
             EventKind = eventKind;
             TileId = tileId;
@@ -110,6 +416,8 @@ namespace Game.Feature.Gameplay.Loop
             MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
             SpawnTick = spawnTick;
             SpawnInteractionLockTicks = spawnInteractionLockTicks;
+            TimingAnchor = timingAnchor;
+            BarrierKey = barrierKey.IsValid ? barrierKey : timingAnchor.BarrierKey;
         }
 
         public TilePresentationEventKind EventKind { get; }
@@ -135,6 +443,10 @@ namespace Game.Feature.Gameplay.Loop
         public int SpawnTick { get; }
 
         public int SpawnInteractionLockTicks { get; }
+
+        public PresentationTimingAnchor TimingAnchor { get; }
+
+        public PresentationBarrierKey BarrierKey { get; }
     }
 
     public readonly struct GravityFieldLockedBoxPayload
@@ -173,7 +485,8 @@ namespace Game.Feature.Gameplay.Loop
             bool isActive,
             int sourceEntityId,
             int ownerEntityId,
-            int teamId)
+            int teamId,
+            PresentationVisibilityGate visibilityGate = default)
         {
             TileId = tileId;
             Cell = cell;
@@ -182,6 +495,7 @@ namespace Game.Feature.Gameplay.Loop
             SourceEntityId = sourceEntityId;
             OwnerEntityId = ownerEntityId;
             TeamId = teamId;
+            VisibilityGate = visibilityGate;
         }
 
         public int TileId { get; }
@@ -197,6 +511,8 @@ namespace Game.Feature.Gameplay.Loop
         public int OwnerEntityId { get; }
 
         public int TeamId { get; }
+
+        public PresentationVisibilityGate VisibilityGate { get; }
     }
 
     public enum GravityFieldPresentationEventKind

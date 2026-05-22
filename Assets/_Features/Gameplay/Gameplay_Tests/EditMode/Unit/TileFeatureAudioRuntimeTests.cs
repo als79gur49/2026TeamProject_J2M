@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -51,6 +52,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(requests[0].Context.OwnerEntityId, Is.EqualTo(40));
             Assert.That(requests[0].Context.DebugTag, Is.EqualTo("ButtonActivated"));
             Assert.That(requests[0].TargetEntityId, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_FlipButtonActivated_UsesVisualSlamContactDelay()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 0,
+                actionPlanId: 45,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    sourceEntityId: 20,
+                    timingAnchor: timingAnchor,
+                    barrierKey: barrierKey),
+            });
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(
+                requests[0].DelaySeconds,
+                Is.EqualTo(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                           GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ButtonAudio_IsDistinctFromFlipImpactAudio()
+        {
+            Assert.That(
+                TileFeatureAudioCueCatalog.Format(TileFeatureAudioCue.ButtonActivated),
+                Is.EqualTo("ButtonActivated"));
+            Assert.That(
+                BlockAudioCueCatalog.Format(BlockAudioCue.FlipLanding),
+                Is.EqualTo("FlipLanding"));
+            Assert.That(
+                TileFeatureAudioCueCatalog.Format(TileFeatureAudioCue.ButtonActivated),
+                Is.Not.EqualTo(BlockAudioCueCatalog.Format(BlockAudioCue.FlipLanding)));
+            Assert.That(
+                GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime,
+                Is.Not.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
         }
 
         [Test]
@@ -1330,7 +1382,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TilePresentationRequestKind requestKind = TilePresentationRequestKind.ButtonActivated,
             TileFeatureKind tileFeatureKind = TileFeatureKind.Button,
             int targetEntityId = 0,
-            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default)
+            MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
+            PresentationTimingAnchor timingAnchor = default,
+            PresentationBarrierKey barrierKey = default)
         {
             return new TilePresentationRequest(
                 requestKind,
@@ -1341,7 +1395,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ownerEntityId,
                 teamId,
                 targetEntityId,
-                moonBlockGeneratorBlockedPayload: moonBlockGeneratorBlockedPayload);
+                moonBlockGeneratorBlockedPayload: moonBlockGeneratorBlockedPayload,
+                timingAnchor: timingAnchor,
+                barrierKey: barrierKey);
         }
 
         private static TileFeatureAudioRequest CreateTileAudioRequest(

@@ -11,7 +11,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
 
         public IReadOnlyList<TileFeatureAudioRequest> BuildRequests(
             IReadOnlyList<TilePresentationRequest> tilePresentationRequests,
-            int tickIndex = 0)
+            int tickIndex = 0,
+            GameplayTimingProfile timingProfile = null)
         {
             if (tilePresentationRequests == null)
             {
@@ -32,6 +33,9 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                     continue;
                 }
 
+                var delaySeconds = PresentationTimingResolver.ResolveDelaySeconds(
+                    request.TimingAnchor,
+                    timingProfile);
                 requests.Add(new TileFeatureAudioRequest(
                     cue,
                     request.TileId,
@@ -43,7 +47,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                         ownerEntityId: request.OwnerEntityId > 0 ? request.OwnerEntityId : null,
                         debugTag: TileFeatureAudioCueCatalog.Format(cue)),
                     request.TargetEntityId,
-                    request.MoonBlockGeneratorBlockedPayload));
+                    request.MoonBlockGeneratorBlockedPayload,
+                    delaySeconds: delaySeconds));
             }
 
             return requests.Count == 0
