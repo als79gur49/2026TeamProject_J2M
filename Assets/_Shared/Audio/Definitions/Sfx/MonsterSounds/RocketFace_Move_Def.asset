@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: RocketFace_Move_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.SingleAudioDefinition
   category: 2
-  defaultVolumeTrim: 1
+  defaultVolumeTrim: 0.85
   pitchRange: {x: 1, y: 1}
   loop: 0
   clip: {fileID: 8300000, guid: 90e6dc9d23dea9b4db9b4a26cfbcdb9a, type: 3}

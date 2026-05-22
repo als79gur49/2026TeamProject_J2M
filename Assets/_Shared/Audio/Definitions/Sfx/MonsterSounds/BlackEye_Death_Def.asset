@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: BlackEye_Death_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.SingleAudioDefinition
   category: 2
-  defaultVolumeTrim: 1
+  defaultVolumeTrim: 0.85
   pitchRange: {x: 1, y: 1}
   loop: 0
   clip: {fileID: 8300000, guid: 898d2e86e1c0d5b489d5ce547885a34e, type: 3}
