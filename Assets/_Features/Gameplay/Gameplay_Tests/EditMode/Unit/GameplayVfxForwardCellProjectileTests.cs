@@ -44,13 +44,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var plan = PlanProjectile(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() }));
 
             Assert.That(plan.Requests, Has.Count.EqualTo(2));
-            Assert.That(plan.Requests.Select(request => request.CueId), Is.EqualTo(new[]
+            Assert.That(plan.Requests.Select(request => request.CueId).ToArray(), Is.EquivalentTo(new[]
             {
                 ActiveCueId,
                 FlightCueId,
             }));
-            Assert.That(plan.Requests[0].Anchor.Cell, Is.EqualTo(SourceCell));
-            Assert.That(plan.Requests[1].CueId, Is.Not.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
+            Assert.That(plan.Requests.Single(request => request.CueId == ActiveCueId).Anchor.Cell, Is.EqualTo(SourceCell));
+            Assert.That(plan.Requests.Single(request => request.CueId == FlightCueId).CueId, Is.Not.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
         }
 
         [Test]
@@ -124,7 +124,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
 
                 runtime.Present(contextFactory.Create(CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: false) })));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
+                Assert.That(runtime.GetActiveVfxInstanceCount(ImpactCueId), Is.EqualTo(1));
             }
             finally
             {
@@ -194,6 +195,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertActiveCarrierKeys(fixture.Runtime);
             Assert.That(fixture.Runtime.GetReleaseToPoolCount(FlightCueId), Is.EqualTo(1));
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_FlightDurationUsesImpactDelayTicks()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture("ForwardCellProjectileFlightDuration");
+
+            fixture.Present(CreatePresentationData(releaseSignals: new[]
+            {
+                CreateReleaseSignal(impactDelayTicks: 96),
+            }));
+            AssertActiveCarrierKeys(fixture.Runtime, 4000001);
+
+            fixture.Runtime.UpdatePresentation(1.5f);
+            AssertActiveCarrierKeys(fixture.Runtime, 4000001);
+
+            fixture.Runtime.UpdatePresentation(0.11f);
+            AssertActiveCarrierKeys(fixture.Runtime);
+            Assert.That(fixture.Runtime.GetReleaseToPoolCount(FlightCueId), Is.EqualTo(1));
         }
 
         [Test]
@@ -432,7 +453,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(flightInstance, Is.Not.Null);
 
                 var source = flightInstance.localPosition;
-                var target = ResolveCellCenterLocalPosition(TargetCell);
+                var target = ResolveCellLocalPosition(TargetCell, VfxAnchorSlot.CellFloor);
 
                 runtime.UpdatePresentation(0.2f);
 
@@ -441,6 +462,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var progressX = (flightInstance.localPosition.x - source.x) / distanceX;
                 Assert.That(progressX, Is.EqualTo(0.4375f).Within(0.0001f));
                 Assert.That(progressX, Is.LessThan(0.5f));
+            }
+            finally
+            {
+                Destroy(cueMap, flightBinding, flightPrefab, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_FlightTargetUsesCellFloor()
+        {
+            var owner = new GameObject("ForwardCellProjectileCellFloorTarget");
+            var flightPrefab = new GameObject("ForwardCellProjectileCellFloorTargetFlightPrefab");
+            VfxBindingDefinitionAsset flightBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                flightBinding = CreateBinding(ProjectileVfxCue.ForwardCellProjectileFlight, flightPrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
+                cueMap = CreateCueMap(flightBinding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData(releaseSignals: new[]
+                {
+                    CreateReleaseSignal(impactDelayTicks: 240),
+                })));
+                var flightInstance = FindPooledVfx(owner, flightPrefab.name);
+                Assert.That(flightInstance, Is.Not.Null);
+
+                runtime.UpdatePresentation(3.996f);
+
+                var expectedTarget = ResolveCellLocalPosition(TargetCell, VfxAnchorSlot.CellFloor);
+                var centerTarget = ResolveCellLocalPosition(TargetCell, VfxAnchorSlot.CellCenter);
+                Assert.That(Vector3.Distance(flightInstance.localPosition, expectedTarget), Is.LessThan(0.01f));
+                Assert.That(Vector3.Distance(flightInstance.localPosition, centerTarget), Is.GreaterThan(0.2f));
+            }
+            finally
+            {
+                Destroy(cueMap, flightBinding, flightPrefab, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_FlightArcUsesTargetSurfaceNormal()
+        {
+            var owner = new GameObject("ForwardCellProjectileSurfaceNormalArc");
+            var flightPrefab = new GameObject("ForwardCellProjectileSurfaceNormalArcFlightPrefab");
+            VfxBindingDefinitionAsset flightBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                var sourceCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
+                var targetCell = new SurfaceCell(FaceId.Ceiling, 1, 0);
+                flightBinding = CreateBinding(
+                    ProjectileVfxCue.ForwardCellProjectileFlight,
+                    flightPrefab,
+                    VfxPlaybackMode.OneShot,
+                    VfxStopPolicy.AuthoredDuration,
+                    GameplayVfxVisibilityMode.PresentationOnly);
+                cueMap = CreateCueMap(flightBinding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData(releaseSignals: new[]
+                {
+                    CreateReleaseSignal(
+                        sourceCell: sourceCell,
+                        targetCell: targetCell,
+                        impactDelayTicks: 24),
+                })));
+                var flightInstance = FindPooledVfx(owner, flightPrefab.name);
+                Assert.That(flightInstance, Is.Not.Null);
+
+                var source = flightInstance.localPosition;
+                var target = ResolveCellLocalPosition(
+                    targetCell,
+                    VfxAnchorSlot.CellFloor,
+                    GameplayVfxVisibilityMode.PresentationOnly);
+                var targetNormal = ResolveSurfaceNormal(targetCell);
+
+                runtime.UpdatePresentation(0.2f);
+
+                var linearAtProgress = Vector3.Lerp(source, target, 0.4375f);
+                var arcOffset = flightInstance.localPosition - linearAtProgress;
+                Assert.That(Vector3.Dot(arcOffset, -targetNormal), Is.GreaterThan(0.3f));
+                Assert.That(Vector3.Dot(arcOffset, Vector3.up), Is.LessThan(-0.3f));
             }
             finally
             {
@@ -745,7 +853,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .FirstOrDefault(transform => transform != null && transform.name == $"{prefabName}_PooledVfx");
         }
 
-        private static Vector3 ResolveCellCenterLocalPosition(SurfaceCell cell)
+        private static Vector3 ResolveCellLocalPosition(
+            SurfaceCell cell,
+            VfxAnchorSlot slot,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             var projector = new GameplayCubeProjector(
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
@@ -755,13 +866,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cellProjector.TryResolveCell(
                     cell,
                     new CubeTopologyState(FaceId.Floor),
-                    VfxAnchorSlot.CellCenter,
-                    GameplayVfxVisibilityMode.DefaultGameplay,
+                    slot,
+                    visibilityMode,
                     out var anchor),
                 Is.True);
             Assert.That(anchor.IsResolved, Is.True);
             Assert.That(anchor.HasLocalPose, Is.True);
             return anchor.LocalPosition;
+        }
+
+        private static Vector3 ResolveSurfaceNormal(SurfaceCell cell)
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                1f);
+            Assert.That(
+                projector.TryProjectSurfaceCell(
+                    cell,
+                    new CubeTopologyState(FaceId.Floor),
+                    out var projectedPose),
+                Is.True);
+            return projectedPose.Normal;
         }
 
         private static void Destroy(params UnityEngine.Object[] unityObjects)
