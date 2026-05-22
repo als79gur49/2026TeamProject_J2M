@@ -76,6 +76,7 @@ GameObject:
   - component: {fileID: 4000000000000000010}
   - component: {fileID: 1140000000000000010}
   - component: {fileID: 151338214246943210}
+  - component: {fileID: 4163622133335503954}
   m_Layer: 0
   m_Name: StaticView_Box_Block_Tutorial
   m_TagString: Untagged
@@ -127,6 +128,41 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.BoxFlipInteractionDriver
   gripPoint: {fileID: 0}
   visualRoot: {fileID: 5363608662128536856}
+--- !u!114 &4163622133335503954
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000000000000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d33a3998e9642809a7921970f78192f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GravityFieldLockedTargetVisualTargetView
+  lockedVisualRoot: {fileID: 0}
+  animator: {fileID: 0}
+  lockedBoolName: GravityFieldLockedTarget
+  lockedWeightFloatName: GravityFieldLockedTargetWeight
+  lockedBoxOneShotAnimatorTrigger: GravityFieldLockedBox
+  lockedParticles: {fileID: 0}
+  lockedBoxOneShotParticles: {fileID: 0}
+  lockedTargetApplied:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedTargetCleared:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedBoxOneShot:
+    m_PersistentCalls:
+      m_Calls: []
+  dimRenderers:
+  - {fileID: 3539892384773965078}
+  lockedDimWeight: 1
+  unlockedDimWeight: 0
+  gravityFieldDimFactor: 0.55
+  gravityFieldLockedTint: {r: 0.45, g: 0.55, b: 0.85, a: 1}
+  gravityFieldTintStrength: 0.15
 --- !u!1 &2489755458357871006
 GameObject:
   m_ObjectHideFlags: 0
@@ -218,6 +254,26 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: df3c6874a115de94a83054ab19f97cbf, type: 2}
+    - target: {fileID: -7511558181221131132, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: a84023812d0f68e46b01bccd17898a89, type: 2}
+    - target: {fileID: -7511558181221131132, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
+      propertyPath: 'm_Materials.Array.data[2]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 3a96a8b2f3e018f4f9ca36e4d11108f3, type: 2}
+    - target: {fileID: -7511558181221131132, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
+      propertyPath: 'm_Materials.Array.data[3]'
+      value: 
+      objectReference: {fileID: 2100000, guid: a8e0eebfbadb9e54b9857f71677a6590, type: 2}
+    - target: {fileID: -7511558181221131132, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
+      propertyPath: 'm_Materials.Array.data[4]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 0aab2a6ad0506de4e92e05a181bc02b2, type: 2}
     - target: {fileID: 919132149155446097, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
       propertyPath: m_Name
       value: Block1
@@ -230,5 +286,10 @@ PrefabInstance:
 --- !u!4 &2408042077164142201 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
+  m_PrefabInstance: {fileID: 2801710657558452626}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &3539892384773965078 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: a1dbefd355a73cb47938239ac9da80c1, type: 3}
   m_PrefabInstance: {fileID: 2801710657558452626}
   m_PrefabAsset: {fileID: 0}

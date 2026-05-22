@@ -1163,11 +1163,14 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                var durationTicks = ResolveGravityFieldVisualDurationTicks(context, entity.gravityFieldPhase);
-                var areaFootprint = entity.gravityFieldPhase == GravityFieldPhase.Active
+                var presentationPhase = entity.position.face == context.FinalAuthoritativeSnapshot.Topology.BottomFace
+                    ? entity.gravityFieldPhase
+                    : GravityFieldPhase.None;
+                var durationTicks = ResolveGravityFieldVisualDurationTicks(context, presentationPhase);
+                var areaFootprint = presentationPhase == GravityFieldPhase.Active
                     ? GravityFieldAreaPolicy.BuildFootprint(context.FinalAuthoritativeSnapshot, entity.position)
                     : GravityFieldAreaFootprint.Empty;
-                IEnumerable<int> lockedTargetEntityIds = entity.gravityFieldPhase == GravityFieldPhase.Active &&
+                IEnumerable<int> lockedTargetEntityIds = presentationPhase == GravityFieldPhase.Active &&
                                                          lockedTargetIdsByEmitterId.TryGetValue(entity.entityId, out var targetIds)
                     ? targetIds
                     : Array.Empty<int>();
@@ -1175,7 +1178,7 @@ namespace Game.Feature.Gameplay.Loop
                     new GravityFieldVisualState(
                         entity.entityId,
                         entity.position,
-                        entity.gravityFieldPhase,
+                        presentationPhase,
                         Math.Max(0, entity.gravityFieldTimerTicks),
                         durationTicks,
                         CalculateProgress01(entity.gravityFieldTimerTicks, durationTicks),

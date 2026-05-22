@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4000000000000000010}
   - component: {fileID: 1140000000000000010}
   - component: {fileID: 151338214246943210}
+  - component: {fileID: 4500580096948170386}
   m_Layer: 0
   m_Name: StaticView_Box_MetalBlock_
   m_TagString: Untagged
@@ -62,6 +63,41 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.BoxFlipInteractionDriver
   gripPoint: {fileID: 0}
   visualRoot: {fileID: 7174089196264261462}
+--- !u!114 &4500580096948170386
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000000000000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d33a3998e9642809a7921970f78192f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GravityFieldLockedTargetVisualTargetView
+  lockedVisualRoot: {fileID: 0}
+  animator: {fileID: 0}
+  lockedBoolName: GravityFieldLockedTarget
+  lockedWeightFloatName: GravityFieldLockedTargetWeight
+  lockedBoxOneShotAnimatorTrigger: GravityFieldLockedBox
+  lockedParticles: {fileID: 0}
+  lockedBoxOneShotParticles: {fileID: 0}
+  lockedTargetApplied:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedTargetCleared:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedBoxOneShot:
+    m_PersistentCalls:
+      m_Calls: []
+  dimRenderers:
+  - {fileID: 6797267785483985869}
+  lockedDimWeight: 1
+  unlockedDimWeight: 0
+  gravityFieldDimFactor: 0.55
+  gravityFieldLockedTint: {r: 0.45, g: 0.55, b: 0.85, a: 1}
+  gravityFieldTintStrength: 0.2
 --- !u!1 &2002902953606467026
 GameObject:
   m_ObjectHideFlags: 0
@@ -218,6 +254,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 609764a3b0824014ab33fe1cb65b677a, type: 2}
+    - target: {fileID: -7511558181221131132, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 123b0b3b0a59dfb4cb771d064aa90fa9, type: 2}
+    - target: {fileID: -7511558181221131132, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
+      propertyPath: 'm_Materials.Array.data[2]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 14be563c2bddcd44b895248bd13ba18c, type: 2}
     - target: {fileID: 919132149155446097, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
       propertyPath: m_Name
       value: NonDest
@@ -230,5 +278,10 @@ PrefabInstance:
 --- !u!4 &5629380603228280994 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
+  m_PrefabInstance: {fileID: 5302191038521687881}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &6797267785483985869 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
   m_PrefabInstance: {fileID: 5302191038521687881}
   m_PrefabAsset: {fileID: 0}

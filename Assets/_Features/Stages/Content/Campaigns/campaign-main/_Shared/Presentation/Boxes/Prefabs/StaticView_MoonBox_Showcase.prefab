@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4000000000000000010}
   - component: {fileID: 1140000000000000010}
+  - component: {fileID: 5528171289808688728}
   m_Layer: 0
   m_Name: StaticView_MoonBox_Showcase
   m_TagString: Untagged
@@ -47,6 +48,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 0
   modelRoot: {fileID: 4000000000000000020}
+--- !u!114 &5528171289808688728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000000000000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d33a3998e9642809a7921970f78192f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GravityFieldLockedTargetVisualTargetView
+  lockedVisualRoot: {fileID: 0}
+  animator: {fileID: 0}
+  lockedBoolName: GravityFieldLockedTarget
+  lockedWeightFloatName: GravityFieldLockedTargetWeight
+  lockedBoxOneShotAnimatorTrigger: GravityFieldLockedBox
+  lockedParticles: {fileID: 0}
+  lockedBoxOneShotParticles: {fileID: 0}
+  lockedTargetApplied:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedTargetCleared:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedBoxOneShot:
+    m_PersistentCalls:
+      m_Calls: []
+  dimRenderers:
+  - {fileID: 7524779267947404424}
+  - {fileID: 7489760185521918964}
+  lockedDimWeight: 1
+  unlockedDimWeight: 0
+  gravityFieldDimFactor: 0.63
+  gravityFieldLockedTint: {r: 0.45, g: 0.55, b: 0.85, a: 1}
+  gravityFieldTintStrength: 0.1
 --- !u!1 &1000000000000000020
 GameObject:
   m_ObjectHideFlags: 0
@@ -139,15 +176,45 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 3f166e65b91be344c889bfb76fc51fa7, type: 2}
+    - target: {fileID: -7511558181221131132, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 93e95a388f2b6d841983744dbdeff8bc, type: 2}
+    - target: {fileID: -7511558181221131132, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+      propertyPath: 'm_Materials.Array.data[2]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 74fade2e78db5fb4d8d973c27798511c, type: 2}
+    - target: {fileID: -7511558181221131132, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+      propertyPath: 'm_Materials.Array.data[3]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 6417fa3ed85a1b943a6c875cbe540286, type: 2}
     - target: {fileID: 919132149155446097, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
       propertyPath: m_Name
       value: MoonDummy
       objectReference: {fileID: 0}
+    - target: {fileID: 1755293851842368504, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: fb5c5f5ac01ab5242b36b9d31315c1f9, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+--- !u!23 &7489760185521918964 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 1755293851842368504, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+  m_PrefabInstance: {fileID: 9200000000000000012}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &7524779267947404424 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
+  m_PrefabInstance: {fileID: 9200000000000000012}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &8657693357082240999 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: dbcbe272ef25bbb4ea97e0d09ecc353b, type: 3}
