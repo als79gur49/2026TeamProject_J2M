@@ -26,6 +26,10 @@ namespace Game.Feature.Gameplay.Host
         IMoonBlockGeneratorBlockedVisualTarget,
         ITileFeatureVisualTargetConfigurator
     {
+        private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
+        private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
+
         [SerializeField] private int tileId;
         [SerializeField] private SurfaceCell cell;
         [SerializeField] private Transform presentationRoot;
@@ -55,6 +59,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string moonBlockGeneratorBlockedUnitTriggerName;
         [SerializeField] private string moonBlockGeneratorBlockedWallLikeSolidTriggerName;
         [SerializeField] private string moonBlockGeneratorBlockedPlacementTriggerName;
+        [SerializeField] private Renderer[] destroyTileMaterialRenderers;
+        [SerializeField] private Color destroyTileInactiveColor = Color.white;
+        [SerializeField] private float destroyTileInactiveMetallic = 1f;
         [SerializeField] private ParticleSystem buttonActivatedParticles;
         [SerializeField] private ParticleSystem destroyTileTriggeredParticles;
         [SerializeField] private ParticleSystem slideTileRedirectedParticles;
@@ -110,6 +117,7 @@ namespace Game.Feature.Gameplay.Host
         private int _debugLastExitEnteredPlayerEntityId;
         private int _debugLastMoonBlockGeneratedEntityId;
         private MoonBlockGeneratorBlockedPayload _debugLastMoonBlockGeneratorBlockedPayload;
+        private MaterialPropertyBlock _destroyTileMaterialPropertyBlock;
 
         public int TileId => tileId;
 
@@ -253,6 +261,7 @@ namespace Game.Feature.Gameplay.Host
             _debugDestroyTileActive = active;
             SetAnimatorBool(destroyTileActiveBoolName, active);
             PlayAnimatorStateIfPresent(active ? destroyTileActiveStateName : destroyTileInactiveStateName);
+            ApplyDestroyTileMaterialState(active);
         }
 
         public void PlaySlideTileRedirected(Direction direction, int targetEntityId)
@@ -466,6 +475,96 @@ namespace Game.Feature.Gameplay.Host
             }
 
             played?.Invoke();
+        }
+
+        private void ApplyDestroyTileMaterialState(bool active)
+        {
+            var renderers = ResolveDestroyTileMaterialRenderers();
+            if (renderers == null ||
+                renderers.Length == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var targetRenderer = renderers[i];
+                if (targetRenderer == null)
+                {
+                    continue;
+                }
+
+                if (active)
+                {
+                    targetRenderer.SetPropertyBlock(null);
+                    continue;
+                }
+
+                _destroyTileMaterialPropertyBlock ??= new MaterialPropertyBlock();
+                targetRenderer.GetPropertyBlock(_destroyTileMaterialPropertyBlock);
+                _destroyTileMaterialPropertyBlock.SetColor(BaseColorPropertyId, destroyTileInactiveColor);
+                _destroyTileMaterialPropertyBlock.SetColor(ColorPropertyId, destroyTileInactiveColor);
+                _destroyTileMaterialPropertyBlock.SetFloat(MetallicPropertyId, destroyTileInactiveMetallic);
+                targetRenderer.SetPropertyBlock(_destroyTileMaterialPropertyBlock);
+                _destroyTileMaterialPropertyBlock.Clear();
+            }
+        }
+
+        private Renderer[] ResolveDestroyTileMaterialRenderers()
+        {
+            if (destroyTileMaterialRenderers != null &&
+                destroyTileMaterialRenderers.Length > 0)
+            {
+                return destroyTileMaterialRenderers;
+            }
+
+            var root = PresentationRoot;
+            if (root == null)
+            {
+                return destroyTileMaterialRenderers;
+            }
+
+            var childRenderers = root.GetComponentsInChildren<Renderer>(includeInactive: true);
+            if (childRenderers == null ||
+                childRenderers.Length == 0)
+            {
+                destroyTileMaterialRenderers = childRenderers;
+                return destroyTileMaterialRenderers;
+            }
+
+            var count = 0;
+            for (var i = 0; i < childRenderers.Length; i++)
+            {
+                if (IsDestroyTileMaterialRenderer(childRenderers[i]))
+                {
+                    count++;
+                }
+            }
+
+            if (count == childRenderers.Length)
+            {
+                destroyTileMaterialRenderers = childRenderers;
+                return destroyTileMaterialRenderers;
+            }
+
+            destroyTileMaterialRenderers = new Renderer[count];
+            var index = 0;
+            for (var i = 0; i < childRenderers.Length; i++)
+            {
+                var childRenderer = childRenderers[i];
+                if (IsDestroyTileMaterialRenderer(childRenderer))
+                {
+                    destroyTileMaterialRenderers[index++] = childRenderer;
+                }
+            }
+
+            return destroyTileMaterialRenderers;
+        }
+
+        private static bool IsDestroyTileMaterialRenderer(Renderer targetRenderer)
+        {
+            return targetRenderer is MeshRenderer ||
+                   targetRenderer is SkinnedMeshRenderer;
         }
 
         private void SetAnimatorTrigger(string triggerName)
