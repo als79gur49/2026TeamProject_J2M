@@ -789,6 +789,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoxVfxCue cue,
             float tailSeconds)
         {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Box);
             SetField(binding, "cueCode", (int)cue);

@@ -342,6 +342,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int initialPoolSize = 0,
             int maxConcurrentInstances = 0)
         {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", family);
             SetField(binding, "cueCode", cueCode);
@@ -387,6 +389,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     UnityEngine.Object.DestroyImmediate(unityObject);
                 }
             }
+        }
+    }
+
+    internal static class GameplayVfxTestPrefabFactory
+    {
+        public static void EnsureModelRoot(GameObject prefab)
+        {
+            if (prefab == null ||
+                prefab.transform.Find(VfxPrefabValidationDiagnostics.ModelRootName) != null)
+            {
+                return;
+            }
+
+            new GameObject(VfxPrefabValidationDiagnostics.ModelRootName)
+                .transform.SetParent(prefab.transform, worldPositionStays: false);
         }
     }
 }

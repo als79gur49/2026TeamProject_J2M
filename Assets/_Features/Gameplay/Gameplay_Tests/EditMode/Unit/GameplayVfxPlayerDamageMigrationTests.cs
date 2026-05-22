@@ -459,6 +459,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static VfxBindingDefinitionAsset CreateBinding(GameObject prefab)
         {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Player);
             SetField(binding, "cueCode", (int)PlayerVfxCue.Damage);

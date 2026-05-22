@@ -51,7 +51,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
                 1f);
             var cellProjector = new GameplayVfxHostCellAnchorProjector(projector);
-            var cell = new SurfaceCell(FaceId.Front, 0, 0);
+            var cell = new SurfaceCell(FaceId.Ceiling, 0, 0);
             var topology = new CubeTopologyState(FaceId.Floor);
 
             Assert.That(projector.TryProjectSurfaceCell(cell, topology, out _), Is.True);
@@ -73,7 +73,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
                 1f);
             var cellProjector = new GameplayVfxHostCellAnchorProjector(projector);
-            var cell = new SurfaceCell(FaceId.Front, 0, 0);
+            var cell = new SurfaceCell(FaceId.Ceiling, 0, 0);
             var topology = new CubeTopologyState(FaceId.Floor);
 
             var defaultResult = cellProjector.TryResolveCell(
@@ -140,7 +140,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EntityAnchorFallbackCell_PreservesOriginalVisibilityPolicy()
         {
-            var fallbackCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var fallbackCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
             var fallbackTopology = new CubeTopologyState(FaceId.Floor);
             var resolver = new GameplayVfxHostAnchorResolver(
                 new GameplayVfxHostCellAnchorProjector(new Game.Feature.Gameplay.Host.GameplayCubeProjector(
