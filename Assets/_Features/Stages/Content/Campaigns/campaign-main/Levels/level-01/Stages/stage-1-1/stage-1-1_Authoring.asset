@@ -3439,6 +3439,91 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
     PresentationId: startis
+  - StableGuid: 379928fb740a4ad7a103d19805c54ec2
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 6
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: e75c1d0c43384d62b22854dadc85a8c9
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 6
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: b2228b0df99e49739a8390200563a0c4
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 6
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: e010576ab30a442b9a95b246fb9c6fbf
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 3
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 7403ca95691a4bd78dec980f099f6b5c
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
   tileFeatures:
   - TileId: 1
     Cell:
@@ -4457,6 +4542,26 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: d2be8dc67f7848d4b144ec07957196c9
     EntityId: 406
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 379928fb740a4ad7a103d19805c54ec2
+    EntityId: 407
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: e75c1d0c43384d62b22854dadc85a8c9
+    EntityId: 408
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: b2228b0df99e49739a8390200563a0c4
+    EntityId: 409
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: e010576ab30a442b9a95b246fb9c6fbf
+    EntityId: 410
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7403ca95691a4bd78dec980f099f6b5c
+    EntityId: 411
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0
