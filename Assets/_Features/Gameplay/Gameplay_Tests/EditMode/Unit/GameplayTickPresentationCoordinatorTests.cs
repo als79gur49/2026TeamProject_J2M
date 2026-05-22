@@ -29,13 +29,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Animations/MoonBlockGenerator_DoorOpen.anim";
         private const string GravityFieldLockableShaderName = "Game/Presentation/GravityFieldLockableBoxLit";
         private const string GravityFieldLockedWeightProperty = "_GravityFieldLockedWeight";
+        private const string GravityFieldLockRevealProperty = "_GravityFieldLockReveal";
+        private const string GravityFieldLockNoiseMapProperty = "_GravityFieldLockNoiseMap";
+        private const string GravityFieldLockEdgeWidthProperty = "_GravityFieldLockEdgeWidth";
         private const string GravityFieldLockedTintProperty = "_GravityFieldLockedTint";
         private const string GravityFieldDimFactorProperty = "_GravityFieldDimFactor";
         private const string GravityFieldTintStrengthProperty = "_GravityFieldTintStrength";
+        private const float GravityFieldLockRevealInSeconds = 0.234f;
+        private const float GravityFieldLockRevealOutSeconds = 0.208f;
         private const string StaticBoxShowcasePrefabPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_Box_Showcase.prefab";
         private const string StaticBoxShowcaseMaterialPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Profiles/M_Static_Box_Showcase.mat";
+        private const string GravityFieldLockableMaterialDirectory =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Materials/GravityFieldLockable";
         private static readonly string[] GravityFieldLockableBoxPrefabPaths =
         {
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_Box_Block_Tutorial.prefab",
@@ -573,6 +580,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 target.ClearGravityFieldLockedTarget(31);
                 Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealOutSeconds + 0.01f);
                 Assert.That(lockedRoot.activeSelf, Is.False);
 
                 target.ApplyGravityFieldLockedTarget(30);
@@ -606,9 +616,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 target.ApplyGravityFieldLockedTarget(1);
 
                 Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
-                Assert.That(GetRendererColor(renderer, GravityFieldLockedTintProperty), Is.EqualTo(new Color(0.45f, 0.55f, 0.85f, 1f)));
+                Assert.That(target.DebugTargetLockReveal, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(target.DebugCurrentLockReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockEdgeWidthProperty), Is.EqualTo(0.08f).Within(0.0001f));
+                AssertColorApproximately(
+                    new Color(0.45f, 0.55f, 0.85f, 1f),
+                    GetRendererColor(renderer, GravityFieldLockedTintProperty));
                 Assert.That(GetRendererFloat(renderer, GravityFieldDimFactorProperty), Is.EqualTo(0.55f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldTintStrengthProperty), Is.EqualTo(0.15f).Within(0.0001f));
+
+                target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealInSeconds * 0.5f);
+
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.GreaterThan(0f).And.LessThan(1f));
+
+                target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealInSeconds * 0.5f + 0.01f);
+
+                Assert.That(target.DebugCurrentLockReveal, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(1f).Within(0.0001f));
             }
             finally
             {
@@ -632,14 +658,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 target.ApplyGravityFieldLockedTarget(1);
                 target.ApplyGravityFieldLockedTarget(2);
+                target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealInSeconds + 0.01f);
                 target.ClearGravityFieldLockedTarget(1);
 
                 Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(1));
+                Assert.That(target.DebugTargetLockReveal, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
 
                 target.ClearGravityFieldLockedTarget(2);
 
                 Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(target.DebugTargetLockReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+
+                target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealOutSeconds * 0.5f);
+
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.GreaterThan(0f).And.LessThan(1f));
+
+                target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealOutSeconds * 0.5f + 0.01f);
+
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(0f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(0f).Within(0.0001f));
             }
             finally
@@ -669,6 +709,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(target.DebugActiveEmitterCount, Is.Zero);
                 Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(target.DebugCurrentLockReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(target.DebugTargetLockReveal, Is.EqualTo(0f).Within(0.0001f));
             }
             finally
             {
@@ -723,6 +766,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(GetRendererFloat(renderer, existingPropertyName), Is.EqualTo(0.75f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(0f).Within(0.0001f));
             }
             finally
             {
@@ -760,8 +804,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         Assert.That(material, Is.Not.Null, $"{prefabPath} {dimRenderer.name}");
                         Assert.That(material.shader, Is.SameAs(lockableShader), $"{prefabPath} {dimRenderer.name} {material.name}");
+                        Assert.That(material.HasProperty(GravityFieldLockRevealProperty), Is.True, $"{prefabPath} {material.name}");
+                        Assert.That(material.HasProperty(GravityFieldLockNoiseMapProperty), Is.True, $"{prefabPath} {material.name}");
+                        Assert.That(material.HasProperty(GravityFieldLockEdgeWidthProperty), Is.True, $"{prefabPath} {material.name}");
+                        Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, $"{prefabPath} {material.name}");
+                        Assert.That(
+                            material.GetFloat(GravityFieldLockEdgeWidthProperty),
+                            Is.InRange(0.001f, 0.5f),
+                            $"{prefabPath} {material.name}");
                     }
                 }
+            }
+
+            var materialDirectory = Path.Combine(
+                Application.dataPath,
+                GravityFieldLockableMaterialDirectory.Substring("Assets/".Length));
+            var materialPaths = Directory.GetFiles(
+                    materialDirectory,
+                    "*.mat",
+                    SearchOption.TopDirectoryOnly)
+                .Select(path => "Assets" + path.Replace("\\", "/").Substring(Application.dataPath.Length))
+                .OrderBy(path => path)
+                .ToArray();
+            Assert.That(materialPaths, Has.Length.EqualTo(18));
+            foreach (var materialPath in materialPaths)
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+
+                Assert.That(material, Is.Not.Null, materialPath);
+                Assert.That(material.shader, Is.SameAs(lockableShader), materialPath);
+                Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, materialPath);
+                Assert.That(material.GetFloat(GravityFieldLockEdgeWidthProperty), Is.InRange(0.001f, 0.5f), materialPath);
             }
         }
 
@@ -1012,6 +1085,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.Present(CreateTickResult(3, new[] { firstEmitter, secondEmitter, targetBox }, topology, TickPresentationData.Empty));
 
                 Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                presenter.UpdatePresentation(GravityFieldLockRevealOutSeconds * 0.5f);
+                Assert.That(lockedRoot.activeSelf, Is.True);
+
+                presenter.UpdatePresentation(GravityFieldLockRevealOutSeconds * 0.5f + 0.01f);
                 Assert.That(lockedRoot.activeSelf, Is.False);
             }
             finally
@@ -7232,6 +7311,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var propertyBlock = new MaterialPropertyBlock();
             targetRenderer.GetPropertyBlock(propertyBlock);
             return propertyBlock.GetColor(propertyName);
+        }
+
+        private static void AssertColorApproximately(Color expected, Color actual, float tolerance = 0.0001f)
+        {
+            Assert.That(
+                actual.r,
+                Is.EqualTo(expected.r).Within(tolerance),
+                $"Color.r expected {expected.r:R} but was {actual.r:R}");
+            Assert.That(
+                actual.g,
+                Is.EqualTo(expected.g).Within(tolerance),
+                $"Color.g expected {expected.g:R} but was {actual.g:R}");
+            Assert.That(
+                actual.b,
+                Is.EqualTo(expected.b).Within(tolerance),
+                $"Color.b expected {expected.b:R} but was {actual.b:R}");
+            Assert.That(
+                actual.a,
+                Is.EqualTo(expected.a).Within(tolerance),
+                $"Color.a expected {expected.a:R} but was {actual.a:R}");
         }
 
         private static Renderer[] ReadDimRenderers(GravityFieldLockedTargetVisualTargetView target)

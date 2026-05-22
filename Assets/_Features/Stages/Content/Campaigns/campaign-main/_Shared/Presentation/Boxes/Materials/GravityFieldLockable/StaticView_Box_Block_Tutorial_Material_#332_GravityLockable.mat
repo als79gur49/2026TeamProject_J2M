@@ -48,6 +48,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _GravityFieldLockNoiseMap:
+        m_Texture: {fileID: 2800000, guid: 2eaa3d1a90cc4f4ca1fbf95a6bf1be61, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -103,6 +107,8 @@ Material:
     - _Glossiness: 0
     - _GlossyReflections: 1
     - _GravityFieldDimFactor: 0.55
+    - _GravityFieldLockEdgeWidth: 0.08
+    - _GravityFieldLockReveal: 0
     - _GravityFieldLockedWeight: 0
     - _GravityFieldTintStrength: 0.15
     - _InactiveBlend: 0

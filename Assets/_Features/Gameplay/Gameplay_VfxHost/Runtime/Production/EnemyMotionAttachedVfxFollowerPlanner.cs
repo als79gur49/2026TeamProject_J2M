@@ -29,7 +29,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             bool enableEnemyJumpWindupLoop,
             IReadOnlyList<EntityState> finalEntities = null,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId = null,
-            bool enableEnemyWeaponWindupAura = false,
             bool enableEnemyUtilityCooldownAura = false,
             bool enableEnemyAttackCooldownFollow = false)
         {
@@ -44,7 +43,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                      !enableChargeBoosterTrail &&
                      !enableBoxSlideFollowLoop &&
                      !enableEnemyJumpWindupLoop &&
-                     !enableEnemyWeaponWindupAura &&
                      !enableEnemyUtilityCooldownAura &&
                      !enableEnemyAttackCooldownFollow))
             {
@@ -62,11 +60,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (enableEnemyJumpWindupLoop)
             {
                 AddJumpWindupFollowers(presentationData);
-            }
-
-            if (enableEnemyWeaponWindupAura)
-            {
-                AddWeaponWindupAuraFollowers(presentationData, viewsByEntityId);
             }
 
             if (enableEnemyUtilityCooldownAura)
@@ -286,78 +279,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         Vector3.zero,
                         Quaternion.identity));
             }
-        }
-
-        private void AddWeaponWindupAuraFollowers(
-            TickPresentationData presentationData,
-            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
-        {
-            if (viewsByEntityId == null)
-            {
-                return;
-            }
-
-            var signals = presentationData.EnemyActionSignals;
-            for (var i = 0; i < signals.Count; i++)
-            {
-                var signal = signals[i];
-                if (signal.EntityId <= 0 ||
-                    removedEntityIds.Contains(signal.EntityId) ||
-                    !TryGetWeaponAuraAuthoring(
-                        viewsByEntityId,
-                        signal.EntityId,
-                        out var authoring) ||
-                    !authoring.TryGetWeaponWindupAura(out var cueId, out var attachPointId) ||
-                    signal.ActiveActionKind != authoring.ActionKind)
-                {
-                    continue;
-                }
-
-                var sequenceId = signal.ActiveActionSequence > 0
-                    ? signal.ActiveActionSequence
-                    : signal.EntityId;
-                var key = new AttachedVfxFollowerKey(
-                    cueId,
-                    signal.EntityId,
-                    AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
-                    sequenceId,
-                    attachPointId);
-                if (signal.CanceledThisTick ||
-                    signal.ExecutedThisTick ||
-                    signal.StartedRecoveryThisTick)
-                {
-                    AddExplicitStopKey(key);
-                    continue;
-                }
-
-                if (signal.ActiveActionKind == EnemyActionKind.None)
-                {
-                    continue;
-                }
-
-                AddDesiredFollower(
-                    new AttachedVfxFollowerDesiredState(
-                        cueId,
-                        signal.EntityId,
-                        AttachedVfxFollowerStateKind.EnemyWeaponWindupAura,
-                        sequenceId,
-                        Vector3.zero,
-                        Quaternion.identity,
-                        AttachedVfxFollowerRetentionPolicy.RetainUntilExplicitStop,
-                        attachPointId));
-            }
-        }
-
-        private static bool TryGetWeaponAuraAuthoring(
-            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
-            int entityId,
-            out EnemyWeaponAuraVfxAuthoring authoring)
-        {
-            authoring = null;
-            return viewsByEntityId.TryGetValue(entityId, out var view) &&
-                   view != null &&
-                   view.TryGetComponent(out authoring) &&
-                   authoring != null;
         }
 
         private void AddUtilityCooldownAuraFollowers(
