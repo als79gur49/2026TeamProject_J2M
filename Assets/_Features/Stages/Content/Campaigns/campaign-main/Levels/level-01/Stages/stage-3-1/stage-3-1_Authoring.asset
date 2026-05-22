@@ -3278,8 +3278,8 @@ MonoBehaviour:
       MaxInclusive: {x: 3, y: 4}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
+    ObjectiveTitle:
+    ObjectiveSummary:
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: b25a0ce8b29545d989694aeb93612f54, type: 2}
       Required: 1
@@ -3329,6 +3329,18 @@ MonoBehaviour:
       StableConditionId: button-51
       DisplayText: Place a push box on the button
       SortOrder: 70
+    - Condition: {fileID: 11400000, guid: bc97c44e95aa72140a579d12606cbd1e, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-63
+      DisplayText: Place the MoonBlock on the button
+      SortOrder: 80
+    - Condition: {fileID: 11400000, guid: 15a79e549a4c48841ba68e489ee7ac95, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-64
+      DisplayText: Place a push box on the button
+      SortOrder: 90
   entityIdMappings:
   - StableGuid: stage-3-1:Player:10
     EntityId: 10

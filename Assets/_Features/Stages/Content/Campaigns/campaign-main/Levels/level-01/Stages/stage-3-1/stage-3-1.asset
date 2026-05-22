@@ -3179,4 +3179,16 @@ MonoBehaviour:
       StableConditionId: button-51
       DisplayText: Place a push box on the button
       SortOrder: 70
+    - Condition: {fileID: 11400000, guid: bc97c44e95aa72140a579d12606cbd1e, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-63
+      DisplayText: Place the MoonBlock on the button
+      SortOrder: 80
+    - Condition: {fileID: 11400000, guid: 15a79e549a4c48841ba68e489ee7ac95, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-64
+      DisplayText: Place a push box on the button
+      SortOrder: 90
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}
