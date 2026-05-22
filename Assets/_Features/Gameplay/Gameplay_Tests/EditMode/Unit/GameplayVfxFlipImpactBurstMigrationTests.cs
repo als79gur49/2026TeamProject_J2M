@@ -643,11 +643,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
             }
 
-            return CreatePresentationData(exitSignals, floorSignals.ToArray());
+            return CreatePresentationData(exitSignals, flipImpactSignals, floorSignals.ToArray());
         }
 
         private static TickPresentationData CreatePresentationData(
             TickEntityExitPresentationSignal[] exitSignals,
+            FlipFloorImpactPresentationSignal[] flipFloorImpactSignals)
+        {
+            return CreatePresentationData(
+                exitSignals,
+                Array.Empty<FlipImpactPresentationSignal>(),
+                flipFloorImpactSignals);
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            TickEntityExitPresentationSignal[] exitSignals,
+            FlipImpactPresentationSignal[] flipImpactSignals,
             FlipFloorImpactPresentationSignal[] flipFloorImpactSignals)
         {
             return new TickPresentationData(
@@ -665,7 +676,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEnemyChargePresentationSignal>(),
                 exitSignals,
                 Array.Empty<TickImpactTransientPresentationSignal>(),
-                Array.Empty<FlipImpactPresentationSignal>(),
+                flipImpactSignals,
                 flipFloorImpactSignals: flipFloorImpactSignals);
         }
 

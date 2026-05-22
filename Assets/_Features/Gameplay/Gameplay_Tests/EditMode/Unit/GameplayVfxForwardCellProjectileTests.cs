@@ -51,6 +51,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }));
             Assert.That(plan.Requests.Single(request => request.CueId == ActiveCueId).Anchor.Cell, Is.EqualTo(SourceCell));
             Assert.That(plan.Requests.Single(request => request.CueId == FlightCueId).CueId, Is.Not.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
+            Assert.That(plan.Requests.Any(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))), Is.False);
         }
 
         [Test]

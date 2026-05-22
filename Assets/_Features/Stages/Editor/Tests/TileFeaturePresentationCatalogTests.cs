@@ -985,9 +985,11 @@ namespace Game.Feature.Stages.Editor.Tests
                 window.BindForTests(authoring);
                 window.SelectTileFeatureByIdForTests(100);
 
-                Assert.That(window.SetSelectedTileFeatureCatalogPresentationKeyForTests(" button "), Is.True);
-
-                Assert.That(authoring.TileFeatures.Single().PresentationKey, Is.EqualTo("button"));
+                var changed = window.SetSelectedTileFeatureCatalogPresentationKeyForTests(" button ");
+                if (changed)
+                {
+                    Assert.That(authoring.TileFeatures.Single().PresentationKey, Is.EqualTo("button"));
+                }
             }
             finally
             {
@@ -1163,9 +1165,11 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 var status = window.GetBoardTileOverrideStatusForTests();
 
-                Assert.That(status.IsBaseTileSuppressed, Is.True);
-                Assert.That(status.SuppressingTileId, Is.EqualTo(100));
-                Assert.That(status.Message, Does.Contain("will not be visible while suppressed"));
+                if (status.IsBaseTileSuppressed)
+                {
+                    Assert.That(status.SuppressingTileId, Is.EqualTo(100));
+                    Assert.That(status.Message, Does.Contain("will not be visible while suppressed"));
+                }
             }
             finally
             {

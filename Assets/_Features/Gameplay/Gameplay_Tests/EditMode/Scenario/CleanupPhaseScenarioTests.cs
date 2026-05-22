@@ -385,7 +385,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Respawn_DefaultCompositionRootDelay_UsesOneSecondTiming()
+        public void Respawn_DefaultCompositionRootDelay_UsesConfiguredDefaultTiming()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -397,10 +397,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var deathTick = pipeline.RunTick(new TickInput(90));
             var waitingTick = pipeline.RunTick(new TickInput(91));
+            var expectedDelayTicks = Mathf.CeilToInt(
+                GameplayTimingProfile.DefaultPlayerRespawnDelaySeconds *
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            var expectedEligibleTick = 90 + expectedDelayTicks;
 
             Assert.That(
                 deathTick.EventLog,
-                Does.Contain("PlayerRespawnDelayStarted|E=10|StartTick=90|EligibleTick=150|DelayTicks=60"));
+                Does.Contain(
+                    $"PlayerRespawnDelayStarted|E=10|StartTick=90|EligibleTick={expectedEligibleTick}|DelayTicks={expectedDelayTicks}"));
             Assert.That(waitingTick.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
         }
 

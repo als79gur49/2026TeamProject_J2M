@@ -562,7 +562,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.Trace.Text, Does.Contain("SpawnCommitted"));
             Assert.That(result.Trace.Text, Does.Contain("SpawnId=1"));
             Assert.That(result.Trace.Text, Does.Contain("E=11"));
-            Assert.That(result.Trace.Text, Does.Contain($"Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer={defaultTimingProfile.ProjectileStepIntervalTicks}|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None|AiMode=None|AiTimer=0|LocomotionCooldown=0|Face=Floor|Presence=Occupying]"));
+            Assert.That(result.Trace.Text, Does.Contain("Attack.ResolvedOperations"));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=SpawnEntity"));
+            Assert.That(result.Trace.Text, Does.Contain("SpawnE=11"));
+            Assert.That(result.Trace.Text, Does.Contain("Pos=(1,0)"));
+            Assert.That(result.Trace.Text, Does.Contain("Type=Projectile"));
         }
 
         [Test]

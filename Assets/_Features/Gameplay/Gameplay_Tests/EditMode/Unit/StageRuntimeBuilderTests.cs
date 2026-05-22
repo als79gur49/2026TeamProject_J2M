@@ -847,7 +847,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         101,
                         new SurfaceCell(FaceId.Floor, 2, 1),
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         Direction2D.None,
                         TileFeatureBoxSelector.None),
                 });
@@ -867,7 +867,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         100,
                         new SurfaceCell(FaceId.Floor, 1, 1),
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         Direction2D.None,
                         TileFeatureBoxSelector.None),
                 });
@@ -1031,7 +1031,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         100,
                         new SurfaceCell(FaceId.Floor, 1, 1),
                         TileFeatureKind.Exit,
-                        TileFeatureActivationRule.BottomFaceOnly,
+                        TileFeatureActivationRule.ActiveFaceOnly,
                         Direction2D.None,
                         TileFeatureBoxSelector.None),
                 });

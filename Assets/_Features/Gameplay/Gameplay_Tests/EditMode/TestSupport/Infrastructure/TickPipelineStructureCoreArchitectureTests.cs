@@ -160,14 +160,23 @@ namespace Game.Feature.Gameplay.Tests.Core
         [Category("Extended")]
         public void TickPipeline_CanBeExtendedWithInjectedEntityLogicProvider()
         {
-            var constructor = typeof(TickPipeline).GetConstructor(
-                new[]
+            var requiredParameters = new[]
+            {
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(ISnapshotEntityLogicProvider),
+                typeof(GameplayTimingProfile),
+                typeof(PlayerControlTimingAuthoritativeSnapshot),
+            };
+            var constructor = typeof(TickPipeline)
+                .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .SingleOrDefault(candidate =>
                 {
-                    typeof(WorldState),
-                    typeof(IEnumerable<IEntityLogic>),
-                    typeof(ISnapshotEntityLogicProvider),
-                    typeof(GameplayTimingProfile),
-                    typeof(PlayerControlTimingAuthoritativeSnapshot),
+                    var parameters = candidate.GetParameters();
+                    return parameters.Length >= requiredParameters.Length &&
+                           parameters.Take(requiredParameters.Length).Select(parameter => parameter.ParameterType)
+                               .SequenceEqual(requiredParameters) &&
+                           parameters.Skip(requiredParameters.Length).All(parameter => parameter.IsOptional);
                 });
 
             Assert.That(constructor, Is.Not.Null);
@@ -178,11 +187,10 @@ namespace Game.Feature.Gameplay.Tests.Core
         public void TickPipeline_DoesNotExposeDefaultCompositionConstructors()
         {
             var constructors = typeof(TickPipeline)
-                .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
-                .Select(constructor => constructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray())
-                .ToArray();
+                .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
 
             Assert.That(constructors.Length, Is.EqualTo(1));
+            var parameters = constructors[0].GetParameters();
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -192,7 +200,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                     typeof(GameplayTimingProfile),
                     typeof(PlayerControlTimingAuthoritativeSnapshot),
                 },
-                constructors[0]);
+                parameters.Take(5).Select(parameter => parameter.ParameterType).ToArray());
+            Assert.That(parameters.Skip(5).All(parameter => parameter.IsOptional), Is.True);
         }
 
         [Test]
