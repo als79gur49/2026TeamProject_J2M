@@ -813,6 +813,51 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_WithoutRewardPopup()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            var mainMenuReturnRouter = new FakeMainMenuReturnRouter();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                mainMenuReturnRouter,
+                out var screenController,
+                out var popupController,
+                out _,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+
+            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(
+                tickIndex: 9,
+                includeReward: true,
+                stageIdValue: "stage-5-1"));
+            presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
+            Assert.That(screenController.CurrentEntry.HasValue, Is.True);
+            Assert.That(screenController.CurrentEntry.Value.Payload, Is.TypeOf<GameClearScreenPayload>());
+            var gameClearPayload = screenController.CurrentEntry.Value.Payload as GameClearScreenPayload;
+            Assert.That(gameClearPayload.TitleText, Is.EqualTo("Game Clear"));
+            Assert.That(gameClearPayload.MainLabel, Is.EqualTo("Main"));
+            Assert.That(popupController.TopPopup.HasValue, Is.False);
+            Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Is.Empty);
+            Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.GameClear), Has.Count.EqualTo(1));
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
+
+            var gameClearRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.GameClear);
+            gameClearRecord.Runtime.Emit(ScreenAction.ReturnToMainMenu());
+            Assert.That(stageLaunchRouter.Requests, Is.Empty);
+            Assert.That(mainMenuReturnRouter.ReturnCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void UIFlowCoordinator_LevelFailedEvent_OpensTerminalLevelFailedOnce()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -1146,9 +1191,12 @@ namespace Game.Feature.UI.Tests
                 });
         }
 
-        private static StageCompletionReadModel CreateStageCompletionReadModel(int tickIndex, bool includeReward)
+        private static StageCompletionReadModel CreateStageCompletionReadModel(
+            int tickIndex,
+            bool includeReward,
+            string stageIdValue = "payload-stage")
         {
-            var stageId = StageId.CreateOrThrow("payload-stage");
+            var stageId = StageId.CreateOrThrow(stageIdValue);
             var runId = new StageRunId("run-01");
             var clearResult = new StageClearResult(
                 stageId,

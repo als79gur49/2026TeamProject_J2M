@@ -762,6 +762,15 @@ namespace Game.Feature.UI.Tests
                     HudShellMode.Hidden,
                     blocksUiGameplayInput: true)
             },
+            {
+                ScreenId.GameClear,
+                new ScreenPolicy(
+                    ScreenPolicyClass.TerminalResult,
+                    ScreenRetentionMode.DisposeOnHide,
+                    ScreenBackAction.Consume,
+                    HudShellMode.Hidden,
+                    blocksUiGameplayInput: true)
+            },
         };
 
         public List<FakeScreenRuntimeRecord> CreatedRuntimes { get; } = new();

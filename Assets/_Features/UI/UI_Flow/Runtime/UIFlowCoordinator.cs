@@ -8,6 +8,9 @@ namespace Game.Feature.UI.Flow
 {
     public sealed class UIFlowCoordinator : IDisposable, IUiFlowAudioIntentBoundary
     {
+        private static readonly Lazy<CampaignStageSequenceResolver> CanonicalCampaignResolver =
+            new(() => new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
+
         private enum PauseReturnMode
         {
             None = 0,
@@ -641,6 +644,16 @@ namespace Game.Feature.UI.Flow
                     "Stage clear tick events require a completion read model before UI flow transition.");
             }
 
+            if (IsCanonicalCampaignFinalStage(readModel.StageId))
+            {
+                _screenController.SetRoot(new ScreenRequest(
+                    ScreenId.GameClear,
+                    GameClearScreenPayload.Default,
+                    ScreenId.GameClear.ToString()));
+                RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.GameClear));
+                return;
+            }
+
             _screenController.SetRoot(new ScreenRequest(
                 ScreenId.StageResult,
                 StageCompletionStageResultPayloadMapper.Map(readModel),
@@ -655,6 +668,11 @@ namespace Game.Feature.UI.Flow
                         StageCompletionRewardPopupPayloadMapper.Map(readModel)),
                     out _);
             }
+        }
+
+        private static bool IsCanonicalCampaignFinalStage(StageId stageId)
+        {
+            return stageId.IsValid && CanonicalCampaignResolver.Value.IsFinal(stageId);
         }
 
         private UiFlowAudioIntentKind ResolveBackIntent()
