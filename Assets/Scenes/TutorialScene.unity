@@ -954,7 +954,6 @@ MonoBehaviour:
   enableGameplayVfxFlipImpactStayTrail: 0
   enableGameplayVfxGlideWindTrail: 0
   enableGameplayVfxChargeBoosterTrail: 0
-  enableGameplayVfxEnemyWeaponWindupAura: 0
   enableGameplayVfxEnemyUtilityCooldownAura: 0
   enableGameplayVfxBoxSlideTrail: 0
   enableGameplayVfxBoxSlideSolidStop: 0
