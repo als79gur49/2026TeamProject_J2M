@@ -7664,7 +7664,11 @@ namespace Game.Feature.Gameplay.Loop
 
                     if (seen.Add(operation.EntityId))
                     {
-                        stops.Add(new TileEffectBoxStop(operation.EntityId, operation.Destination, family));
+                        stops.Add(new TileEffectBoxStop(
+                            operation.EntityId,
+                            operation.Destination,
+                            family,
+                            CreateTileEffectBoxStopCause(operation, family, operation.Destination)));
                     }
 
                     continue;
@@ -7691,12 +7695,35 @@ namespace Game.Feature.Gameplay.Loop
                     stops.Add(new TileEffectBoxStop(
                         operation.EntityId,
                         before.position,
-                        TileEffectBoxMovementFamily.Slide));
+                        TileEffectBoxMovementFamily.Slide,
+                        CreateTileEffectBoxStopCause(
+                            operation,
+                            TileEffectBoxMovementFamily.Slide,
+                            before.position)));
                 }
             }
 
             stops.Sort(CompareTileEffectBoxStops);
             return stops;
+        }
+
+        private static TileEffectBoxStopCause CreateTileEffectBoxStopCause(
+            FinalizationOperation operation,
+            TileEffectBoxMovementFamily family,
+            SurfaceCell cell)
+        {
+            var visualContactNormalizedTime = operation.Metadata.MovementSemanticKind == MovementSemanticKind.Flip
+                ? GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime
+                : 0f;
+            return TileEffectBoxStopCause.Create(
+                operation.EntityId,
+                cell,
+                family,
+                operation.Metadata.MovementSemanticKind,
+                operation.Metadata.ActionPlanId,
+                operation.Metadata.LocalActionIndex,
+                operation.Metadata.IntentId,
+                visualContactNormalizedTime);
         }
 
         private static bool TryResolveTileEffectBoxStopMovementFamily(
@@ -7716,6 +7743,9 @@ namespace Game.Feature.Gameplay.Loop
                     return true;
                 case MovementSemanticKind.Slide:
                     family = TileEffectBoxMovementFamily.Slide;
+                    return true;
+                case MovementSemanticKind.Flip:
+                    family = TileEffectBoxMovementFamily.Flip;
                     return true;
                 default:
                     family = default;

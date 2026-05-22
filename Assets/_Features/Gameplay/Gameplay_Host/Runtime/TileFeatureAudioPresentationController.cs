@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(plannedRequests));
             }
 
-            ClearPendingPlan();
+            _pendingRequests.RemoveAll(request => request.DelaySeconds <= 0f);
             for (var i = 0; i < plannedRequests.Count; i++)
             {
                 _pendingRequests.Add(plannedRequests[i]);
@@ -72,14 +72,52 @@ namespace Game.Feature.Gameplay.Host
 
             try
             {
-                for (var i = 0; i < _pendingRequests.Count; i++)
+                for (var i = _pendingRequests.Count - 1; i >= 0; i--)
                 {
-                    PlayRequest(_pendingRequests[i]);
+                    var request = _pendingRequests[i];
+                    if (request.DelaySeconds > 0f)
+                    {
+                        continue;
+                    }
+
+                    _pendingRequests.RemoveAt(i);
+                    PlayRequest(request);
                 }
             }
             finally
             {
-                ClearPendingPlan();
+            }
+        }
+
+        public void Update(float deltaTime)
+        {
+            if (deltaTime < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            if (_pendingRequests.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = _pendingRequests.Count - 1; i >= 0; i--)
+            {
+                var request = _pendingRequests[i];
+                if (request.DelaySeconds <= 0f)
+                {
+                    continue;
+                }
+
+                var advanced = CreateAdvancedRequest(request, deltaTime);
+                if (advanced.DelaySeconds > 0f)
+                {
+                    _pendingRequests[i] = advanced;
+                    continue;
+                }
+
+                _pendingRequests.RemoveAt(i);
+                PlayRequest(advanced);
             }
         }
 
@@ -104,6 +142,27 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playbackPort.Play2D(binding.Definition, request.Context);
+        }
+
+        private static TileFeatureAudioRequest CreateAdvancedRequest(
+            in TileFeatureAudioRequest request,
+            float deltaTime)
+        {
+            return new TileFeatureAudioRequest(
+                request.Cue,
+                request.TileId,
+                request.Cell,
+                request.SourceEntityId,
+                request.OwnerEntityId,
+                request.TeamId,
+                request.Context,
+                request.TargetEntityId,
+                request.MoonBlockGeneratorBlockedPayload,
+                request.Count,
+                request.TickIndex,
+                request.BurstKind,
+                request.RepresentativeCue,
+                request.DelaySeconds - deltaTime);
         }
 
         private bool TryResolveBinding(TileFeatureAudioCue cue, out AudioBinding binding)

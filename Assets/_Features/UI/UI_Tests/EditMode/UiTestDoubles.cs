@@ -119,6 +119,8 @@ namespace Game.Feature.UI.Tests
 
         public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }
 
+        public bool HasPendingStageClearPresentation { get; set; }
+
         public void PublishFrame(GameplayPresentationFrame frame)
         {
             FramePublished?.Invoke(frame);

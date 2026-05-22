@@ -446,7 +446,10 @@ namespace Game.Feature.UI.Application
                 objective.GoalReached,
                 objective.AllConditionsSatisfied,
                 objective.IsCleared,
-                conditions);
+                conditions,
+                objective.SemanticGoalReached,
+                objective.SemanticAllConditionsSatisfied,
+                objective.SemanticIsCleared);
         }
 
         private static string BuildObjectiveStableId(

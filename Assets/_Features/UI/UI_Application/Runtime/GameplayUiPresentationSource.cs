@@ -168,11 +168,13 @@ namespace Game.Feature.UI.Application
                 ? frame.Value.Player.Value
                 : default;
             var hasFramePlayer = frame.HasValue && frame.Value.Player.HasValue;
+            var hasStageClearFrame =
+                frame.HasValue &&
+                frame.Value.StageEvent.HasValue &&
+                frame.Value.StageEvent.Value.EventKind == GameplayStageEventKind.Cleared;
             var isStageCleared =
-                session.IsStageCleared ||
-                (frame.HasValue &&
-                 frame.Value.StageEvent.HasValue &&
-                 frame.Value.StageEvent.Value.EventKind == GameplayStageEventKind.Cleared);
+                hasStageClearFrame ||
+                (session.IsStageCleared && !_presentationFeed.HasPendingStageClearPresentation);
 
             return new UIStateRefreshInput(
                 tickIndex: shouldUpdateTickIndex && frame.HasValue ? frame.Value.TickIndex : 0,

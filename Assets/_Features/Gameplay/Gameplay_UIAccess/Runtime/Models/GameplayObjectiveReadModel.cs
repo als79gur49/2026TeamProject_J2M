@@ -80,12 +80,18 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool isCleared,
             string objectiveTitle,
             string objectiveSummary,
-            IReadOnlyList<GameplayObjectiveConditionReadModel> conditions)
+            IReadOnlyList<GameplayObjectiveConditionReadModel> conditions,
+            bool? semanticGoalReached = null,
+            bool? semanticAllConditionsSatisfied = null,
+            bool? semanticIsCleared = null)
         {
             HasObjective = hasObjective;
             GoalReached = goalReached;
             AllConditionsSatisfied = allConditionsSatisfied;
             IsCleared = isCleared;
+            SemanticGoalReached = semanticGoalReached ?? goalReached;
+            SemanticAllConditionsSatisfied = semanticAllConditionsSatisfied ?? allConditionsSatisfied;
+            SemanticIsCleared = semanticIsCleared ?? isCleared;
             ObjectiveTitle = objectiveTitle ?? string.Empty;
             ObjectiveSummary = objectiveSummary ?? string.Empty;
             Conditions = conditions ?? Array.Empty<GameplayObjectiveConditionReadModel>();
@@ -98,6 +104,12 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public bool AllConditionsSatisfied { get; }
 
         public bool IsCleared { get; }
+
+        public bool SemanticGoalReached { get; }
+
+        public bool SemanticAllConditionsSatisfied { get; }
+
+        public bool SemanticIsCleared { get; }
 
         public string ObjectiveTitle { get; }
 

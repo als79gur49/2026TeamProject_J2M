@@ -470,7 +470,10 @@ namespace Game.Feature.UI.Application
             bool goalReached,
             bool allConditionsSatisfied,
             bool isCleared,
-            IEnumerable<UIObjectiveConditionSlice> conditions)
+            IEnumerable<UIObjectiveConditionSlice> conditions,
+            bool? semanticGoalReached = null,
+            bool? semanticAllConditionsSatisfied = null,
+            bool? semanticIsCleared = null)
         {
             HasObjective = hasObjective;
             ObjectiveStableId = objectiveStableId ?? string.Empty;
@@ -479,6 +482,9 @@ namespace Game.Feature.UI.Application
             GoalReached = goalReached;
             AllConditionsSatisfied = allConditionsSatisfied;
             IsCleared = isCleared;
+            SemanticGoalReached = semanticGoalReached ?? goalReached;
+            SemanticAllConditionsSatisfied = semanticAllConditionsSatisfied ?? allConditionsSatisfied;
+            SemanticIsCleared = semanticIsCleared ?? isCleared;
             _conditions = new ReadOnlyCollection<UIObjectiveConditionSlice>(
                 new List<UIObjectiveConditionSlice>(conditions ?? Array.Empty<UIObjectiveConditionSlice>()));
         }
@@ -497,6 +503,12 @@ namespace Game.Feature.UI.Application
 
         public bool IsCleared { get; }
 
+        public bool SemanticGoalReached { get; }
+
+        public bool SemanticAllConditionsSatisfied { get; }
+
+        public bool SemanticIsCleared { get; }
+
         public IReadOnlyList<UIObjectiveConditionSlice> Conditions => _conditions != null
             ? _conditions
             : Array.Empty<UIObjectiveConditionSlice>();
@@ -509,7 +521,10 @@ namespace Game.Feature.UI.Application
                 !string.Equals(Summary, other.Summary, StringComparison.Ordinal) ||
                 GoalReached != other.GoalReached ||
                 AllConditionsSatisfied != other.AllConditionsSatisfied ||
-                IsCleared != other.IsCleared)
+                IsCleared != other.IsCleared ||
+                SemanticGoalReached != other.SemanticGoalReached ||
+                SemanticAllConditionsSatisfied != other.SemanticAllConditionsSatisfied ||
+                SemanticIsCleared != other.SemanticIsCleared)
             {
                 return false;
             }
@@ -541,6 +556,11 @@ namespace Game.Feature.UI.Application
         {
             var hash = HashCode.Combine(HasObjective, ObjectiveStableId, Title, Summary);
             hash = HashCode.Combine(hash, GoalReached, AllConditionsSatisfied, IsCleared);
+            hash = HashCode.Combine(
+                hash,
+                SemanticGoalReached,
+                SemanticAllConditionsSatisfied,
+                SemanticIsCleared);
             var conditions = Conditions;
             for (var i = 0; i < conditions.Count; i++)
             {

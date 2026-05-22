@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.UIAccess.Models;
@@ -305,6 +306,34 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIObjectiveSlice_PreservesVisibleAndSemanticTopLevelStateSeparately()
+        {
+            var mapper = new UIStateMapper();
+            var objective = new GameplayObjectiveReadModel(
+                hasObjective: true,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                isCleared: false,
+                objectiveTitle: "Reach the Exit",
+                objectiveSummary: "Move to the exit zone.",
+                conditions: Array.Empty<GameplayObjectiveConditionReadModel>(),
+                semanticGoalReached: true,
+                semanticAllConditionsSatisfied: true,
+                semanticIsCleared: true);
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(objective: objective));
+
+            Assert.That(result.Snapshot.Objective.GoalReached, Is.False);
+            Assert.That(result.Snapshot.Objective.AllConditionsSatisfied, Is.False);
+            Assert.That(result.Snapshot.Objective.IsCleared, Is.False);
+            Assert.That(result.Snapshot.Objective.SemanticGoalReached, Is.True);
+            Assert.That(result.Snapshot.Objective.SemanticAllConditionsSatisfied, Is.True);
+            Assert.That(result.Snapshot.Objective.SemanticIsCleared, Is.True);
+        }
+
+        [Test]
         public void UIStateMapper_IdenticalInputSequences_ProduceIdenticalSnapshotsAndAppliedEvents()
         {
             var firstSequence = RunMapperSequence();
@@ -385,6 +414,41 @@ namespace Game.Feature.UI.Tests
             Assert.That(source.CurrentSnapshot.Interaction.IsPaused, Is.True);
             Assert.That(source.CurrentSnapshot.Tick.IsTopologyTransitionActive, Is.True);
             Assert.That(source.CurrentSnapshot.Notifications.ActiveNotifications, Is.Empty);
+        }
+
+        [Test]
+        public void GameplayUiPresentationSource_SemanticStageClearWaitsForPresentationFrameWhenBarrierPending()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+            var appliedBatches = new List<UITickEventBatch>();
+            source.TickEventsApplied += batch => appliedBatches.Add(batch);
+
+            queryFacade.SetSession(new GameplaySessionReadModel(2, false, false, true));
+            presentationFeed.HasPendingStageClearPresentation = true;
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Floor),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.Tick.IsStageCleared, Is.False);
+            Assert.That(appliedBatches, Is.Empty);
+
+            presentationFeed.HasPendingStageClearPresentation = false;
+            presentationFeed.PublishFrame(new GameplayPresentationFrame(
+                tickIndex: 2,
+                finalTopology: new GameplayUiTopology(GameplayUiFace.Floor),
+                stageEvent: new GameplayStageEventPresentationSlice(GameplayStageEventKind.Cleared)));
+
+            Assert.That(source.CurrentSnapshot.Tick.IsStageCleared, Is.True);
+            Assert.That(appliedBatches, Has.Count.EqualTo(1));
+            Assert.That(appliedBatches[0].Events.Single().EventKind, Is.EqualTo(UITickEventKind.StageCleared));
         }
 
         [Test]

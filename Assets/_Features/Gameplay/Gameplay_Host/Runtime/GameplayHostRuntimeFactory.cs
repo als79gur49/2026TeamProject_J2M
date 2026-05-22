@@ -223,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.AutoAdvanceTicks);
             var pauseService = new GameplayHostPauseService(inputHost);
             var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, tickRunner, inputHost, presenter, pauseService);
+            var presentationBarrierTracker = new GameplayPresentationBarrierTracker();
             var uiAccess = new GameplayHostUiAccessContext(
                 new GameplayHostCommandGateway(inputHost, admissionPolicy),
                 new GameplayQueryFacade(
@@ -233,12 +234,14 @@ namespace Game.Feature.Gameplay.Host
                         inputHost,
                         admissionPolicy,
                         configuration.CampaignChancesReadSource),
-                    new GameplayHostObjectiveQuery(tickRunner)),
+                    new GameplayHostObjectiveQuery(tickRunner, presentationBarrierTracker)),
                 new GameplayHostPresentationFeed(
                     inputHost,
                     presenter,
                     configuration.StageContentEntry,
-                    configuration.StageCompletionProfileStore),
+                    configuration.StageCompletionProfileStore,
+                    generalTimingProfile,
+                    presentationBarrierTracker),
                 pauseService);
 
             return new GameplayHostRuntimeContext(

@@ -35,7 +35,9 @@ namespace Game.Feature.Gameplay.Loop
             Direction direction = Direction.None,
             MoonBlockGeneratorBlockedPayload moonBlockGeneratorBlockedPayload = default,
             int spawnTick = 0,
-            int spawnInteractionLockTicks = 0)
+            int spawnInteractionLockTicks = 0,
+            PresentationTimingAnchor timingAnchor = default,
+            PresentationBarrierKey barrierKey = default)
         {
             RequestKind = requestKind;
             TileId = tileId;
@@ -49,6 +51,8 @@ namespace Game.Feature.Gameplay.Loop
             MoonBlockGeneratorBlockedPayload = moonBlockGeneratorBlockedPayload;
             SpawnTick = spawnTick;
             SpawnInteractionLockTicks = spawnInteractionLockTicks;
+            TimingAnchor = timingAnchor;
+            BarrierKey = barrierKey.IsValid ? barrierKey : timingAnchor.BarrierKey;
         }
 
         public TilePresentationRequestKind RequestKind { get; }
@@ -74,6 +78,10 @@ namespace Game.Feature.Gameplay.Loop
         public int SpawnTick { get; }
 
         public int SpawnInteractionLockTicks { get; }
+
+        public PresentationTimingAnchor TimingAnchor { get; }
+
+        public PresentationBarrierKey BarrierKey { get; }
     }
 
     public sealed class TilePresentationRequestPlanner
@@ -112,7 +120,9 @@ namespace Game.Feature.Gameplay.Loop
                     tileEvent.Direction,
                     tileEvent.MoonBlockGeneratorBlockedPayload,
                     tileEvent.SpawnTick,
-                    tileEvent.SpawnInteractionLockTicks));
+                    tileEvent.SpawnInteractionLockTicks,
+                    tileEvent.TimingAnchor,
+                    tileEvent.BarrierKey));
             }
 
             return requests.Count == 0 ? Array.Empty<TilePresentationRequest>() : requests;

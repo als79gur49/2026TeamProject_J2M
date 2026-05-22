@@ -969,6 +969,9 @@ namespace Game.Feature.Gameplay.Vfx
                 }
 
                 var sequenceId = ResolveSequenceId(context.TickIndex, i, tileEvent);
+                var delaySeconds = PresentationTimingResolver.ResolveDelaySeconds(
+                    tileEvent.TimingAnchor,
+                    context.TimingProfile);
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
@@ -980,7 +983,10 @@ namespace Game.Feature.Gameplay.Vfx
                             tileEvent.Cell,
                             context.Topology,
                             VfxAnchorSlot.CellCenter),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation));
+                        timing: delaySeconds > 0f
+                            ? VfxTimingKind.Delayed
+                            : VfxTimingKind.ImmediateOnTickPresentation,
+                        delaySeconds: delaySeconds));
             }
 
             PlanActiveVisualStates(context, builder, presentationData);
@@ -1046,6 +1052,11 @@ namespace Game.Feature.Gameplay.Vfx
                     hasCell: true,
                     effectIndex: ActiveLoopEffectIndex);
                 var sequenceId = ResolveStateSequenceId(context.TickIndex, i, state);
+                var delaySeconds = state.VisibilityGate.HasGate
+                    ? PresentationTimingResolver.ResolveDelaySeconds(
+                        state.VisibilityGate.TimingAnchor,
+                        context.TimingProfile)
+                    : 0f;
                 builder.Add(CreateTopologySensitivePersistentRequest(
                     context,
                     sequenceId,
@@ -1054,7 +1065,8 @@ namespace Game.Feature.Gameplay.Vfx
                     state.Cell,
                     VfxAnchorSlot.CellCenter,
                     key,
-                    ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId)));
+                    ResolveTileFeatureStyleKey(context.TileFeatureVfxStyleBindings, state.TileId),
+                    delaySeconds));
             }
         }
 
@@ -1101,7 +1113,8 @@ namespace Game.Feature.Gameplay.Vfx
             SurfaceCell cell,
             VfxAnchorSlot slot,
             VfxPersistentKey key,
-            VfxStyleKey styleKey)
+            VfxStyleKey styleKey,
+            float delaySeconds = 0f)
         {
             var transition = context.TopologyTransition;
             var anchorTopology = transition.HasTopologyMotion
@@ -1125,10 +1138,13 @@ namespace Game.Feature.Gameplay.Vfx
                     cell,
                     anchorTopology,
                     slot),
-                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                timing: delaySeconds > 0f
+                    ? VfxTimingKind.Delayed
+                    : VfxTimingKind.ImmediateOnTickPresentation,
                 isPersistent: true,
                 persistentKey: key,
                 styleKey: styleKey,
+                delaySeconds: delaySeconds,
                 topologyAnchorMode: anchorMode,
                 topologyStopMode: GameplayVfxTopologyStopMode.HardClearAtTransitionStart,
                 topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition,
@@ -1274,6 +1290,8 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ tileEvent.SourceEntityId;
                 hash = (hash * 397) ^ tileEvent.OwnerEntityId;
                 hash = (hash * 397) ^ tileEvent.TargetEntityId;
+                hash = (hash * 397) ^ tileEvent.TimingAnchor.ActionPlanId;
+                hash = (hash * 397) ^ tileEvent.TimingAnchor.LocalActionIndex;
                 return hash != 0 ? hash : eventIndex + 1;
             }
         }

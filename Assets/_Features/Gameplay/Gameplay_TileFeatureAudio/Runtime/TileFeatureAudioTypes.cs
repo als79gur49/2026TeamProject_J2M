@@ -48,7 +48,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             int count = 1,
             int tickIndex = 0,
             TileFeatureAudioBurstKind burstKind = TileFeatureAudioBurstKind.None,
-            TileFeatureAudioCue representativeCue = TileFeatureAudioCue.None)
+            TileFeatureAudioCue representativeCue = TileFeatureAudioCue.None,
+            float delaySeconds = 0f)
         {
             Cue = cue;
             TileId = tileId;
@@ -63,6 +64,7 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
             TickIndex = tickIndex;
             BurstKind = burstKind;
             RepresentativeCue = representativeCue == TileFeatureAudioCue.None ? cue : representativeCue;
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public TileFeatureAudioCue Cue { get; }
@@ -90,6 +92,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
         public TileFeatureAudioBurstKind BurstKind { get; }
 
         public TileFeatureAudioCue RepresentativeCue { get; }
+
+        public float DelaySeconds { get; }
     }
 
     public static class TileFeatureAudioCueCatalog

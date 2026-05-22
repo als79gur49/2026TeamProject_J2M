@@ -133,7 +133,8 @@ namespace Game.Feature.Gameplay.TileFeatureAudio
                 count,
                 tickIndex,
                 kind,
-                source.Cue);
+                source.Cue,
+                source.DelaySeconds);
         }
     }
 }

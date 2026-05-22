@@ -111,6 +111,7 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         Push = 1,
         Slide = 2,
+        Flip = 3,
     }
 
     internal readonly struct TileEffectBoxStop
@@ -119,10 +120,42 @@ namespace Game.Feature.Gameplay.Loop
             int boxEntityId,
             SurfaceCell cell,
             TileEffectBoxMovementFamily movementFamily)
+            : this(
+                boxEntityId,
+                cell,
+                movementFamily,
+                TileEffectBoxStopCause.Create(
+                    boxEntityId,
+                    cell,
+                    movementFamily,
+                    MovementSemanticKind.None,
+                    actionPlanId: 0,
+                    localActionIndex: 0,
+                    intentId: 0,
+                    visualContactNormalizedTime: 0f))
+        {
+        }
+
+        public TileEffectBoxStop(
+            int boxEntityId,
+            SurfaceCell cell,
+            TileEffectBoxMovementFamily movementFamily,
+            TileEffectBoxStopCause cause)
         {
             BoxEntityId = boxEntityId;
             Cell = cell;
             MovementFamily = movementFamily;
+            Cause = cause.IsValid
+                ? cause
+                : TileEffectBoxStopCause.Create(
+                    boxEntityId,
+                    cell,
+                    movementFamily,
+                    MovementSemanticKind.None,
+                    actionPlanId: 0,
+                    localActionIndex: 0,
+                    intentId: 0,
+                    visualContactNormalizedTime: 0f);
         }
 
         public int BoxEntityId { get; }
@@ -130,6 +163,99 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell Cell { get; }
 
         public TileEffectBoxMovementFamily MovementFamily { get; }
+
+        public TileEffectBoxStopCause Cause { get; }
+    }
+
+    internal readonly struct TileEffectBoxStopCause
+    {
+        private TileEffectBoxStopCause(
+            int boxEntityId,
+            SurfaceCell cell,
+            TileEffectBoxMovementFamily movementFamily,
+            MovementSemanticKind movementSemanticKind,
+            int actionPlanId,
+            int localActionIndex,
+            int intentId,
+            float visualContactNormalizedTime)
+        {
+            BoxEntityId = boxEntityId;
+            Cell = cell;
+            MovementFamily = movementFamily;
+            MovementSemanticKind = movementSemanticKind;
+            ActionPlanId = actionPlanId;
+            LocalActionIndex = localActionIndex;
+            IntentId = intentId;
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+        }
+
+        public int BoxEntityId { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public TileEffectBoxMovementFamily MovementFamily { get; }
+
+        public MovementSemanticKind MovementSemanticKind { get; }
+
+        public int ActionPlanId { get; }
+
+        public int LocalActionIndex { get; }
+
+        public int IntentId { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
+        public bool IsValid => BoxEntityId > 0 && MovementFamily != TileEffectBoxMovementFamily.None;
+
+        public static TileEffectBoxStopCause Create(
+            int boxEntityId,
+            SurfaceCell cell,
+            TileEffectBoxMovementFamily movementFamily,
+            MovementSemanticKind movementSemanticKind,
+            int actionPlanId,
+            int localActionIndex,
+            int intentId,
+            float visualContactNormalizedTime)
+        {
+            return new TileEffectBoxStopCause(
+                boxEntityId,
+                cell,
+                movementFamily,
+                movementSemanticKind,
+                actionPlanId,
+                localActionIndex,
+                intentId,
+                visualContactNormalizedTime);
+        }
+
+        public PresentationTimingAnchor CreateTimingAnchor(PresentationBarrierKey barrierKey)
+        {
+            if (MovementSemanticKind != MovementSemanticKind.Flip)
+            {
+                return PresentationTimingAnchor.Immediate();
+            }
+
+            return PresentationTimingAnchor.MotionContact(
+                BoxEntityId,
+                0,
+                ActionPlanId,
+                LocalActionIndex,
+                MovementSemanticKind,
+                VisualContactNormalizedTime > 0f
+                    ? VisualContactNormalizedTime
+                    : GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey);
+        }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
     }
 
     internal readonly struct TileEffectResolutionContext
@@ -264,13 +390,25 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < tileFeatures.Count; i++)
             {
                 var tileFeature = tileFeatures[i];
-                if (!ShouldLatchButton(context, tileFeature, destroyedBoxIds))
+                if (!ShouldLatchButton(context, tileFeature, destroyedBoxIds, out var acceptedCause))
                 {
                     continue;
                 }
 
                 operations ??= new TileFeatureOperationBatch();
                 operations.Add(TileFeatureOperation.Update(CreateActivatedState(tileFeature)));
+                var barrierKey = PresentationBarrierKey.ButtonActivated(tileFeature.TileId);
+                tileEvents.Add(new TilePresentationEvent(
+                    TilePresentationEventKind.ButtonActivated,
+                    tileFeature.TileId,
+                    tileFeature.Cell,
+                    tileFeature.Kind,
+                    tileFeature.SourceEntityId,
+                    tileFeature.OwnerEntityId,
+                    tileFeature.TeamId,
+                    targetEntityId: acceptedCause.BoxEntityId,
+                    timingAnchor: acceptedCause.CreateTimingAnchor(barrierKey),
+                    barrierKey: barrierKey));
             }
 
             return (operations == null || operations.IsEmpty) &&
@@ -286,8 +424,10 @@ namespace Game.Feature.Gameplay.Loop
         private static bool ShouldLatchButton(
             in TileEffectResolutionContext context,
             TileFeatureState tileFeature,
-            HashSet<int> excludedBoxIds)
+            HashSet<int> excludedBoxIds,
+            out TileEffectBoxStopCause acceptedCause)
         {
+            acceptedCause = default;
             if (tileFeature.Kind != TileFeatureKind.Button ||
                 (tileFeature.Flags & TileFeatureFlags.Activated) != 0)
             {
@@ -300,13 +440,14 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            return TryGetAcceptedPushSlideStoppedBox(
+            return TryGetAcceptedButtonStoppedBox(
                 context.Snapshot,
                 context.BoxStops,
                 tileFeature.Cell,
                 definition.BoxSelector,
                 excludedBoxIds,
-                out _);
+                out _,
+                out acceptedCause);
         }
 
         private static FinalizationBatch ResolveDestroyTiles(
@@ -733,15 +874,17 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool TryGetAcceptedPushSlideStoppedBox(
+        private static bool TryGetAcceptedButtonStoppedBox(
             WorldSnapshot snapshot,
             IReadOnlyList<TileEffectBoxStop> stops,
             SurfaceCell buttonCell,
             TileFeatureBoxSelector selector,
             HashSet<int> excludedBoxIds,
-            out EntityState acceptedBox)
+            out EntityState acceptedBox,
+            out TileEffectBoxStopCause acceptedCause)
         {
             acceptedBox = default;
+            acceptedCause = default;
             if (stops == null || stops.Count == 0)
             {
                 return false;
@@ -752,8 +895,7 @@ namespace Game.Feature.Gameplay.Loop
                 var stop = stops[i];
                 if (stop.Cell != buttonCell ||
                     (excludedBoxIds != null && excludedBoxIds.Contains(stop.BoxEntityId)) ||
-                    (stop.MovementFamily != TileEffectBoxMovementFamily.Push &&
-                     stop.MovementFamily != TileEffectBoxMovementFamily.Slide) ||
+                    !IsButtonAcceptedStopFamily(stop.MovementFamily) ||
                     !TryGetValidStoppedBox(snapshot, stop.BoxEntityId, buttonCell, out var box) ||
                     !MatchesButtonBoxSelector(box, selector))
                 {
@@ -761,10 +903,18 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 acceptedBox = box;
+                acceptedCause = stop.Cause;
                 return true;
             }
 
             return false;
+        }
+
+        private static bool IsButtonAcceptedStopFamily(TileEffectBoxMovementFamily movementFamily)
+        {
+            return movementFamily == TileEffectBoxMovementFamily.Push ||
+                   movementFamily == TileEffectBoxMovementFamily.Slide ||
+                   movementFamily == TileEffectBoxMovementFamily.Flip;
         }
 
         private static bool MatchesButtonBoxSelector(
