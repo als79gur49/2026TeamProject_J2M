@@ -19,13 +19,14 @@ namespace Game.Feature.UI.Screens
         private const int QuitCommandIndex = 2;
 
         private const string MissingAuthoredStructureMessage =
-            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, and command SelectionFrame slots.";
+            "MainMenu screen is missing required authored shell references. Repair MainMenuScreen.prefab so it contains TopBar, ContentHost, BottomBar, MainCommandPanel, SaveSlotOverlayLayer, StartButton, SettingsButton, QuitButton, SaveSlotPanelView, SaveSlotBlocker, and command SelectionFrame slots.";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private RectTransform _topBar;
         [SerializeField] private RectTransform _contentHost;
         [SerializeField] private RectTransform _bottomBar;
         [SerializeField] private RectTransform _mainCommandPanel;
+        [SerializeField] private RectTransform _saveSlotOverlayLayer;
         [SerializeField] private SaveSlotPanelView _saveSlotPanel;
         [SerializeField] private GameObject _saveSlotBlockerRoot;
         [SerializeField] private CanvasGroup _saveSlotBlockerCanvasGroup;
@@ -72,6 +73,7 @@ namespace Game.Feature.UI.Screens
                 _contentHost == null ||
                 _bottomBar == null ||
                 _mainCommandPanel == null ||
+                _saveSlotOverlayLayer == null ||
                 _saveSlotPanel == null ||
                 _saveSlotBlockerRoot == null ||
                 _saveSlotBlockerCanvasGroup == null ||
@@ -93,8 +95,9 @@ namespace Game.Feature.UI.Screens
             RequireOwnedBy(_contentHost, transform);
             RequireOwnedBy(_bottomBar, transform);
             RequireOwnedBy(_mainCommandPanel, transform);
-            RequireOwnedBy(_saveSlotPanel.transform, _contentHost);
-            RequireOwnedBy(_saveSlotBlockerRoot.transform, _contentHost);
+            RequireOwnedBy(_saveSlotOverlayLayer, transform);
+            RequireOwnedBy(_saveSlotPanel.transform, _saveSlotOverlayLayer);
+            RequireOwnedBy(_saveSlotBlockerRoot.transform, _saveSlotOverlayLayer);
             RequireOwnedBy(_startButton.transform, _mainCommandPanel);
             RequireOwnedBy(_settingsButton.transform, _mainCommandPanel);
             RequireOwnedBy(_quitButton.transform, _mainCommandPanel);
@@ -231,6 +234,8 @@ namespace Game.Feature.UI.Screens
             ActiveSection = sectionId;
             var showSaveSlots = sectionId == MainMenuSectionId.SaveSlots;
 
+            ApplySaveSlotOverlayState(showSaveSlots);
+
             if (_saveSlotPanel != null)
             {
                 _saveSlotPanel.gameObject.SetActive(showSaveSlots);
@@ -350,6 +355,20 @@ namespace Game.Feature.UI.Screens
         {
             ApplySaveSlotBlockerState(showSaveSlots);
             ApplyCommandButtonsInteractable(!showSaveSlots);
+        }
+
+        private void ApplySaveSlotOverlayState(bool showSaveSlots)
+        {
+            if (_saveSlotOverlayLayer == null)
+            {
+                return;
+            }
+
+            _saveSlotOverlayLayer.gameObject.SetActive(showSaveSlots);
+            if (showSaveSlots)
+            {
+                _saveSlotOverlayLayer.SetAsLastSibling();
+            }
         }
 
         private void ApplySaveSlotBlockerState(bool showSaveSlots)
