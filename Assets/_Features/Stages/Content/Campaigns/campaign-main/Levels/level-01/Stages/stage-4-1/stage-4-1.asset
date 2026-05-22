@@ -107,7 +107,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -312,10 +312,10 @@ MonoBehaviour:
       face: 0
       x: 8
       y: 3
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -760,10 +760,10 @@ MonoBehaviour:
       face: 1
       x: 9
       y: 5
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -808,10 +808,10 @@ MonoBehaviour:
       face: 1
       x: 5
       y: 4
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -920,10 +920,10 @@ MonoBehaviour:
       face: 1
       x: 4
       y: 1
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -984,10 +984,10 @@ MonoBehaviour:
       face: 2
       x: 2
       y: 1
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1016,10 +1016,10 @@ MonoBehaviour:
       face: 2
       x: 3
       y: 4
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1128,10 +1128,10 @@ MonoBehaviour:
       face: 2
       x: 7
       y: 3
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1179,7 +1179,7 @@ MonoBehaviour:
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1208,10 +1208,10 @@ MonoBehaviour:
       face: 2
       x: 13
       y: 0
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 1
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -1394,43 +1394,11 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
-  - EntityId: 297
-    Kind: 2
-    Cell:
-      face: 2
-      x: 6
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId: 
-    UnitStackGroup: 
   - EntityId: 298
     Kind: 2
     Cell:
       face: 2
       x: 8
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId: 
-    UnitStackGroup: 
-  - EntityId: 299
-    Kind: 2
-    Cell:
-      face: 2
-      x: 10
       y: 7
     Facing: 0
     Hp: 1
@@ -1474,7 +1442,503 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
-  enemySpawns: []
+  - EntityId: 311
+    Kind: 2
+    Cell:
+      face: 2
+      x: 1
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 312
+    Kind: 2
+    Cell:
+      face: 2
+      x: 2
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 313
+    Kind: 2
+    Cell:
+      face: 2
+      x: 5
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 314
+    Kind: 2
+    Cell:
+      face: 2
+      x: 7
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 318
+    Kind: 2
+    Cell:
+      face: 2
+      x: 11
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 319
+    Kind: 2
+    Cell:
+      face: 2
+      x: 12
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 320
+    Kind: 2
+    Cell:
+      face: 2
+      x: 13
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 321
+    Kind: 2
+    Cell:
+      face: 2
+      x: 14
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 328
+    Kind: 2
+    Cell:
+      face: 3
+      x: 0
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 329
+    Kind: 2
+    Cell:
+      face: 3
+      x: 1
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 330
+    Kind: 2
+    Cell:
+      face: 3
+      x: 3
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 331
+    Kind: 2
+    Cell:
+      face: 3
+      x: 4
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 332
+    Kind: 2
+    Cell:
+      face: 3
+      x: 5
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 333
+    Kind: 2
+    Cell:
+      face: 3
+      x: 6
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 334
+    Kind: 2
+    Cell:
+      face: 3
+      x: 7
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 335
+    Kind: 2
+    Cell:
+      face: 3
+      x: 9
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 336
+    Kind: 2
+    Cell:
+      face: 3
+      x: 10
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 337
+    Kind: 2
+    Cell:
+      face: 3
+      x: 14
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 339
+    Kind: 2
+    Cell:
+      face: 3
+      x: 4
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 340
+    Kind: 2
+    Cell:
+      face: 3
+      x: 7
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 341
+    Kind: 2
+    Cell:
+      face: 3
+      x: 11
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  enemySpawns:
+  - EntityId: 306
+    Kind: 1
+    Cell:
+      face: 0
+      x: 1
+      y: 3
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 307
+    Kind: 1
+    Cell:
+      face: 0
+      x: 6
+      y: 5
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 308
+    Kind: 1
+    Cell:
+      face: 0
+      x: 8
+      y: 1
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 309
+    Kind: 1
+    Cell:
+      face: 1
+      x: 4
+      y: 3
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 310
+    Kind: 1
+    Cell:
+      face: 1
+      x: 12
+      y: 1
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 322
+    Kind: 1
+    Cell:
+      face: 2
+      x: 3
+      y: 3
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 323
+    Kind: 1
+    Cell:
+      face: 2
+      x: 13
+      y: 5
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 1
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 342
+    Kind: 1
+    Cell:
+      face: 3
+      x: 4
+      y: 6
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 343
+    Kind: 1
+    Cell:
+      face: 3
+      x: 11
+      y: 6
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 344
+    Kind: 1
+    Cell:
+      face: 3
+      x: 7
+      y: 6
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
+    PresentationId: 
+    UnitStackGroup: 
   wallSpawns:
   - EntityId: 234
     Kind: 3
@@ -1705,6 +2169,134 @@ MonoBehaviour:
     Cell:
       face: 2
       x: 11
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 315
+    Kind: 3
+    Cell:
+      face: 2
+      x: 6
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 316
+    Kind: 3
+    Cell:
+      face: 2
+      x: 9
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 317
+    Kind: 3
+    Cell:
+      face: 2
+      x: 10
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 324
+    Kind: 3
+    Cell:
+      face: 3
+      x: 10
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 325
+    Kind: 3
+    Cell:
+      face: 3
+      x: 9
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 326
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 327
+    Kind: 3
+    Cell:
+      face: 3
+      x: 0
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 338
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
       y: 5
     Facing: 0
     Hp: 1
@@ -2113,6 +2705,314 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: exit.default
+  - TileId: 36
+    Cell:
+      face: 2
+      x: 1
+      y: 4
+    Kind: 4
+    ActivationRule: 3
+    Direction: 0
+    BoxSelector: 4
+    BoundEntityId: 0
+    PresentationKey: button.moon-only
+  - TileId: 37
+    Cell:
+      face: 3
+      x: 1
+      y: 0
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.up
+  - TileId: 38
+    Cell:
+      face: 3
+      x: 5
+      y: 0
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.up
+  - TileId: 39
+    Cell:
+      face: 3
+      x: 7
+      y: 0
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.up
+  - TileId: 40
+    Cell:
+      face: 3
+      x: 8
+      y: 0
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.up
+  - TileId: 41
+    Cell:
+      face: 3
+      x: 11
+      y: 0
+    Kind: 1
+    ActivationRule: 2
+    Direction: 1
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.up
+  - TileId: 42
+    Cell:
+      face: 3
+      x: 1
+      y: 1
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 43
+    Cell:
+      face: 3
+      x: 8
+      y: 4
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 44
+    Cell:
+      face: 3
+      x: 1
+      y: 4
+    Kind: 1
+    ActivationRule: 2
+    Direction: 3
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.down
+  - TileId: 45
+    Cell:
+      face: 3
+      x: 13
+      y: 4
+    Kind: 1
+    ActivationRule: 2
+    Direction: 3
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.down
+  - TileId: 46
+    Cell:
+      face: 3
+      x: 11
+      y: 2
+    Kind: 1
+    ActivationRule: 2
+    Direction: 4
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.left
+  - TileId: 47
+    Cell:
+      face: 3
+      x: 5
+      y: 4
+    Kind: 1
+    ActivationRule: 2
+    Direction: 4
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.left
+  - TileId: 48
+    Cell:
+      face: 3
+      x: 14
+      y: 4
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 49
+    Cell:
+      face: 3
+      x: 11
+      y: 4
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 50
+    Cell:
+      face: 3
+      x: 11
+      y: 3
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 51
+    Cell:
+      face: 3
+      x: 10
+      y: 3
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 52
+    Cell:
+      face: 3
+      x: 9
+      y: 3
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 53
+    Cell:
+      face: 3
+      x: 12
+      y: 2
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 54
+    Cell:
+      face: 3
+      x: 0
+      y: 1
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 55
+    Cell:
+      face: 3
+      x: 3
+      y: 3
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 56
+    Cell:
+      face: 3
+      x: 4
+      y: 3
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 57
+    Cell:
+      face: 3
+      x: 13
+      y: 0
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 58
+    Cell:
+      face: 3
+      x: 11
+      y: 5
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 59
+    Cell:
+      face: 3
+      x: 12
+      y: 5
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 60
+    Cell:
+      face: 3
+      x: 13
+      y: 5
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 61
+    Cell:
+      face: 3
+      x: 13
+      y: 3
+    Kind: 4
+    ActivationRule: 3
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: button.default
+  - TileId: 62
+    Cell:
+      face: 3
+      x: 2
+      y: 1
+    Kind: 4
+    ActivationRule: 3
+    Direction: 0
+    BoxSelector: 3
+    BoundEntityId: 0
+    PresentationKey: button.default
+  - TileId: 63
+    Cell:
+      face: 3
+      x: 7
+      y: 2
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: 
@@ -2148,4 +3048,22 @@ MonoBehaviour:
       StableConditionId: button-26
       DisplayText: Place the MoonBlock on the button
       SortOrder: 40
+    - Condition: {fileID: 11400000, guid: da57b8e9a245df24397b66cc9b6dd8f1, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-61
+      DisplayText: Place a push box on the button
+      SortOrder: 50
+    - Condition: {fileID: 11400000, guid: 6cd562e4a25eee6409c96c695225e2fb, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-62
+      DisplayText: Place a push box on the button
+      SortOrder: 60
+    - Condition: {fileID: 11400000, guid: 5166506f31d01684ab157f4b1779d873, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-36
+      DisplayText: Place the MoonBlock on the button
+      SortOrder: 70
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}
