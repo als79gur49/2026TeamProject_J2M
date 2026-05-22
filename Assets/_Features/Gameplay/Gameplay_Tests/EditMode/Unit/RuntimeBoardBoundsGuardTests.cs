@@ -5776,9 +5776,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_FlipMotion_KeepsWorldQueriesOnCommittedLandingCellWhileViewInterpolates()
+        public void GameplaySceneHost_FlipAction_CommitsLandingCellAndKeepsPresentationActive()
         {
-            var hostObject = new GameObject("GameplaySceneHost_FlipMotion_KeepsWorldQueriesOnCommittedLandingCellWhileViewInterpolates");
+            var hostObject = new GameObject("GameplaySceneHost_FlipAction_CommitsLandingCellAndKeepsPresentationActive");
 
             try
             {
@@ -5815,23 +5815,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(flippedBox.entityId, Is.EqualTo(20));
                 Assert.That(GetUnitIdsAt(snapshot, new SurfaceCell(FaceId.Floor, -1, 0)), Is.Empty);
                 Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
-
-                var renderedPosition = GetViewPosition(host, 20);
-                var sourcePosition = GetProjectedEntityPosition(
-                    new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
-                    new CubeTopologyState(FaceId.Floor),
-                    new SurfaceCell(FaceId.Floor, -1, 0),
-                    EntityType.Box);
-                var destinationPosition = GetProjectedEntityPosition(
-                    new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
-                    new CubeTopologyState(FaceId.Floor),
-                    new SurfaceCell(FaceId.Floor, 1, 0),
-                    EntityType.Box);
-                Assert.That(renderedPosition.x, Is.GreaterThan(sourcePosition.x));
-                Assert.That(renderedPosition.x, Is.LessThan(destinationPosition.x));
+                Assert.That(host.Presenter.IsPresentationActive, Is.True);
+                Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplaySceneHost_FlipAction_CampaignBoxPrefabReceivesFlipInteractionMotion()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_FlipAction_CampaignBoxPrefabReceivesFlipInteractionMotion");
+            var staticCatalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();
+
+            try
+            {
+                const string boxPresentationId = "test-campaign-box";
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_FlipInteraction_PlayerPrefab");
+                var boxViewPrefab = CreateBoxFlipInteractionViewPrefab("GameplaySceneHost_FlipInteraction_BoxPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
+                boxViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
+                ConfigureStaticPresentationCatalog(staticCatalog, boxPresentationId, boxViewPrefab);
+
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                            CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, -1, 0), facing: Direction.Left),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
+                        PlayerControlTiming = CreateImmediatePlayerControlTimingSettings(),
+                        StaticEntityPresentationCatalog = staticCatalog,
+                        StaticEntityPresentationBindings = new[]
+                        {
+                            new StaticEntityPresentationBinding
+                            {
+                                EntityId = 20,
+                                PresentationId = boxPresentationId,
+                            },
+                        },
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                    });
+
+                host.InputHost.SetRawMoveInput(Vector2.left);
+                host.InputHost.BufferFlip();
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds * 0.5f);
+                host.Presenter.UpdatePresentation(0f);
+
+                Assert.That(host.ViewRegistry.TryGetView(20, out var boxView), Is.True);
+                Assert.That(boxView.TryGetComponent<BoxFlipInteractionDriver>(out _), Is.True);
+                Assert.That(Vector3.Distance(boxView.ModelRoot.localPosition, Vector3.zero), Is.GreaterThan(0.001f));
+                Assert.That(Quaternion.Angle(boxView.ModelRoot.localRotation, Quaternion.identity), Is.GreaterThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(staticCatalog);
                 UnityEngine.Object.DestroyImmediate(hostObject);
             }
         }
@@ -7546,6 +7597,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
             return view.transform.position;
+        }
+
+        private static GameplayEntityView CreateBoxFlipInteractionViewPrefab(string name)
+        {
+            var viewObject = new GameObject(name);
+            var view = viewObject.AddComponent<GameplayEntityView>();
+            view.Initialize(20);
+            view.ConfigureModelRoot(Vector3.zero, Quaternion.identity);
+
+            var modelObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            modelObject.name = "Visual";
+            modelObject.transform.SetParent(view.ModelRoot, worldPositionStays: false);
+            modelObject.transform.localPosition = Vector3.zero;
+            modelObject.transform.localRotation = Quaternion.identity;
+            modelObject.transform.localScale = Vector3.one;
+
+            var collider = modelObject.GetComponent<Collider>();
+            if (collider != null)
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+
+            var flipDriver = viewObject.AddComponent<BoxFlipInteractionDriver>();
+            PlayerViewPrefabTestUtility.SetSerializedField(flipDriver, "visualRoot", view.ModelRoot);
+            return view;
+        }
+
+        private static void ConfigureStaticPresentationCatalog(
+            StaticEntityPresentationCatalog catalog,
+            string presentationId,
+            GameplayEntityView viewPrefab)
+        {
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                catalog,
+                "entries",
+                new[]
+                {
+                    new StaticEntityPresentationCatalogEntry
+                    {
+                        PresentationId = presentationId,
+                        ViewPrefab = viewPrefab,
+                    },
+                });
         }
 
         private static void AssertVisualMatchesProfile(
