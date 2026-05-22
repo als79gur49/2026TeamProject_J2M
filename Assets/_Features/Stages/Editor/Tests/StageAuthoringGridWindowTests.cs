@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -952,6 +953,186 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(presentation.BoardTilePaintOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
                 Assert.That(presentation.BoardTilePaintOverrides[0].StyleKey, Is.EqualTo("grass"));
             });
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTilePaintPreview_ResolvesPaintedCellsOnlyInPaintMode()
+        {
+            WithBoardTileStyleWindow((window, authoring, presentation, styleCatalog, profile) =>
+            {
+                authoring.SetBoard(Board(0, 0, 1, 1));
+                SetPrivateField(
+                    presentation,
+                    "boardTilePaintOverrides",
+                    new[]
+                    {
+                        new BoardTilePaintOverride(new SurfaceCell(FaceId.Floor, 1, 0), "grass"),
+                    });
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePaint);
+
+                var preview = window.BuildBoardTilePaintGridPreviewForTests();
+
+                Assert.That(preview.Enabled, Is.True);
+                Assert.That(preview.TryGetTint(new SurfaceCell(FaceId.Floor, 1, 0), out var tint), Is.True);
+                Assert.That(tint, Is.EqualTo(Color.green));
+                Assert.That(preview.TryGetTint(new SurfaceCell(FaceId.Floor, 0, 0), out _), Is.False);
+
+                window.SetEditModeForTests(StageAuthoringGridEditMode.EntityPlacement);
+                var disabledPreview = window.BuildBoardTilePaintGridPreviewForTests();
+
+                Assert.That(disabledPreview.Enabled, Is.False);
+                Assert.That(disabledPreview.TryGetTint(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+            });
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTilePaintPreview_IgnoresMissingCatalogAndMissingKeys()
+        {
+            WithBoardTileStyleWindow((window, authoring, presentation, styleCatalog, profile) =>
+            {
+                authoring.SetBoard(Board(0, 0, 1, 1));
+                SetPrivateField(
+                    presentation,
+                    "boardTilePaintOverrides",
+                    new[]
+                    {
+                        new BoardTilePaintOverride(new SurfaceCell(FaceId.Floor, 0, 0), "missing"),
+                        new BoardTilePaintOverride(new SurfaceCell(FaceId.Floor, 5, 5), "grass"),
+                    });
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePaint);
+
+                var preview = window.BuildBoardTilePaintGridPreviewForTests();
+
+                Assert.That(preview.Enabled, Is.True);
+                Assert.That(preview.TryGetTint(new SurfaceCell(FaceId.Floor, 0, 0), out _), Is.False);
+                Assert.That(preview.TryGetTint(new SurfaceCell(FaceId.Floor, 5, 5), out _), Is.False);
+            });
+
+            var presentationWithoutProfile = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            try
+            {
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, presentationWithoutProfile);
+                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePaint);
+
+                        var preview = window.BuildBoardTilePaintGridPreviewForTests();
+
+                        Assert.That(preview.Enabled, Is.False);
+                        Assert.That(preview.TryGetTint(new SurfaceCell(FaceId.Floor, 0, 0), out _), Is.False);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(presentationWithoutProfile);
+            }
+
+            var styleCatalogMissingPresentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var profileWithoutStyleCatalog = CreateBoardPresentationProfile(null, overlayCatalog: null);
+            try
+            {
+                SetPrivateField(styleCatalogMissingPresentation, "boardPresentationProfile", profileWithoutStyleCatalog);
+                WithWindow(
+                    System.Array.Empty<StagePlacedEntityAuthoring>(),
+                    (window, authoring) =>
+                    {
+                        authoring.AssignGeneratedDefinitions(null, styleCatalogMissingPresentation);
+                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePaint);
+
+                        var preview = window.BuildBoardTilePaintGridPreviewForTests();
+
+                        Assert.That(preview.Enabled, Is.False);
+                        Assert.That(preview.TryGetTint(new SurfaceCell(FaceId.Floor, 0, 0), out _), Is.False);
+                    });
+            }
+            finally
+            {
+                Object.DestroyImmediate(profileWithoutStyleCatalog);
+                Object.DestroyImmediate(styleCatalogMissingPresentation);
+            }
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_BoardTilePaintStatus_KeepsCurrentPaintPreview()
+        {
+            WithBoardTileStyleWindow((window, authoring, presentation, styleCatalog, profile) =>
+            {
+                SetPrivateField(
+                    presentation,
+                    "boardTilePaintOverrides",
+                    new[]
+                    {
+                        new BoardTilePaintOverride(new SurfaceCell(FaceId.Floor, 0, 0), "grass"),
+                    });
+                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTilePaint);
+                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
+
+                var status = window.GetBoardTilePaintStatusForTests();
+
+                Assert.That(status.Kind, Is.EqualTo(BoardTilePaintOverrideStatusKind.Resolved));
+                Assert.That(status.StyleKey, Is.EqualTo("grass"));
+                Assert.That(status.CatalogEntry, Is.Not.Null);
+                Assert.That(status.CatalogEntry.Tint, Is.EqualTo(Color.green));
+            });
+        }
+
+        [Test]
+        public void StageAuthoringGridRenderer_BoardTilePaintPreview_BlendsWithEntityAndZoneTints()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var preview = new BoardTilePaintGridPreview(
+                true,
+                new Dictionary<SurfaceCell, Color>
+                {
+                    { cell, Color.green },
+                });
+            var placement = Placement("box", FaceId.Floor, 0, 0);
+
+            Assert.That(
+                StageAuthoringGridRenderer.TryResolveCellBackgroundColor(
+                    Color.white,
+                    placement,
+                    null,
+                    selectedZoneHighlight: false,
+                    zoneCell: false,
+                    StageAuthoringGridEditMode.BoardTilePaint,
+                    preview,
+                    cell,
+                    out var entityPaintTint),
+                Is.True);
+            Assert.That(entityPaintTint, Is.EqualTo(StageAuthoringGridRenderer.BlendPaintTint(
+                StageAuthoringGridCellStyleUtility.BoxTint,
+                Color.green)));
+            Assert.That(entityPaintTint, Is.Not.EqualTo(Color.green));
+
+            Assert.That(
+                StageAuthoringGridRenderer.TryResolveCellBackgroundColor(
+                    Color.white,
+                    null,
+                    null,
+                    selectedZoneHighlight: false,
+                    zoneCell: true,
+                    StageAuthoringGridEditMode.BoardTilePaint,
+                    preview,
+                    cell,
+                    out var zonePaintTint),
+                Is.True);
+            Assert.That(zonePaintTint, Is.Not.EqualTo(Color.green));
+
+            Assert.That(
+                StageAuthoringGridRenderer.TryResolveCellBackgroundColor(
+                    Color.white,
+                    null,
+                    null,
+                    selectedZoneHighlight: false,
+                    zoneCell: false,
+                    StageAuthoringGridEditMode.BoardTilePaint,
+                    preview,
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    out _),
+                Is.False);
         }
 
         [Test]

@@ -536,7 +536,7 @@ MonoBehaviour:
       face: 0
       x: 2
       y: 4
-    Facing: 0
+    Facing: 4
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 27

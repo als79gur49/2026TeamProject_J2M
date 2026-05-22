@@ -56,7 +56,7 @@ MonoBehaviour:
       face: 0
       x: 1
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -152,7 +152,7 @@ MonoBehaviour:
       face: 0
       x: 8
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -280,7 +280,7 @@ MonoBehaviour:
       face: 0
       x: 9
       y: 6
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -712,7 +712,7 @@ MonoBehaviour:
       face: 1
       x: 3
       y: 6
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -728,7 +728,7 @@ MonoBehaviour:
       face: 1
       x: 9
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -744,7 +744,7 @@ MonoBehaviour:
       face: 1
       x: 11
       y: 4
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1096,7 +1096,7 @@ MonoBehaviour:
       face: 2
       x: 1
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1112,7 +1112,7 @@ MonoBehaviour:
       face: 2
       x: 3
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1128,7 +1128,7 @@ MonoBehaviour:
       face: 2
       x: 11
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1144,7 +1144,7 @@ MonoBehaviour:
       face: 2
       x: 13
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1160,7 +1160,7 @@ MonoBehaviour:
       face: 2
       x: 13
       y: 7
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1176,7 +1176,7 @@ MonoBehaviour:
       face: 2
       x: 11
       y: 7
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1192,7 +1192,7 @@ MonoBehaviour:
       face: 2
       x: 1
       y: 7
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1208,7 +1208,7 @@ MonoBehaviour:
       face: 2
       x: 3
       y: 7
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1432,7 +1432,7 @@ MonoBehaviour:
       face: 3
       x: 7
       y: 2
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1448,7 +1448,7 @@ MonoBehaviour:
       face: 3
       x: 14
       y: 3
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1464,7 +1464,7 @@ MonoBehaviour:
       face: 3
       x: 14
       y: 7
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1480,7 +1480,7 @@ MonoBehaviour:
       face: 3
       x: 10
       y: 5
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
@@ -1496,7 +1496,7 @@ MonoBehaviour:
       face: 3
       x: 4
       y: 4
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 1
