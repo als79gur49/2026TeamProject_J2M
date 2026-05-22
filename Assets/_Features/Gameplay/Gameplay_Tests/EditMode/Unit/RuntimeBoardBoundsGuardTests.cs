@@ -2593,8 +2593,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     Vector3.Distance(sharedTile.transform.position, enteringTile.transform.position),
                     Is.EqualTo(sharedEnteringStartDistance).Within(0.001f));
-                Assert.That(sharedTile.transform.localScale.z, Is.EqualTo(cellSize * 0.08f).Within(0.001f));
-                Assert.That(enteringTile.transform.localScale.z, Is.EqualTo(cellSize * 0.08f).Within(0.001f));
+                Assert.That(
+                    sharedTile.transform.localScale.z,
+                    Is.EqualTo(cellSize * GameplayPresentationGeometry.TileThicknessMultiplier).Within(0.001f));
+                Assert.That(
+                    enteringTile.transform.localScale.z,
+                    Is.EqualTo(cellSize * GameplayPresentationGeometry.TileThicknessMultiplier).Within(0.001f));
 
                 renderer.UpdateTopologyTransition(1f);
                 AssertSurfaceTileMatchesRetainedTransitionProjection(
@@ -7502,9 +7506,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(tileTransform.localPosition, Is.EqualTo(expectedPosition));
             Assert.That(Quaternion.Angle(tileTransform.localRotation, expectedRotation), Is.LessThan(0.001f));
-            Assert.That(tileTransform.localScale.x, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
-            Assert.That(tileTransform.localScale.y, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
-            Assert.That(tileTransform.localScale.z, Is.EqualTo(cellSize * 0.08f).Within(0.001f));
+            Assert.That(
+                tileTransform.localScale.x,
+                Is.EqualTo(cellSize * GameplayPresentationGeometry.TileCoverageMultiplier).Within(0.001f));
+            Assert.That(
+                tileTransform.localScale.y,
+                Is.EqualTo(cellSize * GameplayPresentationGeometry.TileCoverageMultiplier).Within(0.001f));
+            Assert.That(
+                tileTransform.localScale.z,
+                Is.EqualTo(cellSize * GameplayPresentationGeometry.TileThicknessMultiplier).Within(0.001f));
         }
 
         private static GameplayEntityPose GetProjectedSurfaceTileLocalPose(
@@ -7515,7 +7525,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var projector = new GameplayCubeProjector(boardBounds, cellSize);
             Assert.That(projector.TryProjectSurfaceCell(cell, topology, out var projectedPose), Is.True);
-            var tileThickness = cellSize * 0.08f;
+            var tileThickness = cellSize * GameplayPresentationGeometry.TileThicknessMultiplier;
             return new GameplayEntityPose(
                 projectedPose.LocalPosition - (projectedPose.Normal * (tileThickness * 0.5f)),
                 projectedPose.LocalRotation);
