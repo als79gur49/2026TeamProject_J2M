@@ -38,7 +38,8 @@ namespace Game.Feature.Gameplay.Host
         {
             var activityState = facts.IsEnemy &&
                                 facts.IsVisible &&
-                                facts.ProjectedSlot == GameplayProjectedFaceSlot.Front
+                                facts.ProjectedSlot == GameplayProjectedFaceSlot.Front &&
+                                facts.IsGameplayAutonomySuppressed
                 ? EnemyVisualActivityState.FrontFaceInactive
                 : EnemyVisualActivityState.Normal;
             var shouldPauseAutonomousPresentation = facts.IsEnemy &&

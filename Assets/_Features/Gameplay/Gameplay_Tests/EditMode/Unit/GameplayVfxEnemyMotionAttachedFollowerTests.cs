@@ -839,6 +839,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void UtilityCooldownAura_AttachesWhenPhysicalFrontIsCurrentBottom()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                var attachPoint = CreateAttachPoint(fixture.View.ModelRoot, "WeaponAura");
+                var desired = DesiredUtilityCooldownAura();
+
+                fixture.Controller.Refresh(
+                    10,
+                    fixture.TrackState,
+                    fixture.StateStore,
+                    fixture.Pool,
+                    fixture.BindingResolver,
+                    enabled: false,
+                    visibilityContext: CreateVisibilityContext(
+                        isFrontFaceInactive: false,
+                        isGameplayAutonomySuppressed: false),
+                    attachedDesiredStates: new[] { desired },
+                    attachedFollowersEnabled: true);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(attachPoint.childCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PresentationMotionFollowingVfxController_MissingExplicitAttachPoint_DoesNotFallbackToModelRoot()
         {
             var fixture = CreateFixture();
@@ -1656,7 +1688,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool hasView = true,
             bool isViewActiveInHierarchy = true,
             bool hasSemanticState = true,
-            bool isFrontFaceInactive = false)
+            bool isFrontFaceInactive = false,
+            bool isGameplayAutonomySuppressed = false)
         {
             return new GameplayVfxVisibilityContext(
                 new Dictionary<int, GameplayVfxEntityVisibilityState>
@@ -1667,7 +1700,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             hasView,
                             isViewActiveInHierarchy,
                             hasSemanticState,
-                            isFrontFaceInactive)
+                            isFrontFaceInactive,
+                            isGameplayAutonomySuppressed)
                     },
                 });
         }

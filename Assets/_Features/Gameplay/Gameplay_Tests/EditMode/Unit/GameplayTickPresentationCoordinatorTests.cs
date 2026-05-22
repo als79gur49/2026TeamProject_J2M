@@ -5864,6 +5864,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_CommittedPhysicalFrontBottomEnemy_StoresNormalSemantic()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_CommittedPhysicalFrontBottomEnemy_StoresNormalSemantic");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Front);
+                var frontCell = new SurfaceCell(FaceId.Front, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, frontCell) }, topology);
+
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
+                Assert.That(facts.IsEnemy, Is.True);
+                Assert.That(facts.IsVisible, Is.True);
+                Assert.That(facts.IsCommittedVisible, Is.True);
+                Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Front));
+                Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
+                Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.False);
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>().IsPlaybackSuppressed, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickPresentationCoordinator_CommittedFrontRoleEnemyWithNoneAiMode_StoresInactiveEnemyFacts()
         {
             var rootObject = new GameObject("GameplayTickPresentationCoordinator_CommittedFrontRoleEnemyWithNoneAiMode_StoresInactiveEnemyFacts");
@@ -6006,6 +6057,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
             Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
             Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DefaultEnemyVisualSemanticResolver_PhysicalFrontBottomEnemy_ResolvesNormal()
+        {
+            var resolver = new DefaultEnemyVisualSemanticResolver();
+            var facts = new EnemyVisualPresentationFacts(
+                entityId: 20,
+                isEnemy: true,
+                isVisible: true,
+                isCommittedVisible: true,
+                isTransitionVisible: false,
+                isTransitionOnlyVisible: false,
+                isJumpDetachedVisible: false,
+                isJumpLandingCompletionHeld: false,
+                projectedSlot: GameplayProjectedFaceSlot.Front,
+                isGameplayAutonomySuppressed: false,
+                aiMode: EnemyAiMode.Patrol,
+                hasActiveMotion: false);
+
+            var semantic = resolver.Resolve(facts);
+
+            Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
+            Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
+            Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.False);
         }
 
         [Test]
