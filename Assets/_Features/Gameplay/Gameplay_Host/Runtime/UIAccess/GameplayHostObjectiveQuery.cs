@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -13,13 +14,18 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             Array.Empty<GameplayObjectiveConditionReadModel>();
 
         private readonly TickRunner _tickRunner;
+        private readonly GameplayPresentationBarrierTracker _barrierTracker;
         private StageObjectiveRuntimeDefinition _lastObjectiveDefinition;
         private StageObjectiveTickResult _lastObjectiveResult;
+        private int _lastBarrierVersion = -1;
         private GameplayObjectiveReadModel _lastReadModel = GameplayObjectiveReadModel.NoObjective;
 
-        public GameplayHostObjectiveQuery(TickRunner tickRunner)
+        public GameplayHostObjectiveQuery(
+            TickRunner tickRunner,
+            GameplayPresentationBarrierTracker barrierTracker = null)
         {
             _tickRunner = tickRunner;
+            _barrierTracker = barrierTracker;
         }
 
         public GameplayObjectiveReadModel Read()
@@ -35,24 +41,35 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return _lastReadModel;
             }
 
+            var barrierVersion = _barrierTracker?.Version ?? 0;
             if (ReferenceEquals(_lastObjectiveDefinition, objectiveDefinition) &&
-                ReferenceEquals(_lastObjectiveResult, objectiveResult))
+                ReferenceEquals(_lastObjectiveResult, objectiveResult) &&
+                _lastBarrierVersion == barrierVersion)
             {
                 return _lastReadModel;
             }
 
             var displayMetadata = objectiveDefinition.DisplayMetadata ?? StageObjectiveDisplayMetadata.Empty;
+            var visibleGoalReached = objectiveResult.GoalReached &&
+                                     !HasPendingPrimaryGoalCompletionGate(objectiveResult, _barrierTracker);
+            var visibleAllConditionsSatisfied = objectiveResult.AllConditionsSatisfied &&
+                                                !HasPendingRequiredCompletionGate(objectiveResult, _barrierTracker);
+            var visibleIsCleared = objectiveResult.IsCleared &&
+                                   !HasPendingRequiredCompletionGate(objectiveResult, _barrierTracker);
             Cache(
                 objectiveDefinition,
                 objectiveResult,
                 new GameplayObjectiveReadModel(
                     objectiveResult.HasObjective,
-                    objectiveResult.GoalReached,
-                    objectiveResult.AllConditionsSatisfied,
-                    objectiveResult.IsCleared,
+                    visibleGoalReached,
+                    visibleAllConditionsSatisfied,
+                    visibleIsCleared,
                     displayMetadata.ObjectiveTitle,
                     displayMetadata.ObjectiveSummary,
-                    BuildConditionRows(objectiveResult, displayMetadata)));
+                    BuildConditionRows(objectiveResult, displayMetadata, _barrierTracker),
+                    objectiveResult.GoalReached,
+                    objectiveResult.AllConditionsSatisfied,
+                    objectiveResult.IsCleared));
             return _lastReadModel;
         }
 
@@ -63,12 +80,14 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         {
             _lastObjectiveDefinition = objectiveDefinition;
             _lastObjectiveResult = objectiveResult;
+            _lastBarrierVersion = _barrierTracker?.Version ?? 0;
             _lastReadModel = readModel;
         }
 
         private static IReadOnlyList<GameplayObjectiveConditionReadModel> BuildConditionRows(
             StageObjectiveTickResult objectiveResult,
-            StageObjectiveDisplayMetadata displayMetadata)
+            StageObjectiveDisplayMetadata displayMetadata,
+            GameplayPresentationBarrierTracker barrierTracker)
         {
             var statuses = objectiveResult.ConditionStatuses;
             var metadataEntries = displayMetadata.ConditionEntries;
@@ -111,11 +130,13 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                     continue;
                 }
 
+                var isSatisfied = status.IsSatisfied &&
+                                  !IsVisibleCompletionGated(status, barrierTracker);
                 rows.Add(new GameplayObjectiveConditionReadModel(
                     status.ConditionId,
                     MapRole(status.Role),
                     status.Required,
-                    status.IsSatisfied,
+                    isSatisfied,
                     metadata.DisplayText,
                     string.Empty,
                     metadata.SortOrder));
@@ -151,6 +172,88 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 default:
                     return GameplayObjectiveConditionRole.None;
             }
+        }
+
+        private static bool IsVisibleCompletionGated(
+            StageConditionStatus status,
+            GameplayPresentationBarrierTracker barrierTracker)
+        {
+            if (barrierTracker == null ||
+                !status.IsSatisfied ||
+                !string.Equals(status.ConditionType, nameof(ButtonActivatedConditionAsset), StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return TryParseButtonTileId(status.Details, out var tileId) &&
+                   barrierTracker.IsButtonActivationPending(tileId);
+        }
+
+        private static bool HasPendingPrimaryGoalCompletionGate(
+            StageObjectiveTickResult objectiveResult,
+            GameplayPresentationBarrierTracker barrierTracker)
+        {
+            return HasPendingCompletionGate(
+                objectiveResult,
+                barrierTracker,
+                status => status.Role == StageObjectiveConditionRole.PrimaryGoal);
+        }
+
+        private static bool HasPendingRequiredCompletionGate(
+            StageObjectiveTickResult objectiveResult,
+            GameplayPresentationBarrierTracker barrierTracker)
+        {
+            return HasPendingCompletionGate(
+                objectiveResult,
+                barrierTracker,
+                status => status.Required);
+        }
+
+        private static bool HasPendingCompletionGate(
+            StageObjectiveTickResult objectiveResult,
+            GameplayPresentationBarrierTracker barrierTracker,
+            Func<StageConditionStatus, bool> predicate)
+        {
+            if (objectiveResult == null || barrierTracker == null || predicate == null)
+            {
+                return false;
+            }
+
+            var statuses = objectiveResult.ConditionStatuses;
+            for (var i = 0; i < statuses.Count; i++)
+            {
+                var status = statuses[i];
+                if (predicate(status) && IsVisibleCompletionGated(status, barrierTracker))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryParseButtonTileId(string details, out int tileId)
+        {
+            tileId = 0;
+            if (string.IsNullOrWhiteSpace(details))
+            {
+                return false;
+            }
+
+            var parts = details.Split('|');
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                const string prefix = "TileId=";
+                if (!part.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return int.TryParse(part.Substring(prefix.Length), out tileId);
+            }
+
+            return false;
         }
     }
 }

@@ -58,6 +58,35 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.DetailText, Does.Not.Contain("ConditionType"));
         }
 
+        [Test]
+        public void ObjectiveStatusScreenPresenter_UsesVisibleTopLevelState_NotSemanticState()
+        {
+            var objective = new GameplayObjectiveReadModel(
+                hasObjective: true,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                isCleared: false,
+                objectiveTitle: "Reach the Exit",
+                objectiveSummary: "Move to the exit zone.",
+                conditions: Array.Empty<GameplayObjectiveConditionReadModel>(),
+                semanticGoalReached: true,
+                semanticAllConditionsSatisfied: true,
+                semanticIsCleared: true);
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(nextTickIndex: 7, isPaused: false, canAcceptGameplayCommands: true, isStageCleared: false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                objective);
+            using var presentationSource = UiTestPortFactory.CreatePresentationSource(queryFacade: queryFacade);
+            using var statePresenter = new ObjectiveStatusPresenter(presentationSource);
+            using var presenter = new ObjectiveStatusScreenPresenter(statePresenter);
+
+            Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Pending"));
+            Assert.That(presenter.ViewModel.SecondaryText, Is.EqualTo("Goal: No | Required: No | Cleared: No"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Contain("Goal reached: No"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Contain("All conditions: No"));
+            Assert.That(presenter.BuildInfoPopupPayload().BodyText, Does.Contain("Cleared: No"));
+        }
+
         private static GameplayObjectiveReadModel CreateObjectiveReadModel()
         {
             return new GameplayObjectiveReadModel(

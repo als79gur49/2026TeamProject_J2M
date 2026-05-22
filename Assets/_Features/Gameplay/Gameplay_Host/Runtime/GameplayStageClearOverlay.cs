@@ -1,5 +1,3 @@
-using System;
-using Game.Feature.Gameplay.Objectives;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -9,8 +7,6 @@ namespace Game.Feature.Gameplay.Host
     {
         private const string ClearLabel = "Clear";
 
-        private GameplaySceneHost _host;
-        private GameplayInputHost _inputHost;
         private GUIStyle _labelStyle;
         private GUIStyle _shadowStyle;
         private bool _isVisible;
@@ -19,19 +15,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void Initialize(GameplaySceneHost host, GameplayInputHost inputHost)
         {
-            _host = host;
-            BindInputHost(inputHost);
-            _isVisible = _host != null && _host.CurrentObjectiveResult.IsCleared;
         }
 
-        private void Update()
+        public void Show()
         {
-            if (!_isVisible &&
-                _host != null &&
-                _host.CurrentObjectiveResult.IsCleared)
-            {
-                _isVisible = true;
-            }
+            _isVisible = true;
         }
 
         private void OnGUI()
@@ -51,34 +39,6 @@ namespace Game.Feature.Gameplay.Host
 
             GUI.Label(shadowRect, ClearLabel, _shadowStyle);
             GUI.Label(rect, ClearLabel, _labelStyle);
-        }
-
-        private void OnDestroy()
-        {
-            BindInputHost(null);
-        }
-
-        private void HandleObjectiveUpdated(StageObjectiveTickResult result)
-        {
-            if (result != null && result.IsCleared)
-            {
-                _isVisible = true;
-            }
-        }
-
-        private void BindInputHost(GameplayInputHost inputHost)
-        {
-            if (_inputHost != null)
-            {
-                _inputHost.ObjectiveResultUpdated -= HandleObjectiveUpdated;
-            }
-
-            _inputHost = inputHost;
-
-            if (_inputHost != null)
-            {
-                _inputHost.ObjectiveResultUpdated += HandleObjectiveUpdated;
-            }
         }
 
         private void EnsureStyles()

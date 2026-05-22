@@ -33,6 +33,8 @@ namespace Game.Feature.Gameplay.Host
 
         public event System.Action PresentationStateChanged;
 
+        public event System.Action<float> PresentationAdvanced;
+
         public CubeTopologyState CurrentTopology => _presentationCoordinator.CurrentTopology;
 
         public GameplayPresentationPhase CurrentPresentationPhase => _presentationCoordinator.CurrentPresentationPhase;
@@ -240,6 +242,7 @@ namespace Game.Feature.Gameplay.Host
             SyncViewCameraRuntime();
             RefreshTopologyTransitionPostFx();
             NotifyPresentationStateChangedIfNeeded();
+            PresentationAdvanced?.Invoke(deltaTime);
         }
 
         private void RefreshTopologyTransitionPostFx()
