@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
@@ -349,9 +350,134 @@ namespace Game.Feature.Gameplay.Tests.Unit
             controller.Update(0.119f);
             Assert.That(pool.StartPersistentCallCount, Is.Zero);
 
-            controller.Update(0.001f);
+            controller.Update(0.002f);
             Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
             Assert.That(registry.ActiveCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_ButtonActiveLoop_Runtime_Does_Not_Start_Before_Barrier()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest(
+                TileFeatureVfxCue.ButtonActiveLoop,
+                delaySeconds: 0.936f);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            controller.Update(0.62f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_ButtonActiveLoop_Ignores_Raw_IsActive_Until_GateRelease()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var gatedRequest = CreateTileFeatureLoopRequest(
+                TileFeatureVfxCue.ButtonActiveLoop,
+                delaySeconds: 0.936f);
+            var rawSemanticRequest = CreateTileFeatureLoopRequest(TileFeatureVfxCue.ButtonActiveLoop);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { gatedRequest }));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { rawSemanticRequest }));
+            controller.Update(0.62f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_ButtonActiveLoop_Starts_On_GateRelease()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var request = CreateTileFeatureLoopRequest(
+                TileFeatureVfxCue.ButtonActiveLoop,
+                delaySeconds: 0.936f);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            controller.Update(0.935f);
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+
+            controller.Update(0.002f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+            Assert.That(pool.CreatedHandles[0].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_ButtonActiveLoop_No_Immediate_Reconcile_Path()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var runner = new VfxLifetimeRunner();
+            var controller = CreateController(pool, registry, runner);
+            var rawSemanticRequest = CreateTileFeatureLoopRequest(TileFeatureVfxCue.ButtonActiveLoop);
+            var gatedRequest = CreateTileFeatureLoopRequest(
+                TileFeatureVfxCue.ButtonActiveLoop,
+                delaySeconds: 0.936f);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { rawSemanticRequest }));
+            var existing = pool.CreatedHandles[0];
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { gatedRequest }));
+
+            Assert.That(existing.StopEmittingCount, Is.EqualTo(1));
+            Assert.That(existing.State, Is.EqualTo(VfxLifetimeState.TailPlaying));
+            Assert.That(registry.ActiveCount, Is.Zero);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { rawSemanticRequest }));
+            controller.Update(0.62f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.ActiveCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ButtonActive_And_ExitOpen_VFX_ActualPlayTime_Not_Just_RequestDelay()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var buttonLoop = CreateTileFeatureLoopRequest(
+                TileFeatureVfxCue.ButtonActiveLoop,
+                delaySeconds: 0.936f);
+            var exitLoop = CreateTileFeatureLoopRequest(
+                TileFeatureVfxCue.ExitOpenLoop,
+                tileId: 20,
+                delaySeconds: 0.936f);
+            var exitOpened = CreateDelayedExitOpenedRequest(0.936f);
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { buttonLoop, exitLoop, exitOpened }));
+            controller.Update(0.62f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.Zero);
+            Assert.That(pool.PlayTransientCallCount, Is.Zero);
+
+            controller.Update(0.317f);
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(2));
+            Assert.That(pool.PlayTransientCallCount, Is.EqualTo(1));
+            Assert.That(
+                pool.CreatedHandles.Select(handle => handle.CueId).ToArray(),
+                Has.Member(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
+            Assert.That(
+                pool.CreatedHandles.Select(handle => handle.CueId).ToArray(),
+                Has.Member(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpenLoop)));
+            Assert.That(
+                pool.CreatedHandles.Select(handle => handle.CueId).ToArray(),
+                Has.Member(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened)));
         }
 
         [Test]
@@ -897,7 +1023,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayVfxRequest CreateTileFeatureLoopRequest(
             TileFeatureVfxCue cue = TileFeatureVfxCue.BarricadeActiveLoop,
             int tileId = 10,
-            int effectIndex = 1)
+            int effectIndex = 1,
+            float delaySeconds = 0f)
         {
             var cueId = GameplayVfxCueId.From(cue);
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -908,7 +1035,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sourceEntityId: 0,
                 cueId: cueId,
                 anchor: VfxAnchor.ForCell(cell, new CubeTopologyState(FaceId.Floor)),
-                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                timing: delaySeconds > 0f
+                    ? VfxTimingKind.Delayed
+                    : VfxTimingKind.ImmediateOnTickPresentation,
                 isPersistent: true,
                 persistentKey: new VfxPersistentKey(
                     cueId,
@@ -917,9 +1046,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     cell: cell,
                     hasCell: true,
                     effectIndex: effectIndex),
+                delaySeconds: delaySeconds,
                 topologyStopMode: GameplayVfxTopologyStopMode.HardClearAtTransitionStart,
                 topologySpawnMode: GameplayVfxTopologySpawnMode.SuppressDuringTransition,
                 completionReplayPolicy: GameplayVfxCompletionReplayPolicy.SteadyStatePersistentLoop);
+        }
+
+        private static GameplayVfxRequest CreateDelayedExitOpenedRequest(float delaySeconds)
+        {
+            var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            return new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: 2,
+                presentationSeed: 62,
+                sourceEntityId: 0,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(cell, new CubeTopologyState(FaceId.Floor)),
+                timing: delaySeconds > 0f
+                    ? VfxTimingKind.Delayed
+                    : VfxTimingKind.ImmediateOnTickPresentation,
+                delaySeconds: delaySeconds);
         }
 
         private sealed class FakeVfxPool : IVfxPool

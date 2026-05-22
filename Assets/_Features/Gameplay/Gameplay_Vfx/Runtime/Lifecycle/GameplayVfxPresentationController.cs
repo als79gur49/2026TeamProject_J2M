@@ -54,6 +54,7 @@ namespace Game.Feature.Gameplay.Vfx
             persistentRegistry.ReleaseCompleted();
 
             persistentRegistry.BeginReconcile();
+            var persistentDesiredKeys = CollectPersistentDesiredKeys(plan);
 
             if (plan != null)
             {
@@ -63,6 +64,7 @@ namespace Game.Feature.Gameplay.Vfx
                 }
             }
 
+            RemoveStaleDelayedPersistentRequests(persistentDesiredKeys);
             persistentRegistry.EndReconcile(
                 lifetimeRunner,
                 preserveTopologyHelperExempt: options.PreserveTopologyHelperExempt);
@@ -121,18 +123,13 @@ namespace Game.Feature.Gameplay.Vfx
 
             if (request.DelaySeconds > 0f)
             {
-                if (request.IsPersistent &&
-                    !request.PersistentKey.IsNone &&
-                    persistentRegistry.TryGet(request.PersistentKey, out var existing) &&
-                    existing.State != VfxLifetimeState.ReleasedToPool &&
-                    existing.State != VfxLifetimeState.HardCleanup)
+                if (request.IsPersistent && !request.PersistentKey.IsNone)
                 {
-                    persistentRegistry.MarkDesired(request.PersistentKey);
-                    return;
-                }
-
-                if (HasPendingDelayedPersistentRequest(request))
-                {
+                    persistentRegistry.StopIfActive(
+                        request.PersistentKey,
+                        VfxStopPolicy.StopEmittingThenRelease,
+                        lifetimeRunner);
+                    UpsertDelayedRequest(request);
                     return;
                 }
 
@@ -140,6 +137,17 @@ namespace Game.Feature.Gameplay.Vfx
                     request,
                     request.DelaySeconds,
                     topologyTransitionSuppressEpoch));
+                return;
+            }
+
+            if (request.IsPersistent &&
+                !request.PersistentKey.IsNone &&
+                HasPendingDelayedPersistentRequest(request))
+            {
+                persistentRegistry.StopIfActive(
+                    request.PersistentKey,
+                    VfxStopPolicy.StopEmittingThenRelease,
+                    lifetimeRunner);
                 return;
             }
 
@@ -242,6 +250,76 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             return false;
+        }
+
+        private void UpsertDelayedRequest(in GameplayVfxRequest request)
+        {
+            for (var i = 0; i < delayedRequests.Count; i++)
+            {
+                var pending = delayedRequests[i].Request;
+                if (!pending.IsPersistent ||
+                    !pending.PersistentKey.Equals(request.PersistentKey))
+                {
+                    continue;
+                }
+
+                if (!pending.Equals(request))
+                {
+                    delayedRequests[i] = new ScheduledGameplayVfxRequest(
+                        request,
+                        request.DelaySeconds,
+                        topologyTransitionSuppressEpoch);
+                }
+
+                return;
+            }
+
+            delayedRequests.Add(new ScheduledGameplayVfxRequest(
+                request,
+                request.DelaySeconds,
+                topologyTransitionSuppressEpoch));
+        }
+
+        private void RemoveStaleDelayedPersistentRequests(HashSet<VfxPersistentKey> desiredPersistentKeys)
+        {
+            if (delayedRequests.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = delayedRequests.Count - 1; i >= 0; i--)
+            {
+                var request = delayedRequests[i].Request;
+                if (!request.IsPersistent ||
+                    request.PersistentKey.IsNone ||
+                    desiredPersistentKeys.Contains(request.PersistentKey))
+                {
+                    continue;
+                }
+
+                delayedRequests.RemoveAt(i);
+            }
+        }
+
+        private static HashSet<VfxPersistentKey> CollectPersistentDesiredKeys(GameplayVfxRequestPlan plan)
+        {
+            var keys = new HashSet<VfxPersistentKey>();
+            if (plan == null)
+            {
+                return keys;
+            }
+
+            var requests = plan.Requests;
+            for (var i = 0; i < requests.Count; i++)
+            {
+                var request = requests[i];
+                if (request.IsPersistent && !request.PersistentKey.IsNone)
+                {
+                    keys.Add(request.PersistentKey);
+                }
+            }
+
+            return keys;
         }
 
         private void HandleVisibilityBlocked(

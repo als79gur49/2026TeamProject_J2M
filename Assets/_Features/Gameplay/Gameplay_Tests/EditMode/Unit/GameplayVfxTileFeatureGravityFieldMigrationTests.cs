@@ -243,6 +243,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeaturePlanner_FlipButtonActiveLoop_WaitsForButtonActivatedVisibilityGate()
+        {
+            var planner = new TileFeatureVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(901);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 0,
+                actionPlanId: 45,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+            var presentationData = CreatePresentationData(
+                tileFeatureVisualStates: new[]
+                {
+                    new TileFeatureVisualState(
+                        901,
+                        cell,
+                        TileFeatureKind.Button,
+                        true,
+                        sourceEntityId: 20,
+                        ownerEntityId: 0,
+                        teamId: 1,
+                        visibilityGate: new PresentationVisibilityGate(timingAnchor, barrierKey)),
+                });
+            var context = new GameplayVfxPlanningContext(
+                12,
+                presentationData,
+                new CubeTopologyState(FaceId.Floor));
+
+            planner.Plan(context, builder);
+            var plan = builder.Build();
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            var request = plan.Requests[0];
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop)));
+            Assert.That(request.IsPersistent, Is.True);
+            Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.Delayed));
+            Assert.That(
+                request.DelaySeconds,
+                Is.EqualTo(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                           GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeaturePlanner_DestroyActiveState_CreatesStyledPersistentLaserActiveLoop()
         {
             var planner = new TileFeatureVfxRequestPlanner();
@@ -403,6 +451,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
             Assert.That(request.Anchor.Cell, Is.EqualTo(cell));
             AssertTileFeatureTransitionStartStopPolicy(request);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeaturePlanner_GatedExitOpen_UsesInheritedButtonActivatedBarrier()
+        {
+            var planner = new TileFeatureVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(901);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 0,
+                actionPlanId: 45,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+            var visibilityGate = new PresentationVisibilityGate(timingAnchor, barrierKey);
+            var presentationData = CreatePresentationData(
+                tileEvents: new[]
+                {
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.ExitOpened,
+                        902,
+                        cell,
+                        TileFeatureKind.Exit,
+                        sourceEntityId: 10,
+                        ownerEntityId: 0,
+                        teamId: 1,
+                        timingAnchor: timingAnchor,
+                        barrierKey: barrierKey),
+                },
+                tileFeatureVisualStates: new[]
+                {
+                    new TileFeatureVisualState(
+                        902,
+                        cell,
+                        TileFeatureKind.Exit,
+                        true,
+                        sourceEntityId: 10,
+                        ownerEntityId: 0,
+                        teamId: 1,
+                        visibilityGate: visibilityGate),
+                });
+            var context = new GameplayVfxPlanningContext(
+                12,
+                presentationData,
+                new CubeTopologyState(FaceId.Floor));
+
+            planner.Plan(context, builder);
+            var requests = builder.Build().Requests
+                .OrderBy(request => request.IsPersistent ? 1 : 0)
+                .ToArray();
+            var expectedDelay = GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                                GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
+
+            Assert.That(requests, Has.Length.EqualTo(2));
+            Assert.That(requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened)));
+            Assert.That(requests[0].IsPersistent, Is.False);
+            Assert.That(requests[0].Timing, Is.EqualTo(VfxTimingKind.Delayed));
+            Assert.That(requests[0].DelaySeconds, Is.EqualTo(expectedDelay).Within(0.0001f));
+            Assert.That(requests[1].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpenLoop)));
+            Assert.That(requests[1].IsPersistent, Is.True);
+            Assert.That(requests[1].Timing, Is.EqualTo(VfxTimingKind.Delayed));
+            Assert.That(requests[1].DelaySeconds, Is.EqualTo(expectedDelay).Within(0.0001f));
         }
 
         [Test]

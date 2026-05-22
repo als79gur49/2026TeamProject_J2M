@@ -17,6 +17,7 @@ using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Resolution;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -408,6 +409,256 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(state.SourceEntityId, Is.EqualTo(10));
             Assert.That(state.OwnerEntityId, Is.EqualTo(20));
             Assert.That(state.TeamId, Is.EqualTo(1));
+            Assert.That(state.VisibilityGate.HasGate, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_FlipButtonActiveVisualState_CarriesButtonActivatedVisibilityGate()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var preButton = CreateTileFeature(100, cell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var finalButton = CreateTileFeature(100, cell, TileFeatureKind.Button, TileFeatureFlags.Activated);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 0,
+                actionPlanId: 77,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[]
+                    {
+                        new TilePresentationEvent(
+                            TilePresentationEventKind.ButtonActivated,
+                            100,
+                            cell,
+                            TileFeatureKind.Button,
+                            sourceEntityId: 20,
+                            ownerEntityId: 0,
+                            teamId: 1,
+                            timingAnchor: timingAnchor,
+                            barrierKey: barrierKey),
+                    },
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100),
+                    }));
+
+            var state = presentationData.TileFeatureVisualStates.Single();
+            Assert.That(state.IsActive, Is.True);
+            Assert.That(state.VisibilityGate.HasGate, Is.True);
+            Assert.That(state.VisibilityGate.BarrierKey, Is.EqualTo(barrierKey));
+            Assert.That(state.VisibilityGate.TimingAnchor, Is.EqualTo(timingAnchor));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_PushButtonActiveVisualState_RemainsImmediate()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var preButton = CreateTileFeature(100, cell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var finalButton = CreateTileFeature(100, cell, TileFeatureKind.Button, TileFeatureFlags.Activated);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[]
+                    {
+                        new TilePresentationEvent(
+                            TilePresentationEventKind.ButtonActivated,
+                            100,
+                            cell,
+                            TileFeatureKind.Button,
+                            sourceEntityId: 20,
+                            ownerEntityId: 0,
+                            teamId: 1,
+                            barrierKey: barrierKey),
+                    },
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100),
+                    }));
+
+            var state = presentationData.TileFeatureVisualStates.Single();
+            Assert.That(state.IsActive, Is.True);
+            Assert.That(state.VisibilityGate.HasGate, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_ExitOpen_VFX_Waits_For_ButtonActivatedBarrier()
+        {
+            var buttonCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var exitCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var preButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var finalButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.Activated);
+            var exit = CreateTileFeature(200, exitCell, TileFeatureKind.Exit, TileFeatureFlags.None);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton, exit);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton, exit);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 0,
+                actionPlanId: 77,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[]
+                    {
+                        new TilePresentationEvent(
+                            TilePresentationEventKind.ButtonActivated,
+                            100,
+                            buttonCell,
+                            TileFeatureKind.Button,
+                            sourceEntityId: 20,
+                            ownerEntityId: 0,
+                            teamId: 1,
+                            timingAnchor: timingAnchor,
+                            barrierKey: barrierKey),
+                    },
+                    objectiveResult: CreateButtonRequiredObjectiveResult(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100),
+                        CreateTileFeatureDefinition(200),
+                    }));
+
+            var exitState = presentationData.TileFeatureVisualStates.Single(state => state.TileId == 200);
+            Assert.That(exitState.IsActive, Is.True);
+            Assert.That(exitState.VisibilityGate.HasGate, Is.True);
+            Assert.That(exitState.VisibilityGate.BarrierKey, Is.EqualTo(barrierKey));
+            Assert.That(exitState.VisibilityGate.TimingAnchor, Is.EqualTo(timingAnchor));
+
+            var exitOpened = presentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitOpened);
+            Assert.That(exitOpened.BarrierKey, Is.EqualTo(barrierKey));
+            Assert.That(exitOpened.TimingAnchor, Is.EqualTo(timingAnchor));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExitOpen_Immediate_When_No_Pending_PrerequisiteBarrier()
+        {
+            var exitCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var exit = CreateTileFeature(200, exitCell, TileFeatureKind.Exit, TileFeatureFlags.None);
+            var snapshot = CreateTileFeatureSnapshot(exit);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    objectiveResult: CreateNonButtonRequiredObjectiveResult(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(200),
+                    }));
+
+            var exitState = presentationData.TileFeatureVisualStates.Single(state => state.TileId == 200);
+            Assert.That(exitState.IsActive, Is.True);
+            Assert.That(exitState.VisibilityGate.HasGate, Is.False);
+
+            var exitOpened = presentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitOpened);
+            Assert.That(exitOpened.BarrierKey.IsValid, Is.False);
+            Assert.That(exitOpened.TimingAnchor.IsImmediate, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ObjectiveVisibleCanBeTrueOnlyWhenVfxGateReady()
+        {
+            var buttonCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var exitCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var preButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.None);
+            var finalButton = CreateTileFeature(100, buttonCell, TileFeatureKind.Button, TileFeatureFlags.Activated);
+            var exit = CreateTileFeature(200, exitCell, TileFeatureKind.Exit, TileFeatureFlags.None);
+            var preSnapshot = CreateTileFeatureSnapshot(preButton, exit);
+            var finalSnapshot = CreateTileFeatureSnapshot(finalButton, exit);
+            var objectiveResult = CreateButtonRequiredObjectiveResult();
+            var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 0,
+                actionPlanId: 77,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileEvents: new[]
+                    {
+                        new TilePresentationEvent(
+                            TilePresentationEventKind.ButtonActivated,
+                            100,
+                            buttonCell,
+                            TileFeatureKind.Button,
+                            sourceEntityId: 20,
+                            ownerEntityId: 0,
+                            teamId: 1,
+                            timingAnchor: timingAnchor,
+                            barrierKey: barrierKey),
+                    },
+                    objectiveResult: objectiveResult,
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100),
+                        CreateTileFeatureDefinition(200),
+                    }));
+
+            Assert.That(objectiveResult.RequiredNonPrimaryConditionsSatisfied, Is.True);
+            Assert.That(objectiveResult.ConditionStatuses.Single().IsSatisfied, Is.True);
+            Assert.That(presentationData.TileFeatureVisualStates.Single(state => state.TileId == 100).VisibilityGate.HasGate, Is.True);
+            Assert.That(presentationData.TileFeatureVisualStates.Single(state => state.TileId == 200).VisibilityGate.HasGate, Is.True);
+            Assert.That(presentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.ExitOpened).BarrierKey, Is.EqualTo(barrierKey));
         }
 
         [Test]
@@ -3783,6 +4034,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TileFeatureBoxSelector.None,
                 boundEntityId: 0,
                 presentationKey: string.Empty);
+        }
+
+        private static StageObjectiveTickResult CreateButtonRequiredObjectiveResult()
+        {
+            return new StageObjectiveTickResult(
+                hasObjective: true,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                clearedThisTick: false,
+                isCleared: false,
+                hasRequiredNonPrimaryConditions: true,
+                requiredNonPrimaryConditionsSatisfied: true,
+                requiredNonPrimaryConditionsSatisfiedThisTick: true,
+                conditionStatuses: new[]
+                {
+                    new StageConditionStatus(
+                        "button-100",
+                        "Button 100",
+                        "ButtonActivatedConditionAsset",
+                        isSatisfied: true,
+                        details: "TileId=100|Activated=1",
+                        role: StageObjectiveConditionRole.SecondaryGoal,
+                        required: true),
+                });
+        }
+
+        private static StageObjectiveTickResult CreateNonButtonRequiredObjectiveResult()
+        {
+            return new StageObjectiveTickResult(
+                hasObjective: true,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                clearedThisTick: false,
+                isCleared: false,
+                hasRequiredNonPrimaryConditions: true,
+                requiredNonPrimaryConditionsSatisfied: true,
+                requiredNonPrimaryConditionsSatisfiedThisTick: true,
+                conditionStatuses: new[]
+                {
+                    new StageConditionStatus(
+                        "enemy-clear",
+                        "Enemy Clear",
+                        "AllEnemiesDefeatedConditionAsset",
+                        isSatisfied: true,
+                        details: "Remaining=0",
+                        role: StageObjectiveConditionRole.SecondaryGoal,
+                        required: true),
+                });
         }
 
         private static IWorldWriteContext CreateWriteContext(WorldState worldState)

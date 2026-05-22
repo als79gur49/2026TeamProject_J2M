@@ -753,7 +753,7 @@ namespace Game.Feature.Gameplay.Loop
             var topologyFact = ResolveTopologyTransitionFact(context);
 
             BuildTilePresentationEvents(context, topologyFact, tileEvents);
-            BuildTileFeatureVisualStates(context, topologyFact, tileFeatureVisualStates);
+            BuildTileFeatureVisualStates(context, topologyFact, tileEvents, tileFeatureVisualStates);
             BuildTileFeatureVisibleVisualStates(context, topologyFact, tileFeatureVisibleVisualStates);
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
@@ -1350,7 +1350,11 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (!context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var preTileFeature) ||
                     preTileFeature.Kind != TileFeatureKind.Button ||
-                    (preTileFeature.Flags & TileFeatureFlags.Activated) != 0)
+                    (preTileFeature.Flags & TileFeatureFlags.Activated) != 0 ||
+                    ContainsTileEvent(
+                        tileEvents,
+                        TilePresentationEventKind.ButtonActivated,
+                        finalTileFeature.TileId))
                 {
                     continue;
                 }
@@ -1363,7 +1367,8 @@ namespace Game.Feature.Gameplay.Loop
                         finalTileFeature.Kind,
                         finalTileFeature.SourceEntityId,
                         finalTileFeature.OwnerEntityId,
-                        finalTileFeature.TeamId));
+                        finalTileFeature.TeamId,
+                        barrierKey: PresentationBarrierKey.ButtonActivated(finalTileFeature.TileId)));
             }
 
             AddExitOpenedEvents(context, finalTileFeatures, tileEvents);
@@ -1376,6 +1381,7 @@ namespace Game.Feature.Gameplay.Loop
         private static void BuildTileFeatureVisualStates(
             in TickPresentationBuildContext context,
             in TickTopologyTransitionFact topologyFact,
+            IReadOnlyList<TilePresentationEvent> tileEvents,
             List<TileFeatureVisualState> visualStates)
         {
             var finalTopology = topologyFact.HasTransition
@@ -1398,6 +1404,13 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
+                    var visibilityGate = TryResolveButtonVisibilityGate(
+                        tileEvents,
+                        tileFeature.TileId,
+                        out var gate)
+                        ? gate
+                        : PresentationVisibilityGate.Immediate();
+
                     visualStates.Add(new TileFeatureVisualState(
                         tileFeature.TileId,
                         tileFeature.Cell,
@@ -1405,7 +1418,8 @@ namespace Game.Feature.Gameplay.Loop
                         true,
                         tileFeature.SourceEntityId,
                         tileFeature.OwnerEntityId,
-                        tileFeature.TeamId));
+                        tileFeature.TeamId,
+                        visibilityGate));
                     continue;
                 }
 
@@ -1447,6 +1461,13 @@ namespace Game.Feature.Gameplay.Loop
                         context.ObjectiveResult.HasObjective &&
                         context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied &&
                         TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology);
+                    var visibilityGate = exitOpen &&
+                                         TryResolveObjectivePrerequisiteVisibilityGate(
+                                             context,
+                                             tileEvents,
+                                             out var gate)
+                        ? gate
+                        : PresentationVisibilityGate.Immediate();
 
                     visualStates.Add(new TileFeatureVisualState(
                         tileFeature.TileId,
@@ -1455,9 +1476,110 @@ namespace Game.Feature.Gameplay.Loop
                         exitOpen,
                         tileFeature.SourceEntityId,
                         tileFeature.OwnerEntityId,
-                        tileFeature.TeamId));
+                        tileFeature.TeamId,
+                        visibilityGate));
                 }
             }
+        }
+
+        private static bool TryResolveButtonVisibilityGate(
+            IReadOnlyList<TilePresentationEvent> tileEvents,
+            int tileId,
+            out PresentationVisibilityGate visibilityGate)
+        {
+            visibilityGate = default;
+            if (tileEvents == null || tileId <= 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < tileEvents.Count; i++)
+            {
+                var tileEvent = tileEvents[i];
+                if (tileEvent.EventKind != TilePresentationEventKind.ButtonActivated ||
+                    tileEvent.TileId != tileId ||
+                    tileEvent.BarrierKey.Kind != PresentationBarrierKind.ButtonActivated ||
+                    tileEvent.TimingAnchor.Kind != PresentationTimingKind.MotionContact ||
+                    tileEvent.TimingAnchor.MovementSemanticKind != MovementSemanticKind.Flip)
+                {
+                    continue;
+                }
+
+                visibilityGate = new PresentationVisibilityGate(
+                    tileEvent.TimingAnchor,
+                    tileEvent.BarrierKey);
+                return visibilityGate.HasGate;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveObjectivePrerequisiteVisibilityGate(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TilePresentationEvent> tileEvents,
+            out PresentationVisibilityGate visibilityGate)
+        {
+            visibilityGate = default;
+            if (context.ObjectiveResult == null ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfiedThisTick ||
+                tileEvents == null ||
+                tileEvents.Count == 0)
+            {
+                return false;
+            }
+
+            var statuses = context.ObjectiveResult.ConditionStatuses;
+            var bestDelaySeconds = -1f;
+            for (var i = 0; i < statuses.Count; i++)
+            {
+                var status = statuses[i];
+                if (!status.Required ||
+                    status.Role == StageObjectiveConditionRole.PrimaryGoal ||
+                    !status.IsSatisfied ||
+                    !string.Equals(status.ConditionType, "ButtonActivatedConditionAsset", StringComparison.Ordinal) ||
+                    !TryParseButtonTileId(status.Details, out var tileId) ||
+                    !TryResolveButtonVisibilityGate(tileEvents, tileId, out var candidateGate))
+                {
+                    continue;
+                }
+
+                var delaySeconds = PresentationTimingResolver.ResolveDelaySeconds(
+                    candidateGate.TimingAnchor,
+                    GameplayTimingProfile.CreateDefault());
+                if (delaySeconds < bestDelaySeconds)
+                {
+                    continue;
+                }
+
+                visibilityGate = candidateGate;
+                bestDelaySeconds = delaySeconds;
+            }
+
+            return visibilityGate.HasGate;
+        }
+
+        private static bool TryParseButtonTileId(string details, out int tileId)
+        {
+            tileId = 0;
+            if (string.IsNullOrWhiteSpace(details))
+            {
+                return false;
+            }
+
+            var parts = details.Split('|');
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                const string prefix = "TileId=";
+                if (!part.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return int.TryParse(part.Substring(prefix.Length), out tileId);
+            }
+
+            return false;
         }
 
         private static void BuildTileFeatureVisibleVisualStates(
@@ -1598,7 +1720,13 @@ namespace Game.Feature.Gameplay.Loop
                 tileEvents.Add(CreateExitTilePresentationEvent(
                     TilePresentationEventKind.ExitOpened,
                     exit,
-                    targetEntityId: 0));
+                    targetEntityId: 0,
+                    TryResolveObjectivePrerequisiteVisibilityGate(
+                        context,
+                        tileEvents,
+                        out var visibilityGate)
+                        ? visibilityGate
+                        : PresentationVisibilityGate.Immediate()));
             }
         }
 
@@ -1663,7 +1791,8 @@ namespace Game.Feature.Gameplay.Loop
         private static TilePresentationEvent CreateExitTilePresentationEvent(
             TilePresentationEventKind eventKind,
             TileFeatureState exit,
-            int targetEntityId)
+            int targetEntityId,
+            PresentationVisibilityGate visibilityGate = default)
         {
             return new TilePresentationEvent(
                 eventKind,
@@ -1674,7 +1803,9 @@ namespace Game.Feature.Gameplay.Loop
                 exit.OwnerEntityId,
                 exit.TeamId,
                 targetEntityId,
-                Direction.None);
+                Direction.None,
+                timingAnchor: visibilityGate.TimingAnchor,
+                barrierKey: visibilityGate.BarrierKey);
         }
 
         private static bool IsActiveExit(
@@ -1712,6 +1843,23 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
+        private static bool ContainsTileEvent(
+            IReadOnlyList<TilePresentationEvent> tileEvents,
+            TilePresentationEventKind eventKind,
+            int tileId)
+        {
+            for (var i = 0; i < tileEvents.Count; i++)
+            {
+                if (tileEvents[i].EventKind == eventKind &&
+                    tileEvents[i].TileId == tileId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static int CompareTilePresentationEvents(TilePresentationEvent left, TilePresentationEvent right)
         {
             var cellCompare = CompareSurfaceCells(left.Cell, right.Cell);
@@ -1731,6 +1879,18 @@ namespace Game.Feature.Gameplay.Loop
             if (kindCompare != 0)
             {
                 return kindCompare;
+            }
+
+            var actionPlanCompare = left.TimingAnchor.ActionPlanId.CompareTo(right.TimingAnchor.ActionPlanId);
+            if (actionPlanCompare != 0)
+            {
+                return actionPlanCompare;
+            }
+
+            var localActionCompare = left.TimingAnchor.LocalActionIndex.CompareTo(right.TimingAnchor.LocalActionIndex);
+            if (localActionCompare != 0)
+            {
+                return localActionCompare;
             }
 
             var targetCompare = left.TargetEntityId.CompareTo(right.TargetEntityId);
