@@ -13,6 +13,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class TileFeatureVisualPresentationControllerTests
     {
+        private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
+        private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
+
         [Test]
         [Category("Extended")]
         public void ButtonActivatedRequest_WithRegisteredTargetView_CallsPlayButtonActivatedOnce()
@@ -130,6 +134,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var rootObject = new GameObject(nameof(DestroyTileActiveStateRequests_WithSupportedTargetView_CallActiveStateHooks));
             var targetObject = new GameObject("DestroyTileVisualTarget");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var rendererObject = new GameObject("DestroyTileRenderer");
+            rendererObject.transform.SetParent(targetObject.transform, worldPositionStays: false);
+            var targetRenderer = rendererObject.AddComponent<MeshRenderer>();
 
             try
             {
@@ -144,12 +151,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.PlayRequests(new[]
                 {
                     CreateDestroyActivatedRequest(100, cell),
-                    CreateDestroyDeactivatedRequest(100, cell),
                 });
 
                 Assert.That(target.DebugPlayDestroyTileActivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugDestroyTileActive, Is.True);
+                AssertDestroyTileMaterialCleared(targetRenderer);
+
+                controller.PlayRequests(new[]
+                {
+                    CreateDestroyDeactivatedRequest(100, cell),
+                });
+
                 Assert.That(target.DebugPlayDestroyTileDeactivatedCount, Is.EqualTo(1));
                 Assert.That(target.DebugDestroyTileActive, Is.False);
+                AssertDestroyTileInactiveMaterial(targetRenderer);
                 Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.Zero);
             }
             finally
@@ -527,6 +542,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var rootObject = new GameObject(nameof(DestroyTileVisualState_WithSupportedTargetView_SyncsActiveStateImmediate));
             var targetObject = new GameObject("DestroyTileVisualTarget");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var rendererObject = new GameObject("DestroyTileRenderer");
+            rendererObject.transform.SetParent(targetObject.transform, worldPositionStays: false);
+            var targetRenderer = rendererObject.AddComponent<MeshRenderer>();
 
             try
             {
@@ -564,8 +582,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
 
                 Assert.That(target.DebugDestroyTileActive, Is.False);
+                AssertDestroyTileInactiveMaterial(targetRenderer);
                 Assert.That(target.DebugPlayDestroyTileActivatedCount, Is.Zero);
                 Assert.That(target.DebugPlayDestroyTileDeactivatedCount, Is.Zero);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Destroy,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+
+                Assert.That(target.DebugDestroyTileActive, Is.True);
+                AssertDestroyTileMaterialCleared(targetRenderer);
             }
             finally
             {
@@ -1450,6 +1484,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Object.DestroyImmediate(rootObject);
                 Object.DestroyImmediate(prefab);
             }
+        }
+
+        private static void AssertDestroyTileInactiveMaterial(Renderer targetRenderer)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock);
+
+            Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.EqualTo(1f));
+        }
+
+        private static void AssertDestroyTileMaterialCleared(Renderer targetRenderer)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock);
+
+            Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.Not.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.Not.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.Not.EqualTo(1f));
         }
 
         private static TilePresentationRequest CreateRequest(int tileId, SurfaceCell cell)

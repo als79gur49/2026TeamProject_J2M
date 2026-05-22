@@ -62,7 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetEntity(worldState, 20, out var target), Is.True);
             Assert.That(target.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
-            Assert.That(result.PresentationData.GravityFieldEvents, Has.Count.EqualTo(3));
+            Assert.That(result.PresentationData.GravityFieldEvents, Has.Count.EqualTo(2));
             Assert.That(result.PresentationData.GravityFieldEvents[0].EventKind, Is.EqualTo(GravityFieldPresentationEventKind.Activated));
             Assert.That(result.PresentationData.GravityFieldEvents[0].EmitterEntityId, Is.EqualTo(30));
             Assert.That(result.PresentationData.GravityFieldEvents[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
@@ -73,12 +73,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId: 20,
                 emitterCell: new SurfaceCell(FaceId.Floor, 1, 1),
                 targetCell: new SurfaceCell(FaceId.Floor, 1, 0));
-            AssertLockedBoxEvent(
-                result.PresentationData.GravityFieldEvents[2],
-                emitterEntityId: 30,
-                targetEntityId: 30,
-                emitterCell: new SurfaceCell(FaceId.Floor, 1, 1),
-                targetCell: new SurfaceCell(FaceId.Floor, 1, 1));
         }
 
         [Test]
@@ -101,7 +95,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(20, 1, out _), Is.True);
-            Assert.That(snapshot.TryGetActiveBoxInteractionLockState(30, 1, out _), Is.True);
+            Assert.That(snapshot.TryGetActiveBoxInteractionLockState(30, 1, out _), Is.False);
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(21, 1, out _), Is.False);
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(22, 1, out _), Is.False);
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(23, 1, out _), Is.False);
@@ -122,20 +116,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }));
             Assert.That(
                 result.PresentationData.GravityFieldVisualStates[0].LockedTargetEntityIds.ToArray(),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
             Assert.That(
                 LockedBoxTargetIds(result.PresentationData.GravityFieldEvents),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
 
             var presentationRequests = new GravityFieldPresentationRequestPlanner().BuildRequests(result.PresentationData);
             Assert.That(
                 presentationRequests.Select(request => request.TargetEntityId).ToArray(),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
             Assert.That(
                 new GravityFieldAudioRequestPlanner().BuildRequests(presentationRequests)
                     .Select(request => request.Cue)
                     .ToArray(),
-                Is.EqualTo(new[] { GravityFieldAudioCue.LockedBox, GravityFieldAudioCue.LockedBox }));
+                Is.EqualTo(new[] { GravityFieldAudioCue.LockedBox }));
         }
 
         [Test]
@@ -172,7 +166,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.PresentationData.GravityFieldVisualStates, Has.Count.EqualTo(1));
             Assert.That(
                 result.PresentationData.GravityFieldVisualStates[0].LockedTargetEntityIds.ToArray(),
-                Is.EqualTo(new[] { 20, 30, 40, 50 }));
+                Is.EqualTo(new[] { 20, 30, 40 }));
         }
 
         [Test]
@@ -287,7 +281,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resumed.PresentationData.GravityFieldEvents[0].EventKind, Is.EqualTo(GravityFieldPresentationEventKind.Activated));
             Assert.That(
                 resumed.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds.ToArray(),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
         }
 
         [Test]
@@ -308,7 +302,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
             var resumed = pipeline.RunTick(new TickInput(3));
 
-            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20 }));
             Assert.That(TryGetEntity(worldState, 30, out var resumedEmitter), Is.True);
             Assert.That(resumedEmitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Active));
             Assert.That(resumedEmitter.gravityFieldTimerTicks, Is.EqualTo(3));
@@ -317,7 +311,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 3, out _), Is.True);
             Assert.That(
                 resumed.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds.ToArray(),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
             Assert.That(LockedBoxTargetIds(resumed.PresentationData.GravityFieldEvents), Is.Empty);
         }
 
@@ -359,10 +353,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 firstActive.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds.ToArray(),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
             Assert.That(
                 secondActive.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds.ToArray(),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
             Assert.That(expired.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds, Is.Empty);
 
             var nextWindowWorldState = CreateWorldState(new[]
@@ -376,7 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 nextWindow.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds.ToArray(),
-                Is.EqualTo(new[] { 20, 30 }));
+                Is.EqualTo(new[] { 20 }));
         }
 
         [Test]
@@ -400,11 +394,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             worldState.CreateWriteContext().SetGravityFieldState(30, GravityFieldPhase.Charging, timerTicks: 1);
             var nextWindow = pipeline.RunTick(new TickInput(5));
 
-            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20 }));
             Assert.That(LockedBoxTargetIds(retained.PresentationData.GravityFieldEvents), Is.Empty);
             Assert.That(LockedBoxTargetIds(left.PresentationData.GravityFieldEvents), Is.Empty);
             Assert.That(LockedBoxTargetIds(reentered.PresentationData.GravityFieldEvents), Is.Empty);
-            Assert.That(LockedBoxTargetIds(nextWindow.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(LockedBoxTargetIds(nextWindow.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20 }));
         }
 
         [Test]
@@ -432,10 +426,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(new[]
                 {
                     (30, 20),
-                    (30, 30),
                     (31, 20),
                     (31, 21),
-                    (31, 31),
                 }));
             Assert.That(LockedBoxTargetIds(retained.PresentationData.GravityFieldEvents), Is.Empty);
         }
@@ -461,7 +453,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
-            Assert.That(LockedBoxTargetIds(result.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 30 }));
+            Assert.That(LockedBoxTargetIds(result.PresentationData.GravityFieldEvents), Is.Empty);
         }
 
         [Test]
@@ -483,9 +475,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             worldState.CreateWriteContext().SetGravityFieldState(30, GravityFieldPhase.Active, timerTicks: 2);
             var activeAgain = pipeline.RunTick(new TickInput(3));
 
-            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(LockedBoxTargetIds(firstActive.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20 }));
             Assert.That(LockedBoxTargetIds(ineligible.PresentationData.GravityFieldEvents), Is.Empty);
-            Assert.That(LockedBoxTargetIds(activeAgain.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20, 30 }));
+            Assert.That(LockedBoxTargetIds(activeAgain.PresentationData.GravityFieldEvents), Is.EqualTo(new[] { 20 }));
         }
 
         [Test]

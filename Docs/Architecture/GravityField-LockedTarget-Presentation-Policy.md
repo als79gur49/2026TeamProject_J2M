@@ -19,7 +19,7 @@ GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.
 
 - Locked target facts are resolver-origin facts emitted while `GravityFieldRuntimeResolver` selects eligible targets for active GravityField lock planning.
 - The read model must not be inferred from a final snapshot diff.
-- Facts are produced for eligible stationary same-face 3x3 Box targets selected by an active eligible BottomFace emitter, including the emitter itself when current gameplay lock behavior selects it.
+- Facts are produced for eligible stationary same-face 3x3 Box targets selected by an active eligible BottomFace emitter, excluding the emitter itself.
 - Unit, Projectile, non-box, dead, detached, marked, sliding, phased, invisible, inactive, charging, and otherwise ineligible targets are excluded.
 
 ## Debounce Policy
