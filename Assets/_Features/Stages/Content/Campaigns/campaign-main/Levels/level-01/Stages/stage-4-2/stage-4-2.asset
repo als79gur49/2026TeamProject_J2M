@@ -763,7 +763,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
@@ -779,7 +779,7 @@ MonoBehaviour:
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    BoxCapabilities: 27
+    BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
