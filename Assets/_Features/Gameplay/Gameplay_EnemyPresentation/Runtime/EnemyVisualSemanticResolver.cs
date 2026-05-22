@@ -12,15 +12,19 @@ namespace Game.Feature.Gameplay.Host
     {
         public EnemyVisualSemanticState(
             EnemyVisualActivityState activityState,
-            bool shouldPauseAnimatorPlayback = false)
+            bool shouldPauseAnimatorPlayback = false,
+            bool shouldPauseAutonomousPresentation = false)
         {
             ActivityState = activityState;
             ShouldPauseAnimatorPlayback = shouldPauseAnimatorPlayback;
+            ShouldPauseAutonomousPresentation = shouldPauseAutonomousPresentation;
         }
 
         public EnemyVisualActivityState ActivityState { get; }
 
         public bool ShouldPauseAnimatorPlayback { get; }
+
+        public bool ShouldPauseAutonomousPresentation { get; }
     }
 
     public interface IEnemyVisualSemanticResolver
@@ -37,11 +41,14 @@ namespace Game.Feature.Gameplay.Host
                                 facts.ProjectedSlot == GameplayProjectedFaceSlot.Front
                 ? EnemyVisualActivityState.FrontFaceInactive
                 : EnemyVisualActivityState.Normal;
-            var shouldPauseAnimatorPlayback = facts.IsEnemy &&
-                                             facts.IsVisible &&
-                                             (facts.IsGameplayAutonomySuppressed ||
-                                              facts.IsJumpLandingCompletionHeld);
-            return new EnemyVisualSemanticState(activityState, shouldPauseAnimatorPlayback);
+            var shouldPauseAutonomousPresentation = facts.IsEnemy &&
+                                                   facts.IsVisible &&
+                                                   (facts.IsGameplayAutonomySuppressed ||
+                                                    facts.IsJumpLandingCompletionHeld);
+            return new EnemyVisualSemanticState(
+                activityState,
+                shouldPauseAnimatorPlayback: shouldPauseAutonomousPresentation,
+                shouldPauseAutonomousPresentation: shouldPauseAutonomousPresentation);
         }
     }
 }

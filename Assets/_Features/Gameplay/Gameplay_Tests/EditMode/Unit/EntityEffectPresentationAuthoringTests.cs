@@ -259,6 +259,84 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyFloatingPresentationDriver_AutonomousPresentationPaused_RestoresBaseAndDoesNotAdvance()
+        {
+            var rootObject = new GameObject("EnemyFloatingPresentationDriver_AutonomousPresentationPaused");
+            var targetObject = new GameObject("ModelRoot");
+
+            try
+            {
+                targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                targetObject.transform.localPosition = new Vector3(1f, 2f, 3f);
+
+                var driver = rootObject.AddComponent<EnemyFloatingPresentationDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "target", targetObject.transform);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "localAxis", Vector3.forward);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "amplitude", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "frequencyHz", 1f);
+
+                driver.CaptureBaseLocalPosition();
+                driver.Advance(0.25f);
+                AssertVector(targetObject.transform.localPosition, new Vector3(1f, 2f, 3.5f));
+
+                driver.Apply(new EnemyVisualSemanticState(
+                    EnemyVisualActivityState.Normal,
+                    shouldPauseAnimatorPlayback: true,
+                    shouldPauseAutonomousPresentation: true));
+                Assert.That(driver.IsSuspended, Is.True);
+                AssertVector(targetObject.transform.localPosition, new Vector3(1f, 2f, 3f));
+                AssertVector(driver.CurrentOffset, Vector3.zero);
+
+                driver.Advance(0.25f);
+                AssertVector(targetObject.transform.localPosition, new Vector3(1f, 2f, 3f));
+                AssertVector(driver.CurrentOffset, Vector3.zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(targetObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyFloatingPresentationDriver_NormalAfterSuspended_ResumesFromBasePosition()
+        {
+            var rootObject = new GameObject("EnemyFloatingPresentationDriver_NormalAfterSuspended");
+            var targetObject = new GameObject("ModelRoot");
+
+            try
+            {
+                targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                targetObject.transform.localPosition = new Vector3(1f, 2f, 3f);
+
+                var driver = rootObject.AddComponent<EnemyFloatingPresentationDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "target", targetObject.transform);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "localAxis", Vector3.forward);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "amplitude", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "frequencyHz", 1f);
+
+                driver.CaptureBaseLocalPosition();
+                driver.Apply(new EnemyVisualSemanticState(
+                    EnemyVisualActivityState.Normal,
+                    shouldPauseAnimatorPlayback: true,
+                    shouldPauseAutonomousPresentation: true));
+                driver.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+                driver.Advance(0.25f);
+
+                Assert.That(driver.IsSuspended, Is.False);
+                AssertVector(targetObject.transform.localPosition, new Vector3(1f, 2f, 3.5f));
+                AssertVector(driver.CurrentOffset, new Vector3(0f, 0f, 0.5f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(targetObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         [TestCase(StartisPrefabPath)]
         [TestCase(BlackEyePrefabPath)]
         public void GameplayPrefabs_HaveEntityEffectPresentationAuthoringOnRoot(string prefabPath)

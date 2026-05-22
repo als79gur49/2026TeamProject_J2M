@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Host
 
         private Vector3 _baseLocalPosition;
         private bool _hasBaseLocalPosition;
+        private bool _isSuspended;
         private float _elapsedSeconds;
 
         public Transform Target => target;
@@ -28,6 +29,8 @@ namespace Game.Feature.Gameplay.Host
         public float PhaseOffsetSeconds => phaseOffsetSeconds;
 
         public Vector3 CurrentOffset { get; private set; }
+
+        public bool IsSuspended => _isSuspended;
 
         private void Reset()
         {
@@ -67,6 +70,12 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (_isSuspended)
+            {
+                RestoreBaseLocalPosition();
+                return;
+            }
+
             if (!_hasBaseLocalPosition)
             {
                 CaptureBaseLocalPosition();
@@ -75,6 +84,33 @@ namespace Game.Feature.Gameplay.Host
             _elapsedSeconds += Mathf.Max(0f, deltaTime);
             CurrentOffset = ResolveOffset(_elapsedSeconds);
             target.localPosition = _baseLocalPosition + CurrentOffset;
+        }
+
+        public void Apply(in EnemyVisualSemanticState state)
+        {
+            SetSuspended(state.ShouldPauseAutonomousPresentation);
+        }
+
+        public void SetSuspended(bool suspended)
+        {
+            if (_isSuspended == suspended)
+            {
+                if (_isSuspended)
+                {
+                    RestoreBaseLocalPosition();
+                }
+
+                return;
+            }
+
+            _isSuspended = suspended;
+            if (_isSuspended)
+            {
+                RestoreBaseLocalPosition();
+                return;
+            }
+
+            CaptureBaseLocalPosition();
         }
 
         public void CaptureBaseLocalPosition()

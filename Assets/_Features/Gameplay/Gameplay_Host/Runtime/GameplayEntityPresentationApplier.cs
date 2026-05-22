@@ -765,6 +765,13 @@ namespace Game.Feature.Gameplay.Host
                 controller.Apply(semanticState);
             }
 
+            if (view != null &&
+                view.TryGetComponent<EnemyFloatingPresentationDriver>(out var floatingDriver) &&
+                floatingDriver != null)
+            {
+                floatingDriver.Apply(semanticState);
+            }
+
             return semanticState;
         }
 
