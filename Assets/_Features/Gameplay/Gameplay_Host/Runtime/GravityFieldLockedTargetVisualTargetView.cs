@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GravityFieldLockedTargetVisualTargetView :
         MonoBehaviour,
         IGravityFieldLockedTargetVisualTarget,
+        IGravityFieldLockedTargetRevealVisualTarget,
         IGravityFieldLockedBoxOneShotVisualTarget
     {
         [SerializeField] private GameObject lockedVisualRoot;
@@ -28,14 +29,25 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField, Range(0f, 1f)] private float gravityFieldDimFactor = 0.55f;
         [SerializeField] private Color gravityFieldLockedTint = new(0.45f, 0.55f, 0.85f, 1f);
         [SerializeField, Range(0f, 1f)] private float gravityFieldTintStrength = 0.15f;
+        [SerializeField, Min(0f)] private float lockRevealInSeconds = 0.234f;
+        [SerializeField, Min(0f)] private float lockRevealOutSeconds = 0.208f;
+        [SerializeField, Range(0.001f, 0.5f)] private float gravityFieldLockEdgeWidth = 0.08f;
+        [SerializeField] private AnimationCurve lockRevealCurve;
 
         private static readonly int GravityFieldLockedWeightId = Shader.PropertyToID("_GravityFieldLockedWeight");
+        private static readonly int GravityFieldLockRevealId = Shader.PropertyToID("_GravityFieldLockReveal");
+        private static readonly int GravityFieldLockEdgeWidthId = Shader.PropertyToID("_GravityFieldLockEdgeWidth");
         private static readonly int GravityFieldLockedTintId = Shader.PropertyToID("_GravityFieldLockedTint");
         private static readonly int GravityFieldDimFactorId = Shader.PropertyToID("_GravityFieldDimFactor");
         private static readonly int GravityFieldTintStrengthId = Shader.PropertyToID("_GravityFieldTintStrength");
+        private const float RevealEpsilon = 0.0001f;
 
         private readonly HashSet<int> _activeEmitterEntityIds = new();
         private MaterialPropertyBlock _propertyBlock;
+        private float _currentLockReveal;
+        private float _targetLockReveal;
+        private float _fadeOutElapsedSeconds;
+        private bool _isFadeOutActive;
         private int _debugApplyCount;
         private int _debugClearCount;
         private int _debugLastEmitterEntityId;
@@ -45,6 +57,10 @@ namespace Game.Feature.Gameplay.Host
         private SurfaceCell _debugLastLockedBoxEmitterCell;
 
         public int DebugActiveEmitterCount => _activeEmitterEntityIds.Count;
+
+        public float DebugCurrentLockReveal => _currentLockReveal;
+
+        public float DebugTargetLockReveal => _targetLockReveal;
 
         public int DebugApplyCount => _debugApplyCount;
 
@@ -78,7 +94,10 @@ namespace Game.Feature.Gameplay.Host
             _debugApplyCount++;
             _debugLastEmitterEntityId = emitterEntityId;
 
-            RefreshVisualState();
+            _targetLockReveal = 1f;
+            _isFadeOutActive = false;
+            _fadeOutElapsedSeconds = 0f;
+            RefreshVisualState(isLockedGateActive: true);
 
             if (!wasLocked)
             {
@@ -102,7 +121,19 @@ namespace Game.Feature.Gameplay.Host
             _debugClearCount++;
             _debugLastEmitterEntityId = emitterEntityId;
 
-            RefreshVisualState();
+            if (_activeEmitterEntityIds.Count == 0)
+            {
+                _targetLockReveal = 0f;
+                _isFadeOutActive = true;
+                _fadeOutElapsedSeconds = 0f;
+                RefreshVisualState(isLockedGateActive: true);
+                SetLockedParticles(isLocked: false);
+            }
+            else
+            {
+                _targetLockReveal = 1f;
+                RefreshVisualState(isLockedGateActive: true);
+            }
 
             if (wasLocked && _activeEmitterEntityIds.Count == 0)
             {
@@ -131,23 +162,133 @@ namespace Game.Feature.Gameplay.Host
             lockedBoxOneShot?.Invoke();
         }
 
-        private void OnDisable()
+        public bool UpdateGravityFieldLockedTargetReveal(float deltaTime)
+        {
+            if (deltaTime < 0f)
+            {
+                deltaTime = 0f;
+            }
+
+            AdvanceCurrentReveal(deltaTime);
+            if (_isFadeOutActive)
+            {
+                _fadeOutElapsedSeconds += deltaTime;
+            }
+
+            var shouldKeepLockedGate = ShouldKeepLockedGate();
+            if (!shouldKeepLockedGate)
+            {
+                RefreshVisualState(isLockedGateActive: false);
+                return false;
+            }
+
+            RefreshVisualState(isLockedGateActive: true);
+            return !IsRevealStable() || _isFadeOutActive;
+        }
+
+        public void ResetGravityFieldLockedTargetReveal()
         {
             _activeEmitterEntityIds.Clear();
-            RefreshVisualState();
+            _currentLockReveal = 0f;
+            _targetLockReveal = 0f;
+            _fadeOutElapsedSeconds = 0f;
+            _isFadeOutActive = false;
+            RefreshVisualState(isLockedGateActive: false);
         }
 
-        private void RefreshVisualState()
+        private void OnDisable()
         {
-            var isLocked = _activeEmitterEntityIds.Count > 0;
-            SetOptionalActive(lockedVisualRoot, isLocked);
-            SetAnimatorBool(lockedBoolName, isLocked);
-            SetAnimatorFloat(lockedWeightFloatName, isLocked ? 1f : 0f);
-            SetLockedParticles(isLocked);
-            ApplyDimming(isLocked ? lockedDimWeight : unlockedDimWeight);
+            ResetGravityFieldLockedTargetReveal();
         }
 
-        private void ApplyDimming(float weight)
+        private void RefreshVisualState(bool isLockedGateActive)
+        {
+            SetOptionalActive(lockedVisualRoot, isLockedGateActive);
+            SetAnimatorBool(lockedBoolName, isLockedGateActive);
+            SetAnimatorFloat(lockedWeightFloatName, isLockedGateActive ? 1f : 0f);
+            if (isLockedGateActive && _activeEmitterEntityIds.Count > 0)
+            {
+                SetLockedParticles(isLocked: true);
+            }
+            else if (!isLockedGateActive)
+            {
+                SetLockedParticles(isLocked: false);
+            }
+
+            ApplyDimming(
+                ResolveLockedGateWeight(isLockedGateActive),
+                isLockedGateActive ? EvaluateLockReveal(_currentLockReveal) : 0f);
+        }
+
+        private void AdvanceCurrentReveal(float deltaTime)
+        {
+            var targetReveal = Mathf.Clamp01(_targetLockReveal);
+            var duration = targetReveal > _currentLockReveal
+                ? lockRevealInSeconds
+                : lockRevealOutSeconds;
+
+            if (duration <= RevealEpsilon)
+            {
+                _currentLockReveal = targetReveal;
+                return;
+            }
+
+            _currentLockReveal = Mathf.MoveTowards(
+                _currentLockReveal,
+                targetReveal,
+                deltaTime / duration);
+        }
+
+        private bool ShouldKeepLockedGate()
+        {
+            if (_activeEmitterEntityIds.Count > 0 ||
+                _targetLockReveal > RevealEpsilon ||
+                _currentLockReveal > RevealEpsilon)
+            {
+                return true;
+            }
+
+            if (!_isFadeOutActive)
+            {
+                return false;
+            }
+
+            var fadeOutDuration = Mathf.Max(0f, lockRevealOutSeconds);
+            if (_fadeOutElapsedSeconds + RevealEpsilon >= fadeOutDuration)
+            {
+                _isFadeOutActive = false;
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool IsRevealStable()
+        {
+            return Mathf.Abs(_currentLockReveal - _targetLockReveal) <= RevealEpsilon;
+        }
+
+        private float EvaluateLockReveal(float reveal)
+        {
+            var clampedReveal = Mathf.Clamp01(reveal);
+            if (lockRevealCurve == null ||
+                lockRevealCurve.length == 0)
+            {
+                return clampedReveal;
+            }
+
+            return Mathf.Clamp01(lockRevealCurve.Evaluate(clampedReveal));
+        }
+
+        private float ResolveLockedGateWeight(bool isLockedGateActive)
+        {
+            // Keep legacy serialized weights readable while the shader gate stays binary.
+            _ = lockedDimWeight;
+            _ = unlockedDimWeight;
+            return isLockedGateActive ? 1f : 0f;
+        }
+
+        private void ApplyDimming(float weight, float reveal)
         {
             if (dimRenderers == null ||
                 dimRenderers.Length == 0)
@@ -166,6 +307,8 @@ namespace Game.Feature.Gameplay.Host
 
                 targetRenderer.GetPropertyBlock(_propertyBlock);
                 _propertyBlock.SetFloat(GravityFieldLockedWeightId, weight);
+                _propertyBlock.SetFloat(GravityFieldLockRevealId, reveal);
+                _propertyBlock.SetFloat(GravityFieldLockEdgeWidthId, gravityFieldLockEdgeWidth);
                 _propertyBlock.SetColor(GravityFieldLockedTintId, gravityFieldLockedTint);
                 _propertyBlock.SetFloat(GravityFieldDimFactorId, gravityFieldDimFactor);
                 _propertyBlock.SetFloat(GravityFieldTintStrengthId, gravityFieldTintStrength);

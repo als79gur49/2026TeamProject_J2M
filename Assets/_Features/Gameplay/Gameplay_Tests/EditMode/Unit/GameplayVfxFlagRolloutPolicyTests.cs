@@ -92,9 +92,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "EnableGameplayVfxChargeBoosterTrail",
                 "enableGameplayVfxChargeBoosterTrail"),
             new(
-                "EnableGameplayVfxEnemyWeaponWindupAura",
-                "enableGameplayVfxEnemyWeaponWindupAura"),
-            new(
                 "EnableGameplayVfxEnemyUtilityCooldownAura",
                 "enableGameplayVfxEnemyUtilityCooldownAura"),
             new(

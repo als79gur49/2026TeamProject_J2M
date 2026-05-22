@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class TileFeatureVisualPresentationController
     {
         private readonly List<PendingTileFeatureVisualRequest> _pendingRequests = new();
+        private readonly HashSet<int> _exitOpenImmediateSyncDeferredTileIds = new();
         private ITileFeatureVisualRegistry _registry;
         private Action<string> _diagnosticSink;
 
@@ -24,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _pendingRequests.Clear();
+            _exitOpenImmediateSyncDeferredTileIds.Clear();
         }
 
         public void PlayButtonActivatedRequests(IReadOnlyList<TilePresentationRequest> requests)
@@ -71,7 +73,7 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                PlayRequest(request, target);
+                PlayRequestAndTrackImmediateSync(request, target);
             }
         }
 
@@ -158,8 +160,20 @@ namespace Game.Feature.Gameplay.Host
 
                     return;
                 case TileFeatureKind.Exit:
+                    if (!visualState.IsActive)
+                    {
+                        _exitOpenImmediateSyncDeferredTileIds.Remove(visualState.TileId);
+                    }
+
                     if (target is IExitOpenStateVisualTarget exitTarget)
                     {
+                        if (visualState.IsActive &&
+                            _exitOpenImmediateSyncDeferredTileIds.Contains(visualState.TileId))
+                        {
+                            return;
+                        }
+
+                        _exitOpenImmediateSyncDeferredTileIds.Remove(visualState.TileId);
                         exitTarget.SetExitOpenImmediate(visualState.IsActive);
                     }
                     else
@@ -172,17 +186,18 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void PlayRequest(TilePresentationRequest request, ITileFeatureVisualTarget target)
+        private bool PlayRequest(TilePresentationRequest request, ITileFeatureVisualTarget target)
         {
             switch (request.RequestKind)
             {
                 case TilePresentationRequestKind.ButtonActivated:
                     target.PlayButtonActivated();
-                    return;
+                    return true;
                 case TilePresentationRequestKind.DestroyTileTriggered:
                     if (target is IDestroyTileVisualTarget destroyTileTarget)
                     {
                         destroyTileTarget.PlayDestroyTileTriggered();
+                        return true;
                     }
                     else
                     {
@@ -190,11 +205,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileTriggered visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.DestroyTileActivated:
                     if (target is IDestroyTileActivatedVisualTarget destroyTileActivatedTarget)
                     {
                         destroyTileActivatedTarget.PlayDestroyTileActivated();
+                        return true;
                     }
                     else
                     {
@@ -202,11 +218,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileActivated visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.DestroyTileDeactivated:
                     if (target is IDestroyTileDeactivatedVisualTarget destroyTileDeactivatedTarget)
                     {
                         destroyTileDeactivatedTarget.PlayDestroyTileDeactivated();
+                        return true;
                     }
                     else
                     {
@@ -214,11 +231,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileDeactivated visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.SlideTileRedirected:
                     if (target is ISlideTileVisualTarget slideTileTarget)
                     {
                         slideTileTarget.PlaySlideTileRedirected(request.Direction, request.TargetEntityId);
+                        return true;
                     }
                     else
                     {
@@ -226,11 +244,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported SlideTileRedirected visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.BarricadeBlocked:
                     if (target is IBarricadeBlockedVisualTarget barricadeBlockedTarget)
                     {
                         barricadeBlockedTarget.PlayBarricadeBlocked(request.Direction, request.TargetEntityId);
+                        return true;
                     }
                     else
                     {
@@ -238,11 +257,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeBlocked visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.BarricadeCrushed:
                     if (target is IBarricadeCrushedVisualTarget barricadeCrushedTarget)
                     {
                         barricadeCrushedTarget.PlayBarricadeCrushed(request.TargetEntityId);
+                        return true;
                     }
                     else
                     {
@@ -250,11 +270,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeCrushed visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.BarricadeActivated:
                     if (target is IBarricadeActivatedVisualTarget barricadeActivatedTarget)
                     {
                         barricadeActivatedTarget.PlayBarricadeActivated();
+                        return true;
                     }
                     else
                     {
@@ -262,11 +283,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeActivated visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.BarricadeDeactivated:
                     if (target is IBarricadeDeactivatedVisualTarget barricadeDeactivatedTarget)
                     {
                         barricadeDeactivatedTarget.PlayBarricadeDeactivated();
+                        return true;
                     }
                     else
                     {
@@ -274,11 +296,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeDeactivated visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.ExitOpened:
                     if (target is IExitOpenedVisualTarget exitOpenedTarget)
                     {
                         exitOpenedTarget.PlayExitOpened();
+                        return true;
                     }
                     else
                     {
@@ -286,11 +309,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported ExitOpened visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.ExitEntered:
                     if (target is IExitEnteredVisualTarget exitEnteredTarget)
                     {
                         exitEnteredTarget.PlayExitEntered(request.TargetEntityId);
+                        return true;
                     }
                     else
                     {
@@ -298,11 +322,12 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported ExitEntered visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.MoonBlockGenerated:
                     if (target is IMoonBlockGeneratedVisualTarget moonBlockGeneratedTarget)
                     {
                         moonBlockGeneratedTarget.PlayMoonBlockGenerated(request.TargetEntityId);
+                        return true;
                     }
                     else
                     {
@@ -310,12 +335,13 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported MoonBlockGenerated visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
                 case TilePresentationRequestKind.MoonBlockGeneratorBlocked:
                     if (target is IMoonBlockGeneratorBlockedVisualTarget moonBlockGeneratorBlockedTarget)
                     {
                         moonBlockGeneratorBlockedTarget.PlayMoonBlockGeneratorBlocked(
                             request.MoonBlockGeneratorBlockedPayload);
+                        return true;
                     }
                     else
                     {
@@ -323,7 +349,18 @@ namespace Game.Feature.Gameplay.Host
                             $"{nameof(TileFeatureVisualPresentationController)} unsupported MoonBlockGeneratorBlocked visual target for tile {request.TileId}.");
                     }
 
-                    return;
+                    return false;
+            }
+
+            return false;
+        }
+
+        private void PlayRequestAndTrackImmediateSync(TilePresentationRequest request, ITileFeatureVisualTarget target)
+        {
+            if (PlayRequest(request, target) &&
+                request.RequestKind == TilePresentationRequestKind.ExitOpened)
+            {
+                _exitOpenImmediateSyncDeferredTileIds.Add(request.TileId);
             }
         }
 
@@ -342,7 +379,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            PlayRequest(request, target);
+            PlayRequestAndTrackImmediateSync(request, target);
         }
 
         private static bool IsSupportedVisualRequest(TilePresentationRequestKind requestKind)

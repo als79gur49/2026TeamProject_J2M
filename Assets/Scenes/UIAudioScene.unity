@@ -1015,7 +1015,6 @@ MonoBehaviour:
   enableGameplayVfxFlipImpactStayTrail: 1
   enableGameplayVfxGlideWindTrail: 1
   enableGameplayVfxChargeBoosterTrail: 1
-  enableGameplayVfxEnemyWeaponWindupAura: 1
   enableGameplayVfxEnemyUtilityCooldownAura: 1
   enableGameplayVfxEnemyAttackCooldownFollow: 1
   enableGameplayVfxBoxSlideTrail: 1

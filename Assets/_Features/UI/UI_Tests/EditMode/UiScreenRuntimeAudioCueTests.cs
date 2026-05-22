@@ -176,6 +176,26 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_GameClearMain_EmitsSelectCue()
+        {
+            using var harness = UiAudioHarness.Create();
+
+            Assert.That(
+                harness.ScreenController.Show(new ScreenRequest(
+                    ScreenId.GameClear,
+                    GameClearScreenPayload.Default,
+                    "game-clear-main-audio")),
+                Is.True);
+            harness.UiAudioPort.Clear();
+
+            var view = harness.ScreenLayerView.FindScreenView<GameClearScreenView>();
+            Assert.That(view, Is.Not.Null);
+            view.ClickMain();
+
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsCurrentSectionTab_DoesNotEmitCue()
         {
             using var harness = UiAudioHarness.Create();

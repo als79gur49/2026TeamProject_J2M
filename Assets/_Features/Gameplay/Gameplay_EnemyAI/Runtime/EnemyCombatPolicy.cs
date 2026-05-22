@@ -71,6 +71,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         [SerializeField] private float visualStartSlackCells;
         [SerializeField] private int impactDelayTicks;
+        [SerializeField] private int impactDelayTicksPerCell;
         [SerializeField] private int damage;
         [SerializeField] private int activePendingImpactLimitPerOwner;
         [SerializeField] private int attackCooldownTicks;
@@ -88,10 +89,12 @@ namespace Game.Feature.Gameplay.Entities
             bool sameSurfaceOnly = true,
             bool sameFaceOnly = true,
             bool requireValidForwardCell = true,
-            bool showDangerMarkerOnWindupStart = true)
+            bool showDangerMarkerOnWindupStart = true,
+            int impactDelayTicksPerCell = 0)
         {
             this.visualStartSlackCells = visualStartSlackCells;
             this.impactDelayTicks = impactDelayTicks;
+            this.impactDelayTicksPerCell = impactDelayTicksPerCell;
             this.damage = damage;
             this.activePendingImpactLimitPerOwner = activePendingImpactLimitPerOwner;
             this.attackCooldownTicks = attackCooldownTicks;
@@ -109,6 +112,8 @@ namespace Game.Feature.Gameplay.Entities
             Mathf.RoundToInt(Mathf.Clamp(visualStartSlackCells, 0f, WindupMeleeSettings.MaxVisualRangeSlackCells) * KinematicFixed.UnitsPerCell);
 
         public int ImpactDelayTicks => impactDelayTicks;
+
+        public int ImpactDelayTicksPerCell => impactDelayTicksPerCell;
 
         public int Damage => damage;
 
@@ -129,6 +134,16 @@ namespace Game.Feature.Gameplay.Entities
             return new WindupMeleeSettings(visualStartSlackCells);
         }
 
+        public int ResolveImpactDelayTicks(int distanceCells)
+        {
+            if (impactDelayTicksPerCell <= 0)
+            {
+                return impactDelayTicks;
+            }
+
+            return checked(Math.Max(1, distanceCells) * impactDelayTicksPerCell);
+        }
+
         public void Validate(string paramName)
         {
             if (visualStartSlackCells < 0f ||
@@ -142,6 +157,11 @@ namespace Game.Feature.Gameplay.Entities
             if (impactDelayTicks <= 0)
             {
                 throw new ArgumentException("WindupForwardCellProjectile impact delay must be positive.", paramName);
+            }
+
+            if (impactDelayTicksPerCell < 0)
+            {
+                throw new ArgumentException("WindupForwardCellProjectile per-cell impact delay must be non-negative.", paramName);
             }
 
             if (damage <= 0)

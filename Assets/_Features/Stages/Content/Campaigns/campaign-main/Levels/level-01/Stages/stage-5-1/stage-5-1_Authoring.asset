@@ -288,7 +288,7 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 27
+    BoxCapabilities: 0
     BoxArchetype: 2
     EnemyAiMode: 0
     EnemyAiStateTimer: 0

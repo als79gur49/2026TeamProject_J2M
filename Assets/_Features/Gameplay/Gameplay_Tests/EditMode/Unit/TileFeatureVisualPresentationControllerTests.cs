@@ -377,6 +377,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ExitOpenedRequest_DefersOpenStateImmediateSyncUntilExitDeactivates()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingExitOpenStateTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+            var openState = new TileFeatureVisualState(
+                100,
+                cell,
+                TileFeatureKind.Exit,
+                isActive: true,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0);
+            var closedState = new TileFeatureVisualState(
+                100,
+                cell,
+                TileFeatureKind.Exit,
+                isActive: false,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0);
+
+            controller.PlayRequests(new[] { CreateExitOpenedRequest(100, cell) });
+            controller.RefreshContinuousStates(new[] { openState });
+
+            Assert.That(target.OpenedPlayCount, Is.EqualTo(1));
+            Assert.That(target.ImmediateSyncCount, Is.Zero);
+
+            controller.RefreshContinuousStates(new[] { openState });
+
+            Assert.That(target.ImmediateSyncCount, Is.Zero);
+
+            controller.RefreshContinuousStates(new[] { closedState });
+
+            Assert.That(target.ImmediateSyncCount, Is.EqualTo(1));
+            Assert.That(target.LastImmediateOpen, Is.False);
+
+            controller.RefreshContinuousStates(new[] { openState });
+
+            Assert.That(target.ImmediateSyncCount, Is.EqualTo(2));
+            Assert.That(target.LastImmediateOpen, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void DestroyTileVisualState_WithSupportedTargetView_SyncsActiveStateImmediate()
         {
             var rootObject = new GameObject(nameof(DestroyTileVisualState_WithSupportedTargetView_SyncsActiveStateImmediate));
@@ -1870,6 +1917,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 EnteredPlayCount++;
                 LastPlayerEntityId = playerEntityId;
+            }
+        }
+
+        private sealed class RecordingExitOpenStateTarget :
+            ITileFeatureVisualTarget,
+            IExitOpenedVisualTarget,
+            IExitOpenStateVisualTarget
+        {
+            public RecordingExitOpenStateTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int OpenedPlayCount { get; private set; }
+
+            public int ImmediateSyncCount { get; private set; }
+
+            public bool? LastImmediateOpen { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void PlayExitOpened()
+            {
+                OpenedPlayCount++;
+            }
+
+            public void SetExitOpenImmediate(bool open)
+            {
+                ImmediateSyncCount++;
+                LastImmediateOpen = open;
             }
         }
 

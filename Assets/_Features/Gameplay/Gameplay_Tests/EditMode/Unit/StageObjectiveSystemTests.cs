@@ -2484,6 +2484,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageSimulationTiming timing,
             StageZoneDefinition[] zones = null)
         {
+            if (conditionAsset is ClearWithinTimeLimitConditionAsset)
+            {
+                var dummyCondition = ScriptableObject.CreateInstance<SpecificEntityAtZoneConditionAsset>();
+                try
+                {
+                    SetPrivateField(dummyCondition, "entityId", 999);
+                    SetPrivateField(dummyCondition, "zoneId", "dummy");
+                    SetPrivateField(dummyCondition, "requireAlive", true);
+                    var clearWithinTimeObjective = BuildObjectiveDefinition(
+                        primaryZoneIds: Array.Empty<string>(),
+                        zones: new[]
+                        {
+                            CreateZone("dummy", FaceId.Floor, CreateRegion(0, 0, 0, 0)),
+                        },
+                        requiredAssets: new[] { dummyCondition, conditionAsset },
+                        completionPolicy: StageCompletionPolicy.RequireAllConditions,
+                        timing: timing);
+
+                    for (var i = 0; i < clearWithinTimeObjective.ConditionEntries.Count; i++)
+                    {
+                        var runtime = clearWithinTimeObjective.ConditionEntries[i].Condition.CreateRuntime();
+                        if (runtime.CreateStatus().ConditionType == nameof(ClearWithinTimeLimitConditionAsset))
+                        {
+                            return runtime;
+                        }
+                    }
+
+                    Assert.Fail("Missing compiled clear-within-time-limit condition runtime.");
+                    throw new InvalidOperationException("Missing compiled clear-within-time-limit condition runtime.");
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(dummyCondition);
+                }
+            }
+
             var effectiveZones = zones ?? new[]
             {
                 CreateZone("goal", FaceId.Floor, CreateRegion(0, 0, 0, 0)),

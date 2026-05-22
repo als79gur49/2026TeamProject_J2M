@@ -10,7 +10,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
     internal sealed class GameplayForwardCellProjectileVfxController
     {
         private const float DefaultMinFlightDurationSeconds = 0.05f;
-        private const float DefaultArcHeight = 0.35f;
+        private const float DefaultArcHeight = 0.8f;
         private const float FlightEaseInBlend = 0.25f;
 
         private static readonly string[] SourceSocketNames =
@@ -268,7 +268,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 signal.PresentationKey,
                 signal.SourceEnemyId,
                 cueId,
-                VfxAnchor.ForCell(signal.TargetCell, context.Topology, VfxAnchorSlot.CellCenter),
+                VfxAnchor.ForCell(signal.TargetCell, context.Topology, VfxAnchorSlot.CellFloor),
                 VfxTimingKind.ImmediateOnTickPresentation);
             var targetDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
                 targetRequest,
@@ -283,9 +283,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     cellProjector,
                     signal.TargetCell,
                     context.Topology,
+                    VfxAnchorSlot.CellFloor,
                     policy.VisibilityMode,
                     out var targetLocalPosition,
-                    out var targetLocalRotation))
+                    out _))
+            {
+                MissingAnchorCount++;
+                return;
+            }
+
+            if (!TryResolveCellLocalPosition(
+                    cellProjector,
+                    signal.TargetCell,
+                    context.Topology,
+                    VfxAnchorSlot.CellCenter,
+                    policy.VisibilityMode,
+                    out var targetCenterLocalPosition,
+                    out var targetCenterLocalRotation))
             {
                 MissingAnchorCount++;
                 return;
@@ -296,7 +310,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.Projector,
                 context.Topology,
                 signal,
-                targetLocalPosition,
+                targetCenterLocalPosition,
                 policy.VisibilityMode);
             PlayActiveOneShot(
                 context,
@@ -304,7 +318,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 pool,
                 bindingResolver,
                 sourceLocalPosition,
-                targetLocalRotation,
+                targetCenterLocalRotation,
                 visibilityContext);
 
             var sourceAnchor = VfxResolvedAnchor.ForCell(
@@ -312,7 +326,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 context.Topology,
                 VfxAnchorSlot.CellCenter,
                 sourceLocalPosition,
-                targetLocalRotation);
+                targetCenterLocalRotation);
             var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
                 request,
                 policy,
@@ -332,16 +346,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     context,
                     signal,
                     pool,
-                bindingResolver,
-                playbackHandle.InstanceTransform,
-                sourceLocalPosition,
-                targetLocalRotation,
-                visibilityContext);
+                    bindingResolver,
+                    playbackHandle.InstanceTransform,
+                    sourceLocalPosition,
+                    targetCenterLocalRotation,
+                    visibilityContext);
                 activeFlightsByKey[signal.PresentationKey] = new ActiveFlight(
                     playbackHandle,
                     followHandle,
                     sourceLocalPosition,
                     targetLocalPosition,
+                    ResolveArcLiftAxis(context.Projector, signal.SourceCell, signal.TargetCell, context.Topology),
                     ResolveFlightDurationSeconds(signal, context.TimingProfile),
                     DefaultArcHeight);
                 PlayedThisTickCount++;
@@ -612,6 +627,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     cellProjector,
                     signal.SourceCell,
                     topology,
+                    VfxAnchorSlot.CellCenter,
                     visibilityMode,
                     out var sourceLocalPosition,
                     out _))
@@ -703,6 +719,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxHostCellAnchorProjector cellProjector,
             SurfaceCell cell,
             CubeTopologyState topology,
+            VfxAnchorSlot slot,
             GameplayVfxVisibilityMode visibilityMode,
             out Vector3 localPosition,
             out Quaternion localRotation)
@@ -710,7 +727,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (cellProjector.TryResolveCell(
                     cell,
                     topology,
-                    VfxAnchorSlot.CellCenter,
+                    slot,
                     visibilityMode,
                     out var anchor) &&
                 anchor.IsResolved &&
@@ -723,6 +740,54 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             localPosition = default;
             localRotation = Quaternion.identity;
+            return false;
+        }
+
+        private static Vector3 ResolveArcLiftAxis(
+            GameplayCubeProjector projector,
+            SurfaceCell sourceCell,
+            SurfaceCell targetCell,
+            CubeTopologyState topology)
+        {
+            var hasTargetNormal = TryResolveSurfaceNormal(projector, targetCell, topology, out var targetNormal);
+            var hasSourceNormal = TryResolveSurfaceNormal(projector, sourceCell, topology, out var sourceNormal);
+
+            if (hasTargetNormal && hasSourceNormal)
+            {
+                var combinedNormal = targetNormal + sourceNormal;
+                if (combinedNormal.sqrMagnitude > 0.000001f)
+                {
+                    return -combinedNormal.normalized;
+                }
+            }
+
+            if (hasTargetNormal)
+            {
+                return -targetNormal.normalized;
+            }
+
+            if (hasSourceNormal)
+            {
+                return -sourceNormal.normalized;
+            }
+
+            return Vector3.up;
+        }
+
+        private static bool TryResolveSurfaceNormal(
+            GameplayCubeProjector projector,
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            out Vector3 normal)
+        {
+            if (projector != null &&
+                projector.TryProjectSurfaceCell(cell, topology, out var projectedPose))
+            {
+                normal = projectedPose.Normal;
+                return true;
+            }
+
+            normal = default;
             return false;
         }
 
@@ -808,6 +873,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 IVfxPlaybackHandle followHandle,
                 Vector3 source,
                 Vector3 target,
+                Vector3 arcLiftAxis,
                 float duration,
                 float arcHeight)
             {
@@ -815,6 +881,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 FollowHandle = followHandle;
                 Source = source;
                 Target = target;
+                ArcLiftAxis = ResolveValidArcLiftAxis(arcLiftAxis);
                 Duration = Mathf.Max(DefaultMinFlightDurationSeconds, duration);
                 ArcHeight = arcHeight;
                 Elapsed = 0f;
@@ -828,6 +895,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             private Vector3 Target { get; }
 
+            private Vector3 ArcLiftAxis { get; }
+
             private float Duration { get; }
 
             private float ArcHeight { get; }
@@ -838,7 +907,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             public ActiveFlight Advance(float deltaSeconds)
             {
-                return new ActiveFlight(Handle, FollowHandle, Source, Target, Duration, ArcHeight, Mathf.Min(Duration, Elapsed + deltaSeconds));
+                return new ActiveFlight(Handle, FollowHandle, Source, Target, ArcLiftAxis, Duration, ArcHeight, Mathf.Min(Duration, Elapsed + deltaSeconds));
             }
 
             private ActiveFlight(
@@ -846,6 +915,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 IVfxPlaybackHandle followHandle,
                 Vector3 source,
                 Vector3 target,
+                Vector3 arcLiftAxis,
                 float duration,
                 float arcHeight,
                 float elapsed)
@@ -854,6 +924,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 FollowHandle = followHandle;
                 Source = source;
                 Target = target;
+                ArcLiftAxis = ResolveValidArcLiftAxis(arcLiftAxis);
                 Duration = duration;
                 ArcHeight = arcHeight;
                 Elapsed = elapsed;
@@ -869,14 +940,40 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
                 var t = Mathf.Clamp01(Duration <= 0f ? 1f : Elapsed / Duration);
                 var easedT = ResolveFlightProgress(t);
-                var control = (Source + Target) * 0.5f + Vector3.up * ArcHeight;
+                var control = (Source + Target) * 0.5f + ArcLiftAxis * ArcHeight;
                 var a = Vector3.Lerp(Source, control, easedT);
                 var b = Vector3.Lerp(control, Target, easedT);
                 var position = Vector3.Lerp(a, b, easedT);
                 var tangent = (b - a).sqrMagnitude > 0.0001f ? (b - a).normalized : Vector3.forward;
                 transform.localPosition = position;
-                transform.localRotation = Quaternion.LookRotation(tangent, Vector3.up);
+                transform.localRotation = ResolveFlightRotation(tangent, ArcLiftAxis);
                 return true;
+            }
+
+            private static Vector3 ResolveValidArcLiftAxis(Vector3 arcLiftAxis)
+            {
+                return arcLiftAxis.sqrMagnitude > 0.000001f
+                    ? arcLiftAxis.normalized
+                    : Vector3.up;
+            }
+
+            private static Quaternion ResolveFlightRotation(Vector3 tangent, Vector3 arcLiftAxis)
+            {
+                var forward = tangent.sqrMagnitude > 0.000001f
+                    ? tangent.normalized
+                    : Vector3.forward;
+                var up = ResolveValidArcLiftAxis(arcLiftAxis);
+                if (Vector3.Cross(forward, up).sqrMagnitude <= 0.000001f)
+                {
+                    up = Vector3.up;
+                }
+
+                if (Vector3.Cross(forward, up).sqrMagnitude <= 0.000001f)
+                {
+                    up = Vector3.right;
+                }
+
+                return Quaternion.LookRotation(forward, up);
             }
         }
 

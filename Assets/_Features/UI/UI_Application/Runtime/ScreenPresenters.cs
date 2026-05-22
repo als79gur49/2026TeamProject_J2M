@@ -999,4 +999,21 @@ namespace Game.Feature.UI.Application
                 payload.MainLabel);
         }
     }
+
+    public sealed class GameClearScreenPresenter
+    {
+        public GameClearScreenViewModel ViewModel { get; } = new GameClearScreenViewModel();
+
+        public void Apply(GameClearScreenPayload payload)
+        {
+            if (payload == null)
+            {
+                throw new ArgumentNullException(nameof(payload));
+            }
+
+            ViewModel.SetContent(
+                payload.TitleText,
+                payload.MainLabel);
+        }
+    }
 }

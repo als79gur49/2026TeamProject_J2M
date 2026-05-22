@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Normalize("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
             Normalize("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/MovementPhaseResult.cs"),
+            Normalize("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.MovementResolutionTypes.cs"),
             Normalize("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs"),
             Normalize("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickResultBuilder.cs"),
             Normalize("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs"),

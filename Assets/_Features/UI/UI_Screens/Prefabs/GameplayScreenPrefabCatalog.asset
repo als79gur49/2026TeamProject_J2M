@@ -16,3 +16,4 @@ MonoBehaviour:
   _settingsPrefab: {fileID: 8102357125233103768, guid: 55b072965064aa64186ae00710d369a8, type: 3}
   _stageResultPrefab: {fileID: 3274060130035156201, guid: cc8ef9d34c36abf4ba207158cd1376b2, type: 3}
   _levelFailedPrefab: {fileID: 6721107424989001005, guid: b1bb41959eba43d48186dd07fbf0fdcb, type: 3}
+  _gameClearPrefab: {fileID: 6721107424989001005, guid: d0eb69e29c1e4c4ea7f2d831a54f6f4b, type: 3}

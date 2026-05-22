@@ -24,6 +24,13 @@ namespace Game.Feature.Gameplay.Host
         void ClearGravityFieldLockedTarget(int emitterEntityId);
     }
 
+    public interface IGravityFieldLockedTargetRevealVisualTarget
+    {
+        bool UpdateGravityFieldLockedTargetReveal(float deltaTime);
+
+        void ResetGravityFieldLockedTargetReveal();
+    }
+
     public interface IGravityFieldLockedBoxOneShotVisualTarget
     {
         void PlayGravityFieldLockedBox(Game.Feature.Gameplay.Loop.GravityFieldLockedBoxPayload payload);

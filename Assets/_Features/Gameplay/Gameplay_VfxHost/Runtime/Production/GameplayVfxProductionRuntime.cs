@@ -26,7 +26,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxFlipImpactStayTrail = true;
         [SerializeField] private bool enableGameplayVfxGlideWindTrail = true;
         [SerializeField] private bool enableGameplayVfxChargeBoosterTrail = true;
-        [SerializeField] private bool enableGameplayVfxEnemyWeaponWindupAura = true;
         [SerializeField] private bool enableGameplayVfxEnemyUtilityCooldownAura = true;
         [SerializeField] private bool enableGameplayVfxEnemyAttackCooldownFollow = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
@@ -333,26 +332,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     var cueId = GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail);
                     enemyMotionAttachedFollowerPlanner.RemoveCue(cueId);
                     motionFollowingVfxController.StopAttachedFollowersForCue(cueId, tail: true);
-                }
-
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxEnemyWeaponWindupAura
-        {
-            get => enableGameplayVfxEnemyWeaponWindupAura;
-            set
-            {
-                if (enableGameplayVfxEnemyWeaponWindupAura == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxEnemyWeaponWindupAura = value;
-                if (!value)
-                {
-                    StopAttachedFollowerCue(GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura), tail: true);
                 }
 
                 ResetIfNoGameplayVfxEnabled();
@@ -736,7 +715,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enableEnemyJumpTargetVfx,
                 context.Result.FinalEntities,
                 context.StateStore?.ViewsByEntityId,
-                enableGameplayVfxEnemyWeaponWindupAura,
                 enableGameplayVfxEnemyUtilityCooldownAura,
                 enableGameplayVfxEnemyAttackCooldownFollow);
             planBuilder.Clear();
@@ -947,7 +925,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 explicitAttachedStopStates: enemyMotionAttachedFollowerPlanner.ExplicitStopKeys,
                 attachedFollowersEnabled: enableGameplayVfxGlideWindTrail ||
                                           enableGameplayVfxChargeBoosterTrail ||
-                                          enableGameplayVfxEnemyWeaponWindupAura ||
                                           enableGameplayVfxEnemyUtilityCooldownAura ||
                                           enableGameplayVfxEnemyAttackCooldownFollow ||
                                           enableGameplayVfxBoxSlideTrail ||
@@ -1098,7 +1075,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxFlipImpactStayTrail ||
             enableGameplayVfxGlideWindTrail ||
             enableGameplayVfxChargeBoosterTrail ||
-            enableGameplayVfxEnemyWeaponWindupAura ||
             enableGameplayVfxEnemyUtilityCooldownAura ||
             enableGameplayVfxEnemyAttackCooldownFollow ||
             enableGameplayVfxBoxSlideTrail ||
@@ -1376,7 +1352,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)) ||
                    (enableGameplayVfxChargeBoosterTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail)) ||
-                   (enableGameplayVfxEnemyWeaponWindupAura && cueId == GameplayVfxCueId.From(EnemyVfxCue.WeaponWindupAura)) ||
                    (enableGameplayVfxEnemyUtilityCooldownAura && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura)) ||
                    (enableGameplayVfxEnemyAttackCooldownFollow && cueId == GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellAttackCooldownFollow)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)) ||

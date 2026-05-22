@@ -246,6 +246,23 @@ namespace Game.Feature.UI.Screens
         public StageNavigationRequest RestartLevelRequest { get; }
     }
 
+    public sealed class GameClearScreenPayload : IScreenPayload
+    {
+        public static readonly GameClearScreenPayload Default = new("Game Clear", "Main");
+
+        public GameClearScreenPayload(
+            string titleText,
+            string mainLabel)
+        {
+            TitleText = string.IsNullOrWhiteSpace(titleText) ? "Game Clear" : titleText;
+            MainLabel = string.IsNullOrWhiteSpace(mainLabel) ? "Main" : mainLabel;
+        }
+
+        public string TitleText { get; }
+
+        public string MainLabel { get; }
+    }
+
     public sealed class SettingsAudioViewModel
     {
         public event Action Changed;
@@ -481,6 +498,24 @@ namespace Game.Feature.UI.Screens
             TitleText = titleText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             RestartLevelLabel = restartLevelLabel ?? string.Empty;
+            MainLabel = mainLabel ?? string.Empty;
+            Changed?.Invoke();
+        }
+    }
+
+    public sealed class GameClearScreenViewModel
+    {
+        public event Action Changed;
+
+        public string TitleText { get; private set; } = string.Empty;
+
+        public string MainLabel { get; private set; } = string.Empty;
+
+        public void SetContent(
+            string titleText,
+            string mainLabel)
+        {
+            TitleText = titleText ?? string.Empty;
             MainLabel = mainLabel ?? string.Empty;
             Changed?.Invoke();
         }

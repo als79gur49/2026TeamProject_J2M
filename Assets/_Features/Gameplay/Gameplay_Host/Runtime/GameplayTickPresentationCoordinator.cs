@@ -578,6 +578,7 @@ namespace Game.Feature.Gameplay.Host
             _frontFaceShieldVfxPresenter.Update(deltaTime);
             _tileFeatureVisualPresentationController.Update(deltaTime);
             _moonBlockEmergencePresentationController.UpdatePresentation(deltaTime);
+            _gravityFieldVisualPresentationController.UpdatePresentation(deltaTime);
             UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,

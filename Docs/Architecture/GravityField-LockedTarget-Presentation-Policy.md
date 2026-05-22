@@ -9,7 +9,10 @@ GravityField is `EntityType.Box + BoxArchetype.GravityField`, not a TileFeature.
 - `GravityFieldPresentationEventKind.LockedBox`, `GravityFieldPresentationRequestKind.LockedBox`, and `GravityFieldAudioCue.LockedBox` are implemented on the GravityField lane for first lock acquisition feedback.
 - `GravityFieldLockedBoxPayload` carries `EmitterEntityId`, `TargetEntityId`, `EmitterCell`, and `TargetCell`.
 - LockedBox one-shot feedback is presentation-only and complements target dimming; it does not replace the continuous read model.
-- `MaterialPropertyBlock`-based actual dimming remains a future presentation-only step.
+- `MaterialPropertyBlock`-based target tint reveal is implemented as a presentation-only renderer property update.
+- `_GravityFieldLockedWeight` is the logical/material gate; `_GravityFieldLockReveal` is the time-based visual progress.
+- The lockable box shader computes an opaque noise-based albedo tint reveal from `_GravityFieldLockNoiseMap` and `_GravityFieldLockEdgeWidth`.
+- Alpha clip dissolve, transparent render queues, shadow pass changes, and depth pass changes remain intentionally out of scope.
 - UI/HUD, spatial audio, `Play3D`, and environmental destroy immunity remain intentionally unimplemented.
 
 ## Source Fact Policy
