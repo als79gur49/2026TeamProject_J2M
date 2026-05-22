@@ -514,22 +514,6 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
-  - EntityId: 247
-    Kind: 2
-    Cell:
-      face: 1
-      x: 11
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId: 
-    UnitStackGroup: 
   - EntityId: 248
     Kind: 2
     Cell:
@@ -760,22 +744,6 @@ MonoBehaviour:
       face: 1
       x: 2
       y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    PresentationId: 
-    UnitStackGroup: 
-  - EntityId: 263
-    Kind: 2
-    Cell:
-      face: 1
-      x: 0
-      y: 3
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
@@ -1746,6 +1714,86 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
+  - EntityId: 344
+    Kind: 2
+    Cell:
+      face: 0
+      x: 2
+      y: 0
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 345
+    Kind: 2
+    Cell:
+      face: 0
+      x: 4
+      y: 0
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 346
+    Kind: 2
+    Cell:
+      face: 0
+      x: 5
+      y: 0
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 347
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 0
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 348
+    Kind: 2
+    Cell:
+      face: 0
+      x: 6
+      y: 0
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 1
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
   enemySpawns:
   - EntityId: 241
     Kind: 1
@@ -2299,6 +2347,38 @@ MonoBehaviour:
       x: 13
       y: 1
     Facing: 1
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 349
+    Kind: 3
+    Cell:
+      face: 1
+      x: 0
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
+  - EntityId: 350
+    Kind: 3
+    Cell:
+      face: 1
+      x: 11
+      y: 1
+    Facing: 0
     Hp: 1
     UnitMobilityKind: 0
     BoxCapabilities: 0
@@ -3048,8 +3128,8 @@ MonoBehaviour:
     PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
+    ObjectiveTitle: 
+    ObjectiveSummary: 
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: b25a0ce8b29545d989694aeb93612f54, type: 2}
       Required: 1

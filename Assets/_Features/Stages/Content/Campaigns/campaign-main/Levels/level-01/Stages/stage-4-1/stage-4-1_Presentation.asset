@@ -22,7 +22,27 @@ MonoBehaviour:
     bgmKey: stage-4-1
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
-  enemyPresentationBindings: []
+  enemyPresentationBindings:
+  - EntityId: 306
+    PresentationId: rocket_face
+  - EntityId: 307
+    PresentationId: black_eye
+  - EntityId: 308
+    PresentationId: sunwheel
+  - EntityId: 309
+    PresentationId: rocket_face
+  - EntityId: 310
+    PresentationId: nebulous
+  - EntityId: 322
+    PresentationId: astreton
+  - EntityId: 323
+    PresentationId: j_peter
+  - EntityId: 342
+    PresentationId: startis
+  - EntityId: 343
+    PresentationId: startis
+  - EntityId: 344
+    PresentationId: dr_saturn
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 201
@@ -34,7 +54,7 @@ MonoBehaviour:
   - EntityId: 204
     PresentationId: box_tutorial
   - EntityId: 205
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 206
     PresentationId: box_tutorial
   - EntityId: 207
@@ -60,7 +80,7 @@ MonoBehaviour:
   - EntityId: 217
     PresentationId: box_tutorial
   - EntityId: 218
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 219
     PresentationId: box_tutorial
   - EntityId: 220
@@ -124,13 +144,13 @@ MonoBehaviour:
   - EntityId: 249
     PresentationId: box_tutorial
   - EntityId: 250
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 251
     PresentationId: box_tutorial
   - EntityId: 252
     PresentationId: box_tutorial
   - EntityId: 253
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 254
     PresentationId: box_tutorial
   - EntityId: 255
@@ -144,7 +164,7 @@ MonoBehaviour:
   - EntityId: 259
     PresentationId: box_tutorial
   - EntityId: 260
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 261
     PresentationId: wall_grave
   - EntityId: 262
@@ -166,11 +186,11 @@ MonoBehaviour:
   - EntityId: 270
     PresentationId: box_tutorial
   - EntityId: 271
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 272
     PresentationId: box_tutorial
   - EntityId: 273
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 274
     PresentationId: box_tutorial
   - EntityId: 275
@@ -184,17 +204,17 @@ MonoBehaviour:
   - EntityId: 279
     PresentationId: box_tutorial
   - EntityId: 280
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 281
     PresentationId: box_tutorial
   - EntityId: 282
     PresentationId: box_tutorial
   - EntityId: 283
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 284
     PresentationId: box_tutorial
   - EntityId: 285
-    PresentationId: box_tutorial
+    PresentationId: box_metal
   - EntityId: 286
     PresentationId: box_tutorial
   - EntityId: 287
@@ -217,11 +237,7 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 296
     PresentationId: box_tutorial
-  - EntityId: 297
-    PresentationId: box_tutorial
   - EntityId: 298
-    PresentationId: box_tutorial
-  - EntityId: 299
     PresentationId: box_tutorial
   - EntityId: 300
     PresentationId: box_gravity
@@ -235,8 +251,69 @@ MonoBehaviour:
     PresentationId: wall_grave
   - EntityId: 305
     PresentationId: wall_grave
+  - EntityId: 311
+    PresentationId: box_tutorial
+  - EntityId: 312
+    PresentationId: box_tutorial
+  - EntityId: 313
+    PresentationId: box_tutorial
+  - EntityId: 314
+    PresentationId: box_tutorial
+  - EntityId: 315
+    PresentationId: wall_grave
+  - EntityId: 316
+    PresentationId: wall_grave
+  - EntityId: 317
+    PresentationId: wall_grave
+  - EntityId: 318
+    PresentationId: box_tutorial
+  - EntityId: 319
+    PresentationId: box_tutorial
+  - EntityId: 320
+    PresentationId: box_tutorial
+  - EntityId: 321
+    PresentationId: box_tutorial
+  - EntityId: 324
+    PresentationId: wall_grave
+  - EntityId: 325
+    PresentationId: wall_grave
+  - EntityId: 326
+    PresentationId: wall_grave
+  - EntityId: 327
+    PresentationId: wall_grave
+  - EntityId: 328
+    PresentationId: box_tutorial
+  - EntityId: 329
+    PresentationId: box_tutorial
+  - EntityId: 330
+    PresentationId: box_tutorial
+  - EntityId: 331
+    PresentationId: box_tutorial
+  - EntityId: 332
+    PresentationId: box_tutorial
+  - EntityId: 333
+    PresentationId: box_tutorial
+  - EntityId: 334
+    PresentationId: box_tutorial
+  - EntityId: 335
+    PresentationId: box_tutorial
+  - EntityId: 336
+    PresentationId: box_tutorial
+  - EntityId: 337
+    PresentationId: box_tutorial
+  - EntityId: 338
+    PresentationId: wall_grave
+  - EntityId: 339
+    PresentationId: box_tutorial
+  - EntityId: 340
+    PresentationId: box_tutorial
+  - EntityId: 341
+    PresentationId: box_tutorial
+  boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []
+  boardTilePaintOverrides: []
+  boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
   resultTitle: Stage Cleared
