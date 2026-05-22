@@ -123,7 +123,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 pool,
                 registry,
                 runner,
-                CreatePolicy(request.CueId, VfxPlaybackMode.Loop, VfxStopPolicy.StopEmittingThenRelease));
+                CreatePolicy(
+                    request.CueId,
+                    VfxPlaybackMode.Loop,
+                    VfxStopPolicy.StopEmittingThenRelease,
+                    visibilityMode: GameplayVfxVisibilityMode.DefaultGameplay));
 
             controller.SetVisibilityContext(new GameplayVfxVisibilityContext(
                 new Dictionary<int, GameplayVfxEntityVisibilityState>
@@ -173,7 +177,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 pool,
                 registry,
                 runner,
-                CreatePolicy(request.CueId, VfxPlaybackMode.Loop, VfxStopPolicy.StopEmittingThenRelease));
+                CreatePolicy(
+                    request.CueId,
+                    VfxPlaybackMode.Loop,
+                    VfxStopPolicy.StopEmittingThenRelease,
+                    visibilityMode: GameplayVfxVisibilityMode.DefaultGameplay));
             var activeContext = new GameplayVfxVisibilityContext(
                 new Dictionary<int, GameplayVfxEntityVisibilityState>
                 {
@@ -809,7 +817,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             VfxPlaybackMode playbackMode,
             VfxStopPolicy stopPolicy,
             VfxStyleKey styleKey = default,
-            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.PresentationOnly)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
