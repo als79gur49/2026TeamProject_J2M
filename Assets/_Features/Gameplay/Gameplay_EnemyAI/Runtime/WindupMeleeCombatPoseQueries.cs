@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
@@ -176,14 +177,26 @@ namespace Game.Feature.Gameplay.Entities
 
             var attackDirection = EnemyActionStateTargeting.ResolveFacing(enemy, player);
             if (settings.RequireValidForwardCell &&
-                !TryResolveForwardTargetCell(snapshot, startQuery.EnemyOrigin.AnchorCell, attackDirection, out targetCell))
+                !TryResolveForwardTargetCell(
+                    snapshot,
+                    startQuery.EnemyOrigin.AnchorCell,
+                    attackDirection,
+                    player.position,
+                    attackDecisionSettings.AttackRange,
+                    out targetCell))
             {
                 return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.InvalidForwardTargetCell);
             }
 
             if (!settings.RequireValidForwardCell)
             {
-                TryResolveForwardTargetCell(snapshot, startQuery.EnemyOrigin.AnchorCell, attackDirection, out targetCell);
+                TryResolveForwardTargetCell(
+                    snapshot,
+                    startQuery.EnemyOrigin.AnchorCell,
+                    attackDirection,
+                    player.position,
+                    attackDecisionSettings.AttackRange,
+                    out targetCell);
             }
 
             return startQuery;
@@ -237,15 +250,75 @@ namespace Game.Feature.Gameplay.Entities
         {
             targetCell = default;
             if (snapshot == null ||
-                !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta) ||
-                !snapshot.TryResolveUnitStep(baseCell, delta, out targetCell, out _, out var updatedTopology))
+                !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta))
+            {
+                return false;
+            }
+
+            return TryResolveForwardStep(snapshot, baseCell, delta, out targetCell);
+        }
+
+        public static bool TryResolveForwardTargetCell(
+            WorldSnapshot snapshot,
+            SurfaceCell baseCell,
+            Direction direction,
+            SurfaceCell desiredTargetCell,
+            int maxRangeCells,
+            out SurfaceCell targetCell)
+        {
+            targetCell = default;
+            if (snapshot == null ||
+                maxRangeCells <= 0 ||
+                desiredTargetCell.face != baseCell.face ||
+                !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta))
+            {
+                return false;
+            }
+
+            var offset = desiredTargetCell.PlanarPosition - baseCell.PlanarPosition;
+            var distanceCells = Math.Abs(offset.x) + Math.Abs(offset.y);
+            if (distanceCells <= 0 ||
+                distanceCells > maxRangeCells ||
+                !IsAlignedWithForwardDirection(offset, delta))
+            {
+                return false;
+            }
+
+            var current = baseCell;
+            for (var step = 0; step < distanceCells; step++)
+            {
+                if (!TryResolveForwardStep(snapshot, current, delta, out current))
+                {
+                    return false;
+                }
+            }
+
+            targetCell = current;
+            return targetCell == desiredTargetCell;
+        }
+
+        private static bool TryResolveForwardStep(
+            WorldSnapshot snapshot,
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell targetCell)
+        {
+            targetCell = default;
+            if (!snapshot.TryResolveUnitStep(origin, delta, out targetCell, out _, out var updatedTopology))
             {
                 return false;
             }
 
             return updatedTopology.Equals(snapshot.Topology) &&
-                   targetCell.face == baseCell.face &&
+                   targetCell.face == origin.face &&
                    snapshot.Topology.IsFaceActive(targetCell.face);
+        }
+
+        private static bool IsAlignedWithForwardDirection(Vector2Int offset, Vector2Int delta)
+        {
+            var distanceCells = Math.Abs(offset.x) + Math.Abs(offset.y);
+            return offset.x == delta.x * distanceCells &&
+                   offset.y == delta.y * distanceCells;
         }
 
         private static bool IsShortRangeWindupStrategy(IAttackDecisionStrategy attackDecisionStrategy)
