@@ -111,13 +111,21 @@ namespace Game.Feature.Stages
 
         public StageAuthoringNormalizedObjective(
             StageCompletionPolicy completionPolicy,
-            StageAuthoringNormalizedObjectiveCondition[] conditions)
+            StageAuthoringNormalizedObjectiveCondition[] conditions,
+            string objectiveTitle = "",
+            string objectiveSummary = "")
         {
             CompletionPolicy = completionPolicy;
+            ObjectiveTitle = objectiveTitle ?? string.Empty;
+            ObjectiveSummary = objectiveSummary ?? string.Empty;
             Conditions = conditions ?? Array.Empty<StageAuthoringNormalizedObjectiveCondition>();
         }
 
         public StageCompletionPolicy CompletionPolicy { get; }
+
+        public string ObjectiveTitle { get; }
+
+        public string ObjectiveSummary { get; }
 
         public StageAuthoringNormalizedObjectiveCondition[] Conditions { get; }
     }
@@ -128,12 +136,16 @@ namespace Game.Feature.Stages
             StageConditionAsset condition,
             bool required,
             StageObjectiveConditionRole role,
-            string stableConditionId)
+            string stableConditionId,
+            string displayText = "",
+            int sortOrder = 0)
         {
             Condition = condition;
             Required = required;
             Role = role;
             StableConditionId = stableConditionId ?? string.Empty;
+            DisplayText = displayText ?? string.Empty;
+            SortOrder = sortOrder;
         }
 
         public StageConditionAsset Condition { get; }
@@ -143,5 +155,9 @@ namespace Game.Feature.Stages
         public StageObjectiveConditionRole Role { get; }
 
         public string StableConditionId { get; }
+
+        public string DisplayText { get; }
+
+        public int SortOrder { get; }
     }
 }

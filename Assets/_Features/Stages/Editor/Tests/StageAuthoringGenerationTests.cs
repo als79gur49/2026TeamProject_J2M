@@ -234,6 +234,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 fixture.Authoring.SetObjective(new StageObjectiveAuthoring
                 {
                     CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                    ObjectiveTitle = "Reach the Exit",
+                    ObjectiveSummary = "Clear every required condition.",
                     ConditionEntries = new[]
                     {
                         new StageObjectiveConditionEntry
@@ -250,6 +252,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
                 Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                Assert.That(fixture.Gameplay.Objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
+                Assert.That(fixture.Gameplay.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
                 var entry = fixture.Gameplay.Objective.ConditionEntries.Single();
                 Assert.That(entry.StableConditionId, Is.EqualTo("button-100"));
                 Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
@@ -259,6 +263,42 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 UnityEngine.Object.DestroyImmediate(condition);
                 fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void StageAuthoringDefinitionObjective_PreservesDisplayMetadataAndDefaultsPrimaryGoalDisplayText()
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            try
+            {
+                authoring.SetObjective(new StageObjectiveAuthoring
+                {
+                    CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
+                    ObjectiveTitle = "Reach the Exit",
+                    ObjectiveSummary = "Move to the exit zone.",
+                    ConditionEntries = new[]
+                    {
+                        new StageObjectiveConditionEntry
+                        {
+                            Required = true,
+                            Role = StageObjectiveConditionRole.PrimaryGoal,
+                            StableConditionId = "primary-goal",
+                            DisplayText = string.Empty,
+                            SortOrder = 0,
+                        },
+                    },
+                });
+
+                var objective = authoring.Objective;
+
+                Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
+                Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
+                Assert.That(objective.ConditionEntries.Single().DisplayText, Is.EqualTo("Reach the Exit Zone"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(authoring);
             }
         }
 

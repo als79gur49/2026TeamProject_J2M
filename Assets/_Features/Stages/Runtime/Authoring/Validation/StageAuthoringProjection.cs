@@ -352,7 +352,11 @@ namespace Game.Feature.Stages
             var entries = objective.GetConditionEntriesOrEmpty();
             if (entries.Length == 0)
             {
-                return new StageAuthoringNormalizedObjective(objective.CompletionPolicy, Array.Empty<StageAuthoringNormalizedObjectiveCondition>());
+                return new StageAuthoringNormalizedObjective(
+                    objective.CompletionPolicy,
+                    Array.Empty<StageAuthoringNormalizedObjectiveCondition>(),
+                    Normalize(objective.ObjectiveTitle),
+                    Normalize(objective.ObjectiveSummary));
             }
 
             var conditions = new StageAuthoringNormalizedObjectiveCondition[entries.Length];
@@ -362,10 +366,16 @@ namespace Game.Feature.Stages
                     entries[i].Condition,
                     entries[i].Required,
                     entries[i].Role,
-                    Normalize(entries[i].StableConditionId));
+                    Normalize(entries[i].StableConditionId),
+                    Normalize(entries[i].DisplayText),
+                    entries[i].SortOrder);
             }
 
-            return new StageAuthoringNormalizedObjective(objective.CompletionPolicy, conditions);
+            return new StageAuthoringNormalizedObjective(
+                objective.CompletionPolicy,
+                conditions,
+                Normalize(objective.ObjectiveTitle),
+                Normalize(objective.ObjectiveSummary));
         }
 
         private static StageAuthoringNormalizedPresentationBinding[] ProjectEnemyBindings(IReadOnlyList<EnemyPresentationBinding> bindings)

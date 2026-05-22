@@ -4,6 +4,7 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Authoring;
 using NUnit.Framework;
@@ -214,6 +215,82 @@ namespace Game.Feature.Stages.Editor.Tests
             var issues = CompareGameplay(expected, actual, "zone-count");
 
             Assert.That(issues.Any(issue => issue.Code == "GameplayDrift.ZoneMismatch"), Is.True, FormatIssues(issues));
+        }
+
+        [Test]
+        public void NormalizedDrift_ObjectiveTitleMismatch_ReportsGameplayDriftObjectiveMismatch()
+        {
+            var expected = CreateObjectiveSnapshot(
+                new StageAuthoringNormalizedObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    Array.Empty<StageAuthoringNormalizedObjectiveCondition>(),
+                    "Reach the Exit",
+                    "Move to the exit zone."));
+            var actual = CreateObjectiveSnapshot(
+                new StageAuthoringNormalizedObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    Array.Empty<StageAuthoringNormalizedObjectiveCondition>(),
+                    string.Empty,
+                    "Move to the exit zone."));
+
+            var issues = CompareGameplay(expected, actual, "objective-title");
+
+            Assert.That(
+                issues.Any(issue =>
+                    issue.Code == "GameplayDrift.ObjectiveMismatch" &&
+                    issue.FieldName == "Objective.ObjectiveTitle"),
+                Is.True,
+                FormatIssues(issues));
+        }
+
+        [Test]
+        public void NormalizedDrift_ObjectiveConditionDisplayMismatch_ReportsGameplayDriftObjectiveMismatch()
+        {
+            var expected = CreateObjectiveSnapshot(
+                new StageAuthoringNormalizedObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    new[]
+                    {
+                        new StageAuthoringNormalizedObjectiveCondition(
+                            null,
+                            true,
+                            StageObjectiveConditionRole.PrimaryGoal,
+                            "primary-goal",
+                            "Reach the Exit Zone",
+                            sortOrder: 0),
+                    },
+                    "Reach the Exit",
+                    "Move to the exit zone."));
+            var actual = CreateObjectiveSnapshot(
+                new StageAuthoringNormalizedObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    new[]
+                    {
+                        new StageAuthoringNormalizedObjectiveCondition(
+                            null,
+                            true,
+                            StageObjectiveConditionRole.PrimaryGoal,
+                            "primary-goal",
+                            string.Empty,
+                            sortOrder: 10),
+                    },
+                    "Reach the Exit",
+                    "Move to the exit zone."));
+
+            var issues = CompareGameplay(expected, actual, "objective-display");
+
+            Assert.That(
+                issues.Any(issue =>
+                    issue.Code == "GameplayDrift.ObjectiveMismatch" &&
+                    issue.FieldName == "Objective.ConditionEntries[0].DisplayText"),
+                Is.True,
+                FormatIssues(issues));
+            Assert.That(
+                issues.Any(issue =>
+                    issue.Code == "GameplayDrift.ObjectiveMismatch" &&
+                    issue.FieldName == "Objective.ConditionEntries[0].SortOrder"),
+                Is.True,
+                FormatIssues(issues));
         }
 
         [Test]
@@ -498,6 +575,22 @@ namespace Game.Feature.Stages.Editor.Tests
                         }),
                 },
                 StageAuthoringNormalizedObjective.Empty);
+        }
+
+        private static StageAuthoringNormalizedGameplaySnapshot CreateObjectiveSnapshot(
+            StageAuthoringNormalizedObjective objective)
+        {
+            return new StageAuthoringNormalizedGameplaySnapshot(
+                new StageBoardDefinition
+                {
+                    MinInclusive = new Vector2Int(0, 0),
+                    MaxInclusive = new Vector2Int(4, 4),
+                    InitialBottomFace = FaceId.Floor,
+                },
+                Array.Empty<StageAuthoringNormalizedSpawn>(),
+                Array.Empty<StageAuthoringNormalizedTileFeature>(),
+                Array.Empty<StageAuthoringNormalizedZone>(),
+                objective);
         }
 
         private static IReadOnlyList<StageValidationIssue> CompareGameplay(

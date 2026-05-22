@@ -8,6 +8,7 @@ namespace Game.Feature.Stages
     public sealed class StageAuthoringDefinition : StageCompanionDefinitionBase
     {
         public const int CurrentSchemaVersion = 1;
+        private const string DefaultPrimaryGoalDisplayText = "Reach the Exit Zone";
 
         [SerializeField] private int schemaVersion = CurrentSchemaVersion;
         [SerializeField] private StageDefinition generatedGameplayDefinition;
@@ -103,8 +104,41 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = value.CompletionPolicy,
-                ConditionEntries = value.GetConditionEntriesOrEmpty(),
+                ObjectiveTitle = value.ObjectiveTitle ?? string.Empty,
+                ObjectiveSummary = value.ObjectiveSummary ?? string.Empty,
+                ConditionEntries = NormalizeObjectiveConditionEntries(value.GetConditionEntriesOrEmpty()),
             };
+        }
+
+        private static StageObjectiveConditionEntry[] NormalizeObjectiveConditionEntries(
+            StageObjectiveConditionEntry[] entries)
+        {
+            if (entries == null || entries.Length == 0)
+            {
+                return Array.Empty<StageObjectiveConditionEntry>();
+            }
+
+            var normalized = new StageObjectiveConditionEntry[entries.Length];
+            for (var i = 0; i < entries.Length; i++)
+            {
+                normalized[i] = entries[i];
+                normalized[i].StableConditionId = entries[i].StableConditionId ?? string.Empty;
+                normalized[i].DisplayText = NormalizeConditionDisplayText(entries[i]);
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizeConditionDisplayText(StageObjectiveConditionEntry entry)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.DisplayText))
+            {
+                return entry.DisplayText;
+            }
+
+            return entry.Role == Game.Feature.Gameplay.Objectives.StageObjectiveConditionRole.PrimaryGoal
+                ? DefaultPrimaryGoalDisplayText
+                : string.Empty;
         }
     }
 }

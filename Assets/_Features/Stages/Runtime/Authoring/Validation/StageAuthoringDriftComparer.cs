@@ -268,6 +268,8 @@ namespace Game.Feature.Stages
             ICollection<StageValidationIssue> issues)
         {
             AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.CompletionPolicy", expected.CompletionPolicy, actual.CompletionPolicy);
+            AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.ObjectiveTitle", expected.ObjectiveTitle, actual.ObjectiveTitle);
+            AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.ObjectiveSummary", expected.ObjectiveSummary, actual.ObjectiveSummary);
             if (expected.Conditions.Length != actual.Conditions.Length)
             {
                 AddMismatch(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.ConditionEntries.Count", expected.Conditions.Length.ToString(), actual.Conditions.Length.ToString());
@@ -286,6 +288,8 @@ namespace Game.Feature.Stages
                 AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].Required", expectedCondition.Required, actualCondition.Required);
                 AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].Role", expectedCondition.Role, actualCondition.Role);
                 AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].StableConditionId", expectedCondition.StableConditionId, actualCondition.StableConditionId);
+                AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].DisplayText", expectedCondition.DisplayText, actualCondition.DisplayText);
+                AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].SortOrder", expectedCondition.SortOrder, actualCondition.SortOrder);
             }
         }
 
