@@ -387,6 +387,11 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                if (semantic.Entity.entityId == emitter.entityId)
+                {
+                    continue;
+                }
+
                 if (targetEntityIds.Add(semantic.Entity.entityId))
                 {
                     targetCellsByEntityId.Add(semantic.Entity.entityId, semantic.Entity.position);
