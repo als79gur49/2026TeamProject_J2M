@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: RocketFace_Death_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.SingleAudioDefinition
   category: 2
-  defaultVolumeTrim: 1
+  defaultVolumeTrim: 0.85
   pitchRange: {x: 1, y: 1}
   loop: 0
   clip: {fileID: 8300000, guid: badeaae78a465cf4290f141fc78da9bc, type: 3}
