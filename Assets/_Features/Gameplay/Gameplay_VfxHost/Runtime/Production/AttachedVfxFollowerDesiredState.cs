@@ -13,7 +13,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
         EnemyJumpWindup = 4,
         EnemyGlideWindup = 5,
         EnemyGlideRecover = 6,
-        EnemyWeaponWindupAura = 7,
         EnemyUtilityCooldownAura = 8,
         EnemyAttackCooldownFollow = 9,
     }
