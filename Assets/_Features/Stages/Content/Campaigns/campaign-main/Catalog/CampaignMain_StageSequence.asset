@@ -18,6 +18,10 @@ MonoBehaviour:
     displayName: 0-1
     levelGroupId: level-0
   - stageId:
+      value: stage-0-2
+    displayName: 0-2
+    levelGroupId: level-0
+  - stageId:
       value: stage-1-1
     displayName: 1-1
     levelGroupId: level-1
