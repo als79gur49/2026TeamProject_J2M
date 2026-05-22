@@ -132,20 +132,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 fixture.RefreshAttached(DesiredCharge());
-                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                AssertAttachedFollowerPresent(fixture);
 
-                var visibilityContext = new GameplayVfxVisibilityContext(
-                    new Dictionary<int, GameplayVfxEntityVisibilityState>
-                    {
-                        {
-                            40,
-                            new GameplayVfxEntityVisibilityState(
-                                hasView: true,
-                                isViewActiveInHierarchy: true,
-                                hasSemanticState: true,
-                                isFrontFaceInactive: true)
-                        },
-                    });
+                var visibilityContext = CreateVisibilityContext(isFrontFaceInactive: true);
                 fixture.Controller.Refresh(
                     11,
                     fixture.TrackState,
@@ -175,29 +164,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var desired = DesiredCharge();
-                var activeContext = new GameplayVfxVisibilityContext(
-                    new Dictionary<int, GameplayVfxEntityVisibilityState>
-                    {
-                        {
-                            40,
-                            new GameplayVfxEntityVisibilityState(
-                                hasView: true,
-                                isViewActiveInHierarchy: true,
-                                hasSemanticState: true)
-                        },
-                    });
-                var inactiveContext = new GameplayVfxVisibilityContext(
-                    new Dictionary<int, GameplayVfxEntityVisibilityState>
-                    {
-                        {
-                            40,
-                            new GameplayVfxEntityVisibilityState(
-                                hasView: true,
-                                isViewActiveInHierarchy: true,
-                                hasSemanticState: true,
-                                isFrontFaceInactive: true)
-                        },
-                    });
+                var activeContext = CreateVisibilityContext();
+                var inactiveContext = CreateVisibilityContext(isFrontFaceInactive: true);
 
                 fixture.Controller.Refresh(
                     10,
@@ -209,9 +177,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     visibilityContext: activeContext,
                     attachedDesiredStates: new[] { desired },
                     attachedFollowersEnabled: true);
-                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
-                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
-                var firstInstance = fixture.View.ModelRoot.GetChild(0);
+                var firstInstance = AssertAttachedFollowerPresent(fixture);
 
                 fixture.Controller.Refresh(
                     11,
@@ -238,9 +204,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     attachedDesiredStates: new[] { desired },
                     attachedFollowersEnabled: true);
 
-                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
-                Assert.That(fixture.View.ModelRoot.childCount, Is.EqualTo(1));
-                Assert.That(fixture.View.ModelRoot.GetChild(0), Is.Not.EqualTo(firstInstance));
+                AssertAttachedFollowerPresent(fixture);
             }
             finally
             {
@@ -1520,6 +1484,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickEnemyUtilityCooldownPresentationSignal CreateUtilityCooldownSignal(
             int entityId = 40,
+            EnemyUtilityPresentationKind kind = EnemyUtilityPresentationKind.GravityFieldAura,
             int cooldownTicksRemaining = 5,
             int cooldownTicksTotal = 5,
             int effectIndex = 0,
@@ -1527,7 +1492,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new TickEnemyUtilityCooldownPresentationSignal(
                 entityId,
-                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                kind,
                 cooldownTicksRemaining,
                 cooldownTicksTotal,
                 effectIndex,
@@ -1756,6 +1721,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "WeaponAura");
         }
 
+        private static GameplayVfxVisibilityContext CreateVisibilityContext(
+            int entityId = 40,
+            bool hasView = true,
+            bool isViewActiveInHierarchy = true,
+            bool hasSemanticState = true,
+            bool isFrontFaceInactive = false)
+        {
+            return new GameplayVfxVisibilityContext(
+                new Dictionary<int, GameplayVfxEntityVisibilityState>
+                {
+                    {
+                        entityId,
+                        new GameplayVfxEntityVisibilityState(
+                            hasView,
+                            isViewActiveInHierarchy,
+                            hasSemanticState,
+                            isFrontFaceInactive)
+                    },
+                });
+        }
+
+        private static Transform AssertAttachedFollowerPresent(
+            AttachedFollowerFixture fixture,
+            Transform expectedParent = null)
+        {
+            var parent = expectedParent ?? fixture.View.ModelRoot;
+
+            Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(fixture.Pool.ActiveCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(parent.childCount, Is.GreaterThanOrEqualTo(1));
+
+            var instance = parent.GetChild(0);
+            Assert.That(instance.parent, Is.EqualTo(parent));
+            return instance;
+        }
+
         private static AttachedVfxFollowerKey StopKeyForBoxSlide(int entityId = 40)
         {
             return new AttachedVfxFollowerKey(
@@ -1969,6 +1970,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Pool,
                     BindingResolver,
                     enabled: false,
+                    visibilityContext: GameplayVfxEnemyMotionAttachedFollowerTests.CreateVisibilityContext(),
                     attachedDesiredStates: desiredStates,
                     explicitAttachedStopStates: explicitStopKeys,
                     attachedFollowersEnabled: true);

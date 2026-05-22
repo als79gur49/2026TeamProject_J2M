@@ -294,8 +294,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new BoxSlideStopPresentationSignal(
                 boxEntityId: 20,
-                sourceCell: new SurfaceCell(FaceId.Front, 1, 1),
-                stopperCell: new SurfaceCell(FaceId.Front, 2, 1),
+                sourceCell: new SurfaceCell(FaceId.Ceiling, 1, 1),
+                stopperCell: new SurfaceCell(FaceId.Ceiling, 2, 1),
                 slideDirection: Direction.Right,
                 stopperKind: BoxSlideStopperKind.SolidEntity,
                 stopperEntityId: 90,

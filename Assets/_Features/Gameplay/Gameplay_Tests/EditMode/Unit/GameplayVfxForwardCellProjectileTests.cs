@@ -247,7 +247,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             fixture.Present(CreatePresentationData(releaseSignals: new[]
             {
-                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Front, 1, 0)),
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Ceiling, 1, 0)),
             }));
 
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
@@ -304,7 +304,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayVfxVisibilityMode.VisibleSurfaceAllowed);
             var data = CreatePresentationData(releaseSignals: new[]
             {
-                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Front, 1, 0)),
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Ceiling, 1, 0)),
             });
 
             defaultFixture.Present(data);
@@ -324,7 +324,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             fixture.Present(CreatePresentationData(releaseSignals: new[]
             {
-                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Front, 1, 0)),
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Ceiling, 1, 0)),
             }));
 
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
