@@ -37,6 +37,8 @@ half _InactiveBlend;
 half _DesaturateStrength;
 half _EmissionSuppression;
 half _GravityFieldLockedWeight;
+half _GravityFieldLockReveal;
+half _GravityFieldLockEdgeWidth;
 half _GravityFieldDimFactor;
 half _GravityFieldTintStrength;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
@@ -68,6 +70,8 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _DesaturateStrength)
     UNITY_DOTS_INSTANCED_PROP(float , _EmissionSuppression)
     UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldLockedWeight)
+    UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldLockReveal)
+    UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldLockEdgeWidth)
     UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldDimFactor)
     UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldTintStrength)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
@@ -102,6 +106,8 @@ static float  unity_DOTS_Sampled_InactiveBlend;
 static float  unity_DOTS_Sampled_DesaturateStrength;
 static float  unity_DOTS_Sampled_EmissionSuppression;
 static float  unity_DOTS_Sampled_GravityFieldLockedWeight;
+static float  unity_DOTS_Sampled_GravityFieldLockReveal;
+static float  unity_DOTS_Sampled_GravityFieldLockEdgeWidth;
 static float  unity_DOTS_Sampled_GravityFieldDimFactor;
 static float  unity_DOTS_Sampled_GravityFieldTintStrength;
 
@@ -127,6 +133,8 @@ void SetupDOTSLitMaterialPropertyCaches()
     unity_DOTS_Sampled_DesaturateStrength   = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DesaturateStrength);
     unity_DOTS_Sampled_EmissionSuppression  = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _EmissionSuppression);
     unity_DOTS_Sampled_GravityFieldLockedWeight = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldLockedWeight);
+    unity_DOTS_Sampled_GravityFieldLockReveal = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldLockReveal);
+    unity_DOTS_Sampled_GravityFieldLockEdgeWidth = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldLockEdgeWidth);
     unity_DOTS_Sampled_GravityFieldDimFactor = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldDimFactor);
     unity_DOTS_Sampled_GravityFieldTintStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldTintStrength);
 }
@@ -154,12 +162,16 @@ void SetupDOTSLitMaterialPropertyCaches()
 #define _DesaturateStrength     unity_DOTS_Sampled_DesaturateStrength
 #define _EmissionSuppression    unity_DOTS_Sampled_EmissionSuppression
 #define _GravityFieldLockedWeight unity_DOTS_Sampled_GravityFieldLockedWeight
+#define _GravityFieldLockReveal unity_DOTS_Sampled_GravityFieldLockReveal
+#define _GravityFieldLockEdgeWidth unity_DOTS_Sampled_GravityFieldLockEdgeWidth
 #define _GravityFieldDimFactor  unity_DOTS_Sampled_GravityFieldDimFactor
 #define _GravityFieldTintStrength unity_DOTS_Sampled_GravityFieldTintStrength
 
 #endif
 
-void ApplyGravityFieldLockedSurfaceData(inout SurfaceData surfaceData)
+TEXTURE2D(_GravityFieldLockNoiseMap); SAMPLER(sampler_GravityFieldLockNoiseMap);
+
+void ApplyGravityFieldLockedSurfaceData(inout SurfaceData surfaceData, float2 uv)
 {
     half lockedWeight = saturate(_GravityFieldLockedWeight);
     if (lockedWeight <= half(0.0001))
@@ -175,7 +187,13 @@ void ApplyGravityFieldLockedSurfaceData(inout SurfaceData surfaceData)
         dimmedColor * _GravityFieldLockedTint.rgb,
         tintStrength);
 
-    surfaceData.albedo = lerp(surfaceData.albedo, tintedColor, lockedWeight);
+    half noise = SAMPLE_TEXTURE2D(_GravityFieldLockNoiseMap, sampler_GravityFieldLockNoiseMap, uv).r;
+    half edge = max(_GravityFieldLockEdgeWidth, half(0.0001));
+    half progress = lerp(-edge, half(1.0) + edge, saturate(_GravityFieldLockReveal));
+    half reveal = smoothstep(noise - edge, noise + edge, progress);
+    half mask = lockedWeight * reveal;
+
+    surfaceData.albedo = lerp(surfaceData.albedo, tintedColor, mask);
 }
 
 void ApplyEnemyInactiveSurfaceData(inout SurfaceData surfaceData)
@@ -366,7 +384,7 @@ inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfa
     outSurfaceData.normalTS = ApplyDetailNormal(detailUv, outSurfaceData.normalTS, detailMask);
 #endif
 
-    ApplyGravityFieldLockedSurfaceData(outSurfaceData);
+    ApplyGravityFieldLockedSurfaceData(outSurfaceData, uv);
     ApplyEnemyInactiveSurfaceData(outSurfaceData);
 }
 

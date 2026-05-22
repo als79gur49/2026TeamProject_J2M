@@ -40,6 +40,9 @@ Shader "Game/Presentation/GravityFieldLockableBoxLit"
         _EmissionSuppression("Emission Suppression", Range(0.0, 1.0)) = 0.85
 
         _GravityFieldLockedWeight("Gravity Field Locked Weight", Range(0.0, 1.0)) = 0.0
+        _GravityFieldLockReveal("Gravity Field Lock Reveal", Range(0.0, 1.0)) = 0.0
+        [NoScaleOffset] _GravityFieldLockNoiseMap("Gravity Field Lock Noise", 2D) = "white" {}
+        _GravityFieldLockEdgeWidth("Gravity Field Lock Edge Width", Range(0.001, 0.5)) = 0.08
         _GravityFieldLockedTint("Gravity Field Locked Tint", Color) = (0.45, 0.55, 0.85, 1.0)
         _GravityFieldDimFactor("Gravity Field Dim Factor", Range(0.0, 1.0)) = 0.55
         _GravityFieldTintStrength("Gravity Field Tint Strength", Range(0.0, 1.0)) = 0.15
