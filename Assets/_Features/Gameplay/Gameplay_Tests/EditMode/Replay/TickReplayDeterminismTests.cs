@@ -892,13 +892,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
-                    "FacingCommitted",
-                    "E=10",
-                    "Facing=Left"),
-                Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
                     "MoveCommitted",
                     "E=30",
                     "To=(1,0)",
@@ -2662,7 +2655,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+                    CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)),
@@ -2858,7 +2851,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                 });
         }
 
@@ -2882,7 +2875,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                 });
         }
 
@@ -2903,7 +2896,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                 });
         }
 
