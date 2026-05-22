@@ -182,7 +182,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tileFeatureKind: TileFeatureKind.Barricade),
             });
 
-            Assert.That(requests, Is.Empty);
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeActivated));
+            Assert.That(requests[1].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeDeactivated));
         }
 
         [Test]
@@ -271,13 +273,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tileFeatureKind: TileFeatureKind.Barricade),
             });
 
-            Assert.That(requests, Has.Count.EqualTo(4));
-            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.DestroyTileActivated));
-            Assert.That(requests[1].Cue, Is.EqualTo(TileFeatureAudioCue.DestroyTileDeactivated));
-            Assert.That(requests[2].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeActivated));
-            Assert.That(requests[3].Cue, Is.EqualTo(TileFeatureAudioCue.BarricadeDeactivated));
-            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("DestroyTileActivated"));
-            Assert.That(requests[3].Context.DebugTag, Is.EqualTo("BarricadeDeactivated"));
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.TileFeatureOnBurst));
+            Assert.That(requests[1].Cue, Is.EqualTo(TileFeatureAudioCue.TileFeatureOffBurst));
+            Assert.That(requests[0].Count, Is.EqualTo(2));
+            Assert.That(requests[1].Count, Is.EqualTo(2));
+            Assert.That(requests[0].BurstKind, Is.EqualTo(TileFeatureAudioBurstKind.On));
+            Assert.That(requests[1].BurstKind, Is.EqualTo(TileFeatureAudioBurstKind.Off));
+            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("TileFeatureOnBurst"));
+            Assert.That(requests[1].Context.DebugTag, Is.EqualTo("TileFeatureOffBurst"));
         }
 
         [Test]

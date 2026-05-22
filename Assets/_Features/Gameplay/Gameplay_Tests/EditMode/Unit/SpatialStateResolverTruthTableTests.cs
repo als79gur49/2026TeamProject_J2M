@@ -554,7 +554,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldStateWriteContext.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/SystemPreMovementValidationLogic.cs"),
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.FinalizationBatch.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.ProjectedWorld.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs"),
                 },
                 nonTestSetPhasedStateReferences);
@@ -628,6 +629,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiConfig.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiRuntimeTypes.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
                 },
                 nonTestPhaseThroughSkillKindReferences);
@@ -819,9 +821,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/SpatialState.cs")] = "seam-truth-table",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/StateQuery.cs")] = "seam-truth-table",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs")] = "live-lifecycle-proof",
+                [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/SystemPreMovementValidationScenarioTests.cs")] = "seam-truth-table",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/ModifierCapabilityGeneralizationTests.cs")] = "live-lifecycle-proof",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/PlayerMovementInputTests.cs")] = "live-lifecycle-proof",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/SpatialStateResolverTruthTableTests.cs")] = "seam-truth-table",
+                [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineJumpLandingExactStackTests.cs")] = "seam-truth-table",
             };
         }
 

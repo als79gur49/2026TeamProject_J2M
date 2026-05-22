@@ -528,7 +528,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(fields.Select(field => field.FieldType.Name), Does.Not.Contain(nameof(GameplayAudioMap)));
             Assert.That(fields.Select(field => field.FieldType.Name), Does.Not.Contain(nameof(IAudioService)));
             Assert.That(buildRequests, Is.Not.Null);
-            Assert.That(buildRequests.GetParameters().Select(parameter => parameter.ParameterType), Is.EqualTo(new[] { typeof(TickResult) }));
+            var parameters = buildRequests.GetParameters();
+            Assert.That(parameters, Has.Length.EqualTo(2));
+            Assert.That(parameters[0].ParameterType, Is.EqualTo(typeof(TickResult)));
+            Assert.That(parameters[1].ParameterType, Is.EqualTo(typeof(GameplayTimingProfile)));
+            Assert.That(parameters[1].IsOptional, Is.True);
+            Assert.That(parameters[1].DefaultValue, Is.Null);
         }
 
         [Test]

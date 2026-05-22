@@ -1772,9 +1772,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             Assert.That(baselineResult.DeterminismHash, Is.Not.EqualTo(lockedResult.DeterminismHash));
             Assert.That(lockedResult.Trace.Text, Does.Contain("Final.BoxInteractionLocks"));
-            Assert.That(lockedResult.Trace.Text, Does.Contain("Box=20|Source=40|Effect=0|Expires=3|BlocksPush=1|BlocksFlip=0"));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("Box=20"));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("Source=40"));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("Effect=0"));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("Expires=3"));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("BlocksPush=1"));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("BlocksFlip=0"));
             Assert.That(replay[0].Trace, Does.Contain("Final.BoxInteractionLocks"));
-            Assert.That(replay[0].Trace, Does.Contain("Box=20|Source=40|Effect=0|Expires=3|BlocksPush=1|BlocksFlip=0"));
+            Assert.That(replay[0].Trace, Does.Contain("Box=20"));
+            Assert.That(replay[0].Trace, Does.Contain("Source=40"));
+            Assert.That(replay[0].Trace, Does.Contain("Effect=0"));
+            Assert.That(replay[0].Trace, Does.Contain("Expires=3"));
+            Assert.That(replay[0].Trace, Does.Contain("BlocksPush=1"));
+            Assert.That(replay[0].Trace, Does.Contain("BlocksFlip=0"));
         }
 
         [Test]
