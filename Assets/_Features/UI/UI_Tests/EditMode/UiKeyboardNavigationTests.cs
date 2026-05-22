@@ -923,6 +923,10 @@ namespace Game.Feature.UI.Tests
                 "_navigationGroup",
                 2);
             AssertButtonGroupFrames(
+                UiTestPrefabAssetUtility.LoadScreenPrefab<GameClearScreenView>(UiTestPrefabAssetUtility.GameClearScreenPrefabPath),
+                "_navigationGroup",
+                1);
+            AssertButtonGroupFrames(
                 UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath),
                 "_navigationGroup",
                 4);

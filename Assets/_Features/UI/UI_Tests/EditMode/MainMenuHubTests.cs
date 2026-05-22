@@ -50,6 +50,7 @@ namespace Game.Feature.UI.Tests
             var contentHost = GetPrivateField<RectTransform>(prefab, "_contentHost");
             var bottomBar = GetPrivateField<RectTransform>(prefab, "_bottomBar");
             var commandPanel = GetPrivateField<RectTransform>(prefab, "_mainCommandPanel");
+            var saveSlotOverlayLayer = GetPrivateField<RectTransform>(prefab, "_saveSlotOverlayLayer");
             var startButton = GetPrivateField<Button>(prefab, "_startButton");
             var settingsButton = GetPrivateField<Button>(prefab, "_settingsButton");
             var quitButton = GetPrivateField<Button>(prefab, "_quitButton");
@@ -61,7 +62,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(contentHost.transform.IsChildOf(prefab.transform), Is.True);
             Assert.That(bottomBar.transform.IsChildOf(prefab.transform), Is.True);
             Assert.That(commandPanel.transform.IsChildOf(prefab.transform), Is.True);
-            Assert.That(saveSlotBlockerRoot.transform.IsChildOf(contentHost), Is.True);
+            Assert.That(saveSlotOverlayLayer.transform.IsChildOf(prefab.transform), Is.True);
+            Assert.That(saveSlotOverlayLayer.GetSiblingIndex(), Is.GreaterThan(commandPanel.GetSiblingIndex()));
+            Assert.That(saveSlotBlockerRoot.transform.IsChildOf(saveSlotOverlayLayer), Is.True);
             Assert.That(saveSlotBlockerCanvasGroup, Is.Not.Null);
             Assert.That(saveSlotBlockerImage, Is.Not.Null);
             Assert.That(saveSlotBlockerImage.color.a, Is.EqualTo(0.48f).Within(0.001f));
@@ -80,11 +83,11 @@ namespace Game.Feature.UI.Tests
         {
             var prefab = LoadMainMenuPrefab();
             var panel = prefab.SaveSlotPanel;
-            var contentHost = prefab.transform.Find("ContentHost");
+            var saveSlotOverlayLayer = GetPrivateField<RectTransform>(prefab, "_saveSlotOverlayLayer");
 
             Assert.That(panel, Is.Not.Null);
-            Assert.That(contentHost, Is.Not.Null);
-            Assert.That(panel.transform.IsChildOf(contentHost), Is.True);
+            Assert.That(saveSlotOverlayLayer, Is.Not.Null);
+            Assert.That(panel.transform.IsChildOf(saveSlotOverlayLayer), Is.True);
             Assert.That(panel.GetComponentsInChildren<SaveSlotCardView>(true).Length, Is.EqualTo(3));
             foreach (var card in panel.SlotCards)
             {
@@ -113,13 +116,15 @@ namespace Game.Feature.UI.Tests
                 var contentHost = new GameObject("ContentHost", typeof(RectTransform)).GetComponent<RectTransform>();
                 var bottomBar = new GameObject("BottomBar", typeof(RectTransform)).GetComponent<RectTransform>();
                 var commandPanel = new GameObject("MainCommandPanel", typeof(RectTransform)).GetComponent<RectTransform>();
+                var saveSlotOverlayLayer = new GameObject("SaveSlotOverlayLayer", typeof(RectTransform)).GetComponent<RectTransform>();
                 topBar.SetParent(root.transform, false);
                 contentHost.SetParent(root.transform, false);
                 bottomBar.SetParent(root.transform, false);
                 commandPanel.SetParent(root.transform, false);
+                saveSlotOverlayLayer.SetParent(root.transform, false);
 
                 var saveSlotWrapper = new GameObject("SaveSlotWrapper", typeof(RectTransform)).transform;
-                saveSlotWrapper.SetParent(contentHost, false);
+                saveSlotWrapper.SetParent(saveSlotOverlayLayer, false);
                 var panelObject = new GameObject("SaveSlotPanelView", typeof(RectTransform));
                 panelObject.transform.SetParent(saveSlotWrapper, false);
                 var panel = panelObject.AddComponent<SaveSlotPanelView>();
@@ -132,7 +137,7 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(panel, "_slotCards", cards);
 
                 var saveSlotBlockerRoot = new GameObject("SaveSlotBlocker", typeof(RectTransform));
-                saveSlotBlockerRoot.transform.SetParent(contentHost, false);
+                saveSlotBlockerRoot.transform.SetParent(saveSlotOverlayLayer, false);
                 var saveSlotBlockerCanvasGroup = saveSlotBlockerRoot.AddComponent<CanvasGroup>();
                 var saveSlotBlockerImage = saveSlotBlockerRoot.AddComponent<Image>();
 
@@ -148,6 +153,7 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(view, "_contentHost", contentHost);
                 SetPrivateField(view, "_bottomBar", bottomBar);
                 SetPrivateField(view, "_mainCommandPanel", commandPanel);
+                SetPrivateField(view, "_saveSlotOverlayLayer", saveSlotOverlayLayer);
                 SetPrivateField(view, "_saveSlotPanel", panel);
                 SetPrivateField(view, "_saveSlotBlockerRoot", saveSlotBlockerRoot);
                 SetPrivateField(view, "_saveSlotBlockerCanvasGroup", saveSlotBlockerCanvasGroup);
@@ -445,6 +451,7 @@ namespace Game.Feature.UI.Tests
             {
                 harness.View.ShowSection(MainMenuSectionId.None);
 
+                Assert.That(harness.SaveSlotOverlayLayer.gameObject.activeSelf, Is.False);
                 Assert.That(harness.SaveSlotBlockerRoot.activeSelf, Is.False);
                 Assert.That(harness.SaveSlotBlockerCanvasGroup.blocksRaycasts, Is.False);
                 Assert.That(harness.SaveSlotBlockerImage.raycastTarget, Is.False);
@@ -454,6 +461,8 @@ namespace Game.Feature.UI.Tests
 
                 harness.View.ShowSection(MainMenuSectionId.SaveSlots);
 
+                Assert.That(harness.SaveSlotOverlayLayer.gameObject.activeSelf, Is.True);
+                Assert.That(harness.SaveSlotOverlayLayer.GetSiblingIndex(), Is.GreaterThan(harness.CommandPanel.GetSiblingIndex()));
                 Assert.That(harness.SaveSlotBlockerRoot.activeSelf, Is.True);
                 Assert.That(harness.SaveSlotBlockerCanvasGroup.alpha, Is.EqualTo(1f));
                 Assert.That(harness.SaveSlotBlockerCanvasGroup.blocksRaycasts, Is.True);
@@ -700,16 +709,18 @@ namespace Game.Feature.UI.Tests
             var contentHost = new GameObject("ContentHost", typeof(RectTransform)).GetComponent<RectTransform>();
             var bottomBar = new GameObject("BottomBar", typeof(RectTransform)).GetComponent<RectTransform>();
             var commandPanel = new GameObject("MainCommandPanel", typeof(RectTransform)).GetComponent<RectTransform>();
+            var saveSlotOverlayLayer = new GameObject("SaveSlotOverlayLayer", typeof(RectTransform)).GetComponent<RectTransform>();
             topBar.SetParent(root.transform, false);
             contentHost.SetParent(root.transform, false);
             bottomBar.SetParent(root.transform, false);
             commandPanel.SetParent(root.transform, false);
+            saveSlotOverlayLayer.SetParent(root.transform, false);
 
             var startButton = CreateButton("StartButton", commandPanel);
             var settingsButton = CreateButton("SettingsButton", commandPanel);
             var quitButton = CreateButton("QuitButton", commandPanel);
             var saveSlotBlockerRoot = new GameObject("SaveSlotBlocker", typeof(RectTransform));
-            saveSlotBlockerRoot.transform.SetParent(contentHost, false);
+            saveSlotBlockerRoot.transform.SetParent(saveSlotOverlayLayer, false);
             saveSlotBlockerRoot.SetActive(false);
             var saveSlotBlockerCanvasGroup = saveSlotBlockerRoot.AddComponent<CanvasGroup>();
             var saveSlotBlockerImage = saveSlotBlockerRoot.AddComponent<Image>();
@@ -717,7 +728,7 @@ namespace Game.Feature.UI.Tests
             if (withPanel)
             {
                 var panelObject = new GameObject("SaveSlotPanelView", typeof(RectTransform));
-                panelObject.transform.SetParent(contentHost, false);
+                panelObject.transform.SetParent(saveSlotOverlayLayer, false);
                 panel = panelObject.AddComponent<SaveSlotPanelView>();
             }
 
@@ -726,6 +737,7 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(view, "_contentHost", contentHost);
             SetPrivateField(view, "_bottomBar", bottomBar);
             SetPrivateField(view, "_mainCommandPanel", commandPanel);
+            SetPrivateField(view, "_saveSlotOverlayLayer", saveSlotOverlayLayer);
             SetPrivateField(view, "_saveSlotPanel", panel);
             SetPrivateField(view, "_saveSlotBlockerRoot", saveSlotBlockerRoot);
             SetPrivateField(view, "_saveSlotBlockerCanvasGroup", saveSlotBlockerCanvasGroup);
@@ -741,6 +753,8 @@ namespace Game.Feature.UI.Tests
                 startButton,
                 settingsButton,
                 quitButton,
+                commandPanel,
+                saveSlotOverlayLayer,
                 saveSlotBlockerRoot,
                 saveSlotBlockerCanvasGroup,
                 saveSlotBlockerImage);
@@ -907,6 +921,8 @@ namespace Game.Feature.UI.Tests
                 Button startButton,
                 Button settingsButton,
                 Button quitButton,
+                RectTransform commandPanel,
+                RectTransform saveSlotOverlayLayer,
                 GameObject saveSlotBlockerRoot,
                 CanvasGroup saveSlotBlockerCanvasGroup,
                 Image saveSlotBlockerImage)
@@ -916,6 +932,8 @@ namespace Game.Feature.UI.Tests
                 StartButton = startButton;
                 SettingsButton = settingsButton;
                 QuitButton = quitButton;
+                CommandPanel = commandPanel;
+                SaveSlotOverlayLayer = saveSlotOverlayLayer;
                 SaveSlotBlockerRoot = saveSlotBlockerRoot;
                 SaveSlotBlockerCanvasGroup = saveSlotBlockerCanvasGroup;
                 SaveSlotBlockerImage = saveSlotBlockerImage;
@@ -928,6 +946,10 @@ namespace Game.Feature.UI.Tests
             public Button SettingsButton { get; }
 
             public Button QuitButton { get; }
+
+            public RectTransform CommandPanel { get; }
+
+            public RectTransform SaveSlotOverlayLayer { get; }
 
             public GameObject SaveSlotBlockerRoot { get; }
 
