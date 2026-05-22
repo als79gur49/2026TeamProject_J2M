@@ -3028,8 +3028,8 @@ MonoBehaviour:
     PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle:
-    ObjectiveSummary:
+    ObjectiveTitle: Reach the Exit
+    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 1295cbe89d2d1fe48a360c14c5c46c68, type: 2}
       Required: 1

@@ -706,14 +706,14 @@ MonoBehaviour:
       MaxInclusive: {x: 0, y: 6}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: 
-    ObjectiveSummary: 
+    ObjectiveTitle: Reach the Exit
+    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 0a5ed70e5ae1212d3c1dee3e4107b5b2, type: 2}
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: 
+      DisplayText: Reach the Exit Zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 3c6df7d7b4614cb3a9715a470126fc74, type: 2}
       Required: 1

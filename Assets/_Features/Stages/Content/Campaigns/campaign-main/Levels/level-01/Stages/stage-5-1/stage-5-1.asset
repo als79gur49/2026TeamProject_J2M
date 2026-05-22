@@ -507,8 +507,8 @@ MonoBehaviour:
     PresentationKey: exit.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle:
-    ObjectiveSummary:
+    ObjectiveTitle: Reach the Exit
+    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 9a1d7c781b0b44b88416699c33c274bf, type: 2}
       Required: 1
