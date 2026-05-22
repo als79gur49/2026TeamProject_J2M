@@ -440,6 +440,11 @@ namespace Game.Feature.Stages.Editor
             return status;
         }
 
+        internal BoardTilePaintGridPreview BuildBoardTilePaintGridPreviewForTests()
+        {
+            return BuildBoardTilePaintGridPreview();
+        }
+
         internal void SetBoardTileStyleKeyForTests(string styleKey)
         {
             boardTileStyleKey = styleKey ?? string.Empty;
@@ -638,7 +643,8 @@ namespace Game.Feature.Stages.Editor
                 authoring,
                 selection,
                 focusedGridKind,
-                editMode);
+                editMode,
+                BuildBoardTilePaintGridPreview());
             EditorGUILayout.Space();
 
             selectedPlacementIndex = selection.ResolveSelectedPlacementIndex(authoring.Placements);
@@ -712,6 +718,56 @@ namespace Game.Feature.Stages.Editor
                     zoneFeedback = string.Empty;
                 }
             }
+        }
+
+        private BoardTilePaintGridPreview BuildBoardTilePaintGridPreview()
+        {
+            if (editMode != StageAuthoringGridEditMode.BoardTilePaint || authoring == null)
+            {
+                return BoardTilePaintGridPreview.Disabled;
+            }
+
+            var presentation = authoring.GeneratedPresentationDefinition;
+            var catalog = presentation != null ? presentation.BoardTileStyleCatalog : null;
+            if (presentation == null || catalog == null)
+            {
+                return BoardTilePaintGridPreview.Disabled;
+            }
+
+            var tintByCell = new Dictionary<SurfaceCell, Color>();
+            var overrides = presentation.BoardTilePaintOverrides;
+            for (var i = 0; i < overrides.Count; i++)
+            {
+                var entry = overrides[i];
+                if (entry == null ||
+                    !IsBoardTilePaintPreviewCellInBounds(authoring.Board, entry.Cell) ||
+                    !catalog.TryGetEntry(entry.StyleKey, out var catalogEntry))
+                {
+                    continue;
+                }
+
+                tintByCell[entry.Cell] = catalogEntry.Tint;
+            }
+
+            return new BoardTilePaintGridPreview(true, tintByCell);
+        }
+
+        private static bool IsBoardTilePaintPreviewCellInBounds(
+            StageBoardDefinition board,
+            SurfaceCell cell)
+        {
+            if (cell.face != FaceId.Floor &&
+                cell.face != FaceId.Front &&
+                cell.face != FaceId.Ceiling &&
+                cell.face != FaceId.Back)
+            {
+                return false;
+            }
+
+            return cell.x >= board.MinInclusive.x &&
+                   cell.x <= board.MaxInclusive.x &&
+                   cell.y >= board.MinInclusive.y &&
+                   cell.y <= board.MaxInclusive.y;
         }
 
         private void DrawSelectedPlacementInspector()
