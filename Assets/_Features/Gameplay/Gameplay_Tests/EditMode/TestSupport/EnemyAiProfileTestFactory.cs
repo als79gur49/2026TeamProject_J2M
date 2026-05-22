@@ -92,6 +92,8 @@ namespace Game.Feature.Gameplay.Tests
             int damage = 1,
             int recoverTicks = 1,
             int attackCooldownTicks = 0,
+            int attackRange = 1,
+            int impactDelayTicksPerCell = 0,
             bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
@@ -101,14 +103,15 @@ namespace Game.Feature.Gameplay.Tests
                     attackPriority: 50,
                     recoverTicks: recoverTicks)),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
-                AttackDecisionSettings = new AttackDecisionSettings(1),
+                AttackDecisionSettings = new AttackDecisionSettings(attackRange),
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
                 WindupForwardCellProjectileSettings = new WindupForwardCellProjectileSettings(
                     WindupMeleeSettings.DefaultVisualRangeSlackCells,
                     impactDelayTicks,
                     damage,
                     activePendingImpactLimitPerOwner: 1,
-                    attackCooldownTicks: attackCooldownTicks),
+                    attackCooldownTicks: attackCooldownTicks,
+                    impactDelayTicksPerCell: impactDelayTicksPerCell),
                 IncludePassiveContact = includePassiveContact,
             });
         }

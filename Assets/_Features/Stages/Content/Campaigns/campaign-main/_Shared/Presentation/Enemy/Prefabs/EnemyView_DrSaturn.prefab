@@ -15,7 +15,6 @@ GameObject:
   - component: {fileID: 1141000000000008004}
   - component: {fileID: 1141000000000008005}
   - component: {fileID: 1141000000000008006}
-  - component: {fileID: 1141000000000008007}
   - component: {fileID: 1141000000000008009}
   m_Layer: 0
   m_Name: EnemyView_DrSaturn
@@ -149,22 +148,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
   profile: {fileID: 11400000, guid: 42ebae281b3c4fffa43d495c3a98dd73, type: 2}
---- !u!114 &1141000000000008007
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1001000000000008001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0548a555ce034bd3bbb1b5fa02b67b93, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  enableWeaponWindupAura: 1
-  actionKind: 1
-  windupCue: 25
-  attachPointId: WeaponAura
 --- !u!114 &1141000000000008009
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -675,6 +675,7 @@ namespace Game.Feature.UI.Tests
                 GetPublicPropertyNames(typeof(ScreenPrefabCatalog)),
                 Is.EqualTo(new[]
                 {
+                    "GameClearPrefab",
                     "LevelFailedPrefab",
                     "ObjectiveStatusPrefab",
                     "SettingsPrefab",
@@ -980,6 +981,7 @@ namespace Game.Feature.UI.Tests
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
+                typeof(GameClearScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
             };
@@ -1017,6 +1019,7 @@ namespace Game.Feature.UI.Tests
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
+                typeof(GameClearScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
             };
@@ -1040,6 +1043,7 @@ namespace Game.Feature.UI.Tests
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
+                typeof(GameClearScreenView),
                 typeof(SettingsAudioView),
                 typeof(SettingsDisplayView),
             };

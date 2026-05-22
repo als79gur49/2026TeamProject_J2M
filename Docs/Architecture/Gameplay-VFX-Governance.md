@@ -1271,7 +1271,6 @@ TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, t
 | `EnableGameplayVfxFlipImpactStayTrail` | `BoxVfxCue.FlipImpactStayTrail` | Augmentation / MotionTrack-attached VFX | True | Tier 1 | Yes | targeted MotionTrack-following tests + visual spot check |
 | `EnableGameplayVfxGlideWindTrail` | `EnemyVfxCue.GlideWindTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxChargeBoosterTrail` | `EnemyVfxCue.ChargeBoosterTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
-| `EnableGameplayVfxEnemyWeaponWindupAura` | `EnemyVfxCue.WeaponWindupAura` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxEnemyUtilityCooldownAura` | `EnemyVfxCue.UtilityCooldownAura` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxTileFeatureLane` | `TileFeatureVfxCue.*` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
 | `EnableGameplayVfxGravityFieldEvents` | `GravityFieldVfxCue.ChargeStarted / GravityFieldVfxCue.ActiveStarted` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |

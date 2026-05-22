@@ -96,6 +96,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void WindupForwardCellProjectile_Range4_LocksPlayerForwardCell()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(
+                attackRange: 4,
+                impactDelayTicksPerCell: 24);
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 4, 0));
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+
+                var action = GetEnemyActionState(worldState);
+                Assert.That(action.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+                Assert.That(action.hasLockedForwardCellImpact, Is.True);
+                Assert.That(action.lockedAttackBaseCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(action.lockedAttackDirection, Is.EqualTo(Direction.Right));
+                Assert.That(action.lockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WindupForwardCellProjectile_Range4_RejectsDiagonalTarget()
+        {
+            var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 2, 2));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(EnemyId, out var enemy), Is.True);
+            Assert.That(snapshot.TryGetEntity(PlayerId, out var player), Is.True);
+
+            var settings = new WindupForwardCellProjectileSettings(
+                WindupMeleeSettings.DefaultVisualRangeSlackCells,
+                impactDelayTicks: 24,
+                damage: 1,
+                activePendingImpactLimitPerOwner: 1,
+                impactDelayTicksPerCell: 24);
+
+            var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                snapshot,
+                enemy,
+                player,
+                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
+                new AttackDecisionSettings(4),
+                settings,
+                out _);
+
+            Assert.That(result.CanStart, Is.False);
+            Assert.That(result.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.InvalidForwardTargetCell));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void WindupForwardCellProjectile_WindupEmitsProjectileWindupSignal()
         {
             var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
@@ -177,6 +233,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(releaseSignal.ReleaseTick, Is.EqualTo(releaseTickIndex));
                 Assert.That(releaseSignal.ImpactTick, Is.EqualTo(releaseTickIndex + 1));
                 Assert.That(releaseSignal.ImpactDelayTicks, Is.EqualTo(1));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WindupForwardCellProjectile_Range4_ReleaseSchedulesDistanceBasedImpact()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(
+                attackRange: 4,
+                impactDelayTicksPerCell: 24);
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 4, 0));
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                var releaseTickIndex = Math.Max(2, GetEnemyActionState(worldState).executeTick);
+                var releaseTick = pipeline.RunTick(new TickInput(releaseTickIndex));
+
+                var releaseSignal = releaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single();
+                Assert.That(releaseSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(releaseSignal.TargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
+                Assert.That(releaseSignal.ReleaseTick, Is.EqualTo(releaseTickIndex));
+                Assert.That(releaseSignal.ImpactTick, Is.EqualTo(releaseTickIndex + 96));
+                Assert.That(releaseSignal.ImpactDelayTicks, Is.EqualTo(96));
+                Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.EqualTo(1));
             }
             finally
             {

@@ -297,6 +297,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var settings = _combatCapability.WindupForwardCellProjectileSettings;
+            var impactDelayTicks = ResolveForwardCellProjectileImpactDelayTicks(action, settings);
             var impact = new PendingCellImpact(
                 AllocatePendingCellImpactId(_entityId, action.sequence),
                 _entityId,
@@ -306,7 +307,7 @@ namespace Game.Feature.Gameplay.Entities
                 settings.Damage,
                 tickIndex,
                 tickIndex,
-                tickIndex + settings.ImpactDelayTicks);
+                tickIndex + impactDelayTicks);
 
             writeContext.AddPendingCellImpact(impact);
             if (settings.AttackCooldownTicks > 0)
@@ -324,6 +325,20 @@ namespace Game.Feature.Gameplay.Entities
         private static int AllocatePendingCellImpactId(int ownerId, int actionSequence)
         {
             return checked((ownerId * 100000) + Math.Max(1, actionSequence));
+        }
+
+        private static int ResolveForwardCellProjectileImpactDelayTicks(
+            in EnemyActionRuntimeState action,
+            in WindupForwardCellProjectileSettings settings)
+        {
+            if (action.lockedAttackBaseCell.face != action.lockedTargetCell.face)
+            {
+                return settings.ImpactDelayTicks;
+            }
+
+            var distanceCells = Math.Abs(action.lockedTargetCell.x - action.lockedAttackBaseCell.x) +
+                                Math.Abs(action.lockedTargetCell.y - action.lockedAttackBaseCell.y);
+            return settings.ResolveImpactDelayTicks(distanceCells);
         }
 
         private static EnemyActionRuntimeState CommitAfterAttack(

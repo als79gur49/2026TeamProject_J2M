@@ -99,6 +99,9 @@ namespace Game.Feature.UI.Composition
                 case ScreenId.LevelFailed:
                     return CreateLevelFailedRuntime();
 
+                case ScreenId.GameClear:
+                    return CreateGameClearRuntime();
+
                 default:
                     throw new InvalidOperationException($"Unsupported screen id: {request.ScreenId}");
             }
@@ -202,6 +205,23 @@ namespace Game.Feature.UI.Composition
                     HudShellMode.Hidden,
                     blocksUiGameplayInput: true),
                 new LevelFailedRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
+        }
+
+        private ScreenRuntimeFactoryResult CreateGameClearRuntime()
+        {
+            var presenter = new GameClearScreenPresenter();
+            var view = InstantiateScreenPrefab(_screenPrefabCatalog.GameClearPrefab, ScreenId.GameClear);
+            view.Bind(presenter.ViewModel);
+            view.SetIsCurrent(false);
+
+            return new ScreenRuntimeFactoryResult(
+                new ScreenPolicy(
+                    ScreenPolicyClass.TerminalResult,
+                    ScreenRetentionMode.DisposeOnHide,
+                    ScreenBackAction.Consume,
+                    HudShellMode.Hidden,
+                    blocksUiGameplayInput: true),
+                new GameClearRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private TView InstantiateScreenPrefab<TView>(TView prefab, ScreenId screenId)
@@ -765,6 +785,40 @@ namespace Game.Feature.UI.Composition
 
                 PlayLocalCue(UiAudioCueId.StageLaunch);
                 RaiseAction(ScreenAction.LaunchStage(_payload.RestartLevelRequest));
+            }
+
+            private void HandleMainRequested()
+            {
+                PlayLocalCue(UiAudioCueId.Select);
+                RaiseAction(ScreenAction.ReturnToMainMenu());
+            }
+        }
+
+        private sealed class GameClearRuntime : ScreenRuntimeBase<GameClearScreenView>
+        {
+            private readonly GameClearScreenPresenter _presenter;
+
+            public GameClearRuntime(
+                GameClearScreenView view,
+                GameClearScreenPresenter presenter,
+                IUiAudioPort uiAudioPort,
+                Action dispose)
+                : base(view, uiAudioPort, dispose)
+            {
+                _presenter = presenter;
+                view.MainRequested += HandleMainRequested;
+            }
+
+            public override void ApplyPayload(IScreenPayload payload)
+            {
+                _presenter.Apply(ExpectPayload<GameClearScreenPayload>(payload));
+            }
+
+            public override void Dispose()
+            {
+                View.MainRequested -= HandleMainRequested;
+                View.Bind(null);
+                base.Dispose();
             }
 
             private void HandleMainRequested()

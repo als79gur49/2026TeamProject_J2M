@@ -11,8 +11,10 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _previousContinuousEntityIds = new();
         private readonly HashSet<LockedTargetPair> _currentLockedTargetPairs = new();
         private readonly HashSet<LockedTargetPair> _previousLockedTargetPairs = new();
+        private readonly HashSet<IGravityFieldLockedTargetRevealVisualTarget> _lockedTargetRevealTargets = new();
         private readonly List<int> _previousContinuousEntityIdBuffer = new();
         private readonly List<LockedTargetPair> _previousLockedTargetPairBuffer = new();
+        private readonly List<IGravityFieldLockedTargetRevealVisualTarget> _lockedTargetRevealTargetBuffer = new();
         private Action<string> _diagnosticSink;
         private GameplayEntityViewRegistry _targetViewRegistry;
 
@@ -127,6 +129,36 @@ namespace Game.Feature.Gameplay.Host
         public void ClearTrackedContinuousStates()
         {
             RefreshContinuousStates(Array.Empty<GravityFieldVisualState>());
+            ResetTrackedLockedTargetReveals();
+        }
+
+        public void UpdatePresentation(float deltaTime)
+        {
+            if (_lockedTargetRevealTargets.Count == 0)
+            {
+                return;
+            }
+
+            _lockedTargetRevealTargetBuffer.Clear();
+            foreach (var target in _lockedTargetRevealTargets)
+            {
+                _lockedTargetRevealTargetBuffer.Add(target);
+            }
+
+            for (var i = 0; i < _lockedTargetRevealTargetBuffer.Count; i++)
+            {
+                var target = _lockedTargetRevealTargetBuffer[i];
+                if (IsMissingRevealTarget(target))
+                {
+                    _lockedTargetRevealTargets.Remove(target);
+                    continue;
+                }
+
+                if (!target.UpdateGravityFieldLockedTargetReveal(deltaTime))
+                {
+                    _lockedTargetRevealTargets.Remove(target);
+                }
+            }
         }
 
         private void PlayRequest(GravityFieldPresentationRequest request)
@@ -264,6 +296,7 @@ namespace Game.Feature.Gameplay.Host
             if (target != null)
             {
                 target.ApplyGravityFieldLockedTarget(pair.EmitterEntityId);
+                TrackLockedTargetRevealTarget(view);
                 return;
             }
 
@@ -282,6 +315,7 @@ namespace Game.Feature.Gameplay.Host
             if (target != null)
             {
                 target.ClearGravityFieldLockedTarget(pair.EmitterEntityId);
+                TrackLockedTargetRevealTarget(view);
                 return;
             }
 
@@ -303,6 +337,50 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return true;
+        }
+
+        private void TrackLockedTargetRevealTarget(GameplayEntityView view)
+        {
+            var target = view.GetComponent<IGravityFieldLockedTargetRevealVisualTarget>();
+            if (target != null)
+            {
+                _lockedTargetRevealTargets.Add(target);
+            }
+        }
+
+        private void ResetTrackedLockedTargetReveals()
+        {
+            if (_lockedTargetRevealTargets.Count == 0)
+            {
+                return;
+            }
+
+            _lockedTargetRevealTargetBuffer.Clear();
+            foreach (var target in _lockedTargetRevealTargets)
+            {
+                _lockedTargetRevealTargetBuffer.Add(target);
+            }
+
+            for (var i = 0; i < _lockedTargetRevealTargetBuffer.Count; i++)
+            {
+                var target = _lockedTargetRevealTargetBuffer[i];
+                if (!IsMissingRevealTarget(target))
+                {
+                    target.ResetGravityFieldLockedTargetReveal();
+                }
+            }
+
+            _lockedTargetRevealTargets.Clear();
+        }
+
+        private static bool IsMissingRevealTarget(IGravityFieldLockedTargetRevealVisualTarget target)
+        {
+            if (target == null)
+            {
+                return true;
+            }
+
+            return target is UnityEngine.Object unityObject && unityObject == null;
         }
 
         private bool TryGetActiveView(int entityId, string purpose, out GameplayEntityView view)

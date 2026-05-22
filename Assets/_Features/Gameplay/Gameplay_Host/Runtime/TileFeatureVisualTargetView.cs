@@ -342,14 +342,8 @@ namespace Game.Feature.Gameplay.Host
         public void PlayExitOpened()
         {
             _debugPlayExitOpenedCount++;
-            SetExitOpenImmediate(true);
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(exitOpenedTriggerName))
-            {
-                animator.SetTrigger(Animator.StringToHash(exitOpenedTriggerName));
-            }
+            SetExitOpenFlag(true);
+            SetAnimatorTrigger(exitOpenedTriggerName);
 
             if (exitOpenedParticles != null)
             {
@@ -361,8 +355,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void SetExitOpenImmediate(bool open)
         {
-            _debugExitOpen = open;
-            SetAnimatorBool(exitOpenBoolName, open);
+            SetExitOpenFlag(open);
             PlayAnimatorStateIfPresent(open ? exitOpenedStateName : exitClosedStateName);
         }
 
@@ -489,6 +482,12 @@ namespace Game.Feature.Gameplay.Host
             {
                 animator.SetBool(hash, value);
             }
+        }
+
+        private void SetExitOpenFlag(bool open)
+        {
+            _debugExitOpen = open;
+            SetAnimatorBool(exitOpenBoolName, open);
         }
 
         private void PlayAnimatorStateIfPresent(string stateName)

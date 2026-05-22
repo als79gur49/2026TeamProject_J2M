@@ -8,5 +8,6 @@ namespace Game.Feature.UI.Flow
         Settings = 5,
         StageResult = 6,
         LevelFailed = 7,
+        GameClear = 8,
     }
 }
