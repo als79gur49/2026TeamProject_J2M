@@ -268,10 +268,15 @@ namespace Game.Feature.Gameplay.Loop
             IDictionary<int, BoxInteractionLockState> plannedLocksByBoxEntityId,
             GravityFieldLockedBoxOneShotState lockedBoxOneShotState)
         {
-            if (!IsEligibleEmitter(snapshot, emitter))
+            if (!IsStructurallyValidEmitter(snapshot, emitter))
             {
                 lockedBoxOneShotState?.EndActiveWindow(emitter.entityId);
                 SetEmitterStateIfChanged(batch, eventLogEntries, emitter, GravityFieldPhase.Charging, chargeTicks);
+                return;
+            }
+
+            if (!IsEmitterOnBottomFace(snapshot, emitter))
+            {
                 return;
             }
 
@@ -344,7 +349,7 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static bool IsEligibleEmitter(WorldSnapshot snapshot, in EntityState entity)
+        private static bool IsStructurallyValidEmitter(WorldSnapshot snapshot, in EntityState entity)
         {
             return entity.type == EntityType.Box &&
                    entity.boxArchetype == BoxArchetype.GravityField &&
@@ -352,8 +357,12 @@ namespace Game.Feature.Gameplay.Loop
                    entity.hp > 0 &&
                    !entity.markedForDeath &&
                    entity.state != EntityPhaseState.Sliding &&
-                   !HasActivePhasedState(snapshot, entity.entityId) &&
-                   entity.position.face == snapshot.Topology.BottomFace;
+                   !HasActivePhasedState(snapshot, entity.entityId);
+        }
+
+        private static bool IsEmitterOnBottomFace(WorldSnapshot snapshot, in EntityState entity)
+        {
+            return entity.position.face == snapshot.Topology.BottomFace;
         }
 
         private static void ApplyActiveField(
