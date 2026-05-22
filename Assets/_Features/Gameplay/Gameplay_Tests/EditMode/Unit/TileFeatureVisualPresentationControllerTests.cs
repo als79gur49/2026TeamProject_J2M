@@ -424,6 +424,104 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ExitVisualState_WithVisibilityGate_DoesNotSyncOpenImmediate()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingExitOpenStateTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(10);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 100,
+                actionPlanId: 77,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+
+            controller.RefreshContinuousStates(new[]
+            {
+                new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Exit,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0,
+                    visibilityGate: new PresentationVisibilityGate(timingAnchor, barrierKey)),
+            });
+
+            Assert.That(target.ImmediateSyncCount, Is.Zero);
+            Assert.That(target.OpenedPlayCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DelayedExitOpenedRequest_BlocksImmediateOpenSyncUntilRequestPlays()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingExitOpenStateTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
+            var barrierKey = PresentationBarrierKey.ButtonActivated(10);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 100,
+                actionPlanId: 77,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
+            var gatedOpenState = new TileFeatureVisualState(
+                100,
+                cell,
+                TileFeatureKind.Exit,
+                isActive: true,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                visibilityGate: new PresentationVisibilityGate(timingAnchor, barrierKey));
+            var ungatedOpenState = new TileFeatureVisualState(
+                100,
+                cell,
+                TileFeatureKind.Exit,
+                isActive: true,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0);
+            var request = new TilePresentationRequest(
+                TilePresentationRequestKind.ExitOpened,
+                100,
+                cell,
+                TileFeatureKind.Exit,
+                sourceEntityId: 20,
+                ownerEntityId: 0,
+                teamId: 1,
+                timingAnchor: timingAnchor,
+                barrierKey: barrierKey);
+            var delaySeconds = GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                               GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
+
+            controller.PlayRequests(new[] { request });
+            controller.RefreshContinuousStates(new[] { gatedOpenState });
+            controller.Update(delaySeconds - 0.001f);
+
+            Assert.That(target.ImmediateSyncCount, Is.Zero);
+            Assert.That(target.OpenedPlayCount, Is.Zero);
+
+            controller.Update(0.001f);
+            controller.RefreshContinuousStates(new[] { ungatedOpenState });
+
+            Assert.That(target.OpenedPlayCount, Is.EqualTo(1));
+            Assert.That(target.ImmediateSyncCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void DestroyTileVisualState_WithSupportedTargetView_SyncsActiveStateImmediate()
         {
             var rootObject = new GameObject(nameof(DestroyTileVisualState_WithSupportedTargetView_SyncsActiveStateImmediate));

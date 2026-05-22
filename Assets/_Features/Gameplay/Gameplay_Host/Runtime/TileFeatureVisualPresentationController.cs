@@ -168,8 +168,14 @@ namespace Game.Feature.Gameplay.Host
                     if (target is IExitOpenStateVisualTarget exitTarget)
                     {
                         if (visualState.IsActive &&
-                            _exitOpenImmediateSyncDeferredTileIds.Contains(visualState.TileId))
+                            (visualState.VisibilityGate.HasGate ||
+                             _exitOpenImmediateSyncDeferredTileIds.Contains(visualState.TileId)))
                         {
+                            if (visualState.VisibilityGate.HasGate)
+                            {
+                                _exitOpenImmediateSyncDeferredTileIds.Add(visualState.TileId);
+                            }
+
                             return;
                         }
 
