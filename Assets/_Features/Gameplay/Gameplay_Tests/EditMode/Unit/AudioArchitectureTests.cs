@@ -515,6 +515,121 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayAudioRequestPlanner_EntityExitBoxDestroy_AfterEntityMotion_UsesEntityMotionDurationDelay()
+        {
+            var planner = new GameplayAudioRequestPlanner();
+            var timingProfile = CreateTimingProfile(flipMotionDurationSeconds: 0.73f);
+            var exitedEntityId = 30;
+            var result = CreateTickResult(CreatePresentationData(
+                entityMotions: new[]
+                {
+                    new TickEntityMotion(
+                        exitedEntityId,
+                        TickEntityMotionKind.Flip,
+                        new SurfaceCell(FaceId.Floor, -1, 0),
+                        new SurfaceCell(FaceId.Floor, 1, 0)),
+                },
+                entityExitSignals: new[]
+                {
+                    CreateExitSignal(
+                        exitedEntityId,
+                        TickEntityExitCause.BoxDestroy,
+                        EntityType.Box,
+                        EntityExitPresentationTiming.AfterEntityMotion),
+                }));
+
+            var requests = planner.BuildRequests(result, timingProfile);
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].SemanticId, Is.EqualTo(GameplayAudioSemanticId.EntityExitBoxDestroy));
+            Assert.That(requests[0].DelaySeconds, Is.GreaterThan(0f));
+            Assert.That(requests[0].DelaySeconds, Is.EqualTo(timingProfile.FlipMotionDurationSeconds).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayAudioRequestPlanner_EntityExitBoxDestroy_AfterEntityMotion_NoMotion_FallsBackImmediate()
+        {
+            var planner = new GameplayAudioRequestPlanner();
+            var exitedEntityId = 30;
+            var result = CreateTickResult(CreatePresentationData(
+                entityExitSignals: new[]
+                {
+                    CreateExitSignal(
+                        exitedEntityId,
+                        TickEntityExitCause.BoxDestroy,
+                        EntityType.Box,
+                        EntityExitPresentationTiming.AfterEntityMotion),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].SemanticId, Is.EqualTo(GameplayAudioSemanticId.EntityExitBoxDestroy));
+            Assert.That(requests[0].DelaySeconds, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayAudioRequestPlanner_EntityExitEnemyDeath_AtContactTime_KeepsExistingContactDelay()
+        {
+            var planner = new GameplayAudioRequestPlanner();
+            var timingProfile = CreateTimingProfile(flipMotionDurationSeconds: 0.8f);
+            var contactNormalizedTime = 0.35f;
+            var result = CreateTickResult(CreatePresentationData(
+                entityExitSignals: new[]
+                {
+                    CreateExitSignal(
+                        40,
+                        TickEntityExitCause.EnemyDeath,
+                        EntityType.Unit,
+                        EntityExitPresentationTiming.AtContactTime,
+                        contactNormalizedTime),
+                }));
+
+            var requests = planner.BuildRequests(result, timingProfile);
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].SemanticId, Is.EqualTo(GameplayAudioSemanticId.EntityExitEnemyDeath));
+            Assert.That(
+                requests[0].DelaySeconds,
+                Is.EqualTo(timingProfile.FlipMotionDurationSeconds * contactNormalizedTime).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayAudioRequestPlanner_NonBoxDestroy_AfterEntityMotion_RemainsExistingTiming()
+        {
+            var planner = new GameplayAudioRequestPlanner();
+            var timingProfile = CreateTimingProfile(flipMotionDurationSeconds: 0.73f);
+            var exitedEntityId = 50;
+            var result = CreateTickResult(CreatePresentationData(
+                entityMotions: new[]
+                {
+                    new TickEntityMotion(
+                        exitedEntityId,
+                        TickEntityMotionKind.Flip,
+                        new SurfaceCell(FaceId.Floor, -1, 0),
+                        new SurfaceCell(FaceId.Floor, 1, 0)),
+                },
+                entityExitSignals: new[]
+                {
+                    CreateExitSignal(
+                        exitedEntityId,
+                        TickEntityExitCause.ItemConsume,
+                        EntityType.Box,
+                        EntityExitPresentationTiming.AfterEntityMotion),
+                }));
+
+            var requests = planner.BuildRequests(result, timingProfile);
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].SemanticId, Is.EqualTo(GameplayAudioSemanticId.EntityExitItemConsume));
+            Assert.That(requests[0].DelaySeconds, Is.Zero);
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayAudioRequestPlanner_IsPure_AndRuntimeAgnostic()
         {
@@ -730,13 +845,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static TickPresentationData CreatePresentationData(
+            TickEntityMotion[] entityMotions = null,
             TickPlayerDamagePresentationSignal[] playerDamageSignals = null,
             TickPlayerDeathPresentationSignal[] playerDeathSignals = null,
             TickEnemyDamagePresentationSignal[] enemyDamageSignals = null,
             TickEntityExitPresentationSignal[] entityExitSignals = null)
         {
             return new TickPresentationData(
-                Array.Empty<TickEntityMotion>(),
+                entityMotions ?? Array.Empty<TickEntityMotion>(),
                 topologyMotion: null,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
@@ -748,6 +864,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
                 entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>());
+        }
+
+        private static TickEntityExitPresentationSignal CreateExitSignal(
+            int entityId,
+            TickEntityExitCause exitCause,
+            EntityType entityType,
+            EntityExitPresentationTiming timing,
+            float visualContactNormalizedTime = 0f)
+        {
+            return new TickEntityExitPresentationSignal(
+                entityId,
+                exitCause,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new CubeTopologyState(FaceId.Floor),
+                Direction.Up,
+                entityType,
+                timing: timing,
+                visualContactNormalizedTime: visualContactNormalizedTime);
+        }
+
+        private static GameplayTimingProfile CreateTimingProfile(float flipMotionDurationSeconds)
+        {
+            return new GameplayTimingProfile(
+                simulationTicksPerSecond: GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                initialMoveDelaySeconds: GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
+                repeatedMoveIntervalSeconds: GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
+                boxSlideStepIntervalSeconds: GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds,
+                projectileStepIntervalSeconds: GameplayTimingProfile.DefaultProjectileStepIntervalSeconds,
+                moveMotionDurationSeconds: GameplayTimingProfile.DefaultMoveMotionDurationSeconds,
+                pushMotionDurationSeconds: GameplayTimingProfile.DefaultPushMotionDurationSeconds,
+                topologyMotionDurationSeconds: GameplayTimingProfile.DefaultTopologyMotionDurationSeconds,
+                flipMotionDurationSeconds: flipMotionDurationSeconds,
+                flipArcHeightInCells: GameplayTimingProfile.DefaultFlipArcHeightInCells,
+                maxTicksPerFrame: GameplayTimingProfile.DefaultMaxTicksPerFrame);
         }
 
         private static TickPlayerDeathPresentationSignal CreatePlayerDeathSignal(int entityId)
