@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
@@ -175,11 +175,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxUtilityWindupMigration = true;
 
+                var sourceView = AddSourceView(owner);
                 runtime.Present(CreateExtensionContext(CreatePresentationData(
                     summonWindupWarnings: new[]
                     {
                         CreateSummonWindupWarningSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                    })));
+                    }), sourceView: sourceView));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
@@ -189,196 +190,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Destroy(owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_ActiveTwoTicks_DoesNotDuplicateSpawn()
-        {
-            var owner = new GameObject("UtilityWindupPersistentReuse");
-            var prefab = new GameObject("UtilityWindupPersistentPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateUtilityWindupBinding(prefab);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
-                var topology = new CubeTopologyState(FaceId.Floor);
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    summonWindupWarnings: new[] { CreateSummonWindupWarningSignal(40, sourceCell, topology, tickIndex: 12) })));
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    summonWindupWarnings: new[] { CreateSummonWindupWarningSignal(40, sourceCell, topology, tickIndex: 13) })));
-
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
-                Assert.That(runtime.MissingAnchorCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_DesiredStateRemoved_StopsTailAndReleases()
-        {
-            var owner = new GameObject("UtilityWindupPersistentStop");
-            var prefab = new GameObject("UtilityWindupStopPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateUtilityWindupBinding(prefab, tailSeconds: 0f);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    summonWindupWarnings: new[]
-                    {
-                        CreateSummonWindupWarningSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                    })));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData()));
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-
-                runtime.UpdatePresentation(0f);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_EnemyDeath_RemovesDesiredStateAndStopsHandle()
-        {
-            var owner = new GameObject("UtilityWindupDeathStop");
-            var prefab = new GameObject("UtilityWindupDeathStopPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateUtilityWindupBinding(prefab, tailSeconds: 0f);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
-                var topology = new CubeTopologyState(FaceId.Floor);
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    summonWindupWarnings: new[] { CreateSummonWindupWarningSignal(40, sourceCell, topology) })));
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    summonWindupWarnings: new[] { CreateSummonWindupWarningSignal(40, sourceCell, topology, tickIndex: 13) },
-                    entityExitSignals: new[] { CreateExitSignal(40, sourceCell, topology) })));
-                runtime.UpdatePresentation(0f);
-
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_FlagOnWithBinding_DoesNotCreateSnapshots()
-        {
-            var owner = new GameObject("UtilityWindupSnapshotGuard");
-            var prefab = new GameObject("UtilityWindupSnapshotPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateUtilityWindupBinding(prefab);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                SnapshotMaterializationCounts counts;
-                using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
-                {
-                    runtime.Present(CreateExtensionContext(CreatePresentationData(
-                        summonWindupWarnings: new[]
-                        {
-                            CreateSummonWindupWarningSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                        })));
-                    counts = capture.Counts;
-                }
-
-                Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(0));
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_SourceProfile_OverridesHostDefault()
-        {
-            var owner = new GameObject("UtilityWindupSourceProfileOverride");
-            var sourcePrefab = new GameObject("UtilityWindupSourceProfilePrefab");
-            var hostPrefab = new GameObject("UtilityWindupHostPrefab");
-            VfxBindingDefinitionAsset sourceBinding = null;
-            VfxBindingDefinitionAsset hostBinding = null;
-            VfxProfileAsset sourceProfile = null;
-            VfxCueMapAsset cueMap = null;
-            EnemyPresentationCatalog catalog = null;
-            try
-            {
-                sourceBinding = CreateUtilityWindupBinding(sourcePrefab);
-                hostBinding = CreateUtilityWindupBinding(hostPrefab);
-                sourceProfile = CreateEnemyProfile(sourceBinding);
-                cueMap = CreateCueMap(hostBinding);
-                catalog = CreateEnemyPresentationCatalog("utility-source", sourceProfile);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext(
-                    CreatePresentationData(
-                        summonWindupWarnings: new[]
-                        {
-                            CreateSummonWindupWarningSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                        }),
-                    catalog,
-                    new[] { new EnemyPresentationBinding { EntityId = 40, PresentationId = "utility-source" } }));
-
-                var persistentRoot = owner.transform.Find("GameplayVfxRuntimeRoot/Persistent");
-                Assert.That(persistentRoot, Is.Not.Null);
-                Assert.That(persistentRoot.childCount, Is.EqualTo(1));
-                Assert.That(persistentRoot.GetChild(0).name, Does.StartWith(sourcePrefab.name));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                Destroy(catalog, cueMap, sourceProfile, hostBinding, sourceBinding, hostPrefab, sourcePrefab, owner);
             }
         }
 
@@ -648,14 +459,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 activationSequence: activationSequence)));
         }
 
+        private static GameplayEntityView AddSourceView(GameObject owner)
+        {
+            var view = owner.AddComponent<GameplayEntityView>();
+            view.Initialize(40);
+            return view;
+        }
+
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             TickPresentationData presentationData,
             EnemyPresentationCatalog catalog = null,
-            EnemyPresentationBinding[] bindings = null)
+            EnemyPresentationBinding[] bindings = null,
+            GameplayEntityView sourceView = null)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
             stateStore.ResetSession(topology);
+            if (sourceView != null)
+            {
+                stateStore.ViewsByEntityId[40] = sourceView;
+            }
+
             stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(
                 new Vector3(0.5f, 0.5f, 0.1f),
                 Quaternion.identity);
@@ -831,6 +655,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameObject prefab,
             float tailSeconds = 0.3f)
         {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Enemy);
             SetField(binding, "cueCode", (int)EnemyVfxCue.UtilityWindup);

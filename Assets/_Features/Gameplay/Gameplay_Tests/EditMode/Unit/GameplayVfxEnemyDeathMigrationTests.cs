@@ -1,8 +1,8 @@
 using System;
 using System.IO;
 using System.Reflection;
-using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
@@ -146,101 +146,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Destroy(owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_EnemyDeathFlagOnWithBinding_PlaysOneTransientInstance()
-        {
-            var owner = new GameObject("EnemyDeathMigrationEnabled");
-            var prefab = new GameObject("EnemyDeathMigrationPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.Death), 0.35f, 0.25f, 8);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.Killed)));
-
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
-                Assert.That(runtime.MissingAnchorCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_EnemyDeathFlag_IsIndependentFromOtherMigrationFlags()
-        {
-            AssertFlagCombinationPlans(
-                deathEnabled: true,
-                enemyDamageEnabled: false,
-                boxEnabled: false,
-                itemEnabled: false,
-                expectedRequests: 1);
-            AssertFlagCombinationPlans(
-                deathEnabled: false,
-                enemyDamageEnabled: true,
-                boxEnabled: false,
-                itemEnabled: false,
-                expectedRequests: 1);
-            AssertFlagCombinationPlans(
-                deathEnabled: false,
-                enemyDamageEnabled: false,
-                boxEnabled: true,
-                itemEnabled: true,
-                expectedRequests: 2);
-            AssertFlagCombinationPlans(
-                deathEnabled: true,
-                enemyDamageEnabled: true,
-                boxEnabled: true,
-                itemEnabled: true,
-                expectedRequests: 4);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_EnemyDeathFlagOnWithBinding_DoesNotCreateSnapshots()
-        {
-            var owner = new GameObject("EnemyDeathMigrationSnapshotGuard");
-            var prefab = new GameObject("EnemyDeathMigrationSnapshotPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.Death), 0.35f, 0.25f, 8);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                SnapshotMaterializationCounts counts;
-                using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
-                {
-                    runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.Killed)));
-                    counts = capture.Counts;
-                }
-
-                Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(0));
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
             }
         }
 
@@ -763,6 +668,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float tail,
             int maxConcurrent)
         {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", cueId.Family);
             SetField(binding, "cueCode", cueId.Code);

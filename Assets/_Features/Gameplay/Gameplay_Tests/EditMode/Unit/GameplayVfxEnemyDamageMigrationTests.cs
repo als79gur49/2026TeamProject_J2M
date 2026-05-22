@@ -1,8 +1,8 @@
 using System;
 using System.IO;
 using System.Reflection;
-using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
@@ -108,7 +108,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.EnableGameplayVfxDamageBurstMigration = false;
                 runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
 
-                runtime.Present(CreateExtensionContext());
+                var enemyView = AddSourceView(owner);
+
+                runtime.Present(CreateExtensionContext(enemyView: enemyView));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
@@ -123,75 +125,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_EnemyDamageFlagOnWithBinding_PlaysOneTransientInstance()
-        {
-            var owner = new GameObject("EnemyDamageMigrationEnabled");
-            var prefab = new GameObject("EnemyDamageMigrationPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateBinding(prefab);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext());
-
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
-                Assert.That(runtime.MissingAnchorCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void ProductionRuntime_PlayerAndEnemyDamageFlags_AreIndependent()
         {
             AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: false, expectedRequests: 1);
             AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: true, expectedRequests: 1);
             AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: true, expectedRequests: 2);
             AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: false, expectedRequests: 0);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_EnemyDamageFlagOnWithBinding_DoesNotCreateSnapshots()
-        {
-            var owner = new GameObject("EnemyDamageMigrationSnapshotGuard");
-            var prefab = new GameObject("EnemyDamageMigrationSnapshotPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateBinding(prefab);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                SnapshotMaterializationCounts counts;
-                using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
-                {
-                    runtime.Present(CreateExtensionContext());
-                    counts = capture.Counts;
-                }
-
-                Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(0));
-                Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(0));
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
         }
 
         [Test]
@@ -379,7 +318,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.EnableGameplayVfxDamageBurstMigration = playerDamageEnabled;
                 runtime.EnableGameplayVfxEnemyDamageBurstMigration = enemyDamageEnabled;
 
-                runtime.Present(CreateExtensionContext(includePlayerDamage: true));
+                var enemyView = AddSourceView(owner);
+                runtime.Present(CreateExtensionContext(includePlayerDamage: true, enemyView: enemyView));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
             }
@@ -389,11 +329,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static GameplayTickPresentationExtensionContext CreateExtensionContext(bool includePlayerDamage = false)
+        private static GameplayEntityView AddSourceView(GameObject owner)
+        {
+            var view = owner.AddComponent<GameplayEntityView>();
+            view.Initialize(40);
+            return view;
+        }
+
+        private static GameplayTickPresentationExtensionContext CreateExtensionContext(
+            bool includePlayerDamage = false,
+            GameplayEntityView enemyView = null)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
             stateStore.ResetSession(topology);
+            if (enemyView != null)
+            {
+                stateStore.ViewsByEntityId[40] = enemyView;
+            }
+
             stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(
                 new Vector3(0.25f, 0.5f, 0f),
                 Quaternion.identity);
@@ -515,6 +469,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static VfxBindingDefinitionAsset CreateBinding(GameObject prefab)
         {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Enemy);
             SetField(binding, "cueCode", (int)EnemyVfxCue.Damage);

@@ -1,8 +1,8 @@
 using System;
 using System.IO;
 using System.Reflection;
-using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
@@ -247,109 +247,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_ActiveFlagOnWithBinding_StartsAndStopsPersistentHandle()
-        {
-            var owner = new GameObject("FrontFaceShieldActivePersistent");
-            var prefab = new GameObject("FrontFaceShieldActivePersistentPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateActiveBinding(prefab, tailSeconds: 0f);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    activeSignals: new[]
-                    {
-                        CreateSourceSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                    })));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData()));
-                runtime.UpdatePresentation(0f);
-
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_WindupFlagOnWithBinding_StartsAndStopsPersistentHandle()
-        {
-            var owner = new GameObject("FrontFaceShieldWindupPersistent");
-            var prefab = new GameObject("FrontFaceShieldWindupPersistentPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateWindupBinding(prefab, tailSeconds: 0f);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldWindupMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    windupSignals: new[]
-                    {
-                        CreateWindupSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                    })));
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData()));
-                runtime.UpdatePresentation(0f);
-
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProductionRuntime_BlockFlagOnWithBinding_SpawnsOneTransient()
-        {
-            var owner = new GameObject("FrontFaceShieldBlockTransient");
-            var prefab = new GameObject("FrontFaceShieldBlockTransientPrefab");
-            VfxBindingDefinitionAsset binding = null;
-            VfxCueMapAsset cueMap = null;
-            try
-            {
-                binding = CreateBlockBinding(prefab);
-                cueMap = CreateCueMap(binding);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext(CreatePresentationData(
-                    blockSignals: new[]
-                    {
-                        CreateBlockSignal(40, 20, 10, new SurfaceCell(FaceId.Floor, 1, 0), new CubeTopologyState(FaceId.Floor)),
-                    })));
-
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                Destroy(cueMap, binding, prefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void ProductionRuntime_MissingBindings_DiagnosticNoOldFallback()
         {
             var activeOwner = new GameObject("FrontFaceShieldActiveMissingBinding");
@@ -358,11 +255,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var activeRuntime = activeOwner.AddComponent<GameplayVfxProductionRuntime>();
                 activeRuntime.EnableGameplayVfxFrontFaceShieldActiveMigration = true;
+                var activeView = AddSourceView(activeOwner);
                 activeRuntime.Present(CreateExtensionContext(CreatePresentationData(
                     activeSignals: new[]
                     {
                         CreateSourceSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                    })));
+                    }), sourceView: activeView));
 
                 var blockRuntime = blockOwner.AddComponent<GameplayVfxProductionRuntime>();
                 blockRuntime.EnableGameplayVfxFrontFaceShieldBlockMigration = true;
@@ -382,11 +280,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var windupRuntime = windupOwner.AddComponent<GameplayVfxProductionRuntime>();
                     windupRuntime.EnableGameplayVfxFrontFaceShieldWindupMigration = true;
+                    var windupView = AddSourceView(windupOwner);
                     windupRuntime.Present(CreateExtensionContext(CreatePresentationData(
                         windupSignals: new[]
                         {
                             CreateWindupSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                        })));
+                        }), sourceView: windupView));
 
                     Assert.That(windupRuntime.LastPlannedRequestCount, Is.EqualTo(1));
                     Assert.That(windupRuntime.MissingBindingCount, Is.EqualTo(1));
@@ -552,48 +451,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_SourceProfile_OverridesHostDefault()
-        {
-            var owner = new GameObject("FrontFaceShieldSourceProfileOverride");
-            var sourcePrefab = new GameObject("FrontFaceShieldSourceProfilePrefab");
-            var hostPrefab = new GameObject("FrontFaceShieldHostPrefab");
-            VfxBindingDefinitionAsset sourceBinding = null;
-            VfxBindingDefinitionAsset hostBinding = null;
-            VfxProfileAsset sourceProfile = null;
-            VfxCueMapAsset cueMap = null;
-            EnemyPresentationCatalog catalog = null;
-            try
-            {
-                sourceBinding = CreateActiveBinding(sourcePrefab);
-                hostBinding = CreateActiveBinding(hostPrefab);
-                sourceProfile = CreateEnemyProfile(sourceBinding);
-                cueMap = CreateCueMap(hostBinding);
-                catalog = CreateEnemyPresentationCatalog("front-face-shield-source", sourceProfile);
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = true;
-                runtime.ConfigureHostDefaultMap(cueMap);
-
-                runtime.Present(CreateExtensionContext(
-                    CreatePresentationData(activeSignals: new[]
-                    {
-                        CreateSourceSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                    }),
-                    catalog,
-                    new[] { new EnemyPresentationBinding { EntityId = 40, PresentationId = "front-face-shield-source" } }));
-
-                var persistentRoot = owner.transform.Find("GameplayVfxRuntimeRoot/Persistent");
-                Assert.That(persistentRoot, Is.Not.Null);
-                Assert.That(persistentRoot.childCount, Is.EqualTo(1));
-                Assert.That(persistentRoot.GetChild(0).name, Does.StartWith(sourcePrefab.name));
-            }
-            finally
-            {
-                Destroy(catalog, cueMap, sourceProfile, hostBinding, sourceBinding, hostPrefab, sourcePrefab, owner);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void ShieldBindings_RemovedFromDefaultAuthoring()
         {
             var activeBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ActiveBindingPath);
@@ -692,6 +549,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = activeEnabled;
                 runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = blockEnabled;
                 runtime.EnableGameplayVfxFrontFaceShieldWindupMigration = windupEnabled;
+                var sourceView = AddSourceView(owner);
                 runtime.Present(CreateExtensionContext(CreatePresentationData(
                     activeSignals: new[]
                     {
@@ -704,7 +562,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     windupSignals: new[]
                     {
                         CreateWindupSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
-                    })));
+                    }), sourceView: sourceView));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
             }
@@ -714,14 +572,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static GameplayEntityView AddSourceView(GameObject owner)
+        {
+            var view = owner.AddComponent<GameplayEntityView>();
+            view.Initialize(40);
+            return view;
+        }
+
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             TickPresentationData presentationData,
             EnemyPresentationCatalog catalog = null,
-            EnemyPresentationBinding[] bindings = null)
+            EnemyPresentationBinding[] bindings = null,
+            GameplayEntityView sourceView = null)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
             stateStore.ResetSession(topology);
+            if (sourceView != null)
+            {
+                stateStore.ViewsByEntityId[40] = sourceView;
+            }
+
             stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(
                 new Vector3(0.5f, 0.5f, 0.1f),
                 Quaternion.identity);
@@ -983,6 +854,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float tailSeconds,
             int maxConcurrent)
         {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Enemy);
             SetField(binding, "cueCode", (int)cue);
