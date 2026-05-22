@@ -194,13 +194,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ImpactGeometryResolver_TrueCrossFaceImpact_Rejects()
         {
             var resolved = ImpactGeometryResolver.TryResolve(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 new SurfaceCell(FaceId.Floor, 0, 0),
-                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Front, 1, 0),
                 out _,
                 out var rejectReason);
 
             Assert.That(resolved, Is.False);
             Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.CrossFaceUnsupported));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ImpactGeometryResolver_BottomFrontSeamImpact_ComputesUpFacing()
+        {
+            var resolved = ImpactGeometryResolver.TryResolve(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                out var geometry,
+                out var rejectReason);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.None));
+            Assert.That(geometry.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(geometry.ImpactCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(geometry.MoveFacing, Is.EqualTo(Direction.Up));
+            Assert.That(geometry.IsFlipImpact, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ImpactGeometryResolver_FrontBottomSeamImpact_ComputesDownFacing()
+        {
+            var resolved = ImpactGeometryResolver.TryResolve(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                out var geometry,
+                out var rejectReason);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.None));
+            Assert.That(geometry.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(geometry.ImpactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(geometry.MoveFacing, Is.EqualTo(Direction.Down));
+            Assert.That(geometry.IsFlipImpact, Is.False);
         }
 
         [Test]

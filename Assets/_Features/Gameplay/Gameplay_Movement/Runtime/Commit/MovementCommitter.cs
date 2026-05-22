@@ -853,7 +853,12 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     $"Impact space resolution requires a valid impact source box. ImpactSource={group.ImpactSourceId}, Group={group.GroupId}, Intent={group.IntentId}");
             }
 
-            if (!ImpactGeometryResolver.TryResolve(impactSourceBox.position, impactReservation.ImpactCell, out var geometry))
+            if (!ImpactGeometryResolver.TryResolve(
+                    snapshot.Topology,
+                    snapshot.BoardBounds,
+                    impactSourceBox.position,
+                    impactReservation.ImpactCell,
+                    out var geometry))
             {
                 resolution = default;
                 return false;
@@ -1072,7 +1077,12 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         $"Impact group target no longer exists in the authoritative snapshot. Source={group.SourceId}, Intent={group.IntentId}, Target={impactTargetId}");
                 }
 
-                if (!ImpactGeometryResolver.TryResolve(source.position, target.position, out _))
+                if (!ImpactGeometryResolver.TryResolve(
+                        snapshot.Topology,
+                        snapshot.BoardBounds,
+                        source.position,
+                        target.position,
+                        out _))
                 {
                     continue;
                 }

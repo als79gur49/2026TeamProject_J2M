@@ -6645,6 +6645,8 @@ namespace Game.Feature.Gameplay.Loop
 
             var impactCell = FindImpactCell(snapshot, group);
             if (!ImpactGeometryResolver.TryResolve(
+                    snapshot.Topology,
+                    snapshot.BoardBounds,
                     impactSourceEntity.position,
                     impactCell,
                     out var geometry,

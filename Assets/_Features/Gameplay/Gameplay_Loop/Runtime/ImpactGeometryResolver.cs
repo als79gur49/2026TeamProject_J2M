@@ -69,6 +69,54 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
+            return TryResolveSameFace(sourceCell, impactCell, out geometry, out rejectReason);
+        }
+
+        public static bool TryResolve(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            out ImpactGeometry geometry)
+        {
+            return TryResolve(topology, boardBounds, sourceCell, impactCell, out geometry, out _);
+        }
+
+        public static bool TryResolve(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            out ImpactGeometry geometry,
+            out ImpactGeometryRejectReason rejectReason)
+        {
+            if (sourceCell.face == impactCell.face)
+            {
+                return TryResolveSameFace(sourceCell, impactCell, out geometry, out rejectReason);
+            }
+
+            if (TryResolveBottomFrontSeam(topology, boardBounds, sourceCell, impactCell, out var moveFacing))
+            {
+                geometry = new ImpactGeometry(
+                    sourceCell,
+                    impactCell,
+                    moveFacing,
+                    isFlipImpact: false);
+                rejectReason = ImpactGeometryRejectReason.None;
+                return true;
+            }
+
+            geometry = default;
+            rejectReason = ImpactGeometryRejectReason.CrossFaceUnsupported;
+            return false;
+        }
+
+        private static bool TryResolveSameFace(
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            out ImpactGeometry geometry,
+            out ImpactGeometryRejectReason rejectReason)
+        {
             var delta = impactCell - sourceCell;
             var moveFacing = ResolveMoveFacing(delta, sourceCell, impactCell);
             geometry = new ImpactGeometry(
@@ -78,6 +126,42 @@ namespace Game.Feature.Gameplay.Loop
                 isFlipImpact: Math.Abs(delta.x) + Math.Abs(delta.y) > 1);
             rejectReason = ImpactGeometryRejectReason.None;
             return true;
+        }
+
+        private static bool TryResolveBottomFrontSeam(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            out Direction moveFacing)
+        {
+            if (!boardBounds.IsBounded ||
+                sourceCell.x != impactCell.x)
+            {
+                moveFacing = Direction.None;
+                return false;
+            }
+
+            if (sourceCell.face == topology.BottomFace &&
+                impactCell.face == topology.FrontFace &&
+                sourceCell.y == boardBounds.MaxInclusive.y &&
+                impactCell.y == boardBounds.MinInclusive.y)
+            {
+                moveFacing = Direction.Up;
+                return true;
+            }
+
+            if (sourceCell.face == topology.FrontFace &&
+                impactCell.face == topology.BottomFace &&
+                sourceCell.y == boardBounds.MinInclusive.y &&
+                impactCell.y == boardBounds.MaxInclusive.y)
+            {
+                moveFacing = Direction.Down;
+                return true;
+            }
+
+            moveFacing = Direction.None;
+            return false;
         }
 
         private static Direction ResolveMoveFacing(

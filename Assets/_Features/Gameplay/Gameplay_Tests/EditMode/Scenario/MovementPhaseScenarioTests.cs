@@ -3504,6 +3504,125 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Full")]
+        public void Movement_PushSlideImpactOnBottomFrontSeam_KillsEnemy_FollowsThroughOntoFrontCell()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
+                    CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 1, teamId: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "ImpactReservationCreated",
+                    "Source=20",
+                    "Target=30",
+                    "At=Front(0,0)",
+                    "Damage=1",
+                    "Sequence=1"),
+                Is.True);
+            CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "BoardPresenceCommitted",
+                    "E=30",
+                    "Presence=Detached"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=20",
+                    "To=Front(0,0)",
+                    "Facing=Up"),
+                Is.True);
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 20 &&
+                              motion.MotionKind == TickEntityMotionKind.BoxSlide &&
+                              motion.SourceCell == new SurfaceCell(FaceId.Floor, 0, 1) &&
+                              motion.DestinationCell == new SurfaceCell(FaceId.Front, 0, 0)),
+                Is.True);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.PushLike));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void Movement_PushSlideImpactOnBottomFrontSeam_DamagesSurvivorAndDoesNotEnterFrontCell()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
+                    CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, teamId: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "ImpactReservationCreated",
+                    "Source=20",
+                    "Target=30",
+                    "At=Front(0,0)",
+                    "Damage=1",
+                    "Sequence=1"),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted|", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(snapshotAfter.TryGetEntity(30, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(enemy.hp, Is.EqualTo(2));
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.PushLike));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
+            Assert.That(disposition.TargetDestroyed, Is.False);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.False);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
         public void Movement_PushSlideImpactOnFrontFace_CreatesFaceAwareReservationAndStopsBeforeTarget()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -4721,9 +4840,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     CreateBox(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), capabilities: BoxCapabilities.Push),
-                    CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, teamId: 2),
+                    CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 0), hp: 3, teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 GameplayTerrainData.Empty);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, Array.Empty<IEntityLogic>());
             var snapshot = CreateSnapshot(worldState);
@@ -4744,7 +4863,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "ImpactReservationRejected|Stage=Plan|G=1|I=1|Source=10|Targets=20|Reason=CrossFaceUnsupported|SourceCell=(0,0)|ImpactCell=Front(0,0)",
+                    "ImpactReservationRejected|Stage=Plan|G=1|I=1|Source=10|Targets=20|Reason=CrossFaceUnsupported|SourceCell=(0,0)|ImpactCell=Front(1,0)",
                 },
                 rejectedReasons);
 
