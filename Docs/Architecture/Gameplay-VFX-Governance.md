@@ -61,9 +61,9 @@ Guard phrase: existing presenter migration is a future slice.
 
 The non-particle Gameplay VFX prefab authoring was removed for mesh-only or empty default host bindings. Cue ids, planners, feature flags, and runtime diagnostic/no-op behavior remain in place. The removed default authoring must not be treated as a cue sunset.
 
-Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, EnemyDeathMotion, UtilityWindup, FrontFaceShield active/block/windup, BoxDestroyShrink, ItemConsume, FlipDestroySelfMotion, FlipImpactStayTrail, reserved OutOfBounds/ImpactTransientBreak, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
+Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, BoxDestroyShrink, ItemConsume, FlipDestroySelfMotion, FlipImpactStayTrail, reserved OutOfBounds/ImpactTransientBreak, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
 
-`TileFeatureDestroyLaserActiveRedVfx` and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
+`EnemyDeathMotionVfx`, `EnemyDeathMotion_Binding.asset`, `TileFeatureDestroyLaserActiveRedVfx`, and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
 
 ## FlipImpact MotionTrack Anchor Gate
 
@@ -762,7 +762,9 @@ Runtime policy:
 Default binding:
 
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDeathMotion_Fade.mat`
-- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDeathMotionVfx.prefab`
+- binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathMotion_Binding.asset`
+- host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
 
 Boundaries:
 
