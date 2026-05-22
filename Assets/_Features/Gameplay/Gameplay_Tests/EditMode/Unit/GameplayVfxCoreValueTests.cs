@@ -257,6 +257,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeaturePlanner_DestroyTileTriggered_WithMotionContactTiming_UsesVisualSlamContactDelay()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var tileEvent = new TilePresentationEvent(
+                TilePresentationEventKind.DestroyTileTriggered,
+                100,
+                cell,
+                TileFeatureKind.Destroy,
+                sourceEntityId: 20,
+                ownerEntityId: 0,
+                teamId: 1,
+                targetEntityId: 20,
+                timingAnchor: PresentationTimingAnchor.MotionContact(
+                    sourceEntityId: 20,
+                    targetEntityId: 0,
+                    actionPlanId: 45,
+                    localActionIndex: 1,
+                    movementSemanticKind: MovementSemanticKind.Flip,
+                    visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+
+            var plan = PlanTileFeature(topology, tileEvent);
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            Assert.That(plan.Requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.DestroyTileTriggered)));
+            Assert.That(plan.Requests[0].Timing, Is.EqualTo(VfxTimingKind.Delayed));
+            Assert.That(
+                plan.Requests[0].DelaySeconds,
+                Is.EqualTo(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                           GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeaturePlanner_IgnoresDirectionlessAndAnimatorOnlyEvents()
         {
             var topology = new CubeTopologyState(FaceId.Floor);

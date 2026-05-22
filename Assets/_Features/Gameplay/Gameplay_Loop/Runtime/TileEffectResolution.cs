@@ -65,7 +65,11 @@ namespace Game.Feature.Gameplay.Loop
             SurfaceCell tileCell,
             TileEffectEntityContactKind contactKind,
             MovementSemanticKind movementSemanticKind,
-            long operationOrder)
+            long operationOrder,
+            int actionPlanId = 0,
+            int localActionIndex = 0,
+            int intentId = 0,
+            float visualContactNormalizedTime = 0f)
         {
             EntityId = entityId;
             EntityType = entityType;
@@ -75,6 +79,10 @@ namespace Game.Feature.Gameplay.Loop
             ContactKind = contactKind;
             MovementSemanticKind = movementSemanticKind;
             OperationOrder = operationOrder;
+            ActionPlanId = actionPlanId;
+            LocalActionIndex = localActionIndex;
+            IntentId = intentId;
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
         }
 
         public int EntityId { get; }
@@ -93,6 +101,14 @@ namespace Game.Feature.Gameplay.Loop
 
         public long OperationOrder { get; }
 
+        public int ActionPlanId { get; }
+
+        public int LocalActionIndex { get; }
+
+        public int IntentId { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
         public static TileEffectEntityContactKind ToEntityContactKind(TileEffectBoxContactKind kind)
         {
             return kind switch
@@ -103,6 +119,38 @@ namespace Game.Feature.Gameplay.Loop
                 TileEffectBoxContactKind.ImpactFollowThrough => TileEffectEntityContactKind.ImpactFollowThrough,
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown box contact kind."),
             };
+        }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
+        }
+    }
+
+    internal static class TileEffectPresentationTiming
+    {
+        public static PresentationTimingAnchor ForDestroyTileContact(
+            in TileEffectEntityContact contact)
+        {
+            if (contact.MovementSemanticKind != MovementSemanticKind.Flip)
+            {
+                return PresentationTimingAnchor.Immediate();
+            }
+
+            return PresentationTimingAnchor.MotionContact(
+                contact.EntityId,
+                0,
+                contact.ActionPlanId,
+                contact.LocalActionIndex,
+                MovementSemanticKind.Flip,
+                contact.VisualContactNormalizedTime > 0f
+                    ? contact.VisualContactNormalizedTime
+                    : GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime);
         }
     }
 
@@ -551,7 +599,8 @@ namespace Game.Feature.Gameplay.Loop
                         contact.EntityId,
                         target,
                         tileFeature,
-                        contact.TileCell);
+                        contact.TileCell,
+                        TileEffectPresentationTiming.ForDestroyTileContact(contact));
                     break;
                 }
             }
@@ -592,7 +641,8 @@ namespace Game.Feature.Gameplay.Loop
                         fact.OccupantEntityId,
                         target,
                         tileFeature,
-                        fact.FeatureCell);
+                        fact.FeatureCell,
+                        PresentationTimingAnchor.Immediate());
                 }
             }
 
@@ -608,7 +658,8 @@ namespace Game.Feature.Gameplay.Loop
             int targetEntityId,
             in EntityState target,
             TileFeatureState tileFeature,
-            SurfaceCell tileCell)
+            SurfaceCell tileCell,
+            PresentationTimingAnchor timingAnchor)
         {
             var metadata = CreateDestroyTileMetadata(
                 context.TickIndex,
@@ -629,7 +680,8 @@ namespace Game.Feature.Gameplay.Loop
                 tileFeature.SourceEntityId,
                 tileFeature.OwnerEntityId,
                 tileFeature.TeamId,
-                targetEntityId: targetEntityId));
+                targetEntityId: targetEntityId,
+                timingAnchor: timingAnchor));
             destroyedEntityIds.Add(targetEntityId);
             if (target.type == EntityType.Box)
             {

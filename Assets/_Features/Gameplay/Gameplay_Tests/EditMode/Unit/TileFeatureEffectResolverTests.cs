@@ -583,6 +583,79 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ContactFacts_FlipMove_PreservesMotionContactMetadata()
+        {
+            var beforeCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var buttonCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var beforeSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, beforeCell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, buttonCell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                buttonCell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.Flip,
+                    actionPlanId: 45,
+                    intentId: 9));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(beforeSnapshot, finalSnapshot, batch);
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.FlipLanding));
+            Assert.That(contacts[0].MovementSemanticKind, Is.EqualTo(MovementSemanticKind.Flip));
+            Assert.That(contacts[0].ActionPlanId, Is.EqualTo(45));
+            Assert.That(contacts[0].LocalActionIndex, Is.Zero);
+            Assert.That(contacts[0].IntentId, Is.EqualTo(9));
+            Assert.That(
+                contacts[0].VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ContactFacts_FlipImpactFollowThroughMove_PreservesMotionContactMetadata()
+        {
+            var beforeCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var buttonCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var beforeSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, beforeCell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, buttonCell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.MoveEntity(
+                20,
+                buttonCell,
+                CreateMovementMetadata(
+                    MovementSemanticKind.Flip,
+                    localActionIndex: 1,
+                    actionPlanId: 46,
+                    intentId: 10));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(beforeSnapshot, finalSnapshot, batch);
+
+            Assert.That(contacts, Has.Count.EqualTo(1));
+            Assert.That(contacts[0].ContactKind, Is.EqualTo(TileEffectEntityContactKind.ImpactFollowThrough));
+            Assert.That(contacts[0].MovementSemanticKind, Is.EqualTo(MovementSemanticKind.Flip));
+            Assert.That(contacts[0].ActionPlanId, Is.EqualTo(46));
+            Assert.That(contacts[0].LocalActionIndex, Is.EqualTo(1));
+            Assert.That(contacts[0].IntentId, Is.EqualTo(10));
+            Assert.That(
+                contacts[0].VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Core")]
         public void ContactFacts_MovingUnitOrdinaryMove_CreatesMoveEnterContact()
         {
             var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -885,8 +958,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tileEvent.Cell, Is.EqualTo(cell));
             Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Destroy));
             Assert.That(tileEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(tileEvent.TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.Immediate));
             Assert.That(snapshot.TryGetTileFeature(10, out var storedTile), Is.True);
             Assert.That(storedTile.Kind, Is.EqualTo(TileFeatureKind.Destroy));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_ActiveBottomFace_FlipContactEmitsMotionContactTiming()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var destroyTile = CreateTileFeature(10, cell, TileFeatureKind.Destroy);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip) },
+                    new[] { destroyTile })
+                .CreateSnapshot();
+
+            var result = ResolveEntityContacts(
+                snapshot,
+                new[]
+                {
+                    new TileEffectEntityContact(
+                        20,
+                        EntityType.Box,
+                        fromCell,
+                        cell,
+                        cell,
+                        TileEffectEntityContactKind.FlipLanding,
+                        MovementSemanticKind.Flip,
+                        operationOrder: 0,
+                        actionPlanId: 45,
+                        localActionIndex: 0,
+                        intentId: 9,
+                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime),
+                },
+                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
+
+            var tileEvent = result.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(tileEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(tileEvent.TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.MotionContact));
+            Assert.That(tileEvent.TimingAnchor.SourceEntityId, Is.EqualTo(20));
+            Assert.That(tileEvent.TimingAnchor.TargetEntityId, Is.Zero);
+            Assert.That(tileEvent.TimingAnchor.ActionPlanId, Is.EqualTo(45));
+            Assert.That(tileEvent.TimingAnchor.LocalActionIndex, Is.Zero);
+            Assert.That(tileEvent.TimingAnchor.MovementSemanticKind, Is.EqualTo(MovementSemanticKind.Flip));
+            Assert.That(
+                tileEvent.TimingAnchor.VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_ActiveBottomFace_FlipImpactFollowThroughContactEmitsMotionContactTiming()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var destroyTile = CreateTileFeature(10, cell, TileFeatureKind.Destroy);
+            var snapshot = CreateWorldState(
+                    new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip) },
+                    new[] { destroyTile })
+                .CreateSnapshot();
+
+            var result = ResolveEntityContacts(
+                snapshot,
+                new[]
+                {
+                    new TileEffectEntityContact(
+                        20,
+                        EntityType.Box,
+                        fromCell,
+                        cell,
+                        cell,
+                        TileEffectEntityContactKind.ImpactFollowThrough,
+                        MovementSemanticKind.Flip,
+                        operationOrder: 0,
+                        actionPlanId: 46,
+                        localActionIndex: 1,
+                        intentId: 10,
+                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime),
+                },
+                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
+
+            var tileEvent = result.TileEvents.Single();
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(tileEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(tileEvent.TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.MotionContact));
+            Assert.That(tileEvent.TimingAnchor.ActionPlanId, Is.EqualTo(46));
+            Assert.That(tileEvent.TimingAnchor.LocalActionIndex, Is.EqualTo(1));
+            Assert.That(tileEvent.TimingAnchor.MovementSemanticKind, Is.EqualTo(MovementSemanticKind.Flip));
+            Assert.That(
+                tileEvent.TimingAnchor.VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
         }
 
         [Test]
@@ -1020,6 +1184,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EntityOperations.Operations[1].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
             Assert.That(result.TileEvents.Single().EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
             Assert.That(result.TileEvents.Single().TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.TileEvents.Single().TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.Immediate));
         }
 
         [Test]
@@ -3496,6 +3661,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static FinalizationOperationMetadata CreateMovementMetadata(
             MovementSemanticKind movementSemanticKind,
             int localActionIndex = 0,
+            int actionPlanId = 1,
+            int intentId = 0,
             MovementExecutionBoundaryKind movementExecutionBoundaryKind = MovementExecutionBoundaryKind.Unknown)
         {
             var semanticKind = movementSemanticKind switch
@@ -3511,7 +3678,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TickPhase.Resolve,
                 semanticKind,
                 sourceActorEntityId: 10,
-                actionPlanId: 1,
+                actionPlanId: actionPlanId,
+                intentId: intentId,
                 localActionIndex: localActionIndex,
                 movementSemanticKind: movementSemanticKind,
                 movementExecutionBoundaryKind: movementExecutionBoundaryKind);

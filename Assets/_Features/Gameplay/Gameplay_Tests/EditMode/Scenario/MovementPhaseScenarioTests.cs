@@ -289,6 +289,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var sourceMove = result.MovementPhaseResult.ResolvedOperations.Single(operation =>
+                operation.Kind == FinalizationOperationKind.MoveEntity &&
+                operation.EntityId == 30);
 
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
@@ -297,6 +300,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
             Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.TileEvents[0].TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.MotionContact));
+            Assert.That(result.PresentationData.TileEvents[0].TimingAnchor.SourceEntityId, Is.EqualTo(30));
+            Assert.That(
+                result.PresentationData.TileEvents[0].TimingAnchor.ActionPlanId,
+                Is.EqualTo(sourceMove.Metadata.ActionPlanId));
+            Assert.That(
+                result.PresentationData.TileEvents[0].TimingAnchor.LocalActionIndex,
+                Is.EqualTo(sourceMove.Metadata.LocalActionIndex));
+            Assert.That(
+                result.PresentationData.TileEvents[0].TimingAnchor.MovementSemanticKind,
+                Is.EqualTo(MovementSemanticKind.Flip));
+            Assert.That(
+                result.PresentationData.TileEvents[0].TimingAnchor.VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
             Assert.That(result.FinalEntities.Any(entity => entity.entityId == 30), Is.False);
         }
 

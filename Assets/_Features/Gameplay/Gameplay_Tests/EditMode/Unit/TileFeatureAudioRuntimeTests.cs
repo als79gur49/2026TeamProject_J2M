@@ -139,6 +139,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TileFeatureAudioRequestPlanner_DestroyTileTriggered_WithMotionContactTiming_UsesVisualSlamContactDelay()
+        {
+            var planner = new TileFeatureAudioRequestPlanner();
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+
+            var requests = planner.BuildRequests(new[]
+            {
+                CreateTilePresentationRequest(
+                    100,
+                    cell,
+                    requestKind: TilePresentationRequestKind.DestroyTileTriggered,
+                    tileFeatureKind: TileFeatureKind.Destroy,
+                    targetEntityId: 50,
+                    timingAnchor: PresentationTimingAnchor.MotionContact(
+                        sourceEntityId: 50,
+                        targetEntityId: 0,
+                        actionPlanId: 45,
+                        localActionIndex: 1,
+                        movementSemanticKind: MovementSemanticKind.Flip,
+                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime)),
+            });
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].Cue, Is.EqualTo(TileFeatureAudioCue.DestroyTileTriggered));
+            Assert.That(
+                requests[0].DelaySeconds,
+                Is.EqualTo(GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                           GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TileFeatureAudioRequestPlanner_SlideTileRedirected_PreservesPayload()
         {
             var planner = new TileFeatureAudioRequestPlanner();

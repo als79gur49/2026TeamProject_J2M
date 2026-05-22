@@ -7615,7 +7615,11 @@ namespace Game.Feature.Gameplay.Loop
                             operation.Destination,
                             boxKind,
                             operation.Metadata.MovementSemanticKind,
-                            operationOrder));
+                            operationOrder,
+                            operation.Metadata.ActionPlanId,
+                            operation.Metadata.LocalActionIndex,
+                            operation.Metadata.IntentId,
+                            ResolveTileEffectContactVisualContactTime(operation.Metadata)));
                         continue;
                     }
 
@@ -7633,13 +7637,25 @@ namespace Game.Feature.Gameplay.Loop
                             operation.Destination,
                             TileEffectEntityContactKind.MoveEnter,
                             operation.Metadata.MovementSemanticKind,
-                            operationOrder));
+                            operationOrder,
+                            operation.Metadata.ActionPlanId,
+                            operation.Metadata.LocalActionIndex,
+                            operation.Metadata.IntentId,
+                            ResolveTileEffectContactVisualContactTime(operation.Metadata)));
                     }
                 }
             }
 
             contacts.Sort(CompareTileEffectEntityContacts);
             return contacts;
+        }
+
+        private static float ResolveTileEffectContactVisualContactTime(
+            FinalizationOperationMetadata metadata)
+        {
+            return metadata.MovementSemanticKind == MovementSemanticKind.Flip
+                ? GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime
+                : 0f;
         }
 
         internal static List<TileFeatureActivationOccupantFact> BuildDestroyTileActivationOccupantFacts(
