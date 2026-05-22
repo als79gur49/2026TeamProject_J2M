@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4000000000000000010}
   - component: {fileID: 1140000000000000010}
   - component: {fileID: 151338214246943210}
+  - component: {fileID: 6683688897985908448}
   m_Layer: 0
   m_Name: StaticView_Box_GravityBlock
   m_TagString: Untagged
@@ -62,6 +63,41 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.BoxFlipInteractionDriver
   gripPoint: {fileID: 0}
   visualRoot: {fileID: 3286767037061943211}
+--- !u!114 &6683688897985908448
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000000000000000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d33a3998e9642809a7921970f78192f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GravityFieldLockedTargetVisualTargetView
+  lockedVisualRoot: {fileID: 0}
+  animator: {fileID: 0}
+  lockedBoolName: GravityFieldLockedTarget
+  lockedWeightFloatName: GravityFieldLockedTargetWeight
+  lockedBoxOneShotAnimatorTrigger: GravityFieldLockedBox
+  lockedParticles: {fileID: 0}
+  lockedBoxOneShotParticles: {fileID: 0}
+  lockedTargetApplied:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedTargetCleared:
+    m_PersistentCalls:
+      m_Calls: []
+  lockedBoxOneShot:
+    m_PersistentCalls:
+      m_Calls: []
+  dimRenderers:
+  - {fileID: 6532124296002082252}
+  lockedDimWeight: 1
+  unlockedDimWeight: 0
+  gravityFieldDimFactor: 0.52
+  gravityFieldLockedTint: {r: 0.45, g: 0.55, b: 0.85, a: 1}
+  gravityFieldTintStrength: 0.18
 --- !u!1 &2713728889491959861
 GameObject:
   m_ObjectHideFlags: 0
@@ -218,6 +254,26 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ab52056a162a4b244a60918c83d74d0d, type: 2}
+    - target: {fileID: -7511558181221131132, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: a59f1338bdb4d0c44a4d97f8b143d744, type: 2}
+    - target: {fileID: -7511558181221131132, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
+      propertyPath: 'm_Materials.Array.data[2]'
+      value: 
+      objectReference: {fileID: 2100000, guid: bd23b7f08cf84904f9cf04fa998f3d89, type: 2}
+    - target: {fileID: -7511558181221131132, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
+      propertyPath: 'm_Materials.Array.data[3]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 25945fa484dc4714db4b3dac5e2949e8, type: 2}
+    - target: {fileID: -7511558181221131132, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
+      propertyPath: 'm_Materials.Array.data[4]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 32951fd0394ea7141868654367bba06f, type: 2}
     - target: {fileID: 919132149155446097, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
       propertyPath: m_Name
       value: UnDestoryHalf
@@ -230,5 +286,10 @@ PrefabInstance:
 --- !u!4 &5399227357745180323 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
+  m_PrefabInstance: {fileID: 5577516624048916808}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &6532124296002082252 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: 03c74ba854f35b540be169a54523e0da, type: 3}
   m_PrefabInstance: {fileID: 5577516624048916808}
   m_PrefabAsset: {fileID: 0}

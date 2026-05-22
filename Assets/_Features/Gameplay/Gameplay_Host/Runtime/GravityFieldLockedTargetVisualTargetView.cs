@@ -22,8 +22,20 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private UnityEvent lockedTargetApplied;
         [SerializeField] private UnityEvent lockedTargetCleared;
         [SerializeField] private UnityEvent lockedBoxOneShot;
+        [SerializeField] private Renderer[] dimRenderers;
+        [SerializeField, Range(0f, 1f)] private float lockedDimWeight = 1f;
+        [SerializeField, Range(0f, 1f)] private float unlockedDimWeight = 0f;
+        [SerializeField, Range(0f, 1f)] private float gravityFieldDimFactor = 0.55f;
+        [SerializeField] private Color gravityFieldLockedTint = new(0.45f, 0.55f, 0.85f, 1f);
+        [SerializeField, Range(0f, 1f)] private float gravityFieldTintStrength = 0.15f;
+
+        private static readonly int GravityFieldLockedWeightId = Shader.PropertyToID("_GravityFieldLockedWeight");
+        private static readonly int GravityFieldLockedTintId = Shader.PropertyToID("_GravityFieldLockedTint");
+        private static readonly int GravityFieldDimFactorId = Shader.PropertyToID("_GravityFieldDimFactor");
+        private static readonly int GravityFieldTintStrengthId = Shader.PropertyToID("_GravityFieldTintStrength");
 
         private readonly HashSet<int> _activeEmitterEntityIds = new();
+        private MaterialPropertyBlock _propertyBlock;
         private int _debugApplyCount;
         private int _debugClearCount;
         private int _debugLastEmitterEntityId;
@@ -132,6 +144,34 @@ namespace Game.Feature.Gameplay.Host
             SetAnimatorBool(lockedBoolName, isLocked);
             SetAnimatorFloat(lockedWeightFloatName, isLocked ? 1f : 0f);
             SetLockedParticles(isLocked);
+            ApplyDimming(isLocked ? lockedDimWeight : unlockedDimWeight);
+        }
+
+        private void ApplyDimming(float weight)
+        {
+            if (dimRenderers == null ||
+                dimRenderers.Length == 0)
+            {
+                return;
+            }
+
+            _propertyBlock ??= new MaterialPropertyBlock();
+            for (var i = 0; i < dimRenderers.Length; i++)
+            {
+                var targetRenderer = dimRenderers[i];
+                if (targetRenderer == null)
+                {
+                    continue;
+                }
+
+                targetRenderer.GetPropertyBlock(_propertyBlock);
+                _propertyBlock.SetFloat(GravityFieldLockedWeightId, weight);
+                _propertyBlock.SetColor(GravityFieldLockedTintId, gravityFieldLockedTint);
+                _propertyBlock.SetFloat(GravityFieldDimFactorId, gravityFieldDimFactor);
+                _propertyBlock.SetFloat(GravityFieldTintStrengthId, gravityFieldTintStrength);
+                targetRenderer.SetPropertyBlock(_propertyBlock);
+                _propertyBlock.Clear();
+            }
         }
 
         private void SetLockedParticles(bool isLocked)

@@ -27,6 +27,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string MoonGeneratorDoorOpenClipPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Animations/MoonBlockGenerator_DoorOpen.anim";
+        private const string GravityFieldLockableShaderName = "Game/Presentation/GravityFieldLockableBoxLit";
+        private const string GravityFieldLockedWeightProperty = "_GravityFieldLockedWeight";
+        private const string GravityFieldLockedTintProperty = "_GravityFieldLockedTint";
+        private const string GravityFieldDimFactorProperty = "_GravityFieldDimFactor";
+        private const string GravityFieldTintStrengthProperty = "_GravityFieldTintStrength";
+        private const string StaticBoxShowcasePrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_Box_Showcase.prefab";
+        private const string StaticBoxShowcaseMaterialPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Profiles/M_Static_Box_Showcase.mat";
+        private static readonly string[] GravityFieldLockableBoxPrefabPaths =
+        {
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_Box_Block_Tutorial.prefab",
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_Box_GravityBlock.prefab",
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_Box_MetalBlock_.prefab",
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_MoonBox_Showcase.prefab",
+        };
 
         [Test]
         [Category("Extended")]
@@ -571,6 +587,195 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockWeight()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockWeight));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
+
+                target.ApplyGravityFieldLockedTarget(1);
+
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererColor(renderer, GravityFieldLockedTintProperty), Is.EqualTo(new Color(0.45f, 0.55f, 0.85f, 1f)));
+                Assert.That(GetRendererFloat(renderer, GravityFieldDimFactorProperty), Is.EqualTo(0.55f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldTintStrengthProperty), Is.EqualTo(0.15f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_KeepsDimmingUntilLastEmitterClears()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_KeepsDimmingUntilLastEmitterClears));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
+
+                target.ApplyGravityFieldLockedTarget(1);
+                target.ApplyGravityFieldLockedTarget(2);
+                target.ClearGravityFieldLockedTarget(1);
+
+                Assert.That(target.DebugActiveEmitterCount, Is.EqualTo(1));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
+
+                target.ClearGravityFieldLockedTarget(2);
+
+                Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_OnDisableResetsRendererWeight()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_OnDisableResetsRendererWeight));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
+
+                target.ApplyGravityFieldLockedTarget(1);
+                typeof(GravityFieldLockedTargetVisualTargetView)
+                    .GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(target, Array.Empty<object>());
+
+                Assert.That(target.DebugActiveEmitterCount, Is.Zero);
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_NullAndEmptyRenderersNoOp()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_NullAndEmptyRenderersNoOp));
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+
+                Assert.DoesNotThrow(() => target.ApplyGravityFieldLockedTarget(1));
+                Assert.DoesNotThrow(() => target.ClearGravityFieldLockedTarget(1));
+
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", Array.Empty<Renderer>());
+
+                Assert.DoesNotThrow(() => target.ApplyGravityFieldLockedTarget(2));
+                Assert.DoesNotThrow(() => target.ClearGravityFieldLockedTarget(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_PreservesExistingPropertyBlockValues()
+        {
+            const string existingPropertyName = "_ExistingMpbValue";
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_PreservesExistingPropertyBlockValues));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var existingBlock = new MaterialPropertyBlock();
+                existingBlock.SetFloat(existingPropertyName, 0.75f);
+                renderer.SetPropertyBlock(existingBlock);
+
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
+
+                target.ApplyGravityFieldLockedTarget(1);
+
+                Assert.That(GetRendererFloat(renderer, existingPropertyName), Is.EqualTo(0.75f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldLockedWeightProperty), Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetBoxPrefabs_AreAuthoredForLockableDimming()
+        {
+            var lockableShader = Shader.Find(GravityFieldLockableShaderName);
+
+            Assert.That(lockableShader, Is.Not.Null, GravityFieldLockableShaderName);
+            foreach (var prefabPath in GravityFieldLockableBoxPrefabPaths)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+                Assert.That(prefab, Is.Not.Null, prefabPath);
+                var target = prefab.GetComponent<GravityFieldLockedTargetVisualTargetView>();
+                Assert.That(target, Is.Not.Null, $"{prefabPath} root component");
+
+                var dimRenderers = ReadDimRenderers(target);
+                Assert.That(dimRenderers, Is.Not.Null, prefabPath);
+                Assert.That(dimRenderers, Is.Not.Empty, prefabPath);
+                for (var i = 0; i < dimRenderers.Length; i++)
+                {
+                    var dimRenderer = dimRenderers[i];
+
+                    Assert.That(dimRenderer, Is.Not.Null, $"{prefabPath} dimRenderers[{i}]");
+                    Assert.That(dimRenderer.transform.IsChildOf(prefab.transform), Is.True, $"{prefabPath} dimRenderers[{i}]");
+                    Assert.That(dimRenderer.name, Does.Not.Contain("GripPoint"), $"{prefabPath} dimRenderers[{i}]");
+                    Assert.That(dimRenderer.GetComponent<ParticleSystem>(), Is.Null, $"{prefabPath} dimRenderers[{i}]");
+                    foreach (var material in dimRenderer.sharedMaterials)
+                    {
+                        Assert.That(material, Is.Not.Null, $"{prefabPath} {dimRenderer.name}");
+                        Assert.That(material.shader, Is.SameAs(lockableShader), $"{prefabPath} {dimRenderer.name} {material.name}");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StaticViewBoxShowcase_RemainsExcludedFromGravityFieldLockableDimming()
+        {
+            var showcasePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(StaticBoxShowcasePrefabPath);
+            var showcaseMaterial = AssetDatabase.LoadAssetAtPath<Material>(StaticBoxShowcaseMaterialPath);
+
+            Assert.That(showcasePrefab, Is.Not.Null, StaticBoxShowcasePrefabPath);
+            Assert.That(showcasePrefab.GetComponent<GravityFieldLockedTargetVisualTargetView>(), Is.Null);
+            Assert.That(showcaseMaterial, Is.Not.Null, StaticBoxShowcaseMaterialPath);
+            Assert.That(showcaseMaterial.shader.name, Is.Not.EqualTo(GravityFieldLockableShaderName));
         }
 
         [Test]
@@ -4235,8 +4440,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(gravityFieldLockedTargetView, Does.Not.Contain("TryProject"));
             Assert.That(gravityFieldTargetView, Does.Not.Contain(".material"));
             Assert.That(gravityFieldLockedTargetView, Does.Not.Contain(".material"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain(".materials"));
+            Assert.That(gravityFieldLockedTargetView, Does.Not.Contain(".materials"));
             Assert.That(gravityFieldTargetView, Does.Not.Contain("sharedMaterial"));
             Assert.That(gravityFieldLockedTargetView, Does.Not.Contain("sharedMaterial"));
+            Assert.That(gravityFieldTargetView, Does.Not.Contain("sharedMaterials"));
+            Assert.That(gravityFieldLockedTargetView, Does.Not.Contain("sharedMaterials"));
 
             var coordinatorSource = File.ReadAllText(Path.Combine(hostRuntimeDirectory, "GameplayTickPresentationCoordinator.cs"));
             var presenterSource = File.ReadAllText(Path.Combine(hostRuntimeDirectory, "GameplayTickViewPresenter.cs"));
@@ -6913,6 +7122,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityMoveDurationSeconds);
 
             return view;
+        }
+
+        private static float GetRendererFloat(Renderer targetRenderer, string propertyName)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock);
+            return propertyBlock.GetFloat(propertyName);
+        }
+
+        private static Color GetRendererColor(Renderer targetRenderer, string propertyName)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock);
+            return propertyBlock.GetColor(propertyName);
+        }
+
+        private static Renderer[] ReadDimRenderers(GravityFieldLockedTargetVisualTargetView target)
+        {
+            var serializedObject = new SerializedObject(target);
+            var dimRenderersProperty = serializedObject.FindProperty("dimRenderers");
+            Assert.That(dimRenderersProperty, Is.Not.Null);
+
+            var renderers = new Renderer[dimRenderersProperty.arraySize];
+            for (var i = 0; i < dimRenderersProperty.arraySize; i++)
+            {
+                renderers[i] = dimRenderersProperty
+                    .GetArrayElementAtIndex(i)
+                    .objectReferenceValue as Renderer;
+            }
+
+            return renderers;
         }
 
         private sealed class ActiveStateRecordingTileFeatureTarget : MonoBehaviour, ITileFeatureVisualTarget

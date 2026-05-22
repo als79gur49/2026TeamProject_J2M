@@ -2,6 +2,76 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockWeight",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_locked_target_presentation",
+        "material_property_block_dimming"
+      ],
+      "reason": "Locked Core coverage for GravityField locked-target dimming writing renderer-scoped MPB weight and tint properties.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetVisualTargetView_KeepsDimmingUntilLastEmitterClears",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_locked_target_presentation",
+        "multi_emitter_lock_lifetime"
+      ],
+      "reason": "Locked Core coverage that overlapping GravityField emitters keep target dimming active until the final emitter clears.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetVisualTargetView_OnDisableResetsRendererWeight",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_locked_target_presentation",
+        "pooling_reset"
+      ],
+      "reason": "Locked Core coverage that disabled or pooled locked-target views clear active emitters and reset renderer MPB weight.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetVisualTargetView_NullAndEmptyRenderersNoOp",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_locked_target_presentation",
+        "optional_renderer_authoring"
+      ],
+      "reason": "Locked Core coverage that missing dim renderer authoring remains a safe no-op for presentation-only GravityField target views.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetVisualTargetView_PreservesExistingPropertyBlockValues",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_locked_target_presentation",
+        "material_property_block_preservation"
+      ],
+      "reason": "Locked Core coverage that GravityField locked-target dimming preserves unrelated renderer MaterialPropertyBlock values.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetBoxPrefabs_AreAuthoredForLockableDimming",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_locked_target_presentation",
+        "box_prefab_authoring"
+      ],
+      "reason": "Locked Core asset coverage that GravityField-lockable box prefabs have root target views, dim renderers, and lockable shader materials.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.StaticViewBoxShowcase_RemainsExcludedFromGravityFieldLockableDimming",
+      "category": "Core",
+      "contracts": [
+        "gravity_field_locked_target_presentation",
+        "showcase_exclusion"
+      ],
+      "reason": "Locked Core asset coverage that the excluded showcase prefab and material are not migrated to GravityField locked-target dimming.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxArchitectureTests.GovernanceDocument_ExistsAndDeclaresBoundary",
       "category": "Core",
       "contracts": [
