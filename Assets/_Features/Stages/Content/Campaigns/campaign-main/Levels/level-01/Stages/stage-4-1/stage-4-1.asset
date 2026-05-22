@@ -3013,6 +3013,17 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: barricade.default
+  - TileId: 64
+    Cell:
+      face: 0
+      x: 14
+      y: 4
+    Kind: 7
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: 

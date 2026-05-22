@@ -3015,10 +3015,21 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: exit.default
+  - TileId: 54
+    Cell:
+      face: 0
+      x: 7
+      y: 1
+    Kind: 7
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
+    ObjectiveTitle:
+    ObjectiveSummary:
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 1295cbe89d2d1fe48a360c14c5c46c68, type: 2}
       Required: 1
