@@ -443,6 +443,11 @@ MonoBehaviour:
       y: 2
     styleKey: board.paint.level2
   - cell:
+      face: 1
+      x: 8
+      y: 3
+    styleKey: board.paint.level2
+  - cell:
       face: 2
       x: 2
       y: 0

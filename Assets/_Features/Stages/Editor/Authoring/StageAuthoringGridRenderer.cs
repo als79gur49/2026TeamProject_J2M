@@ -1,16 +1,50 @@
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Stages.Editor
 {
+    internal sealed class BoardTilePaintGridPreview
+    {
+        public static readonly BoardTilePaintGridPreview Disabled = new(false, null);
+
+        private readonly Dictionary<SurfaceCell, Color> tintByCell;
+
+        public BoardTilePaintGridPreview(
+            bool enabled,
+            IReadOnlyDictionary<SurfaceCell, Color> tintByCell)
+        {
+            Enabled = enabled;
+            this.tintByCell = tintByCell != null
+                ? new Dictionary<SurfaceCell, Color>(tintByCell)
+                : new Dictionary<SurfaceCell, Color>();
+        }
+
+        public bool Enabled { get; }
+
+        public bool TryGetTint(SurfaceCell cell, out Color tint)
+        {
+            if (!Enabled)
+            {
+                tint = Color.white;
+                return false;
+            }
+
+            return tintByCell.TryGetValue(cell, out tint);
+        }
+    }
+
     internal static class StageAuthoringGridRenderer
     {
+        private const float PaintTintBlendStrength = 0.35f;
+
         public static StageAuthoringEntityKind? DrawGrid(
             StageAuthoringDefinition authoring,
             StageAuthoringGridSelectionState selection,
             StageAuthoringEntityKind? focusedGridKind,
-            StageAuthoringGridEditMode editMode)
+            StageAuthoringGridEditMode editMode,
+            BoardTilePaintGridPreview paintPreview)
         {
             var board = authoring.Board;
             EditorGUILayout.LabelField(
@@ -112,7 +146,10 @@ namespace Game.Feature.Stages.Editor
                                 placement,
                                 nextFocusedGridKind,
                                 selectedZoneAtCell,
-                                editMode == StageAuthoringGridEditMode.ZoneEditing && zoneCount > 0))
+                                editMode == StageAuthoringGridEditMode.ZoneEditing && zoneCount > 0,
+                                editMode,
+                                paintPreview,
+                                new SurfaceCell(selection.TargetFace, x, y)))
                         {
                             if (editMode == StageAuthoringGridEditMode.TileFeaturePlacement)
                             {
@@ -155,18 +192,22 @@ namespace Game.Feature.Stages.Editor
             StagePlacedEntityAuthoring placement,
             StageAuthoringEntityKind? focusedKind,
             bool selectedZoneHighlight,
-            bool zoneCell)
+            bool zoneCell,
+            StageAuthoringGridEditMode editMode,
+            BoardTilePaintGridPreview paintPreview,
+            SurfaceCell cell)
         {
             var previousBackgroundColor = GUI.backgroundColor;
-            if (selectedZoneHighlight)
-            {
-                GUI.backgroundColor = new Color(0.5f, 0.85f, 0.45f, 1f);
-            }
-            else if (zoneCell)
-            {
-                GUI.backgroundColor = new Color(0.45f, 0.7f, 0.9f, 1f);
-            }
-            else if (StageAuthoringGridCellStyleUtility.TryGetTint(placement, focusedKind, out var tint))
+            if (TryResolveCellBackgroundColor(
+                    previousBackgroundColor,
+                    placement,
+                    focusedKind,
+                    selectedZoneHighlight,
+                    zoneCell,
+                    editMode,
+                    paintPreview,
+                    cell,
+                    out var tint))
             {
                 GUI.backgroundColor = tint;
             }
@@ -179,6 +220,55 @@ namespace Game.Feature.Stages.Editor
             {
                 GUI.backgroundColor = previousBackgroundColor;
             }
+        }
+
+        internal static bool TryResolveCellBackgroundColor(
+            Color defaultColor,
+            StagePlacedEntityAuthoring placement,
+            StageAuthoringEntityKind? focusedKind,
+            bool selectedZoneHighlight,
+            bool zoneCell,
+            StageAuthoringGridEditMode editMode,
+            BoardTilePaintGridPreview paintPreview,
+            SurfaceCell cell,
+            out Color tint)
+        {
+            var hasCustomTint = false;
+            tint = defaultColor;
+            if (selectedZoneHighlight)
+            {
+                tint = new Color(0.5f, 0.85f, 0.45f, 1f);
+                hasCustomTint = true;
+            }
+            else if (zoneCell)
+            {
+                tint = new Color(0.45f, 0.7f, 0.9f, 1f);
+                hasCustomTint = true;
+            }
+            else if (StageAuthoringGridCellStyleUtility.TryGetTint(placement, focusedKind, out var entityTint))
+            {
+                tint = entityTint;
+                hasCustomTint = true;
+            }
+
+            if (editMode == StageAuthoringGridEditMode.BoardTilePaint &&
+                paintPreview != null &&
+                paintPreview.TryGetTint(cell, out var paintTint))
+            {
+                tint = BlendPaintTint(tint, paintTint);
+                return true;
+            }
+
+            return hasCustomTint;
+        }
+
+        internal static Color BlendPaintTint(Color baseColor, Color paintTint)
+        {
+            var opaquePaintTint = new Color(paintTint.r, paintTint.g, paintTint.b, 1f);
+            var blendStrength = Mathf.Clamp01(PaintTintBlendStrength * paintTint.a);
+            var blended = Color.Lerp(baseColor, opaquePaintTint, blendStrength);
+            blended.a = baseColor.a;
+            return blended;
         }
 
         private static string BuildZoneBadge(StageZoneDefinition zone)

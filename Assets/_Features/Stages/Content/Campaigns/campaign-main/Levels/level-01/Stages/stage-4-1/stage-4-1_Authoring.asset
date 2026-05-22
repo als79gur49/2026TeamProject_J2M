@@ -114,7 +114,7 @@ MonoBehaviour:
       face: 0
       x: 4
       y: 7
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -675,7 +675,7 @@ MonoBehaviour:
       face: 0
       x: 4
       y: 1
-    Facing: 3
+    Facing: 2
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -692,7 +692,7 @@ MonoBehaviour:
       face: 0
       x: 4
       y: 4
-    Facing: 3
+    Facing: 2
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -709,7 +709,7 @@ MonoBehaviour:
       face: 0
       x: 11
       y: 4
-    Facing: 3
+    Facing: 2
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -726,7 +726,7 @@ MonoBehaviour:
       face: 0
       x: 11
       y: 1
-    Facing: 3
+    Facing: 2
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -743,7 +743,7 @@ MonoBehaviour:
       face: 0
       x: 7
       y: 6
-    Facing: 0
+    Facing: 4
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -1185,7 +1185,7 @@ MonoBehaviour:
       face: 1
       x: 9
       y: 4
-    Facing: 3
+    Facing: 2
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -1440,7 +1440,7 @@ MonoBehaviour:
       face: 2
       x: 10
       y: 0
-    Facing: 0
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -1695,7 +1695,7 @@ MonoBehaviour:
       face: 2
       x: 5
       y: 2
-    Facing: 3
+    Facing: 2
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
@@ -1712,7 +1712,7 @@ MonoBehaviour:
       face: 2
       x: 9
       y: 1
-    Facing: 3
+    Facing: 2
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
