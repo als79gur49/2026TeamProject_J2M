@@ -718,6 +718,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
             var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
+            var enemyUtilityPhaseStates = new List<TickEnemyUtilityPhasePresentationState>();
             var enemyUtilityCooldownSignals = new List<TickEnemyUtilityCooldownPresentationSignal>();
             var enemyGravityFieldAuraVisualStates = new List<TickEnemyGravityFieldAuraVisualState>();
             var forwardCellProjectileWindupSignals =
@@ -794,6 +795,7 @@ namespace Game.Feature.Gameplay.Loop
                 summonWindupWarnings,
                 frontFaceShieldWindupWarnings,
                 enemyUtilitySignals,
+                enemyUtilityPhaseStates,
                 enemyUtilityCooldownSignals,
                 enemyGravityFieldAuraVisualStates);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
@@ -808,6 +810,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyChargeSignals.Count == 0 &&
                    enemyGlideSignals.Count == 0 &&
                    enemyUtilitySignals.Count == 0 &&
+                   enemyUtilityPhaseStates.Count == 0 &&
                    enemyUtilityCooldownSignals.Count == 0 &&
                    enemyGravityFieldAuraVisualStates.Count == 0 &&
                    forwardCellProjectileWindupSignals.Count == 0 &&
@@ -886,7 +889,8 @@ namespace Game.Feature.Gameplay.Loop
                     forwardCellImpactSignals,
                     forwardCellProjectileWindupSignals,
                     forwardCellProjectileReleaseSignals,
-                    forwardCellProjectileClearSignals);
+                    forwardCellProjectileClearSignals,
+                    enemyUtilityPhaseStates);
         }
 
         private static void BuildForwardCellProjectilePresentation(
@@ -1992,6 +1996,7 @@ namespace Game.Feature.Gameplay.Loop
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
             List<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings,
             List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals,
+            List<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates,
             List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals,
             List<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates)
         {
@@ -2014,6 +2019,12 @@ namespace Game.Feature.Gameplay.Loop
                         effectIndex,
                         effectState,
                         enemyUtilityCooldownSignals);
+                    AddEnemyUtilityPhasePresentationState(
+                        entry.EntityId,
+                        effectIndex,
+                        effectState,
+                        context.CurrentTickIndex,
+                        enemyUtilityPhaseStates);
 
                     if (effectState.phase == EnemyUtilityEffectPhase.Recover)
                     {
@@ -2210,6 +2221,57 @@ namespace Game.Feature.Gameplay.Loop
                     presentationKind,
                     effectState.cooldownTicksRemaining,
                     effectState.cooldownTicksRemaining,
+                    effectIndex,
+                    effectState.activationSequence));
+        }
+
+        private static void AddEnemyUtilityPhasePresentationState(
+            int entityId,
+            int effectIndex,
+            in EnemyUtilityEffectState effectState,
+            int tickIndex,
+            List<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates)
+        {
+            if (effectState.phase == EnemyUtilityEffectPhase.None ||
+                !TryResolveEnemyUtilityPresentationKind(effectState.effectKind, out var presentationKind))
+            {
+                return;
+            }
+
+            var phaseStartTick = 0;
+            var phaseEndTickExclusive = 0;
+            switch (effectState.phase)
+            {
+                case EnemyUtilityEffectPhase.Windup:
+                    phaseStartTick = effectState.windupStartTick;
+                    phaseEndTickExclusive = effectState.windupEndTick;
+                    break;
+
+                case EnemyUtilityEffectPhase.Active:
+                    phaseStartTick = effectState.activeStartTick;
+                    phaseEndTickExclusive = effectState.activeEndTickExclusive;
+                    break;
+
+                case EnemyUtilityEffectPhase.Recover:
+                    phaseStartTick = effectState.recoverStartTick;
+                    phaseEndTickExclusive = effectState.recoverEndTickExclusive;
+                    break;
+
+                default:
+                    return;
+            }
+
+            var durationTicks = Math.Max(0, phaseEndTickExclusive - phaseStartTick);
+            var elapsedTicks = durationTicks > 0
+                ? Math.Min(durationTicks, Math.Max(0, tickIndex - phaseStartTick))
+                : 0;
+            enemyUtilityPhaseStates.Add(
+                new TickEnemyUtilityPhasePresentationState(
+                    entityId,
+                    presentationKind,
+                    effectState.phase,
+                    elapsedTicks,
+                    durationTicks,
                     effectIndex,
                     effectState.activationSequence));
         }

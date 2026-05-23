@@ -574,6 +574,15 @@ namespace Game.Feature.Gameplay.Host
                     return EnemyPresentationPhase.Recovery;
             }
 
+            switch (state.UtilityPhase)
+            {
+                case EnemyUtilityEffectPhase.Windup:
+                    return EnemyPresentationPhase.Windup;
+
+                case EnemyUtilityEffectPhase.Recover:
+                    return EnemyPresentationPhase.Recovery;
+            }
+
             switch (state.AiMode)
             {
                 case EnemyAiMode.Attack:
