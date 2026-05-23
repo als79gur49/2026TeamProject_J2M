@@ -303,6 +303,107 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState()
+        {
+            var targetObject = new GameObject(nameof(BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState));
+
+            try
+            {
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, new SurfaceCell(FaceId.Front, 1, 1));
+
+                target.SetBarricadeActiveImmediate(true);
+                target.SetBarricadeActiveImmediate(true);
+                target.SetBarricadeActiveImmediate(false);
+                target.SetBarricadeActiveImmediate(false);
+
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle()
+        {
+            var rootObject = new GameObject(nameof(BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                var activeState = new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0);
+
+                target.SetBarricadeActiveImmediate(true);
+                controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
+                controller.RefreshContinuousStates(new[] { activeState });
+
+                Assert.That(target.DebugPlayBarricadeBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeActivatedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle()
+        {
+            var rootObject = new GameObject(nameof(BarricadeActivatedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                var activeState = new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0);
+
+                controller.PlayRequests(new[] { CreateBarricadeActivatedRequest(100, cell) });
+                controller.RefreshContinuousStates(new[] { activeState });
+
+                Assert.That(target.DebugPlayBarricadeActivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ExitRequests_WithSupportedTargetView_CallExitVisualHooks()
         {
             var rootObject = new GameObject(nameof(ExitRequests_WithSupportedTargetView_CallExitVisualHooks));
