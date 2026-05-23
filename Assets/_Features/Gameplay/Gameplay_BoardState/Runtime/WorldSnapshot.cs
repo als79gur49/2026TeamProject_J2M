@@ -7,6 +7,16 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    internal sealed class SnapshotOwnedCellIndex<TKey>
+    {
+        internal SnapshotOwnedCellIndex(Dictionary<TKey, IReadOnlyCollection<int>> values)
+        {
+            Values = values ?? throw new ArgumentNullException(nameof(values));
+        }
+
+        internal Dictionary<TKey, IReadOnlyCollection<int>> Values { get; }
+    }
+
     public enum BoxInteractionLockSourceReason
     {
         Unspecified = 0,
@@ -199,6 +209,8 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
         private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
+        private EntityState[] _orderedEntitiesCache;
+        private TileFeatureState[] _orderedTileFeaturesCache;
 
         internal WorldSnapshot(
             Dictionary<int, EntityState> entitiesById,
@@ -228,13 +240,131 @@ namespace Game.Feature.Gameplay.BoardState
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
+            : this(
+                entitiesById,
+                CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
+                solidOccupancy,
+                projectileOccupancy,
+                tileFeaturesById,
+                CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
+                enemyActionStatesByEntityId,
+                pendingCellImpactsById,
+                enemyPatrolStatesByEntityId,
+                enemyChargeStatesByEntityId,
+                executionLockStatesByEntityId,
+                enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
+                enemyUtilityStatesByEntityId,
+                enemyFrontFaceSupportStatesByEntityId,
+                boxInteractionLockStatesByEntityId,
+                enemyGravityFieldAuraFieldsById,
+                phasedStatesByEntityId,
+                playerDamageStatesByEntityId,
+                playerControlStatesByEntityId,
+                summonedEntitiesByEntityId,
+                enemyDefinitionBindingsByEntityId,
+                unitKinematicStatesByEntityId,
+                unitContinuousLocomotionStatesByEntityId,
+                topology,
+                boardBounds,
+                terrainData)
+        {
+        }
+
+        internal static WorldSnapshot CreateWithSnapshotOwnedCellIndexes(
+            Dictionary<int, EntityState> entitiesById,
+            SnapshotOwnedCellIndex<SurfaceCell> stackedUnitsByCell,
+            Dictionary<SurfaceCell, int> solidOccupancy,
+            Dictionary<SurfaceCell, int> projectileOccupancy,
+            Dictionary<int, TileFeatureState> tileFeaturesById,
+            SnapshotOwnedCellIndex<SurfaceCell> tileFeatureIdsByCell,
+            Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
+            Dictionary<int, PendingCellImpact> pendingCellImpactsById,
+            Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
+            Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
+            Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
+            Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            Dictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            Dictionary<int, EnemyUtilityRuntimeState> enemyUtilityStatesByEntityId,
+            Dictionary<int, EnemyFrontFaceSupportRuntimeState> enemyFrontFaceSupportStatesByEntityId,
+            Dictionary<int, BoxInteractionLockState> boxInteractionLockStatesByEntityId,
+            Dictionary<int, EnemyGravityFieldAuraFieldState> enemyGravityFieldAuraFieldsById,
+            Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
+            Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
+            Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
+            Dictionary<int, SummonedEntityState> summonedEntitiesByEntityId,
+            Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
+            Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
+            Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData)
+        {
+            return new WorldSnapshot(
+                entitiesById,
+                CreateReadonlySnapshotOwnedCellIndex(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
+                solidOccupancy,
+                projectileOccupancy,
+                tileFeaturesById,
+                CreateReadonlySnapshotOwnedCellIndex(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
+                enemyActionStatesByEntityId,
+                pendingCellImpactsById,
+                enemyPatrolStatesByEntityId,
+                enemyChargeStatesByEntityId,
+                executionLockStatesByEntityId,
+                enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
+                enemyUtilityStatesByEntityId,
+                enemyFrontFaceSupportStatesByEntityId,
+                boxInteractionLockStatesByEntityId,
+                enemyGravityFieldAuraFieldsById,
+                phasedStatesByEntityId,
+                playerDamageStatesByEntityId,
+                playerControlStatesByEntityId,
+                summonedEntitiesByEntityId,
+                enemyDefinitionBindingsByEntityId,
+                unitKinematicStatesByEntityId,
+                unitContinuousLocomotionStatesByEntityId,
+                topology,
+                boardBounds,
+                terrainData);
+        }
+
+        private WorldSnapshot(
+            Dictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            Dictionary<SurfaceCell, int> solidOccupancy,
+            Dictionary<SurfaceCell, int> projectileOccupancy,
+            Dictionary<int, TileFeatureState> tileFeaturesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> tileFeatureIdsByCell,
+            Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
+            Dictionary<int, PendingCellImpact> pendingCellImpactsById,
+            Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
+            Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
+            Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
+            Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            Dictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            Dictionary<int, EnemyUtilityRuntimeState> enemyUtilityStatesByEntityId,
+            Dictionary<int, EnemyFrontFaceSupportRuntimeState> enemyFrontFaceSupportStatesByEntityId,
+            Dictionary<int, BoxInteractionLockState> boxInteractionLockStatesByEntityId,
+            Dictionary<int, EnemyGravityFieldAuraFieldState> enemyGravityFieldAuraFieldsById,
+            Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
+            Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
+            Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
+            Dictionary<int, SummonedEntityState> summonedEntitiesByEntityId,
+            Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
+            Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
+            Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData)
         {
             _entitiesById = new ReadOnlyDictionary<int, EntityState>(entitiesById ?? throw new ArgumentNullException(nameof(entitiesById)));
-            _stackedUnitsByCell = CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell)));
+            _stackedUnitsByCell = stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell));
             _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
             _projectileOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(projectileOccupancy ?? throw new ArgumentNullException(nameof(projectileOccupancy)));
             _tileFeaturesById = new ReadOnlyDictionary<int, TileFeatureState>(tileFeaturesById ?? throw new ArgumentNullException(nameof(tileFeaturesById)));
-            _tileFeatureIdsByCell = CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell)));
+            _tileFeatureIdsByCell = tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
             _pendingCellImpactsById = new ReadOnlyDictionary<int, PendingCellImpact>(pendingCellImpactsById ?? throw new ArgumentNullException(nameof(pendingCellImpactsById)));
             _enemyPatrolStatesByEntityId = new ReadOnlyDictionary<int, EnemyPatrolRuntimeState>(enemyPatrolStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyPatrolStatesByEntityId)));
@@ -265,6 +395,130 @@ namespace Game.Feature.Gameplay.BoardState
         internal TerrainData TerrainData => _terrainData;
 
         internal IReadOnlyDictionary<int, EntityState> EntitiesById => _entitiesById;
+
+        internal int EntityCount => _entitiesById.Count;
+
+        internal int TileFeatureCount => _tileFeaturesById.Count;
+
+        internal void CopyEntitiesByIdTo(Dictionary<int, EntityState> target)
+        {
+            CopyDictionaryTo(_entitiesById, target);
+        }
+
+        internal void CopyStackedUnitsByCellTo(Dictionary<SurfaceCell, SortedSet<int>> target)
+        {
+            CopyCellCollectionTo(_stackedUnitsByCell, target);
+        }
+
+        internal void CopySolidOccupancyTo(Dictionary<SurfaceCell, int> target)
+        {
+            CopyDictionaryTo(_solidOccupancy, target);
+        }
+
+        internal void CopyProjectileOccupancyTo(Dictionary<SurfaceCell, int> target)
+        {
+            CopyDictionaryTo(_projectileOccupancy, target);
+        }
+
+        internal void CopyTileFeaturesByIdTo(Dictionary<int, TileFeatureState> target)
+        {
+            CopyDictionaryTo(_tileFeaturesById, target);
+        }
+
+        internal void CopyTileFeatureIdsByCellTo(Dictionary<SurfaceCell, SortedSet<int>> target)
+        {
+            CopyCellCollectionTo(_tileFeatureIdsByCell, target);
+        }
+
+        internal void CopyEnemyActionStatesByEntityIdTo(Dictionary<int, EnemyActionRuntimeState> target)
+        {
+            CopyDictionaryTo(_enemyActionStatesByEntityId, target);
+        }
+
+        internal void CopyPendingCellImpactsByIdTo(Dictionary<int, PendingCellImpact> target)
+        {
+            CopyDictionaryTo(_pendingCellImpactsById, target);
+        }
+
+        internal void CopyEnemyPatrolStatesByEntityIdTo(Dictionary<int, EnemyPatrolRuntimeState> target)
+        {
+            CopyDictionaryTo(_enemyPatrolStatesByEntityId, target);
+        }
+
+        internal void CopyEnemyChargeStatesByEntityIdTo(Dictionary<int, EnemyChargeRuntimeState> target)
+        {
+            CopyDictionaryTo(_enemyChargeStatesByEntityId, target);
+        }
+
+        internal void CopyEntityExecutionLockStatesByEntityIdTo(Dictionary<int, EntityExecutionLockState> target)
+        {
+            CopyDictionaryTo(_executionLockStatesByEntityId, target);
+        }
+
+        internal void CopyEnemyJumpStatesByEntityIdTo(Dictionary<int, EnemyJumpRuntimeState> target)
+        {
+            CopyDictionaryTo(_enemyJumpStatesByEntityId, target);
+        }
+
+        internal void CopyEnemyGlideStatesByEntityIdTo(Dictionary<int, EnemyGlideRuntimeState> target)
+        {
+            CopyDictionaryTo(_enemyGlideStatesByEntityId, target);
+        }
+
+        internal void CopyEnemyUtilityStatesByEntityIdTo(Dictionary<int, EnemyUtilityRuntimeState> target)
+        {
+            CopyDictionaryTo(_enemyUtilityStatesByEntityId, target);
+        }
+
+        internal void CopyEnemyFrontFaceSupportStatesByEntityIdTo(Dictionary<int, EnemyFrontFaceSupportRuntimeState> target)
+        {
+            CopyDictionaryTo(_enemyFrontFaceSupportStatesByEntityId, target);
+        }
+
+        internal void CopyBoxInteractionLockStatesByEntityIdTo(Dictionary<int, BoxInteractionLockState> target)
+        {
+            CopyDictionaryTo(_boxInteractionLockStatesByEntityId, target);
+        }
+
+        internal void CopyEnemyGravityFieldAuraFieldsByIdTo(Dictionary<int, EnemyGravityFieldAuraFieldState> target)
+        {
+            CopyDictionaryTo(_enemyGravityFieldAuraFieldsById, target);
+        }
+
+        internal void CopyPhasedStatesByEntityIdTo(Dictionary<int, PhasedRuntimeState> target)
+        {
+            CopyDictionaryTo(_phasedStatesByEntityId, target);
+        }
+
+        internal void CopyPlayerDamageStatesByEntityIdTo(Dictionary<int, PlayerDamageState> target)
+        {
+            CopyDictionaryTo(_playerDamageStatesByEntityId, target);
+        }
+
+        internal void CopyPlayerControlStatesByEntityIdTo(Dictionary<int, PlayerControlState> target)
+        {
+            CopyDictionaryTo(_playerControlStatesByEntityId, target);
+        }
+
+        internal void CopySummonedEntitiesByEntityIdTo(Dictionary<int, SummonedEntityState> target)
+        {
+            CopyDictionaryTo(_summonedEntitiesByEntityId, target);
+        }
+
+        internal void CopyEnemyDefinitionBindingsByEntityIdTo(Dictionary<int, EnemyDefinitionBindingState> target)
+        {
+            CopyDictionaryTo(_enemyDefinitionBindingsByEntityId, target);
+        }
+
+        internal void CopyUnitKinematicStatesByEntityIdTo(Dictionary<int, UnitKinematicRuntimeState> target)
+        {
+            CopyDictionaryTo(_unitKinematicStatesByEntityId, target);
+        }
+
+        internal void CopyUnitContinuousLocomotionStatesByEntityIdTo(Dictionary<int, UnitContinuousLocomotionState> target)
+        {
+            CopyDictionaryTo(_unitContinuousLocomotionStatesByEntityId, target);
+        }
 
         public bool TryGetEntity(int entityId, out EntityState entity)
         {
@@ -702,12 +956,19 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             buffer.Clear();
-            foreach (var tileFeature in _tileFeaturesById.Values)
+            var orderedTileFeatures = _orderedTileFeaturesCache;
+            if (orderedTileFeatures == null)
             {
-                buffer.Add(tileFeature);
+                SnapshotMaterializationDiagnostics.RecordOrderedTileFeaturesCacheMiss(_tileFeaturesById.Count);
+                orderedTileFeatures = BuildOrderedTileFeaturesCache();
+                _orderedTileFeaturesCache = orderedTileFeatures;
+            }
+            else
+            {
+                SnapshotMaterializationDiagnostics.RecordOrderedTileFeaturesCacheHit(orderedTileFeatures.Length);
             }
 
-            buffer.Sort(CompareTileFeatureByCellThenId);
+            AddRange(buffer, orderedTileFeatures);
         }
 
         public bool TryGetUnitTraversalBlocker(SurfaceCell cell, out SlideStopper blocker)
@@ -907,7 +1168,25 @@ namespace Game.Feature.Gameplay.BoardState
 
         public void EnumerateEntitiesOrdered(List<EntityState> buffer)
         {
-            SnapshotReadQueries.EnumerateEntitiesOrdered(_entitiesById, buffer);
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            var orderedEntities = _orderedEntitiesCache;
+            if (orderedEntities == null)
+            {
+                SnapshotMaterializationDiagnostics.RecordOrderedEntitiesCacheMiss(_entitiesById.Count);
+                orderedEntities = BuildOrderedEntitiesCache();
+                _orderedEntitiesCache = orderedEntities;
+            }
+            else
+            {
+                SnapshotMaterializationDiagnostics.RecordOrderedEntitiesCacheHit(orderedEntities.Length);
+            }
+
+            AddRange(buffer, orderedEntities);
         }
 
         internal bool TryGetUnitBlocker(SurfaceCell cell, out SlideStopper blocker)
@@ -1458,6 +1737,79 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceCell.FromPlanar(cell, _topology.BottomFace);
         }
 
+        private EntityState[] BuildOrderedEntitiesCache()
+        {
+            var ordered = new EntityState[_entitiesById.Count];
+            var index = 0;
+            foreach (var entity in _entitiesById.Values)
+            {
+                ordered[index++] = entity;
+            }
+
+            Array.Sort(ordered, CompareEntityById);
+            SnapshotMaterializationDiagnostics.RecordOrderedEntitiesSort(ordered.Length);
+            return ordered;
+        }
+
+        private TileFeatureState[] BuildOrderedTileFeaturesCache()
+        {
+            var ordered = new TileFeatureState[_tileFeaturesById.Count];
+            var index = 0;
+            foreach (var tileFeature in _tileFeaturesById.Values)
+            {
+                ordered[index++] = tileFeature;
+            }
+
+            Array.Sort(ordered, CompareTileFeatureByCellThenId);
+            SnapshotMaterializationDiagnostics.RecordOrderedTileFeaturesSort(ordered.Length);
+            return ordered;
+        }
+
+        private static void AddRange<T>(List<T> buffer, T[] values)
+        {
+            for (var i = 0; i < values.Length; i++)
+            {
+                buffer.Add(values[i]);
+            }
+        }
+
+        private static void CopyDictionaryTo<TKey, TValue>(
+            IReadOnlyDictionary<TKey, TValue> source,
+            Dictionary<TKey, TValue> target)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            target.Clear();
+            foreach (var pair in source)
+            {
+                target.Add(pair.Key, pair.Value);
+            }
+        }
+
+        private static void CopyCellCollectionTo(
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> source,
+            Dictionary<SurfaceCell, SortedSet<int>> target)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            target.Clear();
+            foreach (var pair in source)
+            {
+                target.Add(pair.Key, new SortedSet<int>(pair.Value));
+            }
+        }
+
+        private static int CompareEntityById(EntityState left, EntityState right)
+        {
+            return left.entityId.CompareTo(right.entityId);
+        }
+
         private static int CompareTileFeatureByCellThenId(TileFeatureState left, TileFeatureState right)
         {
             var faceComparison = ((int)left.Cell.face).CompareTo((int)right.Cell.face);
@@ -1503,6 +1855,22 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(buffer);
+        }
+
+        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlySnapshotOwnedCellIndex(
+            SnapshotOwnedCellIndex<SurfaceCell> cellIndex)
+        {
+            var values = cellIndex.Values;
+            foreach (var pair in values)
+            {
+                if (pair.Value == null)
+                {
+                    throw new ArgumentNullException(nameof(cellIndex));
+                }
+            }
+
+            SnapshotMaterializationDiagnostics.RecordSnapshotReadonlyCellIndexSecondCopySkipped(values.Count);
+            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(values);
         }
 
         private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyStackedUnitsByCell(

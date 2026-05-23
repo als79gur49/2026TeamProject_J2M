@@ -25,11 +25,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             // intentionally outside the capture; this budget covers RunTick only.
             // ApplyBatch is counted separately from materialization so future empty
             // batch optimizations can reduce it without hiding snapshot regressions.
-            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(6));
-            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(5));
+            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(1));
             Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(10));
-            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(12));
-            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(12));
+            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(11));
+            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(11));
         }
 
         [Test]

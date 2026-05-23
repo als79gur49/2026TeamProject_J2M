@@ -29,7 +29,9 @@ namespace Game.Feature.Gameplay.Loop
     {
         private readonly WorldSnapshot _baseSnapshot;
         private readonly FinalizationBatch _overlayBatch = new();
+        private readonly List<TileFeatureOperation> _overlayTileFeatureOperations = new();
         private Dictionary<int, TileFeatureState> _projectedTileFeaturesById;
+        private int _overlayTileFeatureOperationCount;
         private bool _isDirty = true;
         private WorldSnapshot _materializedSnapshot;
 
@@ -91,9 +93,11 @@ namespace Game.Feature.Gameplay.Loop
             ValidateTileFeatureOperations(resolvedBatch);
 
             var operations = resolvedBatch.Operations;
+            _overlayTileFeatureOperationCount += operations.Count;
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
+                _overlayTileFeatureOperations.Add(operation);
                 switch (operation.Kind)
                 {
                     case TileFeatureOperationKind.Add:
@@ -126,12 +130,50 @@ namespace Game.Feature.Gameplay.Loop
                 return _materializedSnapshot;
             }
 
-            SnapshotMaterializationDiagnostics.RecordProjectedWorldMaterializedSnapshot(reason);
-            var projectedWorldState = MaterializeWorldState(_baseSnapshot, _projectedTileFeaturesById);
-            _overlayBatch.ApplyTo(projectedWorldState.CreateWriteContext(), delayedAttackEffectSink: null);
+            var baseEntityCount = _baseSnapshot.EntityCount;
+            var overlayEntityOperationCount = _overlayBatch.Operations.Count;
+            var overlayTileFeatureOperationCount = _overlayTileFeatureOperationCount;
+            var projectedWorldState = WorldState.CreateFromSnapshotFast(_baseSnapshot);
+            var writeContext = projectedWorldState.CreateWriteContext();
+            ApplyOverlayTileFeatureOperations(writeContext);
+            _overlayBatch.ApplyTo(writeContext, delayedAttackEffectSink: null);
+            SnapshotMaterializationDiagnostics.RecordFastImportOverlayApply(
+                overlayEntityOperationCount,
+                overlayTileFeatureOperationCount);
             _materializedSnapshot = SnapshotBuilder.Create(projectedWorldState);
+            SnapshotMaterializationDiagnostics.RecordProjectedWorldMaterializedSnapshot(
+                reason,
+                baseEntityCount,
+                overlayEntityOperationCount,
+                overlayTileFeatureOperationCount,
+                _materializedSnapshot.EntityCount);
             _isDirty = false;
             return _materializedSnapshot;
+        }
+
+        private void ApplyOverlayTileFeatureOperations(IWorldWriteContext writeContext)
+        {
+            for (var i = 0; i < _overlayTileFeatureOperations.Count; i++)
+            {
+                var operation = _overlayTileFeatureOperations[i];
+                switch (operation.Kind)
+                {
+                    case TileFeatureOperationKind.Add:
+                        writeContext.AddTileFeature(operation.State);
+                        break;
+
+                    case TileFeatureOperationKind.Update:
+                        writeContext.UpdateTileFeature(operation.State);
+                        break;
+
+                    case TileFeatureOperationKind.Remove:
+                        writeContext.RemoveTileFeature(operation.TileId);
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
         }
 
         private void EnsureProjectedTileFeatureMap()
@@ -229,7 +271,12 @@ namespace Game.Feature.Gameplay.Loop
                 $"TileFeature {state.TileId} at {state.Cell} is outside the configured board bounds.");
         }
 
-        private static WorldState MaterializeWorldState(
+        internal static WorldState MaterializeWorldStateSlowForTest(WorldSnapshot snapshot)
+        {
+            return MaterializeWorldStateSlow(snapshot, projectedTileFeaturesById: null);
+        }
+
+        private static WorldState MaterializeWorldStateSlow(
             WorldSnapshot snapshot,
             IReadOnlyDictionary<int, TileFeatureState> projectedTileFeaturesById)
         {
@@ -257,6 +304,9 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
+            SnapshotMaterializationDiagnostics.RecordSlowBaseSnapshotImport(
+                snapshot.EntityCount,
+                tileFeatures.Count);
             var worldState = new WorldState(
                 entities,
                 snapshot.BoardBounds,

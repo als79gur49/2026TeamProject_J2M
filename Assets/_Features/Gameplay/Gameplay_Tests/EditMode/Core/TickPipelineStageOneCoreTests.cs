@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Intents;
 using Game.Feature.Gameplay.Model.Sorting;
@@ -238,6 +241,88 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(0));
         }
 
+        [Test]
+        [Category("Core")]
+        public void CompositeDamageProjection_EmptyProjection_ReturnsBaseSnapshotWithoutMaterialization()
+        {
+            var baseSnapshot = CreateWorldState(
+                    new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+
+            SnapshotMaterializationCounts counts;
+            WorldSnapshot projectedSnapshot;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                projectedSnapshot = InvokeCompositeDamageProjectionSnapshot(
+                    baseSnapshot,
+                    Array.Empty<ResolutionRecord>(),
+                    new Dictionary<int, AttackActionPlanPayload>());
+                counts = capture.Counts;
+            }
+
+            Assert.That(projectedSnapshot, Is.SameAs(baseSnapshot));
+            Assert.That(counts.CompositeDamageProjectionReturnedBaseSnapshotCount, Is.EqualTo(1));
+            Assert.That(counts.CompositeDamageProjectionMaterializedSnapshotCount, Is.EqualTo(0));
+            Assert.That(counts.GetMaterializedSnapshotCount(ProjectedWorldSnapshotReason.DamageProjection), Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CompositeDamageProjection_EntityDamageOperation_MaterializesProjection()
+        {
+            var targetId = 20;
+            var baseSnapshot = CreateWorldState(
+                    new[] { CreateUnit(targetId, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var payloads = new Dictionary<int, AttackActionPlanPayload>
+            {
+                [1] = CreateAttackPayload(
+                    actionPlanId: 1,
+                    damageWrites: new[]
+                    {
+                        new DamageWritePayload(
+                            targetId,
+                            amount: 1,
+                            hasPlayerDamageState: false,
+                            playerDamageState: default,
+                            AttackSourceKind.Combat),
+                    }),
+            };
+            var resolutionRecords = new[]
+            {
+                new ResolutionRecord(
+                    contestId: 1,
+                    ContestKind.Damage,
+                    accepted: true,
+                    sourceId: 10,
+                    priority: 10,
+                    actionPlanId: 1,
+                    affectedEntityId: targetId,
+                    localActionIndex: 0),
+            };
+
+            SnapshotMaterializationCounts counts;
+            WorldSnapshot projectedSnapshot;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                projectedSnapshot = InvokeCompositeDamageProjectionSnapshot(
+                    baseSnapshot,
+                    resolutionRecords,
+                    payloads);
+                counts = capture.Counts;
+            }
+
+            Assert.That(projectedSnapshot, Is.Not.SameAs(baseSnapshot));
+            Assert.That(projectedSnapshot.TryGetEntity(targetId, out var projectedTarget), Is.True);
+            Assert.That(projectedTarget.hp, Is.EqualTo(2));
+            Assert.That(counts.CompositeDamageProjectionReturnedBaseSnapshotCount, Is.EqualTo(0));
+            Assert.That(counts.CompositeDamageProjectionMaterializedSnapshotCount, Is.EqualTo(1));
+            Assert.That(counts.CompositeDamageProjectionEntityOperationCount, Is.EqualTo(1));
+            Assert.That(counts.GetMaterializedSnapshotCount(ProjectedWorldSnapshotReason.DamageProjection), Is.EqualTo(1));
+        }
+
         private static ActionGroup CreateActionGroup(int intentId, int sourceId, int priority, int groupId)
         {
             var actionGroup = new ActionGroup(intentId, sourceId, priority, ActionGroupKind.Move);
@@ -292,6 +377,36 @@ namespace Game.Feature.Gameplay.Tests.Core
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
             };
+        }
+
+        private static AttackActionPlanPayload CreateAttackPayload(
+            int actionPlanId,
+            IReadOnlyList<DamageWritePayload> damageWrites)
+        {
+            return new AttackActionPlanPayload(
+                actionPlanId,
+                intentId: actionPlanId,
+                sourceActorEntityId: 10,
+                priority: 10,
+                ResolvedActionSemanticKind.Attack,
+                Array.Empty<StateChangeWritePayload>(),
+                damageWrites,
+                Array.Empty<SpawnWritePayload>(),
+                Array.Empty<DestroyWritePayload>(),
+                Array.Empty<DelayedEnqueueWritePayload>());
+        }
+
+        private static WorldSnapshot InvokeCompositeDamageProjectionSnapshot(
+            WorldSnapshot baseSnapshot,
+            IReadOnlyList<ResolutionRecord> resolutionRecords,
+            IReadOnlyDictionary<int, AttackActionPlanPayload> payloads)
+        {
+            var method = typeof(TickPipeline).GetMethod(
+                "CreateCompositeDamageProjectionSnapshot",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+            return (WorldSnapshot)method.Invoke(null, new object[] { baseSnapshot, resolutionRecords, payloads });
         }
     }
 }

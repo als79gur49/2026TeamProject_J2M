@@ -119,16 +119,50 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
+        private WorldState(
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology,
+            bool validateTerrainBounds)
+        {
+            _boardBounds = boardBounds;
+            _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
+            _topology = topology;
+            if (validateTerrainBounds)
+            {
+                ValidateTerrainBounds();
+            }
+        }
+
+        internal static WorldState CreateFromSnapshotFast(WorldSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            var worldState = new WorldState(
+                snapshot.BoardBounds,
+                snapshot.TerrainData,
+                snapshot.Topology,
+                validateTerrainBounds: false);
+            worldState.RestoreFromSnapshotFast(snapshot);
+            SnapshotMaterializationDiagnostics.RecordFastBaseSnapshotImport(
+                snapshot.EntityCount,
+                snapshot.TileFeatureCount);
+            return worldState;
+        }
+
         internal WorldSnapshot CreateSnapshot()
         {
             SnapshotMaterializationDiagnostics.RecordWorldStateCreateSnapshot();
-            return new WorldSnapshot(
+            return WorldSnapshot.CreateWithSnapshotOwnedCellIndexes(
                 new Dictionary<int, EntityState>(_entitiesById),
-                CloneStackedUnitsByCell(),
+                CreateSnapshotOwnedStackedUnitsByCell(),
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
                 new Dictionary<int, TileFeatureState>(_tileFeaturesById),
-                CloneTileFeatureIdsByCell(),
+                CreateSnapshotOwnedTileFeatureIdsByCell(),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, PendingCellImpact>(_pendingCellImpactsById),
                 new Dictionary<int, EnemyPatrolRuntimeState>(_enemyPatrolStatesByEntityId),
@@ -150,6 +184,34 @@ namespace Game.Feature.Gameplay.BoardState
                 _topology,
                 _boardBounds,
                 _terrainData);
+        }
+
+        private void RestoreFromSnapshotFast(WorldSnapshot snapshot)
+        {
+            snapshot.CopyEntitiesByIdTo(_entitiesById);
+            snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
+            snapshot.CopySolidOccupancyTo(_solidOccupancy);
+            snapshot.CopyProjectileOccupancyTo(_projectileOccupancy);
+            snapshot.CopyTileFeaturesByIdTo(_tileFeaturesById);
+            snapshot.CopyTileFeatureIdsByCellTo(_tileFeatureIdsByCell);
+            snapshot.CopyEnemyActionStatesByEntityIdTo(_enemyActionStatesByEntityId);
+            snapshot.CopyPendingCellImpactsByIdTo(_pendingCellImpactsById);
+            snapshot.CopyEnemyPatrolStatesByEntityIdTo(_enemyPatrolStatesByEntityId);
+            snapshot.CopyEnemyChargeStatesByEntityIdTo(_enemyChargeStatesByEntityId);
+            snapshot.CopyEntityExecutionLockStatesByEntityIdTo(_executionLockStatesByEntityId);
+            snapshot.CopyEnemyJumpStatesByEntityIdTo(_enemyJumpStatesByEntityId);
+            snapshot.CopyEnemyGlideStatesByEntityIdTo(_enemyGlideStatesByEntityId);
+            snapshot.CopyEnemyUtilityStatesByEntityIdTo(_enemyUtilityStatesByEntityId);
+            snapshot.CopyEnemyFrontFaceSupportStatesByEntityIdTo(_enemyFrontFaceSupportStatesByEntityId);
+            snapshot.CopyBoxInteractionLockStatesByEntityIdTo(_boxInteractionLockStatesByEntityId);
+            snapshot.CopyEnemyGravityFieldAuraFieldsByIdTo(_enemyGravityFieldAuraFieldsById);
+            snapshot.CopyPhasedStatesByEntityIdTo(_phasedStatesByEntityId);
+            snapshot.CopyPlayerDamageStatesByEntityIdTo(_playerDamageStatesByEntityId);
+            snapshot.CopyPlayerControlStatesByEntityIdTo(_playerControlStatesByEntityId);
+            snapshot.CopySummonedEntitiesByEntityIdTo(_summonedEntitiesByEntityId);
+            snapshot.CopyEnemyDefinitionBindingsByEntityIdTo(_enemyDefinitionBindingsByEntityId);
+            snapshot.CopyUnitKinematicStatesByEntityIdTo(_unitKinematicStatesByEntityId);
+            snapshot.CopyUnitContinuousLocomotionStatesByEntityIdTo(_unitContinuousLocomotionStatesByEntityId);
         }
 
         internal IWorldWriteContext CreateWriteContext()
@@ -1098,6 +1160,37 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return clone;
+        }
+
+        private SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedStackedUnitsByCell()
+        {
+            SnapshotMaterializationDiagnostics.RecordSnapshotOwnedStackedUnitCellIndexBuild(_stackedUnitsByCell.Count);
+            return CreateSnapshotOwnedCellIndex(_stackedUnitsByCell);
+        }
+
+        private SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedTileFeatureIdsByCell()
+        {
+            SnapshotMaterializationDiagnostics.RecordSnapshotOwnedTileFeatureCellIndexBuild(_tileFeatureIdsByCell.Count);
+            return CreateSnapshotOwnedCellIndex(_tileFeatureIdsByCell);
+        }
+
+        private static SnapshotOwnedCellIndex<SurfaceCell> CreateSnapshotOwnedCellIndex(
+            Dictionary<SurfaceCell, SortedSet<int>> source)
+        {
+            var values = new Dictionary<SurfaceCell, IReadOnlyCollection<int>>(source.Count);
+
+            foreach (var pair in source)
+            {
+                var orderedIds = new List<int>(pair.Value.Count);
+                foreach (var id in pair.Value)
+                {
+                    orderedIds.Add(id);
+                }
+
+                values.Add(pair.Key, orderedIds.AsReadOnly());
+            }
+
+            return new SnapshotOwnedCellIndex<SurfaceCell>(values);
         }
 
         private Dictionary<SurfaceCell, SortedSet<int>> CloneTileFeatureIdsByCell()

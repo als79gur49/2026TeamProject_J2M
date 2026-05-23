@@ -956,7 +956,7 @@ namespace Game.Feature.Gameplay.Loop
             projectedWorld.ApplyBatch(movementStageBatch);
             // postMovementSnapshot is the movement-visible resolve surface. Accepted
             // impact follow-through writes are materialized here before jump landing.
-            var postMovementSnapshot = projectedWorld.CreateSnapshot();
+            var postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
 
             var beforeAttackAiBatch = new FinalizationBatch();
             var beforeAttackAiContext = new RecordingFinalizationContext(beforeAttackAiBatch);
@@ -974,7 +974,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyActionBeforeAttackContext = new RecordingFinalizationContext(enemyActionBeforeAttackBatch);
             var enemyActionPhaseResult = RunEnemyActionPhase(
                 entityLogicsForTick.EnemyActionStateLogics,
-                projectedWorld.CreateSnapshot(),
+                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveEnemyActionBeforeAttackInput),
                 in input,
                 EnemyActionStage.BeforeAttackCollection,
                 enemyActionBeforeAttackContext,
@@ -982,7 +982,7 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(enemyActionBeforeAttackBatch);
             projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
 
-            var attackSnapshot = projectedWorld.CreateSnapshot();
+            var attackSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveAttackSnapshot);
             var attackPlanResult = BuildAttackPlan(
                 attackSnapshot,
                 in input,
@@ -1068,7 +1068,7 @@ namespace Game.Feature.Gameplay.Loop
                 projectedWorld = new ProjectedWorld(planSnapshot);
                 projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                 projectedWorld.ApplyBatch(movementStageBatch);
-                postMovementSnapshot = projectedWorld.CreateSnapshot();
+                postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
 
                 beforeAttackAiBatch = new FinalizationBatch();
                 beforeAttackAiContext = new RecordingFinalizationContext(beforeAttackAiBatch);
@@ -1086,7 +1086,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyActionBeforeAttackContext = new RecordingFinalizationContext(enemyActionBeforeAttackBatch);
                 enemyActionPhaseResult = RunEnemyActionPhase(
                     entityLogicsForTick.EnemyActionStateLogics,
-                    projectedWorld.CreateSnapshot(),
+                    projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveEnemyActionBeforeAttackInput),
                     in input,
                     EnemyActionStage.BeforeAttackCollection,
                     enemyActionBeforeAttackContext,
@@ -1114,7 +1114,7 @@ namespace Game.Feature.Gameplay.Loop
                 projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                 projectedWorld.ApplyBatch(movementStageBatch);
                 projectedWorld.ApplyBatch(jumpLandingResolveBatch);
-                postMovementSnapshot = projectedWorld.CreateSnapshot();
+                postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
 
                 beforeAttackAiBatch = new FinalizationBatch();
                 beforeAttackAiContext = new RecordingFinalizationContext(beforeAttackAiBatch);
@@ -1132,7 +1132,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyActionBeforeAttackContext = new RecordingFinalizationContext(enemyActionBeforeAttackBatch);
                 enemyActionPhaseResult = RunEnemyActionPhase(
                     entityLogicsForTick.EnemyActionStateLogics,
-                    projectedWorld.CreateSnapshot(),
+                    projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveEnemyActionBeforeAttackInput),
                     in input,
                     EnemyActionStage.BeforeAttackCollection,
                     enemyActionBeforeAttackContext,
@@ -1153,7 +1153,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 finalizationBatch.MergeFrom(phaseRelocationResolveBatch);
                 projectedWorld.ApplyBatch(phaseRelocationResolveBatch);
-                postMovementSnapshot = projectedWorld.CreateSnapshot();
+                postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
             }
 
             var finalImpactReservations = MergeImpactReservations(
@@ -1165,7 +1165,7 @@ namespace Game.Feature.Gameplay.Loop
                     planPhaseResult.MovementActionPlanPayloads,
                     movementResolutionRecords));
             var frozenMovementReservationExport = movementReservationBook.Freeze(finalImpactReservations);
-            var attackReadSnapshot = projectedWorld.CreateSnapshot();
+            var attackReadSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveAttackRead);
             var tileEffectEntityContacts = BuildTileEffectEntityContacts(
                 planSnapshot,
                 postMovementSnapshot,
@@ -1230,7 +1230,7 @@ namespace Game.Feature.Gameplay.Loop
                         projectedWorld.ApplyBatch(tileEffectResult.EntityOperations);
                     }
 
-                    postMovementSnapshot = projectedWorld.CreateSnapshot();
+                    postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
                     beforeAttackAiBatch = new FinalizationBatch();
                     beforeAttackAiContext = new RecordingFinalizationContext(beforeAttackAiBatch);
                     CommitEnemyAiTransitions(
@@ -1247,14 +1247,14 @@ namespace Game.Feature.Gameplay.Loop
                     enemyActionBeforeAttackContext = new RecordingFinalizationContext(enemyActionBeforeAttackBatch);
                     enemyActionPhaseResult = RunEnemyActionPhase(
                         entityLogicsForTick.EnemyActionStateLogics,
-                        projectedWorld.CreateSnapshot(),
+                        projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveEnemyActionBeforeAttackInput),
                         in input,
                         EnemyActionStage.BeforeAttackCollection,
                         enemyActionBeforeAttackContext,
                         new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()));
                     finalizationBatch.MergeFrom(enemyActionBeforeAttackBatch);
                     projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
-                    attackReadSnapshot = projectedWorld.CreateSnapshot();
+                    attackReadSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveAttackRead);
                 }
                 else
                 {
@@ -1270,7 +1270,7 @@ namespace Game.Feature.Gameplay.Loop
                         projectedWorld.ApplyBatch(tileEffectResult.EntityOperations);
                     }
 
-                    attackReadSnapshot = projectedWorld.CreateSnapshot();
+                    attackReadSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolveAttackRead);
                 }
             }
 
@@ -1375,7 +1375,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyActionAfterAttackBatch = new FinalizationBatch();
             var enemyActionAfterAttackContext = new RecordingFinalizationContext(enemyActionAfterAttackBatch);
             CommitEnemyActionState(
-                projectedWorld.CreateSnapshot(),
+                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostAttack),
                 in input,
                 entityLogicsForTick.EnemyActionStateLogics,
                 EnemyActionStage.AfterAttack,
@@ -1387,7 +1387,7 @@ namespace Game.Feature.Gameplay.Loop
             var afterAttackAiBatch = new FinalizationBatch();
             var afterAttackAiContext = new RecordingFinalizationContext(afterAttackAiBatch);
             CommitEnemyAiTransitions(
-                projectedWorld.CreateSnapshot(),
+                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostAttack),
                 in input,
                 entityLogicsForTick.AiStateLogics,
                 EnemyAiTransitionStage.AfterAttack,
@@ -1396,14 +1396,14 @@ namespace Game.Feature.Gameplay.Loop
             finalizationBatch.MergeFrom(afterAttackAiBatch);
             projectedWorld.ApplyBatch(afterAttackAiBatch);
             var utilityResolveResult = EnemyUtilityResolver.ResolvePostAttackEffects(
-                projectedWorld.CreateSnapshot(),
+                projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostAttack),
                 planPhaseResult.PreMovementStatePhaseResult.UtilityTriggerIntents,
                 tickIndex,
                 _entityIdAllocator,
                 _enemySpawnDefaultsByArchetypeId);
             finalizationBatch.MergeFrom(utilityResolveResult.Batch);
             projectedWorld.ApplyBatch(utilityResolveResult.Batch);
-            var postAttackSnapshot = projectedWorld.CreateSnapshot();
+            var postAttackSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostAttack);
 
             phaseTrace.Add("Resolve:Exit");
             completedPhases.Add(TickPhase.Resolve);
@@ -8926,9 +8926,29 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
+            var entityOperationCount = projectionBatch.Operations.Count;
+            var tileFeatureOperationCount = projectionBatch.TileFeatureOperations.Count;
+            if (entityOperationCount == 0 &&
+                tileFeatureOperationCount == 0)
+            {
+                SnapshotMaterializationDiagnostics.RecordCompositeDamageProjection(
+                    entityOperationCount,
+                    tileFeatureOperationCount,
+                    delayedAttackEffectCount: 0,
+                    damageFactCount: 0,
+                    returnedBaseSnapshot: true);
+                return baseSnapshot;
+            }
+
+            SnapshotMaterializationDiagnostics.RecordCompositeDamageProjection(
+                entityOperationCount,
+                tileFeatureOperationCount,
+                delayedAttackEffectCount: 0,
+                damageFactCount: 0,
+                returnedBaseSnapshot: false);
             var projectedWorld = new ProjectedWorld(baseSnapshot);
-            projectedWorld.ApplyBatch(projectionBatch);
-            return projectedWorld.CreateSnapshot();
+            projectedWorld.ApplyBatch(projectionBatch, ProjectedWorldBatchReason.DamageProjection);
+            return projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.DamageProjection);
         }
 
         private static bool TryFindResolutionRecord(
@@ -10170,7 +10190,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var projectedWorld = new ProjectedWorld(baseSnapshot);
             projectedWorld.ApplyBatch(damageProjectionBatch);
-            return projectedWorld.CreateSnapshot();
+            return projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.DamageProjection);
         }
 
         private static bool IsImpactTargetSurviving(

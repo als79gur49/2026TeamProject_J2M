@@ -47,11 +47,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetTileFeature(tileFeature.TileId, out var stored), Is.True);
             Assert.That(stored, Is.EqualTo(tileFeature));
-            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(6));
-            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(5));
+            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(1));
             Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(10));
-            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(12));
-            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(12));
+            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(11));
+            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(11));
         }
 
         [Test]
