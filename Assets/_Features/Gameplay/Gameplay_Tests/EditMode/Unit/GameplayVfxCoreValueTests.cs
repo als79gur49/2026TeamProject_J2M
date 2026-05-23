@@ -307,6 +307,172 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TileFeaturePlanner_PlayerRespawnWithEntranceSource_MapsToEntranceSpawnAtSourceFloor()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var playerCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var entranceCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var signal = new EntitySpawnPresentationSignal(
+                entityId: 10,
+                EntityPresentationKind.Player,
+                EntitySpawnPresentationReason.PlayerRespawn,
+                playerCell,
+                topology,
+                Direction.Left,
+                new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, entranceCell));
+
+            var plan = PlanTileFeature(topology, CreatePresentationData(entitySpawnSignals: new[] { signal }));
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            var request = plan.Requests[0];
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn)));
+            Assert.That(request.SourceEntityId, Is.EqualTo(signal.EntityId));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.Anchor.Cell, Is.EqualTo(entranceCell));
+            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
+            Assert.That(request.Anchor.Topology, Is.EqualTo(topology));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeaturePlanner_PlayerRespawnWithoutEntranceSource_DoesNotMapEntranceSpawn()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var signal = new EntitySpawnPresentationSignal(
+                entityId: 10,
+                EntityPresentationKind.Player,
+                EntitySpawnPresentationReason.PlayerRespawn,
+                new SurfaceCell(FaceId.Floor, 2, 1),
+                topology,
+                Direction.Left,
+                sourceTileFeature: null);
+
+            var plan = PlanTileFeature(topology, CreatePresentationData(entitySpawnSignals: new[] { signal }));
+
+            Assert.That(plan.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeaturePlanner_PlayerInitialStageStartWithEntranceSource_MapsToEntranceSpawnAtSourceFloor()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var playerCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var entranceCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var signal = new EntitySpawnPresentationSignal(
+                entityId: 10,
+                EntityPresentationKind.Player,
+                EntitySpawnPresentationReason.InitialStageStart,
+                playerCell,
+                topology,
+                Direction.Right,
+                new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, entranceCell));
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            new TileFeatureVfxRequestPlanner().Plan(
+                GameplayVfxPlanningContext.ForInitial(
+                    new InitialPresentationData(new[] { signal }),
+                    topology),
+                builder);
+            var plan = builder.Build();
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            var request = plan.Requests[0];
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn)));
+            Assert.That(request.SourceEntityId, Is.EqualTo(signal.EntityId));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.Anchor.Cell, Is.EqualTo(entranceCell));
+            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
+            Assert.That(request.Anchor.Topology, Is.EqualTo(topology));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeaturePlanner_PlayerInitialStageStartWithoutEntranceSource_DoesNotMapEntranceSpawn()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var signal = new EntitySpawnPresentationSignal(
+                entityId: 10,
+                EntityPresentationKind.Player,
+                EntitySpawnPresentationReason.InitialStageStart,
+                new SurfaceCell(FaceId.Floor, 2, 1),
+                topology,
+                Direction.Left,
+                sourceTileFeature: null);
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            new TileFeatureVfxRequestPlanner().Plan(
+                GameplayVfxPlanningContext.ForInitial(
+                    new InitialPresentationData(new[] { signal }),
+                    topology),
+                builder);
+
+            Assert.That(builder.Build().Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeaturePlanner_NonPlayerSpawnSignals_DoNotMapEntranceSpawn()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var source = new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, cell);
+            var signals = new[]
+            {
+                new EntitySpawnPresentationSignal(
+                    40,
+                    EntityPresentationKind.Enemy,
+                    EntitySpawnPresentationReason.EnemySummon,
+                    cell,
+                    topology,
+                    Direction.Left,
+                    source),
+                new EntitySpawnPresentationSignal(
+                    50,
+                    EntityPresentationKind.Projectile,
+                    EntitySpawnPresentationReason.ProjectileSpawn,
+                    cell,
+                    topology,
+                    Direction.Right,
+                    source),
+                new EntitySpawnPresentationSignal(
+                    60,
+                    EntityPresentationKind.Box,
+                    EntitySpawnPresentationReason.InitialStageStart,
+                    cell,
+                    topology,
+                    Direction.Right,
+                    source),
+            };
+
+            var plan = PlanTileFeature(topology, CreatePresentationData(entitySpawnSignals: signals));
+
+            Assert.That(plan.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeaturePlanner_DedupesDuplicateEntranceSpawnSignals()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var signal = new EntitySpawnPresentationSignal(
+                entityId: 10,
+                EntityPresentationKind.Player,
+                EntitySpawnPresentationReason.InitialStageStart,
+                cell,
+                topology,
+                Direction.Left,
+                new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, cell));
+
+            var plan = PlanTileFeature(topology, CreatePresentationData(entitySpawnSignals: new[] { signal, signal }));
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            Assert.That(plan.Requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn)));
+        }
+
+        [Test]
         [Category("Extended")]
         public void TileFeaturePlanner_MapsDestroyActiveStateToPersistentLaserCue()
         {
@@ -434,9 +600,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CubeTopologyState topology,
             params TilePresentationEvent[] events)
         {
+            return PlanTileFeature(topology, CreatePresentationData(tileEvents: events));
+        }
+
+        private static GameplayVfxRequestPlan PlanTileFeature(
+            CubeTopologyState topology,
+            TickPresentationData presentationData)
+        {
             var builder = new GameplayVfxRequestPlanBuilder();
             new TileFeatureVfxRequestPlanner().Plan(
-                new GameplayVfxPlanningContext(21, CreatePresentationData(tileEvents: events), topology),
+                new GameplayVfxPlanningContext(21, presentationData, topology),
                 builder);
             return builder.Build();
         }
@@ -445,7 +618,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TilePresentationEvent[] tileEvents = null,
             GravityFieldPresentationEvent[] gravityFieldEvents = null,
             GravityFieldVisualState[] gravityFieldVisualStates = null,
-            TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null)
+            TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null,
+            EntitySpawnPresentationSignal[] entitySpawnSignals = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -464,7 +638,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
                 gravityFieldVisualStates: gravityFieldVisualStates,
-                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates);
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
+                entitySpawnSignals: entitySpawnSignals);
         }
     }
 }

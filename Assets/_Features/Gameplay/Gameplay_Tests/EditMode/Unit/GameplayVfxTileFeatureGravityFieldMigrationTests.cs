@@ -123,6 +123,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void ProductionRuntime_InitialEntranceSpawn_PlansThroughTileFeatureLane()
+        {
+            var owner = new GameObject("InitialEntranceSpawnRuntime");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+
+                runtime.PresentInitial(CreateInitialExtensionContext(CreateInitialPresentationData()));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProductionRuntime_InitialEntranceSpawn_TileFeatureLaneDisabled_DoesNotPlan()
+        {
+            var owner = new GameObject("InitialEntranceSpawnRuntimeTileLaneDisabled");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxTileFeatureLane = false;
+
+                runtime.PresentInitial(CreateInitialExtensionContext(CreateInitialPresentationData()));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void ProductionRuntime_GravityFieldContinuousState_DropsWhenPresentationStateDisappears()
         {
@@ -925,6 +966,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projector,
                 topologyTransitionEpoch: topologyTransitionEpoch,
                 isTopologyTransitionCompletionReconcile: isTopologyTransitionCompletionReconcile);
+        }
+
+        private static GameplayInitialPresentationExtensionContext CreateInitialExtensionContext(
+            InitialPresentationData presentationData)
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var stateStore = new GameplayPresentationStateStore();
+            stateStore.ResetSession(topology);
+            stateStore.CommittedLocalTargetPoses[10] = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f);
+
+            return new GameplayInitialPresentationExtensionContext(
+                presentationData,
+                topology,
+                stateStore,
+                projector);
+        }
+
+        private static InitialPresentationData CreateInitialPresentationData()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            return new InitialPresentationData(
+                new[]
+                {
+                    new EntitySpawnPresentationSignal(
+                        10,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.InitialStageStart,
+                        cell,
+                        topology,
+                        Direction.Right,
+                        new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, cell)),
+                });
         }
 
         private static TickResult CreateResult(TickPresentationData presentationData, CubeTopologyState topology)

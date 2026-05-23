@@ -74,6 +74,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_PresentInitial_CallsInitialExtensionOnceAfterViewsExist()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_PresentInitial_CallsInitialExtensionOnceAfterViewsExist));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var extension = new RecordingInitialPresentationExtension();
+                var player = CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 1));
+                var signal = new EntitySpawnPresentationSignal(
+                    player.entityId,
+                    EntityPresentationKind.Player,
+                    EntitySpawnPresentationReason.InitialStageStart,
+                    player.position,
+                    topology,
+                    player.facing,
+                    sourceTileFeature: null);
+                var initialPresentationData = new InitialPresentationData(new[] { signal });
+
+                presenter.AttachPresentationExtension(extension);
+                presenter.PresentInitial(new[] { player }, topology, initialPresentationData);
+                presenter.Present(CreateTickResult(1, new[] { player }, topology, TickPresentationData.Empty));
+
+                Assert.That(extension.InitialPresentCallCount, Is.EqualTo(1));
+                Assert.That(extension.TickPresentCallCount, Is.EqualTo(1));
+                Assert.That(extension.CapturedInitialPresentationData, Is.SameAs(initialPresentationData));
+                Assert.That(extension.HadPlayerViewDuringInitial, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty()
         {
@@ -6663,6 +6699,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateTimingProfile());
             presenter.PresentInitial(Array.Empty<EntityState>(), topology);
             return presenter;
+        }
+
+        private sealed class RecordingInitialPresentationExtension :
+            IGameplayTickPresentationExtension,
+            IGameplayInitialPresentationExtension
+        {
+            public int InitialPresentCallCount { get; private set; }
+
+            public int TickPresentCallCount { get; private set; }
+
+            public InitialPresentationData CapturedInitialPresentationData { get; private set; }
+
+            public bool HadPlayerViewDuringInitial { get; private set; }
+
+            public void ResetSession()
+            {
+            }
+
+            public void Present(in GameplayTickPresentationExtensionContext context)
+            {
+                TickPresentCallCount++;
+            }
+
+            public void PresentInitial(in GameplayInitialPresentationExtensionContext context)
+            {
+                InitialPresentCallCount++;
+                CapturedInitialPresentationData = context.PresentationData;
+                HadPlayerViewDuringInitial =
+                    context.StateStore != null &&
+                    context.StateStore.ViewsByEntityId.ContainsKey(10);
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+            }
+
+            public void HardCleanup()
+            {
+            }
         }
 
         private static TileFeatureVisualTargetView AttachTileVisualTarget(
