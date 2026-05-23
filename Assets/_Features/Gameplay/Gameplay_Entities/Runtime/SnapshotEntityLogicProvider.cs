@@ -49,10 +49,11 @@ namespace Game.Feature.Gameplay.Entities
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
             var entityLogics = new List<IEntityLogic>(staticEntityLogics.Count + orderedEntities.Count);
+            var phaseOwnerIndex = new PhaseOwnerIndex();
 
             for (var i = 0; i < staticEntityLogics.Count; i++)
             {
-                AddStaticEntityLogic(staticEntityLogics[i], entityLogics);
+                AddStaticEntityLogic(staticEntityLogics[i], entityLogics, phaseOwnerIndex);
             }
 
             for (var entityIndex = 0; entityIndex < orderedEntities.Count; entityIndex++)
@@ -74,12 +75,10 @@ namespace Game.Feature.Gameplay.Entities
                         throw new InvalidOperationException("Entity logic factories must not return null.");
                     }
 
-                    if (HasPhaseOwnershipConflict(candidate, entityLogics))
+                    if (!TryAddDynamicEntityLogic(candidate, entityLogics, phaseOwnerIndex))
                     {
                         continue;
                     }
-
-                    entityLogics.Add(candidate);
                 }
             }
 
@@ -106,19 +105,38 @@ namespace Game.Feature.Gameplay.Entities
 
         private static void AddStaticEntityLogic(
             IEntityLogic candidate,
-            List<IEntityLogic> entityLogics)
+            List<IEntityLogic> entityLogics,
+            PhaseOwnerIndex phaseOwnerIndex)
         {
             if (candidate == null)
             {
                 throw new InvalidOperationException("Static entity logic collections cannot contain null entries.");
             }
 
-            if (HasPhaseOwnershipConflict(candidate, entityLogics))
+            var ownership = GetOwnership(candidate);
+            if (phaseOwnerIndex.HasConflict(ownership))
             {
                 throw new InvalidOperationException("Static entity logic configuration contains duplicate phase ownership.");
             }
 
             entityLogics.Add(candidate);
+            phaseOwnerIndex.Register(ownership);
+        }
+
+        private static bool TryAddDynamicEntityLogic(
+            IEntityLogic candidate,
+            List<IEntityLogic> entityLogics,
+            PhaseOwnerIndex phaseOwnerIndex)
+        {
+            var ownership = GetOwnership(candidate);
+            if (phaseOwnerIndex.HasConflict(ownership))
+            {
+                return false;
+            }
+
+            entityLogics.Add(candidate);
+            phaseOwnerIndex.Register(ownership);
+            return true;
         }
 
         private static EntityLogicSet BuildEntityLogicSet(IReadOnlyList<IEntityLogic> entityLogics)
@@ -186,7 +204,76 @@ namespace Game.Feature.Gameplay.Entities
                 attackLogics.AsReadOnly());
         }
 
-        private static bool HasPhaseOwnershipConflict(
+        internal static bool HasPhaseOwnershipConflictSlowForTest(
+            IEntityLogic candidate,
+            IReadOnlyList<IEntityLogic> existingEntityLogics)
+        {
+            return HasPhaseOwnershipConflictSlow(candidate, existingEntityLogics);
+        }
+
+        internal static bool HasPhaseOwnershipConflictIndexedForTest(
+            IEntityLogic candidate,
+            IReadOnlyList<IEntityLogic> existingEntityLogics)
+        {
+            var phaseOwnerIndex = new PhaseOwnerIndex();
+            for (var i = 0; i < existingEntityLogics.Count; i++)
+            {
+                phaseOwnerIndex.Register(GetOwnership(existingEntityLogics[i]));
+            }
+
+            return phaseOwnerIndex.HasConflict(GetOwnership(candidate));
+        }
+
+        private static EntityLogicOwnership GetOwnership(IEntityLogic logic)
+        {
+            var phaseMask = GetSupportedPhaseMask(logic);
+            if (phaseMask == EntityLogicPhaseMask.None ||
+                logic is not IEntityLogicSourceBinding binding)
+            {
+                return EntityLogicOwnership.None;
+            }
+
+            return new EntityLogicOwnership(true, binding.ControlledEntityId, phaseMask);
+        }
+
+        private static EntityLogicPhaseMask GetSupportedPhaseMask(IEntityLogic logic)
+        {
+            var phaseMask = EntityLogicPhaseMask.None;
+
+            if (logic is IMovementEntityLogic)
+            {
+                phaseMask |= EntityLogicPhaseMask.Movement;
+            }
+
+            if (logic is IPreMovementStateLogic)
+            {
+                phaseMask |= EntityLogicPhaseMask.PreMovementState;
+            }
+
+            if (logic is IEnemyAiStateLogic)
+            {
+                phaseMask |= EntityLogicPhaseMask.EnemyAiState;
+            }
+
+            if (logic is IEnemyActionStateLogic)
+            {
+                phaseMask |= EntityLogicPhaseMask.EnemyActionState;
+            }
+
+            if (logic is IFrontFaceSupportLogic)
+            {
+                phaseMask |= EntityLogicPhaseMask.FrontFaceSupport;
+            }
+
+            if (logic is IAttackEntityLogic)
+            {
+                phaseMask |= EntityLogicPhaseMask.Attack;
+            }
+
+            return phaseMask;
+        }
+
+        private static bool HasPhaseOwnershipConflictSlow(
             IEntityLogic candidate,
             IReadOnlyList<IEntityLogic> existingEntityLogics)
         {
@@ -195,15 +282,15 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            return HasPhaseOwnershipConflict<IMovementEntityLogic>(candidate, candidateBinding, existingEntityLogics)
-                || HasPhaseOwnershipConflict<IPreMovementStateLogic>(candidate, candidateBinding, existingEntityLogics)
-                || HasPhaseOwnershipConflict<IEnemyAiStateLogic>(candidate, candidateBinding, existingEntityLogics)
-                || HasPhaseOwnershipConflict<IEnemyActionStateLogic>(candidate, candidateBinding, existingEntityLogics)
-                || HasPhaseOwnershipConflict<IFrontFaceSupportLogic>(candidate, candidateBinding, existingEntityLogics)
-                || HasPhaseOwnershipConflict<IAttackEntityLogic>(candidate, candidateBinding, existingEntityLogics);
+            return HasPhaseOwnershipConflictSlow<IMovementEntityLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflictSlow<IPreMovementStateLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflictSlow<IEnemyAiStateLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflictSlow<IEnemyActionStateLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflictSlow<IFrontFaceSupportLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflictSlow<IAttackEntityLogic>(candidate, candidateBinding, existingEntityLogics);
         }
 
-        private static bool HasPhaseOwnershipConflict<TPhaseLogic>(
+        private static bool HasPhaseOwnershipConflictSlow<TPhaseLogic>(
             IEntityLogic candidate,
             IEntityLogicSourceBinding candidateBinding,
             IReadOnlyList<IEntityLogic> existingEntityLogics)
@@ -225,6 +312,122 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return false;
+        }
+
+        [Flags]
+        private enum EntityLogicPhaseMask
+        {
+            None = 0,
+            Movement = 1 << 0,
+            PreMovementState = 1 << 1,
+            EnemyAiState = 1 << 2,
+            EnemyActionState = 1 << 3,
+            FrontFaceSupport = 1 << 4,
+            Attack = 1 << 5,
+        }
+
+        private readonly struct EntityLogicOwnership
+        {
+            public static readonly EntityLogicOwnership None = new(false, 0, EntityLogicPhaseMask.None);
+
+            public EntityLogicOwnership(
+                bool hasSourceBinding,
+                int controlledEntityId,
+                EntityLogicPhaseMask phaseMask)
+            {
+                HasSourceBinding = hasSourceBinding;
+                ControlledEntityId = controlledEntityId;
+                PhaseMask = phaseMask;
+            }
+
+            public bool HasSourceBinding { get; }
+
+            public int ControlledEntityId { get; }
+
+            public EntityLogicPhaseMask PhaseMask { get; }
+        }
+
+        private readonly struct PhaseOwnerKey : IEquatable<PhaseOwnerKey>
+        {
+            public PhaseOwnerKey(EntityLogicPhaseMask phase, int controlledEntityId)
+            {
+                Phase = phase;
+                ControlledEntityId = controlledEntityId;
+            }
+
+            private EntityLogicPhaseMask Phase { get; }
+
+            private int ControlledEntityId { get; }
+
+            public bool Equals(PhaseOwnerKey other)
+            {
+                return Phase == other.Phase &&
+                       ControlledEntityId == other.ControlledEntityId;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is PhaseOwnerKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return ((int)Phase * 397) ^ ControlledEntityId;
+                }
+            }
+        }
+
+        private sealed class PhaseOwnerIndex
+        {
+            private readonly HashSet<PhaseOwnerKey> _owners = new();
+
+            public bool HasConflict(EntityLogicOwnership ownership)
+            {
+                if (!ownership.HasSourceBinding ||
+                    ownership.PhaseMask == EntityLogicPhaseMask.None)
+                {
+                    return false;
+                }
+
+                return HasConflict(ownership, EntityLogicPhaseMask.Movement) ||
+                       HasConflict(ownership, EntityLogicPhaseMask.PreMovementState) ||
+                       HasConflict(ownership, EntityLogicPhaseMask.EnemyAiState) ||
+                       HasConflict(ownership, EntityLogicPhaseMask.EnemyActionState) ||
+                       HasConflict(ownership, EntityLogicPhaseMask.FrontFaceSupport) ||
+                       HasConflict(ownership, EntityLogicPhaseMask.Attack);
+            }
+
+            public void Register(EntityLogicOwnership ownership)
+            {
+                if (!ownership.HasSourceBinding ||
+                    ownership.PhaseMask == EntityLogicPhaseMask.None)
+                {
+                    return;
+                }
+
+                Register(ownership, EntityLogicPhaseMask.Movement);
+                Register(ownership, EntityLogicPhaseMask.PreMovementState);
+                Register(ownership, EntityLogicPhaseMask.EnemyAiState);
+                Register(ownership, EntityLogicPhaseMask.EnemyActionState);
+                Register(ownership, EntityLogicPhaseMask.FrontFaceSupport);
+                Register(ownership, EntityLogicPhaseMask.Attack);
+            }
+
+            private bool HasConflict(EntityLogicOwnership ownership, EntityLogicPhaseMask phase)
+            {
+                return (ownership.PhaseMask & phase) == phase &&
+                       _owners.Contains(new PhaseOwnerKey(phase, ownership.ControlledEntityId));
+            }
+
+            private void Register(EntityLogicOwnership ownership, EntityLogicPhaseMask phase)
+            {
+                if ((ownership.PhaseMask & phase) == phase)
+                {
+                    _owners.Add(new PhaseOwnerKey(phase, ownership.ControlledEntityId));
+                }
+            }
         }
     }
 }
