@@ -138,6 +138,58 @@ namespace Game.Feature.Gameplay.Vfx.Host
             PlannedAttachCount = 0;
         }
 
+        public void HardCleanupFamily(GameplayVfxFamily family)
+        {
+            if (family == GameplayVfxFamily.None)
+            {
+                return;
+            }
+
+            motionStopBuffer.Clear();
+            foreach (var pair in activeMotionHandlesByKey)
+            {
+                if (activeMotionPoliciesByKey.TryGetValue(pair.Key, out var policy) &&
+                    policy.CueId.Family == family)
+                {
+                    motionStopBuffer.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < motionStopBuffer.Count; i++)
+            {
+                var key = motionStopBuffer[i];
+                if (activeMotionHandlesByKey.TryGetValue(key, out var handle))
+                {
+                    handle?.HardCleanup();
+                }
+
+                activeMotionHandlesByKey.Remove(key);
+                activeMotionPoliciesByKey.Remove(key);
+            }
+
+            attachedStopBuffer.Clear();
+            foreach (var pair in activeAttachedHandlesByKey)
+            {
+                if (pair.Key.CueId.Family == family)
+                {
+                    attachedStopBuffer.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < attachedStopBuffer.Count; i++)
+            {
+                var key = attachedStopBuffer[i];
+                if (activeAttachedHandlesByKey.TryGetValue(key, out var handle))
+                {
+                    handle?.HardCleanup();
+                }
+
+                activeAttachedHandlesByKey.Remove(key);
+                activeAttachedPoliciesByKey.Remove(key);
+                activeAttachedRetentionPoliciesByKey.Remove(key);
+            }
+        }
+
         public void ClearForTopologyTransitionStart(GameplayVfxGameObjectPool pool)
         {
             foreach (var pair in activeMotionHandlesByKey)

@@ -88,7 +88,7 @@ namespace Game.Feature.Gameplay.Vfx
     public readonly struct GameplayVfxPlanningContext
     {
         public GameplayVfxPlanningContext(int tickIndex)
-            : this(tickIndex, null, default)
+            : this(tickIndex, (TickPresentationData)null, default)
         {
         }
 
@@ -103,6 +103,7 @@ namespace Game.Feature.Gameplay.Vfx
         {
             TickIndex = tickIndex;
             PresentationData = presentationData;
+            EntitySpawnSignals = presentationData?.EntitySpawnSignals ?? Array.Empty<EntitySpawnPresentationSignal>();
             Topology = topology;
             TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? Array.Empty<TileFeatureVfxStyleBinding>();
@@ -112,9 +113,67 @@ namespace Game.Feature.Gameplay.Vfx
                 : GameplayVfxTopologyTransitionContext.None(topology);
         }
 
+        public GameplayVfxPlanningContext(
+            int tickIndex,
+            InitialPresentationData presentationData,
+            CubeTopologyState topology,
+            GameplayTimingProfile timingProfile = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            GameplayVfxVisibilityContext visibilityContext = default,
+            GameplayVfxTopologyTransitionContext topologyTransition = default)
+        {
+            TickIndex = tickIndex;
+            PresentationData = null;
+            EntitySpawnSignals = presentationData?.EntitySpawnSignals ?? Array.Empty<EntitySpawnPresentationSignal>();
+            Topology = topology;
+            TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? Array.Empty<TileFeatureVfxStyleBinding>();
+            VisibilityContext = visibilityContext;
+            TopologyTransition = topologyTransition.HasTopologyMotion
+                ? topologyTransition
+                : GameplayVfxTopologyTransitionContext.None(topology);
+        }
+
+        public static GameplayVfxPlanningContext ForTick(
+            int tickIndex,
+            TickPresentationData presentationData,
+            CubeTopologyState topology,
+            GameplayTimingProfile timingProfile = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            GameplayVfxVisibilityContext visibilityContext = default,
+            GameplayVfxTopologyTransitionContext topologyTransition = default)
+        {
+            return new GameplayVfxPlanningContext(
+                tickIndex,
+                presentationData,
+                topology,
+                timingProfile,
+                tileFeatureVfxStyleBindings,
+                visibilityContext,
+                topologyTransition);
+        }
+
+        public static GameplayVfxPlanningContext ForInitial(
+            InitialPresentationData presentationData,
+            CubeTopologyState topology,
+            GameplayTimingProfile timingProfile = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            GameplayVfxVisibilityContext visibilityContext = default)
+        {
+            return new GameplayVfxPlanningContext(
+                0,
+                presentationData,
+                topology,
+                timingProfile,
+                tileFeatureVfxStyleBindings,
+                visibilityContext);
+        }
+
         public int TickIndex { get; }
 
         public TickPresentationData PresentationData { get; }
+
+        public IReadOnlyList<EntitySpawnPresentationSignal> EntitySpawnSignals { get; }
 
         public CubeTopologyState Topology { get; }
 
@@ -916,6 +975,54 @@ namespace Game.Feature.Gameplay.Vfx
         private const int ActiveLoopEffectIndex = 1;
         private const int VisibleLoopEffectIndex = 2;
 
+        private readonly struct EntranceSpawnRequestKey : IEquatable<EntranceSpawnRequestKey>
+        {
+            public EntranceSpawnRequestKey(
+                int entityId,
+                EntitySpawnPresentationReason reason,
+                int sourceTileId,
+                SurfaceCell sourceCell)
+            {
+                EntityId = entityId;
+                Reason = reason;
+                SourceTileId = sourceTileId;
+                SourceCell = sourceCell;
+            }
+
+            public int EntityId { get; }
+
+            public EntitySpawnPresentationReason Reason { get; }
+
+            public int SourceTileId { get; }
+
+            public SurfaceCell SourceCell { get; }
+
+            public bool Equals(EntranceSpawnRequestKey other)
+            {
+                return EntityId == other.EntityId &&
+                       Reason == other.Reason &&
+                       SourceTileId == other.SourceTileId &&
+                       SourceCell.Equals(other.SourceCell);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is EntranceSpawnRequestKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = EntityId;
+                    hash = (hash * 397) ^ (int)Reason;
+                    hash = (hash * 397) ^ SourceTileId;
+                    hash = (hash * 397) ^ SourceCell.GetHashCode();
+                    return hash;
+                }
+            }
+        }
+
         public GameplayVfxFamily Family => GameplayVfxFamily.TileFeature;
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
@@ -925,15 +1032,14 @@ namespace Game.Feature.Gameplay.Vfx
                 throw new ArgumentNullException(nameof(builder));
             }
 
-            var presentationData = context.PresentationData;
-            if (presentationData == null)
+            if (context.PresentationData != null)
             {
-                return;
+                PlanEvents(context, builder, context.PresentationData);
+                PlanVisualStates(context, builder, context.PresentationData);
+                PlanVisibleVisualStates(context, builder, context.PresentationData);
             }
 
-            PlanEvents(context, builder, presentationData);
-            PlanVisualStates(context, builder, presentationData);
-            PlanVisibleVisualStates(context, builder, presentationData);
+            PlanEntitySpawnSignals(context, builder);
         }
 
         public void PlanPersistentLoops(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
@@ -952,6 +1058,73 @@ namespace Game.Feature.Gameplay.Vfx
             PlanVisualStates(context, builder, presentationData);
             PlanVisibleVisualStates(context, builder, presentationData);
             PlanActiveVisualStates(context, builder, presentationData);
+        }
+
+        private static void PlanEntitySpawnSignals(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder)
+        {
+            var spawnSignals = context.EntitySpawnSignals;
+            if (spawnSignals.Count == 0)
+            {
+                return;
+            }
+
+            var emitted = new HashSet<EntranceSpawnRequestKey>();
+            for (var i = 0; i < spawnSignals.Count; i++)
+            {
+                var signal = spawnSignals[i];
+                if (!IsEntranceSpawnCueSource(signal, out var sourceTileFeature))
+                {
+                    continue;
+                }
+
+                var key = new EntranceSpawnRequestKey(
+                    signal.EntityId,
+                    signal.Reason,
+                    sourceTileFeature.TileId,
+                    sourceTileFeature.Cell);
+                if (!emitted.Add(key))
+                {
+                    continue;
+                }
+
+                var sequenceId = ResolveEntranceSpawnSequenceId(context.TickIndex, key);
+                var request = new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: signal.EntityId,
+                    cueId: GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn),
+                    anchor: VfxAnchor.ForCell(
+                        sourceTileFeature.Cell,
+                        signal.Topology,
+                        VfxAnchorSlot.CellFloor),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation);
+                GameplayVfxLifetimeTrace.Log(
+                    nameof(PlanEntitySpawnSignals),
+                    signal.Reason.ToString(),
+                    $"entityKind={signal.EntityKind} sourceTileFeatureKind={sourceTileFeature.FeatureKind} sourceTileFeatureCell={sourceTileFeature.Cell} sourceTileId={sourceTileFeature.TileId} anchorCell={request.Anchor.Cell} anchorSlot={request.Anchor.Slot} {GameplayVfxLifetimeTrace.DescribeRequest(request)}");
+                builder.Add(request);
+            }
+        }
+
+        private static bool IsEntranceSpawnCueSource(
+            EntitySpawnPresentationSignal signal,
+            out TileFeaturePresentationSource sourceTileFeature)
+        {
+            if (signal.EntityKind == EntityPresentationKind.Player &&
+                (signal.Reason == EntitySpawnPresentationReason.InitialStageStart ||
+                 signal.Reason == EntitySpawnPresentationReason.PlayerRespawn) &&
+                signal.SourceTileFeature.HasValue &&
+                signal.SourceTileFeature.Value.FeatureKind == TileFeatureKind.Entrance)
+            {
+                sourceTileFeature = signal.SourceTileFeature.Value;
+                return true;
+            }
+
+            sourceTileFeature = default;
+            return false;
         }
 
         private static void PlanEvents(
@@ -1293,6 +1466,22 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ tileEvent.TimingAnchor.ActionPlanId;
                 hash = (hash * 397) ^ tileEvent.TimingAnchor.LocalActionIndex;
                 return hash != 0 ? hash : eventIndex + 1;
+            }
+        }
+
+        private static int ResolveEntranceSpawnSequenceId(
+            int tickIndex,
+            EntranceSpawnRequestKey key)
+        {
+            unchecked
+            {
+                var hash = (int)TileFeatureVfxCue.EntranceSpawn;
+                hash = (hash * 397) ^ tickIndex;
+                hash = (hash * 397) ^ key.EntityId;
+                hash = (hash * 397) ^ (int)key.Reason;
+                hash = (hash * 397) ^ key.SourceTileId;
+                hash = (hash * 397) ^ key.SourceCell.GetHashCode();
+                return hash != 0 ? hash : key.EntityId != 0 ? key.EntityId : 1;
             }
         }
 

@@ -743,6 +743,7 @@ namespace Game.Feature.Gameplay.Loop
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
+            var entitySpawnSignals = new List<EntitySpawnPresentationSignal>();
             var tileEvents = new List<TilePresentationEvent>();
             var tileFeatureVisualStates = new List<TileFeatureVisualState>();
             var tileFeatureVisibleVisualStates = new List<TileFeatureVisualState>();
@@ -769,7 +770,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildContinuousLocomotionPresentation(context, continuousLocomotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
-            BuildRespawnPresentation(context, visibilityChanges);
+            BuildRespawnPresentation(context, visibilityChanges, entitySpawnSignals);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerFlipResultTurnPresentation(context, playerFlipResultTurnSignals);
             BuildPlayerActionAttemptPresentation(context, playerActionAttemptSignals);
@@ -836,6 +837,7 @@ namespace Game.Feature.Gameplay.Loop
                    transitionVisibilityChanges.Count == 0 &&
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
+                   entitySpawnSignals.Count == 0 &&
                    tileEvents.Count == 0 &&
                    tileFeatureVisualStates.Count == 0 &&
                    tileFeatureVisibleVisualStates.Count == 0 &&
@@ -886,7 +888,8 @@ namespace Game.Feature.Gameplay.Loop
                     forwardCellImpactSignals,
                     forwardCellProjectileWindupSignals,
                     forwardCellProjectileReleaseSignals,
-                    forwardCellProjectileClearSignals);
+                    forwardCellProjectileClearSignals,
+                    entitySpawnSignals);
         }
 
         private static void BuildForwardCellProjectilePresentation(
@@ -3261,9 +3264,12 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildRespawnPresentation(
             in TickPresentationBuildContext context,
-            List<TickVisibilityChange> visibilityChanges)
+            List<TickVisibilityChange> visibilityChanges,
+            List<EntitySpawnPresentationSignal> entitySpawnSignals)
         {
             var respawnedEntities = context.RespawnPhaseResult.RespawnedEntities;
+            var finalTopology = context.FinalAuthoritativeSnapshot.Topology;
+            var tileFeaturesAtCell = new List<TileFeatureState>();
 
             for (var i = 0; i < respawnedEntities.Count; i++)
             {
@@ -3273,9 +3279,41 @@ namespace Game.Feature.Gameplay.Loop
                         entity.entityId,
                         TickVisibilityChangeKind.Spawn,
                         entity.position,
-                        context.FinalAuthoritativeSnapshot.Topology,
+                        finalTopology,
                         entity.facing));
+
+                if (!EntityRolePolicy.IsPlayerUnit(entity))
+                {
+                    continue;
+                }
+
+                entitySpawnSignals.Add(
+                    new EntitySpawnPresentationSignal(
+                        entity.entityId,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.PlayerRespawn,
+                        entity.position,
+                        finalTopology,
+                        entity.facing,
+                        TryResolveEntranceSource(
+                            context.FinalAuthoritativeSnapshot,
+                            entity.position,
+                            tileFeaturesAtCell)));
             }
+        }
+
+        private static TileFeaturePresentationSource? TryResolveEntranceSource(
+            WorldSnapshot snapshot,
+            SurfaceCell cell,
+            List<TileFeatureState> tileFeaturesAtCell)
+        {
+            if (snapshot == null || tileFeaturesAtCell == null)
+            {
+                return null;
+            }
+
+            snapshot.EnumerateTileFeaturesAt(cell, tileFeaturesAtCell);
+            return EntitySpawnPresentationSourceResolver.TryResolveEntranceSource(cell, tileFeaturesAtCell);
         }
 
         private static void BuildSummonedEnemyPresentationBindings(

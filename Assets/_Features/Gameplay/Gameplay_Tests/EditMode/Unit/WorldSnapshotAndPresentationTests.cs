@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
@@ -38,11 +39,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(TickPresentationData.Empty.EnemyUtilitySignals, Is.Empty);
             Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
+            Assert.That(TickPresentationData.Empty.EntitySpawnSignals, Is.Empty);
+            Assert.That(InitialPresentationData.Empty.EntitySpawnSignals, Is.Empty);
             Assert.That(TickPresentationData.Empty.GravityFieldVisualStates, Is.Empty);
             Assert.That(TickPresentationData.Empty.BoxSlideStopSignals, Is.Empty);
             Assert.That(TickPresentationData.Empty.TileFeatureActiveVisualStates, Is.Empty);
 
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
+            var initialPresentationData = new InitialPresentationData(null);
 
             Assert.That(presentationData.FrontFaceShieldSources, Is.Empty);
             Assert.That(presentationData.FrontFaceShieldBlocks, Is.Empty);
@@ -50,6 +54,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(presentationData.EnemyUtilitySignals, Is.Empty);
             Assert.That(presentationData.TileEvents, Is.Empty);
+            Assert.That(presentationData.EntitySpawnSignals, Is.Empty);
+            Assert.That(initialPresentationData.EntitySpawnSignals, Is.Empty);
             Assert.That(presentationData.GravityFieldVisualStates, Is.Empty);
             Assert.That(presentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(presentationData.TileFeatureActiveVisualStates, Is.Empty);
@@ -2548,6 +2554,111 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TickPresentationDataBuilder_PlayerRespawn_EmitsSpawnSignal()
+        {
+            var respawnCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var player = CreateEntity(10, EntityType.Unit, respawnCell, Direction.Left);
+            player.unitRole = UnitRole.Player;
+
+            var presentationData = BuildRespawnPresentationData(player);
+
+            Assert.That(
+                presentationData.VisibilityChanges.Any(change =>
+                    change.EntityId == player.entityId &&
+                    change.ChangeKind == TickVisibilityChangeKind.Spawn &&
+                    change.Cell.Equals(respawnCell) &&
+                    change.Topology.Equals(new CubeTopologyState(FaceId.Floor)) &&
+                    change.Facing == Direction.Left),
+                Is.True);
+            Assert.That(presentationData.EntitySpawnSignals, Has.Count.EqualTo(1));
+            var signal = presentationData.EntitySpawnSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(player.entityId));
+            Assert.That(signal.EntityKind, Is.EqualTo(EntityPresentationKind.Player));
+            Assert.That(signal.Reason, Is.EqualTo(EntitySpawnPresentationReason.PlayerRespawn));
+            Assert.That(signal.Cell, Is.EqualTo(respawnCell));
+            Assert.That(signal.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(signal.Facing, Is.EqualTo(Direction.Left));
+            Assert.That(signal.SourceTileFeature.HasValue, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_PlayerRespawn_AttachesEntranceSourceOnSameCell()
+        {
+            var respawnCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var player = CreateEntity(10, EntityType.Unit, respawnCell, Direction.Left);
+            player.unitRole = UnitRole.Player;
+            var entrance = CreateTileFeature(100, respawnCell, TileFeatureKind.Entrance, TileFeatureFlags.None);
+
+            var presentationData = BuildRespawnPresentationData(player, entrance);
+
+            Assert.That(presentationData.EntitySpawnSignals, Has.Count.EqualTo(1));
+            var signal = presentationData.EntitySpawnSignals[0];
+            Assert.That(signal.SourceTileFeature.HasValue, Is.True);
+            Assert.That(signal.SourceTileFeature.Value.TileId, Is.EqualTo(entrance.TileId));
+            Assert.That(signal.SourceTileFeature.Value.FeatureKind, Is.EqualTo(TileFeatureKind.Entrance));
+            Assert.That(signal.SourceTileFeature.Value.Cell, Is.EqualTo(respawnCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void InitialPresentationDataBuilder_PlayerInitialSpawn_AttachesEntranceSourceOnSameCell()
+        {
+            var initialTopology = new CubeTopologyState(FaceId.Floor);
+            var spawnCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var player = CreateEntity(10, EntityType.Unit, spawnCell, Direction.Right);
+            player.unitRole = UnitRole.Player;
+            var entrance = CreateTileFeature(100, spawnCell, TileFeatureKind.Entrance, TileFeatureFlags.None);
+
+            var presentationData = GameplayHostRuntimeFactory.BuildInitialPresentationData(
+                new[] { player },
+                initialTopology,
+                new[] { entrance });
+
+            Assert.That(presentationData.EntitySpawnSignals, Has.Count.EqualTo(1));
+            var signal = presentationData.EntitySpawnSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(player.entityId));
+            Assert.That(signal.EntityKind, Is.EqualTo(EntityPresentationKind.Player));
+            Assert.That(signal.Reason, Is.EqualTo(EntitySpawnPresentationReason.InitialStageStart));
+            Assert.That(signal.Cell, Is.EqualTo(spawnCell));
+            Assert.That(signal.Topology, Is.EqualTo(initialTopology));
+            Assert.That(signal.Facing, Is.EqualTo(Direction.Right));
+            Assert.That(signal.SourceTileFeature.HasValue, Is.True);
+            Assert.That(signal.SourceTileFeature.Value.TileId, Is.EqualTo(entrance.TileId));
+            Assert.That(signal.SourceTileFeature.Value.FeatureKind, Is.EqualTo(TileFeatureKind.Entrance));
+            Assert.That(signal.SourceTileFeature.Value.Cell, Is.EqualTo(spawnCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void InitialPresentationDataBuilder_PlayerInitialSpawnWithoutEntrance_HasNoSource()
+        {
+            var initialTopology = new CubeTopologyState(FaceId.Floor);
+            var spawnCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var player = CreateEntity(10, EntityType.Unit, spawnCell, Direction.Left);
+            player.unitRole = UnitRole.Player;
+            var otherCellEntrance = CreateTileFeature(
+                100,
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                TileFeatureKind.Entrance,
+                TileFeatureFlags.None);
+
+            var presentationData = GameplayHostRuntimeFactory.BuildInitialPresentationData(
+                new[] { player },
+                initialTopology,
+                new[] { otherCellEntrance });
+
+            Assert.That(presentationData.EntitySpawnSignals, Has.Count.EqualTo(1));
+            var signal = presentationData.EntitySpawnSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(player.entityId));
+            Assert.That(signal.Cell, Is.EqualTo(spawnCell));
+            Assert.That(signal.Topology, Is.EqualTo(initialTopology));
+            Assert.That(signal.Facing, Is.EqualTo(Direction.Left));
+            Assert.That(signal.SourceTileFeature.HasValue, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void RespawnTopologyReset_EmitsTopologyMotionBeforeSpawnVisibility()
         {
             var sourceTopology = new CubeTopologyState(FaceId.Back);
@@ -2604,6 +2715,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     change.EntityId == 10 &&
                     change.ChangeKind == TickVisibilityChangeKind.Spawn),
                 Is.False);
+            Assert.That(presentationData.EntitySpawnSignals, Is.Empty);
         }
 
         [Test]
@@ -4016,6 +4128,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tileFeatures);
 
             return CreateSnapshot(worldState);
+        }
+
+        private static TickPresentationData BuildRespawnPresentationData(
+            EntityState respawnedEntity,
+            params TileFeatureState[] tileFeatures)
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceSnapshot = CreateWorldState(Array.Empty<EntityState>()).CreateSnapshot();
+            var finalWorldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { respawnedEntity },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                GameplayTerrainData.Empty,
+                topology,
+                GameplayTimingProfile.CreateDefault(),
+                tileFeatures);
+            var finalSnapshot = CreateSnapshot(finalWorldState);
+            var respawnPhaseResult = new RespawnPhaseResult(
+                new[] { respawnedEntity },
+                Array.Empty<string>(),
+                topologyResetRequest: null);
+
+            return new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    sourceSnapshot,
+                    sourceSnapshot,
+                    sourceSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    respawnPhaseResult,
+                    currentTickIndex: 17));
         }
 
         private static TileFeatureState CreateTileFeature(

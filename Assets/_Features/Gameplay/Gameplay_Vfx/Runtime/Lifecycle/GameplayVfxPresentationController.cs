@@ -8,9 +8,9 @@ namespace Game.Feature.Gameplay.Vfx
         private readonly List<ScheduledGameplayVfxRequest> delayedRequests = new();
         private readonly IVfxPool pool;
         private readonly IVfxAnchorResolver anchorResolver;
-        private readonly IVfxBindingResolver bindingResolver;
         private readonly VfxPersistentHandleRegistry persistentRegistry;
         private readonly VfxLifetimeRunner lifetimeRunner;
+        private IVfxBindingResolver bindingResolver;
         private GameplayVfxVisibilityContext visibilityContext;
         private bool topologyTransitionStartsSuppressed;
         private int topologyTransitionSuppressEpoch;
@@ -38,6 +38,11 @@ namespace Game.Feature.Gameplay.Vfx
         public int VisibilityBlockedCount { get; private set; }
 
         public GameplayVfxVisibilityBlockReason LastVisibilityBlockReason { get; private set; }
+
+        public void ConfigureBindingResolver(IVfxBindingResolver resolver)
+        {
+            bindingResolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+        }
 
         public void SetVisibilityContext(GameplayVfxVisibilityContext context)
         {
@@ -86,11 +91,33 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void HardCleanupAll()
         {
+            GameplayVfxLifetimeTrace.Log(
+                nameof(HardCleanupAll),
+                "ControllerHardCleanupAll",
+                "controller=GameplayVfxPresentationController affectedFamilies=PersistentRegistry,Pool tileFeatureControllerIncluded=True enemyControllerIncluded=True playerControllerIncluded=True projectileControllerIncluded=True",
+                includeStackTrace: true);
             delayedRequests.Clear();
             topologyTransitionStartsSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
             persistentRegistry.HardCleanupAll(pool);
             pool.HardCleanupAll();
+        }
+
+        public void HardCleanupFamily(GameplayVfxFamily family, GameplayVfxCleanupReason reason)
+        {
+            if (family == GameplayVfxFamily.None)
+            {
+                return;
+            }
+
+            GameplayVfxLifetimeTrace.Log(
+                nameof(HardCleanupFamily),
+                reason.ToString(),
+                $"controller=GameplayVfxPresentationController affectedFamily={family}",
+                includeStackTrace: true);
+            RemoveDelayedRequestsForFamily(family);
+            persistentRegistry.HardCleanupFamily(pool, family);
+            pool.HardCleanupFamily(family);
         }
 
         public void Update(float deltaTime)
@@ -168,11 +195,27 @@ namespace Game.Feature.Gameplay.Vfx
 
             if (!bindingResolver.TryResolve(request, out var policy))
             {
+                if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
+                {
+                    GameplayVfxLifetimeTrace.Log(
+                        nameof(ProcessNow),
+                        "EntranceSpawnMissingBinding",
+                        GameplayVfxLifetimeTrace.DescribeRequest(request),
+                        includeStackTrace: true);
+                }
+
                 MissingBindingCount++;
                 return;
             }
 
             policy.ValidateOrThrow();
+            if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
+            {
+                GameplayVfxLifetimeTrace.Log(
+                    nameof(ProcessNow),
+                    "EntranceSpawnBindingResolved",
+                    $"{GameplayVfxLifetimeTrace.DescribeRequest(request)} {GameplayVfxLifetimeTrace.DescribePolicy(policy)}");
+            }
             ValidateCompatibility(request, policy);
 
             var preAnchorVisibility = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
@@ -189,6 +232,15 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 if (!TryHandleMissingAnchor(request, policy, out anchor))
                 {
+                    if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
+                    {
+                        GameplayVfxLifetimeTrace.Log(
+                            nameof(ProcessNow),
+                            "EntranceSpawnMissingAnchor",
+                            $"{GameplayVfxLifetimeTrace.DescribeRequest(request)} {GameplayVfxLifetimeTrace.DescribePolicy(policy)}",
+                            includeStackTrace: true);
+                    }
+
                     return;
                 }
             }
@@ -219,7 +271,22 @@ namespace Game.Feature.Gameplay.Vfx
                 return;
             }
 
-            pool.PlayTransient(command);
+            if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
+            {
+                GameplayVfxLifetimeTrace.Log(
+                    nameof(ProcessNow),
+                    "EntranceSpawnPlayTransient",
+                    $"{GameplayVfxLifetimeTrace.DescribeRequest(request)} {GameplayVfxLifetimeTrace.DescribePolicy(policy)} anchorResolved={anchor.IsResolved} anchorKind={anchor.Kind} anchorSlot={anchor.Slot} anchorCell={anchor.Cell}");
+            }
+
+            var handle = pool.PlayTransient(command);
+            if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
+            {
+                GameplayVfxLifetimeTrace.Log(
+                    nameof(ProcessNow),
+                    "EntranceSpawnPlayTransientCompleted",
+                    $"handleCreated={handle != null} {GameplayVfxLifetimeTrace.DescribeRequest(request)}");
+            }
         }
 
         private bool IsSuppressedByTopologyTransition(
@@ -298,6 +365,17 @@ namespace Game.Feature.Gameplay.Vfx
                 }
 
                 delayedRequests.RemoveAt(i);
+            }
+        }
+
+        private void RemoveDelayedRequestsForFamily(GameplayVfxFamily family)
+        {
+            for (var i = delayedRequests.Count - 1; i >= 0; i--)
+            {
+                if (delayedRequests[i].Request.CueId.Family == family)
+                {
+                    delayedRequests.RemoveAt(i);
+                }
             }
         }
 

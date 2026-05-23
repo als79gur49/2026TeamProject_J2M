@@ -503,7 +503,10 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.StartReadyRequests(result.TickIndex);
         }
 
-        public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
+        public void PresentInitial(
+            IReadOnlyList<EntityState> entities,
+            CubeTopologyState topology,
+            InitialPresentationData presentationData = null)
         {
             if (entities == null)
             {
@@ -552,6 +555,7 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore.CommittedLocalTargetPoses,
                 _stateStore.ViewsByEntityId);
             _animationSync.ApplyInitialPlayerPresentation(_stateStore.CommittedLocalTargetPoses);
+            PresentInitialExtensions(presentationData ?? InitialPresentationData.Empty);
             UpdatePresentation(0f);
         }
 
@@ -822,6 +826,31 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);
+            }
+        }
+
+        private void PresentInitialExtensions(InitialPresentationData presentationData)
+        {
+            if (_presentationExtensions.Count == 0)
+            {
+                return;
+            }
+
+            var context = new GameplayInitialPresentationExtensionContext(
+                presentationData,
+                _stateStore.CommittedTopology,
+                _stateStore,
+                _projector,
+                _enemyPresentationCatalog,
+                _enemyPresentationBindings,
+                _timingProfile,
+                _tileFeatureVfxStyleBindings);
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayInitialPresentationExtension extension)
+                {
+                    extension.PresentInitial(context);
+                }
             }
         }
 
