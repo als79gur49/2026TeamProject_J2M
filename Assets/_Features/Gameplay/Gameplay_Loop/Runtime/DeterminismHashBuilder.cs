@@ -860,6 +860,7 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.landingTick).Append('|')
                     .Append(entry.State.cooldownRemainingTicks).Append('|')
                     .Append(entry.State.retryCount).Append('|')
+                    .Append(entry.State.topologySuspendLastTick).Append('|')
                     .Append(entry.State.initialDelayInitialized ? 1 : 0).Append('|')
                     .Append(entry.State.initialDelayTicksRemaining).Append('\n');
             }

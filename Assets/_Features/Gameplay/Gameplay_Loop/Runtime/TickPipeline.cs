@@ -6872,6 +6872,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (jumpState.phase != EnemyJumpPhase.Airborne ||
                     tickIndex < jumpState.landingTick ||
                     !snapshot.TryGetEntity(jumpEntry.EntityId, out var source) ||
+                    source.position.face != snapshot.Topology.BottomFace ||
                     !TryResolveJumpCooldownTicks(movementLogics, jumpEntry.EntityId, out var cooldownTicks))
                 {
                     continue;
@@ -9871,7 +9872,8 @@ namespace Game.Feature.Gameplay.Loop
                 .Append("|WindupEnd=").Append(state.windupEndTick)
                 .Append("|Landing=").Append(state.landingTick)
                 .Append("|Cooldown=").Append(state.cooldownRemainingTicks)
-                .Append("|Retry=").Append(state.retryCount);
+                .Append("|Retry=").Append(state.retryCount)
+                .Append("|TopologySuspendLast=").Append(state.topologySuspendLastTick);
 
             if (!string.IsNullOrEmpty(extra))
             {

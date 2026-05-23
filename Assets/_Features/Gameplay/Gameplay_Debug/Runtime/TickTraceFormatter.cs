@@ -246,7 +246,7 @@ namespace Game.Feature.Gameplay.Debug
             {
                 var entry = entries[i];
                 lines.Add(
-                    $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Source={entry.State.sourceCell}|Locked={entry.State.lockedTargetCell}|WindupEnd={entry.State.windupEndTick}|Landing={entry.State.landingTick}|Cooldown={entry.State.cooldownRemainingTicks}|Retry={entry.State.retryCount}");
+                    $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Source={entry.State.sourceCell}|Locked={entry.State.lockedTargetCell}|WindupEnd={entry.State.windupEndTick}|Landing={entry.State.landingTick}|Cooldown={entry.State.cooldownRemainingTicks}|Retry={entry.State.retryCount}|TopologySuspendLast={entry.State.topologySuspendLastTick}");
             }
 
             return lines;

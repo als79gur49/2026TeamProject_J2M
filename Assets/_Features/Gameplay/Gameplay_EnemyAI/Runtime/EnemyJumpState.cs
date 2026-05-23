@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Entities
         public int landingTick;
         public int cooldownRemainingTicks;
         public int retryCount;
+        public int topologySuspendLastTick;
         public bool initialDelayInitialized;
         public int initialDelayTicksRemaining;
 
@@ -63,6 +64,7 @@ namespace Game.Feature.Gameplay.Entities
                 landingTick = tickIndex + timingSettings.WindupTicks + timingSettings.AirborneTicks,
                 cooldownRemainingTicks = 0,
                 retryCount = 0,
+                topologySuspendLastTick = 0,
                 initialDelayInitialized = previousState.initialDelayInitialized,
                 initialDelayTicksRemaining = 0,
             };
@@ -92,6 +94,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             var updatedState = state;
             updatedState.phase = EnemyJumpPhase.Airborne;
+            updatedState.topologySuspendLastTick = 0;
             return updatedState;
         }
 
@@ -101,6 +104,7 @@ namespace Game.Feature.Gameplay.Entities
             updatedState.phase = EnemyJumpPhase.Airborne;
             updatedState.landingTick = nextLandingTick;
             updatedState.retryCount = Mathf.Max(0, updatedState.retryCount) + 1;
+            updatedState.topologySuspendLastTick = 0;
             return updatedState;
         }
 
@@ -112,6 +116,47 @@ namespace Game.Feature.Gameplay.Entities
             updatedState.phase = EnemyJumpPhase.Cooldown;
             updatedState.cooldownRemainingTicks = Mathf.Max(0, cooldownTicks);
             updatedState.retryCount = 0;
+            updatedState.topologySuspendLastTick = 0;
+            return updatedState;
+        }
+
+        public static EnemyJumpRuntimeState SuspendTopologyParticipation(
+            in EnemyJumpRuntimeState state,
+            int tickIndex)
+        {
+            if (state.phase != EnemyJumpPhase.Windup &&
+                state.phase != EnemyJumpPhase.Airborne)
+            {
+                return state;
+            }
+
+            var suspendTicks = state.topologySuspendLastTick > 0
+                ? Mathf.Max(1, tickIndex - state.topologySuspendLastTick)
+                : 1;
+            var updatedState = state;
+            if (updatedState.phase == EnemyJumpPhase.Windup)
+            {
+                updatedState.windupEndTick += suspendTicks;
+                updatedState.landingTick += suspendTicks;
+            }
+            else
+            {
+                updatedState.landingTick += suspendTicks;
+            }
+
+            updatedState.topologySuspendLastTick = tickIndex;
+            return updatedState;
+        }
+
+        public static EnemyJumpRuntimeState ResumeTopologyParticipation(in EnemyJumpRuntimeState state)
+        {
+            if (state.topologySuspendLastTick <= 0)
+            {
+                return state;
+            }
+
+            var updatedState = state;
+            updatedState.topologySuspendLastTick = 0;
             return updatedState;
         }
 
@@ -143,6 +188,7 @@ namespace Game.Feature.Gameplay.Entities
             return new EnemyJumpRuntimeState
             {
                 sequence = state.sequence,
+                topologySuspendLastTick = 0,
                 initialDelayInitialized = state.initialDelayInitialized,
                 initialDelayTicksRemaining = state.initialDelayTicksRemaining,
             };
