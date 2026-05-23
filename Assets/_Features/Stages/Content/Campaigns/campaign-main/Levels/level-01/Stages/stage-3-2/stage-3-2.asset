@@ -2518,165 +2518,165 @@ MonoBehaviour:
       x: 0
       y: 1
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 2
     Cell:
       face: 0
       x: 1
       y: 1
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 3
     Cell:
       face: 0
       x: 2
       y: 1
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 4
     Cell:
       face: 0
       x: 6
       y: 1
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 5
     Cell:
       face: 0
       x: 6
       y: 0
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 6
     Cell:
       face: 0
       x: 11
       y: 3
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 7
     Cell:
       face: 0
       x: 12
       y: 3
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 8
     Cell:
       face: 0
       x: 12
       y: 4
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 9
     Cell:
       face: 0
       x: 13
       y: 4
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 10
     Cell:
       face: 0
       x: 11
       y: 7
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 11
     Cell:
       face: 0
       x: 7
       y: 7
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 12
     Cell:
       face: 0
       x: 8
       y: 6
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 13
     Cell:
       face: 0
       x: 8
       y: 5
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 14
     Cell:
       face: 0
       x: 7
       y: 0
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 15
     Cell:
       face: 0
       x: 13
       y: 2
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 16
     Cell:
       face: 0
@@ -2749,99 +2749,99 @@ MonoBehaviour:
       x: 9
       y: 6
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 23
     Cell:
       face: 1
       x: 9
       y: 5
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 24
     Cell:
       face: 1
       x: 1
       y: 4
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 25
     Cell:
       face: 1
       x: 1
       y: 7
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 26
     Cell:
       face: 1
       x: 1
       y: 3
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 27
     Cell:
       face: 1
       x: 2
       y: 4
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 28
     Cell:
       face: 1
       x: 5
       y: 3
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 29
     Cell:
       face: 1
       x: 5
       y: 4
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 30
     Cell:
       face: 1
       x: 5
       y: 5
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 31
     Cell:
       face: 1
@@ -2969,26 +2969,15 @@ MonoBehaviour:
       x: 10
       y: 1
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 43
     Cell:
       face: 2
       x: 5
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 44
-    Cell:
-      face: 2
-      x: 4
       y: 4
     Kind: 2
     ActivationRule: 1
@@ -2996,6 +2985,17 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: destroy.bottom
+  - TileId: 44
+    Cell:
+      face: 2
+      x: 4
+      y: 4
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
   - TileId: 45
     Cell:
       face: 3
@@ -3035,44 +3035,44 @@ MonoBehaviour:
       x: 4
       y: 1
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 53
     Cell:
       face: 3
       x: 5
       y: 2
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 54
     Cell:
       face: 3
       x: 7
       y: 2
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 55
     Cell:
       face: 3
       x: 6
       y: 1
     Kind: 2
-    ActivationRule: 1
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
+    PresentationKey: destroy.front
   - TileId: 56
     Cell:
       face: 3
