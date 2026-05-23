@@ -1090,18 +1090,22 @@ namespace Game.Feature.Gameplay.Vfx
                 }
 
                 var sequenceId = ResolveEntranceSpawnSequenceId(context.TickIndex, key);
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: sequenceId,
-                        presentationSeed: sequenceId,
-                        sourceEntityId: signal.EntityId,
-                        cueId: GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn),
-                        anchor: VfxAnchor.ForCell(
-                            sourceTileFeature.Cell,
-                            signal.Topology,
-                            VfxAnchorSlot.CellFloor),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation));
+                var request = new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: signal.EntityId,
+                    cueId: GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn),
+                    anchor: VfxAnchor.ForCell(
+                        sourceTileFeature.Cell,
+                        signal.Topology,
+                        VfxAnchorSlot.CellFloor),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation);
+                GameplayVfxLifetimeTrace.Log(
+                    nameof(PlanEntitySpawnSignals),
+                    signal.Reason.ToString(),
+                    $"entityKind={signal.EntityKind} sourceTileFeatureKind={sourceTileFeature.FeatureKind} sourceTileFeatureCell={sourceTileFeature.Cell} sourceTileId={sourceTileFeature.TileId} anchorCell={request.Anchor.Cell} anchorSlot={request.Anchor.Slot} {GameplayVfxLifetimeTrace.DescribeRequest(request)}");
+                builder.Add(request);
             }
         }
 
