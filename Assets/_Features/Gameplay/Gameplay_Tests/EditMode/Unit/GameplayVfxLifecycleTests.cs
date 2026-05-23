@@ -1164,6 +1164,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
             }
 
+            public void HardCleanupFamily(GameplayVfxFamily family)
+            {
+                foreach (var handle in CreatedHandles)
+                {
+                    if (handle.CueId.Family == family &&
+                        handle.State != VfxLifetimeState.HardCleanup)
+                    {
+                        handle.HardCleanup();
+                    }
+                }
+            }
+
             private FakeVfxPlaybackHandle CreateHandle(in GameplayVfxRequest request)
             {
                 var handle = new FakeVfxPlaybackHandle(++nextHandleId, request);

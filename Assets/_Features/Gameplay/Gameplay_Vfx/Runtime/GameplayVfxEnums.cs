@@ -13,6 +13,28 @@ namespace Game.Feature.Gameplay.Vfx
         GravityField = 8,
     }
 
+    public enum GameplayVfxCleanupReason
+    {
+        Unknown = 0,
+        HostDefaultMapReconfigured = 1,
+        EnemyProfileFirstConfigure = 2,
+        EnemyProfileChanged = 3,
+        TopologyTransitionStarted = 4,
+        SessionReset = 5,
+        RuntimeDispose = 6,
+        ManualHardCleanup = 7,
+        FamilyProfilesReconfigured = 8,
+        AllGameplayVfxDisabled = 9,
+        ProjectorOrStateStoreChanged = 10,
+    }
+
+    public enum GameplayVfxCleanupScope
+    {
+        None = 0,
+        AllFamilies = 1,
+        EnemyFamily = 2,
+    }
+
     public enum PlayerVfxCue
     {
         Damage = 1,

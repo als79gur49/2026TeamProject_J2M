@@ -504,6 +504,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void HardCleanupAll()
             {
             }
+
+            public void HardCleanupFamily(GameplayVfxFamily family)
+            {
+            }
         }
     }
 }

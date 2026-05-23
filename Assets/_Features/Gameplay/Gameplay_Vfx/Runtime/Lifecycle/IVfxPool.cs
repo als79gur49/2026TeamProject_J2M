@@ -11,5 +11,7 @@ namespace Game.Feature.Gameplay.Vfx
         void HardClearActiveForTopologyTransition();
 
         void HardCleanupAll();
+
+        void HardCleanupFamily(GameplayVfxFamily family);
     }
 }
