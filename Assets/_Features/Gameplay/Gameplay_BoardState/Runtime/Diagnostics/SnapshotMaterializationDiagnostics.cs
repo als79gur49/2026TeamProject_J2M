@@ -150,6 +150,16 @@ namespace Game.Feature.Gameplay.BoardState
             _current?.RecordOrderedTileFeaturesSort(tileFeatureCount);
         }
 
+        internal static void RecordPlayerControlStateWritten()
+        {
+            _current?.RecordPlayerControlStateWritten();
+        }
+
+        internal static void RecordPlayerControlStateSameStateSkipped()
+        {
+            _current?.RecordPlayerControlStateSameStateSkipped();
+        }
+
         internal sealed class Capture
         {
             private int _worldStateCreateSnapshotCount;
@@ -190,6 +200,8 @@ namespace Game.Feature.Gameplay.BoardState
             private int _orderedTileFeaturesCacheMissCount;
             private int _orderedTileFeaturesSortCount;
             private int _orderedTileFeaturesEnumeratedCount;
+            private int _playerControlStateWrittenCount;
+            private int _playerControlStateSameStateSkippedCount;
             private readonly Dictionary<ProjectedWorldSnapshotReason, int> _materializedSnapshotCountsByReason = new();
             private readonly Dictionary<ProjectedWorldSnapshotReason, int> _cacheHitCountsByReason = new();
             private readonly Dictionary<ProjectedWorldBatchReason, int> _applyBatchCountsByReason = new();
@@ -235,6 +247,8 @@ namespace Game.Feature.Gameplay.BoardState
                     _orderedTileFeaturesCacheMissCount,
                     _orderedTileFeaturesSortCount,
                     _orderedTileFeaturesEnumeratedCount,
+                    _playerControlStateWrittenCount,
+                    _playerControlStateSameStateSkippedCount,
                     _materializedSnapshotCountsByReason,
                     _cacheHitCountsByReason,
                     _applyBatchCountsByReason,
@@ -371,6 +385,16 @@ namespace Game.Feature.Gameplay.BoardState
                 _orderedTileFeaturesSortCount++;
             }
 
+            public void RecordPlayerControlStateWritten()
+            {
+                _playerControlStateWrittenCount++;
+            }
+
+            public void RecordPlayerControlStateSameStateSkipped()
+            {
+                _playerControlStateSameStateSkippedCount++;
+            }
+
             private static void Increment<T>(IDictionary<T, int> counts, T key)
             {
                 counts.TryGetValue(key, out var count);
@@ -448,6 +472,8 @@ namespace Game.Feature.Gameplay.BoardState
                 orderedTileFeaturesCacheMissCount: 0,
                 orderedTileFeaturesSortCount: 0,
                 orderedTileFeaturesEnumeratedCount: 0,
+                playerControlStateWrittenCount: 0,
+                playerControlStateSameStateSkippedCount: 0,
                 null,
                 null,
                 null,
@@ -494,6 +520,8 @@ namespace Game.Feature.Gameplay.BoardState
             int orderedTileFeaturesCacheMissCount,
             int orderedTileFeaturesSortCount,
             int orderedTileFeaturesEnumeratedCount,
+            int playerControlStateWrittenCount,
+            int playerControlStateSameStateSkippedCount,
             IReadOnlyDictionary<ProjectedWorldSnapshotReason, int> materializedSnapshotCountsByReason,
             IReadOnlyDictionary<ProjectedWorldSnapshotReason, int> cacheHitCountsByReason,
             IReadOnlyDictionary<ProjectedWorldBatchReason, int> applyBatchCountsByReason,
@@ -537,6 +565,8 @@ namespace Game.Feature.Gameplay.BoardState
             OrderedTileFeaturesCacheMissCount = orderedTileFeaturesCacheMissCount;
             OrderedTileFeaturesSortCount = orderedTileFeaturesSortCount;
             OrderedTileFeaturesEnumeratedCount = orderedTileFeaturesEnumeratedCount;
+            PlayerControlStateWrittenCount = playerControlStateWrittenCount;
+            PlayerControlStateSameStateSkippedCount = playerControlStateSameStateSkippedCount;
             MaterializedSnapshotCountsByReason = Clone(materializedSnapshotCountsByReason);
             CacheHitCountsByReason = Clone(cacheHitCountsByReason);
             ApplyBatchCountsByReason = Clone(applyBatchCountsByReason);
@@ -618,6 +648,10 @@ namespace Game.Feature.Gameplay.BoardState
         public int OrderedTileFeaturesSortCount { get; }
 
         public int OrderedTileFeaturesEnumeratedCount { get; }
+
+        public int PlayerControlStateWrittenCount { get; }
+
+        public int PlayerControlStateSameStateSkippedCount { get; }
 
         public IReadOnlyDictionary<ProjectedWorldSnapshotReason, int> MaterializedSnapshotCountsByReason { get; }
 

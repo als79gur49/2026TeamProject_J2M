@@ -1,6 +1,8 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -51,6 +53,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(capturedResult.DeterminismHash, Is.EqualTo(uncapturedResult.DeterminismHash));
             CollectionAssert.AreEqual(uncapturedResult.CompletedPhases, capturedResult.CompletedPhases);
             CollectionAssert.AreEqual(uncapturedResult.PhaseTrace, capturedResult.PhaseTrace);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPipeline_RunPlanPhase_PlayerControlSameState_ReducesMaterialization()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new SurfaceCell(FaceId.Floor, 0, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                    state = EntityPhaseState.Idle,
+                    facing = Direction.Right,
+                },
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[] { new PlayerLogic(10) });
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                pipeline.RunTick(new TickInput(7));
+                counts = capture.Counts;
+            }
+
+            Assert.That(counts.PlayerControlStateSameStateSkippedCount, Is.EqualTo(1));
+            Assert.That(counts.PlayerControlStateWrittenCount, Is.Zero);
+            Assert.That(counts.GetEmptyApplyBatchCount(ProjectedWorldBatchReason.PlanPreMovementState), Is.EqualTo(1));
+            Assert.That(counts.GetMaterializedSnapshotCount(ProjectedWorldSnapshotReason.PlanPreMovementUtilityInput), Is.Zero);
+            Assert.That(counts.GetCacheHitCount(ProjectedWorldSnapshotReason.PlanPreMovementUtilityInput), Is.EqualTo(1));
         }
 
         [Test]
