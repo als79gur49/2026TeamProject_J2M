@@ -1,0 +1,15 @@
+Marker;Parent;Grandparent;MedianMs;MeanMs;Count;CountPerFrame;PresentFrames;SelectedFrames
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::SnapshotBuilder.Create()";"";"";78.8795;77.414373;793;49.5625;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::WorldSnapshot.BuildOrderedEntitiesCache()";"";"";28.62;27.563;567;35.4375;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::WorldSnapshot.EnumerateEntitiesOrdered()";"";"";40.1569;39.819613;1356;84.75;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::WorldState.CreateSnapshot()";"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::SnapshotBuilder.Create()";"";78.8619;77.396313;793;49.5625;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::WorldState.CreateSnapshot()";"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.Loop::GameplayCompositionRoot.CreateSnapshot()";"";11.2808;11.13884;113;7.0625;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::WorldState.CreateSnapshotOwnedCellIndex()";"";"";61.3388;59.927567;1812;113.25;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::WorldState.CreateSnapshotOwnedStackedUnitsByCell()";"";"";13.4418;13.318027;906;56.625;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.BoardState::WorldState.CreateSnapshotOwnedTileFeatureIdsByCell()";"";"";47.9828;46.694307;906;56.625;15;16
+"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.Loop::ProjectedWorld.CreateSnapshot()";"";"";77.984099;79.009173;1469;91.8125;15;16
+"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.IntroSort()";"";"";30.6051;29.774227;9767;610.4375;15;16
+"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.IntroSort()";"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.Sort()";"mscorlib.dll!System::Array.Sort()";23.6223;22.73512;793;49.5625;15;16
+"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.IntroSort()";"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.Sort()";"mscorlib.dll!System.Collections.Generic::List`1.Sort()";0.3112;0.31344;569;35.5625;15;16
+"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.IntroSort()";"Game.Feature.Gameplay.dll!Game.Feature.Gameplay.Loop::TickPipeline.BuildMovementIntents()";"";0.0032;0.00395;2;0.125;2;16
+"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.IntroSort()";"mscorlib.dll!System.Collections.Generic::ArraySortHelper`1.Sort()";"";0.3461;0.3461;1;0.0625;1;16
