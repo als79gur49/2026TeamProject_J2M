@@ -101,6 +101,10 @@ namespace Game.Feature.Gameplay.Host
             var initialSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
+            var initialPresentationData = BuildInitialPresentationData(
+                presentedInitialEntities,
+                configuration.InitialTopology,
+                initialTileFeatures);
 
             var inputBuffer = new TickInputBuffer();
             var bootstrapper = new GameplayBootstrapper(
@@ -209,7 +213,7 @@ namespace Game.Feature.Gameplay.Host
             var viewCamera = visualRuntime.ViewCamera;
             var viewCameraRig = visualRuntime.ViewCameraRig;
 
-            presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
+            presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology, initialPresentationData);
             KeyboardBindingSettingsService.ApplySavedSettings(configuration.Actions);
             inputHost.Initialize(
                 inputBuffer,
@@ -314,6 +318,43 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return result;
+        }
+
+        internal static InitialPresentationData BuildInitialPresentationData(
+            IReadOnlyList<EntityState> initialEntities,
+            CubeTopologyState initialTopology,
+            IReadOnlyList<TileFeatureState> initialTileFeatures)
+        {
+            if (initialEntities == null || initialEntities.Count == 0)
+            {
+                return InitialPresentationData.Empty;
+            }
+
+            var signals = new List<EntitySpawnPresentationSignal>();
+            for (var i = 0; i < initialEntities.Count; i++)
+            {
+                var entity = initialEntities[i];
+                if (!EntityRolePolicy.IsPlayerUnit(entity))
+                {
+                    continue;
+                }
+
+                signals.Add(
+                    new EntitySpawnPresentationSignal(
+                        entity.entityId,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.InitialStageStart,
+                        entity.position,
+                        initialTopology,
+                        entity.facing,
+                        EntitySpawnPresentationSourceResolver.TryResolveEntranceSource(
+                            entity.position,
+                            initialTileFeatures)));
+            }
+
+            return signals.Count == 0
+                ? InitialPresentationData.Empty
+                : new InitialPresentationData(signals);
         }
 
         private static void InstantiateStageTileFeatureVisuals(

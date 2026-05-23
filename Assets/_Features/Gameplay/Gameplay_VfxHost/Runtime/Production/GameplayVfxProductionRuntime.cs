@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -682,6 +682,44 @@ namespace Game.Feature.Gameplay.Vfx.Host
             this.localSpaceRoot = localSpaceRoot;
         }
 
+        public void PresentInitial(in GameplayInitialPresentationExtensionContext context)
+        {
+            LastPlannedRequestCount = 0;
+            if (!AnyGameplayVfxEnabled ||
+                context.PresentationData == null)
+            {
+                return;
+            }
+
+            var visibilityContext = BuildVisibilityContext(context.StateStore);
+            planBuilder.Clear();
+            var planningContext = GameplayVfxPlanningContext.ForInitial(
+                context.PresentationData,
+                context.Topology,
+                context.TimingProfile,
+                context.TileFeatureVfxStyleBindings,
+                visibilityContext);
+            if (enableGameplayVfxTileFeatureLane)
+            {
+                tileFeaturePlanner.Plan(planningContext, planBuilder);
+            }
+
+            var plan = FilterByPlanningVisibility(
+                FilterByEnabledCues(planBuilder.Build()),
+                bindingResolver,
+                visibilityContext);
+            if (plan.Requests.Count == 0)
+            {
+                controller?.Refresh(GameplayVfxRequestPlan.Empty);
+                return;
+            }
+
+            EnsureRuntime(context.Projector, context.StateStore);
+            controller.SetVisibilityContext(visibilityContext);
+            controller.Refresh(plan);
+            LastPlannedRequestCount = plan.Requests.Count;
+        }
+
         public void Present(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
@@ -718,7 +756,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enableGameplayVfxEnemyUtilityCooldownAura,
                 enableGameplayVfxEnemyAttackCooldownFollow);
             planBuilder.Clear();
-            var planningContext = new GameplayVfxPlanningContext(
+            var planningContext = GameplayVfxPlanningContext.ForTick(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
                 context.Topology,
@@ -842,7 +880,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var visibilityContext = BuildVisibilityContext(context.StateStore);
             planBuilder.Clear();
-            var planningContext = new GameplayVfxPlanningContext(
+            var planningContext = GameplayVfxPlanningContext.ForTick(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
                 context.Topology,
