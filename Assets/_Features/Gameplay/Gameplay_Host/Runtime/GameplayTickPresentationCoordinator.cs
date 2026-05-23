@@ -569,6 +569,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            var hadActiveBoardRotationTween = _topologyTransitionController.HasActiveBoardRotationTween;
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
             _audioPresentationController.Update(deltaTime);
             _enemyAudioPresentationController.Update(_lastPresentedTickIndex, deltaTime);
@@ -582,7 +583,7 @@ namespace Game.Feature.Gameplay.Host
             UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,
-                _topologyTransitionController.HasActiveBoardRotationTween,
+                hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,
                 _viewBinder,
                 _timingProfile);
             _exitPresentationController.CompleteDeferredEntityExits();

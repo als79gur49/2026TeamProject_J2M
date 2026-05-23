@@ -139,14 +139,19 @@ namespace Game.Feature.Gameplay.Host
                 if (_trackState.JumpTracks.TryGetValue(entityId, out var jumpTrack) &&
                     jumpTrack.HasClip)
                 {
-                    localPose = jumpTrack.SampleAndAdvance(deltaTime, localPose);
+                    var freezeJumpTrack =
+                        hasActiveBoardRotationTween ||
+                        _trackState.JumpTopologySuspendedEntityIds.Contains(entityId);
+                    localPose = freezeJumpTrack
+                        ? jumpTrack.CurrentPose
+                        : jumpTrack.SampleAndAdvance(deltaTime, localPose);
                     if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
                     {
                         _stateStore.JumpDetachedVisibilityStates[entityId] =
                             new JumpDetachedVisibilityState(jumpDetachedState.JumpPhase, localPose);
                     }
 
-                    if (!jumpTrack.HasClip)
+                    if (!freezeJumpTrack && !jumpTrack.HasClip)
                     {
                         _trackState.CompletedJumpTrackIds.Add(entityId);
                     }
@@ -338,6 +343,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _trackState.JumpTracks.Remove(entityId);
             _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
+            _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
         }
 
@@ -392,6 +398,7 @@ namespace Game.Feature.Gameplay.Host
                 var entityId = _trackState.CompletedJumpTrackIds[i];
                 var wasLandingCompletionHeld = _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
                 _trackState.JumpTracks.Remove(entityId);
+                _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
                 _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
                 if (wasLandingCompletionHeld)
                 {
