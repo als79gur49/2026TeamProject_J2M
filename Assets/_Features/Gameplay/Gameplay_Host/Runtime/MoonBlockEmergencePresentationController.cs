@@ -28,8 +28,11 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class MoonBlockEmergencePresentationController
     {
-        private const float StartScaleMultiplier = 0.2f;
+        private const float DoorOpenLeadSeconds = 0.07f;
+        private const float StartScaleMultiplier = 0f;
+        private const float LaunchScaleMultiplier = 1.08f;
         private static readonly Vector3 StartLocalOffset = new(0f, 0f, -0.45f);
+        private static readonly Vector3 LaunchLocalOffset = new(0f, 0f, 0.22f);
 
         private readonly Dictionary<int, MoonBlockEmergencePresentationRequest> _pendingByEntityId = new();
         private readonly List<MoonBlockEmergencePresentationDriver> _activeDrivers = new();
@@ -198,9 +201,12 @@ namespace Game.Feature.Gameplay.Host
 
             var durationSeconds = ResolveDurationSeconds(request);
             driver.Play(
+                DoorOpenLeadSeconds,
                 durationSeconds,
                 StartScaleMultiplier,
-                StartLocalOffset);
+                LaunchScaleMultiplier,
+                StartLocalOffset,
+                LaunchLocalOffset);
             if (driver.IsPlaying && !_activeDrivers.Contains(driver))
             {
                 _activeDrivers.Add(driver);
@@ -216,7 +222,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var lockDurationSeconds = request.SpawnInteractionLockTicks / (float)_timingProfile.SimulationTicksPerSecond;
-            return Mathf.Max(0.0001f, Mathf.Min(profileDurationSeconds, lockDurationSeconds));
+            return Mathf.Max(0.0001f, Mathf.Max(profileDurationSeconds, lockDurationSeconds));
         }
 
         private void PruneExpiredPendingRequests(int currentTickIndex)

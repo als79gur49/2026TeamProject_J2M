@@ -1647,7 +1647,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var presenter = CreateInitializedPresenter(rootObject, out var topology);
                 var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
-                var timingProfile = CreateTimingProfile();
                 var expectedRootPosition = GetProjectedEntityPosition(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                     topology,
@@ -1668,16 +1667,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(modelRoot.localPosition.z, Is.LessThan(-0.001f));
                 Assert.That(modelRoot.localPosition.x, Is.EqualTo(0f).Within(0.001f));
                 Assert.That(modelRoot.localPosition.y, Is.EqualTo(0f).Within(0.001f));
-                Assert.That(modelRoot.localScale.x, Is.LessThan(1f));
+                AssertPositionApproximately(modelRoot.localScale, Vector3.zero);
                 Assert.That(presenter.HasBlockingPresentation, Is.False);
+                var driver = view.GetComponent<MoonBlockEmergencePresentationDriver>();
+                Assert.That(driver, Is.Not.Null);
 
-                presenter.UpdatePresentation(timingProfile.MoonBlockEmergenceDurationSeconds + 0.01f);
+                presenter.UpdatePresentation(driver.DebugDurationSeconds + 0.01f);
 
                 AssertPositionApproximately(view.transform.localPosition, rootPositionDuringEmergence);
                 Assert.That(view.transform.localRotation, Is.EqualTo(rootRotationDuringEmergence));
                 AssertPositionApproximately(modelRoot.localPosition, Vector3.zero);
                 AssertPositionApproximately(modelRoot.localScale, Vector3.one);
-                Assert.That(view.GetComponent<MoonBlockEmergencePresentationDriver>().IsPlaying, Is.False);
+                Assert.That(driver.IsPlaying, Is.False);
             }
             finally
             {
@@ -1687,16 +1688,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayTickViewPresenter_MoonBlockEmergence_UsesNonLinearDotweenEase()
+        public void GameplayTickViewPresenter_MoonBlockEmergence_HidesThenLaunchesAfterDoorOpenLead()
         {
-            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockEmergence_UsesNonLinearDotweenEase));
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockEmergence_HidesThenLaunchesAfterDoorOpenLead));
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
 
             try
             {
                 var presenter = CreateInitializedPresenter(rootObject, out var topology);
                 var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
-                var timingProfile = CreateTimingProfile();
 
                 presenter.Present(CreateTickResult(
                     1,
@@ -1705,12 +1705,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
-                var lockDurationSeconds =
-                    MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks /
-                    (float)timingProfile.SimulationTicksPerSecond;
-                presenter.UpdatePresentation(lockDurationSeconds * 0.5f);
+                var startPosition = view.ModelRoot.localPosition;
+                var startScale = view.ModelRoot.localScale;
 
-                Assert.That(view.ModelRoot.localScale.x, Is.Not.EqualTo(0.6f).Within(0.05f));
+                presenter.UpdatePresentation(0.05f);
+
+                AssertPositionApproximately(view.ModelRoot.localPosition, startPosition);
+                AssertPositionApproximately(startScale, Vector3.zero);
+                AssertPositionApproximately(view.ModelRoot.localScale, Vector3.zero);
+
+                presenter.UpdatePresentation(0.04f);
+
+                Assert.That(view.ModelRoot.localPosition.z, Is.GreaterThan(startPosition.z));
+                Assert.That(view.ModelRoot.localScale.x, Is.GreaterThan(startScale.x));
             }
             finally
             {
@@ -1720,9 +1727,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayTickViewPresenter_MoonBlockEmergence_DurationDoesNotExceedSpawnLockWindow()
+        public void GameplayTickViewPresenter_MoonBlockEmergence_UsesPresentationLaunchAfterSpawnLockWindow()
         {
-            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockEmergence_DurationDoesNotExceedSpawnLockWindow));
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_MoonBlockEmergence_UsesPresentationLaunchAfterSpawnLockWindow));
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
 
             try
@@ -1746,8 +1753,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     MoonBlockGeneratorRespawnDefaults.SpawnInteractionLockTicks /
                     (float)timingProfile.SimulationTicksPerSecond;
                 Assert.That(lockDurationSeconds, Is.LessThan(timingProfile.MoonBlockEmergenceDurationSeconds));
+                Assert.That(driver.DebugDurationSeconds, Is.GreaterThan(lockDurationSeconds));
 
-                presenter.UpdatePresentation(lockDurationSeconds + 0.01f);
+                presenter.UpdatePresentation(lockDurationSeconds + 0.06f);
+
+                Assert.That(driver.IsPlaying, Is.True);
+                Assert.That(view.ModelRoot.localPosition.z, Is.GreaterThan(0f));
+                Assert.That(view.ModelRoot.localScale.x, Is.GreaterThan(1f));
+
+                presenter.UpdatePresentation(driver.DebugDurationSeconds);
 
                 Assert.That(driver.IsPlaying, Is.False);
                 AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
