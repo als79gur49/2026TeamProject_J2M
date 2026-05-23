@@ -17,10 +17,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     {
         private const string CombinedGameplayShowcaseScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
+        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string RuntimeRootPath = "GameplayVfxRuntimeRoot";
 
         [UnityTest]
-        [Category("Full")]
+        [Category("Core")]
         public IEnumerator CombinedGameplayShowcase_DirectPlayTick_CreatesGameplayVfxRuntimeRoot()
         {
             yield return AssertSceneTickCreatesRuntimeRoot(
@@ -29,12 +30,102 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        [Category("Full")]
+        [Category("Core")]
         public IEnumerator UIAudioScene_DirectPlayTick_CreatesGameplayVfxRuntimeRoot()
         {
             yield return AssertSceneTickCreatesRuntimeRoot(
                 UIAudioScenePath,
                 StageId.CreateOrThrow("stage-0-1"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator UIAudioScene_Stage0_1_InitialEntranceSpawn_ResolvesBeforeFirstTick()
+        {
+            try
+            {
+                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-0-1"));
+                EditorDirectPlayContextStore.SetCurrent(
+                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-0-1")));
+                yield return LoadScene(UIAudioScenePath);
+
+                var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+                Assert.That(host, Is.Not.Null, $"{UIAudioScenePath} must create a GameplaySceneHost.");
+                var runtime = host.GetComponent<GameplayVfxProductionRuntime>();
+                Assert.That(runtime, Is.Not.Null, $"{UIAudioScenePath} must include a GameplayVfxProductionRuntime.");
+
+                Assert.That(runtime.IsHostDefaultMapConfigured, Is.True);
+                Assert.That(runtime.LastInitialPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialEntranceSpawnRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.IsRuntimeInitialized, Is.True);
+                Assert.That(runtime.LastInitialActiveEntranceSpawnInstanceCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator CombinedGameplayShowcase_InitialBootstrap_ConfiguresVfxMapBeforeFirstTick()
+        {
+            try
+            {
+                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
+                EditorDirectPlayContextStore.SetCurrent(
+                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-1-1")));
+                yield return LoadScene(CombinedGameplayShowcaseScenePath);
+
+                var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+                Assert.That(host, Is.Not.Null, $"{CombinedGameplayShowcaseScenePath} must create a GameplaySceneHost.");
+                var runtime = host.GetComponent<GameplayVfxProductionRuntime>();
+                Assert.That(runtime, Is.Not.Null, $"{CombinedGameplayShowcaseScenePath} must include a GameplayVfxProductionRuntime.");
+
+                Assert.That(runtime.IsHostDefaultMapConfigured, Is.True);
+                Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator TutorialScene_InitialBootstrap_KeepsTileFeatureVfxLaneDisabled()
+        {
+            try
+            {
+                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("tutorial-scene"));
+                EditorDirectPlayContextStore.SetCurrent(
+                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("tutorial-scene")));
+                yield return LoadScene(TutorialScenePath);
+
+                var host = Object.FindFirstObjectByType<GameplaySceneHost>();
+                Assert.That(host, Is.Not.Null, $"{TutorialScenePath} must create a GameplaySceneHost.");
+                var runtime = host.GetComponent<GameplayVfxProductionRuntime>();
+                Assert.That(runtime, Is.Not.Null, $"{TutorialScenePath} must include a GameplayVfxProductionRuntime.");
+
+                Assert.That(runtime.EnableGameplayVfxTileFeatureLane, Is.False);
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
+            }
         }
 
         private static IEnumerator AssertSceneTickCreatesRuntimeRoot(string scenePath, StageId stageId)
@@ -74,6 +165,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static Transform FindRuntimeRoot(Transform hostRoot)
         {
             return hostRoot != null ? hostRoot.Find(RuntimeRootPath) : null;
+        }
+
+        private static int CountOneShotInstances(Transform hostRoot)
+        {
+            var runtimeRoot = FindRuntimeRoot(hostRoot);
+            var oneShotRoot = runtimeRoot != null ? runtimeRoot.Find("OneShot") : null;
+            return oneShotRoot != null ? oneShotRoot.childCount : 0;
         }
 
         private static IEnumerator LoadScene(string scenePath)

@@ -6,6 +6,18 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public interface IGameplayBootstrapInstaller
+    {
+        void Install();
+    }
+
+    public interface IGameplayBootstrapReadiness
+    {
+        bool IsReady { get; }
+
+        string DescribeReadiness();
+    }
+
     public readonly struct GameplayTickPresentationExtensionContext
     {
         public GameplayTickPresentationExtensionContext(

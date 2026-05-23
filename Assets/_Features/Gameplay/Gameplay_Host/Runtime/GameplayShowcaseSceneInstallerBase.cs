@@ -170,6 +170,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException($"{GetType().Name} requires an InputActionAsset reference.");
             }
 
+            InstallBootstrapServices(gameObject);
+            ValidateBootstrapReadiness(gameObject);
             var initialState = BuildInitialGameplayState();
             var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
             var sharedTuning = cameraTopologyAuthoring.SharedTuning;
@@ -184,6 +186,47 @@ namespace Game.Feature.Gameplay.Host
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
             host.Initialize(CreateConfiguration(initialState, baseCameraSettings));
             OnHostInitialized(host, initialState);
+        }
+
+        private static void InstallBootstrapServices(GameObject bootstrapRoot)
+        {
+            var behaviours = bootstrapRoot.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var behaviour = behaviours[i];
+                if (IsActiveEnabledBehaviour(behaviour) &&
+                    behaviour is IGameplayBootstrapInstaller installer)
+                {
+                    installer.Install();
+                }
+            }
+        }
+
+        private static void ValidateBootstrapReadiness(GameObject bootstrapRoot)
+        {
+            var behaviours = bootstrapRoot.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var behaviour = behaviours[i];
+                if (!IsActiveEnabledBehaviour(behaviour) ||
+                    behaviour is not IGameplayBootstrapReadiness readiness ||
+                    readiness.IsReady)
+                {
+                    continue;
+                }
+
+                var description = readiness.DescribeReadiness();
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(description)
+                    ? $"{behaviour.GetType().Name} is not ready for gameplay host initialization."
+                    : description);
+            }
+        }
+
+        private static bool IsActiveEnabledBehaviour(MonoBehaviour behaviour)
+        {
+            return behaviour != null &&
+                   behaviour.enabled &&
+                   behaviour.gameObject.activeInHierarchy;
         }
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
