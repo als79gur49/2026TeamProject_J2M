@@ -1189,6 +1189,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DestroyTileActivationFact_InactiveToActiveTransition_DestroysSameCellGroundUnit()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var previousSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var topologyBatch = new FinalizationBatch();
+            topologyBatch.SetTopology(currentSnapshot.Topology);
+
+            var facts = TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                previousSnapshot,
+                currentSnapshot,
+                new[] { CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly) },
+                TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                topologyBatch);
+            var result = ResolveWithActivationFacts(
+                currentSnapshot,
+                facts,
+                CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly));
+
+            Assert.That(facts, Has.Count.EqualTo(1));
+            Assert.That(facts[0].FeatureCell, Is.EqualTo(cell));
+            Assert.That(facts[0].OccupantEntityId, Is.EqualTo(20));
+            Assert.That(facts[0].OccupantType, Is.EqualTo(EntityType.Unit));
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.TileEvents.Single().EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.TileEvents.Single().TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.TileEvents.Single().TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.Immediate));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTileActivationFact_NonActivationTransitions_DoNotCreateFacts()
         {
             var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
@@ -1253,7 +1295,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             topologyBatch.SetTopology(new CubeTopologyState(FaceId.Front));
             var cases = new[]
             {
-                new object[] { "Unit", new[] { CreateUnit(20, destroyCell) } },
+                new object[] { "AirUnit", new[] { CreateUnit(20, destroyCell, UnitMobilityKind.Air) } },
                 new object[] { "Projectile", new[] { CreateProjectile(21, destroyCell) } },
                 new object[] { "DeadBox", new[] { CreateBox(22, destroyCell, hp: 0) } },
                 new object[] { "DetachedBox", new[] { CreateBox(23, destroyCell, boardPresence: EntityBoardPresence.Detached) } },

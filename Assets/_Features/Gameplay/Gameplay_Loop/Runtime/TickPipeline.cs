@@ -7806,10 +7806,16 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             EntityState entity)
         {
-            return entity.type == EntityType.Box &&
-                   entity.boardPresence == EntityBoardPresence.Occupying &&
-                   entity.hp > 0 &&
-                   !entity.markedForDeath;
+            if (entity.boardPresence != EntityBoardPresence.Occupying ||
+                entity.hp <= 0 ||
+                entity.markedForDeath)
+            {
+                return false;
+            }
+
+            return entity.type == EntityType.Box ||
+                   entity.type == EntityType.Unit &&
+                   TileFeatureHazardQueries.IsDestroyTileLethalForUnit(entity);
         }
 
         private static bool IsDestroyTileActivationTransition(
