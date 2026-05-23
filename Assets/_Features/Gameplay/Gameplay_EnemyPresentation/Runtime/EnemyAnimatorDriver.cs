@@ -75,6 +75,12 @@ namespace Game.Feature.Gameplay.Host
 
         public float DeathPresentationDurationSeconds => ResolveDeathPresentationDurationSeconds();
 
+        public float GetPresentationDurationSeconds(EnemyPresentationPhase phase)
+        {
+            ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
+            return presentationDurationSeconds;
+        }
+
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
 
         public float CurrentPresentationDurationSeconds { get; private set; }
@@ -244,6 +250,16 @@ namespace Game.Feature.Gameplay.Host
             SyncOptionalMovingParameter(targetAnimator, isMoving);
 
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
+        }
+
+        public void ApplyPresentationPhaseTiming(EnemyPresentationPhase phase)
+        {
+            ApplyAnimatorTiming(ResolveAnimator(), phase);
+        }
+
+        public void RestorePresentationTiming()
+        {
+            ApplyAnimatorTiming(ResolveAnimator(), ResolvePresentationPhase(LastPresentationState));
         }
 
         public bool ResyncAnimatorStateFromLastPresentation()
@@ -574,15 +590,6 @@ namespace Game.Feature.Gameplay.Host
                     return EnemyPresentationPhase.Recovery;
             }
 
-            switch (state.UtilityPhase)
-            {
-                case EnemyUtilityEffectPhase.Windup:
-                    return EnemyPresentationPhase.Windup;
-
-                case EnemyUtilityEffectPhase.Recover:
-                    return EnemyPresentationPhase.Recovery;
-            }
-
             switch (state.AiMode)
             {
                 case EnemyAiMode.Attack:
@@ -836,7 +843,7 @@ namespace Game.Feature.Gameplay.Host
                 : shortNameHash;
         }
 
-        private enum EnemyPresentationPhase
+        public enum EnemyPresentationPhase
         {
             None = 0,
             Windup = 1,

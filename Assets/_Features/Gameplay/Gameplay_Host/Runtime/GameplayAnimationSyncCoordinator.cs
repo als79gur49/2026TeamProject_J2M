@@ -33,12 +33,15 @@ namespace Game.Feature.Gameplay.Host
 
     public sealed class GameplayAnimationSyncCoordinator
     {
+        private readonly List<int> _completedEnemyUtilityAnimationEntityIds = new();
         private readonly List<int> _completedPlayerVisualHoldEntityIds = new();
         private readonly HashSet<int> _contactDelayedEnemyDeathEntityIds = new();
         private readonly HashSet<int> _playerDeathVisualOverrideEntityIds = new();
         private readonly List<int> _playerVisualHoldEntityIds = new();
         private readonly Dictionary<int, EnemyAnimatorDriver> _enemyAnimatorDriversByEntityId = new();
         private readonly Dictionary<int, EnemyUtilityScalePulsePresentationDriver> _enemyScalePulseDriversByEntityId = new();
+        private readonly List<int> _enemyUtilityAnimationEntityIds = new();
+        private readonly Dictionary<int, EnemyUtilityAnimationPlaybackTrack> _enemyUtilityAnimationTracks = new();
         private readonly EnemyViewPresentationMapper _enemyViewPresentationMapper = new();
         private readonly Dictionary<int, EnemyViewPresentationState> _enemyViewPresentationStates = new();
         private readonly Dictionary<int, PlayerAnimatorDriver> _playerAnimatorDriversByEntityId = new();
@@ -128,6 +131,7 @@ namespace Game.Feature.Gameplay.Host
                 if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
                     driver.Apply(state);
+                    RefreshEnemyUtilityAnimationTrack(pair.Key, state, driver);
                 }
 
                 if (TryGetEnemyScalePulseDriver(pair.Key, viewsByEntityId, out var scalePulseDriver))
@@ -224,6 +228,13 @@ namespace Game.Feature.Gameplay.Host
 
         public void AdvancePlayerPresentation(float deltaTime)
         {
+            AdvancePresentation(deltaTime);
+        }
+
+        public void AdvancePresentation(float deltaTime)
+        {
+            AdvanceEnemyUtilityAnimationTracks(deltaTime);
+
             foreach (var pair in _enemyScalePulseDriversByEntityId)
             {
                 pair.Value?.Advance(deltaTime);
@@ -281,6 +292,8 @@ namespace Game.Feature.Gameplay.Host
 
             _enemyAnimatorDriversByEntityId.Clear();
             _enemyScalePulseDriversByEntityId.Clear();
+            _enemyUtilityAnimationEntityIds.Clear();
+            _enemyUtilityAnimationTracks.Clear();
             _enemyViewPresentationStates.Clear();
             _contactDelayedEnemyDeathEntityIds.Clear();
             _playerAnimatorDriversByEntityId.Clear();
@@ -300,6 +313,7 @@ namespace Game.Feature.Gameplay.Host
 
             _enemyAnimatorDriversByEntityId.Remove(entityId);
             _enemyScalePulseDriversByEntityId.Remove(entityId);
+            _enemyUtilityAnimationTracks.Remove(entityId);
             _enemyViewPresentationStates.Remove(entityId);
             _contactDelayedEnemyDeathEntityIds.Remove(entityId);
             _playerAnimatorDriversByEntityId.Remove(entityId);
@@ -318,6 +332,7 @@ namespace Game.Feature.Gameplay.Host
             if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
             {
                 driver.SyncRuntimeState(isVisible, isMoving, playbackSuppressed);
+                ApplyEnemyUtilityAnimationTrackTimingIfActive(entityId, driver);
             }
         }
 
@@ -328,6 +343,7 @@ namespace Game.Feature.Gameplay.Host
             if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
             {
                 driver.ResyncAnimatorStateFromLastPresentation();
+                ApplyEnemyUtilityAnimationTrackTimingIfActive(entityId, driver);
             }
         }
 
@@ -339,6 +355,141 @@ namespace Game.Feature.Gameplay.Host
             {
                 driver.CompleteJumpLandingPresentation();
             }
+        }
+
+        private void RefreshEnemyUtilityAnimationTrack(
+            int entityId,
+            in EnemyViewPresentationState state,
+            EnemyAnimatorDriver driver)
+        {
+            if (driver == null)
+            {
+                return;
+            }
+
+            if (state.DidDie)
+            {
+                _enemyUtilityAnimationTracks.Remove(entityId);
+                return;
+            }
+
+            if (TryCreateEnemyUtilityAnimationTrack(state, driver, out var track))
+            {
+                _enemyUtilityAnimationTracks[entityId] = track;
+            }
+
+            ApplyEnemyUtilityAnimationTrackTimingIfActive(entityId, driver);
+        }
+
+        private bool TryCreateEnemyUtilityAnimationTrack(
+            in EnemyViewPresentationState state,
+            EnemyAnimatorDriver driver,
+            out EnemyUtilityAnimationPlaybackTrack track)
+        {
+            var phase = EnemyAnimatorDriver.EnemyPresentationPhase.None;
+            if (state.StartedUtilityRecoverThisTick)
+            {
+                phase = EnemyAnimatorDriver.EnemyPresentationPhase.Recovery;
+            }
+            else if (state.StartedUtilityWindupThisTick &&
+                     SupportsUtilityWindupAnimationTrack(state.UtilityPresentationKind))
+            {
+                phase = EnemyAnimatorDriver.EnemyPresentationPhase.Windup;
+            }
+
+            if (phase == EnemyAnimatorDriver.EnemyPresentationPhase.None)
+            {
+                track = default;
+                return false;
+            }
+
+            var durationSeconds = driver.GetPresentationDurationSeconds(phase);
+            if (durationSeconds <= 0f)
+            {
+                track = default;
+                return false;
+            }
+
+            track = new EnemyUtilityAnimationPlaybackTrack(
+                phase,
+                state.UtilityPresentationKind,
+                state.UtilityEffectIndex,
+                state.UtilityActivationSequence,
+                durationSeconds);
+            return true;
+        }
+
+        private void AdvanceEnemyUtilityAnimationTracks(float deltaTime)
+        {
+            _completedEnemyUtilityAnimationEntityIds.Clear();
+            _enemyUtilityAnimationEntityIds.Clear();
+
+            foreach (var pair in _enemyUtilityAnimationTracks)
+            {
+                _enemyUtilityAnimationEntityIds.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _enemyUtilityAnimationEntityIds.Count; i++)
+            {
+                var entityId = _enemyUtilityAnimationEntityIds[i];
+                var advancedTrack = _enemyUtilityAnimationTracks[entityId].Advance(deltaTime);
+                if (!advancedTrack.IsActive)
+                {
+                    _completedEnemyUtilityAnimationEntityIds.Add(entityId);
+                    continue;
+                }
+
+                _enemyUtilityAnimationTracks[entityId] = advancedTrack;
+                if (_enemyAnimatorDriversByEntityId.TryGetValue(entityId, out var driver) &&
+                    driver != null)
+                {
+                    ApplyEnemyUtilityAnimationTrackTimingIfActive(entityId, driver);
+                }
+            }
+
+            for (var i = 0; i < _completedEnemyUtilityAnimationEntityIds.Count; i++)
+            {
+                var entityId = _completedEnemyUtilityAnimationEntityIds[i];
+                _enemyUtilityAnimationTracks.Remove(entityId);
+                if (_enemyAnimatorDriversByEntityId.TryGetValue(entityId, out var driver) &&
+                    driver != null)
+                {
+                    driver.RestorePresentationTiming();
+                }
+            }
+        }
+
+        private void ApplyEnemyUtilityAnimationTrackTimingIfActive(int entityId, EnemyAnimatorDriver driver)
+        {
+            if (driver == null ||
+                !_enemyUtilityAnimationTracks.TryGetValue(entityId, out var track) ||
+                !track.IsActive ||
+                !CanApplyEnemyUtilityAnimationTrack(driver.LastPresentationState))
+            {
+                return;
+            }
+
+            driver.ApplyPresentationPhaseTiming(track.Phase);
+        }
+
+        private static bool CanApplyEnemyUtilityAnimationTrack(in EnemyViewPresentationState state)
+        {
+            if (state.DidDie ||
+                state.ActiveActionKind != EnemyActionKind.None ||
+                state.JumpPhase != EnemyJumpPhase.None ||
+                state.ChargePhase != EnemyChargePhase.None)
+            {
+                return false;
+            }
+
+            return state.GlidePhase == EnemyGlidePhase.Ready ||
+                   state.GlidePhase == EnemyGlidePhase.Cooldown;
+        }
+
+        private static bool SupportsUtilityWindupAnimationTrack(EnemyUtilityPresentationKind kind)
+        {
+            return kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
+                   kind == EnemyUtilityPresentationKind.GravityFieldAura;
         }
 
         private static bool ContainsEntityId(IReadOnlyCollection<int> entityIds, int entityId)
@@ -369,6 +520,7 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
         {
             _contactDelayedEnemyDeathEntityIds.Remove(entityId);
+            _enemyUtilityAnimationTracks.Remove(entityId);
             return TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver)
                 ? driver.PlayDeathPresentation(entityId)
                 : 0f;
@@ -844,6 +996,67 @@ namespace Game.Feature.Gameplay.Host
 
                 _playerDeathVisualOverrideEntityIds.Remove(change.EntityId);
                 _playerVisualHoldStates.Remove(change.EntityId);
+            }
+        }
+
+        private readonly struct EnemyUtilityAnimationPlaybackTrack
+        {
+            public EnemyUtilityAnimationPlaybackTrack(
+                EnemyAnimatorDriver.EnemyPresentationPhase phase,
+                EnemyUtilityPresentationKind kind,
+                int effectIndex,
+                int activationSequence,
+                float durationSeconds)
+            {
+                Phase = phase;
+                Kind = kind;
+                EffectIndex = effectIndex;
+                ActivationSequence = activationSequence;
+                DurationSeconds = Mathf.Max(0.0001f, durationSeconds);
+                ElapsedSeconds = 0f;
+            }
+
+            private EnemyUtilityAnimationPlaybackTrack(
+                EnemyAnimatorDriver.EnemyPresentationPhase phase,
+                EnemyUtilityPresentationKind kind,
+                int effectIndex,
+                int activationSequence,
+                float durationSeconds,
+                float elapsedSeconds)
+            {
+                Phase = phase;
+                Kind = kind;
+                EffectIndex = effectIndex;
+                ActivationSequence = activationSequence;
+                DurationSeconds = Mathf.Max(0.0001f, durationSeconds);
+                ElapsedSeconds = Mathf.Max(0f, elapsedSeconds);
+            }
+
+            public EnemyAnimatorDriver.EnemyPresentationPhase Phase { get; }
+
+            public EnemyUtilityPresentationKind Kind { get; }
+
+            public int EffectIndex { get; }
+
+            public int ActivationSequence { get; }
+
+            public float DurationSeconds { get; }
+
+            public float ElapsedSeconds { get; }
+
+            public float RemainingSeconds => Mathf.Max(0f, DurationSeconds - ElapsedSeconds);
+
+            public bool IsActive => RemainingSeconds > 0f;
+
+            public EnemyUtilityAnimationPlaybackTrack Advance(float deltaTime)
+            {
+                return new EnemyUtilityAnimationPlaybackTrack(
+                    Phase,
+                    Kind,
+                    EffectIndex,
+                    ActivationSequence,
+                    DurationSeconds,
+                    Mathf.Min(DurationSeconds, ElapsedSeconds + Mathf.Max(0f, deltaTime)));
             }
         }
 

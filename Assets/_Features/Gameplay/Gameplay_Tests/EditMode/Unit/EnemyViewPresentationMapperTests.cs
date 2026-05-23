@@ -306,6 +306,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(states.TryGetValue(enemyId, out var recoverState), Is.True);
             Assert.That(recoverState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
             Assert.That(recoverState.StartedUtilityWindupThisTick, Is.False);
+            Assert.That(recoverState.StartedUtilityRecoverThisTick, Is.True);
             Assert.That(recoverState.StartedRecoveryThisTick, Is.True);
             Assert.That(recoverState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(recoverState.ExecutedThisTick, Is.False);
@@ -414,8 +415,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
             Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
             Assert.That(state.UtilityPhase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
-            Assert.That(state.StartedUtilityRecoverThisTick, Is.True);
-            Assert.That(state.StartedRecoveryThisTick, Is.True);
+            Assert.That(state.StartedUtilityRecoverThisTick, Is.False);
+            Assert.That(state.StartedRecoveryThisTick, Is.False);
         }
 
         [Test]

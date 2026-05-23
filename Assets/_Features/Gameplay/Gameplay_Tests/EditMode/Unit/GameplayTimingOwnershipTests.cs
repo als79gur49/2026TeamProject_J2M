@@ -2484,77 +2484,79 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAnimatorDriver_UtilityRecoverPhase_UsesRecoverTimingWhileAiModePatrol()
+        public void GameplayAnimationSyncCoordinator_UtilityRecoverTrack_UsesViewDurationAfterLogicRecoverOutlivesView()
         {
-            var rootObject = new GameObject("EnemyAnimatorDriver_UtilityRecoverPhase_UsesRecoverTimingWhileAiModePatrol");
-            var recoverReferenceClip = CreateReferenceClip("RecoverReference", 0.16666667f);
+            var rootObject = new GameObject("GameplayAnimationSyncCoordinator_UtilityRecoverTrack_UsesViewDurationAfterLogicRecoverOutlivesView");
+            var recoverReferenceClip = CreateReferenceClip("RecoverReference", 0.3f);
 
             try
             {
+                var view = rootObject.AddComponent<GameplayEntityView>();
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [40] = view,
+                };
                 ConfigureEnemyAnimationTimingAuthoring(
                     authoring,
                     attackWindupAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
                     recoverAnimatorDurationSeconds: 0.5f,
                     stateTransitionCrossFadeDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
                     recoverReferenceClip: recoverReferenceClip);
+                coordinator.CacheDrivers(40, view);
 
-                driver.Apply(new EnemyViewPresentationState(
-                    entityId: 40,
-                    tickIndex: 103,
-                    aiMode: EnemyAiMode.Patrol,
-                    activeActionKind: EnemyActionKind.None,
-                    jumpPhase: EnemyJumpPhase.None,
-                    chargePhase: EnemyChargePhase.None,
-                    isMoving: false,
-                    startedWindupThisTick: false,
-                    executedThisTick: false,
-                    startedRecoveryThisTick: true,
-                    startedJumpWindupThisTick: false,
-                    startedJumpAirborneThisTick: false,
-                    landedFromJumpThisTick: false,
-                    retryingJumpAirborneThisTick: false,
-                    startedChargeWindupThisTick: false,
-                    startedChargeActiveThisTick: false,
-                    startedChargeRecoverThisTick: false,
-                    tookDamage: false,
-                    didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.LockNearbyBoxes,
-                    utilityPhase: EnemyUtilityEffectPhase.Recover,
-                    startedUtilityRecoverThisTick: true));
+                coordinator.ApplyTickPresentation(
+                    CreateEnemyUtilityAnimationTick(
+                        tickIndex: 1,
+                        new[]
+                        {
+                            new TickEnemyUtilityPresentationSignal(
+                                40,
+                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationPhase.RecoverStarted,
+                                startTick: 1,
+                                executeTick: 9,
+                                durationTicks: 8,
+                                effectIndex: 0,
+                                activationSequence: 7),
+                        }),
+                    viewsByEntityId,
+                    (_, _) => 0f);
 
                 Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(recoverReferenceClip.length / 0.5f).Within(0.0001f));
                 Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
 
-                driver.Apply(new EnemyViewPresentationState(
-                    entityId: 40,
-                    tickIndex: 104,
-                    aiMode: EnemyAiMode.Patrol,
-                    activeActionKind: EnemyActionKind.None,
-                    jumpPhase: EnemyJumpPhase.None,
-                    chargePhase: EnemyChargePhase.None,
-                    isMoving: false,
-                    startedWindupThisTick: false,
-                    executedThisTick: false,
-                    startedRecoveryThisTick: false,
-                    startedJumpWindupThisTick: false,
-                    startedJumpAirborneThisTick: false,
-                    landedFromJumpThisTick: false,
-                    retryingJumpAirborneThisTick: false,
-                    startedChargeWindupThisTick: false,
-                    startedChargeActiveThisTick: false,
-                    startedChargeRecoverThisTick: false,
-                    tookDamage: false,
-                    didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.LockNearbyBoxes,
-                    utilityPhase: EnemyUtilityEffectPhase.Recover,
-                    startedUtilityRecoverThisTick: false));
+                coordinator.ApplyTickPresentation(
+                    CreateEnemyUtilityAnimationTick(
+                        tickIndex: 2,
+                        utilitySignals: Array.Empty<TickEnemyUtilityPresentationSignal>(),
+                        utilityPhaseStates: new[]
+                        {
+                            new TickEnemyUtilityPhasePresentationState(
+                                40,
+                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityEffectPhase.Recover,
+                                phaseElapsedTicks: 1,
+                                phaseDurationTicks: 8,
+                                effectIndex: 0,
+                                activationSequence: 7),
+                        }),
+                    viewsByEntityId,
+                    (_, _) => 0f);
 
                 Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(recoverReferenceClip.length / 0.5f).Within(0.0001f));
                 Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+
+                coordinator.AdvancePlayerPresentation(0.49f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+
+                coordinator.AdvancePlayerPresentation(0.02f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f));
             }
             finally
             {
@@ -2565,77 +2567,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAnimatorDriver_UtilityWindupPhase_UsesWindupTimingWhileAiModePatrol()
+        public void GameplayAnimationSyncCoordinator_UtilityWindupTrack_UsesViewDurationAfterLogicWindupEnds()
         {
-            var rootObject = new GameObject("EnemyAnimatorDriver_UtilityWindupPhase_UsesWindupTimingWhileAiModePatrol");
-            var windupReferenceClip = CreateReferenceClip("WindupReference", 0.16666667f);
+            var rootObject = new GameObject("GameplayAnimationSyncCoordinator_UtilityWindupTrack_UsesViewDurationAfterLogicWindupEnds");
+            var windupReferenceClip = CreateReferenceClip("WindupReference", 0.3f);
 
             try
             {
+                var view = rootObject.AddComponent<GameplayEntityView>();
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [40] = view,
+                };
                 ConfigureEnemyAnimationTimingAuthoring(
                     authoring,
                     attackWindupAnimatorDurationSeconds: 0.5f,
                     recoverAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
                     stateTransitionCrossFadeDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
                     attackWindupReferenceClip: windupReferenceClip);
+                coordinator.CacheDrivers(40, view);
 
-                driver.Apply(new EnemyViewPresentationState(
-                    entityId: 40,
-                    tickIndex: 101,
-                    aiMode: EnemyAiMode.Patrol,
-                    activeActionKind: EnemyActionKind.None,
-                    jumpPhase: EnemyJumpPhase.None,
-                    chargePhase: EnemyChargePhase.None,
-                    isMoving: false,
-                    startedWindupThisTick: false,
-                    executedThisTick: false,
-                    startedRecoveryThisTick: false,
-                    startedJumpWindupThisTick: false,
-                    startedJumpAirborneThisTick: false,
-                    landedFromJumpThisTick: false,
-                    retryingJumpAirborneThisTick: false,
-                    startedChargeWindupThisTick: false,
-                    startedChargeActiveThisTick: false,
-                    startedChargeRecoverThisTick: false,
-                    tookDamage: false,
-                    didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.LockNearbyBoxes,
-                    startedUtilityWindupThisTick: true,
-                    utilityPhase: EnemyUtilityEffectPhase.Windup));
+                coordinator.ApplyTickPresentation(
+                    CreateEnemyUtilityAnimationTick(
+                        tickIndex: 1,
+                        new[]
+                        {
+                            new TickEnemyUtilityPresentationSignal(
+                                40,
+                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationPhase.WindupStarted,
+                                startTick: 1,
+                                executeTick: 3,
+                                durationTicks: 2,
+                                effectIndex: 0,
+                                activationSequence: 5),
+                        }),
+                    viewsByEntityId,
+                    (_, _) => 0f);
 
                 Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(windupReferenceClip.length / 0.5f).Within(0.0001f));
                 Assert.That(driver.UtilityWindupSignalCount, Is.EqualTo(1));
 
-                driver.Apply(new EnemyViewPresentationState(
-                    entityId: 40,
-                    tickIndex: 102,
-                    aiMode: EnemyAiMode.Patrol,
-                    activeActionKind: EnemyActionKind.None,
-                    jumpPhase: EnemyJumpPhase.None,
-                    chargePhase: EnemyChargePhase.None,
-                    isMoving: false,
-                    startedWindupThisTick: false,
-                    executedThisTick: false,
-                    startedRecoveryThisTick: false,
-                    startedJumpWindupThisTick: false,
-                    startedJumpAirborneThisTick: false,
-                    landedFromJumpThisTick: false,
-                    retryingJumpAirborneThisTick: false,
-                    startedChargeWindupThisTick: false,
-                    startedChargeActiveThisTick: false,
-                    startedChargeRecoverThisTick: false,
-                    tookDamage: false,
-                    didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.LockNearbyBoxes,
-                    startedUtilityWindupThisTick: false,
-                    utilityPhase: EnemyUtilityEffectPhase.Windup));
+                coordinator.ApplyTickPresentation(
+                    CreateEnemyUtilityAnimationTick(
+                        tickIndex: 2,
+                        utilitySignals: Array.Empty<TickEnemyUtilityPresentationSignal>()),
+                    viewsByEntityId,
+                    (_, _) => 0f);
 
                 Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(windupReferenceClip.length / 0.5f).Within(0.0001f));
                 Assert.That(driver.UtilityWindupSignalCount, Is.EqualTo(1));
+
+                coordinator.AdvancePlayerPresentation(0.5f);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.Zero);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f));
             }
             finally
             {
@@ -3795,6 +3785,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 shouldPlayWalkLoop: true,
                 moveMotionGeneratedThisTick: true,
                 waitingForNextMoveCadence: false);
+        }
+
+        private static TickResult CreateEnemyUtilityAnimationTick(
+            int tickIndex,
+            IEnumerable<TickEnemyUtilityPresentationSignal> utilitySignals,
+            IEnumerable<TickEnemyUtilityPhasePresentationState> utilityPhaseStates = null)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { CreateEnemyEntity() },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
+                    enemyUtilitySignals: utilitySignals,
+                    enemyUtilityPhaseStates: utilityPhaseStates),
+                string.Empty,
+                TickTrace.Empty);
         }
 
         private static void ApplyPlayerPresentationTick(

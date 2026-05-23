@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(timingProfile));
             }
 
-            _animationSync.AdvancePlayerPresentation(deltaTime);
+            _animationSync.AdvancePresentation(deltaTime);
             CleanupCompletedTopologyTransitionState(hasActiveBoardRotationTween);
 
             _trackState.CompletedMotionTrackIds.Clear();
