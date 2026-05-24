@@ -144,7 +144,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
   profile: {fileID: 11400000, guid: 828e62a141624aa7b375a02303e57d55, type: 2}
 --- !u!1 &8419447728172164967
@@ -239,6 +239,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 90
       objectReference: {fileID: 0}
+    - target: {fileID: -412780252080013299, guid: 6e5d739cfb05dc642b45b8dd92c37c82, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: fdf092ceeb7ef8d4e9a687c1b1b21ed3, type: 2}
     - target: {fileID: 919132149155446097, guid: 6e5d739cfb05dc642b45b8dd92c37c82, type: 3}
       propertyPath: m_Name
       value: Neb_Edit_1
