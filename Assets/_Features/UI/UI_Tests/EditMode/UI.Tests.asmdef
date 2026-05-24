@@ -19,6 +19,7 @@
     "Game.Shared.Input",
     "Unity.Cinemachine",
     "Unity.InputSystem",
+    "UnityEngine.VideoModule",
     "Unity.Splines",
     "Unity.TextMeshPro",
     "DOTween.Modules"
