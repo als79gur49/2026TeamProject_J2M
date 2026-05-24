@@ -4006,6 +4006,24 @@ namespace Game.Feature.Gameplay.Loop
                     out var resolvedGlideKind)
                 ? resolvedGlideKind
                 : EnemyGlideKinematicKind.None;
+            if (ShouldBlockLandingPendingActiveGlideAnchorCommit(
+                    snapshot,
+                    entity,
+                    outcome,
+                    continuationGlideKind,
+                    out var landingPendingGlideState))
+            {
+                rejectedReasons.Add(FormatLandingPendingActiveGlideAnchorCommitBlockedReason(
+                    entityId,
+                    pose,
+                    outcome.ResolvedAnchorCell,
+                    landingPendingGlideState));
+                outcome = CreateBlockedKinematicMotionOutcome(
+                    entityId,
+                    pose,
+                    KinematicSweepRejectionReason.TraversalBlocked);
+            }
+
             if (continuationGlideKind == EnemyGlideKinematicKind.None &&
                 outcome.AnchorChanged)
             {
@@ -4046,6 +4064,70 @@ namespace Game.Feature.Gameplay.Loop
                 boundaryReason: ResolveEnemyKinematicContinuationBoundaryReason(continuationGlideKind));
 
             return true;
+        }
+
+        private static bool ShouldBlockLandingPendingActiveGlideAnchorCommit(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            in KinematicMotionOutcome outcome,
+            EnemyGlideKinematicKind continuationGlideKind,
+            out EnemyGlideRuntimeState glideState)
+        {
+            glideState = default;
+            if (continuationGlideKind != EnemyGlideKinematicKind.Active ||
+                !outcome.AnchorChanged ||
+                !snapshot.TryGetEnemyGlideState(entity.entityId, out glideState) ||
+                !glideState.IsLandingPending ||
+                !snapshot.TryGetSolidSemanticAt(outcome.ResolvedAnchorCell, out _))
+            {
+                return false;
+            }
+
+            return !IsLandingPendingGlideRepresentableSolidOverlapAnchor(
+                entity,
+                glideState,
+                outcome.ResolvedAnchorCell);
+        }
+
+        private static bool IsLandingPendingGlideRepresentableSolidOverlapAnchor(
+            in EntityState actor,
+            in EnemyGlideRuntimeState glideState,
+            SurfaceCell cell)
+        {
+            if (!glideState.IsLandingPending ||
+                glideState.LandingPendingCell != cell)
+            {
+                return false;
+            }
+
+            return actor.position == cell ||
+                   TryResolveLandingPendingLockedStepTerminal(actor, glideState, out var terminalCell) &&
+                   terminalCell == cell;
+        }
+
+        private static bool TryResolveLandingPendingLockedStepTerminal(
+            in EntityState actor,
+            in EnemyGlideRuntimeState glideState,
+            out SurfaceCell terminalCell)
+        {
+            terminalCell = default;
+            if (!TryGetLockedGlideStep(glideState, out var lockedStep))
+            {
+                return false;
+            }
+
+            terminalCell = actor.position + lockedStep;
+            return terminalCell.face == actor.position.face;
+        }
+
+        private static string FormatLandingPendingActiveGlideAnchorCommitBlockedReason(
+            int entityId,
+            UnitKinematicPose pose,
+            SurfaceCell blockedAnchorCell,
+            in EnemyGlideRuntimeState glideState)
+        {
+            return
+                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=GlideLandingPendingAnchorNotRepresentable|From={FormatCell(pose.AnchorCell)}|To={FormatCell(blockedAnchorCell)}|PendingCell={FormatCell(glideState.LandingPendingCell)}|Boundary={MovementExecutionBoundaryKind.LocomotionAnchorCommit}|BoundaryReason=GlideActiveKinematicAnchorCommit";
         }
 
         private static string FormatEnemyKinematicContinuationBlockedReason(

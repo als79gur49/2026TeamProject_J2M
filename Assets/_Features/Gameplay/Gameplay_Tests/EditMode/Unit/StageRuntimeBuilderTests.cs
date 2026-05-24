@@ -42,6 +42,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int Stage31JumpEnemyId = 57;
         private const int Stage31ChargeEnemyId = 58;
         private const int Stage31UtilitySummonerEnemyId = 59;
+        private const int Stage31GlideEnemyId = 241;
+        private const int Stage31GlideWallId = 238;
         private const int TutorialEnemyId = 101;
         private const string AttackingEnemyPresentationId = "black_eye";
         private const string NonAttackingEnemyPresentationId = "startis";
@@ -1711,6 +1713,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 presentation.EnemyPresentationBindings.All(binding => enemySpawnIds.Contains(binding.EntityId)),
                 Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageRuntimeBuilder_Stage31Build_MaterializesGlider241AndWall238Contract()
+        {
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(Stage31StageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{Stage31StageAssetPath}'.");
+
+            var wallCell = new SurfaceCell(FaceId.Floor, 3, 7);
+            var gliderSpawn = stage.EnemySpawns.Single(spawn => spawn.EntityId == Stage31GlideEnemyId);
+            var wallSpawn = stage.WallSpawns.Single(spawn => spawn.EntityId == Stage31GlideWallId);
+            Assert.That(wallSpawn.Cell, Is.EqualTo(wallCell));
+            Assert.That(gliderSpawn.EnemyAiProfile, Is.Not.Null);
+            Assert.That(gliderSpawn.EnemyAiProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31GlideEnemyId, out var glider), Is.True);
+            Assert.That(glider.position, Is.EqualTo(gliderSpawn.Cell));
+            Assert.That(glider.unitRole, Is.EqualTo(UnitRole.Enemy));
+            Assert.That(glider.unitMobilityKind, Is.EqualTo(gliderSpawn.UnitMobilityKind));
+            Assert.That(glider.aiMode, Is.EqualTo(gliderSpawn.EnemyAiMode));
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31GlideWallId, out var wall), Is.True);
+            Assert.That(wall.position, Is.EqualTo(wallCell));
+            Assert.That(wall.type, Is.EqualTo(EntityType.None));
+
+            var worldState = GameplayCompositionRoot.CreateWorldState(
+                buildResult.InitialEntities,
+                buildResult.BoardBounds,
+                buildResult.InitialTerrain,
+                buildResult.InitialTopology,
+                buildResult.InitialTileFeatures);
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetSolidOccupantAt(wallCell, out var solidOccupant), Is.True);
+            Assert.That(solidOccupant.entityId, Is.EqualTo(Stage31GlideWallId));
+
+            Assert.That(TryGetProfileOverride(buildResult, Stage31GlideEnemyId, out var glideProfile), Is.True);
+            Assert.That(glideProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
+            Assert.That(glideProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            var glideDefinition = glideProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            Assert.That(glideDefinition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
+            Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
         }
 
         [Test]

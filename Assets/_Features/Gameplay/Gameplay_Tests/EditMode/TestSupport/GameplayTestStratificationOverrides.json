@@ -2961,6 +2961,16 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.GlideActiveKinematic_ActiveOriginCommit_WhenLandingPendingCellDiffersFromWall_DoesNotMaterializeIllegalMoveEntity",
+      "category": "Core",
+      "contracts": [
+        "enemy_kinematic_locomotion",
+        "world_state_placement_invariant"
+      ],
+      "reason": "Locked Core regression coverage that a LandingPending glide active-origin anchor commit cannot materialize an illegal MoveEntity onto a mismatched solid wall cell.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.GlideActive_DefaultGameplay_HitDeathCleanupStable",
       "category": "Extended",
       "contracts": [
