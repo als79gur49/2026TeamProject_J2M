@@ -120,6 +120,7 @@ namespace Game.Feature.Gameplay.Loop
         Terrain = 2,
         BoardEdge = 3,
         Shield = 4,
+        Barricade = 5,
     }
 
     public enum BoxSlideStopCause
@@ -140,7 +141,8 @@ namespace Game.Feature.Gameplay.Loop
             int stopperEntityId,
             SolidKind solidKind,
             CubeTopologyState topology,
-            BoxSlideStopCause cause)
+            BoxSlideStopCause cause,
+            int stopperTileId = 0)
         {
             IntentId = intentId;
             BoxEntityId = boxEntityId;
@@ -149,6 +151,7 @@ namespace Game.Feature.Gameplay.Loop
             SlideDirection = slideDirection;
             StopperKind = stopperKind;
             StopperEntityId = stopperEntityId;
+            StopperTileId = stopperTileId;
             SolidKind = solidKind;
             Topology = topology;
             Cause = cause;
@@ -167,6 +170,8 @@ namespace Game.Feature.Gameplay.Loop
         public BoxSlideStopperKind StopperKind { get; }
 
         public int StopperEntityId { get; }
+
+        public int StopperTileId { get; }
 
         public SolidKind SolidKind { get; }
 

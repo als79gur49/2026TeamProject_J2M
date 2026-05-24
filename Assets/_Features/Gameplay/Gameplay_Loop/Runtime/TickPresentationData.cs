@@ -2644,7 +2644,8 @@ namespace Game.Feature.Gameplay.Loop
             int stopperEntityId,
             SolidKind solidKind,
             CubeTopologyState topology,
-            BoxSlideStopCause cause)
+            BoxSlideStopCause cause,
+            int stopperTileId = 0)
         {
             BoxEntityId = boxEntityId;
             SourceCell = sourceCell;
@@ -2652,6 +2653,7 @@ namespace Game.Feature.Gameplay.Loop
             SlideDirection = slideDirection;
             StopperKind = stopperKind;
             StopperEntityId = stopperEntityId;
+            StopperTileId = stopperTileId;
             SolidKind = solidKind;
             Topology = topology;
             Cause = cause;
@@ -2668,6 +2670,8 @@ namespace Game.Feature.Gameplay.Loop
         public BoxSlideStopperKind StopperKind { get; }
 
         public int StopperEntityId { get; }
+
+        public int StopperTileId { get; }
 
         public SolidKind SolidKind { get; }
 

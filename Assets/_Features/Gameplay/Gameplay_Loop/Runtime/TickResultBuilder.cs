@@ -1086,7 +1086,8 @@ namespace Game.Feature.Gameplay.Loop
                         stop.StopperEntityId,
                         stop.SolidKind,
                         stop.Topology,
-                        stop.Cause));
+                        stop.Cause,
+                        stop.StopperTileId));
             }
         }
 

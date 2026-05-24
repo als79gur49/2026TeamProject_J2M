@@ -94,9 +94,20 @@ namespace Game.Feature.Gameplay.Tests
                 SolidKind.Wall,
                 new CubeTopologyState(FaceId.Floor),
                 BoxSlideStopCause.SlidingContinuationBlocked);
+            var barricadeStop = new BoxSlideStopPresentationSignal(
+                boxEntityId: 22,
+                sourceCell: Cell(2, 2),
+                stopperCell: Cell(3, 2),
+                Direction.Right,
+                BoxSlideStopperKind.Barricade,
+                stopperEntityId: 0,
+                SolidKind.Wall,
+                new CubeTopologyState(FaceId.Floor),
+                BoxSlideStopCause.SlidingContinuationBlocked,
+                stopperTileId: 100);
 
             var requests = planner.BuildRequests(
-                CreateTickResult(CreatePresentationData(boxSlideStopSignals: new[] { solidStop, terrainStop })),
+                CreateTickResult(CreatePresentationData(boxSlideStopSignals: new[] { solidStop, terrainStop, barricadeStop })),
                 CreateTimingProfile(flipMotionDurationSeconds: 0.5f));
 
             Assert.That(requests, Has.Count.EqualTo(1));

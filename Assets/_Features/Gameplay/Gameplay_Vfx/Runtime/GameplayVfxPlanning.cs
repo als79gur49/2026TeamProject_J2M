@@ -321,10 +321,7 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < boxSlideStopSignals.Count; i++)
             {
                 var signal = boxSlideStopSignals[i];
-                if (signal.StopperKind != BoxSlideStopperKind.SolidEntity ||
-                    signal.Cause != BoxSlideStopCause.SlidingContinuationBlocked ||
-                    signal.BoxEntityId <= 0 ||
-                    signal.StopperEntityId <= 0)
+                if (!IsBoxSlideSolidStopCandidate(signal))
                 {
                     continue;
                 }
@@ -397,6 +394,7 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 31) + tickIndex;
                 hash = (hash * 31) + signal.BoxEntityId;
                 hash = (hash * 31) + signal.StopperEntityId;
+                hash = (hash * 31) + signal.StopperTileId;
                 hash = (hash * 31) + (int)BoxVfxCue.BoxSlideSolidStop;
                 hash = (hash * 31) + signal.SourceCell.GetHashCode();
                 hash = (hash * 31) + signal.StopperCell.GetHashCode();
@@ -404,6 +402,18 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 31) + signal.Topology.GetHashCode();
                 return hash == 0 ? 1 : hash;
             }
+        }
+
+        private static bool IsBoxSlideSolidStopCandidate(in BoxSlideStopPresentationSignal signal)
+        {
+            if (signal.Cause != BoxSlideStopCause.SlidingContinuationBlocked ||
+                signal.BoxEntityId <= 0)
+            {
+                return false;
+            }
+
+            return (signal.StopperKind == BoxSlideStopperKind.SolidEntity && signal.StopperEntityId > 0) ||
+                   (signal.StopperKind == BoxSlideStopperKind.Barricade && signal.StopperTileId > 0);
         }
 
     }
