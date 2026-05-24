@@ -20,6 +20,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayTimingOwnershipTests
     {
+        private const string EnemyJumpAnimatorControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Jump.controller";
+
         [Test]
         [Category("Full")]
         public void GameplaySceneHost_Initialize_WithoutPlayerPrefab_AutoCreatesPrimitivePlayerViewWithMotionFallbackDefaults()
@@ -2946,6 +2949,222 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyJumpAirborneTopologySuspendPreservesAnimatorState()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneTopologySuspendPreservesAnimatorState));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.02f);
+
+                fixture.Driver.PreserveJumpAirborneAnimatorForTopologySuspend();
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: true);
+                fixture.Animator.Update(0.25f);
+
+                var stateInfo = fixture.Animator.GetCurrentAnimatorStateInfo(0);
+                Assert.That(stateInfo.shortNameHash, Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+                Assert.That(fixture.Driver.HasJumpAirborneTopologySuspendSnapshot, Is.True);
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneActivePauseResumeRestoresAnimatorWithoutVisibilityToggle()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneActivePauseResumeRestoresAnimatorWithoutVisibilityToggle));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.25f);
+                var before = fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+
+                fixture.Driver.PreserveJumpAirborneAnimatorForTopologySuspend();
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: true);
+                fixture.Animator.Update(0.75f);
+                var suspended = fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+                fixture.Animator.Update(0f);
+                var restored = fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+
+                Assert.That(suspended, Is.EqualTo(before).Within(0.0001f));
+                Assert.That(restored, Is.EqualTo(before).Within(0.0001f));
+                Assert.That(fixture.Driver.JumpAirborneRestoreCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpFrontFaceInactiveDoesNotOverrideAirborneAnimator()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpFrontFaceInactiveDoesNotOverrideAirborneAnimator));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.02f);
+
+                fixture.Driver.PreserveJumpAirborneAnimatorForTopologySuspend();
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: true);
+
+                Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).shortNameHash,
+                    Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+                Assert.That(fixture.Animator.speed, Is.Zero);
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneHiddenRebindKeepsPresentationSnapshot()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneHiddenRebindKeepsPresentationSnapshot));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.3f);
+                var before = fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+
+                fixture.Driver.PreserveJumpAirborneAnimatorForTopologySuspend();
+                Assert.That(fixture.Driver.HasJumpAirborneTopologySuspendSnapshot, Is.True);
+                fixture.Root.SetActive(false);
+                fixture.Root.SetActive(true);
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+                fixture.Animator.Update(0f);
+
+                var restoredState = fixture.Animator.GetCurrentAnimatorStateInfo(0);
+                Assert.That(restoredState.shortNameHash, Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+                Assert.That(restoredState.normalizedTime, Is.EqualTo(before).Within(0.0001f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneRestoreNotOverwrittenByIdleApply()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneRestoreNotOverwrittenByIdleApply));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.35f);
+                var before = fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+
+                fixture.Driver.PreserveJumpAirborneAnimatorForTopologySuspend();
+                fixture.Root.SetActive(false);
+                fixture.Root.SetActive(true);
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(tickIndex: 2, startedAirborne: false));
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+                fixture.Animator.Update(0f);
+
+                Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.EqualTo(1));
+                Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).normalizedTime,
+                    Is.EqualTo(before).Within(0.0001f));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneSustainedTickEnsuresJumpAirborneState()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneSustainedTickEnsuresJumpAirborneState));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.2f);
+                var beforeSignalCount = fixture.Driver.JumpAirborneSignalCount;
+
+                fixture.Animator.Rebind();
+                fixture.Animator.Update(0f);
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(tickIndex: 2, startedAirborne: false));
+                fixture.Animator.Update(0f);
+
+                Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.EqualTo(beforeSignalCount));
+                Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).shortNameHash,
+                    Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneRestoreCalledFromSyncRuntimeStateResume()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneRestoreCalledFromSyncRuntimeStateResume));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.2f);
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: true);
+
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+
+                Assert.That(fixture.Driver.JumpAirborneRestoreCount, Is.EqualTo(1));
+                Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).shortNameHash,
+                    Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneAfterAllApplyFinalStateIsAirborne()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneAfterAllApplyFinalStateIsAirborne));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: true);
+                fixture.Animator.Rebind();
+                fixture.Animator.Update(0f);
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(tickIndex: 2, startedAirborne: false));
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+                fixture.Animator.Update(0f);
+
+                Assert.That(fixture.Animator.GetCurrentAnimatorStateInfo(0).shortNameHash,
+                    Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+                Assert.That(fixture.Driver.JumpAirborneSignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_ResyncFromLastPresentation_ReentersSustainedStatesWithoutSignals()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_ResyncFromLastPresentation_ReentersSustainedStatesWithoutSignals");
@@ -4098,6 +4317,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "m_LocalPosition.x",
                 AnimationCurve.Linear(0f, 0f, lengthSeconds, 1f));
             return clip;
+        }
+
+        private static EnemyJumpAnimatorFixture CreateEnemyJumpAnimatorFixture(string name)
+        {
+            var root = new GameObject(name);
+            var animator = root.AddComponent<Animator>();
+            animator.runtimeAnimatorController =
+                AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(EnemyJumpAnimatorControllerPath);
+            Assert.That(animator.runtimeAnimatorController, Is.Not.Null, EnemyJumpAnimatorControllerPath);
+
+            var referenceClip = CreateReferenceClip($"{name}_JumpAirborneReference", 1f);
+            var authoring = root.AddComponent<EnemyAnimationTimingAuthoring>();
+            ConfigureEnemyAnimationTimingAuthoring(
+                authoring,
+                attackWindupAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                recoverAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                stateTransitionCrossFadeDurationSeconds: 0f,
+                jumpAirborneAnimatorDurationSeconds: 1f,
+                jumpAirborneReferenceClip: referenceClip);
+
+            var driver = root.AddComponent<EnemyAnimatorDriver>();
+            return new EnemyJumpAnimatorFixture(root, animator, driver, referenceClip);
+        }
+
+        private static EnemyViewPresentationState CreateJumpAirbornePresentationState(
+            int tickIndex = 1,
+            bool startedAirborne = false)
+        {
+            return new EnemyViewPresentationState(
+                entityId: 40,
+                tickIndex: tickIndex,
+                aiMode: EnemyAiMode.Patrol,
+                activeActionKind: EnemyActionKind.None,
+                jumpPhase: EnemyJumpPhase.Airborne,
+                chargePhase: EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: startedAirborne,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: false);
+        }
+
+        private readonly struct EnemyJumpAnimatorFixture
+        {
+            public EnemyJumpAnimatorFixture(
+                GameObject root,
+                Animator animator,
+                EnemyAnimatorDriver driver,
+                AnimationClip referenceClip)
+            {
+                Root = root;
+                Animator = animator;
+                Driver = driver;
+                ReferenceClip = referenceClip;
+            }
+
+            public GameObject Root { get; }
+
+            public Animator Animator { get; }
+
+            public EnemyAnimatorDriver Driver { get; }
+
+            public AnimationClip ReferenceClip { get; }
+
+            public void Dispose()
+            {
+                UnityEngine.Object.DestroyImmediate(ReferenceClip);
+                UnityEngine.Object.DestroyImmediate(Root);
+            }
         }
 
         private static AnimatorState FindState(AnimatorStateMachine stateMachine, string stateName)

@@ -347,6 +347,16 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void EnsureEnemyJumpAirborneBaseAnimation(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
+            {
+                driver.EnsureJumpAirborneBaseAnimation();
+            }
+        }
+
         public void CompleteEnemyJumpLandingPresentation(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
