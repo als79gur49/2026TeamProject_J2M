@@ -2,6 +2,56 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.CampaignEnemyPrefabs_AllRendererMaterialsSatisfyInactiveContract",
+      "category": "Core",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "campaign_enemy_prefab_material_contract"
+      ],
+      "reason": "Locked Core asset coverage that every campaign enemy renderer material satisfies the inactive shader contract and avoids Unity default material fallback.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.InactiveCompatibleDuplicates_RecordSourceAndPreserveMaterialValues",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "source_material_fidelity"
+      ],
+      "reason": "Extended asset fidelity coverage for campaign enemy inactive-compatible duplicate materials and explicit source manifests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.BlackEyeBridge_PreservesShaderGraphColorProperties",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "blackeye_shadergraph_bridge"
+      ],
+      "reason": "Extended bridge-specific coverage that BlackEye BE_LS1 color and border properties are preserved by the inactive-compatible bridge.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.BlackEyeLegLitDuplicate_PreservesPackageLitSource",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "blackeye_package_lit_leg_material"
+      ],
+      "reason": "Extended asset fidelity coverage that BlackEye leg renderers use a campaign duplicate copied from the URP package Lit material instead of the BE_LS1 bridge.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.SecBotAdditiveBridge_PreservesGlowRenderStateAndEmissionSource",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "secbot_additive_bridge"
+      ],
+      "reason": "Extended bridge-specific coverage that SecBot additive glow source texture and render state are preserved by the inactive-compatible bridge.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockWeight",
       "category": "Core",
       "contracts": [
