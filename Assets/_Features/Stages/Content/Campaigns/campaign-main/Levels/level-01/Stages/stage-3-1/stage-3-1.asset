@@ -2488,17 +2488,6 @@ MonoBehaviour:
     BoxSelector: 4
     BoundEntityId: 0
     PresentationKey: button.moon-only
-  - TileId: 9
-    Cell:
-      face: 0
-      x: 7
-      y: 4
-    Kind: 4
-    ActivationRule: 3
-    Direction: 0
-    BoxSelector: 4
-    BoundEntityId: 0
-    PresentationKey: button.moon-only
   - TileId: 10
     Cell:
       face: 0
@@ -3149,12 +3138,6 @@ MonoBehaviour:
       StableConditionId: button-8
       DisplayText: Place the MoonBlock on the button
       SortOrder: 20
-    - Condition: {fileID: 11400000, guid: 5b6108a5a19746f41b654cb41e9b356a, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-9
-      DisplayText: Place the MoonBlock on the button
-      SortOrder: 30
     - Condition: {fileID: 11400000, guid: 761df246942aa5949b7d41d238020ce6, type: 2}
       Required: 1
       Role: 2
