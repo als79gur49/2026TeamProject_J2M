@@ -45,7 +45,10 @@ namespace Game.Feature.Gameplay.Host
             GameplayProjectedFaceSlot? projectedSlot,
             bool isGameplayAutonomySuppressed,
             EnemyAiMode aiMode,
-            bool hasActiveMotion)
+            bool hasActiveMotion,
+            bool hasJumpAirborneVisualState = false,
+            bool isTopologyTransitionActive = false,
+            bool isJumpTopologySuspended = false)
         {
             EntityId = entityId;
             IsEnemy = isEnemy;
@@ -59,6 +62,9 @@ namespace Game.Feature.Gameplay.Host
             IsGameplayAutonomySuppressed = isGameplayAutonomySuppressed;
             AiMode = aiMode;
             HasActiveMotion = hasActiveMotion;
+            HasJumpAirborneVisualState = hasJumpAirborneVisualState;
+            IsTopologyTransitionActive = isTopologyTransitionActive;
+            IsJumpTopologySuspended = isJumpTopologySuspended;
         }
 
         public int EntityId { get; }
@@ -84,5 +90,11 @@ namespace Game.Feature.Gameplay.Host
         public EnemyAiMode AiMode { get; }
 
         public bool HasActiveMotion { get; }
+
+        public bool HasJumpAirborneVisualState { get; }
+
+        public bool IsTopologyTransitionActive { get; }
+
+        public bool IsJumpTopologySuspended { get; }
     }
 }

@@ -38,12 +38,26 @@ namespace Game.Feature.Gameplay.Vfx
             return cueId.Equals(GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail));
         }
 
+        public static bool IsTopologyPreservedCue(GameplayVfxCueId cueId)
+        {
+            return IsTopologyHelperCue(cueId) ||
+                   cueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget));
+        }
+
+        public static bool AllowsPresentationSuspendPreserve(
+            GameplayVfxCueId cueId,
+            GameplayVfxTopologyStopMode stopMode)
+        {
+            return stopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt &&
+                   cueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget));
+        }
+
         public static bool AllowsStopExemption(
             GameplayVfxCueId cueId,
             GameplayVfxTopologyStopMode stopMode)
         {
             return stopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt &&
-                   IsTopologyHelperCue(cueId);
+                   IsTopologyPreservedCue(cueId);
         }
 
         public static bool AllowsSpawnExemption(

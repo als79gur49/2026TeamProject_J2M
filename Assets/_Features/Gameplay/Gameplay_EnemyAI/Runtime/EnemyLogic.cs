@@ -253,6 +253,11 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source))
             {
+                if (HasJumpMovementSkill())
+                {
+                    CommitJumpTopologySuspend(snapshot, input.TickIndex, writeContext, updates);
+                }
+
                 if (_utilityCapability != null)
                 {
                     CommitEnemyUtilityState(snapshot, in input, source, writeContext, updates);
@@ -2179,6 +2184,7 @@ namespace Game.Feature.Gameplay.Entities
             if (nextState.phase == EnemyJumpPhase.Windup)
             {
                 suppressMovementThisTick = true;
+                nextState = EnemyJumpQueries.ResumeTopologyParticipation(nextState);
 
                 if (input.TickIndex >= nextState.windupEndTick)
                 {
@@ -2191,6 +2197,7 @@ namespace Game.Feature.Gameplay.Entities
             if (nextState.phase == EnemyJumpPhase.Airborne)
             {
                 suppressMovementThisTick = true;
+                nextState = EnemyJumpQueries.ResumeTopologyParticipation(nextState);
             }
             else if (nextState.phase == EnemyJumpPhase.Cooldown)
             {
@@ -2213,6 +2220,27 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return suppressMovementThisTick;
+        }
+
+        private void CommitJumpTopologySuspend(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            IPreMovementStateCommitContext stateWriteContext,
+            List<string> updates)
+        {
+            if (!snapshot.TryGetEnemyJumpState(_entityId, out var previousState) ||
+                (previousState.phase != EnemyJumpPhase.Windup &&
+                 previousState.phase != EnemyJumpPhase.Airborne))
+            {
+                return;
+            }
+
+            var nextState = EnemyJumpQueries.SuspendTopologyParticipation(previousState, tickIndex);
+            if (!AreEqual(previousState, nextState))
+            {
+                stateWriteContext.SetEnemyJumpState(_entityId, nextState);
+                AppendJumpUpdate(updates, _entityId, "TopologySuspend", nextState);
+            }
         }
 
         private void CommitChargeState(
@@ -2779,6 +2807,7 @@ namespace Game.Feature.Gameplay.Entities
                    left.landingTick == right.landingTick &&
                    left.cooldownRemainingTicks == right.cooldownRemainingTicks &&
                    left.retryCount == right.retryCount &&
+                   left.topologySuspendLastTick == right.topologySuspendLastTick &&
                    left.initialDelayInitialized == right.initialDelayInitialized &&
                    left.initialDelayTicksRemaining == right.initialDelayTicksRemaining;
         }
@@ -2807,6 +2836,7 @@ namespace Game.Feature.Gameplay.Entities
                 .Append("|Landing=").Append(state.landingTick)
                 .Append("|Cooldown=").Append(state.cooldownRemainingTicks)
                 .Append("|Retry=").Append(state.retryCount)
+                .Append("|TopologySuspendLast=").Append(state.topologySuspendLastTick)
                 .Append("|InitialDelayInitialized=").Append(state.initialDelayInitialized ? 1 : 0)
                 .Append("|InitialDelayRemaining=").Append(state.initialDelayTicksRemaining);
 

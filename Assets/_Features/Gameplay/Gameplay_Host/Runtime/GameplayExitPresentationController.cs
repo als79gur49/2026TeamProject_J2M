@@ -269,6 +269,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.DeferredExitRetainedEntityIds.Add(entityId);
             _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
             _trackState.JumpTracks.Remove(entityId);
+            _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
@@ -315,6 +316,7 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.JumpTracks.Remove(entityId);
             _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
+            _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _trackState.LocalMotionTracks.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);
@@ -387,6 +389,7 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.JumpTracks.Remove(entityId);
             _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
+            _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _trackState.LocalMotionTracks.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);

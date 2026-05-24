@@ -306,9 +306,117 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(states.TryGetValue(enemyId, out var recoverState), Is.True);
             Assert.That(recoverState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
             Assert.That(recoverState.StartedUtilityWindupThisTick, Is.False);
+            Assert.That(recoverState.StartedUtilityRecoverThisTick, Is.True);
             Assert.That(recoverState.StartedRecoveryThisTick, Is.True);
             Assert.That(recoverState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(recoverState.ExecutedThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyViewPresentationMapper_MapsOngoingUtilityRecoverStateWithoutAttackSemantic()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 104,
+                    enemy,
+                    new TickEnemyUtilityPhasePresentationState(
+                        enemyId,
+                        EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        EnemyUtilityEffectPhase.Recover,
+                        phaseElapsedTicks: 1,
+                        phaseDurationTicks: 42)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.UtilityPhase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+            Assert.That(state.StartedUtilityWindupThisTick, Is.False);
+            Assert.That(state.StartedUtilityRecoverThisTick, Is.False);
+            Assert.That(state.StartedRecoveryThisTick, Is.False);
+            Assert.That(state.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+            Assert.That(state.ExecutedThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyViewPresentationMapper_MapsOngoingUtilityWindupStateWithoutAttackSemantic()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 102,
+                    enemy,
+                    new TickEnemyUtilityPhasePresentationState(
+                        enemyId,
+                        EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        EnemyUtilityEffectPhase.Windup,
+                        phaseElapsedTicks: 1,
+                        phaseDurationTicks: 3)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.UtilityPhase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+            Assert.That(state.StartedUtilityWindupThisTick, Is.False);
+            Assert.That(state.StartedUtilityRecoverThisTick, Is.False);
+            Assert.That(state.StartedRecoveryThisTick, Is.False);
+            Assert.That(state.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+            Assert.That(state.ExecutedThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyViewPresentationMapper_UtilityRecoverPhaseTakesPriorityForAnimatorTiming()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 103,
+                    enemy,
+                    new[]
+                    {
+                        new TickEnemyUtilityPhasePresentationState(
+                            enemyId,
+                            EnemyUtilityPresentationKind.SummonMinion,
+                            EnemyUtilityEffectPhase.Windup,
+                            phaseElapsedTicks: 2,
+                            phaseDurationTicks: 5,
+                            effectIndex: 0),
+                        new TickEnemyUtilityPhasePresentationState(
+                            enemyId,
+                            EnemyUtilityPresentationKind.LockNearbyBoxes,
+                            EnemyUtilityEffectPhase.Recover,
+                            phaseElapsedTicks: 0,
+                            phaseDurationTicks: 42,
+                            effectIndex: 1),
+                    }),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.UtilityPhase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+            Assert.That(state.StartedUtilityRecoverThisTick, Is.False);
+            Assert.That(state.StartedRecoveryThisTick, Is.False);
         }
 
         [Test]
@@ -522,6 +630,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<TickImpactTransientPresentationSignal>(),
                     Array.Empty<FlipImpactPresentationSignal>(),
                     enemyUtilitySignals: new[] { utilitySignal }),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static TickResult CreateResult(
+            int tickIndex,
+            EntityState enemy,
+            TickEnemyUtilityPhasePresentationState utilityPhaseState)
+        {
+            return CreateResult(tickIndex, enemy, new[] { utilityPhaseState });
+        }
+
+        private static TickResult CreateResult(
+            int tickIndex,
+            EntityState enemy,
+            IReadOnlyList<TickEnemyUtilityPhasePresentationState> utilityPhaseStates)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { enemy },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEnemyChargePresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<TickImpactTransientPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
+                    enemyUtilityPhaseStates: utilityPhaseStates),
                 string.Empty,
                 TickTrace.Empty);
         }

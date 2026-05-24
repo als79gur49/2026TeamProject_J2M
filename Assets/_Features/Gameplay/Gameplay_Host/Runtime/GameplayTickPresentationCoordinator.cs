@@ -432,7 +432,6 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _lastPresentedResult = result;
-            PresentExtensions(result);
             TraceStep("RefreshUtilityWindupWarnings");
             _utilityWindupVfxPresenter.RefreshSummonWarnings(
                 Array.Empty<TickSummonWindupWarningSignal>(),
@@ -477,6 +476,7 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     actionKind,
                     _timingProfile));
+            PresentExtensions(result);
             TraceStep("PlayPlannedAudio");
             _arbitratingGameplayAudioPlaybackPort?.BeginBatch(
                 result.TickIndex,
@@ -576,6 +576,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            var hadActiveBoardRotationTween = _topologyTransitionController.HasActiveBoardRotationTween;
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
             _audioPresentationController.Update(deltaTime);
             _enemyAudioPresentationController.Update(_lastPresentedTickIndex, deltaTime);
@@ -589,7 +590,7 @@ namespace Game.Feature.Gameplay.Host
             UpdateExtensions(deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,
-                _topologyTransitionController.HasActiveBoardRotationTween,
+                hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,
                 _viewBinder,
                 _timingProfile);
             _exitPresentationController.CompleteDeferredEntityExits();

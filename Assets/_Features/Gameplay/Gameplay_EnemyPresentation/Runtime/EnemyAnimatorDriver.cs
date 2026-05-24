@@ -59,6 +59,8 @@ namespace Game.Feature.Gameplay.Host
 
         public int JumpAirborneSignalCount { get; private set; }
 
+        public int JumpAirborneRestoreCount { get; private set; }
+
         public int ChargeActiveSignalCount { get; private set; }
 
         public int GlideWindupSignalCount { get; private set; }
@@ -74,6 +76,12 @@ namespace Game.Feature.Gameplay.Host
         public int DeathSignalCount { get; private set; }
 
         public float DeathPresentationDurationSeconds => ResolveDeathPresentationDurationSeconds();
+
+        public float GetPresentationDurationSeconds(EnemyPresentationPhase phase)
+        {
+            ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
+            return presentationDurationSeconds;
+        }
 
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
 
@@ -95,6 +103,10 @@ namespace Game.Feature.Gameplay.Host
         private bool _supportsMovingParameter;
         private int _windupTriggerDispatchCount;
         private int _recoveryTriggerDispatchCount;
+        private AnimatorStateSnapshot _jumpAirborneTopologySuspendSnapshot;
+        private float _lastJumpAirborneNormalizedTime;
+
+        public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
         private void Reset()
         {
@@ -114,6 +126,11 @@ namespace Game.Feature.Gameplay.Host
             SyncOptionalParameters(targetAnimator, state);
 
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(state));
+            if (state.JumpPhase != EnemyJumpPhase.Airborne)
+            {
+                _jumpAirborneTopologySuspendSnapshot = default;
+                _lastJumpAirborneNormalizedTime = 0f;
+            }
 
             if (state.StartedJumpWindupThisTick)
             {
@@ -126,6 +143,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (state.StartedJumpAirborneThisTick)
             {
+                _jumpAirborneTopologySuspendSnapshot = default;
                 JumpAirborneSignalCount++;
                 if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.JumpAirborne))
                 {
@@ -217,6 +235,13 @@ namespace Game.Feature.Gameplay.Host
                 DeathSignalCount++;
                 SetTrigger(targetAnimator, deathTriggerName);
             }
+
+            if (state.JumpPhase == EnemyJumpPhase.Airborne &&
+                !state.LandedFromJumpThisTick &&
+                !state.DidDie)
+            {
+                EnsureJumpAirborneAnimatorState(targetAnimator);
+            }
         }
 
         public void CompleteJumpLandingPresentation()
@@ -236,14 +261,44 @@ namespace Game.Feature.Gameplay.Host
 
         public void SyncRuntimeState(bool isVisible, bool isMoving, bool playbackSuppressed = false)
         {
+            var isJumpAirborne = LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
+            var effectivePlaybackSuppressed = playbackSuppressed || (isJumpAirborne && !isVisible);
             IsVisible = isVisible;
             IsMoving = isMoving;
-            IsPlaybackSuppressed = playbackSuppressed;
+            IsPlaybackSuppressed = effectivePlaybackSuppressed;
 
             var targetAnimator = ResolveAnimator();
+            if (isJumpAirborne)
+            {
+                if (effectivePlaybackSuppressed)
+                {
+                    PreserveJumpAirborneAnimatorForTopologySuspend(targetAnimator);
+                }
+                else
+                {
+                    EnsureJumpAirborneAnimatorState(targetAnimator);
+                }
+            }
+
             SyncOptionalMovingParameter(targetAnimator, isMoving);
 
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
+            if (isJumpAirborne &&
+                isVisible &&
+                !effectivePlaybackSuppressed)
+            {
+                EnsureJumpAirborneAnimatorState(targetAnimator);
+            }
+        }
+
+        public void ApplyPresentationPhaseTiming(EnemyPresentationPhase phase)
+        {
+            ApplyAnimatorTiming(ResolveAnimator(), phase);
+        }
+
+        public void RestorePresentationTiming()
+        {
+            ApplyAnimatorTiming(ResolveAnimator(), ResolvePresentationPhase(LastPresentationState));
         }
 
         public bool ResyncAnimatorStateFromLastPresentation()
@@ -256,6 +311,12 @@ namespace Game.Feature.Gameplay.Host
             var targetAnimator = ResolveAnimator();
             SyncOptionalParameters(targetAnimator, LastPresentationState);
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
+
+            if (LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne &&
+                EnsureJumpAirborneAnimatorState(targetAnimator))
+            {
+                return true;
+            }
 
             switch (LastPresentationState.GlidePhase)
             {
@@ -774,6 +835,141 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool PreserveJumpAirborneAnimatorForTopologySuspend()
+        {
+            return PreserveJumpAirborneAnimatorForTopologySuspend(ResolveAnimator());
+        }
+
+        public bool EnsureJumpAirborneBaseAnimation()
+        {
+            return EnsureJumpAirborneAnimatorState(ResolveAnimator());
+        }
+
+        private bool PreserveJumpAirborneAnimatorForTopologySuspend(Animator targetAnimator)
+        {
+            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            {
+                return false;
+            }
+
+            var fallbackStateHash = targetAnimator != null
+                ? ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName)
+                : Animator.StringToHash(jumpAirborneStateName);
+            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            {
+                _jumpAirborneTopologySuspendSnapshot = new AnimatorStateSnapshot(fallbackStateHash, 0f);
+                return true;
+            }
+
+            var stateInfo = targetAnimator.GetCurrentAnimatorStateInfo(0);
+            if (!IsJumpAirborneAnimatorState(stateInfo))
+            {
+                var ensuredStateHash = ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName);
+                targetAnimator.Play(ensuredStateHash, 0, Mathf.Max(0f, _lastJumpAirborneNormalizedTime));
+                targetAnimator.Update(0f);
+                ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
+                LastCrossFadedStateName = jumpAirborneStateName;
+                stateInfo = targetAnimator.GetCurrentAnimatorStateInfo(0);
+            }
+
+            var stateHash = stateInfo.shortNameHash != 0 ? stateInfo.shortNameHash : fallbackStateHash;
+            if (stateHash != fallbackStateHash &&
+                !stateInfo.IsName(jumpAirborneStateName) &&
+                !stateInfo.IsName($"Base Layer.{jumpAirborneStateName}") &&
+                !stateInfo.IsName($"Base Layer.Locomotion.{jumpAirborneStateName}"))
+            {
+                stateHash = fallbackStateHash;
+            }
+
+            _jumpAirborneTopologySuspendSnapshot = new AnimatorStateSnapshot(
+                stateHash,
+                NormalizeAnimatorTime(stateInfo.normalizedTime));
+            _lastJumpAirborneNormalizedTime = _jumpAirborneTopologySuspendSnapshot.NormalizedTime;
+            return true;
+        }
+
+        public bool RestoreJumpAirborneAnimatorAfterTopologySuspend()
+        {
+            return RestoreJumpAirborneAnimatorAfterTopologySuspend(ResolveAnimator());
+        }
+
+        private bool RestoreJumpAirborneAnimatorAfterTopologySuspend(Animator targetAnimator)
+        {
+            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne ||
+                !_jumpAirborneTopologySuspendSnapshot.HasValue)
+            {
+                return false;
+            }
+
+            var snapshot = _jumpAirborneTopologySuspendSnapshot;
+            _jumpAirborneTopologySuspendSnapshot = default;
+            LastCrossFadedStateName = jumpAirborneStateName;
+            JumpAirborneRestoreCount++;
+            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            {
+                return true;
+            }
+
+            targetAnimator.Play(snapshot.StateHash, 0, snapshot.NormalizedTime);
+            targetAnimator.Update(0f);
+            ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
+            _lastJumpAirborneNormalizedTime = snapshot.NormalizedTime;
+            return true;
+        }
+
+        private bool EnsureJumpAirborneAnimatorState(Animator targetAnimator)
+        {
+            if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            {
+                return false;
+            }
+
+            if (RestoreJumpAirborneAnimatorAfterTopologySuspend(targetAnimator))
+            {
+                return true;
+            }
+
+            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            {
+                LastCrossFadedStateName = jumpAirborneStateName;
+                return true;
+            }
+
+            var currentState = targetAnimator.GetCurrentAnimatorStateInfo(0);
+            if (IsJumpAirborneAnimatorState(currentState))
+            {
+                _lastJumpAirborneNormalizedTime = NormalizeAnimatorTime(currentState.normalizedTime);
+                ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
+                return true;
+            }
+
+            var fallbackNormalizedTime = Mathf.Max(0f, _lastJumpAirborneNormalizedTime);
+            var stateHash = ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName);
+            targetAnimator.Play(stateHash, 0, fallbackNormalizedTime);
+            targetAnimator.Update(0f);
+            ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
+            LastCrossFadedStateName = jumpAirborneStateName;
+            return true;
+        }
+
+        private bool IsJumpAirborneAnimatorState(AnimatorStateInfo stateInfo)
+        {
+            return stateInfo.IsName(jumpAirborneStateName) ||
+                   stateInfo.IsName($"Base Layer.{jumpAirborneStateName}") ||
+                   stateInfo.IsName($"Base Layer.Locomotion.{jumpAirborneStateName}") ||
+                   stateInfo.shortNameHash == Animator.StringToHash(jumpAirborneStateName);
+        }
+
+        private static float NormalizeAnimatorTime(float normalizedTime)
+        {
+            if (float.IsNaN(normalizedTime) || float.IsInfinity(normalizedTime))
+            {
+                return 0f;
+            }
+
+            return Mathf.Max(0f, normalizedTime);
+        }
+
         private bool TryApplyNamedStateCrossFade(
             Animator targetAnimator,
             string stateName,
@@ -827,7 +1023,7 @@ namespace Game.Feature.Gameplay.Host
                 : shortNameHash;
         }
 
-        private enum EnemyPresentationPhase
+        public enum EnemyPresentationPhase
         {
             None = 0,
             Windup = 1,
@@ -836,6 +1032,22 @@ namespace Game.Feature.Gameplay.Host
             JumpAirborne = 4,
             ChargeActive = 5,
             Death = 6,
+        }
+
+        private readonly struct AnimatorStateSnapshot
+        {
+            public AnimatorStateSnapshot(int stateHash, float normalizedTime)
+            {
+                StateHash = stateHash;
+                NormalizedTime = normalizedTime;
+                HasValue = true;
+            }
+
+            public int StateHash { get; }
+
+            public float NormalizedTime { get; }
+
+            public bool HasValue { get; }
         }
     }
 }

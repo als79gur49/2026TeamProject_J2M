@@ -107,7 +107,11 @@ namespace Game.Feature.Gameplay.Host
             bool startedGlideActiveThisTick = false,
             bool startedGlideRecoverThisTick = false,
             EnemyUtilityPresentationKind utilityPresentationKind = EnemyUtilityPresentationKind.None,
-            bool startedUtilityWindupThisTick = false)
+            bool startedUtilityWindupThisTick = false,
+            EnemyUtilityEffectPhase utilityPhase = EnemyUtilityEffectPhase.None,
+            bool startedUtilityRecoverThisTick = false,
+            int utilityEffectIndex = 0,
+            int utilityActivationSequence = 0)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -133,6 +137,10 @@ namespace Game.Feature.Gameplay.Host
             StartedGlideRecoverThisTick = startedGlideRecoverThisTick;
             UtilityPresentationKind = utilityPresentationKind;
             StartedUtilityWindupThisTick = startedUtilityWindupThisTick;
+            UtilityPhase = utilityPhase;
+            StartedUtilityRecoverThisTick = startedUtilityRecoverThisTick;
+            UtilityEffectIndex = utilityEffectIndex;
+            UtilityActivationSequence = utilityActivationSequence;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -185,6 +193,14 @@ namespace Game.Feature.Gameplay.Host
 
         public bool StartedUtilityWindupThisTick { get; }
 
+        public EnemyUtilityEffectPhase UtilityPhase { get; }
+
+        public bool StartedUtilityRecoverThisTick { get; }
+
+        public int UtilityEffectIndex { get; }
+
+        public int UtilityActivationSequence { get; }
+
         public bool DidAttack => ExecutedThisTick;
 
         public bool TookDamage { get; }
@@ -219,7 +235,11 @@ namespace Game.Feature.Gameplay.Host
                 StartedGlideActiveThisTick,
                 StartedGlideRecoverThisTick,
                 UtilityPresentationKind,
-                StartedUtilityWindupThisTick);
+                StartedUtilityWindupThisTick,
+                UtilityPhase,
+                StartedUtilityRecoverThisTick,
+                UtilityEffectIndex,
+                UtilityActivationSequence);
         }
 
         public EnemyViewPresentationState WithJumpLandingCompletionHold()
@@ -250,7 +270,11 @@ namespace Game.Feature.Gameplay.Host
                 StartedGlideActiveThisTick,
                 StartedGlideRecoverThisTick,
                 UtilityPresentationKind,
-                StartedUtilityWindupThisTick);
+                StartedUtilityWindupThisTick,
+                UtilityPhase,
+                StartedUtilityRecoverThisTick,
+                UtilityEffectIndex,
+                UtilityActivationSequence);
         }
 
         public EnemyViewPresentationState WithJumpLandingCompletionSettled()
@@ -281,7 +305,11 @@ namespace Game.Feature.Gameplay.Host
                 StartedGlideActiveThisTick,
                 StartedGlideRecoverThisTick,
                 UtilityPresentationKind,
-                StartedUtilityWindupThisTick);
+                StartedUtilityWindupThisTick,
+                UtilityPhase,
+                StartedUtilityRecoverThisTick,
+                UtilityEffectIndex,
+                UtilityActivationSequence);
         }
     }
 
@@ -294,6 +322,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, TickEnemyChargePresentationSignal> _enemyChargeSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyGlidePresentationSignal> _enemyGlideSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyUtilityPresentationSignal> _enemyUtilitySignalsByEntityId = new();
+        private readonly Dictionary<int, TickEnemyUtilityPhasePresentationState> _enemyUtilityPhaseStatesByEntityId = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _movingEntityIds = new();
         private readonly HashSet<int> _removedEntityIds = new();
@@ -327,6 +356,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyChargeSignalsByEntityId.Clear();
             _enemyGlideSignalsByEntityId.Clear();
             _enemyUtilitySignalsByEntityId.Clear();
+            _enemyUtilityPhaseStatesByEntityId.Clear();
             _removedEntityIds.Clear();
             _finalEntitiesById.Clear();
 
@@ -338,6 +368,7 @@ namespace Game.Feature.Gameplay.Host
             CollectEnemyChargeSignals(result.PresentationData);
             CollectEnemyGlideSignals(result.PresentationData);
             CollectEnemyUtilitySignals(result.PresentationData);
+            CollectEnemyUtilityPhaseStates(result.PresentationData);
             CollectRemovalSignals(result.PresentationData);
 
             foreach (var entityId in _candidateEntityIds)
@@ -374,6 +405,10 @@ namespace Game.Feature.Gameplay.Host
                 var startedGlideRecoverThisTick = false;
                 var utilityPresentationKind = EnemyUtilityPresentationKind.None;
                 var startedUtilityWindupThisTick = false;
+                var utilityPhase = EnemyUtilityEffectPhase.None;
+                var startedUtilityRecoverThisTick = false;
+                var utilityEffectIndex = 0;
+                var utilityActivationSequence = 0;
                 var tookDamageThisTick = false;
 
                 if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
@@ -426,7 +461,18 @@ namespace Game.Feature.Gameplay.Host
                 {
                     utilityPresentationKind = utilitySignal.Kind;
                     startedUtilityWindupThisTick = utilitySignal.Phase == EnemyUtilityPresentationPhase.WindupStarted;
-                    startedRecoveryThisTick |= utilitySignal.Phase == EnemyUtilityPresentationPhase.RecoverStarted;
+                    startedUtilityRecoverThisTick = utilitySignal.Phase == EnemyUtilityPresentationPhase.RecoverStarted;
+                    startedRecoveryThisTick |= startedUtilityRecoverThisTick;
+                    utilityEffectIndex = utilitySignal.EffectIndex;
+                    utilityActivationSequence = utilitySignal.ActivationSequence;
+                }
+
+                if (_enemyUtilityPhaseStatesByEntityId.TryGetValue(entityId, out var utilityPhaseState))
+                {
+                    utilityPresentationKind = utilityPhaseState.Kind;
+                    utilityPhase = utilityPhaseState.Phase;
+                    utilityEffectIndex = utilityPhaseState.EffectIndex;
+                    utilityActivationSequence = utilityPhaseState.ActivationSequence;
                 }
 
                 buffer[entityId] = new EnemyViewPresentationState(
@@ -455,7 +501,11 @@ namespace Game.Feature.Gameplay.Host
                     startedGlideActiveThisTick,
                     startedGlideRecoverThisTick,
                     utilityPresentationKind,
-                    startedUtilityWindupThisTick);
+                    startedUtilityWindupThisTick,
+                    utilityPhase,
+                    startedUtilityRecoverThisTick,
+                    utilityEffectIndex,
+                    utilityActivationSequence);
             }
         }
 
@@ -577,6 +627,39 @@ namespace Game.Feature.Gameplay.Host
                 var signal = enemyUtilitySignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _enemyUtilitySignalsByEntityId[signal.EntityId] = signal;
+            }
+        }
+
+        private void CollectEnemyUtilityPhaseStates(TickPresentationData presentationData)
+        {
+            var enemyUtilityPhaseStates = presentationData.EnemyUtilityPhaseStates;
+            for (var i = 0; i < enemyUtilityPhaseStates.Count; i++)
+            {
+                var state = enemyUtilityPhaseStates[i];
+                _candidateEntityIds.Add(state.EntityId);
+                if (!_enemyUtilityPhaseStatesByEntityId.TryGetValue(state.EntityId, out var current) ||
+                    GetEnemyUtilityPhasePriority(state.Phase) > GetEnemyUtilityPhasePriority(current.Phase))
+                {
+                    _enemyUtilityPhaseStatesByEntityId[state.EntityId] = state;
+                }
+            }
+        }
+
+        private static int GetEnemyUtilityPhasePriority(EnemyUtilityEffectPhase phase)
+        {
+            switch (phase)
+            {
+                case EnemyUtilityEffectPhase.Recover:
+                    return 3;
+
+                case EnemyUtilityEffectPhase.Windup:
+                    return 2;
+
+                case EnemyUtilityEffectPhase.Active:
+                    return 1;
+
+                default:
+                    return 0;
             }
         }
 

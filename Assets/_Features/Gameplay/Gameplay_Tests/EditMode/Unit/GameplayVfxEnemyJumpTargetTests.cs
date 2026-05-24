@@ -65,6 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.PersistentKey.Cell, Is.EqualTo(targetCell));
             Assert.That(request.PersistentKey.HasCell, Is.True);
             Assert.That(request.PersistentKey.ActivationSequence, Is.EqualTo(3));
+            Assert.That(request.TopologyStopMode, Is.EqualTo(GameplayVfxTopologyStopMode.TopologyHelperExempt));
         }
 
         [Test]
@@ -314,6 +315,259 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxShowsWhenOwnerNotSuspended()
+        {
+            var owner = new GameObject(nameof(EnemyJumpWindupDangerVfxShowsWhenOwnerNotSuspended));
+            var prefab = CreateRuntimeMarkerPrefab("JumperLandingTargetVisiblePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(new SurfaceCell(FaceId.Floor, 0, 0), startedWindup: true)));
+
+                var marker = AssertSinglePersistentMarker(owner);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(AnyRendererEnabled(marker), Is.True);
+                Assert.That(AnyParticlePaused(marker), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxInitialSpawnNotBlockedByMissingSemanticState()
+        {
+            var owner = new GameObject(nameof(EnemyJumpWindupDangerVfxInitialSpawnNotBlockedByMissingSemanticState));
+            var prefab = CreateRuntimeMarkerPrefab("JumperLandingTargetSemanticPendingPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(new SurfaceCell(FaceId.Floor, 0, 0), startedWindup: true)));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(AssertSinglePersistentMarker(owner), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxRequestStillEmittedWhileSuspended()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var request = PlanSingleRequest(
+                CreateJumpSignal(targetCell, phase: EnemyJumpPhase.Airborne),
+                new CubeTopologyState(FaceId.Front));
+
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
+            Assert.That(request.SourceEntityId, Is.EqualTo(40));
+            Assert.That(request.IsPersistent, Is.True);
+            Assert.That(request.PersistentKey.EntityId, Is.EqualTo(40));
+            Assert.That(request.PersistentKey.Cell, Is.EqualTo(targetCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxPersistentHandleSurvivesSuspend()
+        {
+            var owner = new GameObject(nameof(EnemyJumpWindupDangerVfxPersistentHandleSurvivesSuspend));
+            var prefab = CreateRuntimeMarkerPrefab("JumperLandingTargetSurvivePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                var targetCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var stateStore = CreateOwnerStateStore(owner, 40);
+                var projector = CreateProjector();
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(targetCell, startedWindup: true),
+                    new CubeTopologyState(FaceId.Floor),
+                    stateStore,
+                    projector));
+                var marker = AssertSinglePersistentMarker(owner);
+                var markerInstanceId = marker.GetInstanceID();
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(targetCell, phase: EnemyJumpPhase.Airborne),
+                    new CubeTopologyState(FaceId.Front),
+                    stateStore,
+                    projector));
+
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(AssertSinglePersistentMarker(owner).GetInstanceID(), Is.EqualTo(markerInstanceId));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxRendererOnlyHiddenDuringSuspend()
+        {
+            var owner = new GameObject(nameof(EnemyJumpWindupDangerVfxRendererOnlyHiddenDuringSuspend));
+            var prefab = CreateRuntimeMarkerPrefab("JumperLandingTargetHiddenPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                var targetCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var stateStore = CreateOwnerStateStore(owner, 40);
+                var projector = CreateProjector();
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(targetCell, startedWindup: true),
+                    new CubeTopologyState(FaceId.Floor),
+                    stateStore,
+                    projector));
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(targetCell, phase: EnemyJumpPhase.Airborne),
+                    new CubeTopologyState(FaceId.Front),
+                    stateStore,
+                    projector));
+
+                var marker = AssertSinglePersistentMarker(owner);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(AnyRendererEnabled(marker), Is.False);
+                Assert.That(AnyParticlePaused(marker), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxRestoresVisibleOnResume()
+        {
+            var owner = new GameObject(nameof(EnemyJumpWindupDangerVfxRestoresVisibleOnResume));
+            var prefab = CreateRuntimeMarkerPrefab("JumperLandingTargetResumePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                var targetCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var stateStore = CreateOwnerStateStore(owner, 40);
+                var projector = CreateProjector();
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(targetCell, startedWindup: true),
+                    new CubeTopologyState(FaceId.Floor),
+                    stateStore,
+                    projector));
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(targetCell, phase: EnemyJumpPhase.Airborne),
+                    new CubeTopologyState(FaceId.Front),
+                    stateStore,
+                    projector));
+                var suspendedMarker = AssertSinglePersistentMarker(owner);
+                var markerInstanceId = suspendedMarker.GetInstanceID();
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(targetCell, phase: EnemyJumpPhase.Airborne),
+                    new CubeTopologyState(FaceId.Floor),
+                    stateStore,
+                    projector));
+
+                var marker = AssertSinglePersistentMarker(owner);
+                Assert.That(marker.GetInstanceID(), Is.EqualTo(markerInstanceId));
+                Assert.That(AnyRendererEnabled(marker), Is.True);
+                Assert.That(AnyParticlePaused(marker), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cueMap);
+                UnityEngine.Object.DestroyImmediate(binding);
+                UnityEngine.Object.DestroyImmediate(prefab);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxProductionRuntimeFinalVisibility()
+        {
+            var owner = new GameObject(nameof(EnemyJumpWindupDangerVfxProductionRuntimeFinalVisibility));
+            var prefab = CreateRuntimeMarkerPrefab("JumperLandingTargetFinalVisibilityPrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                binding = CreateBinding(prefab);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+
+                runtime.Present(CreateExtensionContext(
+                    CreateJumpSignal(new SurfaceCell(FaceId.Floor, 0, 0), startedWindup: true)));
+
+                var marker = AssertSinglePersistentMarker(owner);
+                var renderer = marker.GetComponentInChildren<Renderer>(includeInactive: true);
+                var particle = marker.GetComponentInChildren<ParticleSystem>(includeInactive: true);
+                Assert.That(renderer, Is.Not.Null);
+                Assert.That(renderer.enabled, Is.True);
+                Assert.That(particle, Is.Not.Null);
+                Assert.That(particle.isPaused, Is.False);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
             finally
@@ -663,16 +917,113 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TickEnemyJumpPresentationSignal jumpSignal)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
-            var stateStore = new GameplayPresentationStateStore();
-            stateStore.ResetSession(topology);
-            var projector = new GameplayCubeProjector(
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
-                1f);
+            return CreateExtensionContext(jumpSignal, topology);
+        }
+
+        private static GameplayTickPresentationExtensionContext CreateExtensionContext(
+            TickEnemyJumpPresentationSignal jumpSignal,
+            CubeTopologyState topology,
+            GameplayPresentationStateStore stateStore = null)
+        {
+            return CreateExtensionContext(jumpSignal, topology, stateStore, CreateProjector());
+        }
+
+        private static GameplayTickPresentationExtensionContext CreateExtensionContext(
+            TickEnemyJumpPresentationSignal jumpSignal,
+            CubeTopologyState topology,
+            GameplayPresentationStateStore stateStore,
+            GameplayCubeProjector projector)
+        {
+            if (stateStore == null)
+            {
+                stateStore = new GameplayPresentationStateStore();
+                stateStore.ResetSession(topology);
+            }
+            else
+            {
+                stateStore.CommittedTopology = topology;
+            }
+
             return new GameplayTickPresentationExtensionContext(
                 CreateResult(CreatePresentationData(jumpSignal), topology),
                 topology,
                 stateStore,
                 projector);
+        }
+
+        private static GameplayCubeProjector CreateProjector()
+        {
+            return new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f);
+        }
+
+        private static GameplayPresentationStateStore CreateOwnerStateStore(
+            GameObject owner,
+            int entityId)
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var stateStore = new GameplayPresentationStateStore();
+            stateStore.ResetSession(topology);
+            var viewObject = new GameObject($"EnemyView_{entityId}");
+            viewObject.transform.SetParent(owner.transform, worldPositionStays: false);
+            var view = viewObject.AddComponent<GameplayEntityView>();
+            stateStore.ViewsByEntityId[entityId] = view;
+            stateStore.EnemyVisualSemanticStatesByEntityId[entityId] =
+                new EnemyVisualSemanticState(EnemyVisualActivityState.Normal);
+            return stateStore;
+        }
+
+        private static GameObject CreateRuntimeMarkerPrefab(string name)
+        {
+            var prefab = new GameObject(name);
+            var modelRoot = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            modelRoot.name = "ModelRoot";
+            var collider = modelRoot.GetComponent<Collider>();
+            if (collider != null)
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+
+            modelRoot.transform.SetParent(prefab.transform, worldPositionStays: false);
+            modelRoot.AddComponent<ParticleSystem>();
+            return prefab;
+        }
+
+        private static Transform AssertSinglePersistentMarker(GameObject owner)
+        {
+            var persistentRoot = owner.transform.Find("GameplayVfxRuntimeRoot/Persistent");
+            Assert.That(persistentRoot, Is.Not.Null);
+            Assert.That(persistentRoot.childCount, Is.EqualTo(1));
+            return persistentRoot.GetChild(0);
+        }
+
+        private static bool AnyRendererEnabled(Transform marker)
+        {
+            var renderers = marker.GetComponentsInChildren<Renderer>(includeInactive: true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null && renderers[i].enabled)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool AnyParticlePaused(Transform marker)
+        {
+            var particles = marker.GetComponentsInChildren<ParticleSystem>(includeInactive: true);
+            for (var i = 0; i < particles.Length; i++)
+            {
+                if (particles[i] != null && particles[i].isPaused)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static TickResult CreateResult(TickPresentationData presentationData, CubeTopologyState topology)

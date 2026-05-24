@@ -339,7 +339,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .Append(state.windupEndTick).Append('|')
                     .Append(state.landingTick).Append('|')
                     .Append(state.cooldownRemainingTicks).Append('|')
-                    .Append(state.retryCount).Append('\n');
+                    .Append(state.retryCount).Append('|')
+                    .Append(state.topologySuspendLastTick).Append('\n');
             }
         }
 

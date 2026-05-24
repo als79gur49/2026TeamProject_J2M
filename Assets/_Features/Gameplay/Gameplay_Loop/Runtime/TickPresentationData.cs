@@ -1993,6 +1993,41 @@ namespace Game.Feature.Gameplay.Loop
         public int ActivationSequence { get; }
     }
 
+    public readonly struct TickEnemyUtilityPhasePresentationState
+    {
+        public TickEnemyUtilityPhasePresentationState(
+            int entityId,
+            EnemyUtilityPresentationKind kind,
+            EnemyUtilityEffectPhase phase,
+            int phaseElapsedTicks,
+            int phaseDurationTicks,
+            int effectIndex = 0,
+            int activationSequence = 0)
+        {
+            EntityId = entityId;
+            Kind = kind;
+            Phase = phase;
+            PhaseElapsedTicks = Math.Max(0, phaseElapsedTicks);
+            PhaseDurationTicks = Math.Max(0, phaseDurationTicks);
+            EffectIndex = Math.Max(0, effectIndex);
+            ActivationSequence = Math.Max(0, activationSequence);
+        }
+
+        public int EntityId { get; }
+
+        public EnemyUtilityPresentationKind Kind { get; }
+
+        public EnemyUtilityEffectPhase Phase { get; }
+
+        public int PhaseElapsedTicks { get; }
+
+        public int PhaseDurationTicks { get; }
+
+        public int EffectIndex { get; }
+
+        public int ActivationSequence { get; }
+    }
+
     public readonly struct TickEnemyUtilityCooldownPresentationSignal
     {
         public TickEnemyUtilityCooldownPresentationSignal(
@@ -2733,6 +2768,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEnemyChargePresentationSignal> _enemyChargeSignals;
         private readonly ReadOnlyCollection<TickEnemyGlidePresentationSignal> _enemyGlideSignals;
         private readonly ReadOnlyCollection<TickEnemyUtilityPresentationSignal> _enemyUtilitySignals;
+        private readonly ReadOnlyCollection<TickEnemyUtilityPhasePresentationState> _enemyUtilityPhaseStates;
         private readonly ReadOnlyCollection<TickEnemyUtilityCooldownPresentationSignal> _enemyUtilityCooldownSignals;
         private readonly ReadOnlyCollection<TickEnemyGravityFieldAuraVisualState> _enemyGravityFieldAuraVisualStates;
         private readonly ReadOnlyCollection<TickForwardCellProjectileWindupPresentationSignal> _forwardCellProjectileWindupSignals;
@@ -3118,7 +3154,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
-            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
         {
             if (entityMotions == null)
             {
@@ -3251,6 +3288,9 @@ namespace Game.Feature.Gameplay.Loop
             _enemyUtilitySignals = new ReadOnlyCollection<TickEnemyUtilityPresentationSignal>(
                 new List<TickEnemyUtilityPresentationSignal>(
                     enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>()));
+            _enemyUtilityPhaseStates = new ReadOnlyCollection<TickEnemyUtilityPhasePresentationState>(
+                new List<TickEnemyUtilityPhasePresentationState>(
+                    enemyUtilityPhaseStates ?? Array.Empty<TickEnemyUtilityPhasePresentationState>()));
             _enemyUtilityCooldownSignals = new ReadOnlyCollection<TickEnemyUtilityCooldownPresentationSignal>(
                 new List<TickEnemyUtilityCooldownPresentationSignal>(
                     enemyUtilityCooldownSignals ?? Array.Empty<TickEnemyUtilityCooldownPresentationSignal>()));
@@ -3339,7 +3379,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
-            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3374,7 +3415,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
-                playerOutcomeSignals: playerOutcomeSignals)
+                playerOutcomeSignals: playerOutcomeSignals,
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
         {
         }
 
@@ -3451,7 +3493,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
-            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3490,7 +3533,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
-                playerOutcomeSignals: playerOutcomeSignals)
+                playerOutcomeSignals: playerOutcomeSignals,
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
         {
             if (impactTransientSignals == null)
             {
@@ -3545,7 +3589,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
-            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
             : this(
                 entityMotions: entityMotions,
                 topologyMotion: topologyMotion,
@@ -3585,7 +3630,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
-                playerOutcomeSignals: playerOutcomeSignals)
+                playerOutcomeSignals: playerOutcomeSignals,
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -3664,6 +3710,9 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyGlidePresentationSignal> EnemyGlideSignals => _enemyGlideSignals;
 
         public IReadOnlyList<TickEnemyUtilityPresentationSignal> EnemyUtilitySignals => _enemyUtilitySignals;
+
+        public IReadOnlyList<TickEnemyUtilityPhasePresentationState> EnemyUtilityPhaseStates =>
+            _enemyUtilityPhaseStates;
 
         public IReadOnlyList<TickEnemyUtilityCooldownPresentationSignal> EnemyUtilityCooldownSignals =>
             _enemyUtilityCooldownSignals;

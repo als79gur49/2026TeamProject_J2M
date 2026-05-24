@@ -371,6 +371,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
             }
 
+            public void SuspendPresentation()
+            {
+                State = VfxLifetimeState.PresentationSuspended;
+            }
+
+            public void ResumePresentation()
+            {
+                State = VfxLifetimeState.Active;
+            }
+
             public void ReleaseToPool()
             {
                 State = VfxLifetimeState.ReleasedToPool;

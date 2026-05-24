@@ -39,6 +39,10 @@ namespace Game.Feature.Gameplay.Vfx
 
         void Reanchor(in VfxResolvedAnchor anchor);
 
+        void SuspendPresentation();
+
+        void ResumePresentation();
+
         void ReleaseToPool();
 
         void HardCleanup();

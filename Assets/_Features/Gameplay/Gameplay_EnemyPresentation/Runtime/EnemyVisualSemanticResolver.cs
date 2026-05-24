@@ -46,9 +46,15 @@ namespace Game.Feature.Gameplay.Host
                                                    facts.IsVisible &&
                                                    (facts.IsGameplayAutonomySuppressed ||
                                                     facts.IsJumpLandingCompletionHeld);
+            var shouldPauseAirborneAnimator = facts.IsEnemy &&
+                                              facts.HasJumpAirborneVisualState &&
+                                              (!facts.IsVisible ||
+                                               facts.IsGameplayAutonomySuppressed ||
+                                               facts.IsTopologyTransitionActive ||
+                                               facts.IsJumpTopologySuspended);
             return new EnemyVisualSemanticState(
                 activityState,
-                shouldPauseAnimatorPlayback: shouldPauseAutonomousPresentation,
+                shouldPauseAnimatorPlayback: shouldPauseAutonomousPresentation || shouldPauseAirborneAnimator,
                 shouldPauseAutonomousPresentation: shouldPauseAutonomousPresentation);
         }
     }

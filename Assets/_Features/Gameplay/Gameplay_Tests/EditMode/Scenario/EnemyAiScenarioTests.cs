@@ -2972,8 +2972,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
                 Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
-                Assert.That(jumpState.windupEndTick, Is.EqualTo(2));
-                Assert.That(jumpState.landingTick, Is.EqualTo(3));
+                Assert.That(jumpState.windupEndTick, Is.EqualTo(3));
+                Assert.That(jumpState.landingTick, Is.EqualTo(4));
+                Assert.That(jumpState.topologySuspendLastTick, Is.EqualTo(2));
                 Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             }
             finally
@@ -6064,6 +6065,168 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
                 Assert.That(snapshot.TryGetEnemyJumpState(40, out var jumpState), Is.True);
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupTopologySuspendDoesNotConsumeRemainingTicks()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Front));
+            var profile = CreateJumpChaserProfile(windupTicks: 2, airborneTicks: 2, cooldownTicks: 1);
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Windup,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = lockedTargetCell,
+                    windupEndTick = 2,
+                    landingTick = 4,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+
+                var suspendedState = GetEnemyJumpState(worldState, 40);
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(5));
+                Assert.That(suspendedState.landingTick, Is.EqualTo(7));
+
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+                var resumedTick = pipeline.RunTick(new TickInput(4));
+                var resumedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyJumpPhase.Windup), resumedTick.Trace.Text);
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(resumedTick.PresentationData.EnemyJumpSignals.Single().StartedAirborneThisTick, Is.False);
+
+                var takeoffTick = pipeline.RunTick(new TickInput(5));
+                var takeoffState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(takeoffState.phase, Is.EqualTo(EnemyJumpPhase.Airborne), takeoffTick.Trace.Text);
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneTopologySuspendDoesNotReachLandingTick()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Front));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+            writeContext.SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = lockedTargetCell,
+                    windupEndTick = 1,
+                    landingTick = 2,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var stillSuspendedTick = pipeline.RunTick(new TickInput(3));
+                var suspendedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyJumpPhase.Airborne), stillSuspendedTick.Trace.Text);
+                Assert.That(suspendedState.landingTick, Is.EqualTo(5));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(stillSuspendedTick.PresentationData.EnemyJumpSignals.Single().LandedThisTick, Is.False);
+
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+                var resumedTick = pipeline.RunTick(new TickInput(4));
+                var resumedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyJumpPhase.Airborne), resumedTick.Trace.Text);
+                Assert.That(resumedTick.PresentationData.EnemyJumpSignals.Single().LandedThisTick, Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpOffBottomHiddenStillDoesNotConsumePhaseTime()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            var profile = CreateJumpChaserProfile(windupTicks: 2, airborneTicks: 2, cooldownTicks: 1);
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Windup,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = lockedTargetCell,
+                    windupEndTick = 2,
+                    landingTick = 4,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var suspendedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(suspendedState.landingTick, Is.EqualTo(6));
+
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+                var resumedTick = pipeline.RunTick(new TickInput(3));
+                var resumedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyJumpPhase.Windup), resumedTick.Trace.Text);
+                Assert.That(resumedTick.PresentationData.EnemyJumpSignals.Single().StartedAirborneThisTick, Is.False);
             }
             finally
             {

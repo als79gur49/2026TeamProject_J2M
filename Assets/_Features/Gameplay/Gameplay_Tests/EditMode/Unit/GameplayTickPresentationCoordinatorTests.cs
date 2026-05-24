@@ -27,6 +27,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string MoonGeneratorDoorOpenClipPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Animations/MoonBlockGenerator_DoorOpen.anim";
+        private const string EnemyJumpAnimatorControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Jump.controller";
         private const string GravityFieldLockableShaderName = "Game/Presentation/GravityFieldLockableBoxLit";
         private const string GravityFieldLockedWeightProperty = "_GravityFieldLockedWeight";
         private const string GravityFieldLockRevealProperty = "_GravityFieldLockReveal";
@@ -3140,6 +3142,1310 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneTopologySuspendDoesNotReplaceJumpTrack()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneTopologySuspendDoesNotReplaceJumpTrack));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, initialTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, initialTopology);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached) },
+                        initialTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[] { new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, initialTopology, Direction.Right) },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    true,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 3,
+                                    remainingAirborneTicks: 2,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+
+                presenter.UpdatePresentation(timingProfile.SimulationTickIntervalSeconds * 1.5f);
+                var trackState = GetPresentationTrackState(presenter);
+                Assert.That(trackState.JumpTracks.TryGetValue(20, out var originalTrack), Is.True);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached) },
+                        suspendedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, suspendedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 4,
+                                    remainingAirborneTicks: 2,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+
+                Assert.That(trackState.JumpTracks.TryGetValue(20, out var frozenTrack), Is.True);
+                Assert.That(frozenTrack, Is.SameAs(originalTrack));
+                Assert.That(frozenTrack.HasClip, Is.True);
+                Assert.That(GetJumpDetachedVisibilityStateCount(presenter), Is.EqualTo(1));
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 3,
+                        new[] { WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached) },
+                        suspendedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 5,
+                                    remainingAirborneTicks: 2,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+
+                Assert.That(trackState.JumpTracks.TryGetValue(20, out var resumedFrozenTrack), Is.True);
+                Assert.That(resumedFrozenTrack, Is.SameAs(originalTrack));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneTopologySuspendDoesNotAdvanceFrozenPose()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneTopologySuspendDoesNotAdvanceFrozenPose));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, initialTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, initialTopology);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached) },
+                        initialTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[] { new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, initialTopology, Direction.Right) },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    true,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 3,
+                                    remainingAirborneTicks: 2,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+
+                presenter.UpdatePresentation(0.01f);
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var poseBeforeSuspend = view.transform.localPosition;
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached) },
+                        suspendedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, suspendedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 4,
+                                    remainingAirborneTicks: 2,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+
+                AssertPositionApproximately(view.transform.localPosition, poseBeforeSuspend);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpLandingCompletionTopologySuspendDoesNotAdvanceCompletion()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpLandingCompletionTopologySuspendDoesNotAdvanceCompletion));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var rotatedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Front, 1, 0);
+
+                presenter.Initialize(binder, boardBounds, initialTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, initialTopology);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached) },
+                        initialTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[] { new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, initialTopology, Direction.Right) },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    true,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 2,
+                                    remainingAirborneTicks: 1,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(timingProfile.SimulationTickIntervalSeconds * 0.5f);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreateEnemyUnit(20, landingCell) },
+                        rotatedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, rotatedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Cooldown,
+                                    false,
+                                    false,
+                                    true,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 2,
+                                    remainingAirborneTicks: 0,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+
+                var trackState = GetPresentationTrackState(presenter);
+                Assert.That(trackState.JumpLandingCompletionHoldEntityIds.Contains(20), Is.True);
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                Assert.That(trackState.JumpLandingCompletionHoldEntityIds.Contains(20), Is.True);
+                Assert.That(trackState.JumpTracks.ContainsKey(20), Is.True);
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+
+                presenter.UpdatePresentation(timingProfile.SimulationTickIntervalSeconds);
+
+                Assert.That(trackState.JumpLandingCompletionHoldEntityIds.Contains(20), Is.False);
+                Assert.That(trackState.JumpTracks.ContainsKey(20), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpFreezePoseSurvivesFrontFaceInactiveVisibility()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpFreezePoseSurvivesFrontFaceInactiveVisibility));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Front, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreateEnemyUnit(20, sourceCell) },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    true,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 3,
+                                    remainingAirborneTicks: 2,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+
+                presenter.UpdatePresentation(0.01f);
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var poseBeforeSuspend = view.transform.localPosition;
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreateEnemyUnit(20, sourceCell) },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickEnemyJumpPresentationSignal(
+                                    20,
+                                    1,
+                                    EnemyJumpPhase.Airborne,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    sourceCell: sourceCell,
+                                    lockedTargetCell: landingCell,
+                                    presentationTargetCell: landingCell,
+                                    facing: Direction.Right,
+                                    landingTick: 4,
+                                    remainingAirborneTicks: 2,
+                                    retryCount: 0),
+                            },
+                            Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(0.1f);
+
+                var stateStore = GetPresentationStateStore(presenter);
+                AssertPositionApproximately(view.transform.localPosition, poseBeforeSuspend);
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneRotationFrameFinalAnimatorStateIsAirborne()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneRotationFrameFinalAnimatorStateIsAirborne));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneRotationFrameFinalAnimatorStateIsAirborne),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, initialTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, initialTopology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: initialTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, initialTopology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 2));
+                presenter.UpdatePresentation(timingProfile.SimulationTickIntervalSeconds * 0.25f);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                var airborneBeforeRotation = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: suspendedTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(initialTopology, suspendedTopology, CubeRotationKind.Forward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 2));
+
+                AssertJumpAirborneAnimatorState(animator);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).normalizedTime, Is.GreaterThanOrEqualTo(airborneBeforeRotation));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneTopologyRotationDoesNotAdvanceAnimatorNormalizedTime()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneTopologyRotationDoesNotAdvanceAnimatorNormalizedTime));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneTopologyRotationDoesNotAdvanceAnimatorNormalizedTime),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var bottomTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, bottomTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, bottomTopology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, bottomTopology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 3));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                animator.Update(0.25f);
+                var beforeRotation = GetAnimatorNormalizedTime(animator);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: suspendedTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(bottomTopology, suspendedTopology, CubeRotationKind.Forward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 2));
+
+                var frozen = GetAnimatorNormalizedTime(animator);
+                Assert.That(frozen, Is.EqualTo(beforeRotation).Within(0.0001f));
+
+                for (var i = 0; i < 4; i++)
+                {
+                    presenter.UpdatePresentation(0.03f);
+                    animator.Update(0.03f);
+                    AssertJumpAirborneAnimatorStateAndNormalizedTime(animator, frozen);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneTopologyRotationSetsAnimatorPauseOnFirstFrame()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneTopologyRotationSetsAnimatorPauseOnFirstFrame));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneTopologyRotationSetsAnimatorPauseOnFirstFrame),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var bottomTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, bottomTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, bottomTopology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, bottomTopology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 3));
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: suspendedTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(bottomTopology, suspendedTopology, CubeRotationKind.Forward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                var driver = view.GetComponent<EnemyAnimatorDriver>();
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
+                Assert.That(driver.IsPlaybackSuppressed, Is.True);
+                Assert.That(animator.speed, Is.Zero);
+                AssertJumpAirborneAnimatorState(animator);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneTopologyTweenDoesNotReachExitTime()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneTopologyTweenDoesNotReachExitTime));
+            var exitController = CreateJumpAirborneExitTimeAnimatorController(
+                nameof(EnemyJumpAirborneTopologyTweenDoesNotReachExitTime),
+                out var jumpClip,
+                out var moveClip);
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneTopologyTweenDoesNotReachExitTime),
+                out var jumpReferenceClip,
+                exitController);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 1.25f);
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var bottomTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, bottomTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, bottomTopology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, bottomTopology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 3));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                animator.Update(0.25f);
+                var frozen = GetAnimatorNormalizedTime(animator);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: suspendedTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(bottomTopology, suspendedTopology, CubeRotationKind.Forward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 2));
+
+                for (var i = 0; i < 5; i++)
+                {
+                    presenter.UpdatePresentation(0.25f);
+                    animator.Update(0.25f);
+                    AssertJumpAirborneAnimatorStateAndNormalizedTime(animator, frozen);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(exitController);
+                UnityEngine.Object.DestroyImmediate(jumpClip);
+                UnityEngine.Object.DestroyImmediate(moveClip);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneFrontInactiveFreezesAnimatorTimeNotJustStateHash()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneFrontInactiveFreezesAnimatorTimeNotJustStateHash));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneFrontInactiveFreezesAnimatorTimeNotJustStateHash),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Front, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: topology,
+                    finalEntity: CreateEnemyUnit(20, sourceCell),
+                    topologyMotion: null,
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                var frozen = GetAnimatorNormalizedTime(animator);
+
+                for (var i = 0; i < 3; i++)
+                {
+                    presenter.UpdatePresentation(0.2f);
+                    animator.Update(0.2f);
+                    AssertJumpAirborneAnimatorStateAndNormalizedTime(animator, frozen);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneResumeContinuesFromFrozenNormalizedTime()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneResumeContinuesFromFrozenNormalizedTime));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneResumeContinuesFromFrozenNormalizedTime),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var bottomTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, bottomTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, bottomTopology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, bottomTopology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 4));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                animator.Update(0.25f);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: suspendedTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(bottomTopology, suspendedTopology, CubeRotationKind.Forward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 3));
+                var frozen = GetAnimatorNormalizedTime(animator);
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                animator.Update(timingProfile.TopologyMotionDurationSeconds);
+                AssertJumpAirborneAnimatorStateAndNormalizedTime(animator, frozen);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 3,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(suspendedTopology, bottomTopology, CubeRotationKind.Backward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 2));
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                animator.Update(timingProfile.TopologyMotionDurationSeconds);
+                AssertJumpAirborneAnimatorStateAndNormalizedTime(animator, frozen);
+
+                presenter.UpdatePresentation(0f);
+                Assert.That(animator.speed, Is.GreaterThan(0f));
+                AssertJumpAirborneAnimatorStateAndNormalizedTime(animator, frozen);
+
+                animator.Update(0.1f);
+                AssertJumpAirborneAnimatorState(animator);
+                Assert.That(GetAnimatorNormalizedTime(animator), Is.GreaterThan(frozen));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneRestoreCannotMaskAdvancedAnimatorTime()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneRestoreCannotMaskAdvancedAnimatorTime));
+            var exitController = CreateJumpAirborneExitTimeAnimatorController(
+                nameof(EnemyJumpAirborneRestoreCannotMaskAdvancedAnimatorTime),
+                out var jumpClip,
+                out var moveClip);
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneRestoreCannotMaskAdvancedAnimatorTime),
+                out var jumpReferenceClip,
+                exitController);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 1.25f);
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var bottomTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, bottomTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, bottomTopology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, bottomTopology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 3));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                animator.Update(0.25f);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: suspendedTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(bottomTopology, suspendedTopology, CubeRotationKind.Forward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 2));
+
+                var frozen = GetAnimatorNormalizedTime(animator);
+                animator.Update(1.1f);
+
+                AssertJumpAirborneAnimatorStateAndNormalizedTime(animator, frozen);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(exitController);
+                UnityEngine.Object.DestroyImmediate(jumpClip);
+                UnityEngine.Object.DestroyImmediate(moveClip);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneFrontInactivePausesAirborneNotIdle()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneFrontInactivePausesAirborneNotIdle));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneFrontInactivePausesAirborneNotIdle),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Front, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: topology,
+                    finalEntity: CreateEnemyUnit(20, sourceCell),
+                    topologyMotion: null,
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                var driver = view.GetComponent<EnemyAnimatorDriver>();
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(driver.IsPlaybackSuppressed, Is.True);
+                AssertJumpAirborneAnimatorState(animator);
+                Assert.That(animator.speed, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneSustainedTickDoesNotFallbackToIdle()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneSustainedTickDoesNotFallbackToIdle));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneSustainedTickDoesNotFallbackToIdle),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: topology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, topology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                var driver = view.GetComponent<EnemyAnimatorDriver>();
+                var signalCount = driver.JumpAirborneSignalCount;
+
+                animator.Rebind();
+                animator.Update(0f);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: topology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 1));
+
+                Assert.That(driver.JumpAirborneSignalCount, Is.EqualTo(signalCount));
+                AssertJumpAirborneAnimatorState(animator);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneResumeFinalAnimatorStateIsAirborne()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneResumeFinalAnimatorStateIsAirborne));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneResumeFinalAnimatorStateIsAirborne),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var bottomTopology = new CubeTopologyState(FaceId.Floor);
+                var suspendedTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, bottomTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, bottomTopology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, bottomTopology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 3));
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: suspendedTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(bottomTopology, suspendedTopology, CubeRotationKind.Forward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                animator.Rebind();
+                animator.Update(0f);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 3,
+                    finalTopology: bottomTopology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: new TickTopologyMotion(suspendedTopology, bottomTopology, CubeRotationKind.Backward),
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 1));
+
+                AssertJumpAirborneAnimatorState(animator);
+                Assert.That(animator.speed, Is.Zero);
+
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                presenter.UpdatePresentation(0f);
+
+                AssertJumpAirborneAnimatorState(animator);
+                Assert.That(animator.speed, Is.GreaterThan(0f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneRestoreNotOverwrittenByIdleInSameFrame()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneRestoreNotOverwrittenByIdleInSameFrame));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneRestoreNotOverwrittenByIdleInSameFrame),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Front, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: topology,
+                    finalEntity: CreateEnemyUnit(20, sourceCell),
+                    topologyMotion: null,
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                animator.Rebind();
+                animator.Update(0f);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: topology,
+                    finalEntity: CreateEnemyUnit(20, sourceCell),
+                    topologyMotion: null,
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 1));
+
+                AssertJumpAirborneAnimatorState(animator);
+                Assert.That(animator.speed, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneSnapshotCapturedBeforeInactiveFallback()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneSnapshotCapturedBeforeInactiveFallback));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneSnapshotCapturedBeforeInactiveFallback),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Front, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: topology,
+                    finalEntity: CreateEnemyUnit(20, sourceCell),
+                    topologyMotion: null,
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                var driver = view.GetComponent<EnemyAnimatorDriver>();
+                animator.Rebind();
+                animator.Update(0f);
+
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 2,
+                    finalTopology: topology,
+                    finalEntity: CreateEnemyUnit(20, sourceCell),
+                    topologyMotion: null,
+                    visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: false,
+                    remainingAirborneTicks: 1));
+
+                Assert.That(driver.HasJumpAirborneTopologySuspendSnapshot, Is.True);
+                AssertJumpAirborneAnimatorState(animator);
+                Assert.That(animator.speed, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyJumpAirborneHiddenRebindRestoresFromJumpDetachedState()
+        {
+            var rootObject = new GameObject(nameof(EnemyJumpAirborneHiddenRebindRestoresFromJumpDetachedState));
+            var enemyPrefab = CreateEnemyJumpAnimatorViewPrefab(
+                nameof(EnemyJumpAirborneHiddenRebindRestoresFromJumpDetachedState),
+                out var jumpReferenceClip);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: topology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, topology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 2));
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var animator = GetRequiredAnimator(view);
+                view.gameObject.SetActive(false);
+                animator.Rebind();
+                animator.Update(0f);
+
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                Assert.That(GetPresentationStateStore(presenter).JumpDetachedVisibilityStates.ContainsKey(20), Is.True);
+                AssertJumpAirborneAnimatorState(animator);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(jumpReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickPresentationCoordinator_JumpAirborneVisibility_ClearsOnLanding()
         {
@@ -3469,10 +4775,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.SimulationTickIntervalSeconds * 0.5f);
 
                 var landingPosition = GetProjectedEntityPosition(boardBounds, rotatedTopology, landingCell, EntityType.Unit);
-                Assert.That(Vector3.Distance(view.transform.localPosition, poseBeforeLanding), Is.GreaterThan(0.001f));
+                AssertPositionApproximately(view.transform.localPosition, poseBeforeLanding);
                 Assert.That(Vector3.Distance(view.transform.localPosition, landingPosition), Is.GreaterThan(0.001f));
 
                 presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(trackState.JumpLandingCompletionHoldEntityIds.Contains(20), Is.True);
+                Assert.That(trackState.JumpTracks.ContainsKey(20), Is.True);
+
+                presenter.UpdatePresentation(timingProfile.SimulationTickIntervalSeconds);
 
                 Assert.That(presenter.HasBlockingPresentation, Is.False);
                 Assert.That(trackState.JumpLandingCompletionHoldEntityIds.Contains(20), Is.False);
@@ -6578,7 +7890,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static GameplayTimingProfile CreateTimingProfile()
+        private static GameplayTimingProfile CreateTimingProfile(float topologyMotionDurationSeconds = 0.2f)
         {
             return new GameplayTimingProfile(
                 simulationTicksPerSecond: 60,
@@ -6588,7 +7900,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectileStepIntervalSeconds: 0.2f,
                 moveMotionDurationSeconds: 0.2f,
                 pushMotionDurationSeconds: 0.2f,
-                topologyMotionDurationSeconds: 0.2f,
+                topologyMotionDurationSeconds: topologyMotionDurationSeconds,
                 flipMotionDurationSeconds: 0.2f,
                 flipArcHeightInCells: 0.65f,
                 maxTicksPerFrame: 8);
@@ -7264,6 +8576,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }));
         }
 
+        private static TickResult CreateJumpAirborneTick(
+            int tickIndex,
+            CubeTopologyState finalTopology,
+            EntityState finalEntity,
+            TickTopologyMotion? topologyMotion,
+            IReadOnlyList<TickVisibilityChange> visibilityChanges,
+            SurfaceCell sourceCell,
+            SurfaceCell landingCell,
+            bool startedAirborneThisTick,
+            int remainingAirborneTicks)
+        {
+            return CreateTickResult(
+                tickIndex,
+                new[] { finalEntity },
+                finalTopology,
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion,
+                    visibilityChanges ?? Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    new[]
+                    {
+                        new TickEnemyJumpPresentationSignal(
+                            20,
+                            sequence: 1,
+                            phase: EnemyJumpPhase.Airborne,
+                            startedWindupThisTick: false,
+                            startedAirborneThisTick: startedAirborneThisTick,
+                            landedThisTick: false,
+                            retryThisTick: false,
+                            sourceCell: sourceCell,
+                            lockedTargetCell: landingCell,
+                            presentationTargetCell: landingCell,
+                            facing: Direction.Right,
+                            landingTick: tickIndex + remainingAirborneTicks,
+                            remainingAirborneTicks: remainingAirborneTicks,
+                            retryCount: 0),
+                    },
+                    Array.Empty<TickEntityExitPresentationSignal>()));
+        }
+
         private static TickPresentationData CreateFrontFaceShieldPresentationData(
             IReadOnlyList<TickFrontFaceShieldSourceSignal> sources,
             IReadOnlyList<TickFrontFaceShieldBlockSignal> blocks,
@@ -7466,6 +8821,119 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityMoveDurationSeconds);
 
             return view;
+        }
+
+        private static GameplayEntityView CreateEnemyJumpAnimatorViewPrefab(
+            string name,
+            out AnimationClip jumpReferenceClip,
+            RuntimeAnimatorController runtimeAnimatorController = null)
+        {
+            var view = CreateEnemyViewPrefab(name, 0.2f, 0.2f);
+            var animator = view.gameObject.AddComponent<Animator>();
+            animator.runtimeAnimatorController = runtimeAnimatorController != null
+                ? runtimeAnimatorController
+                : AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(EnemyJumpAnimatorControllerPath);
+            Assert.That(animator.runtimeAnimatorController, Is.Not.Null, EnemyJumpAnimatorControllerPath);
+
+            jumpReferenceClip = CreateReferenceClip($"{name}_JumpAirborneReference", 1f);
+            var authoring = view.GetComponent<EnemyAnimationTimingAuthoring>();
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "stateTransitionCrossFadeDurationSeconds",
+                0f);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "jumpAirborneAnimatorDurationSeconds",
+                1f);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "jumpAirborneReferenceClip",
+                jumpReferenceClip);
+            return view;
+        }
+
+        private static AnimatorController CreateJumpAirborneExitTimeAnimatorController(
+            string name,
+            out AnimationClip jumpClip,
+            out AnimationClip moveClip)
+        {
+            jumpClip = CreateReferenceClip($"{name}_JumpAirborneClip", 1f);
+            moveClip = CreateReferenceClip($"{name}_MoveClip", 1f);
+
+            var stateMachine = new AnimatorStateMachine
+            {
+                name = $"{name}_StateMachine",
+            };
+            var moveState = stateMachine.AddState("Move");
+            moveState.motion = moveClip;
+            var jumpState = stateMachine.AddState("JumpAirborne");
+            jumpState.motion = jumpClip;
+            stateMachine.defaultState = moveState;
+
+            var exitTransition = jumpState.AddTransition(moveState);
+            exitTransition.hasExitTime = true;
+            exitTransition.exitTime = 0.75f;
+            exitTransition.duration = 0f;
+            exitTransition.hasFixedDuration = true;
+
+            var controller = new AnimatorController
+            {
+                name = $"{name}_Controller",
+                layers = new[]
+                {
+                    new AnimatorControllerLayer
+                    {
+                        name = "Base Layer",
+                        defaultWeight = 1f,
+                        stateMachine = stateMachine,
+                    },
+                },
+            };
+            controller.AddParameter("JumpAirborne", AnimatorControllerParameterType.Trigger);
+            return controller;
+        }
+
+        private static AnimationClip CreateReferenceClip(string clipName, float lengthSeconds)
+        {
+            var clip = new AnimationClip
+            {
+                name = clipName,
+                frameRate = 60f,
+            };
+
+            clip.SetCurve(
+                string.Empty,
+                typeof(Transform),
+                "m_LocalPosition.x",
+                AnimationCurve.Linear(0f, 0f, lengthSeconds, 1f));
+            return clip;
+        }
+
+        private static Animator GetRequiredAnimator(GameplayEntityView view)
+        {
+            var animator = view.GetComponentInChildren<Animator>(includeInactive: true);
+            Assert.That(animator, Is.Not.Null);
+            Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
+            return animator;
+        }
+
+        private static void AssertJumpAirborneAnimatorState(Animator animator)
+        {
+            var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            Assert.That(stateInfo.shortNameHash, Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+        }
+
+        private static void AssertJumpAirborneAnimatorStateAndNormalizedTime(
+            Animator animator,
+            float expectedNormalizedTime)
+        {
+            AssertJumpAirborneAnimatorState(animator);
+            Assert.That(GetAnimatorNormalizedTime(animator), Is.EqualTo(expectedNormalizedTime).Within(0.0001f));
+        }
+
+        private static float GetAnimatorNormalizedTime(Animator animator)
+        {
+            return animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
         }
 
         private static float GetRendererFloat(Renderer targetRenderer, string propertyName)

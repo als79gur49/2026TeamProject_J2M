@@ -10,5 +10,6 @@ namespace Game.Feature.Gameplay.Vfx
         TailPlaying = 5,
         ReleasedToPool = 6,
         HardCleanup = 7,
+        PresentationSuspended = 8,
     }
 }
