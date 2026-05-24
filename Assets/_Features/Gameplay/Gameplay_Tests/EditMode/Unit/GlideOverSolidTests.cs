@@ -2403,6 +2403,185 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
+        public void Glide_CurrentContract_ActiveCanAnchorOnSolid()
+        {
+            var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(238, solidCell),
+                CreateUnit(241, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+            });
+
+            MoveGliderOntoSolidWithActiveAllowance(
+                worldState,
+                241,
+                solidCell,
+                CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 0));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(241, out var glider), Is.True);
+            Assert.That(glider.position, Is.EqualTo(solidCell));
+            Assert.That(snapshot.TryGetSolidOccupantAt(solidCell, out var solid), Is.True);
+            Assert.That(solid.entityId, Is.EqualTo(238));
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void Glide_CurrentContract_LandingPendingRepresentableMatrix_UsesSharedPredicate()
+        {
+            var origin = new SurfaceCell(FaceId.Floor, 2, 7);
+            var anchorCell = new SurfaceCell(FaceId.Floor, 3, 7);
+            var stalePendingCell = new SurfaceCell(FaceId.Floor, 2, 8);
+            var actor = CreateUnit(241, teamId: 2, origin, EnemyAiMode.Chase);
+
+            foreach (var testCase in new[]
+                     {
+                         new LandingPendingAnchorCase(
+                             "anchor equals pending cell and locked terminal",
+                             origin,
+                             anchorCell,
+                             anchorCell,
+                             hasLockedStep: true,
+                             lockedStepX: 1,
+                             lockedStepY: 0,
+                             shouldAllow: true),
+                         new LandingPendingAnchorCase(
+                             "anchor equals pending cell but not locked terminal",
+                             origin,
+                             anchorCell,
+                             anchorCell,
+                             hasLockedStep: true,
+                             lockedStepX: 0,
+                             lockedStepY: 1),
+                         new LandingPendingAnchorCase(
+                             "anchor differs from pending cell but matches locked terminal",
+                             origin,
+                             anchorCell,
+                             stalePendingCell,
+                             hasLockedStep: true,
+                             lockedStepX: 1,
+                             lockedStepY: 0),
+                         new LandingPendingAnchorCase(
+                             "anchor differs from pending cell and locked terminal",
+                             origin,
+                             anchorCell,
+                             stalePendingCell,
+                             hasLockedStep: true,
+                             lockedStepX: 0,
+                             lockedStepY: 1),
+                     })
+            {
+                var glideState = CreateGlideState(
+                    EnemyGlidePhase.LandingPending,
+                    activeUntilTickExclusive: 2,
+                    durationTicks: 2,
+                    recoveryTicks: 2,
+                    cooldownTicks: 0,
+                    landingPendingCell: testCase.LandingPendingCell,
+                    hasLockedStep: testCase.HasLockedStep,
+                    lockedStepX: testCase.LockedStepX,
+                    lockedStepY: testCase.LockedStepY);
+
+                Assert.That(
+                    GlideSolidAnchorRepresentability.CanRepresentLandingPendingSolidAnchor(
+                        actor,
+                        glideState,
+                        testCase.AnchorCell),
+                    Is.EqualTo(testCase.ShouldAllow),
+                    testCase.Name);
+                AssertLandingPendingMoveEntityToSolid(
+                    testCase.Origin,
+                    testCase.AnchorCell,
+                    testCase.LandingPendingCell,
+                    testCase.HasLockedStep,
+                    testCase.LockedStepX,
+                    testCase.LockedStepY,
+                    testCase.ShouldAllow,
+                    testCase.Name);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void Glide_CurrentContract_ActiveOriginSurvivesStateBoundary()
+        {
+            var tick = RunLandingPendingActiveOriginAnchorCommitScenario(
+                new SurfaceCell(FaceId.Floor, 2, 7),
+                new SurfaceCell(FaceId.Floor, 3, 7),
+                new SurfaceCell(FaceId.Floor, 3, 7),
+                hasLockedStep: true,
+                lockedStepX: 1,
+                lockedStepY: 0,
+                includeSolidAtAnchor: true).Tick;
+
+            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 241), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void Glide_CurrentContract_AnchorCommitMaterializesMoveEntity()
+        {
+            var anchorCell = new SurfaceCell(FaceId.Floor, 3, 7);
+            var tick = RunLandingPendingActiveOriginAnchorCommitScenario(
+                new SurfaceCell(FaceId.Floor, 2, 7),
+                anchorCell,
+                anchorCell,
+                hasLockedStep: true,
+                lockedStepX: 1,
+                lockedStepY: 0,
+                includeSolidAtAnchor: true).Tick;
+
+            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 241), Is.True);
+            Assert.That(HasMoveEntity(tick, 241, anchorCell), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void Glide_CurrentContract_PresentationSignalDoesNotOwnWorldState()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 2, recoveryTicks: 2, cooldownTicks: 0));
+            var origin = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateUnit(40, teamId: 2, origin, EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 2, durationTicks: 2, cooldownTicks: 0, recoveryTicks: 2));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                    .CreateTickPipeline(
+                        worldState,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                        playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
+
+                var tick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(origin));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
         public void GlideActiveKinematic_LandingPendingActiveOriginCommit_ToNonSolidCell_DoesNotTriggerAnchorGuard()
         {
             var origin = new SurfaceCell(FaceId.Floor, 2, 7);

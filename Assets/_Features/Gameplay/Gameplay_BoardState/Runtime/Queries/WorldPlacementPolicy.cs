@@ -681,26 +681,10 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            return actor.position == cell ||
-                   TryResolveLandingPendingLockedStepTerminal(actor, glideState, out var terminalCell) &&
-                   terminalCell == cell;
-        }
-
-        private static bool TryResolveLandingPendingLockedStepTerminal(
-            in EntityState actor,
-            in EnemyGlideRuntimeState glideState,
-            out SurfaceCell terminalCell)
-        {
-            terminalCell = default;
-            var lockedStep = new Vector2Int(glideState.LockedStepX, glideState.LockedStepY);
-            if (!glideState.HasLockedStep ||
-                Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) != 1)
-            {
-                return false;
-            }
-
-            terminalCell = actor.position + lockedStep;
-            return terminalCell.face == actor.position.face;
+            return GlideSolidAnchorRepresentability.CanRepresentLandingPendingSolidAnchor(
+                actor,
+                glideState,
+                cell);
         }
 
         private static bool ShouldIgnoreStackedUnitForGlide(
@@ -796,6 +780,42 @@ namespace Game.Feature.Gameplay.BoardState
         {
             Normal = 0,
             BoxSlide = 1,
+        }
+    }
+
+    internal static class GlideSolidAnchorRepresentability
+    {
+        public static bool CanRepresentLandingPendingSolidAnchor(
+            in EntityState actor,
+            in EnemyGlideRuntimeState glideState,
+            SurfaceCell cell)
+        {
+            if (!glideState.IsLandingPending ||
+                glideState.LandingPendingCell != cell)
+            {
+                return false;
+            }
+
+            return actor.position == cell ||
+                   TryResolveLandingPendingLockedStepTerminal(actor, glideState, out var terminalCell) &&
+                   terminalCell == cell;
+        }
+
+        public static bool TryResolveLandingPendingLockedStepTerminal(
+            in EntityState actor,
+            in EnemyGlideRuntimeState glideState,
+            out SurfaceCell terminalCell)
+        {
+            terminalCell = default;
+            var lockedStep = new Vector2Int(glideState.LockedStepX, glideState.LockedStepY);
+            if (!glideState.HasLockedStep ||
+                Math.Abs(lockedStep.x) + Math.Abs(lockedStep.y) != 1)
+            {
+                return false;
+            }
+
+            terminalCell = actor.position + lockedStep;
+            return terminalCell.face == actor.position.face;
         }
     }
 }

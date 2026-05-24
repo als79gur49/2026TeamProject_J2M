@@ -4083,41 +4083,10 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            return !IsLandingPendingGlideRepresentableSolidOverlapAnchor(
+            return !GlideSolidAnchorRepresentability.CanRepresentLandingPendingSolidAnchor(
                 entity,
                 glideState,
                 outcome.ResolvedAnchorCell);
-        }
-
-        private static bool IsLandingPendingGlideRepresentableSolidOverlapAnchor(
-            in EntityState actor,
-            in EnemyGlideRuntimeState glideState,
-            SurfaceCell cell)
-        {
-            if (!glideState.IsLandingPending ||
-                glideState.LandingPendingCell != cell)
-            {
-                return false;
-            }
-
-            return actor.position == cell ||
-                   TryResolveLandingPendingLockedStepTerminal(actor, glideState, out var terminalCell) &&
-                   terminalCell == cell;
-        }
-
-        private static bool TryResolveLandingPendingLockedStepTerminal(
-            in EntityState actor,
-            in EnemyGlideRuntimeState glideState,
-            out SurfaceCell terminalCell)
-        {
-            terminalCell = default;
-            if (!TryGetLockedGlideStep(glideState, out var lockedStep))
-            {
-                return false;
-            }
-
-            terminalCell = actor.position + lockedStep;
-            return terminalCell.face == actor.position.face;
         }
 
         private static string FormatLandingPendingActiveGlideAnchorCommitBlockedReason(
@@ -8476,6 +8445,9 @@ namespace Game.Feature.Gameplay.Loop
                         boundaryReasonOverride: ResolveKinematicAnchorCommitBoundaryReason(payload));
                     if (kinematicOutcome.AnchorChanged)
                     {
+                        // This materializes kinematic anchor commits as authoritative movement.
+                        // Boundary reasons such as GlideActiveKinematicAnchorCommit are not
+                        // presentation-only signals while they flow through this branch.
                         batch.MoveEntity(
                             kinematicOutcome.EntityId,
                             kinematicOutcome.ResolvedAnchorCell,
