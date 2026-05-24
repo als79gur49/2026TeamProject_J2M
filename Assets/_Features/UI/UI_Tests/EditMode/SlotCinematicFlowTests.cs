@@ -7,6 +7,7 @@ using Game.Feature.UI.Flow;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Video;
 
 namespace Game.Feature.UI.Tests
@@ -212,7 +213,7 @@ namespace Game.Feature.UI.Tests
 
                 view.Play(
                     clip,
-                    new SlotCinematicPlaybackOptions(true, SlotCinematicAspectPolicy.FitInside, 320, 180),
+                    CreatePlaybackOptions(),
                     _ => completionCount++);
 
                 Assert.That(view.ConfiguredAudioOutputMode, Is.EqualTo(VideoAudioOutputMode.AudioSource));
@@ -227,6 +228,433 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(1920f, 1080f, 1.77778f)]
+        [TestCase(2560f, 1080f, 2.37037f)]
+        [TestCase(1280f, 1024f, 1.25f)]
+        public void CinematicVideoOverlayView_AutoResolvedViewport_UsesResolvedViewportAspect(
+            float width,
+            float height,
+            float expectedAspect)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var root = new GameObject(nameof(CinematicVideoOverlayView_AutoResolvedViewport_UsesResolvedViewportAspect), typeof(RectTransform));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                rootRect.sizeDelta = new Vector2(width, height);
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(null, new ManualViewportProvider(new Vector2(width, height)));
+
+                view.Play(clip, CreatePlaybackOptions(), _ => { });
+
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(expectedAspect).Within(0.0001f));
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.Not.EqualTo(clip.width / (float)clip.height).Within(0.0001f));
+                Assert.That(view.ConfiguredContentAspectRatio, Is.EqualTo(clip.width / (float)clip.height).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ResolvedCinematicViewportProvider_FallsBackThroughCanvasCameraScreenAndDisplay()
+        {
+            var overlay = new GameObject("Overlay", typeof(RectTransform));
+            var canvas = new GameObject("Canvas", typeof(RectTransform));
+            var cameraObject = new GameObject("Camera", typeof(Camera));
+            try
+            {
+                var overlayRect = (RectTransform)overlay.transform;
+                var canvasRect = (RectTransform)canvas.transform;
+                var camera = cameraObject.GetComponent<Camera>();
+
+                overlayRect.sizeDelta = new Vector2(1920f, 1080f);
+                canvasRect.sizeDelta = new Vector2(2560f, 1080f);
+                var provider = new ResolvedCinematicViewportProvider(
+                    overlayRect,
+                    canvasRect,
+                    camera,
+                    cameraPixelRectSizeProvider: () => Vector2.zero,
+                    screenSizeProvider: () => new Vector2(1920f, 1080f),
+                    displaySizeProvider: () => new Vector2(1600f, 900f));
+
+                Assert.That(provider.TryGetAspectRatio(out var aspect), Is.True);
+                Assert.That(aspect, Is.EqualTo(1920f / 1080f).Within(0.0001f));
+
+                overlayRect.sizeDelta = Vector2.zero;
+                Assert.That(provider.TryGetAspectRatio(out aspect), Is.True);
+                Assert.That(aspect, Is.EqualTo(2560f / 1080f).Within(0.0001f));
+
+                canvasRect.sizeDelta = Vector2.zero;
+                provider = new ResolvedCinematicViewportProvider(
+                    overlayRect,
+                    canvasRect,
+                    camera,
+                    cameraPixelRectSizeProvider: () => new Vector2(1280f, 1024f),
+                    screenSizeProvider: () => new Vector2(1920f, 1080f),
+                    displaySizeProvider: () => new Vector2(1600f, 900f));
+                Assert.That(provider.TryGetAspectRatio(out aspect), Is.True);
+                Assert.That(aspect, Is.EqualTo(1.25f).Within(0.0001f));
+
+                provider = new ResolvedCinematicViewportProvider(
+                    overlayRect,
+                    canvasRect,
+                    null,
+                    cameraPixelRectSizeProvider: () => Vector2.zero,
+                    screenSizeProvider: () => new Vector2(1920f, 1080f),
+                    displaySizeProvider: () => new Vector2(1600f, 900f));
+                Assert.That(provider.TryGetAspectRatio(out aspect), Is.True);
+                Assert.That(aspect, Is.EqualTo(1920f / 1080f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(canvas);
+                UnityEngine.Object.DestroyImmediate(overlay);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_AutoResolvedViewport_UsesSixteenByNineWhenAllSourcesAreInvalid()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var root = new GameObject(nameof(CinematicVideoOverlayView_AutoResolvedViewport_UsesSixteenByNineWhenAllSourcesAreInvalid), typeof(RectTransform));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(
+                    null,
+                    new ResolvedCinematicViewportProvider(
+                        rootRect,
+                        null,
+                        null,
+                        cameraPixelRectSizeProvider: () => Vector2.zero,
+                        screenSizeProvider: () => Vector2.zero,
+                        displaySizeProvider: () => Vector2.zero));
+
+                view.Play(clip, CreatePlaybackOptions(), _ => { });
+
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(16f / 9f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_SettingsSelectedAspect_IsOnlyUsedForExplicitMode()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var root = new GameObject(nameof(CinematicVideoOverlayView_SettingsSelectedAspect_IsOnlyUsedForExplicitMode), typeof(RectTransform));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                rootRect.sizeDelta = new Vector2(1920f, 1080f);
+                var selectedAspectProvider = new ManualSelectedAspectProvider(4f / 3f);
+                var viewportProvider = new ManualViewportProvider(new Vector2(1920f, 1080f));
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(null, viewportProvider, selectedAspectProvider);
+
+                view.Play(clip, CreatePlaybackOptions(), _ => { });
+
+                Assert.That(selectedAspectProvider.CallCount, Is.Zero);
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(16f / 9f).Within(0.0001f));
+
+                view.CompleteForTesting(CinematicPlaybackCompletionKind.Completed);
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(CinematicAspectSource.SettingsSelectedAspect),
+                    _ => { });
+
+                Assert.That(selectedAspectProvider.CallCount, Is.EqualTo(1));
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(4f / 3f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_InvalidSettingsSelectedAspect_FallsBackToAutoViewport()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var root = new GameObject(nameof(CinematicVideoOverlayView_InvalidSettingsSelectedAspect_FallsBackToAutoViewport), typeof(RectTransform));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                rootRect.sizeDelta = new Vector2(2560f, 1080f);
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(
+                    null,
+                    new ManualViewportProvider(new Vector2(2560f, 1080f)),
+                    new ManualSelectedAspectProvider(0f));
+
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(CinematicAspectSource.SettingsSelectedAspect),
+                    _ => { });
+
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(2560f / 1080f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_VideoClipAspect_UsesClipMetadataOnlyWhenExplicit()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var root = new GameObject(nameof(CinematicVideoOverlayView_VideoClipAspect_UsesClipMetadataOnlyWhenExplicit), typeof(RectTransform));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                rootRect.sizeDelta = new Vector2(1920f, 1080f);
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(
+                    null,
+                    new ManualViewportProvider(new Vector2(1920f, 1080f)));
+
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(CinematicAspectSource.VideoClipAspect, CinematicScaleMode.FitInsideViewport),
+                    _ => { });
+
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(1872f / 1080f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(CinematicScaleMode.StretchToViewport, false, AspectRatioFitter.AspectMode.None)]
+        [TestCase(CinematicScaleMode.CropToFillViewport, false, AspectRatioFitter.AspectMode.None)]
+        [TestCase(CinematicScaleMode.FitInsideViewport, false, AspectRatioFitter.AspectMode.None)]
+        public void CinematicVideoOverlayView_ScaleMode_ConfiguresContentLayout(
+            CinematicScaleMode scaleMode,
+            bool contentFitterEnabled,
+            AspectRatioFitter.AspectMode expectedAspectMode)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var root = new GameObject(nameof(CinematicVideoOverlayView_ScaleMode_ConfiguresContentLayout), typeof(RectTransform));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                rootRect.sizeDelta = new Vector2(1920f, 1080f);
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(
+                    null,
+                    new ManualViewportProvider(new Vector2(1920f, 1080f)));
+
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(CinematicAspectSource.AutoResolvedViewport, scaleMode),
+                    _ => { });
+
+                Assert.That(view.IsViewportAspectFitterEnabled, Is.False);
+                Assert.That(view.IsContentAspectFitterEnabled, Is.EqualTo(contentFitterEnabled));
+                Assert.That(view.ConfiguredScaleMode, Is.EqualTo(scaleMode));
+                if (contentFitterEnabled)
+                {
+                    Assert.That(view.ConfiguredContentAspectMode, Is.EqualTo(expectedAspectMode));
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase(1920f, 1080f, 0f, 0.0125f, 1f, 0.975f)]
+        [TestCase(2560f, 1080f, 0f, 0.134375f, 1f, 0.73125f)]
+        [TestCase(1920f, 1200f, 0.0384615f, 0f, 0.9230769f, 1f)]
+        [TestCase(1440f, 1080f, 0.1153846f, 0f, 0.7692308f, 1f)]
+        [TestCase(1280f, 1024f, 0.1394231f, 0f, 0.7211539f, 1f)]
+        public void CinematicVideoOverlayView_CropToFillViewport_CropsSourceUvInsideFullViewport(
+            float viewportWidth,
+            float viewportHeight,
+            float expectedUvX,
+            float expectedUvY,
+            float expectedUvWidth,
+            float expectedUvHeight)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var canvas = CreateCanvasRoot(viewportWidth, viewportHeight, out var root, nameof(CinematicVideoOverlayView_CropToFillViewport_CropsSourceUvInsideFullViewport));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(null, new ManualViewportProvider(new Vector2(viewportWidth, viewportHeight)));
+
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(CinematicAspectSource.AutoResolvedViewport, CinematicScaleMode.CropToFillViewport),
+                    _ => { });
+                RebuildCinematicLayout(rootRect);
+
+                var viewport = GetVideoViewport(root);
+                var image = GetVideoImage(root);
+
+                Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null);
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(viewportWidth / viewportHeight).Within(0.0001f));
+                Assert.That(view.ConfiguredContentAspectRatio, Is.EqualTo(1872f / 1080f).Within(0.0001f));
+                AssertVector2Within(viewport.rect.size, new Vector2(viewportWidth, viewportHeight), 0.01f);
+                AssertVector2Within(image.rectTransform.rect.size, new Vector2(viewportWidth, viewportHeight), 0.01f);
+                AssertRectWithin(image.uvRect, new Rect(expectedUvX, expectedUvY, expectedUvWidth, expectedUvHeight), 0.0001f);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_CropToFillViewport_UsesSourceAspectRenderTexture()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_CropToFillViewport_UsesSourceAspectRenderTexture));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(null, new ManualViewportProvider(new Vector2(1920f, 1080f)));
+
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(
+                        CinematicAspectSource.AutoResolvedViewport,
+                        CinematicScaleMode.CropToFillViewport,
+                        renderTextureWidth: 1920,
+                        renderTextureHeight: 1080),
+                    _ => { });
+
+                Assert.That(view.ConfiguredContentAspectRatio, Is.EqualTo(1872f / 1080f).Within(0.0001f));
+                Assert.That(view.ConfiguredRenderTextureWidth, Is.EqualTo(1872));
+                Assert.That(view.ConfiguredRenderTextureHeight, Is.EqualTo(1080));
+                Assert.That(view.ConfiguredRenderTextureAspectRatio, Is.EqualTo(view.ConfiguredContentAspectRatio).Within(0.0001f));
+                Assert.That(view.ConfiguredRenderTextureAspectRatio, Is.Not.EqualTo(1920f / 1080f).Within(0.0001f));
+                Assert.That(view.ConfiguredVideoPlayerAspectRatio, Is.EqualTo(VideoAspectRatio.FitInside));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_StretchToViewport_OnlyWhenExplicit_UsesFullViewportRect()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_StretchToViewport_OnlyWhenExplicit_UsesFullViewportRect));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(null, new ManualViewportProvider(new Vector2(1920f, 1080f)));
+
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(CinematicAspectSource.AutoResolvedViewport, CinematicScaleMode.StretchToViewport),
+                    _ => { });
+                RebuildCinematicLayout(rootRect);
+
+                var image = GetVideoImage(root);
+                Assert.That(view.ConfiguredScaleMode, Is.EqualTo(CinematicScaleMode.StretchToViewport));
+                Assert.That(view.IsContentAspectFitterEnabled, Is.False);
+                AssertVector2Within(image.rectTransform.rect.size, new Vector2(1920f, 1080f), 0.01f);
+                Assert.That(image.uvRect, Is.EqualTo(new Rect(0f, 0f, 1f, 1f)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_FitInsideViewport_ExplicitMode_AllowsPillarbox()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_FitInsideViewport_ExplicitMode_AllowsPillarbox));
+            try
+            {
+                var rootRect = (RectTransform)root.transform;
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(null, new ManualViewportProvider(new Vector2(1920f, 1080f)));
+
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(CinematicAspectSource.AutoResolvedViewport, CinematicScaleMode.FitInsideViewport),
+                    _ => { });
+                RebuildCinematicLayout(rootRect);
+                InvokeOverlayUpdate(view);
+                RebuildCinematicLayout(rootRect);
+
+                var image = GetVideoImage(root);
+                Assert.That(view.ConfiguredScaleMode, Is.EqualTo(CinematicScaleMode.FitInsideViewport));
+                AssertVector2Within(image.rectTransform.rect.size, new Vector2(1872f, 1080f), 0.05f);
+                Assert.That(image.rectTransform.rect.width, Is.LessThan(1920f));
+                Assert.That(image.rectTransform.rect.height, Is.EqualTo(1080f).Within(0.01f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(canvas);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_AutoResolvedViewport_RecomputesAfterViewportResize()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_AutoResolvedViewport_RecomputesAfterViewportResize));
+            try
+            {
+                var canvasRect = (RectTransform)canvas.transform;
+                var rootRect = (RectTransform)root.transform;
+                var viewportProvider = new MutableViewportProvider(new Vector2(1920f, 1080f));
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Initialize(null, viewportProvider);
+
+                view.Play(clip, CreatePlaybackOptions(), _ => { });
+                RebuildCinematicLayout(rootRect);
+
+                var image = GetVideoImage(root);
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(16f / 9f).Within(0.0001f));
+                AssertVector2Within(image.rectTransform.rect.size, new Vector2(1920f, 1080f), 0.01f);
+                AssertRectWithin(image.uvRect, new Rect(0f, 0.0125f, 1f, 0.975f), 0.0001f);
+
+                canvasRect.sizeDelta = new Vector2(1280f, 1024f);
+                viewportProvider.Size = new Vector2(1280f, 1024f);
+                InvokeOverlayUpdate(view);
+                RebuildCinematicLayout(rootRect);
+
+                image = GetVideoImage(root);
+                Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(1.25f).Within(0.0001f));
+                AssertVector2Within(GetVideoViewport(root).rect.size, new Vector2(1280f, 1024f), 0.01f);
+                AssertVector2Within(image.rectTransform.rect.size, new Vector2(1280f, 1024f), 0.01f);
+                AssertRectWithin(image.uvRect, new Rect(0.1394231f, 0f, 0.7211539f, 1f), 0.0001f);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(canvas);
             }
         }
 
@@ -277,6 +705,75 @@ namespace Game.Feature.UI.Tests
         {
             var absolutePath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
             return File.ReadAllText(absolutePath);
+        }
+
+        private static GameObject CreateCanvasRoot(float width, float height, out GameObject root, string rootName)
+        {
+            var canvas = new GameObject(rootName + "Canvas", typeof(RectTransform), typeof(Canvas));
+            ((RectTransform)canvas.transform).sizeDelta = new Vector2(width, height);
+            root = new GameObject(rootName, typeof(RectTransform));
+            root.transform.SetParent(canvas.transform, false);
+            return canvas;
+        }
+
+        private static RectTransform GetVideoViewport(GameObject root)
+        {
+            var viewport = root.transform.Find("Video") as RectTransform;
+            Assert.That(viewport, Is.Not.Null);
+            return viewport;
+        }
+
+        private static RawImage GetVideoImage(GameObject root)
+        {
+            var viewport = GetVideoViewport(root);
+            var image = viewport.GetComponentInChildren<RawImage>(includeInactive: true);
+            Assert.That(image, Is.Not.Null);
+            return image;
+        }
+
+        private static void RebuildCinematicLayout(RectTransform rootRect)
+        {
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rootRect);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(GetVideoViewport(rootRect.gameObject));
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static void InvokeOverlayUpdate(CinematicVideoOverlayView view)
+        {
+            typeof(CinematicVideoOverlayView)
+                .GetMethod("Update", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.Invoke(view, null);
+        }
+
+        private static void AssertVector2Within(Vector2 actual, Vector2 expected, float tolerance = 0.001f)
+        {
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(tolerance));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(tolerance));
+        }
+
+        private static void AssertRectWithin(Rect actual, Rect expected, float tolerance = 0.001f)
+        {
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(tolerance));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(tolerance));
+            Assert.That(actual.width, Is.EqualTo(expected.width).Within(tolerance));
+            Assert.That(actual.height, Is.EqualTo(expected.height).Within(tolerance));
+        }
+
+        private static SlotCinematicPlaybackOptions CreatePlaybackOptions(
+            CinematicAspectSource aspectSource = CinematicAspectSource.AutoResolvedViewport,
+            CinematicScaleMode scaleMode = CinematicScaleMode.CropToFillViewport,
+            float fixedAspectRatio = 16f / 9f,
+            int renderTextureWidth = 320,
+            int renderTextureHeight = 180)
+        {
+            return new SlotCinematicPlaybackOptions(
+                true,
+                aspectSource,
+                scaleMode,
+                fixedAspectRatio,
+                renderTextureWidth,
+                renderTextureHeight);
         }
 
         private readonly struct TestKeys
@@ -358,6 +855,81 @@ namespace Game.Feature.UI.Tests
                 _outroCompletion = null;
                 IsPlaying = false;
                 completion?.Invoke();
+            }
+        }
+
+        private sealed class ManualSelectedAspectProvider : ICinematicSelectedAspectProvider
+        {
+            private readonly float _aspectRatio;
+
+            public ManualSelectedAspectProvider(float aspectRatio)
+            {
+                _aspectRatio = aspectRatio;
+            }
+
+            public int CallCount { get; private set; }
+
+            public bool TryGetAspectRatio(out float aspectRatio)
+            {
+                CallCount++;
+                aspectRatio = _aspectRatio;
+                return _aspectRatio > 0f;
+            }
+        }
+
+        private sealed class ManualViewportProvider : IResolvedCinematicViewportProvider
+        {
+            private readonly Vector2 _size;
+
+            public ManualViewportProvider(Vector2 size)
+            {
+                _size = size;
+            }
+
+            public bool TryGetAspectRatio(out float aspectRatio)
+            {
+                if (TryGetViewportSize(out var size))
+                {
+                    aspectRatio = size.x / size.y;
+                    return true;
+                }
+
+                aspectRatio = 0f;
+                return false;
+            }
+
+            public bool TryGetViewportSize(out Vector2 size)
+            {
+                size = _size;
+                return _size.x > 0f && _size.y > 0f;
+            }
+        }
+
+        private sealed class MutableViewportProvider : IResolvedCinematicViewportProvider
+        {
+            public MutableViewportProvider(Vector2 size)
+            {
+                Size = size;
+            }
+
+            public Vector2 Size { get; set; }
+
+            public bool TryGetAspectRatio(out float aspectRatio)
+            {
+                if (TryGetViewportSize(out var size))
+                {
+                    aspectRatio = size.x / size.y;
+                    return true;
+                }
+
+                aspectRatio = 0f;
+                return false;
+            }
+
+            public bool TryGetViewportSize(out Vector2 size)
+            {
+                size = Size;
+                return Size.x > 0f && Size.y > 0f;
             }
         }
 

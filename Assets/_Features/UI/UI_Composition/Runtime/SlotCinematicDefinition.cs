@@ -9,9 +9,19 @@ namespace Game.Feature.UI.Composition
         Outro = 1,
     }
 
-    public enum SlotCinematicAspectPolicy
+    public enum CinematicAspectSource
     {
-        FitInside = 0,
+        AutoResolvedViewport = 0,
+        SettingsSelectedAspect = 1,
+        FixedAspect = 2,
+        VideoClipAspect = 3,
+    }
+
+    public enum CinematicScaleMode
+    {
+        CropToFillViewport = 0,
+        StretchToViewport = 1,
+        FitInsideViewport = 2,
     }
 
     [CreateAssetMenu(
@@ -22,7 +32,9 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private VideoClip _introClip;
         [SerializeField] private VideoClip _outroClip;
         [SerializeField] private bool _skipEnabled = true;
-        [SerializeField] private SlotCinematicAspectPolicy _aspectPolicy = SlotCinematicAspectPolicy.FitInside;
+        [SerializeField] private CinematicAspectSource _aspectSource = CinematicAspectSource.AutoResolvedViewport;
+        [SerializeField] private CinematicScaleMode _scaleMode = CinematicScaleMode.CropToFillViewport;
+        [SerializeField] [Min(0.01f)] private float _fixedAspectRatio = 16f / 9f;
         [SerializeField] [Min(16)] private int _renderTextureWidth = 1920;
         [SerializeField] [Min(16)] private int _renderTextureHeight = 1080;
 
@@ -32,7 +44,11 @@ namespace Game.Feature.UI.Composition
 
         public bool SkipEnabled => _skipEnabled;
 
-        public SlotCinematicAspectPolicy AspectPolicy => _aspectPolicy;
+        public CinematicAspectSource AspectSource => _aspectSource;
+
+        public CinematicScaleMode ScaleMode => _scaleMode;
+
+        public float FixedAspectRatio => _fixedAspectRatio > 0f ? _fixedAspectRatio : 16f / 9f;
 
         public int RenderTextureWidth => Mathf.Max(16, _renderTextureWidth);
 
@@ -47,7 +63,9 @@ namespace Game.Feature.UI.Composition
         {
             return new SlotCinematicPlaybackOptions(
                 _skipEnabled,
-                _aspectPolicy,
+                _aspectSource,
+                _scaleMode,
+                FixedAspectRatio,
                 RenderTextureWidth,
                 RenderTextureHeight);
         }

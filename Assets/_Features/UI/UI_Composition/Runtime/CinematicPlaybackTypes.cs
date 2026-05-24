@@ -24,19 +24,27 @@ namespace Game.Feature.UI.Composition
     {
         public SlotCinematicPlaybackOptions(
             bool skipEnabled,
-            SlotCinematicAspectPolicy aspectPolicy,
+            CinematicAspectSource aspectSource,
+            CinematicScaleMode scaleMode,
+            float fixedAspectRatio,
             int renderTextureWidth,
             int renderTextureHeight)
         {
             SkipEnabled = skipEnabled;
-            AspectPolicy = aspectPolicy;
+            AspectSource = aspectSource;
+            ScaleMode = scaleMode;
+            FixedAspectRatio = fixedAspectRatio > 0f ? fixedAspectRatio : 16f / 9f;
             RenderTextureWidth = renderTextureWidth > 0 ? renderTextureWidth : 1920;
             RenderTextureHeight = renderTextureHeight > 0 ? renderTextureHeight : 1080;
         }
 
         public bool SkipEnabled { get; }
 
-        public SlotCinematicAspectPolicy AspectPolicy { get; }
+        public CinematicAspectSource AspectSource { get; }
+
+        public CinematicScaleMode ScaleMode { get; }
+
+        public float FixedAspectRatio { get; }
 
         public int RenderTextureWidth { get; }
 
