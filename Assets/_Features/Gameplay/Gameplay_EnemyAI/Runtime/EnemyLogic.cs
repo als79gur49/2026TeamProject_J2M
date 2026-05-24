@@ -361,14 +361,6 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot.TryGetEnemyGlideState(_entityId, out var movementGlideState) &&
                 movementGlideState.Phase == EnemyGlidePhase.LandingPending)
             {
-                if (TryResolveLandingPendingEgressLocomotion(snapshot, source, out var egressLocomotion))
-                {
-                    buffer.Add(ApplyMovementTiming(
-                        egressLocomotion.Intent,
-                        egressLocomotion.CooldownTicks,
-                        egressLocomotion.OrdinaryKinematicMoveTicks));
-                }
-
                 return;
             }
 

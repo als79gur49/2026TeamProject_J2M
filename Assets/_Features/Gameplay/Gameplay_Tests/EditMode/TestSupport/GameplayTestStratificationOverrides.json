@@ -2961,13 +2961,23 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.GlideActiveKinematic_ActiveOriginCommit_WhenLandingPendingCellDiffersFromWall_DoesNotMaterializeIllegalMoveEntity",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.Glide_Target_PendingDoesNotCreateMoveEntity",
       "category": "Core",
       "contracts": [
         "enemy_kinematic_locomotion",
         "world_state_placement_invariant"
       ],
-      "reason": "Locked Core regression coverage that a LandingPending glide active-origin anchor commit cannot materialize an illegal MoveEntity onto a mismatched solid wall cell.",
+      "reason": "Locked Core regression coverage that LandingPending glide active-origin carry-over cannot materialize MoveEntity and closes as non-movement authority.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.Stage31_Target_NoStaleActiveCommitToFloor37Wall",
+      "category": "Core",
+      "contracts": [
+        "enemy_kinematic_locomotion",
+        "stage_runtime_builder"
+      ],
+      "reason": "Locked Core regression coverage that the stage-3-1 glider 241 cannot materialize a stale active-origin MoveEntity onto wall 238 at Floor(3,7).",
       "locked": true
     },
     {

@@ -1311,7 +1311,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideLandingPending_TargetLost_EgressesUsingLockedStep()
+        public void GlideLandingPending_TargetLost_DoesNotCreateEgressMoveEntity()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
@@ -1342,9 +1342,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var tick = pipeline.RunTick(new TickInput(4));
 
-                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(tick, 40), Is.True);
+                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(tick, 40), Is.False);
+                Assert.That(HasMoveEntity(tick, 40, new SurfaceCell(FaceId.Floor, 2, 0)), Is.False);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+                Assert.That(enemy.position, Is.EqualTo(wallCell));
             }
             finally
             {
@@ -1354,7 +1355,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideLandingPendingEgress_AllowsUnitStackDestination_WhenOrdinaryUnitAllows()
+        public void GlideLandingPendingEgress_DoesNotMaterializeMoveEntity_WhenOrdinaryUnitAllows()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
@@ -1408,15 +1409,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tick.MovementPhaseResult.RawIntents.Any(intent =>
                         intent.SourceId == 40 &&
                         intent.Destination == egressCell.PlanarPosition),
-                    Is.True);
-                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(tick, 40), Is.True);
+                    Is.False);
+                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(tick, 40), Is.False);
+                Assert.That(HasMoveEntity(tick, 40, egressCell), Is.False);
 
                 var updatedSnapshot = worldState.CreateSnapshot();
                 Assert.That(updatedSnapshot.TryGetEntity(40, out var glider), Is.True);
-                Assert.That(glider.position, Is.EqualTo(egressCell));
+                Assert.That(glider.position, Is.EqualTo(wallCell));
                 var occupants = new List<EntityState>();
                 updatedSnapshot.EnumerateUnitsAt(egressCell, occupants);
-                CollectionAssert.AreEqual(new[] { 40, 41 }, occupants.Select(unit => unit.entityId).ToArray());
+                CollectionAssert.AreEqual(new[] { 41 }, occupants.Select(unit => unit.entityId).ToArray());
             }
             finally
             {
@@ -1651,8 +1653,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var intents = new List<RawMovementIntent>();
                 logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
 
-                Assert.That(intents.Any(intent => intent.Destination == nextWallCell.PlanarPosition), Is.False);
-                Assert.That(intents.Single(intent => intent.SourceId == 40).Destination, Is.EqualTo(legalCell.PlanarPosition));
+                Assert.That(intents, Is.Empty);
             }
             finally
             {
@@ -1696,8 +1697,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var intents = new List<RawMovementIntent>();
                 logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(4), intents);
 
-                Assert.That(intents.Any(intent => intent.Destination == nextWallCell.PlanarPosition), Is.False);
-                Assert.That(intents.Single(intent => intent.SourceId == 40).Destination, Is.EqualTo(legalCell.PlanarPosition));
+                Assert.That(intents, Is.Empty);
             }
             finally
             {
@@ -1817,7 +1817,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(
                     tick.MovementPhaseResult.RawIntents.Count(intent => intent.Destination == destination.PlanarPosition),
-                    Is.EqualTo(2));
+                    Is.EqualTo(0));
                 var reservationBook = new MovementReservationBook();
                 reservationBook.ReserveJumpLanding(
                     entityId: 99,
@@ -2126,7 +2126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_LandingPendingWhenEndsOnSolid()
+        public void GlideActive_Kinematic_LandingPendingDoesNotCreateEgressMoveEntity()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 3, recoveryTicks: 1, cooldownTicks: 0));
@@ -2166,20 +2166,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(pending.LandingPendingCell, Is.EqualTo(wallCell));
                 LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeEndTick, 40);
 
-                var egressTick = HasGlideLandingPendingKinematicAnchorCommit(activeEndTick, 40)
-                    ? activeEndTick
-                    : pipeline.RunTick(new TickInput(4));
-                Assert.That(egressTick.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.True);
-                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(egressTick, 40), Is.True);
+                var egressTick = pipeline.RunTick(new TickInput(4));
+                Assert.That(egressTick.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == 40), Is.False);
+                Assert.That(HasGlideLandingPendingKinematicAnchorCommit(egressTick, 40), Is.False);
+                Assert.That(HasMoveEntity(egressTick, 40, new SurfaceCell(FaceId.Floor, 2, 0)), Is.False);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+                Assert.That(enemy.position, Is.EqualTo(wallCell));
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var stillPending), Is.True);
                 Assert.That(stillPending.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
-
-                pipeline.RunTick(new TickInput(5));
-                pipeline.RunTick(new TickInput(6));
-                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var recovery), Is.True);
-                Assert.That(recovery.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
             }
             finally
             {
@@ -2190,7 +2184,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void GlideActiveKinematic_ActiveOriginCommit_WhenLandingPendingCellMatchesWall_AllowsAnchorCommit()
+        public void Glide_Target_NoStaleActiveCommitToMatchingLandingPendingWall()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 2, recoveryTicks: 2, cooldownTicks: 0));
@@ -2244,11 +2238,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }
                 }
 
-                Assert.That(wallCommitTick, Is.Not.Null);
+                Assert.That(wallCommitTick, Is.Null);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(wallCell));
+                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out pending), Is.True);
-                Assert.That(pending.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
+                Assert.That(pending.Phase, Is.Not.EqualTo(EnemyGlidePhase.LandingPending));
 
                 TickResult egressCommitTick = null;
                 for (var tickIndex = 7; tickIndex <= 12; tickIndex++)
@@ -2260,11 +2254,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }
                 }
 
-                Assert.That(egressCommitTick, Is.Not.Null);
+                Assert.That(egressCommitTick, Is.Null);
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out pending), Is.True);
-                Assert.That(pending.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
+                Assert.That(pending.Phase, Is.Not.EqualTo(EnemyGlidePhase.LandingPending));
             }
             finally
             {
@@ -2275,11 +2269,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void GlideActiveKinematic_ActiveOriginCommit_WhenLandingPendingCellDiffersFromWall_DoesNotMaterializeIllegalMoveEntity()
+        public void Glide_Target_PendingDoesNotCreateMoveEntity()
         {
             var firstRun = RunLandingPendingActiveOriginIllegalWallCommitScenario();
             var secondRun = RunLandingPendingActiveOriginIllegalWallCommitScenario();
             var wallCell = new SurfaceCell(FaceId.Floor, 3, 7);
+            var origin = new SurfaceCell(FaceId.Floor, 2, 7);
 
             Assert.That(
                 firstRun.Tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
@@ -2288,11 +2283,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     operation.Destination == wallCell),
                 Is.False);
             Assert.That(HasGlideActiveKinematicAnchorCommit(firstRun.Tick, 241), Is.False);
-            Assert.That(
-                firstRun.Tick.MovementPhaseResult.RejectedReasons,
-                Has.Some.Contains("Reason=GlideLandingPendingAnchorNotRepresentable"));
+            Assert.That(HasGlideBoundaryKinematicClose(firstRun.Tick, 241), Is.True);
             Assert.That(firstRun.WorldState.CreateSnapshot().TryGetEntity(241, out var enemy), Is.True);
-            Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 7)));
+            Assert.That(enemy.position, Is.EqualTo(origin));
             Assert.That(
                 firstRun.WorldState.CreateSnapshot().TryGetSolidOccupantAt(wallCell, out var solid),
                 Is.True);
@@ -2304,13 +2297,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        [Category("GlideKinematicV11")]
+        public void Stage31_Target_NoStaleActiveCommitToFloor37Wall()
+        {
+            var result = RunLandingPendingActiveOriginIllegalWallCommitScenario();
+            var floor37Wall = new SurfaceCell(FaceId.Floor, 3, 7);
+
+            Assert.That(HasGlideActiveKinematicAnchorCommit(result.Tick, 241), Is.False);
+            Assert.That(HasMoveEntity(result.Tick, 241, floor37Wall), Is.False);
+            Assert.That(HasGlideBoundaryKinematicClose(result.Tick, 241), Is.True);
+            Assert.That(result.WorldState.CreateSnapshot().TryGetEntity(241, out var glider), Is.True);
+            Assert.That(glider.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 7)));
+            Assert.That(result.WorldState.CreateSnapshot().TryGetSolidOccupantAt(floor37Wall, out var wall), Is.True);
+            Assert.That(wall.entityId, Is.EqualTo(238));
+        }
+
+        [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void GlideLandingPendingAnchorGuard_MatchesWorldPlacementPolicy_ForPendingRepresentableCells()
+        public void Glide_CurrentContract_LandingPendingPolicyAllowsRepresentableCells()
         {
             var origin = new SurfaceCell(FaceId.Floor, 2, 7);
             var anchorCell = new SurfaceCell(FaceId.Floor, 3, 7);
 
+            // B-style removes TickPipeline LandingPending movement authority; this remains policy inventory only.
             AssertLandingPendingMoveEntityToSolid(
                 origin,
                 anchorCell,
@@ -2319,23 +2330,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lockedStepX: 1,
                 lockedStepY: 0,
                 shouldAllow: true);
-
-            var tick = RunLandingPendingActiveOriginAnchorCommitScenario(
-                origin,
-                anchorCell,
-                landingPendingCell: anchorCell,
-                hasLockedStep: true,
-                lockedStepX: 1,
-                lockedStepY: 0,
-                includeSolidAtAnchor: true).Tick;
-
-            AssertAnchorGuardOutcome(tick, 241, anchorCell, shouldAllow: true);
         }
 
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void GlideLandingPendingAnchorGuard_BlocksSameCellsWorldStateWouldReject()
+        public void Glide_Target_LandingPendingPolicyRejectedCellsDoNotCreateMoveEntity()
         {
             var origin = new SurfaceCell(FaceId.Floor, 2, 7);
             var anchorCell = new SurfaceCell(FaceId.Floor, 3, 7);
@@ -2396,7 +2396,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     testCase.LockedStepY,
                     includeSolidAtAnchor: true).Tick;
 
-                AssertAnchorGuardOutcome(tick, 241, testCase.AnchorCell, shouldAllow: false, testCase.Name);
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 241), Is.False, testCase.Name);
+                Assert.That(HasMoveEntity(tick, 241, testCase.AnchorCell), Is.False, testCase.Name);
+                Assert.That(HasGlideBoundaryKinematicClose(tick, 241), Is.True, testCase.Name);
             }
         }
 
@@ -2505,33 +2507,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void Glide_CurrentContract_ActiveOriginSurvivesStateBoundary()
+        public void Glide_Target_NoStaleActiveOriginCommitAfterBoundary()
         {
-            var tick = RunLandingPendingActiveOriginAnchorCommitScenario(
+            var result = RunLandingPendingActiveOriginAnchorCommitScenario(
                 new SurfaceCell(FaceId.Floor, 2, 7),
                 new SurfaceCell(FaceId.Floor, 3, 7),
                 new SurfaceCell(FaceId.Floor, 3, 7),
                 hasLockedStep: true,
                 lockedStepX: 1,
                 lockedStepY: 0,
-                includeSolidAtAnchor: true).Tick;
+                includeSolidAtAnchor: true);
 
-            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 241), Is.True);
+            Assert.That(HasGlideActiveKinematicAnchorCommit(result.Tick, 241), Is.False);
+            Assert.That(HasMoveEntity(result.Tick, 241, new SurfaceCell(FaceId.Floor, 3, 7)), Is.False);
+            Assert.That(HasGlideBoundaryKinematicClose(result.Tick, 241), Is.True);
+            Assert.That(result.WorldState.CreateSnapshot().TryGetEntity(241, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 7)));
         }
 
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void Glide_CurrentContract_AnchorCommitMaterializesMoveEntity()
+        public void Glide_Target_ActiveStillCanUseExistingMovementContract()
         {
             var anchorCell = new SurfaceCell(FaceId.Floor, 3, 7);
-            var tick = RunLandingPendingActiveOriginAnchorCommitScenario(
+            var tick = RunActiveAnchorCommitScenario(
                 new SurfaceCell(FaceId.Floor, 2, 7),
                 anchorCell,
-                anchorCell,
-                hasLockedStep: true,
-                lockedStepX: 1,
-                lockedStepY: 0,
                 includeSolidAtAnchor: true).Tick;
 
             Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 241), Is.True);
@@ -2582,7 +2584,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void GlideActiveKinematic_LandingPendingActiveOriginCommit_ToNonSolidCell_DoesNotTriggerAnchorGuard()
+        public void Glide_Target_LandingPendingActiveOriginCommit_ToNonSolidCell_DoesNotCreateMoveEntity()
         {
             var origin = new SurfaceCell(FaceId.Floor, 2, 7);
             var anchorCell = new SurfaceCell(FaceId.Floor, 3, 7);
@@ -2605,13 +2607,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lockedStepY: 1,
                 includeSolidAtAnchor: false);
 
-            Assert.That(
-                firstRun.Tick.MovementPhaseResult.RejectedReasons,
-                Has.None.Contains("Reason=GlideLandingPendingAnchorNotRepresentable"));
-            Assert.That(HasGlideActiveKinematicAnchorCommit(firstRun.Tick, 241), Is.True);
-            Assert.That(HasMoveEntity(firstRun.Tick, 241, anchorCell), Is.True);
+            Assert.That(HasGlideActiveKinematicAnchorCommit(firstRun.Tick, 241), Is.False);
+            Assert.That(HasMoveEntity(firstRun.Tick, 241, anchorCell), Is.False);
+            Assert.That(HasGlideBoundaryKinematicClose(firstRun.Tick, 241), Is.True);
             Assert.That(firstRun.WorldState.CreateSnapshot().TryGetEntity(241, out var enemy), Is.True);
-            Assert.That(enemy.position, Is.EqualTo(anchorCell));
+            Assert.That(enemy.position, Is.EqualTo(origin));
             Assert.That(
                 firstRun.Tick.MovementPhaseResult.RejectedReasons.ToArray(),
                 Is.EqualTo(secondRun.Tick.MovementPhaseResult.RejectedReasons.ToArray()));
@@ -2673,14 +2673,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     testCase.LockedStepY,
                     includeSolidAtAnchor: true).Tick;
 
-                AssertAnchorGuardOutcome(tick, 241, testCase.AnchorCell, testCase.ShouldAllow, testCase.Name);
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 241), Is.False, testCase.Name);
+                Assert.That(HasMoveEntity(tick, 241, testCase.AnchorCell), Is.False, testCase.Name);
+                Assert.That(HasGlideBoundaryKinematicClose(tick, 241), Is.True, testCase.Name);
             }
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void GlideLandingPendingAnchorNotRepresentable_RejectedReasonSequenceIsStable()
+        public void Glide_Target_DeterminismStable_AfterPendingNoMoveEntity()
         {
             var firstRun = RunLandingPendingActiveOriginIllegalWallCommitScenario();
             var secondRun = RunLandingPendingActiveOriginIllegalWallCommitScenario();
@@ -2688,26 +2690,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var secondReasons = secondRun.Tick.MovementPhaseResult.RejectedReasons.ToArray();
 
             Assert.That(firstReasons, Is.EqualTo(secondReasons));
-            Assert.That(firstReasons, Has.Some.Contains("Source=241"));
-            Assert.That(firstReasons, Has.Some.Contains("Reason=GlideLandingPendingAnchorNotRepresentable"));
-            Assert.That(firstReasons, Has.Some.Contains("To=(3,7)"));
-            Assert.That(firstReasons, Has.Some.Contains("PendingCell=(2,8)"));
+            Assert.That(firstReasons, Is.EqualTo(new[]
+            {
+                "MovementNoOp|Stage=Plan|Source=241|Reason=EnemyGlideBoundaryKinematicClosed|Phase=LandingPending|Anchor=(2,7)",
+            }));
             Assert.That(HasMoveEntity(firstRun.Tick, 241, new SurfaceCell(FaceId.Floor, 3, 7)), Is.False);
+            Assert.That(firstRun.WorldState.CreateSnapshot().TryGetEntity(241, out var firstEnemy), Is.True);
+            Assert.That(secondRun.WorldState.CreateSnapshot().TryGetEntity(241, out var secondEnemy), Is.True);
+            Assert.That(firstEnemy.position, Is.EqualTo(secondEnemy.position));
             Assert.That(firstRun.Tick.DeterminismHash, Is.EqualTo(secondRun.Tick.DeterminismHash));
         }
 
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_ActiveEndsWhileNonSettled_CompletesSegmentWithoutSnap()
+        public void Glide_Target_Recovery_NoActiveOriginCommit()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 2, recoveryTicks: 2, cooldownTicks: 10));
+            var origin = new SurfaceCell(FaceId.Floor, 0, 0);
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
-                CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+                CreateUnit(40, teamId: 2, origin, EnemyAiMode.Chase),
             });
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -2732,33 +2738,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var activeEndTick = pipeline.RunTick(new TickInput(2));
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var recovery), Is.True);
                 Assert.That(recovery.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
-                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out var continuing), Is.True);
-                Assert.That(continuing.mode, Is.EqualTo(MotionMode.Voluntary));
-                Assert.That(continuing.elapsedTicks, Is.EqualTo(2));
-                Assert.That(activeEndTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
+                Assert.That(HasGlideActiveKinematicAnchorCommit(activeEndTick, 40), Is.False);
+                Assert.That(HasMoveEntity(activeEndTick, 40, destination), Is.False);
+                Assert.That(HasGlideBoundaryKinematicClose(activeEndTick, 40), Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out _), Is.False);
                 LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeEndTick, 40);
-
-                TickResult settleTick = null;
-                for (var tickIndex = 3; tickIndex <= 6; tickIndex++)
-                {
-                    settleTick = pipeline.RunTick(new TickInput(tickIndex));
-                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(settleTick, 40);
-                }
 
                 var snapshot = worldState.CreateSnapshot();
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(destination));
-                Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
-                Assert.That(
-                    settleTick.PresentationData.KinematicMotionTracks.Any(track =>
-                        track.EntityId == 40 &&
-                        track.MotionMode == MotionMode.Settled),
-                    Is.True);
+                Assert.That(enemy.position, Is.EqualTo(origin));
             }
             finally
             {
                 EnemyAiProfileTestFactory.Destroy(profile);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        [Category("GlideKinematicV11")]
+        public void Glide_Target_Cooldown_NoActiveOriginCommit()
+        {
+            var origin = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(40, teamId: 2, origin, EnemyAiMode.Chase),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                40,
+                CreateGlideState(
+                    EnemyGlidePhase.Cooldown,
+                    activeUntilTickExclusive: 2,
+                    cooldownUntilTickExclusive: 10,
+                    durationTicks: 2,
+                    recoveryTicks: 0,
+                    cooldownTicks: 8,
+                    lastExitedTick: 2));
+            writeContext.SetUnitKinematicState(
+                40,
+                CreateVoluntaryStepState(
+                    origin,
+                    elapsedTicks: 2,
+                    totalTicks: 6,
+                    startedTick: 1,
+                    stepDirectionX: 1,
+                    stepDirectionY: 0));
+
+            var tick = CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(worldState)
+                .RunTick(new TickInput(3));
+
+            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
+            Assert.That(HasMoveEntity(tick, 40, destination), Is.False);
+            Assert.That(HasGlideBoundaryKinematicClose(tick, 40), Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(origin));
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out _), Is.False);
         }
 
         [Test]
@@ -2972,6 +3008,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 includeSolidAtAnchor: true);
         }
 
+        private static (TickResult Tick, WorldState WorldState) RunActiveAnchorCommitScenario(
+            SurfaceCell origin,
+            SurfaceCell anchorCell,
+            bool includeSolidAtAnchor)
+        {
+            var entities = includeSolidAtAnchor
+                ? new[]
+                {
+                    CreateWall(238, anchorCell),
+                    CreateUnit(241, teamId: 2, origin, EnemyAiMode.Chase),
+                }
+                : new[]
+                {
+                    CreateUnit(241, teamId: 2, origin, EnemyAiMode.Chase),
+                };
+            var worldState = CreateWorldState(
+                entities,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 8)),
+                GameplayTerrainData.Empty);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                241,
+                CreateGlideState(
+                    EnemyGlidePhase.Active,
+                    activeUntilTickExclusive: 10,
+                    durationTicks: 10,
+                    recoveryTicks: 2,
+                    cooldownTicks: 0,
+                    hasLockedStep: true,
+                    lockedStepX: anchorCell.x - origin.x,
+                    lockedStepY: anchorCell.y - origin.y));
+            writeContext.SetUnitKinematicState(
+                241,
+                CreateVoluntaryStepState(
+                    origin,
+                    elapsedTicks: 2,
+                    totalTicks: 6,
+                    startedTick: 1,
+                    stepDirectionX: anchorCell.x - origin.x,
+                    stepDirectionY: anchorCell.y - origin.y));
+
+            var pipeline = CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(worldState);
+            TickResult tick = null;
+            Assert.DoesNotThrow(() => tick = pipeline.RunTick(new TickInput(3)));
+            return (tick, worldState);
+        }
+
         private static (TickResult Tick, WorldState WorldState) RunLandingPendingActiveOriginAnchorCommitScenario(
             SurfaceCell origin,
             SurfaceCell anchorCell,
@@ -3072,32 +3155,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(enemy.position, Is.EqualTo(origin), caseName);
         }
 
-        private static void AssertAnchorGuardOutcome(
-            TickResult tick,
-            int entityId,
-            SurfaceCell anchorCell,
-            bool shouldAllow,
-            string caseName = null)
-        {
-            if (shouldAllow)
-            {
-                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, entityId), Is.True, caseName);
-                Assert.That(HasMoveEntity(tick, entityId, anchorCell), Is.True, caseName);
-                Assert.That(
-                    tick.MovementPhaseResult.RejectedReasons,
-                    Has.None.Contains("Reason=GlideLandingPendingAnchorNotRepresentable"),
-                    caseName);
-                return;
-            }
-
-            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, entityId), Is.False, caseName);
-            Assert.That(HasMoveEntity(tick, entityId, anchorCell), Is.False, caseName);
-            Assert.That(
-                tick.MovementPhaseResult.RejectedReasons,
-                Has.Some.Contains("Reason=GlideLandingPendingAnchorNotRepresentable"),
-                caseName);
-        }
-
         private static bool HasMoveEntity(TickResult tick, int entityId, SurfaceCell destination)
         {
             return tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
@@ -3180,6 +3237,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 operation.EntityId == entityId &&
                 operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit &&
                 operation.Metadata.BoundaryReason == "GlideLandingPendingKinematicAnchorCommit");
+        }
+
+        private static bool HasGlideBoundaryKinematicClose(TickResult tick, int entityId)
+        {
+            return tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.SetUnitKinematicState &&
+                operation.EntityId == entityId &&
+                operation.UnitKinematicState.IsSettledZero &&
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit &&
+                operation.Metadata.BoundaryReason == "EnemyGlideBoundaryKinematicClosed");
         }
 
         private static UnitKinematicRuntimeState CreateVoluntaryStepState(
