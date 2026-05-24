@@ -136,6 +136,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         handle.CueId,
                         handle.TopologyStopMode))
                 {
+                    if (handle != null &&
+                        !handle.IsTerminal &&
+                        GameplayVfxTopologyHelperExemptionPolicy.AllowsPresentationSuspendPreserve(
+                            handle.CueId,
+                            handle.TopologyStopMode))
+                    {
+                        handle.SuspendPresentation();
+                    }
+
                     continue;
                 }
 

@@ -429,7 +429,6 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _lastPresentedResult = result;
-            PresentExtensions(result);
             TraceStep("RefreshUtilityWindupWarnings");
             _utilityWindupVfxPresenter.RefreshSummonWarnings(
                 Array.Empty<TickSummonWindupWarningSignal>(),
@@ -474,6 +473,7 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     actionKind,
                     _timingProfile));
+            PresentExtensions(result);
             TraceStep("PlayPlannedAudio");
             _arbitratingGameplayAudioPlaybackPort?.BeginBatch(
                 result.TickIndex,

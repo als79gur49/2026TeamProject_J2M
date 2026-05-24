@@ -59,6 +59,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             State == VfxLifetimeState.ReleasedToPool ||
             State == VfxLifetimeState.HardCleanup;
 
+        public bool IsPresentationSuspended => State == VfxLifetimeState.PresentationSuspended;
+
         public void MarkSpawned()
         {
             if (!IsTerminal)
@@ -143,6 +145,32 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             Instance?.Reanchor(anchor);
+        }
+
+        public void SuspendPresentation()
+        {
+            if (IsTerminal ||
+                State == VfxLifetimeState.StopEmitting ||
+                State == VfxLifetimeState.Detached ||
+                State == VfxLifetimeState.TailPlaying)
+            {
+                return;
+            }
+
+            Instance?.SuspendPresentation();
+            State = VfxLifetimeState.PresentationSuspended;
+        }
+
+        public void ResumePresentation()
+        {
+            if (IsTerminal ||
+                State != VfxLifetimeState.PresentationSuspended)
+            {
+                return;
+            }
+
+            Instance?.ResumePresentation();
+            State = VfxLifetimeState.Active;
         }
 
         internal void MarkTailPlaying(float nowSeconds)

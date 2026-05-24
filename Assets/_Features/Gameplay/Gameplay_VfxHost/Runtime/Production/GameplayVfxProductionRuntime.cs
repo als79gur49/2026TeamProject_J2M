@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx.Authoring;
@@ -705,7 +706,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ConfigureEnemyPresentationProfiles(
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
-            var visibilityContext = BuildVisibilityContext(context.StateStore);
+            var visibilityContext = BuildVisibilityContext(
+                context.StateStore,
+                context.Result?.PresentationData,
+                context.Topology);
             enemyMotionAttachedFollowerPlanner.Build(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
@@ -840,7 +844,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            var visibilityContext = BuildVisibilityContext(context.StateStore);
+            var visibilityContext = BuildVisibilityContext(
+                context.StateStore,
+                context.Result?.PresentationData,
+                context.Topology);
             planBuilder.Clear();
             var planningContext = new GameplayVfxPlanningContext(
                 context.Result.TickIndex,
@@ -1107,7 +1114,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ResetRuntimeComposition();
         }
 
-        private GameplayVfxVisibilityContext BuildVisibilityContext(GameplayPresentationStateStore stateStore)
+        private GameplayVfxVisibilityContext BuildVisibilityContext(
+            GameplayPresentationStateStore stateStore,
+            TickPresentationData presentationData = null,
+            CubeTopologyState topology = default)
         {
             visibilityEntityStates.Clear();
             if (stateStore == null)
@@ -1131,7 +1141,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     hasSemanticState: hasSemanticState,
                     isFrontFaceInactive: hasSemanticState &&
                                          semanticState.ActivityState == EnemyVisualActivityState.FrontFaceInactive,
-                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed);
+                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed,
+                    isJumpTopologySuspended: IsJumpTopologySuspendedOwner(entityId, presentationData, topology));
             }
 
             foreach (var pair in stateStore.EnemyVisualSemanticStatesByEntityId)
@@ -1148,10 +1159,37 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     isViewActiveInHierarchy: false,
                     hasSemanticState: true,
                     isFrontFaceInactive: pair.Value.ActivityState == EnemyVisualActivityState.FrontFaceInactive,
-                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed);
+                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed,
+                    isJumpTopologySuspended: IsJumpTopologySuspendedOwner(entityId, presentationData, topology));
             }
 
             return new GameplayVfxVisibilityContext(visibilityEntityStates);
+        }
+
+        private static bool IsJumpTopologySuspendedOwner(
+            int entityId,
+            TickPresentationData presentationData,
+            CubeTopologyState topology)
+        {
+            if (entityId <= 0 || presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.EnemyJumpSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId != entityId ||
+                    signal.Phase != EnemyJumpPhase.Airborne)
+                {
+                    continue;
+                }
+
+                return signal.SourceCell.face != topology.BottomFace;
+            }
+
+            return false;
         }
 
         private static GameplayVfxTopologyTransitionContext BuildTopologyTransitionContext(
@@ -1318,7 +1356,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         request,
                         GameplayVfxVisibilityMode.DefaultGameplay,
                         visibilityContext);
-                if (decision.IsVisible)
+                if (decision.IsVisible ||
+                    ShouldForwardVisibilityBlockedRequestToController(request, decision.BlockReason))
                 {
                     filteredRequests.Add(request);
                 }
@@ -1327,6 +1366,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return filteredRequests.Count == 0
                 ? GameplayVfxRequestPlan.Empty
                 : new GameplayVfxRequestPlan(filteredRequests);
+        }
+
+        private static bool ShouldForwardVisibilityBlockedRequestToController(
+            in GameplayVfxRequest request,
+            GameplayVfxVisibilityBlockReason blockReason)
+        {
+            return request.IsPersistent &&
+                   request.CueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) &&
+                   (blockReason == GameplayVfxVisibilityBlockReason.JumpTopologySuspended ||
+                    blockReason == GameplayVfxVisibilityBlockReason.InactiveFace ||
+                    blockReason == GameplayVfxVisibilityBlockReason.FrontFaceInactive ||
+                    blockReason == GameplayVfxVisibilityBlockReason.EntityViewInactive ||
+                    blockReason == GameplayVfxVisibilityBlockReason.MissingSemanticState);
         }
 
         private bool IsCueEnabled(GameplayVfxCueId cueId)

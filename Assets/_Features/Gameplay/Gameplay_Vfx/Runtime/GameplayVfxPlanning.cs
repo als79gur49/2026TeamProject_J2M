@@ -691,7 +691,8 @@ namespace Game.Feature.Gameplay.Vfx
                                 entityId: signal.EntityId,
                                 cell: signal.PresentationTargetCell,
                                 hasCell: true,
-                                activationSequence: signal.Sequence)));
+                                activationSequence: signal.Sequence),
+                            topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt));
                 }
 
                 if (IsJumperJumpStartCueSource(signal))
