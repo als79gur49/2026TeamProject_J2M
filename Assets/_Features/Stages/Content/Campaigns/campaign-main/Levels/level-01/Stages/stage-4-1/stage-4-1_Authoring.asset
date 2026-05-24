@@ -2453,6 +2453,23 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
     PresentationId: dr_saturn
+  - StableGuid: 92fa800fd4d54ac2b313851a6425877d
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_grave
   tileFeatures:
   - TileId: 1
     Cell:
@@ -2575,17 +2592,6 @@ MonoBehaviour:
     BoxSelector: 3
     BoundEntityId: 0
     PresentationKey: button.default
-  - TileId: 12
-    Cell:
-      face: 0
-      x: 7
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 3
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.down
   - TileId: 13
     Cell:
       face: 0
@@ -3893,6 +3899,10 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: bb49080edc43490e934a6030ea55d08f
     EntityId: 344
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 92fa800fd4d54ac2b313851a6425877d
+    EntityId: 345
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0
