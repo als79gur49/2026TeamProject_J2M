@@ -38,6 +38,8 @@
   - current supporting truth for Push/Flip fake attempt classification, movement consume, presentation playback hold, input gate, and known caution points
 - [Gameplay-VFX-Governance.md](./Gameplay-VFX-Governance.md)
   - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
+- [Enemy-FrontFaceInactive-Visual-Policy.md](./Enemy-FrontFaceInactive-Visual-Policy.md)
+  - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
