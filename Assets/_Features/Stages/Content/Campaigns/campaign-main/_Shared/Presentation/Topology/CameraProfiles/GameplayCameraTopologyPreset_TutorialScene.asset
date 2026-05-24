@@ -39,7 +39,7 @@ MonoBehaviour:
       LandingLocalPositionAmplitude: {x: 0.006, y: 0.004, z: 0.01}
       LandingLocalRotationAmplitudeDegrees: {x: 0.24, y: 0.14, z: 0.08}
     topologyTransitionPostFxProfile:
-      authoritativeVolumeProfile: {fileID: 11400000, guid: 34b03bafcc38d5143b72f2184dc129e7, type: 2}
+      authoritativeVolumeProfile: {fileID: 11400000, guid: 5dca061c58a801f4cb718f3ec1548fee, type: 2}
       motionBlurMode: 0
       motionBlurQuality: 2
       maxBlurIntensity: 0.3
