@@ -14,12 +14,16 @@ namespace Game.Feature.UI.Composition
         private AudioSource _activeAudioSource;
         private IAudioSettingsService _audioSettingsService;
         private bool _isFocused;
+        private float _cinematicFadeGain = 1f;
 
         public bool IsFocused => _isFocused;
+
+        internal float CinematicFadeGain => _cinematicFadeGain;
 
         public void BeginFocus(AudioSource cinematicAudioSource)
         {
             _activeAudioSource = cinematicAudioSource ?? throw new ArgumentNullException(nameof(cinematicAudioSource));
+            _cinematicFadeGain = 1f;
             ResolveAudioSettingsService();
             StopCurrentBgmIfAvailable();
             ApplyCurrentSettings();
@@ -34,7 +38,14 @@ namespace Game.Feature.UI.Composition
             }
 
             _activeAudioSource = null;
+            _cinematicFadeGain = 1f;
             _isFocused = false;
+        }
+
+        internal void SetCinematicFadeGain(float gain)
+        {
+            _cinematicFadeGain = Mathf.Clamp01(gain);
+            ApplyCurrentSettings();
         }
 
         private void Update()
@@ -89,7 +100,7 @@ namespace Game.Feature.UI.Composition
                 : AudioSettingsSnapshot.Default;
             var master = snapshot.Master;
             _activeAudioSource.mute = master.IsMuted;
-            _activeAudioSource.volume = master.EffectiveFactor;
+            _activeAudioSource.volume = master.EffectiveFactor * _cinematicFadeGain;
         }
     }
 }

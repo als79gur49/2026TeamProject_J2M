@@ -19,13 +19,16 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private RectTransform _videoViewport;
         [SerializeField] private RawImage _videoImage;
+        [SerializeField] private Image _blackFadeImage;
         [SerializeField] private AspectRatioFitter _viewportFitter;
         [SerializeField] private AspectRatioFitter _contentFitter;
         [SerializeField] private Button _skipButton;
         [SerializeField] private VideoPlayer _videoPlayer;
         [SerializeField] private AudioSource _cinematicAudioSource;
 
+        private readonly CinematicAlphaFadeRunner _fadeRunner = new();
         private Action<CinematicPlaybackCompletion> _completion;
+        private CinematicAudioFocusController _audioFocusController;
         private IResolvedCinematicViewportProvider _viewportProvider;
         private ICinematicSelectedAspectProvider _selectedAspectProvider;
         private InputAction _cancelAction;
@@ -33,11 +36,16 @@ namespace Game.Feature.UI.Composition
         private RenderTexture _renderTexture;
         private VideoClip _currentClip;
         private SlotCinematicPlaybackOptions _currentOptions;
+        private CinematicFadeSettings _fadeSettings;
+        private CinematicPlaybackCompletion _pendingCompletion;
         private bool _completionDispatched;
+        private bool _exitFadeRequested;
         private bool _hasLoggedPlaybackDiagnostics;
         private bool _hasLoggedClipAspectFallbackWarning;
         private bool _hasLoggedViewportFallbackWarning;
+        private bool _queuedSkip;
         private bool _skipEnabled;
+        private float _audioFadeGain = 1f;
 
         public bool IsPlaying { get; private set; }
 
@@ -91,6 +99,14 @@ namespace Game.Feature.UI.Composition
         internal VideoAspectRatio ConfiguredVideoPlayerAspectRatio =>
             _videoPlayer != null ? _videoPlayer.aspectRatio : default;
 
+        internal CinematicPresentationState CurrentPresentationState { get; private set; } =
+            CinematicPresentationState.Idle;
+
+        internal float CurrentFadeAlpha =>
+            _blackFadeImage != null ? _blackFadeImage.color.a : 0f;
+
+        internal float CurrentAudioFadeGain => _audioFadeGain;
+
         public void Initialize(
             InputActionAsset inputActions,
             IResolvedCinematicViewportProvider viewportProvider = null,
@@ -99,6 +115,12 @@ namespace Game.Feature.UI.Composition
             _inputActions = inputActions;
             _viewportProvider = viewportProvider;
             _selectedAspectProvider = selectedAspectProvider;
+        }
+
+        public void SetAudioFocusController(CinematicAudioFocusController audioFocusController)
+        {
+            _audioFocusController = audioFocusController;
+            ApplyAudioFadeGain(_audioFadeGain);
         }
 
         public void EnsureHierarchy(SlotCinematicPlaybackOptions options)
@@ -133,7 +155,7 @@ namespace Game.Feature.UI.Composition
                 background = (RectTransform)backgroundObject.transform;
                 UiCanvasElementFactory.Stretch(background);
                 var image = backgroundObject.GetComponent<Image>();
-                image.color = Color.black;
+                image.color = Color.clear;
                 image.raycastTarget = true;
                 _skipButton = backgroundObject.GetComponent<Button>();
                 _skipButton.transition = Selectable.Transition.None;
@@ -145,7 +167,15 @@ namespace Game.Feature.UI.Composition
                 _skipButton = background.GetComponent<Button>();
             }
 
+            var backgroundImage = background.GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                backgroundImage.color = Color.clear;
+                backgroundImage.raycastTarget = true;
+            }
+
             EnsureVideoHierarchy();
+            EnsureBlackFadeLayer();
 
             if (_videoPlayer == null)
             {
@@ -190,8 +220,11 @@ namespace Game.Feature.UI.Composition
             transform.SetAsLastSibling();
             _completion = completion;
             _completionDispatched = false;
+            _exitFadeRequested = false;
             _hasLoggedPlaybackDiagnostics = false;
+            _queuedSkip = false;
             _skipEnabled = options.SkipEnabled;
+            _fadeSettings = options.FadeSettings;
             IsPlaying = true;
 
             _canvasGroup.alpha = 1f;
@@ -199,13 +232,17 @@ namespace Game.Feature.UI.Composition
             _canvasGroup.interactable = true;
             _currentClip = clip;
             _currentOptions = options;
+            _pendingCompletion = new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Completed);
+            ApplyAudioFadeGain(1f);
+            ApplyFadeAlpha(0f);
+            SetVideoImageVisible(false);
             EnsureRenderTexture(ResolveRenderTextureSize(clip, options));
             ApplyVideoLayout(clip, options);
 
             ConfigureVideoPlayer(clip);
             LogCinematicDiagnosticsIfNeeded(clip, options);
             BindSkipActions();
-            _videoPlayer.Play();
+            BeginEnterFadeToBlack();
         }
 
         public void RequestSkip()
@@ -215,7 +252,17 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            CompleteOnce(new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Skipped));
+            if (CurrentPresentationState != CinematicPresentationState.Playing)
+            {
+                if (_fadeSettings.SkipDuringFadePolicy == CinematicSkipDuringFadePolicy.QueueUntilPlaying)
+                {
+                    _queuedSkip = true;
+                }
+
+                return;
+            }
+
+            RequestExitFade(CinematicExitReason.Skipped);
         }
 
         public void OnPointerClick(PointerEventData eventData)
@@ -225,7 +272,40 @@ namespace Game.Feature.UI.Composition
 
         internal void CompleteForTesting(CinematicPlaybackCompletionKind kind)
         {
-            CompleteOnce(new CinematicPlaybackCompletion(kind));
+            switch (kind)
+            {
+                case CinematicPlaybackCompletionKind.Skipped:
+                    RequestExitFade(CinematicExitReason.Skipped, string.Empty, force: true);
+                    break;
+                case CinematicPlaybackCompletionKind.Failed:
+                    RequestExitFade(CinematicExitReason.Failed, string.Empty, force: true);
+                    break;
+                case CinematicPlaybackCompletionKind.Completed:
+                default:
+                    RequestExitFade(CinematicExitReason.NaturalEnd, string.Empty, force: true);
+                    break;
+            }
+        }
+
+        internal void NotifyPreparedFirstFrame()
+        {
+            if (CurrentPresentationState != CinematicPresentationState.PreparingVideo)
+            {
+                return;
+            }
+
+            SetVideoImageVisible(true);
+            BeginRevealFadeFromBlack();
+        }
+
+        internal void RequestExitFade(CinematicExitReason reason, string message = "")
+        {
+            RequestExitFade(reason, message, force: false);
+        }
+
+        internal void AdvanceFadeForTesting(float deltaSeconds)
+        {
+            AdvancePresentation(deltaSeconds);
         }
 
         private void Update()
@@ -233,6 +313,207 @@ namespace Game.Feature.UI.Composition
             if (IsPlaying && _currentClip != null)
             {
                 ApplyVideoLayout(_currentClip, _currentOptions);
+            }
+
+            AdvancePresentation(Time.unscaledDeltaTime);
+        }
+
+        private void BeginEnterFadeToBlack()
+        {
+            CurrentPresentationState = CinematicPresentationState.EnterFadeToBlack;
+            var completed = _fadeRunner.Begin(0f, 1f, _fadeSettings.EnterFadeDuration, _fadeSettings);
+            ApplyFadeAlpha(_fadeRunner.CurrentAlpha);
+            if (completed)
+            {
+                CompleteEnterFade();
+            }
+        }
+
+        private void CompleteEnterFade()
+        {
+            CurrentPresentationState = CinematicPresentationState.PreparingVideo;
+            ApplyFadeAlpha(1f);
+            PrepareVideo();
+        }
+
+        private void PrepareVideo()
+        {
+            if (_videoPlayer == null)
+            {
+                RequestExitFade(CinematicExitReason.Failed, "Cinematic VideoPlayer is missing.", force: true);
+                return;
+            }
+
+            _videoPlayer.prepareCompleted -= HandlePrepareCompleted;
+            _videoPlayer.prepareCompleted += HandlePrepareCompleted;
+            _videoPlayer.Prepare();
+            if (_videoPlayer.isPrepared)
+            {
+                NotifyPreparedFirstFrame();
+            }
+        }
+
+        private void BeginRevealFadeFromBlack()
+        {
+            CurrentPresentationState = CinematicPresentationState.RevealFadeFromBlack;
+            if (_fadeSettings.PlaybackStartPolicy == CinematicPlaybackStartPolicy.WithRevealFade)
+            {
+                StartPlayback();
+            }
+
+            var completed = _fadeRunner.Begin(1f, 0f, _fadeSettings.RevealFadeDuration, _fadeSettings);
+            ApplyFadeAlpha(_fadeRunner.CurrentAlpha);
+            if (completed)
+            {
+                CompleteRevealFade();
+            }
+        }
+
+        private void CompleteRevealFade()
+        {
+            ApplyFadeAlpha(0f);
+            if (_fadeSettings.PlaybackStartPolicy == CinematicPlaybackStartPolicy.AfterRevealFade)
+            {
+                StartPlayback();
+            }
+
+            CurrentPresentationState = CinematicPresentationState.Playing;
+            if (_queuedSkip)
+            {
+                _queuedSkip = false;
+                RequestExitFade(CinematicExitReason.Skipped);
+            }
+        }
+
+        private void StartPlayback()
+        {
+            if (_videoPlayer != null && !_videoPlayer.isPlaying)
+            {
+                _videoPlayer.Play();
+            }
+        }
+
+        private void RequestExitFade(CinematicExitReason reason, string message, bool force)
+        {
+            if (!IsPlaying || _completionDispatched || _exitFadeRequested)
+            {
+                return;
+            }
+
+            if (!force && CurrentPresentationState != CinematicPresentationState.Playing)
+            {
+                if (_fadeSettings.SkipDuringFadePolicy == CinematicSkipDuringFadePolicy.QueueUntilPlaying &&
+                    reason == CinematicExitReason.Skipped)
+                {
+                    _queuedSkip = true;
+                }
+
+                return;
+            }
+
+            _exitFadeRequested = true;
+            _pendingCompletion = CreateCompletion(reason, message);
+            CurrentPresentationState = CinematicPresentationState.ExitFadeToBlack;
+            var completed = _fadeRunner.Begin(CurrentFadeAlpha, 1f, _fadeSettings.ExitFadeDuration, _fadeSettings);
+            ApplyFadeAlpha(_fadeRunner.CurrentAlpha);
+            ApplyExitAudioFade();
+            if (completed)
+            {
+                CompleteExitFade();
+            }
+        }
+
+        private static CinematicPlaybackCompletion CreateCompletion(CinematicExitReason reason, string message)
+        {
+            switch (reason)
+            {
+                case CinematicExitReason.Skipped:
+                    return new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Skipped);
+                case CinematicExitReason.Failed:
+                    return new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Failed, message);
+                case CinematicExitReason.NaturalEnd:
+                default:
+                    return new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Completed);
+            }
+        }
+
+        private void AdvancePresentation(float deltaSeconds)
+        {
+            if (!_fadeRunner.IsRunning)
+            {
+                return;
+            }
+
+            var completed = _fadeRunner.Advance(deltaSeconds);
+            ApplyFadeAlpha(_fadeRunner.CurrentAlpha);
+            if (CurrentPresentationState == CinematicPresentationState.ExitFadeToBlack)
+            {
+                ApplyExitAudioFade();
+            }
+
+            if (!completed)
+            {
+                return;
+            }
+
+            switch (CurrentPresentationState)
+            {
+                case CinematicPresentationState.EnterFadeToBlack:
+                    CompleteEnterFade();
+                    break;
+                case CinematicPresentationState.RevealFadeFromBlack:
+                    CompleteRevealFade();
+                    break;
+                case CinematicPresentationState.ExitFadeToBlack:
+                    CompleteExitFade();
+                    break;
+            }
+        }
+
+        private void CompleteExitFade()
+        {
+            ApplyFadeAlpha(1f);
+            if (_fadeSettings.AudioFadeOutWithExit)
+            {
+                ApplyAudioFadeGain(0f);
+            }
+
+            CompleteOnce(_pendingCompletion);
+        }
+
+        private void ApplyExitAudioFade()
+        {
+            if (!_fadeSettings.AudioFadeOutWithExit)
+            {
+                ApplyAudioFadeGain(1f);
+                return;
+            }
+
+            ApplyAudioFadeGain(1f - Mathf.Clamp01(_fadeRunner.Progress));
+        }
+
+        private void ApplyFadeAlpha(float alpha)
+        {
+            EnsureBlackFadeLayer();
+            var color = _fadeSettings.FadeColor;
+            color.a = Mathf.Clamp01(alpha);
+            _blackFadeImage.color = color;
+        }
+
+        private void ApplyAudioFadeGain(float gain)
+        {
+            _audioFadeGain = Mathf.Clamp01(gain);
+            if (_audioFocusController != null)
+            {
+                _audioFocusController.SetCinematicFadeGain(_audioFadeGain);
+            }
+        }
+
+        private void SetVideoImageVisible(bool visible)
+        {
+            if (_videoImage != null)
+            {
+                _videoImage.enabled = visible;
             }
         }
 
@@ -295,6 +576,39 @@ namespace Game.Feature.UI.Composition
             if (_contentFitter == null)
             {
                 _contentFitter = _videoImage.gameObject.AddComponent<AspectRatioFitter>();
+            }
+        }
+
+        private void EnsureBlackFadeLayer()
+        {
+            if (_blackFadeImage == null)
+            {
+                var existing = transform.Find("BlackFade") as RectTransform;
+                if (existing != null)
+                {
+                    _blackFadeImage = existing.GetComponent<Image>();
+                }
+
+                if (_blackFadeImage == null)
+                {
+                    var fadeObject = new GameObject("BlackFade", typeof(RectTransform), typeof(Image));
+                    fadeObject.transform.SetParent(transform, false);
+                    existing = (RectTransform)fadeObject.transform;
+                    _blackFadeImage = fadeObject.GetComponent<Image>();
+                }
+
+                UiCanvasElementFactory.Stretch(existing);
+            }
+            else if (_blackFadeImage.transform is RectTransform fadeRect)
+            {
+                UiCanvasElementFactory.Stretch(fadeRect);
+            }
+
+            _blackFadeImage.raycastTarget = false;
+            _blackFadeImage.transform.SetAsLastSibling();
+            if (!IsPlaying && CurrentPresentationState == CinematicPresentationState.Idle)
+            {
+                _blackFadeImage.color = new Color(0f, 0f, 0f, 0f);
             }
         }
 
@@ -563,6 +877,7 @@ namespace Game.Feature.UI.Composition
             _videoPlayer.controlledAudioTrackCount = 1;
             _videoPlayer.EnableAudioTrack(0, true);
             _videoPlayer.SetTargetAudioSource(0, _cinematicAudioSource);
+            _videoPlayer.prepareCompleted -= HandlePrepareCompleted;
             _videoPlayer.loopPointReached -= HandleLoopPointReached;
             _videoPlayer.loopPointReached += HandleLoopPointReached;
             _videoPlayer.errorReceived -= HandleErrorReceived;
@@ -642,14 +957,19 @@ namespace Game.Feature.UI.Composition
             RequestSkip();
         }
 
+        private void HandlePrepareCompleted(VideoPlayer player)
+        {
+            NotifyPreparedFirstFrame();
+        }
+
         private void HandleLoopPointReached(VideoPlayer player)
         {
-            CompleteOnce(new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Completed));
+            RequestExitFade(CinematicExitReason.NaturalEnd);
         }
 
         private void HandleErrorReceived(VideoPlayer player, string message)
         {
-            CompleteOnce(new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Failed, message));
+            RequestExitFade(CinematicExitReason.Failed, message, force: true);
         }
 
         private void CompleteOnce(CinematicPlaybackCompletion completion)
@@ -662,10 +982,12 @@ namespace Game.Feature.UI.Composition
             _completionDispatched = true;
             IsPlaying = false;
             _currentClip = null;
+            _queuedSkip = false;
             UnbindSkipActions();
 
             if (_videoPlayer != null)
             {
+                _videoPlayer.prepareCompleted -= HandlePrepareCompleted;
                 _videoPlayer.loopPointReached -= HandleLoopPointReached;
                 _videoPlayer.errorReceived -= HandleErrorReceived;
                 _videoPlayer.Stop();
@@ -676,6 +998,9 @@ namespace Game.Feature.UI.Composition
                 _cinematicAudioSource.Stop();
             }
 
+            SetVideoImageVisible(false);
+            ReleaseRenderTexture();
+
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 0f;
@@ -685,6 +1010,7 @@ namespace Game.Feature.UI.Composition
 
             var callback = _completion;
             _completion = null;
+            CurrentPresentationState = CinematicPresentationState.Completed;
             gameObject.SetActive(false);
             callback?.Invoke(completion);
         }
@@ -692,6 +1018,13 @@ namespace Game.Feature.UI.Composition
         private void OnDestroy()
         {
             UnbindSkipActions();
+            if (_videoPlayer != null)
+            {
+                _videoPlayer.prepareCompleted -= HandlePrepareCompleted;
+                _videoPlayer.loopPointReached -= HandleLoopPointReached;
+                _videoPlayer.errorReceived -= HandleErrorReceived;
+            }
+
             ReleaseRenderTexture();
         }
 

@@ -29,6 +29,25 @@ namespace Game.Feature.UI.Composition
             float fixedAspectRatio,
             int renderTextureWidth,
             int renderTextureHeight)
+            : this(
+                skipEnabled,
+                aspectSource,
+                scaleMode,
+                fixedAspectRatio,
+                renderTextureWidth,
+                renderTextureHeight,
+                CinematicFadeSettings.Default)
+        {
+        }
+
+        public SlotCinematicPlaybackOptions(
+            bool skipEnabled,
+            CinematicAspectSource aspectSource,
+            CinematicScaleMode scaleMode,
+            float fixedAspectRatio,
+            int renderTextureWidth,
+            int renderTextureHeight,
+            CinematicFadeSettings fadeSettings)
         {
             SkipEnabled = skipEnabled;
             AspectSource = aspectSource;
@@ -36,6 +55,7 @@ namespace Game.Feature.UI.Composition
             FixedAspectRatio = fixedAspectRatio > 0f ? fixedAspectRatio : 16f / 9f;
             RenderTextureWidth = renderTextureWidth > 0 ? renderTextureWidth : 1920;
             RenderTextureHeight = renderTextureHeight > 0 ? renderTextureHeight : 1080;
+            FadeSettings = fadeSettings;
         }
 
         public bool SkipEnabled { get; }
@@ -49,5 +69,7 @@ namespace Game.Feature.UI.Composition
         public int RenderTextureWidth { get; }
 
         public int RenderTextureHeight { get; }
+
+        public CinematicFadeSettings FadeSettings { get; }
     }
 }

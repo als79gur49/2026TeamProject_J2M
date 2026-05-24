@@ -220,10 +220,323 @@ namespace Game.Feature.UI.Tests
                 Assert.That(root.GetComponent<CanvasGroup>().blocksRaycasts, Is.True);
 
                 view.CompleteForTesting(CinematicPlaybackCompletionKind.Completed);
+                view.AdvanceFadeForTesting(1f);
                 view.CompleteForTesting(CinematicPlaybackCompletionKind.Skipped);
 
                 Assert.That(completionCount, Is.EqualTo(1));
                 Assert.That(root.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_Skip_DoesNotCompleteUntilExitFadeCompletes()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_Skip_DoesNotCompleteUntilExitFadeCompletes), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var completionCount = 0;
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => completionCount++);
+                AdvanceToPlaying(view);
+
+                view.RequestSkip();
+
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.ExitFadeToBlack));
+                Assert.That(completionCount, Is.Zero);
+
+                view.AdvanceFadeForTesting(0.3f);
+
+                Assert.That(completionCount, Is.EqualTo(1));
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Completed));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_NaturalEnd_DoesNotCompleteUntilExitFadeCompletes()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_NaturalEnd_DoesNotCompleteUntilExitFadeCompletes), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var completionCount = 0;
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => completionCount++);
+                AdvanceToPlaying(view);
+
+                view.RequestExitFade(CinematicExitReason.NaturalEnd);
+
+                Assert.That(completionCount, Is.Zero);
+
+                view.AdvanceFadeForTesting(0.3f);
+
+                Assert.That(completionCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_SkipAndNaturalEnd_ShareCompleteOncePath()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_SkipAndNaturalEnd_ShareCompleteOncePath), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var completionCount = 0;
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => completionCount++);
+                AdvanceToPlaying(view);
+
+                view.RequestSkip();
+                view.RequestExitFade(CinematicExitReason.NaturalEnd);
+                view.AdvanceFadeForTesting(1f);
+
+                Assert.That(completionCount, Is.EqualTo(1));
+
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => completionCount++);
+                AdvanceToPlaying(view);
+
+                view.RequestExitFade(CinematicExitReason.NaturalEnd);
+                view.RequestSkip();
+                view.AdvanceFadeForTesting(1f);
+
+                Assert.That(completionCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_ExitFade_IgnoresAdditionalSkip()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_ExitFade_IgnoresAdditionalSkip), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var completionCount = 0;
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => completionCount++);
+                AdvanceToPlaying(view);
+
+                view.RequestSkip();
+                view.RequestSkip();
+                view.RequestSkip();
+
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.ExitFadeToBlack));
+                Assert.That(completionCount, Is.Zero);
+
+                view.AdvanceFadeForTesting(1f);
+
+                Assert.That(completionCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_VisualFadeAlphaSequence()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_VisualFadeAlphaSequence), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => { });
+
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.EnterFadeToBlack));
+                Assert.That(view.CurrentFadeAlpha, Is.EqualTo(0f).Within(0.0001f));
+
+                view.AdvanceFadeForTesting(0.25f);
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.PreparingVideo));
+                Assert.That(view.CurrentFadeAlpha, Is.EqualTo(1f).Within(0.0001f));
+
+                view.NotifyPreparedFirstFrame();
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.RevealFadeFromBlack));
+                Assert.That(view.CurrentFadeAlpha, Is.EqualTo(1f).Within(0.0001f));
+
+                view.AdvanceFadeForTesting(0.25f);
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Playing));
+                Assert.That(view.CurrentFadeAlpha, Is.EqualTo(0f).Within(0.0001f));
+
+                view.RequestSkip();
+                view.AdvanceFadeForTesting(0.3f);
+                Assert.That(view.CurrentFadeAlpha, Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_AudioFadeGain_ExitFade_InterpolatesOneToZero()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_AudioFadeGain_ExitFade_InterpolatesOneToZero), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => { });
+                AdvanceToPlaying(view);
+
+                view.RequestSkip();
+
+                Assert.That(view.CurrentAudioFadeGain, Is.EqualTo(1f).Within(0.0001f));
+
+                view.AdvanceFadeForTesting(0.15f);
+
+                Assert.That(view.CurrentAudioFadeGain, Is.GreaterThan(0f));
+                Assert.That(view.CurrentAudioFadeGain, Is.LessThan(1f));
+
+                view.AdvanceFadeForTesting(0.15f);
+
+                Assert.That(view.CurrentAudioFadeGain, Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicStageLaunchRouter_CompletionSideEffects_AfterExitFadeOnly()
+        {
+            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_CompletionSideEffects_AfterExitFadeOnly));
+            var clip = LoadTestClip();
+            var definition = CreateDefinition(clip, CreateFadeSettings(enter: 0f, reveal: 0f, exit: 0.3f));
+            var root = new GameObject(nameof(CinematicStageLaunchRouter_CompletionSideEffects_AfterExitFadeOnly), typeof(RectTransform));
+            try
+            {
+                var saveStore = new SaveSlotStore(keys.SaveKey);
+                var activeSlotProvider = new ActiveSlotProvider(keys.ActiveKey);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                saveStore.SaveSlot(CreateSlot(1, stageId));
+                activeSlotProvider.SetActiveSlot(1);
+                var inner = new RecordingStageLaunchRouter();
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var audioFocus = root.AddComponent<CinematicAudioFocusController>();
+                var player = new CinematicFlowCoordinator(definition, view, audioFocus);
+                var router = new CinematicStageLaunchRouter(inner, saveStore, activeSlotProvider, player);
+                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
+
+                router.Launch(request);
+                view.NotifyPreparedFirstFrame();
+                view.RequestSkip();
+
+                Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
+                Assert.That(inner.Requests, Is.Empty);
+
+                view.AdvanceFadeForTesting(0.3f);
+
+                Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.True);
+                Assert.That(inner.Requests, Has.Count.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+                keys.Clear();
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_LowerInputBlock_RemainsActiveDuringAllFadeStates()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_LowerInputBlock_RemainsActiveDuringAllFadeStates), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                view.Play(clip, CreatePlaybackOptions(fadeSettings: CreateFadeSettings()), _ => { });
+                var group = root.GetComponent<CanvasGroup>();
+
+                Assert.That(group.blocksRaycasts, Is.True);
+
+                view.AdvanceFadeForTesting(0.25f);
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.PreparingVideo));
+                Assert.That(group.blocksRaycasts, Is.True);
+
+                view.NotifyPreparedFirstFrame();
+                Assert.That(group.blocksRaycasts, Is.True);
+
+                view.AdvanceFadeForTesting(0.25f);
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Playing));
+                Assert.That(group.blocksRaycasts, Is.True);
+
+                view.RequestSkip();
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.ExitFadeToBlack));
+                Assert.That(group.blocksRaycasts, Is.True);
+
+                view.AdvanceFadeForTesting(0.3f);
+                Assert.That(group.blocksRaycasts, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CinematicFlowCoordinator_MissingClip_Fallback_RemainsImmediate()
+        {
+            var definition = ScriptableObject.CreateInstance<SlotCinematicDefinition>();
+            var root = new GameObject(nameof(CinematicFlowCoordinator_MissingClip_Fallback_RemainsImmediate), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var player = new CinematicFlowCoordinator(definition, view, null);
+                var completionCount = 0;
+
+                player.PlayIntro(() => completionCount++);
+
+                Assert.That(completionCount, Is.EqualTo(1));
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        public void CinematicVideoOverlayView_ZeroDurationFade_CompletesDeterministically()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(nameof(CinematicVideoOverlayView_ZeroDurationFade_CompletesDeterministically), typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var completionCount = 0;
+                view.Play(
+                    clip,
+                    CreatePlaybackOptions(fadeSettings: CreateFadeSettings(enter: 0f, reveal: 0f, exit: 0f)),
+                    _ => completionCount++);
+
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.PreparingVideo));
+
+                view.NotifyPreparedFirstFrame();
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Playing));
+
+                view.RequestSkip();
+
+                Assert.That(completionCount, Is.EqualTo(1));
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Completed));
             }
             finally
             {
@@ -370,6 +683,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(view.ConfiguredPresentationAspectRatio, Is.EqualTo(16f / 9f).Within(0.0001f));
 
                 view.CompleteForTesting(CinematicPlaybackCompletionKind.Completed);
+                view.AdvanceFadeForTesting(1f);
                 view.Play(
                     clip,
                     CreatePlaybackOptions(CinematicAspectSource.SettingsSelectedAspect),
@@ -746,6 +1060,22 @@ namespace Game.Feature.UI.Tests
                 ?.Invoke(view, null);
         }
 
+        private static VideoClip LoadTestClip()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
+            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            return clip;
+        }
+
+        private static void AdvanceToPlaying(CinematicVideoOverlayView view)
+        {
+            view.AdvanceFadeForTesting(1f);
+            Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.PreparingVideo));
+            view.NotifyPreparedFirstFrame();
+            view.AdvanceFadeForTesting(1f);
+            Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Playing));
+        }
+
         private static void AssertVector2Within(Vector2 actual, Vector2 expected, float tolerance = 0.001f)
         {
             Assert.That(actual.x, Is.EqualTo(expected.x).Within(tolerance));
@@ -765,7 +1095,8 @@ namespace Game.Feature.UI.Tests
             CinematicScaleMode scaleMode = CinematicScaleMode.CropToFillViewport,
             float fixedAspectRatio = 16f / 9f,
             int renderTextureWidth = 320,
-            int renderTextureHeight = 180)
+            int renderTextureHeight = 180,
+            CinematicFadeSettings? fadeSettings = null)
         {
             return new SlotCinematicPlaybackOptions(
                 true,
@@ -773,7 +1104,52 @@ namespace Game.Feature.UI.Tests
                 scaleMode,
                 fixedAspectRatio,
                 renderTextureWidth,
-                renderTextureHeight);
+                renderTextureHeight,
+                fadeSettings ?? CinematicFadeSettings.Default);
+        }
+
+        private static CinematicFadeSettings CreateFadeSettings(
+            float enter = 0.25f,
+            float reveal = 0.25f,
+            float exit = 0.3f,
+            bool audioFadeOutWithExit = true,
+            CinematicPlaybackStartPolicy playbackStartPolicy = CinematicPlaybackStartPolicy.AfterRevealFade,
+            CinematicSkipDuringFadePolicy skipDuringFadePolicy = CinematicSkipDuringFadePolicy.IgnoreUntilPlaying)
+        {
+            return new CinematicFadeSettings(
+                enter,
+                reveal,
+                exit,
+                Color.black,
+                CinematicFadeEase.SmoothStep,
+                audioFadeOutWithExit,
+                playbackStartPolicy,
+                skipDuringFadePolicy);
+        }
+
+        private static SlotCinematicDefinition CreateDefinition(VideoClip clip, CinematicFadeSettings fadeSettings)
+        {
+            var definition = ScriptableObject.CreateInstance<SlotCinematicDefinition>();
+            var serialized = new SerializedObject(definition);
+            serialized.FindProperty("_introClip").objectReferenceValue = clip;
+            serialized.FindProperty("_skipEnabled").boolValue = true;
+            serialized.FindProperty("_aspectSource").enumValueIndex = (int)CinematicAspectSource.AutoResolvedViewport;
+            serialized.FindProperty("_scaleMode").enumValueIndex = (int)CinematicScaleMode.CropToFillViewport;
+            serialized.FindProperty("_fixedAspectRatio").floatValue = 16f / 9f;
+            serialized.FindProperty("_renderTextureWidth").intValue = 320;
+            serialized.FindProperty("_renderTextureHeight").intValue = 180;
+
+            var fade = serialized.FindProperty("_fadeSettings");
+            fade.FindPropertyRelative("_enterFadeDuration").floatValue = fadeSettings.EnterFadeDuration;
+            fade.FindPropertyRelative("_revealFadeDuration").floatValue = fadeSettings.RevealFadeDuration;
+            fade.FindPropertyRelative("_exitFadeDuration").floatValue = fadeSettings.ExitFadeDuration;
+            fade.FindPropertyRelative("_fadeColor").colorValue = fadeSettings.FadeColor;
+            fade.FindPropertyRelative("_fadeEase").enumValueIndex = (int)fadeSettings.FadeEase;
+            fade.FindPropertyRelative("_audioFadeOutWithExit").boolValue = fadeSettings.AudioFadeOutWithExit;
+            fade.FindPropertyRelative("_playbackStartPolicy").enumValueIndex = (int)fadeSettings.PlaybackStartPolicy;
+            fade.FindPropertyRelative("_skipDuringFadePolicy").enumValueIndex = (int)fadeSettings.SkipDuringFadePolicy;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
         }
 
         private readonly struct TestKeys

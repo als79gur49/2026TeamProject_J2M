@@ -74,6 +74,7 @@ namespace Game.Feature.UI.Composition
             _completionDispatched = false;
             var options = _definition.CreatePlaybackOptions();
             _overlayView.EnsureHierarchy(options);
+            _overlayView.SetAudioFocusController(_audioFocusController);
             _audioFocusController?.BeginFocus(_overlayView.CinematicAudioSource);
             _overlayView.Play(
                 clip,

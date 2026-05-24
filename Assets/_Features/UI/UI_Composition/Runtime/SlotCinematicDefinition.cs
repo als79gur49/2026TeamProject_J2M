@@ -37,6 +37,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] [Min(0.01f)] private float _fixedAspectRatio = 16f / 9f;
         [SerializeField] [Min(16)] private int _renderTextureWidth = 1920;
         [SerializeField] [Min(16)] private int _renderTextureHeight = 1080;
+        [SerializeField] private CinematicFadeSettings _fadeSettings = CinematicFadeSettings.Default;
 
         public VideoClip IntroClip => _introClip;
 
@@ -54,6 +55,8 @@ namespace Game.Feature.UI.Composition
 
         public int RenderTextureHeight => Mathf.Max(16, _renderTextureHeight);
 
+        public CinematicFadeSettings FadeSettings => _fadeSettings;
+
         public VideoClip GetClip(SlotCinematicKind kind)
         {
             return kind == SlotCinematicKind.Outro ? _outroClip : _introClip;
@@ -67,7 +70,8 @@ namespace Game.Feature.UI.Composition
                 _scaleMode,
                 FixedAspectRatio,
                 RenderTextureWidth,
-                RenderTextureHeight);
+                RenderTextureHeight,
+                FadeSettings);
         }
     }
 }

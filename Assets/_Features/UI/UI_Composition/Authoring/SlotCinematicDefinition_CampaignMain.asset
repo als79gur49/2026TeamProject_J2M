@@ -20,3 +20,12 @@ MonoBehaviour:
   _fixedAspectRatio: 1.7777778
   _renderTextureWidth: 1920
   _renderTextureHeight: 1080
+  _fadeSettings:
+    _enterFadeDuration: 0.25
+    _revealFadeDuration: 0
+    _exitFadeDuration: 0.3
+    _fadeColor: {r: 0, g: 0, b: 0, a: 1}
+    _fadeEase: 0
+    _audioFadeOutWithExit: 1
+    _playbackStartPolicy: 0
+    _skipDuringFadePolicy: 0
