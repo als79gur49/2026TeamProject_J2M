@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Host
         Push = 2,
         Flip = 3,
         Death = 4,
+        StageClearVictory = 5,
     }
 
     public readonly struct PlayerViewPresentationState
@@ -42,7 +43,9 @@ namespace Game.Feature.Gameplay.Host
             bool hasActionAttempt = false,
             PlayerActionKind actionAttemptKind = PlayerActionKind.None,
             Direction actionAttemptDirection = Direction.None,
-            PlayerActionAttemptFeedbackKind actionAttemptFeedbackKind = PlayerActionAttemptFeedbackKind.None)
+            PlayerActionAttemptFeedbackKind actionAttemptFeedbackKind = PlayerActionAttemptFeedbackKind.None,
+            bool hasPlayerOutcome = false,
+            TickPlayerOutcomePresentationKind playerOutcomeKind = TickPlayerOutcomePresentationKind.None)
             : this(
                 entityId,
                 tickIndex,
@@ -69,7 +72,9 @@ namespace Game.Feature.Gameplay.Host
                 hasActionAttempt: hasActionAttempt,
                 actionAttemptKind: actionAttemptKind,
                 actionAttemptDirection: actionAttemptDirection,
-                actionAttemptFeedbackKind: actionAttemptFeedbackKind)
+                actionAttemptFeedbackKind: actionAttemptFeedbackKind,
+                hasPlayerOutcome: hasPlayerOutcome,
+                playerOutcomeKind: playerOutcomeKind)
         {
         }
 
@@ -99,7 +104,9 @@ namespace Game.Feature.Gameplay.Host
             bool hasActionAttempt = false,
             PlayerActionKind actionAttemptKind = PlayerActionKind.None,
             Direction actionAttemptDirection = Direction.None,
-            PlayerActionAttemptFeedbackKind actionAttemptFeedbackKind = PlayerActionAttemptFeedbackKind.None)
+            PlayerActionAttemptFeedbackKind actionAttemptFeedbackKind = PlayerActionAttemptFeedbackKind.None,
+            bool hasPlayerOutcome = false,
+            TickPlayerOutcomePresentationKind playerOutcomeKind = TickPlayerOutcomePresentationKind.None)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -127,6 +134,8 @@ namespace Game.Feature.Gameplay.Host
             ActionAttemptKind = actionAttemptKind;
             ActionAttemptDirection = actionAttemptDirection;
             ActionAttemptFeedbackKind = actionAttemptFeedbackKind;
+            HasPlayerOutcome = hasPlayerOutcome;
+            PlayerOutcomeKind = playerOutcomeKind;
         }
 
         public int EntityId { get; }
@@ -180,6 +189,10 @@ namespace Game.Feature.Gameplay.Host
         public Direction ActionAttemptDirection { get; }
 
         public PlayerActionAttemptFeedbackKind ActionAttemptFeedbackKind { get; }
+
+        public bool HasPlayerOutcome { get; }
+
+        public TickPlayerOutcomePresentationKind PlayerOutcomeKind { get; }
     }
 
     public sealed class PlayerViewPresentationMapper
@@ -193,6 +206,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, FlipImpactPresentationSignal> _flipImpactSignalsByActionPlanId = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _locomotionSignalsByEntityId = new();
         private readonly Dictionary<int, TickPlayerActionAttemptPresentationSignal> _attemptSignalsByEntityId = new();
+        private readonly Dictionary<int, TickPlayerOutcomePresentationSignal> _outcomeSignalsByEntityId = new();
 
         public void Build(
             TickResult result,
@@ -224,6 +238,7 @@ namespace Game.Feature.Gameplay.Host
             _flipImpactSignalsByActionPlanId.Clear();
             _locomotionSignalsByEntityId.Clear();
             _attemptSignalsByEntityId.Clear();
+            _outcomeSignalsByEntityId.Clear();
 
             CacheFinalEntities(result.FinalEntities);
             CollectRemovalSignals(result.PresentationData);
@@ -282,6 +297,19 @@ namespace Game.Feature.Gameplay.Host
                 _deathSignalsByEntityId[signal.EntityId] = signal;
             }
 
+            var playerOutcomeSignals = result.PresentationData.PlayerOutcomeSignals;
+            for (var i = 0; i < playerOutcomeSignals.Count; i++)
+            {
+                var signal = playerOutcomeSignals[i];
+                if (signal.OutcomeKind == TickPlayerOutcomePresentationKind.None)
+                {
+                    continue;
+                }
+
+                _candidateEntityIds.Add(signal.EntityId);
+                _outcomeSignalsByEntityId[signal.EntityId] = signal;
+            }
+
             var flipImpactSignals = result.PresentationData.FlipImpactSignals;
             for (var i = 0; i < flipImpactSignals.Count; i++)
             {
@@ -318,6 +346,7 @@ namespace Game.Feature.Gameplay.Host
                                          _damageSignalsByEntityId.TryGetValue(entityId, out var damageSignal) &&
                                          damageSignal.TookDamageThisTick;
                 var hasActionAttempt = _attemptSignalsByEntityId.TryGetValue(entityId, out var attemptSignal);
+                var hasPlayerOutcome = _outcomeSignalsByEntityId.TryGetValue(entityId, out var outcomeSignal);
                 var flipOutcome = signal.FlipOutcome;
                 var hasFlipImpactContactTiming = signal.HasFlipImpactContactTiming;
                 var flipTargetBoxEntityId = signal.FlipTargetBoxEntityId;
@@ -360,7 +389,9 @@ namespace Game.Feature.Gameplay.Host
                     hasActionAttempt,
                     hasActionAttempt ? attemptSignal.ActionKind : PlayerActionKind.None,
                     hasActionAttempt ? attemptSignal.Direction : Direction.None,
-                    hasActionAttempt ? attemptSignal.FeedbackKind : PlayerActionAttemptFeedbackKind.None);
+                    hasActionAttempt ? attemptSignal.FeedbackKind : PlayerActionAttemptFeedbackKind.None,
+                    hasPlayerOutcome,
+                    hasPlayerOutcome ? outcomeSignal.OutcomeKind : TickPlayerOutcomePresentationKind.None);
             }
         }
 
@@ -392,7 +423,9 @@ namespace Game.Feature.Gameplay.Host
                 hasActionAttempt: false,
                 actionAttemptKind: PlayerActionKind.None,
                 actionAttemptDirection: Direction.None,
-                actionAttemptFeedbackKind: PlayerActionAttemptFeedbackKind.None);
+                actionAttemptFeedbackKind: PlayerActionAttemptFeedbackKind.None,
+                hasPlayerOutcome: false,
+                playerOutcomeKind: TickPlayerOutcomePresentationKind.None);
         }
 
         private void CacheFinalEntities(IReadOnlyList<EntityState> finalEntities)

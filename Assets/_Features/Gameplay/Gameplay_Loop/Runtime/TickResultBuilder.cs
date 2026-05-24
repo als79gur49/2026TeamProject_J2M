@@ -738,6 +738,7 @@ namespace Game.Feature.Gameplay.Loop
             var playerDeathHoldSignals = new List<TickPlayerDeathHoldPresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
+            var playerOutcomeSignals = new List<TickPlayerOutcomePresentationSignal>();
             var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
@@ -778,6 +779,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerDeathPresentation(context, playerDeathSignals);
             BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
+            BuildPlayerOutcomePresentation(context, playerOutcomeSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildForwardCellProjectilePresentation(
@@ -832,6 +834,7 @@ namespace Game.Feature.Gameplay.Loop
                    playerDeathHoldSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
+                   playerOutcomeSignals.Count == 0 &&
                    summonedEnemyPresentationBindings.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
@@ -889,7 +892,8 @@ namespace Game.Feature.Gameplay.Loop
                     forwardCellProjectileWindupSignals,
                     forwardCellProjectileReleaseSignals,
                     forwardCellProjectileClearSignals,
-                    entitySpawnSignals);
+                    entitySpawnSignals,
+                    playerOutcomeSignals);
         }
 
         private static void BuildForwardCellProjectilePresentation(
@@ -1738,31 +1742,46 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureState> finalTileFeatures,
             List<TilePresentationEvent> tileEvents)
         {
-            var playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
-            if (!context.ObjectiveResult.HasObjective ||
-                !context.ObjectiveResult.ClearedThisTick ||
-                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
-                playerEntityId <= 0 ||
-                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
-                player.boardPresence != EntityBoardPresence.Occupying)
+            if (!TryResolveExitClearPlayerOnActiveExit(
+                    context,
+                    finalTileFeatures,
+                    out var playerEntityId,
+                    out var exit))
             {
                 return;
             }
 
-            for (var i = 0; i < finalTileFeatures.Count; i++)
-            {
-                var exit = finalTileFeatures[i];
-                if (!IsActiveExit(context, exit) ||
-                    !exit.Cell.Equals(player.position))
-                {
-                    continue;
-                }
+            tileEvents.Add(CreateExitTilePresentationEvent(
+                TilePresentationEventKind.ExitEntered,
+                exit,
+                playerEntityId));
+        }
 
-                tileEvents.Add(CreateExitTilePresentationEvent(
-                    TilePresentationEventKind.ExitEntered,
-                    exit,
-                    playerEntityId));
+        private static void BuildPlayerOutcomePresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerOutcomePresentationSignal> playerOutcomeSignals)
+        {
+            if (playerOutcomeSignals == null)
+            {
+                throw new ArgumentNullException(nameof(playerOutcomeSignals));
             }
+
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            if (!TryResolveExitClearPlayerOnActiveExit(
+                    context,
+                    finalTileFeatures,
+                    out var playerEntityId,
+                    out var exit))
+            {
+                return;
+            }
+
+            playerOutcomeSignals.Add(new TickPlayerOutcomePresentationSignal(
+                playerEntityId,
+                TickPlayerOutcomePresentationKind.StageClearVictory,
+                exit.TileId,
+                exit.Cell));
         }
 
         private static void AddExitObjectiveClearedEvents(
@@ -1824,6 +1843,42 @@ namespace Game.Feature.Gameplay.Loop
                        tileFeature,
                        definition,
                        context.FinalAuthoritativeSnapshot.Topology);
+        }
+
+        private static bool TryResolveExitClearPlayerOnActiveExit(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            out int playerEntityId,
+            out TileFeatureState activeExit)
+        {
+            playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
+            activeExit = default;
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.ClearedThisTick ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
+                playerEntityId <= 0 ||
+                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
+                player.boardPresence != EntityBoardPresence.Occupying ||
+                player.hp <= 0 ||
+                player.markedForDeath)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit) ||
+                    !exit.Cell.Equals(player.position))
+                {
+                    continue;
+                }
+
+                activeExit = exit;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryGetTileFeatureDefinition(

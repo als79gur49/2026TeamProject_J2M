@@ -155,6 +155,9 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
 
+        public float LastStageClearPlayerPresentationDelaySeconds =>
+            _animationSync.LastStageClearPlayerPresentationDelaySeconds;
+
         public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
             _animationSync.IsPlayerActionAttemptHoldActive(entityId);
 

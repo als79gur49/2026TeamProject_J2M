@@ -92,6 +92,35 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell Cell { get; }
     }
 
+    public enum TickPlayerOutcomePresentationKind
+    {
+        None = 0,
+        StageClearVictory = 1,
+    }
+
+    public readonly struct TickPlayerOutcomePresentationSignal
+    {
+        public TickPlayerOutcomePresentationSignal(
+            int entityId,
+            TickPlayerOutcomePresentationKind outcomeKind,
+            int sourceTileId,
+            SurfaceCell sourceCell)
+        {
+            EntityId = entityId;
+            OutcomeKind = outcomeKind;
+            SourceTileId = sourceTileId;
+            SourceCell = sourceCell;
+        }
+
+        public int EntityId { get; }
+
+        public TickPlayerOutcomePresentationKind OutcomeKind { get; }
+
+        public int SourceTileId { get; }
+
+        public SurfaceCell SourceCell { get; }
+    }
+
     public readonly struct EntitySpawnPresentationSignal
     {
         public EntitySpawnPresentationSignal(
@@ -2730,6 +2759,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickPlayerDeathHoldPresentationSignal> _playerDeathHoldSignals;
         private readonly ReadOnlyCollection<TickPlayerDeathPresentationSignal> _playerDeathSignals;
         private readonly ReadOnlyCollection<TickPlayerLocomotionPresentationSignal> _playerLocomotionSignals;
+        private readonly ReadOnlyCollection<TickPlayerOutcomePresentationSignal> _playerOutcomeSignals;
         private ReadOnlyCollection<TickSummonedEnemyPresentationBinding> _summonedEnemyPresentationBindings;
         private ReadOnlyCollection<TickSummonWindupWarningSignal> _summonWindupWarnings;
         private readonly TickTopologyMotion? _topologyMotion;
@@ -3024,7 +3054,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
             IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
-            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null)
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3040,7 +3071,8 @@ namespace Game.Feature.Gameplay.Loop
                 Array.Empty<TickEnemyChargePresentationSignal>(),
                 entityExitSignals,
                 Array.Empty<FlipImpactPresentationSignal>(),
-                playerActionAttemptSignals: playerActionAttemptSignals)
+                playerActionAttemptSignals: playerActionAttemptSignals,
+                playerOutcomeSignals: playerOutcomeSignals)
         {
         }
 
@@ -3085,7 +3117,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
-            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null)
+            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
         {
             if (entityMotions == null)
             {
@@ -3201,6 +3234,9 @@ namespace Game.Feature.Gameplay.Loop
             _playerDeathHoldSignals = new ReadOnlyCollection<TickPlayerDeathHoldPresentationSignal>(
                 new List<TickPlayerDeathHoldPresentationSignal>(
                     playerDeathHoldSignals ?? Array.Empty<TickPlayerDeathHoldPresentationSignal>()));
+            _playerOutcomeSignals = new ReadOnlyCollection<TickPlayerOutcomePresentationSignal>(
+                new List<TickPlayerOutcomePresentationSignal>(
+                    playerOutcomeSignals ?? Array.Empty<TickPlayerOutcomePresentationSignal>()));
             _enemyDamageSignals = new ReadOnlyCollection<TickEnemyDamagePresentationSignal>(
                 new List<TickEnemyDamagePresentationSignal>(enemyDamageSignals));
             _enemyActionSignals = new ReadOnlyCollection<TickEnemyActionPresentationSignal>(
@@ -3302,7 +3338,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
-            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null)
+            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3336,7 +3373,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
-                entitySpawnSignals: entitySpawnSignals)
+                entitySpawnSignals: entitySpawnSignals,
+                playerOutcomeSignals: playerOutcomeSignals)
         {
         }
 
@@ -3412,7 +3450,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
-            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null)
+            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3450,7 +3489,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
-                entitySpawnSignals: entitySpawnSignals)
+                entitySpawnSignals: entitySpawnSignals,
+                playerOutcomeSignals: playerOutcomeSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -3504,7 +3544,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
-            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null)
+            IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
             : this(
                 entityMotions: entityMotions,
                 topologyMotion: topologyMotion,
@@ -3543,7 +3584,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
-                entitySpawnSignals: entitySpawnSignals)
+                entitySpawnSignals: entitySpawnSignals,
+                playerOutcomeSignals: playerOutcomeSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -3608,6 +3650,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickPlayerDeathPresentationSignal> PlayerDeathSignals => _playerDeathSignals;
 
         public IReadOnlyList<TickPlayerDeathHoldPresentationSignal> PlayerDeathHoldSignals => _playerDeathHoldSignals;
+
+        public IReadOnlyList<TickPlayerOutcomePresentationSignal> PlayerOutcomeSignals => _playerOutcomeSignals;
 
         public IReadOnlyList<TickEnemyDamagePresentationSignal> EnemyDamageSignals => _enemyDamageSignals;
 

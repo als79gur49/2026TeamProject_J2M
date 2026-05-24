@@ -24,6 +24,7 @@ namespace Game.Feature.Gameplay.Host
             float flipWindupAnimatorDurationSeconds,
             float flipRecoveryAnimatorDurationSeconds,
             float deathAnimatorDurationSeconds,
+            float stageClearVictoryAnimatorDurationSeconds,
             float legacyPushAnimatorDurationSeconds,
             float legacyFlipAnimatorDurationSeconds)
         {
@@ -32,6 +33,7 @@ namespace Game.Feature.Gameplay.Host
             FlipWindupAnimatorDurationSeconds = flipWindupAnimatorDurationSeconds;
             FlipRecoveryAnimatorDurationSeconds = flipRecoveryAnimatorDurationSeconds;
             DeathAnimatorDurationSeconds = deathAnimatorDurationSeconds;
+            StageClearVictoryAnimatorDurationSeconds = stageClearVictoryAnimatorDurationSeconds;
             LegacyPushAnimatorDurationSeconds = legacyPushAnimatorDurationSeconds;
             LegacyFlipAnimatorDurationSeconds = legacyFlipAnimatorDurationSeconds;
         }
@@ -45,6 +47,8 @@ namespace Game.Feature.Gameplay.Host
         public float FlipRecoveryAnimatorDurationSeconds { get; }
 
         public float DeathAnimatorDurationSeconds { get; }
+
+        public float StageClearVictoryAnimatorDurationSeconds { get; }
 
         public float LegacyPushAnimatorDurationSeconds { get; }
 
@@ -85,6 +89,12 @@ namespace Game.Feature.Gameplay.Host
             durationSeconds = DeathAnimatorDurationSeconds;
             return PlayerAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
         }
+
+        public bool TryGetStageClearVictoryAnimatorDurationOverride(out float durationSeconds)
+        {
+            durationSeconds = StageClearVictoryAnimatorDurationSeconds;
+            return PlayerAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
+        }
     }
 
     [MovedFrom(false, "Game.Feature.Gameplay.Host", "Game.Feature.Gameplay.Host", "PlayerActionTimingAuthoring")]
@@ -99,6 +109,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float flipWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float flipRecoveryAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float deathAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float stageClearVictoryAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [FormerlySerializedAs("pushAnimatorDurationSeconds")]
         [FormerlySerializedAs("pushPresentationDurationSeconds")]
         [SerializeField, HideInInspector] private float legacyPushAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
@@ -116,6 +127,8 @@ namespace Game.Feature.Gameplay.Host
 
         public float DeathAnimatorDurationSeconds => deathAnimatorDurationSeconds;
 
+        public float StageClearVictoryAnimatorDurationSeconds => stageClearVictoryAnimatorDurationSeconds;
+
         public void Validate()
         {
             ValidateAnimatorDuration(pushWindupAnimatorDurationSeconds, nameof(pushWindupAnimatorDurationSeconds));
@@ -123,6 +136,7 @@ namespace Game.Feature.Gameplay.Host
             ValidateAnimatorDuration(flipWindupAnimatorDurationSeconds, nameof(flipWindupAnimatorDurationSeconds));
             ValidateAnimatorDuration(flipRecoveryAnimatorDurationSeconds, nameof(flipRecoveryAnimatorDurationSeconds));
             ValidateAnimatorDuration(deathAnimatorDurationSeconds, nameof(deathAnimatorDurationSeconds));
+            ValidateAnimatorDuration(stageClearVictoryAnimatorDurationSeconds, nameof(stageClearVictoryAnimatorDurationSeconds));
             ValidateAnimatorDuration(legacyPushAnimatorDurationSeconds, nameof(legacyPushAnimatorDurationSeconds));
             ValidateAnimatorDuration(legacyFlipAnimatorDurationSeconds, nameof(legacyFlipAnimatorDurationSeconds));
         }
@@ -136,6 +150,7 @@ namespace Game.Feature.Gameplay.Host
                 flipWindupAnimatorDurationSeconds,
                 flipRecoveryAnimatorDurationSeconds,
                 deathAnimatorDurationSeconds,
+                stageClearVictoryAnimatorDurationSeconds,
                 legacyPushAnimatorDurationSeconds,
                 legacyFlipAnimatorDurationSeconds);
         }

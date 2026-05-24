@@ -45,6 +45,9 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
+        public float LastStageClearPlayerPresentationDelaySeconds =>
+            _presentationCoordinator.LastStageClearPlayerPresentationDelaySeconds;
+
         public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
             _presentationCoordinator.IsPlayerActionAttemptPlaybackActive(entityId);
 
