@@ -2308,6 +2308,22 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 0}
     PresentationId: 
     UnitStackGroup: 
+  - EntityId: 345
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: 
+    UnitStackGroup: 
   zones:
   - ZoneId: zone
     FaceId: 2
@@ -2441,17 +2457,6 @@ MonoBehaviour:
     BoxSelector: 3
     BoundEntityId: 0
     PresentationKey: button.default
-  - TileId: 12
-    Cell:
-      face: 0
-      x: 7
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 3
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.down
   - TileId: 13
     Cell:
       face: 0

@@ -2331,7 +2331,7 @@ MonoBehaviour:
   - TileId: 9
     Cell:
       face: 1
-      x: 8
+      x: 6
       y: 6
     Kind: 1
     ActivationRule: 2
@@ -2354,7 +2354,7 @@ MonoBehaviour:
     Cell:
       face: 1
       x: 0
-      y: 4
+      y: 5
     Kind: 1
     ActivationRule: 2
     Direction: 3
