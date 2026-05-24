@@ -33,7 +33,13 @@ namespace Game.Feature.Gameplay.Host
 
         public Vector3 DebugModelRootLocalScale => _modelRoot != null ? _modelRoot.localScale : Vector3.zero;
 
-        public void Play(float durationSeconds, float startScaleMultiplier, Vector3 startLocalOffset)
+        public void Play(
+            float launchDelaySeconds,
+            float launchDurationSeconds,
+            float startScaleMultiplier,
+            float launchScaleMultiplier,
+            Vector3 startLocalOffset,
+            Vector3 launchLocalOffset)
         {
             if (_isPlaying)
             {
@@ -50,16 +56,39 @@ namespace Game.Feature.Gameplay.Host
             _baseLocalPosition = _modelRoot.localPosition;
             _baseLocalScale = _modelRoot.localScale;
             _hasBaseState = true;
-            _durationSeconds = Mathf.Max(0.0001f, durationSeconds);
+            var delaySeconds = Mathf.Max(0f, launchDelaySeconds);
+            var motionDurationSeconds = Mathf.Max(0.0001f, launchDurationSeconds);
+            var liftDurationSeconds = motionDurationSeconds * 0.55f;
+            var settleDurationSeconds = Mathf.Max(0.0001f, motionDurationSeconds - liftDurationSeconds);
+            _durationSeconds = delaySeconds + liftDurationSeconds + settleDurationSeconds;
             _elapsedSeconds = 0f;
             _modelRoot.localPosition = _baseLocalPosition + startLocalOffset;
-            _modelRoot.localScale = _baseLocalScale * Mathf.Max(0.0001f, startScaleMultiplier);
+            _modelRoot.localScale = _baseLocalScale * Mathf.Max(0f, startScaleMultiplier);
             KillTween();
             _sequence = DOTween.Sequence()
                 .SetAutoKill(false)
                 .Pause();
-            _sequence.Join(_modelRoot.DOLocalMove(_baseLocalPosition, _durationSeconds).SetEase(ease));
-            _sequence.Join(_modelRoot.DOScale(_baseLocalScale, _durationSeconds).SetEase(ease));
+            if (delaySeconds > 0f)
+            {
+                _sequence.AppendInterval(delaySeconds);
+            }
+
+            _sequence.Append(
+                _modelRoot
+                    .DOLocalMove(_baseLocalPosition + launchLocalOffset, liftDurationSeconds)
+                    .SetEase(Ease.OutQuad));
+            _sequence.Join(
+                _modelRoot
+                    .DOScale(_baseLocalScale * Mathf.Max(0.0001f, launchScaleMultiplier), liftDurationSeconds)
+                    .SetEase(ease));
+            _sequence.Append(
+                _modelRoot
+                    .DOLocalMove(_baseLocalPosition, settleDurationSeconds)
+                    .SetEase(Ease.InQuad));
+            _sequence.Join(
+                _modelRoot
+                    .DOScale(_baseLocalScale, settleDurationSeconds)
+                    .SetEase(Ease.OutQuad));
             _isPlaying = true;
             _debugPlayCount++;
         }

@@ -77,6 +77,9 @@ MonoBehaviour:
   moonBlockGeneratorBlockedUnitTriggerName: 
   moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
   moonBlockGeneratorBlockedPlacementTriggerName: 
+  destroyTileMaterialRenderers: []
+  destroyTileInactiveColor: {r: 1, g: 1, b: 1, a: 1}
+  destroyTileInactiveMetallic: 1
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -162,7 +165,7 @@ Transform:
   m_GameObject: {fileID: 6334397824199343897}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0.675}
+  m_LocalPosition: {x: 0, y: 0, z: 0.64}
   m_LocalScale: {x: 8, y: 8, z: 7}
   m_ConstrainProportionsScale: 0
   m_Children:

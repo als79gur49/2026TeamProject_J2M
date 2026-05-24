@@ -6,10 +6,13 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -640,6 +643,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerAnimationTimingAuthoring_CreateSnapshot_PreservesStageClearVictoryAnimatorDurationOverride()
+        {
+            var rootObject = new GameObject("PlayerAnimationTimingAuthoring_CreateSnapshot_PreservesStageClearVictoryAnimatorDurationOverride");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<PlayerAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 1.25f);
+
+                var snapshot = authoring.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetStageClearVictoryAnimatorDurationOverride(out var durationSeconds), Is.True);
+                Assert.That(durationSeconds, Is.EqualTo(1.25f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_DeathDurationOverride_UsesInspectorValue()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_DeathDurationOverride_UsesInspectorValue");
@@ -673,6 +698,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
                 Assert.That(animator.speed, Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerAnimatorDriver_StageClearVictoryDurationOverride_UsesInspectorValue()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_StageClearVictoryDurationOverride_UsesInspectorValue");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var animator = rootObject.AddComponent<Animator>();
+                var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(controller, Is.Not.Null);
+
+                animator.runtimeAnimatorController = controller;
+
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 1.5f);
+
+                var expectedReferenceLengthSeconds = controller.animationClips
+                    .Where(clip => clip != null && string.Equals(clip.name, "Item", StringComparison.Ordinal))
+                    .Select(clip => clip.length)
+                    .Single();
+
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.StageClearVictory);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.StageClearVictory));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.None));
+                Assert.That(driver.StageClearVictoryPresentationDurationSeconds, Is.EqualTo(1.5f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(1.5f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(expectedReferenceLengthSeconds / 1.5f).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(expectedReferenceLengthSeconds / 1.5f).Within(0.0001f));
             }
             finally
             {
@@ -933,6 +1000,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerViewPresentationMapper_StageClearVictoryOutcomeSignal_SetsPlayerOutcome()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_StageClearVictoryOutcomeSignal_SetsPlayerOutcome");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var mapper = new PlayerViewPresentationMapper();
+                var buffer = new Dictionary<int, PlayerViewPresentationState>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+
+                mapper.Build(
+                    CreatePlayerPresentationTickResult(
+                        tickIndex: 1,
+                        playerOutcomeSignals: new[]
+                        {
+                            new TickPlayerOutcomePresentationSignal(
+                                10,
+                                TickPlayerOutcomePresentationKind.StageClearVictory,
+                                sourceTileId: 100,
+                                new SurfaceCell(FaceId.Floor, 1, 1)),
+                            new TickPlayerOutcomePresentationSignal(
+                                11,
+                                TickPlayerOutcomePresentationKind.StageClearVictory,
+                                sourceTileId: 101,
+                                new SurfaceCell(FaceId.Floor, 2, 2)),
+                        }),
+                    viewsByEntityId,
+                    buffer);
+
+                Assert.That(buffer.ContainsKey(10), Is.True);
+                Assert.That(buffer[10].HasPlayerOutcome, Is.True);
+                Assert.That(buffer[10].PlayerOutcomeKind, Is.EqualTo(TickPlayerOutcomePresentationKind.StageClearVictory));
+                Assert.That(buffer.ContainsKey(11), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayAnimationSyncCoordinator_ActionAttempt_PrioritizesAttemptOverWalkLoop()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_ActionAttempt_PrioritizesAttemptOverWalkLoop");
@@ -996,6 +1109,187 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_StageClearVictory_PrioritizesOverActionAndWalk_AndHolds()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_StageClearVictory_PrioritizesOverActionAndWalk_AndHolds");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 0.5f);
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    playerActionSignals: new[]
+                    {
+                        new TickPlayerActionPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            activeActionSequence: 1,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false),
+                    },
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() },
+                    playerOutcomeSignals: new[]
+                    {
+                        new TickPlayerOutcomePresentationSignal(
+                            10,
+                            TickPlayerOutcomePresentationKind.StageClearVictory,
+                            sourceTileId: 100,
+                            new SurfaceCell(FaceId.Floor, 1, 1)),
+                    });
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(
+                    10,
+                    shouldPlayWalkLoop: true,
+                    hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.StageClearVictory));
+                Assert.That(coordinator.LastStageClearPlayerPresentationDelaySeconds, Is.EqualTo(0.5f).Within(0.0001f));
+
+                coordinator.AdvancePlayerPresentation(0.25f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 2,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() });
+                playback = coordinator.ResolvePlayerAnimationPlayback(
+                    10,
+                    shouldPlayWalkLoop: true,
+                    hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.StageClearVictory));
+
+                coordinator.AdvancePlayerPresentation(0.3f);
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 3,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal() });
+                playback = coordinator.ResolvePlayerAnimationPlayback(
+                    10,
+                    shouldPlayWalkLoop: true,
+                    hasActiveWalkMotion: true);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_DeathSuppressesStageClearVictoryDelay()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_DeathSuppressesStageClearVictoryDelay");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView> { [10] = view };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 0.5f);
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                ApplyPlayerPresentationTick(
+                    coordinator,
+                    viewsByEntityId,
+                    tickIndex: 1,
+                    finalEntities: new[] { CreatePlayerEntity(hp: 0) },
+                    playerOutcomeSignals: new[]
+                    {
+                        new TickPlayerOutcomePresentationSignal(
+                            10,
+                            TickPlayerOutcomePresentationKind.StageClearVictory,
+                            sourceTileId: 100,
+                            new SurfaceCell(FaceId.Floor, 1, 1)),
+                    });
+
+                var playback = coordinator.ResolvePlayerAnimationPlayback(
+                    10,
+                    shouldPlayWalkLoop: false,
+                    hasActiveWalkMotion: false);
+                Assert.That(playback.State, Is.EqualTo(PlayerViewAnimationState.Death));
+                Assert.That(coordinator.LastStageClearPlayerPresentationDelaySeconds, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayHostPresentationFeed_StageClearVictoryDelay_DefersStageClearedFrame()
+        {
+            var rootObject = new GameObject("GameplayHostPresentationFeed_StageClearVictoryDelay_DefersStageClearedFrame");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayHostPresentationFeed_Victory_PlayerPrefab");
+
+            try
+            {
+                var authoring = playerViewPrefab.GetComponent<PlayerAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 0.5f);
+
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var inputHost = rootObject.AddComponent<GameplayInputHost>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(new[] { CreatePlayerEntity() }, topology);
+
+                var feed = new GameplayHostPresentationFeed(inputHost, presenter);
+                var frames = new List<GameplayPresentationFrame>();
+                feed.FramePublished += frames.Add;
+                var result = CreateStageClearVictoryTickResult(tickIndex: 7);
+
+                presenter.Present(result);
+                InvokePresentationFeedTickCompleted(feed, result);
+
+                Assert.That(feed.HasPendingStageClearPresentation, Is.True);
+                Assert.That(frames, Has.Count.EqualTo(1));
+                Assert.That(frames[0].StageEvent.HasValue, Is.False);
+
+                presenter.UpdatePresentation(0.25f);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.True);
+                Assert.That(frames, Has.Count.EqualTo(1));
+
+                presenter.UpdatePresentation(0.3f);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.False);
+                Assert.That(frames, Has.Count.EqualTo(2));
+                Assert.That(frames[1].StageEvent.HasValue, Is.True);
+                Assert.That(frames[1].StageEvent.Value.EventKind, Is.EqualTo(GameplayStageEventKind.Cleared));
+                feed.Dispose();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -2058,6 +2352,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerAnimatorDriver_StageClearVictoryState_CrossFadesToItem()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_StageClearVictoryState_CrossFadesToItem");
+
+            try
+            {
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(driver, Is.Not.Null);
+
+                driver.Apply(new PlayerViewPresentationState(
+                    10,
+                    1,
+                    PlayerActionKind.None,
+                    0,
+                    startedThisTick: false,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    hasPlayerOutcome: true,
+                    playerOutcomeKind: TickPlayerOutcomePresentationKind.StageClearVictory));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.StageClearVictory);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.StageClearVictory));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.None));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Item"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerDeath_DoesNotRequireNewPlayerActionKind()
         {
             CollectionAssert.AreEqual(
@@ -2108,6 +2437,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(deathMotion, Is.Not.Null);
             Assert.That(deathMotion.name, Is.EqualTo("Death"));
             Assert.That(controller.animationClips.Any(clip => clip != null && clip.name == "Death"), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerS1Controller_StageClearVictory_UsesItemStateAndClip()
+        {
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(controller.layers, Has.Length.GreaterThanOrEqualTo(1));
+
+            var stateMachine = controller.layers[0].stateMachine;
+            var itemState = FindState(stateMachine, "Item");
+            var itemMotion = itemState?.motion as AnimationClip;
+
+            Assert.That(itemState, Is.Not.Null);
+            Assert.That(itemState.transitions, Is.Empty);
+            Assert.That(itemMotion, Is.Not.Null);
+            Assert.That(itemMotion.name, Is.EqualTo("Item"));
+            Assert.That(controller.animationClips.Any(clip => clip != null && clip.name == "Item"), Is.True);
         }
 
         [Test]
@@ -2165,11 +2514,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(GetPrivateInstanceField<string>(driver, "flipWindupStateName"), Is.EqualTo("Flip_Windup"));
             Assert.That(GetPrivateInstanceField<string>(driver, "flipRecoveryStateName"), Is.EqualTo("Flip_Recovery"));
             Assert.That(GetPrivateInstanceField<string>(driver, "deathStateName"), Is.EqualTo("Death"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "stageClearVictoryStateName"), Is.EqualTo("Item"));
             Assert.That(GetPrivateInstanceField<float>(driver, "stateTransitionCrossFadeDurationSeconds"), Is.EqualTo(0.04f).Within(0.0001f));
             Assert.That(GetPrivateInstanceField<float>(authoring, "pushWindupAnimatorDurationSeconds"), Is.EqualTo(0.18333334f).Within(0.0000001f));
             Assert.That(GetPrivateInstanceField<float>(authoring, "pushRecoveryAnimatorDurationSeconds"), Is.EqualTo(0.3f).Within(0.0000001f));
             Assert.That(GetPrivateInstanceField<float>(authoring, "flipWindupAnimatorDurationSeconds"), Is.EqualTo(0.38333333f).Within(0.0000001f));
             Assert.That(GetPrivateInstanceField<float>(authoring, "flipRecoveryAnimatorDurationSeconds"), Is.EqualTo(0.56666666f).Within(0.0000001f));
+            Assert.That(GetPrivateInstanceField<float>(authoring, "stageClearVictoryAnimatorDurationSeconds"), Is.EqualTo(-1f));
         }
 
         [Test]
@@ -3979,13 +4330,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Enum.GetNames(typeof(EnemyActionKind)));
         }
 
-        private static EntityState CreatePlayerEntity()
+        private static EntityState CreatePlayerEntity(int hp = 3)
         {
             return new EntityState
             {
                 entityId = 10,
                 position = new SurfaceCell(FaceId.Floor, 0, 0),
-                hp = 3,
+                hp = hp,
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
@@ -4044,37 +4395,109 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayAnimationSyncCoordinator coordinator,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             int tickIndex,
+            IEnumerable<EntityState> finalEntities = null,
             IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals = null,
             IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals = null,
-            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null)
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
         {
             coordinator.ApplyTickPresentation(
-                new TickResult(
+                CreatePlayerPresentationTickResult(
                     tickIndex,
-                    Array.Empty<TickPhase>(),
-                    Array.Empty<string>(),
-                    MovementPhaseResult.Empty,
-                    AttackPhaseResult.Empty,
-                    new[] { CreatePlayerEntity() },
-                    Array.Empty<string>(),
-                    new CubeTopologyState(FaceId.Floor),
-                    new TickPresentationData(
-                        Array.Empty<TickEntityMotion>(),
-                        topologyMotion: null,
-                        Array.Empty<TickVisibilityChange>(),
-                        Array.Empty<TickTransitionVisibilityChange>(),
-                        playerActionSignals ?? Array.Empty<TickPlayerActionPresentationSignal>(),
-                        playerLocomotionSignals ?? Array.Empty<TickPlayerLocomotionPresentationSignal>(),
-                        Array.Empty<TickPlayerDamagePresentationSignal>(),
-                        Array.Empty<TickEnemyDamagePresentationSignal>(),
-                        Array.Empty<TickEnemyActionPresentationSignal>(),
-                        Array.Empty<TickEnemyJumpPresentationSignal>(),
-                        Array.Empty<TickEntityExitPresentationSignal>(),
-                        playerActionAttemptSignals),
-                    string.Empty,
-                    TickTrace.Empty),
+                    finalEntities,
+                    playerActionSignals,
+                    playerLocomotionSignals,
+                    playerActionAttemptSignals,
+                    playerOutcomeSignals),
                 viewsByEntityId,
                 (_, _) => 0.4f);
+        }
+
+        private static TickResult CreatePlayerPresentationTickResult(
+            int tickIndex,
+            IEnumerable<EntityState> finalEntities = null,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals = null,
+            IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals = null,
+            IEnumerable<TickPlayerActionAttemptPresentationSignal> playerActionAttemptSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                finalEntities ?? new[] { CreatePlayerEntity() },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    playerActionSignals ?? Array.Empty<TickPlayerActionPresentationSignal>(),
+                    playerLocomotionSignals ?? Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    playerActionAttemptSignals: playerActionAttemptSignals,
+                    playerOutcomeSignals: playerOutcomeSignals),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static TickResult CreateStageClearVictoryTickResult(int tickIndex)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { CreatePlayerEntity() },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    playerOutcomeSignals: new[]
+                    {
+                        new TickPlayerOutcomePresentationSignal(
+                            10,
+                            TickPlayerOutcomePresentationKind.StageClearVictory,
+                            sourceTileId: 100,
+                            new SurfaceCell(FaceId.Floor, 1, 1)),
+                    }),
+                string.Empty,
+                TickTrace.Empty,
+                new StageObjectiveTickResult(
+                    hasObjective: true,
+                    goalReached: true,
+                    allConditionsSatisfied: true,
+                    clearedThisTick: true,
+                    isCleared: true,
+                    Array.Empty<StageConditionStatus>()));
+        }
+
+        private static void InvokePresentationFeedTickCompleted(
+            GameplayHostPresentationFeed feed,
+            TickResult result)
+        {
+            var method = typeof(GameplayHostPresentationFeed)
+                .GetMethod("HandleTickCompleted", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(feed, new object[] { result });
         }
 
         private static void InitializeInputHostForCommandTest(

@@ -45,6 +45,9 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
+        public float LastStageClearPlayerPresentationDelaySeconds =>
+            _presentationCoordinator.LastStageClearPlayerPresentationDelaySeconds;
+
         public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
             _presentationCoordinator.IsPlayerActionAttemptPlaybackActive(entityId);
 
@@ -106,9 +109,12 @@ namespace Game.Feature.Gameplay.Host
             NotifyPresentationStateChangedIfNeeded();
         }
 
-        public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
+        public void PresentInitial(
+            IReadOnlyList<EntityState> entities,
+            CubeTopologyState topology,
+            InitialPresentationData presentationData = null)
         {
-            _presentationCoordinator.PresentInitial(entities, topology);
+            _presentationCoordinator.PresentInitial(entities, topology, presentationData);
             CapturePresentationState();
         }
 

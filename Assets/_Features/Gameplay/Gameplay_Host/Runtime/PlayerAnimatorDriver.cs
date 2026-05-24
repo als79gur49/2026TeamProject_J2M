@@ -51,6 +51,7 @@ namespace Game.Feature.Gameplay.Host
         [FormerlySerializedAs("flipExitStateName")]
         [SerializeField] private string flipRecoveryStateName = "Flip_Recovery";
         [SerializeField] private string deathStateName = "Death";
+        [SerializeField] private string stageClearVictoryStateName = "Item";
         [SerializeField] private string hitTriggerName = "Hit";
         [SerializeField] private string walkExitStateName;
         [FormerlySerializedAs("crossFadeDurationSeconds")]
@@ -88,6 +89,8 @@ namespace Game.Feature.Gameplay.Host
         public float FlipPresentationDurationSeconds => GetPresentationDurationSeconds(PlayerActionKind.Flip);
 
         public float DeathPresentationDurationSeconds => GetDeathPresentationDurationSeconds();
+
+        public float StageClearVictoryPresentationDurationSeconds => GetStageClearVictoryPresentationDurationSeconds();
 
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
 
@@ -206,6 +209,11 @@ namespace Game.Feature.Gameplay.Host
             return ResolveDeathPresentationDurationSeconds(ResolveAnimator());
         }
 
+        public float GetStageClearVictoryPresentationDurationSeconds()
+        {
+            return ResolveStageClearVictoryPresentationDurationSeconds(ResolveAnimator());
+        }
+
         private void ApplyResolvedState(
             PlayerViewAnimationState resolvedState,
             bool restart,
@@ -251,6 +259,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 PlayerViewAnimationState.WalkLoop => walkStateName,
                 PlayerViewAnimationState.Death => deathStateName,
+                PlayerViewAnimationState.StageClearVictory => stageClearVictoryStateName,
                 _ => idleStateName,
             };
         }
@@ -511,6 +520,11 @@ namespace Game.Feature.Gameplay.Host
                 presentationDurationSeconds = ResolveDeathPresentationDurationSeconds(targetAnimator);
                 referenceClipLengthSeconds = ResolveStateReferenceClipLengthSeconds(targetAnimator, deathStateName);
             }
+            else if (resolvedState == PlayerViewAnimationState.StageClearVictory)
+            {
+                presentationDurationSeconds = ResolveStageClearVictoryPresentationDurationSeconds(targetAnimator);
+                referenceClipLengthSeconds = ResolveStateReferenceClipLengthSeconds(targetAnimator, stageClearVictoryStateName);
+            }
             else
             {
                 if (phase == PlayerPresentationPhase.None)
@@ -548,6 +562,17 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return ResolveStateReferenceClipLengthSeconds(targetAnimator, deathStateName);
+        }
+
+        private float ResolveStageClearVictoryPresentationDurationSeconds(Animator targetAnimator)
+        {
+            var animationTiming = ResolveAnimationTiming();
+            if (animationTiming.TryGetStageClearVictoryAnimatorDurationOverride(out var durationSeconds))
+            {
+                return durationSeconds;
+            }
+
+            return ResolveStateReferenceClipLengthSeconds(targetAnimator, stageClearVictoryStateName);
         }
 
         private float ResolveActionPresentationDurationSeconds(
@@ -754,6 +779,11 @@ namespace Game.Feature.Gameplay.Host
             PlayerPresentationPhase previousPhase)
         {
             if (resolvedState == PlayerViewAnimationState.Death)
+            {
+                return PlayerPresentationPhase.None;
+            }
+
+            if (resolvedState == PlayerViewAnimationState.StageClearVictory)
             {
                 return PlayerPresentationPhase.None;
             }

@@ -1607,6 +1607,7 @@ MonoBehaviour:
   flipWindupAnimatorDurationSeconds: 0.38333333
   flipRecoveryAnimatorDurationSeconds: 0.56666666
   deathAnimatorDurationSeconds: -1
+  stageClearVictoryAnimatorDurationSeconds: -1
   legacyPushAnimatorDurationSeconds: -1
   legacyFlipAnimatorDurationSeconds: -1
 --- !u!114 &1100110011001100114
@@ -1629,6 +1630,7 @@ MonoBehaviour:
   flipWindupStateName: Flip_Windup
   flipRecoveryStateName: Flip_Recovery
   deathStateName: Death
+  stageClearVictoryStateName: Item
   hitTriggerName: Hit
   walkExitStateName:
   stateTransitionCrossFadeDurationSeconds: 0.04

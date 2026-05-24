@@ -3213,6 +3213,91 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void DestroyTile_TopologyActivationUnderSlidingBox_DestroysBox()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var slidingBox = CreateBox(entityId: 20, position: destroyCell);
+            slidingBox.state = EntityPhaseState.Sliding;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    slidingBox,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var destroyEvent = result.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
+
+            Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_TopologyActivationUnderGroundUnit_DestroysUnit()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateUnit(entityId: 20, position: destroyCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var destroyEvent = result.PresentationData.TileEvents.Single(tileEvent =>
+                tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered);
+
+            Assert.That(destroyEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyTile_TopologyActivationUnderAirUnit_DoesNotDestroyUnit()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateUnit(entityId: 20, position: destroyCell, unitMobilityKind: UnitMobilityKind.Air),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(
+                result.PresentationData.TileEvents.Any(tileEvent =>
+                    tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered &&
+                    tileEvent.TargetEntityId == 20),
+                Is.False);
+            Assert.That(result.EventLog, Does.Not.Contain("CleanupRemoved|E=20"));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var airUnit), Is.True);
+            Assert.That(airUnit.position, Is.EqualTo(destroyCell));
+            Assert.That(airUnit.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TopologyDestroyTileActivation_RearmsAfterInactiveCycle_DestroysSecondBox()
         {
             var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);

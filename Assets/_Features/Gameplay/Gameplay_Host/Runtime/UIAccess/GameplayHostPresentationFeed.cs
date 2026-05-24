@@ -79,14 +79,18 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _lastTickResult = result;
             var stageCompletion = _stageCompletionRuntime.ProcessTick(result);
             var maxBarrierDelaySeconds = _barrierTracker.RegisterFromTick(result, _timingProfile);
+            var stageClearVictoryDelaySeconds = Math.Max(
+                0f,
+                _presenter.LastStageClearPlayerPresentationDelaySeconds);
             if (result.ObjectiveResult != null && result.ObjectiveResult.ClearedThisTick)
             {
                 StageClearCommitted?.Invoke(result, stageCompletion);
-                if (maxBarrierDelaySeconds > 0f)
+                var clearDelaySeconds = Math.Max(maxBarrierDelaySeconds, stageClearVictoryDelaySeconds);
+                if (clearDelaySeconds > 0f)
                 {
                     _pendingStageClearPresentation = new PendingStageClearPresentation(
                         result,
-                        maxBarrierDelaySeconds);
+                        clearDelaySeconds);
                     FramePublished?.Invoke(CreateFrame(result, includeStageEvent: false));
                     return;
                 }

@@ -79,6 +79,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void Stop(GameplayVfxStopMode mode)
         {
+            TraceIfEntrance(nameof(Stop), mode.ToString(), includeStackTrace: true);
             switch (mode)
             {
                 case GameplayVfxStopMode.Default:
@@ -103,6 +104,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            TraceIfEntrance(nameof(StopEmitting), "HandleStopEmitting", includeStackTrace: true);
             Instance?.StopEmitting();
             State = VfxLifetimeState.StopEmitting;
         }
@@ -114,6 +116,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            TraceIfEntrance(nameof(StopEmittingAndClear), "HandleStopEmittingAndClear", includeStackTrace: true);
             Instance?.StopEmittingAndClear();
             State = VfxLifetimeState.ReleasedToPool;
         }
@@ -187,11 +190,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void ReleaseToPool()
         {
+            TraceIfEntrance(nameof(ReleaseToPool), "HandleReleaseToPool", includeStackTrace: true);
             State = VfxLifetimeState.ReleasedToPool;
         }
 
         public void HardCleanup()
         {
+            TraceIfEntrance(nameof(HardCleanup), "HandleHardCleanup", includeStackTrace: true);
             State = VfxLifetimeState.HardCleanup;
             Instance?.HardCleanup();
             DetachInstance();
@@ -200,6 +205,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
         internal void DetachInstance()
         {
             Instance = null;
+        }
+
+        private void TraceIfEntrance(string method, string reason, bool includeStackTrace)
+        {
+            if (!GameplayVfxLifetimeTrace.IsEntranceSpawn(CueId))
+            {
+                return;
+            }
+
+            var age = Mathf.Max(0f, (timeProvider?.TimeSeconds ?? 0f) - StartedAtSeconds);
+            GameplayVfxLifetimeTrace.Log(
+                method,
+                reason,
+                $"handleId={HandleId} state={State} cueFamily={CueId.Family} cueCode={CueId.Code} cueName={GameplayVfxLifetimeTrace.DescribeCueName(CueId)} isPersistent={IsPersistent} createdAt={StartedAtSeconds:F3} age={age:F3} stopPolicy={Policy.StopPolicy} defaultLifetimeSeconds={Policy.DefaultLifetimeSeconds:F3} tailSeconds={Policy.TailSeconds:F3} effectiveLifetimeSeconds={(Policy.DefaultLifetimeSeconds + Policy.TailSeconds):F3} {GameplayVfxLifetimeTrace.DescribeGameObject(Instance?.GameObject)}",
+                Instance?.GameObject,
+                includeStackTrace);
         }
     }
 }

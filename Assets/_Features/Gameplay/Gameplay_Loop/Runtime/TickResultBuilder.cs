@@ -739,11 +739,13 @@ namespace Game.Feature.Gameplay.Loop
             var playerDeathHoldSignals = new List<TickPlayerDeathHoldPresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
+            var playerOutcomeSignals = new List<TickPlayerOutcomePresentationSignal>();
             var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
+            var entitySpawnSignals = new List<EntitySpawnPresentationSignal>();
             var tileEvents = new List<TilePresentationEvent>();
             var tileFeatureVisualStates = new List<TileFeatureVisualState>();
             var tileFeatureVisibleVisualStates = new List<TileFeatureVisualState>();
@@ -770,7 +772,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildContinuousLocomotionPresentation(context, continuousLocomotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
-            BuildRespawnPresentation(context, visibilityChanges);
+            BuildRespawnPresentation(context, visibilityChanges, entitySpawnSignals);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerFlipResultTurnPresentation(context, playerFlipResultTurnSignals);
             BuildPlayerActionAttemptPresentation(context, playerActionAttemptSignals);
@@ -778,6 +780,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerDeathPresentation(context, playerDeathSignals);
             BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
+            BuildPlayerOutcomePresentation(context, playerOutcomeSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildForwardCellProjectilePresentation(
@@ -834,11 +837,13 @@ namespace Game.Feature.Gameplay.Loop
                    playerDeathHoldSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
+                   playerOutcomeSignals.Count == 0 &&
                    summonedEnemyPresentationBindings.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
+                   entitySpawnSignals.Count == 0 &&
                    tileEvents.Count == 0 &&
                    tileFeatureVisualStates.Count == 0 &&
                    tileFeatureVisibleVisualStates.Count == 0 &&
@@ -890,6 +895,8 @@ namespace Game.Feature.Gameplay.Loop
                     forwardCellProjectileWindupSignals,
                     forwardCellProjectileReleaseSignals,
                     forwardCellProjectileClearSignals,
+                    entitySpawnSignals,
+                    playerOutcomeSignals,
                     enemyUtilityPhaseStates);
         }
 
@@ -1739,31 +1746,46 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureState> finalTileFeatures,
             List<TilePresentationEvent> tileEvents)
         {
-            var playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
-            if (!context.ObjectiveResult.HasObjective ||
-                !context.ObjectiveResult.ClearedThisTick ||
-                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
-                playerEntityId <= 0 ||
-                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
-                player.boardPresence != EntityBoardPresence.Occupying)
+            if (!TryResolveExitClearPlayerOnActiveExit(
+                    context,
+                    finalTileFeatures,
+                    out var playerEntityId,
+                    out var exit))
             {
                 return;
             }
 
-            for (var i = 0; i < finalTileFeatures.Count; i++)
-            {
-                var exit = finalTileFeatures[i];
-                if (!IsActiveExit(context, exit) ||
-                    !exit.Cell.Equals(player.position))
-                {
-                    continue;
-                }
+            tileEvents.Add(CreateExitTilePresentationEvent(
+                TilePresentationEventKind.ExitEntered,
+                exit,
+                playerEntityId));
+        }
 
-                tileEvents.Add(CreateExitTilePresentationEvent(
-                    TilePresentationEventKind.ExitEntered,
-                    exit,
-                    playerEntityId));
+        private static void BuildPlayerOutcomePresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerOutcomePresentationSignal> playerOutcomeSignals)
+        {
+            if (playerOutcomeSignals == null)
+            {
+                throw new ArgumentNullException(nameof(playerOutcomeSignals));
             }
+
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            if (!TryResolveExitClearPlayerOnActiveExit(
+                    context,
+                    finalTileFeatures,
+                    out var playerEntityId,
+                    out var exit))
+            {
+                return;
+            }
+
+            playerOutcomeSignals.Add(new TickPlayerOutcomePresentationSignal(
+                playerEntityId,
+                TickPlayerOutcomePresentationKind.StageClearVictory,
+                exit.TileId,
+                exit.Cell));
         }
 
         private static void AddExitObjectiveClearedEvents(
@@ -1825,6 +1847,42 @@ namespace Game.Feature.Gameplay.Loop
                        tileFeature,
                        definition,
                        context.FinalAuthoritativeSnapshot.Topology);
+        }
+
+        private static bool TryResolveExitClearPlayerOnActiveExit(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            out int playerEntityId,
+            out TileFeatureState activeExit)
+        {
+            playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
+            activeExit = default;
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.ClearedThisTick ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
+                playerEntityId <= 0 ||
+                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
+                player.boardPresence != EntityBoardPresence.Occupying ||
+                player.hp <= 0 ||
+                player.markedForDeath)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit) ||
+                    !exit.Cell.Equals(player.position))
+                {
+                    continue;
+                }
+
+                activeExit = exit;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryGetTileFeatureDefinition(
@@ -3323,9 +3381,12 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildRespawnPresentation(
             in TickPresentationBuildContext context,
-            List<TickVisibilityChange> visibilityChanges)
+            List<TickVisibilityChange> visibilityChanges,
+            List<EntitySpawnPresentationSignal> entitySpawnSignals)
         {
             var respawnedEntities = context.RespawnPhaseResult.RespawnedEntities;
+            var finalTopology = context.FinalAuthoritativeSnapshot.Topology;
+            var tileFeaturesAtCell = new List<TileFeatureState>();
 
             for (var i = 0; i < respawnedEntities.Count; i++)
             {
@@ -3335,9 +3396,41 @@ namespace Game.Feature.Gameplay.Loop
                         entity.entityId,
                         TickVisibilityChangeKind.Spawn,
                         entity.position,
-                        context.FinalAuthoritativeSnapshot.Topology,
+                        finalTopology,
                         entity.facing));
+
+                if (!EntityRolePolicy.IsPlayerUnit(entity))
+                {
+                    continue;
+                }
+
+                entitySpawnSignals.Add(
+                    new EntitySpawnPresentationSignal(
+                        entity.entityId,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.PlayerRespawn,
+                        entity.position,
+                        finalTopology,
+                        entity.facing,
+                        TryResolveEntranceSource(
+                            context.FinalAuthoritativeSnapshot,
+                            entity.position,
+                            tileFeaturesAtCell)));
             }
+        }
+
+        private static TileFeaturePresentationSource? TryResolveEntranceSource(
+            WorldSnapshot snapshot,
+            SurfaceCell cell,
+            List<TileFeatureState> tileFeaturesAtCell)
+        {
+            if (snapshot == null || tileFeaturesAtCell == null)
+            {
+                return null;
+            }
+
+            snapshot.EnumerateTileFeaturesAt(cell, tileFeaturesAtCell);
+            return EntitySpawnPresentationSourceResolver.TryResolveEntranceSource(cell, tileFeaturesAtCell);
         }
 
         private static void BuildSummonedEnemyPresentationBindings(

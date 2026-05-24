@@ -316,6 +316,65 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void DeterminismHash_EntitySpawnPresentationSignals_DoNotAffectCanonicalStateOrHash()
+        {
+            var player = CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3);
+            player.unitRole = UnitRole.Player;
+            var finalEntities = new[] { player };
+            var finalSnapshot = SnapshotBuilder.Create(CreateWorldState(finalEntities));
+            var eventLog = new[]
+            {
+                "RespawnCommitted|E=10|Pos=(1,0)|Face=Floor|Facing=Left|Tick=12",
+            };
+            var spawnPresentation = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                entitySpawnSignals: new[]
+                {
+                    new EntitySpawnPresentationSignal(
+                        10,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.PlayerRespawn,
+                        SurfaceCell.FromPlanar(new Vector2Int(1, 0)),
+                        finalSnapshot.Topology,
+                        Direction.Left,
+                        new TileFeaturePresentationSource(
+                            100,
+                            TileFeatureKind.Entrance,
+                            SurfaceCell.FromPlanar(new Vector2Int(1, 0)))),
+                });
+            var baselineData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                TickPresentationData.Empty);
+            var spawnPresentationData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                spawnPresentation);
+            var hashBuilder = new DeterminismHashBuilder();
+
+            CollectionAssert.AreEqual(baselineData.FinalEntities, spawnPresentationData.FinalEntities);
+            CollectionAssert.AreEqual(baselineData.EventLog, spawnPresentationData.EventLog);
+            Assert.That(
+                hashBuilder.Build(12, finalSnapshot, baselineData),
+                Is.EqualTo(hashBuilder.Build(12, finalSnapshot, spawnPresentationData)));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeterminismHash_BoxSlideStopPresentationData_DoesNotAffectCanonicalStateOrHash()
         {
             var finalEntities = new[]

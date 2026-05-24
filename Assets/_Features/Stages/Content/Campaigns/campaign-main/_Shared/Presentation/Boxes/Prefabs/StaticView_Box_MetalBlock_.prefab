@@ -98,6 +98,15 @@ MonoBehaviour:
   gravityFieldDimFactor: 0.55
   gravityFieldLockedTint: {r: 0.45, g: 0.55, b: 0.85, a: 1}
   gravityFieldTintStrength: 0.2
+  lockRevealInSeconds: 0.234
+  lockRevealOutSeconds: 0.208
+  gravityFieldLockEdgeWidth: 0.08
+  lockRevealCurve:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &2002902953606467026
 GameObject:
   m_ObjectHideFlags: 0
@@ -204,15 +213,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
       propertyPath: m_LocalScale.x
-      value: 7.6
+      value: 7.9
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
       propertyPath: m_LocalScale.y
-      value: 7.6
+      value: 7.9
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
       propertyPath: m_LocalScale.z
-      value: 3.7
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
       propertyPath: m_LocalPosition.x
@@ -224,7 +233,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.3
+      value: -0.33
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: d3b9704274fe04f4b9c9adc100fc5f14, type: 3}
       propertyPath: m_LocalRotation.w

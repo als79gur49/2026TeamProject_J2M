@@ -3103,6 +3103,36 @@
       ],
       "reason": "Locked Core coverage for gravity field presentation request planning and planner responsibility separation.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyJumpAirborneTopologySuspendDoesNotReplaceJumpTrack",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage that topology suspend preserves the active enemy jump track instead of replacing presentation ownership.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyJumpAirborneTopologySuspendDoesNotAdvanceFrozenPose",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage that topology suspend freezes the airborne enemy jump pose instead of advancing while hidden.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyJumpLandingCompletionTopologySuspendDoesNotAdvanceCompletion",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage that topology suspend does not advance enemy jump landing completion while presentation is frozen.",
+      "locked": true
     }
   ]
 }

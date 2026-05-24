@@ -55,8 +55,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.localPosition = anchor.HasLocalPose ? anchor.LocalPosition : Vector3.zero;
             Transform.localRotation = anchor.HasLocalPose ? anchor.LocalRotation : Quaternion.identity;
             Transform.localScale = Vector3.one;
+            TraceIfEntrance(nameof(Activate), "BeforeSetActiveTrue", includeStackTrace: false);
             GameObject.SetActive(true);
             RestartParticles();
+            TraceIfEntrance(nameof(Activate), "AfterRestartParticles", includeStackTrace: false);
         }
 
         public void Reanchor(in VfxResolvedAnchor anchor)
@@ -81,6 +83,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.localPosition = command.SourceLocalPosition;
             Transform.localRotation = command.SourceLocalRotation;
             Transform.localScale = Vector3.one;
+            TraceIfEntrance(nameof(ActivateParameterizedMotion), "BeforeSetActiveTrue", includeStackTrace: false);
             GameObject.SetActive(true);
             ConfigureParameterizedVisuals(command, cloneSourceProvider);
             ApplyParameterizedMotion(command, elapsedSeconds: 0f);
@@ -88,6 +91,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 RestartParticles();
             }
+            TraceIfEntrance(nameof(ActivateParameterizedMotion), "AfterRestartParticles", includeStackTrace: false);
         }
 
         public void ActivateFlipDestroySelfMotion(
@@ -120,6 +124,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void StopEmitting()
         {
+            TraceIfEntrance(nameof(StopEmitting), "BeforeStopEmitting", includeStackTrace: true);
             for (var i = 0; i < particleSystems.Length; i++)
             {
                 var particleSystem = particleSystems[i];
@@ -128,10 +133,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmitting);
                 }
             }
+            TraceIfEntrance(nameof(StopEmitting), "AfterStopEmitting", includeStackTrace: false);
         }
 
         public void StopEmittingAndClear()
         {
+            TraceIfEntrance(nameof(StopEmittingAndClear), "BeforeStopEmittingAndClear", includeStackTrace: true);
             for (var i = 0; i < particleSystems.Length; i++)
             {
                 var particleSystem = particleSystems[i];
@@ -143,6 +150,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             ClearTrails();
+            TraceIfEntrance(nameof(StopEmittingAndClear), "AfterStopEmittingAndClear", includeStackTrace: false);
         }
 
         public void DetachToTailRoot()
@@ -220,21 +228,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void DeactivateForPool(Transform poolRoot)
         {
+            TraceIfEntrance(nameof(DeactivateForPool), "Entry", includeStackTrace: true);
             StopEmittingAndClear();
             ClearTrails();
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
             isPresentationSuspended = false;
+            TraceIfEntrance(nameof(DeactivateForPool), "BeforeSetActiveFalse", includeStackTrace: true);
             GameObject.SetActive(false);
             Transform.SetParent(poolRoot, worldPositionStays: false);
             Transform.localPosition = Vector3.zero;
             Transform.localRotation = Quaternion.identity;
             Transform.localScale = Vector3.one;
+            TraceIfEntrance(nameof(DeactivateForPool), "AfterSetActiveFalse", includeStackTrace: false);
             handle = null;
         }
 
         public void HardCleanup()
         {
+            TraceIfEntrance(nameof(HardCleanup), "Entry", includeStackTrace: true);
             ClearParameterizedVisuals();
             if (GameObject != null)
             {
@@ -331,6 +343,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void RestartParticles()
         {
+            TraceIfEntrance(nameof(RestartParticles), "BeforeRestartParticles", includeStackTrace: false);
             for (var i = 0; i < particleSystems.Length; i++)
             {
                 var particleSystem = particleSystems[i];
@@ -340,6 +353,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     particleSystem.Play(true);
                 }
             }
+            TraceIfEntrance(nameof(RestartParticles), "AfterRestartParticles", includeStackTrace: false);
+        }
+
+        private void TraceIfEntrance(string method, string reason, bool includeStackTrace)
+        {
+            if (handle == null || !GameplayVfxLifetimeTrace.IsEntranceSpawn(handle.CueId))
+            {
+                return;
+            }
+
+            var age = Time.time - handle.StartedAtSeconds;
+            GameplayVfxLifetimeTrace.Log(
+                method,
+                reason,
+                $"handleId={handle.HandleId} cueFamily={handle.CueId.Family} cueCode={handle.CueId.Code} cueName={GameplayVfxLifetimeTrace.DescribeCueName(handle.CueId)} state={handle.State} createdAt={handle.StartedAtSeconds:F3} age={age:F3} stopPolicy={handle.Policy.StopPolicy} defaultLifetimeSeconds={handle.Policy.DefaultLifetimeSeconds:F3} tailSeconds={handle.Policy.TailSeconds:F3} effectiveLifetimeSeconds={(handle.Policy.DefaultLifetimeSeconds + handle.Policy.TailSeconds):F3} {GameplayVfxLifetimeTrace.DescribeGameObject(GameObject)} {GameplayVfxLifetimeTrace.DescribeParticles(GameObject)}",
+                GameObject,
+                includeStackTrace);
         }
 
         private void ClearTrails()

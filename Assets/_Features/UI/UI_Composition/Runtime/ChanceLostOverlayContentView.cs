@@ -13,6 +13,7 @@ namespace Game.Feature.UI.Composition
         private const string FilledIconName = "FilledIcon";
         private const string EffectImageName = "Effect";
         private const string CrackLineNamePrefix = "CrackLine";
+        private const string CrackShardNamePrefix = "CrackShard";
         private const string AllIn1UiMaskShaderName = "AllIn1SpriteShader/AllIn1SpriteShaderUiMask";
         private const string AllIn1HitEffectKeyword = "HITEFFECT_ON";
         private const string AllIn1DistortKeyword = "DISTORT_ON";
@@ -32,6 +33,18 @@ namespace Game.Feature.UI.Composition
         private static readonly int GreyscaleBlendId = Shader.PropertyToID("_GreyscaleBlend");
         private static readonly int GreyscaleTintColorId = Shader.PropertyToID("_GreyscaleTintColor");
         private static readonly int GreyscaleLuminosityId = Shader.PropertyToID("_GreyscaleLuminosity");
+        private static readonly CrackShardSpec[] CrackShardSpecs =
+        {
+            new(new Vector2(-64f, 4f), new Vector2(8f, 13f), -18f, -8f, 1f, 0.62f, 0f, 0.02f),
+            new(new Vector2(62f, -4f), new Vector2(9f, 11f), 22f, 7f, -1f, 0.58f, 0f, 0.16f),
+            new(new Vector2(-30f, -82f), new Vector2(10f, 8f), 8f, -5f, -1f, 0.46f, 0f, 0.17f),
+            new(new Vector2(66f, -26f), new Vector2(8f, 14f), -34f, 9f, 1f, 0.68f, 0f, 0.31f),
+            new(new Vector2(-60f, -38f), new Vector2(10f, 10f), 46f, -8f, 1f, 0.56f, 0f, 0.45f),
+            new(new Vector2(24f, -86f), new Vector2(8f, 12f), 4f, 4f, -1f, 0.42f, 0f, 0.46f),
+            new(new Vector2(58f, 8f), new Vector2(9f, 9f), -12f, 10f, 1f, 0.76f, 0f, 0.6f),
+            new(new Vector2(-66f, -14f), new Vector2(8f, 10f), 28f, -10f, -1f, 0.82f, 0f, 0.74f),
+            new(new Vector2(0f, -88f), new Vector2(12f, 8f), -6f, 3f, 1f, 0.5f, 0f, 0.88f),
+        };
 
         [SerializeField] private TMP_Text _previousChanceText;
         [SerializeField] private TMP_Text _currentChanceText;
@@ -72,6 +85,14 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private Color _crackLineColor = new(0.08f, 0.02f, 0.015f, 0.78f);
         [SerializeField] private float _crackLineRevealDelaySeconds = 0.04f;
         [SerializeField] private float _crackLineRevealDurationSeconds = 0.27f;
+        [SerializeField] private Color _crackShardFreshColor = new(1f, 0.96f, 0.84f, 0.95f);
+        [SerializeField] private Color _crackShardDecayColor = new(0.34f, 0.21f, 0.18f, 0.92f);
+        [SerializeField] private float _crackShardDelaySeconds = 0.02f;
+        [SerializeField] private float _crackShardDurationSeconds = 0.46f;
+        [SerializeField] private float _crackShardFallDistance = 118f;
+        [SerializeField] private float _crackShardInitialRise = 0f;
+        [SerializeField] private float _crackShardFadeDelaySeconds = 0.2f;
+        [SerializeField] private float _crackShardRotationDegrees = 120f;
         [SerializeField] private bool _useUnscaledTime = true;
 
         private readonly List<SlotState> _slotStates = new();
@@ -163,6 +184,8 @@ namespace Game.Feature.UI.Composition
 
         internal int ResolvedChanceSlotCountForTests => ResolveChanceSlots().Count;
 
+        internal Color CrackShardVisibleColorForTests(float shardDelaySeconds) => EvaluateCrackShardVisibleColor(shardDelaySeconds);
+
         private void ClearChanceTexts()
         {
             SetText(_previousChanceText, string.Empty);
@@ -232,9 +255,12 @@ namespace Game.Feature.UI.Composition
                 state.Rect.gameObject.SetActive(true);
                 state.CanvasGroup.alpha = state.Alpha;
 
+                var slotDelay = (i - lostStart) * Mathf.Max(0f, _lostSlotStaggerSeconds);
+                var shakeStartTime = slotDelay + Mathf.Max(0.01f, _lostImpactDurationSeconds);
+                var fallDuration = Mathf.Max(0.01f, _lostFallDurationSeconds);
                 var slotSequence = DOTween.Sequence()
                     .SetUpdate(_useUnscaledTime)
-                    .AppendInterval((i - lostStart) * Mathf.Max(0f, _lostSlotStaggerSeconds))
+                    .AppendInterval(slotDelay)
                     .Append(CreateLostImpactTween(state))
                     .Append(CreateHorizontalShakeTween(state))
                     .Append(CreateAnchorMoveTween(
@@ -242,7 +268,7 @@ namespace Game.Feature.UI.Composition
                             new Vector2(
                                 state.TweenAnchoredPosition.x,
                                 state.TweenAnchoredPosition.y - Mathf.Max(0f, _lostFallDistance)),
-                            Mathf.Max(0.01f, _lostFallDurationSeconds))
+                            fallDuration)
                         .SetEase(Ease.InCubic))
                     .Join(DOTween.To(
                             () => state.CanvasGroup.alpha,
@@ -254,9 +280,10 @@ namespace Game.Feature.UI.Composition
                             () => state.TweenRect.localEulerAngles,
                             value => state.TweenRect.localEulerAngles = value,
                             new Vector3(0f, 0f, _lostRotationDegrees),
-                            Mathf.Max(0.01f, _lostFallDurationSeconds))
+                            fallDuration)
                         .SetEase(Ease.InQuad))
-                    .Join(CreateFilledIconBreakTween(state, Mathf.Max(0.01f, _lostFallDurationSeconds)));
+                    .Join(CreateFilledIconBreakTween(state, fallDuration));
+                slotSequence.Insert(shakeStartTime, CreateCrackShardTween(state));
 
                 _lostChanceSequence.Join(slotSequence);
             }
@@ -460,6 +487,114 @@ namespace Game.Feature.UI.Composition
             }
 
             return sequence;
+        }
+
+        private Tween CreateCrackShardTween(SlotState state)
+        {
+            var sequence = DOTween.Sequence().SetUpdate(_useUnscaledTime);
+            if (state.CrackShardImages.Count == 0)
+            {
+                return sequence;
+            }
+
+            var baseDelay = Mathf.Max(0f, _crackShardDelaySeconds);
+            var duration = Mathf.Max(0.01f, _crackShardDurationSeconds);
+            var riseDuration = Mathf.Clamp(duration * 0.08f, 0.02f, duration * 0.18f);
+            var fallDuration = Mathf.Max(0.01f, duration - riseDuration);
+            var fadeDelay = Mathf.Clamp(_crackShardFadeDelaySeconds, 0f, duration - 0.01f);
+            for (var i = 0; i < state.CrackShardImages.Count; i++)
+            {
+                var image = state.CrackShardImages[i];
+                if (image == null || image.rectTransform == null)
+                {
+                    continue;
+                }
+
+                var rect = image.rectTransform;
+                var spec = CrackShardSpecs[i % CrackShardSpecs.Length];
+                var origin = state.CrackShardAnchoredPositions[i];
+                var delay = baseDelay + spec.DelaySeconds;
+                var visibleColor = EvaluateCrackShardVisibleColor(delay);
+                var clearColor = visibleColor;
+                clearColor.a = 0f;
+
+                image.color = clearColor;
+                rect.anchoredPosition = origin;
+                rect.localRotation = state.CrackShardLocalRotations[i];
+                rect.localScale = state.CrackShardLocalScales[i];
+
+                var riseTarget = origin + new Vector2(spec.SpreadX * 0.08f, Mathf.Max(0f, _crackShardInitialRise) * spec.RiseMultiplier);
+                var fallTarget = origin + new Vector2(
+                    spec.SpreadX,
+                    -Mathf.Max(0f, _crackShardFallDistance) * spec.FallMultiplier);
+                var rotationTarget = rect.localEulerAngles + new Vector3(0f, 0f, spec.RotationSign * Mathf.Max(0f, _crackShardRotationDegrees));
+                var targetScale = state.CrackShardLocalScales[i] * 0.64f;
+
+                var shardSequence = DOTween.Sequence().SetUpdate(_useUnscaledTime)
+                    .Insert(0f, CreateAnchorMoveTween(rect, riseTarget, riseDuration).SetEase(Ease.OutQuad))
+                    .Insert(riseDuration, CreateAnchorMoveTween(rect, fallTarget, fallDuration).SetEase(Ease.InCubic))
+                    .Insert(0f, DOTween.To(
+                            () => rect.localEulerAngles,
+                            value => rect.localEulerAngles = value,
+                            rotationTarget,
+                            duration)
+                        .SetEase(Ease.OutQuad))
+                    .Insert(duration * 0.42f, rect.DOScale(targetScale, duration * 0.5f).SetEase(Ease.InQuad))
+                    .Insert(0f, CreateShardColorTween(image, visibleColor, clearColor, duration, fadeDelay));
+
+                sequence.Insert(delay, shardSequence);
+            }
+
+            return sequence;
+        }
+
+        private Color EvaluateCrackShardVisibleColor(float shardDelaySeconds)
+        {
+            var breakDuration = Mathf.Max(0.01f, _lostShakeDurationSeconds + _lostFallDurationSeconds);
+            var breakProgress = Mathf.Clamp01(Mathf.Max(0f, shardDelaySeconds) / breakDuration);
+            return Color.Lerp(_crackShardFreshColor, _crackShardDecayColor, breakProgress);
+        }
+
+        private static Tween CreateShardColorTween(
+            Image image,
+            Color visibleColor,
+            Color clearColor,
+            float duration,
+            float fadeDelay)
+        {
+            var revealDuration = Mathf.Max(0.01f, duration * 0.12f);
+            var colorSequence = DOTween.Sequence()
+                .Append(DOTween.To(
+                        () => image != null ? image.color : clearColor,
+                        value =>
+                        {
+                            if (image != null)
+                            {
+                                image.color = value;
+                            }
+                        },
+                        visibleColor,
+                        revealDuration)
+                    .SetEase(Ease.OutQuad));
+
+            if (fadeDelay > revealDuration)
+            {
+                colorSequence.AppendInterval(fadeDelay - revealDuration);
+            }
+
+            colorSequence.Append(DOTween.To(
+                    () => image != null ? image.color : visibleColor,
+                    value =>
+                    {
+                        if (image != null)
+                        {
+                            image.color = value;
+                        }
+                    },
+                    clearColor,
+                    Mathf.Max(0.01f, duration - fadeDelay))
+                .SetEase(Ease.InQuad));
+            return colorSequence;
         }
 
         private void PrepareAllIn1FilledIconMaterial(Material material)
@@ -841,6 +976,11 @@ namespace Game.Feature.UI.Composition
                 CrackLineImages = ResolveCrackLineImages(tweenRect);
                 CrackLineColors = CaptureImageColors(CrackLineImages);
                 CrackLineLocalScales = CaptureImageLocalScales(CrackLineImages);
+                CrackShardImages = ResolveCrackShardImages(tweenRect);
+                CrackShardColors = CaptureImageColors(CrackShardImages);
+                CrackShardAnchoredPositions = CaptureImageAnchoredPositions(CrackShardImages);
+                CrackShardLocalRotations = CaptureImageLocalRotations(CrackShardImages);
+                CrackShardLocalScales = CaptureImageLocalScales(CrackShardImages);
                 _allIn1RuntimeMaterials = new Material[FlashImages.Count];
                 _filledIconRuntimeMaterials = new Material[FilledImages.Count];
             }
@@ -878,6 +1018,16 @@ namespace Game.Feature.UI.Composition
             public IReadOnlyList<Color> CrackLineColors { get; }
 
             public IReadOnlyList<Vector3> CrackLineLocalScales { get; }
+
+            public IReadOnlyList<Image> CrackShardImages { get; }
+
+            public IReadOnlyList<Color> CrackShardColors { get; }
+
+            public IReadOnlyList<Vector2> CrackShardAnchoredPositions { get; }
+
+            public IReadOnlyList<Quaternion> CrackShardLocalRotations { get; }
+
+            public IReadOnlyList<Vector3> CrackShardLocalScales { get; }
 
             private Material[] _allIn1RuntimeMaterials { get; }
 
@@ -962,6 +1112,22 @@ namespace Game.Feature.UI.Composition
                         CrackLineImages[i].rectTransform.localScale = CrackLineLocalScales[i];
                     }
                 }
+
+                for (var i = 0; i < CrackShardImages.Count; i++)
+                {
+                    if (CrackShardImages[i] == null)
+                    {
+                        continue;
+                    }
+
+                    CrackShardImages[i].color = CrackShardColors[i];
+                    if (CrackShardImages[i].rectTransform != null)
+                    {
+                        CrackShardImages[i].rectTransform.anchoredPosition = CrackShardAnchoredPositions[i];
+                        CrackShardImages[i].rectTransform.localRotation = CrackShardLocalRotations[i];
+                        CrackShardImages[i].rectTransform.localScale = CrackShardLocalScales[i];
+                    }
+                }
             }
 
             private static IReadOnlyList<Image> ResolveFlashImages(RectTransform rect)
@@ -1019,6 +1185,26 @@ namespace Game.Feature.UI.Composition
                 return resolved.Count > 0 ? resolved : CreateCrackLines(tweenRect);
             }
 
+            private static IReadOnlyList<Image> ResolveCrackShardImages(RectTransform tweenRect)
+            {
+                if (tweenRect == null)
+                {
+                    return System.Array.Empty<Image>();
+                }
+
+                var resolved = new List<Image>();
+                var images = tweenRect.GetComponentsInChildren<Image>(true);
+                for (var i = 0; i < images.Length; i++)
+                {
+                    if (images[i] != null && images[i].name.StartsWith(CrackShardNamePrefix, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolved.Add(images[i]);
+                    }
+                }
+
+                return resolved.Count > 0 ? resolved : CreateCrackShards(tweenRect);
+            }
+
             private static IReadOnlyList<Image> CreateCrackLines(RectTransform parent)
             {
                 var lineSpecs = new[]
@@ -1052,6 +1238,38 @@ namespace Game.Feature.UI.Composition
                 return lines;
             }
 
+            private static IReadOnlyList<Image> CreateCrackShards(RectTransform parent)
+            {
+                var shards = new List<Image>(CrackShardSpecs.Length);
+                for (var i = 0; i < CrackShardSpecs.Length; i++)
+                {
+                    var spec = CrackShardSpecs[i];
+                    var shardObject = new GameObject($"{CrackShardNamePrefix} {i}", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+                    shardObject.transform.SetParent(parent, false);
+                    var rect = shardObject.GetComponent<RectTransform>();
+                    rect.anchorMin = new Vector2(0.5f, 0.5f);
+                    rect.anchorMax = new Vector2(0.5f, 0.5f);
+                    rect.pivot = new Vector2(0.5f, 0.5f);
+                    rect.anchoredPosition = spec.AnchoredPosition;
+                    rect.sizeDelta = spec.SizeDelta;
+                    rect.localRotation = Quaternion.Euler(0f, 0f, spec.RotationDegrees);
+                    rect.localScale = Vector3.one;
+
+                    var canvasGroup = shardObject.GetComponent<CanvasGroup>();
+                    canvasGroup.alpha = 1f;
+                    canvasGroup.interactable = false;
+                    canvasGroup.blocksRaycasts = false;
+                    canvasGroup.ignoreParentGroups = true;
+
+                    var image = shardObject.GetComponent<Image>();
+                    image.color = Color.clear;
+                    image.raycastTarget = false;
+                    shards.Add(image);
+                }
+
+                return shards;
+            }
+
             private static IReadOnlyList<Color> CaptureImageColors(IReadOnlyList<Image> images)
             {
                 var colors = new List<Color>(images.Count);
@@ -1061,6 +1279,32 @@ namespace Game.Feature.UI.Composition
                 }
 
                 return colors;
+            }
+
+            private static IReadOnlyList<Vector2> CaptureImageAnchoredPositions(IReadOnlyList<Image> images)
+            {
+                var positions = new List<Vector2>(images.Count);
+                for (var i = 0; i < images.Count; i++)
+                {
+                    positions.Add(images[i] != null && images[i].rectTransform != null
+                        ? images[i].rectTransform.anchoredPosition
+                        : Vector2.zero);
+                }
+
+                return positions;
+            }
+
+            private static IReadOnlyList<Quaternion> CaptureImageLocalRotations(IReadOnlyList<Image> images)
+            {
+                var rotations = new List<Quaternion>(images.Count);
+                for (var i = 0; i < images.Count; i++)
+                {
+                    rotations.Add(images[i] != null && images[i].rectTransform != null
+                        ? images[i].rectTransform.localRotation
+                        : Quaternion.identity);
+                }
+
+                return rotations;
             }
 
             private static IReadOnlyList<Material> CaptureImageMaterials(IReadOnlyList<Image> images)
@@ -1155,6 +1399,45 @@ namespace Game.Feature.UI.Composition
 
                 public float RotationDegrees { get; }
             }
+        }
+
+        private readonly struct CrackShardSpec
+        {
+            public CrackShardSpec(
+                Vector2 anchoredPosition,
+                Vector2 sizeDelta,
+                float rotationDegrees,
+                float spreadX,
+                float rotationSign,
+                float fallMultiplier,
+                float riseMultiplier,
+                float delaySeconds)
+            {
+                AnchoredPosition = anchoredPosition;
+                SizeDelta = sizeDelta;
+                RotationDegrees = rotationDegrees;
+                SpreadX = spreadX;
+                RotationSign = rotationSign;
+                FallMultiplier = fallMultiplier;
+                RiseMultiplier = riseMultiplier;
+                DelaySeconds = delaySeconds;
+            }
+
+            public Vector2 AnchoredPosition { get; }
+
+            public Vector2 SizeDelta { get; }
+
+            public float RotationDegrees { get; }
+
+            public float SpreadX { get; }
+
+            public float RotationSign { get; }
+
+            public float FallMultiplier { get; }
+
+            public float RiseMultiplier { get; }
+
+            public float DelaySeconds { get; }
         }
 
         private sealed class TextVisualState

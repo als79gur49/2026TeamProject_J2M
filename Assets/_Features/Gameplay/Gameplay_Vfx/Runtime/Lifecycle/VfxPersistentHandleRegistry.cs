@@ -274,6 +274,36 @@ namespace Game.Feature.Gameplay.Vfx
             desiredKeys.Clear();
         }
 
+        public void HardCleanupFamily(IVfxPool pool, GameplayVfxFamily family)
+        {
+            if (pool == null)
+            {
+                throw new ArgumentNullException(nameof(pool));
+            }
+
+            if (family == GameplayVfxFamily.None)
+            {
+                return;
+            }
+
+            foreach (var pair in activeHandles.ToArray())
+            {
+                var handle = pair.Value;
+                if (handle == null || handle.CueId.Family != family)
+                {
+                    continue;
+                }
+
+                if (handle.State != VfxLifetimeState.HardCleanup)
+                {
+                    handle.HardCleanup();
+                    pool.Release(handle);
+                }
+
+                RemoveActiveEntry(pair.Key);
+            }
+        }
+
         private bool IsSameBinding(VfxPersistentKey key, VfxBindingRuntimePolicy policy)
         {
             return activePolicies.TryGetValue(key, out var existingPolicy) &&
