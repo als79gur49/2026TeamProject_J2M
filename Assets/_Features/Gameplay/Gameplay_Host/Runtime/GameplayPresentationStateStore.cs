@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, EnemyVisualPresentationFacts> _enemyVisualFactsByEntityId = new();
         private readonly Dictionary<int, EnemyVisualSemanticState> _enemyVisualSemanticStatesByEntityId = new();
         private readonly Dictionary<int, EntityType> _entityTypesByEntityId = new();
+        private readonly Dictionary<int, EntityPresentationApplySignature> _lastEnemyApplySignaturesByEntityId = new();
         private readonly Dictionary<int, UnitRole> _unitRolesByEntityId = new();
         private readonly Dictionary<int, JumpDetachedVisibilityState> _jumpDetachedVisibilityStates = new();
         private readonly HashSet<int> _processingEntityIds = new();
@@ -43,6 +44,11 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasAnyCommittedFrame { get; set; }
 
+        internal Dictionary<int, EntityPresentationApplySignature> LastEnemyApplySignaturesByEntityId =>
+            _lastEnemyApplySignaturesByEntityId;
+
+        internal EntityPresentationApplyDiagnostics LastEntityPresentationApplyDiagnostics { get; set; }
+
         public Dictionary<int, JumpDetachedVisibilityState> JumpDetachedVisibilityStates => _jumpDetachedVisibilityStates;
 
         public Dictionary<int, GameplayEntityPose> PresentedLocalPosesByEntityId => _presentedLocalPosesByEntityId;
@@ -64,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyVisualFactsByEntityId.Clear();
             _enemyVisualSemanticStatesByEntityId.Clear();
             _entityTypesByEntityId.Clear();
+            _lastEnemyApplySignaturesByEntityId.Clear();
             _unitRolesByEntityId.Clear();
             _jumpDetachedVisibilityStates.Clear();
             _presentedLocalPosesByEntityId.Clear();
@@ -72,6 +79,7 @@ namespace Game.Feature.Gameplay.Host
             _viewsByEntityId.Clear();
             _processingEntityIds.Clear();
             _processingEntityIdBuffer.Clear();
+            LastEntityPresentationApplyDiagnostics = default;
         }
 
         public void BeginCommittedFrame(CubeTopologyState topology)

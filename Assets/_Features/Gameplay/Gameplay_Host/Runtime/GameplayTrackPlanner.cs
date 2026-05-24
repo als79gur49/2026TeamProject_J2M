@@ -87,6 +87,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var presentationData = result.PresentationData;
+            RefreshPresentationEventTargets(presentationData);
             var kinematicEntityIds = CollectKinematicEntityIds(presentationData);
             var flipImpactTimingSettings = _motionTimingResolver.ResolveFlipImpactTimingSettings(timingProfile);
             RefreshKinematicTracks(presentationData, projector);
@@ -123,6 +124,205 @@ namespace Game.Feature.Gameplay.Host
             RefreshTransitionVisibilityState(presentationData, projector);
             RefreshFlipInteractionTracks(presentationData, timingProfile, flipImpactTimingSettings);
             _playerDeathDisplacementPlanner.RefreshTracks(presentationData, projector, timingProfile);
+        }
+
+        private void RefreshPresentationEventTargets(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            var entityIds = _trackState.PresentationEventTargetEntityIds;
+            entityIds.Clear();
+
+            for (var i = 0; i < presentationData.EntityMotions.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EntityMotions[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.KinematicMotionTracks.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.KinematicMotionTracks[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.ContinuousLocomotionTracks.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.ContinuousLocomotionTracks[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.VisibilityChanges.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.VisibilityChanges[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.TransitionVisibilityChanges.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.TransitionVisibilityChanges[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.PlayerActionSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerActionSignals[i];
+                AddEventTargetEntityId(entityIds, signal.EntityId);
+                AddEventTargetEntityId(entityIds, signal.TargetEntityId);
+                AddEventTargetEntityId(entityIds, signal.FlipTargetBoxEntityId);
+            }
+
+            for (var i = 0; i < presentationData.PlayerActionAttemptSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerActionAttemptSignals[i];
+                AddEventTargetEntityId(entityIds, signal.EntityId);
+                AddEventTargetEntityId(entityIds, signal.TargetEntityId);
+            }
+
+            for (var i = 0; i < presentationData.PlayerFlipResultTurnSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.PlayerFlipResultTurnSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.PlayerLocomotionSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.PlayerLocomotionSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.PlayerDamageSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.PlayerDamageSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.PlayerDeathSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerDeathSignals[i];
+                AddEventTargetEntityId(entityIds, signal.EntityId);
+                AddEventTargetEntityId(entityIds, signal.SourceEntityId);
+            }
+
+            for (var i = 0; i < presentationData.PlayerDeathHoldSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.PlayerDeathHoldSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EnemyDamageSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EnemyDamageSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EnemyActionSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EnemyActionSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EnemyJumpSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EnemyJumpSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EnemyChargeSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EnemyChargeSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EnemyGlideSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EnemyGlideSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EnemyUtilitySignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EnemyUtilitySignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EnemyUtilityCooldownSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.EnemyUtilityCooldownSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.EntityExitSignals.Count; i++)
+            {
+                var signal = presentationData.EntityExitSignals[i];
+                AddEventTargetEntityId(entityIds, signal.ExitedEntityId);
+                if (signal.SourceActorEntityId.HasValue)
+                {
+                    AddEventTargetEntityId(entityIds, signal.SourceActorEntityId.Value);
+                }
+
+                if (signal.AnchorEntityId.HasValue)
+                {
+                    AddEventTargetEntityId(entityIds, signal.AnchorEntityId.Value);
+                }
+            }
+
+            for (var i = 0; i < presentationData.ImpactTransientSignals.Count; i++)
+            {
+                AddEventTargetEntityId(entityIds, presentationData.ImpactTransientSignals[i].EntityId);
+            }
+
+            for (var i = 0; i < presentationData.FlipImpactSignals.Count; i++)
+            {
+                var signal = presentationData.FlipImpactSignals[i];
+                AddEventTargetEntityId(entityIds, signal.BoxEntityId);
+                AddEventTargetEntityId(entityIds, signal.ImpactTargetEntityId);
+                AddEventTargetEntityId(entityIds, signal.ActorEntityId);
+            }
+
+            for (var i = 0; i < presentationData.FlipFloorImpactSignals.Count; i++)
+            {
+                var signal = presentationData.FlipFloorImpactSignals[i];
+                AddEventTargetEntityId(entityIds, signal.BoxEntityId);
+                AddEventTargetEntityId(entityIds, signal.ActorEntityId);
+            }
+
+            for (var i = 0; i < presentationData.BoxSlideStopSignals.Count; i++)
+            {
+                var signal = presentationData.BoxSlideStopSignals[i];
+                AddEventTargetEntityId(entityIds, signal.BoxEntityId);
+                AddEventTargetEntityId(entityIds, signal.StopperEntityId);
+            }
+
+            for (var i = 0; i < presentationData.BoxSlideStartSignals.Count; i++)
+            {
+                var signal = presentationData.BoxSlideStartSignals[i];
+                AddEventTargetEntityId(entityIds, signal.BoxEntityId);
+                AddEventTargetEntityId(entityIds, signal.ActorEntityId);
+            }
+
+            for (var i = 0; i < presentationData.ForwardCellImpactSignals.Count; i++)
+            {
+                var signal = presentationData.ForwardCellImpactSignals[i];
+                AddEventTargetEntityId(entityIds, signal.OwnerId);
+                AddEventTargetEntityId(entityIds, signal.SourceEnemyId);
+                AddEventTargetEntityId(entityIds, signal.TargetEntityId);
+            }
+
+            for (var i = 0; i < presentationData.ForwardCellProjectileWindupSignals.Count; i++)
+            {
+                var signal = presentationData.ForwardCellProjectileWindupSignals[i];
+                AddEventTargetEntityId(entityIds, signal.OwnerId);
+                AddEventTargetEntityId(entityIds, signal.SourceEnemyId);
+            }
+
+            for (var i = 0; i < presentationData.ForwardCellProjectileReleaseSignals.Count; i++)
+            {
+                var signal = presentationData.ForwardCellProjectileReleaseSignals[i];
+                AddEventTargetEntityId(entityIds, signal.OwnerId);
+                AddEventTargetEntityId(entityIds, signal.SourceEnemyId);
+            }
+
+            for (var i = 0; i < presentationData.ForwardCellProjectileClearSignals.Count; i++)
+            {
+                var signal = presentationData.ForwardCellProjectileClearSignals[i];
+                AddEventTargetEntityId(entityIds, signal.OwnerId);
+                AddEventTargetEntityId(entityIds, signal.SourceEnemyId);
+            }
+        }
+
+        private static void AddEventTargetEntityId(HashSet<int> entityIds, int entityId)
+        {
+            if (entityId > 0)
+            {
+                entityIds.Add(entityId);
+            }
         }
 
         private void RefreshGlidePresentationOffsets(

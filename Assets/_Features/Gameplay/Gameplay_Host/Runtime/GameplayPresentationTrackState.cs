@@ -58,6 +58,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, GameplayEntityPose> _playerDeathHoldPoses = new();
         private readonly HashSet<int> _playerDeathHoldSignalEntityIds = new();
         private readonly Dictionary<int, PlayerDeathDisplacementTrack> _playerDeathDisplacementTracks = new();
+        private readonly HashSet<int> _presentationEventTargetEntityIds = new();
         private readonly Dictionary<int, PresentationMotionTrack> _originalViewMotionTracks = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
@@ -117,6 +118,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, PlayerDeathDisplacementTrack> PlayerDeathDisplacementTracks => _playerDeathDisplacementTracks;
 
+        public HashSet<int> PresentationEventTargetEntityIds => _presentationEventTargetEntityIds;
+
         public Dictionary<int, PresentationMotionTrack> OriginalViewMotionTracks => _originalViewMotionTracks;
 
         public Dictionary<int, TickPlayerLocomotionPresentationSignal> PlayerLocomotionSignalsByEntityId =>
@@ -155,6 +158,7 @@ namespace Game.Feature.Gameplay.Host
             _playerDeathHoldPoses.Clear();
             _playerDeathHoldSignalEntityIds.Clear();
             _playerDeathDisplacementTracks.Clear();
+            _presentationEventTargetEntityIds.Clear();
             _originalViewMotionTracks.Clear();
             _playerLocomotionSignalsByEntityId.Clear();
             _visibleEntityIds.Clear();

@@ -6008,6 +6008,287 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_UnchangedEnemy_SkipsExpensiveApply()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_UnchangedEnemy_SkipsExpensiveApply));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology);
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                presenter.PresentInitial(new[] { enemy }, topology);
+                presenter.UpdatePresentation(0f);
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemyCandidateCount, Is.EqualTo(1));
+                Assert.That(diagnostics.EnemySkippedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutedCount, Is.Zero);
+                Assert.That(diagnostics.SignatureUnchangedCount, Is.EqualTo(1));
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_ChangedEnemyVisualState_Applies()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_ChangedEnemyVisualState_Applies));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology);
+                presenter.PresentInitial(
+                    new[] { CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    topology);
+                presenter.UpdatePresentation(0f);
+
+                var frontEnemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Front, 0, 0));
+                presenter.Present(CreateTickResult(1, new[] { frontEnemy }, topology, TickPresentationData.Empty));
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemySkippedCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.SignatureChangedCount, Is.EqualTo(1));
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.GetComponent<EnemyInactiveVisualController>().CurrentActivityState,
+                    Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_ChangedPose_Applies()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_ChangedPose_Applies));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(
+                    rootObject,
+                    out var registry,
+                    out var topology,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)));
+                presenter.PresentInitial(
+                    new[] { CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    topology);
+                presenter.UpdatePresentation(0f);
+
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var movedEnemy = CreateEnemyUnit(20, destinationCell);
+                presenter.Present(CreateTickResult(1, new[] { movedEnemy }, topology, TickPresentationData.Empty));
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemySkippedCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                AssertPositionApproximately(
+                    view.transform.localPosition,
+                    GetProjectedEntityPosition(
+                        new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)),
+                        topology,
+                        destinationCell,
+                        EntityType.Unit));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_ActiveMotion_DoesNotSkip()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_ActiveMotion_DoesNotSkip));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(
+                    rootObject,
+                    out _,
+                    out var topology,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)));
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.UpdatePresentation(0f);
+
+                presenter.Present(CreateMotionTickResult(
+                    CreateEnemyUnit(20, destinationCell),
+                    topology,
+                    sourceCell,
+                    destinationCell,
+                    TickEntityMotionKind.Move));
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemySkippedCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_NewlyBoundEntity_Applies()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_NewlyBoundEntity_Applies));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                presenter.Present(CreateTickResult(1, new[] { enemy }, topology, TickPresentationData.Empty));
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemyCandidateCount, Is.EqualTo(1));
+                Assert.That(diagnostics.EnemySkippedCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_VisibilityChanged_Applies()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_VisibilityChanged_Applies));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, cell) }, topology);
+                presenter.UpdatePresentation(0f);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    Array.Empty<EntityState>(),
+                    topology,
+                    CreateVisibilityPresentationData(new TickVisibilityChange(
+                        20,
+                        TickVisibilityChangeKind.Remove,
+                        cell,
+                        topology,
+                        Direction.Right))));
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemySkippedCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_PresentationEventTarget_DoesNotSkip()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_PresentationEventTarget_DoesNotSkip));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                presenter.PresentInitial(new[] { enemy }, topology);
+                presenter.UpdatePresentation(0f);
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { enemy },
+                    topology,
+                    CreateEnemyDamagePresentationData(new TickEnemyDamagePresentationSignal(20, true, 1))));
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemySkippedCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ActiveBypassCount, Is.EqualTo(1));
+                Assert.That(diagnostics.SignatureUnchangedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_PlayerPath_Preserved()
+        {
+            var rootObject = new GameObject(nameof(GameplayEntityPresentationApplier_PlayerPath_Preserved));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var player = CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 0));
+                presenter.PresentInitial(new[] { player }, topology);
+
+                presenter.UpdatePresentation(0f);
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.EnemyCandidateCount, Is.Zero);
+                Assert.That(diagnostics.SkippedCount, Is.Zero);
+                Assert.That(diagnostics.PlayerExecutedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationDirtyOnly_Diagnostics_CountsSkippedAndExecuted()
+        {
+            var rootObject = new GameObject(nameof(PresentationDirtyOnly_Diagnostics_CountsSkippedAndExecuted));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out _, out var topology);
+                var entities = new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0)),
+                };
+                presenter.PresentInitial(entities, topology);
+
+                presenter.UpdatePresentation(0f);
+
+                var diagnostics = presenter.DebugLastEntityPresentationApplyDiagnostics;
+                Assert.That(diagnostics.CandidateCount, Is.EqualTo(2));
+                Assert.That(diagnostics.EnemyCandidateCount, Is.EqualTo(1));
+                Assert.That(diagnostics.EnemySkippedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.PlayerExecutedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.SkippedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void DefaultEnemyVisualSemanticResolver_CommittedFrontEnemy_ResolvesFrontFaceInactive()
         {
@@ -6665,6 +6946,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return presenter;
         }
 
+        private static GameplayTickViewPresenter CreatePrimitivePresenter(
+            GameObject rootObject,
+            out GameplayEntityViewRegistry registry,
+            out CubeTopologyState topology,
+            BoardBounds? boardBounds = null)
+        {
+            var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(
+                registry,
+                new DefaultGameplayEntityViewFactory(
+                    registry.transform,
+                    1f,
+                    playerEntityId: 10));
+            topology = new CubeTopologyState(FaceId.Floor);
+            presenter.Initialize(
+                binder,
+                boardBounds ?? new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                topology,
+                1f,
+                CreateTimingProfile());
+            presenter.PresentInitial(Array.Empty<EntityState>(), topology);
+            return presenter;
+        }
+
         private static TileFeatureVisualTargetView AttachTileVisualTarget(
             GameObject rootObject,
             GameplayTickViewPresenter presenter,
@@ -6764,6 +7070,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return CreateGravityFieldPresentationData(
                 gravityFieldVisualStates,
                 Array.Empty<GravityFieldPresentationEvent>());
+        }
+
+        private static TickPresentationData CreateVisibilityPresentationData(
+            params TickVisibilityChange[] visibilityChanges)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: visibilityChanges,
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>());
+        }
+
+        private static TickPresentationData CreateEnemyDamagePresentationData(
+            params TickEnemyDamagePresentationSignal[] enemyDamageSignals)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: enemyDamageSignals,
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>());
         }
 
         private static GravityFieldVisualState CreateGravityFieldVisualState(

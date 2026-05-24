@@ -218,6 +218,9 @@ namespace Game.Feature.Gameplay.Host
         internal int PendingMoonBlockEmergenceRequestCount =>
             _presentationCoordinator.PendingMoonBlockEmergenceRequestCount;
 
+        internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
+            _presentationCoordinator.DebugLastEntityPresentationApplyDiagnostics;
+
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
             _presentationCoordinator.AttachCameraRig(viewCameraRig);

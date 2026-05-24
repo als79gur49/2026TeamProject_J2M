@@ -179,6 +179,9 @@ namespace Game.Feature.Gameplay.Host
         internal int PendingMoonBlockEmergenceRequestCount =>
             _moonBlockEmergencePresentationController.PendingRequestCount;
 
+        internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
+            _stateStore.LastEntityPresentationApplyDiagnostics;
+
         internal GameplayEntityPresentationLifecycleDebugSnapshot DebugCaptureEntityPresentationLifecycle(
             int entityId,
             float timelineTimeSeconds = 0f)
