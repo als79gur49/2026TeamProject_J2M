@@ -460,10 +460,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void WorldState_MoveEntityTo_LandingPendingGlider_CannotOccupyNonPendingSolidCell()
+        public void WorldState_MoveEntityTo_GliderActive_CanRepresentAirborneOverSolid()
         {
             var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var landingPendingCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
@@ -476,21 +475,94 @@ namespace Game.Feature.Gameplay.Tests.Unit
             writeContext.SetEnemyGlideState(
                 241,
                 EnemyGlideRuntimeState.Create(
-                    EnemyGlidePhase.LandingPending,
+                    EnemyGlidePhase.Active,
                     sequence: 1,
                     windupUntilTickExclusive: 0,
-                    activeUntilTickExclusive: 2,
+                    activeUntilTickExclusive: 5,
                     recoveryUntilTickExclusive: 0,
                     cooldownUntilTickExclusive: 0,
                     windupTicks: 0,
-                    durationTicks: 2,
+                    durationTicks: 5,
                     recoveryTicks: 1,
                     cooldownTicks: 0,
-                    lastExitedTick: 2,
-                    landingPendingCell: landingPendingCell,
+                    lastExitedTick: 0,
+                    landingPendingCell: default,
                     hasLockedStep: true,
-                    lockedStepX: 0,
-                    lockedStepY: 1));
+                    lockedStepX: 1,
+                    lockedStepY: 0));
+
+            Assert.DoesNotThrow(() => writeContext.MoveEntity(241, wallCell));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(241, out var glider), Is.True);
+            Assert.That(glider.position, Is.EqualTo(wallCell));
+            Assert.That(snapshot.TryGetSolidOccupantAt(wallCell, out var solid), Is.True);
+            Assert.That(solid.entityId, Is.EqualTo(238));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_MoveEntityTo_GliderNormal_CannotRepresentGroundedOnSolid()
+        {
+            AssertGliderGroundedPhaseCannotMoveOntoSolid(null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_MoveEntityTo_GliderWindup_CannotRepresentGroundedOnSolid()
+        {
+            AssertGliderGroundedPhaseCannotMoveOntoSolid(
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Windup,
+                    sequence: 1,
+                    windupUntilTickExclusive: 5,
+                    activeUntilTickExclusive: 0,
+                    recoveryUntilTickExclusive: 0,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 2,
+                    durationTicks: 5,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    lastExitedTick: 0,
+                    landingPendingCell: default));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_MoveEntityTo_GliderRecover_CannotRepresentGroundedOnSolid()
+        {
+            AssertGliderGroundedPhaseCannotMoveOntoSolid(
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Recovery,
+                    sequence: 1,
+                    windupUntilTickExclusive: 0,
+                    activeUntilTickExclusive: 3,
+                    recoveryUntilTickExclusive: 5,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 0,
+                    durationTicks: 3,
+                    recoveryTicks: 2,
+                    cooldownTicks: 0,
+                    lastExitedTick: 0,
+                    landingPendingCell: default));
+        }
+
+        private static void AssertGliderGroundedPhaseCannotMoveOntoSolid(EnemyGlideRuntimeState? glideState)
+        {
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateWall(entityId: 238, position: wallCell),
+                    CreateUnit(entityId: 241, position: Vector2Int.zero),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var writeContext = worldState.CreateWriteContext();
+            if (glideState.HasValue)
+            {
+                writeContext.SetEnemyGlideState(241, glideState.Value);
+            }
 
             Assert.Throws<InvalidOperationException>(
                 () => writeContext.MoveEntity(241, wallCell));
