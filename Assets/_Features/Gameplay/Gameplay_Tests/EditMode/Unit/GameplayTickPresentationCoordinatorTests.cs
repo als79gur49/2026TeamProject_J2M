@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string GravityFieldLockedTintProperty = "_GravityFieldLockedTint";
         private const string GravityFieldDimFactorProperty = "_GravityFieldDimFactor";
         private const string GravityFieldTintStrengthProperty = "_GravityFieldTintStrength";
+        private const string GravityFieldEmissionSuppressionProperty = "_GravityFieldEmissionSuppression";
         private const float GravityFieldLockRevealInSeconds = 0.234f;
         private const float GravityFieldLockRevealOutSeconds = 0.208f;
         private const string EnemyInactiveBlendProperty = "_InactiveBlend";
@@ -670,6 +671,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GetRendererColor(renderer, GravityFieldLockedTintProperty));
                 Assert.That(GetRendererFloat(renderer, GravityFieldDimFactorProperty), Is.EqualTo(0.55f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldTintStrengthProperty), Is.EqualTo(0.15f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty), Is.EqualTo(0.85f).Within(0.0001f));
 
                 target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealInSeconds * 0.5f);
 
@@ -680,6 +682,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(target.DebugCurrentLockReveal, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionSuppression()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionSuppression));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "gravityFieldEmissionSuppression", 0.42f);
+
+                target.ApplyGravityFieldLockedTarget(1);
+
+                Assert.That(
+                    GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty),
+                    Is.EqualTo(0.42f).Within(0.0001f));
             }
             finally
             {
@@ -852,6 +881,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Assert.That(material.HasProperty(GravityFieldLockRevealProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockNoiseMapProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockEdgeWidthProperty), Is.True, $"{prefabPath} {material.name}");
+                        Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, $"{prefabPath} {material.name}");
                         Assert.That(
                             material.GetFloat(GravityFieldLockEdgeWidthProperty),
@@ -878,6 +908,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(material, Is.Not.Null, materialPath);
                 Assert.That(material.shader, Is.SameAs(lockableShader), materialPath);
+                Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, materialPath);
                 Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, materialPath);
                 Assert.That(material.GetFloat(GravityFieldLockEdgeWidthProperty), Is.InRange(0.001f, 0.5f), materialPath);
             }
