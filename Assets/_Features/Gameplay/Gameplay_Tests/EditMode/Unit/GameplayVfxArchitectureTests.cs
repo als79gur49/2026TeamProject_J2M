@@ -76,6 +76,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "## Gameplay VFX Legacy Old Path Cleanup",
                 "## Gameplay VFX Flag Rollout Policy",
                 "## Visual Source Modes",
+                "## Placeholder Prefab Policy",
+                "## ADR: SourceCloneMotion Host Strategy",
+                "## Test Naming Policy",
                 "## Legacy Name",
             };
 
@@ -112,6 +115,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("## Legacy Name"));
             Assert.That(document, Does.Contain("do not use `SourceViewCloneWithPrefabFallback` for `SourceCloneMotion` cues"));
             Assert.That(document, Does.Contain("do not mix `EnemyDeathMotion_Binding.asset` with `EnemyOutOfBoundsExit_Binding.asset`"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsPlaceholderPrefabPolicy()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Placeholder Prefab Policy"));
+            Assert.That(document, Does.Contain("cue-specific placeholder prefabs must not be created for `SourceCloneMotion`"));
+            Assert.That(document, Does.Contain("the prefab field may be null; null prefab is normal and must not warn or fail"));
+            Assert.That(document, Does.Contain("`GameplayVfxCommonEmptyHost.prefab` is deletion-protected"));
+            Assert.That(document, Does.Contain("`EnemyDeathMotionVfx.prefab` is a fallback visual and must not be deleted"));
+            Assert.That(document, Does.Contain("particle/contact visual prefabs are actual visual prefabs, not placeholders"));
+            Assert.That(document, Does.Contain("`Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab`"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsSourceCloneMotionHostStrategy()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## ADR: SourceCloneMotion Host Strategy"));
+            Assert.That(document, Does.Contain("Keep `GameplayVfxCommonEmptyHost.prefab` as the default and required common host for `SourceCloneMotion`"));
+            Assert.That(document, Does.Contain("Do not implement a runtime-created host path in P2-2"));
+            Assert.That(document, Does.Contain("Runtime-created hosts remain a documented future extension only"));
+            Assert.That(document, Does.Contain("prefab instance id keys pooled host storage"));
+            Assert.That(document, Does.Contain("max concurrency is enforced by cue id"));
+            Assert.That(document, Does.Contain("Sharing one common host prefab therefore has no current pool-key issue"));
+            Assert.That(document, Does.Contain("Missing common host setup reports `CommonHostUnavailable`"));
+            Assert.That(document, Does.Contain("no `RuntimeHostAllowed` policy is introduced in P2-2"));
+            Assert.That(document, Does.Contain("Future Entry Criteria"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxTestNaming_DocumentsRuntimeBehaviorNamingPolicy()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Test Naming Policy"));
+            Assert.That(document, Does.Contain("VFX tests should describe the runtime contract they guard"));
+            Assert.That(document, Does.Contain("`SourceCloneMotion`"));
+            Assert.That(document, Does.Contain("`PrefabWithSourceClone`"));
+            Assert.That(document, Does.Contain("`PrefabOnly`"));
+            Assert.That(document, Does.Contain("`CommonHost`"));
+            Assert.That(document, Does.Contain("`MissingSourceView`"));
+            Assert.That(document, Does.Contain("`MissingPrefab`"));
+            Assert.That(document, Does.Contain("`FallbackPrefab`"));
+            Assert.That(document, Does.Contain("`OriginalViewImmutability`"));
+            Assert.That(document, Does.Contain("`HostRelease`"));
+            Assert.That(document, Does.Contain("Avoid for new tests"));
+            Assert.That(document, Does.Contain("tests that explicitly verify obsolete compatibility aliases"));
+            Assert.That(document, Does.Contain("tests that verify historical cleanup rules"));
+            Assert.That(document, Does.Contain("tests that document intentional non-regression against a past bug"));
         }
 
         [Test]

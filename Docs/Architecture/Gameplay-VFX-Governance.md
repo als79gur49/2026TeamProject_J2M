@@ -94,6 +94,191 @@ Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage
 - source view missing and prefab missing diagnostics must remain separate.
 - example: `EnemyVfxCue.DeathMotion`.
 
+## Placeholder Prefab Policy
+
+### SourceCloneMotion
+
+- source view clone is the visual body.
+- cue-specific placeholder prefabs must not be created for `SourceCloneMotion`.
+- the prefab field may be null; null prefab is normal and must not warn or fail.
+- host resolution uses `GameplayVfxCommonEmptyHost.prefab` when `CommonHostAllowed` is set.
+- cue-specific empty prefabs left from older authoring are legacy residue and removal candidates only after reference scan.
+- if a `SourceCloneMotion` binding references a host-only prefab, authoring reports a governance warning.
+- if a `SourceCloneMotion` binding references an actual visual prefab, authoring reports a governance warning because `PrefabWithSourceClone` or `PrefabOnly` may be the correct mode.
+
+### Common Host
+
+- `GameplayVfxCommonEmptyHost.prefab` is deletion-protected.
+- the prefab intentionally has no renderer or particle content.
+- it is still required as the runtime pool/host owner for common-host SourceCloneMotion playback.
+- cue identity stays in binding, policy, and diagnostics, not in a cue-specific host prefab.
+
+### PrefabWithSourceClone
+
+- authored prefab is retained when it is a real fallback visual.
+- `EnemyDeathMotionVfx.prefab` is a fallback visual and must not be deleted.
+- `EnemyVfxCue.DeathMotion` keeps `PrefabWithSourceClone` plus `ExplicitPrefabRequired`.
+
+### PrefabOnly
+
+- authored prefab is the visual body.
+- null prefab is invalid and reports `MissingPrefab`.
+- particle/contact visual prefabs are actual visual prefabs, not placeholders.
+- `BoxDestroySmokeVfx.prefab`, `FlipImpactBurstVfx.prefab`, and `BoxSlideSolidStopVfx.prefab` are deletion-protected actual visual examples.
+
+### Cleanup Rules
+
+- host-only cue-specific placeholders are removal candidates.
+- actual visual prefabs are not removed in placeholder cleanup.
+- do not delete an asset without binding, default cue map, runtime, test, scene, and GUID reference scans.
+- do not revive old transient or particle fallback paths during placeholder cleanup.
+
+### P2-1 Prefab Inventory Snapshot
+
+Default cue map references are through binding assets, not direct prefab GUIDs.
+
+| prefab path | classification | referenced by binding | referenced by default cue map | visual content | action | risk |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Gameplay_VfxHost/Runtime/Common/GameplayVfxCommonEmptyHost.prefab` | CommonHostPrefab | no | no | no | keep; common SourceCloneMotion host | scene/runtime installer dependency |
+| `Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | PrefabOnly contact visual |
+| `Gameplay_Vfx/Prefabs/FlipImpactBurstVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | PrefabOnly contact visual |
+| `Gameplay_Vfx/Prefabs/BoxSlideSolidStopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | PrefabOnly contact visual |
+| `Gameplay_Vfx/Prefabs/EnemyDeathMotionVfx.prefab` | ActualVisualPrefab | yes | via binding | mesh renderer shards | keep | PrefabWithSourceClone fallback visual |
+| `Gameplay_Vfx/Prefabs/BoxSlideSparkFollowVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | attached follower visual |
+| `Gameplay_Vfx/Prefabs/ChargeBoosterTrailVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | attached follower visual |
+| `Gameplay_Vfx/Prefabs/EnemyGravityFieldAuraActiveAreaVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | aura visual |
+| `Gameplay_Vfx/Prefabs/EnemyUtilityCooldownAuraVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | aura visual |
+| `Gameplay_Vfx/Prefabs/EnemyUtilitySummonSpawnVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | spawn visual |
+| `Gameplay_Vfx/Prefabs/ForwardCellAttackCooldownFollowVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | projectile cooldown visual |
+| `Gameplay_Vfx/Prefabs/ForwardCellImpactVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | projectile impact visual |
+| `Gameplay_Vfx/Prefabs/ForwardCellProjectileFlightVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | projectile flight visual |
+| `Gameplay_Vfx/Prefabs/GlideRecoverLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy follower visual |
+| `Gameplay_Vfx/Prefabs/GlideWindTrailVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy follower visual |
+| `Gameplay_Vfx/Prefabs/GlideWindupLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy windup visual |
+| `Gameplay_Vfx/Prefabs/GravityField_ActiveAreaVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | gravity field visual |
+| `Gameplay_Vfx/Prefabs/JumperJumpStartVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | jumper visual |
+| `Gameplay_Vfx/Prefabs/JumperLandingDustVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | jumper contact visual |
+| `Gameplay_Vfx/Prefabs/JumperLandingTargetVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | target marker visual |
+| `Gameplay_Vfx/Prefabs/TileFeatureDestroyLaserActiveBlueVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | laser visual |
+| `Gameplay_Vfx/Prefabs/TileFeatureDestroyLaserActiveRedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | laser visual |
+| `Gameplay_Vfx/Prefabs/TileFeatureDestroySparkVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | destroy visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ButtonActivatedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ButtonVisibleLoop_GreenVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button loop visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ButtonVisibleLoop_YellowVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button loop visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_EntranceSpawn_Vfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | entrance visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ExitObjectiveClearedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | objective visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ExitOpenLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle and mesh renderer | keep | exit loop visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ExitOpenedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | exit visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_MoonBlockButtonActivatedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_SlideTileRedirectedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | slide-tile redirect visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab` | ActualVisualPrefab | no | no | particle | document; do not delete in P2-1 | unreferenced visual asset needs separate owner review |
+
+## ADR: SourceCloneMotion Host Strategy
+
+### Context
+
+`SourceCloneMotion` cues use a cloned source view as the visual body. Cue-specific placeholder prefabs were removed or documented as legacy residue, and the five current host-default `SourceCloneMotion` bindings keep null cue prefabs with `CommonHostAllowed`.
+
+Current playback path:
+
+```text
+binding prefab null
+  -> SourceCloneMotion + CommonHostAllowed
+  -> commonEmptyHostPrefab resolve
+  -> GameplayVfxGameObjectPool lease
+  -> source view clone child
+  -> parameterized motion playback
+  -> lifetime/tail cleanup
+  -> source clone cleanup + host release
+```
+
+### Decision
+
+Keep `GameplayVfxCommonEmptyHost.prefab` as the default and required common host for `SourceCloneMotion`. Do not implement a runtime-created host path in P2-2.
+
+Runtime-created hosts remain a documented future extension only. They must not be used as an implicit fallback when the common host prefab is missing, because that would weaken `CommonHostUnavailable` and hide installer/setup defects.
+
+### Current Responsibility Matrix
+
+| responsibility | current owner | common host path behavior | runtime-created host impact | risk |
+| --- | --- | --- | --- | --- |
+| pool key | `GameplayVfxGameObjectPool` | prefab instance id keys pooled host storage | needs cue, policy, or host-type key without a prefab id | high |
+| initial pool size | binding authoring | stored on binding; no broad runtime prewarm path depends on a new host kind | needs new prewarm semantics for prefab-less hosts | medium |
+| max concurrency | `VfxBindingRuntimePolicy` / pool | enforced per cue id, so shared common prefab does not merge cue limits | must preserve cue-level limits separate from any global host pool | medium |
+| lifetime/tail | playback handle and pooled instance | command duration plus binding tail releases host after cleanup | factory objects need identical tail and release state | high |
+| scene parent | runtime root | active hosts use `OneShotRoot`, pooled hosts use `PoolRoot`, detached tails use `TailRoot` | factory must define parent, active, pooled, tail, and unload ownership | high |
+| transform reset | pooled instance | reset on activate and deactivate | factory path must duplicate reset guarantees | medium |
+| diagnostics | pool/runtime | `MissingSourceView`, `CommonHostUnavailable`, `MissingPrefab`, and `InvalidPlaybackModePolicy` stay distinct | needs new runtime-host diagnostics without changing `MissingPrefab` meaning | high |
+| host release | pool | `ReleaseInternal` returns host to prefab-keyed stack | release mismatch handling needed for prefab-less hosts | high |
+| source clone cleanup | pooled instance | clone child is destroyed before host returns to pool | ownership boundary must remain clone VFX cleanup, not original view cleanup | high |
+| editor/authoring validation | binding diagnostics | null prefab is valid only for `SourceCloneMotion + CommonHostAllowed` | `RuntimeHostAllowed` would add another policy branch | medium |
+| asset governance | governance doc and tests | one deletion-protected common host asset replaces cue-specific placeholders | removes one asset but adds factory/pool governance | low benefit |
+
+### Model Comparison
+
+| model | advantage | disadvantage | pool impact | diagnostics impact | test cost | final judgment |
+| --- | --- | --- | --- | --- | --- | --- |
+| A. common empty host prefab | compatible with current prefab-keyed pool, stable hierarchy, Unity-serializable setup, one governed host asset | keeps one empty prefab asset | no pool-key issue for current requirements | current diagnostics stay clear | low | keep |
+| B. runtime-created host factory | can theoretically remove the common host asset | new object creation, parent, reset, release, and setup-defect rules | prefab key disappears; cue/policy/host key needed | needs runtime-host failure codes and must not blur `MissingPrefab` | high | defer |
+| C. runtime-created host pool | avoids per-play new/destroy | adds parallel host pool and key scheme | requires broader pool redesign or a prefab-less key layer | needs pool exhaustion and release mismatch diagnostics | high | defer |
+
+### Rationale
+
+- The current common host path satisfies the present `SourceCloneMotion` requirements with one governed asset instead of cue-specific placeholders.
+- The pool stores available/all instances by prefab instance id, while max concurrency is enforced by cue id. Sharing one common host prefab therefore has no current pool-key issue.
+- `CommonHostUnavailable` is a precise setup diagnostic. A runtime-created fallback would make missing common host setup less visible.
+- Runtime-created hosts would require new ownership rules for scene parenting, cleanup, transform reset, release mismatch, and scene unload behavior.
+- The reduced asset cost is only one common prefab, while the implementation and regression surface would touch pool contracts, diagnostics, validation, installer readiness, and lifecycle tests.
+
+### Consequences
+
+- `GameplayVfxCommonEmptyHost.prefab` remains deletion-protected and required for common-host `SourceCloneMotion` playback.
+- `SourceCloneMotion` binding prefab null is normal and must not report `MissingPrefab`.
+- Missing common host setup reports `CommonHostUnavailable`.
+- `SourceCloneMotion` keeps `CommonHostAllowed`; no `RuntimeHostAllowed` policy is introduced in P2-2.
+- `EnemyDeathMotionVfx.prefab` remains a real fallback visual for `PrefabWithSourceClone + ExplicitPrefabRequired`.
+- Original entity view cleanup remains separate from source clone VFX cleanup, and entity removal or board detach remains separate from host release.
+
+### Future Entry Criteria
+
+Reconsider runtime-created hosts only when at least one concrete need exists:
+
+- repeated production setup defects prove the single common host prefab is an operational problem;
+- scene-less VFX, headless runtime, or editor fixtures need asset-free host creation;
+- a cue-based or policy-based prefab-less pool key design is approved;
+- diagnostics are specified for runtime host factory unavailable, creation failed, parent unavailable, pool exhausted, and release mismatch;
+- lifecycle tests cover parent selection, transform reset, clone cleanup, host release, scene unload cleanup, max concurrency, and diagnostic separation.
+
+## Test Naming Policy
+
+VFX tests should describe the runtime contract they guard, not the migration step that introduced the behavior.
+
+Preferred runtime vocabulary:
+
+- `SourceCloneMotion`
+- `PrefabWithSourceClone`
+- `PrefabOnly`
+- `CommonHost`
+- `MissingSourceView`
+- `MissingPrefab`
+- `FallbackPrefab`
+- `OriginalViewImmutability`
+- `HostRelease`
+
+Avoid for new tests:
+
+- `Migration`
+- `ReservedHookMigration`
+- `Parity`
+- `DeletedPrefab`
+- `OldTransient`
+
+Allowed exceptions:
+
+- tests that explicitly verify obsolete compatibility aliases;
+- tests that verify historical cleanup rules;
+- tests that document intentional non-regression against a past bug.
+
 ## Legacy Name
 
 `SourceViewCloneWithPrefabFallback` is a legacy clone-mode name. Its current meaning is `PrefabWithSourceClone`, and it is kept only as a compatibility alias until serialized compatibility is fully audited.

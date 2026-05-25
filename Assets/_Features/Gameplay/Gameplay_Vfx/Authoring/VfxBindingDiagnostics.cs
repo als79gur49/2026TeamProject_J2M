@@ -126,6 +126,20 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 return;
             }
 
+            if (binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                binding.Prefab != null)
+            {
+                var hasVisualContent = VfxPrefabValidationDiagnostics.HasPresentationVisualContent(binding.Prefab);
+                messages.Add(VfxAuthoringValidationResult.Warning(
+                    hasVisualContent
+                        ? "VFX_BINDING_SOURCE_CLONE_ACTUAL_VISUAL_PREFAB"
+                        : "VFX_BINDING_SOURCE_CLONE_CUE_SPECIFIC_PLACEHOLDER_PREFAB",
+                    hasVisualContent
+                        ? $"{binding.name} cue '{cueId}' uses SourceCloneMotion while referencing a visual prefab. Confirm the cue should not be PrefabWithSourceClone or PrefabOnly."
+                        : $"{binding.name} cue '{cueId}' uses SourceCloneMotion with a cue-specific host-only prefab. Prefer a null cue prefab plus the common empty host.",
+                    binding));
+            }
+
             var prefabValidation = VfxPrefabValidationDiagnostics.ValidatePrefab(binding.Prefab, binding);
             for (var i = 0; i < prefabValidation.Messages.Count; i++)
             {

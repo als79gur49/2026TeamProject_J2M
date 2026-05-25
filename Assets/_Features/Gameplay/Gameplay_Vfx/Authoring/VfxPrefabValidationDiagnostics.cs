@@ -28,6 +28,35 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
             return VfxAuthoringValidationResult.FromMessages(messages);
         }
 
+        public static bool HasPresentationVisualContent(GameObject prefab)
+        {
+            if (prefab == null)
+            {
+                return false;
+            }
+
+            var components = prefab.GetComponentsInChildren<Component>(true);
+            for (var i = 0; i < components.Length; i++)
+            {
+                var component = components[i];
+                if (component == null)
+                {
+                    continue;
+                }
+
+                if (component is ParticleSystem ||
+                    component is Renderer ||
+                    component is Animator ||
+                    component is MeshFilter ||
+                    component is Light)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static void AppendModelRootContractMessages(
             GameObject prefab,
             ICollection<VfxAuthoringValidationMessage> messages,

@@ -23,6 +23,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ForwardCellProjectileFlightFollow_Binding.asset";
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private static readonly string[] SourceCloneMotionBindingPaths =
+        {
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroyShrink_Binding.asset",
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FlipDestroySelfMotion_Binding.asset",
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ImpactTransientBreak_Binding.asset",
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxOutOfBoundsExit_Binding.asset",
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyOutOfBoundsExit_Binding.asset",
+        };
 
         [Test]
         [Category("Extended")]
@@ -201,6 +209,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var policy = binding.BuildRuntimePolicy();
 
                 Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+                Assert.That(validation.HasWarnings, Is.False, string.Join("\n", validation.Messages));
                 Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)));
                 Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
                 Assert.That(policy.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed));
@@ -208,6 +217,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Destroy(binding);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SourceCloneMotionBindings_DoNotRequireCueSpecificPrefab()
+        {
+            foreach (var path in SourceCloneMotionBindingPaths)
+            {
+                var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(path);
+
+                Assert.That(binding, Is.Not.Null, path);
+                Assert.That(binding.Prefab, Is.Null, path);
+                Assert.That(binding.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion), path);
+                Assert.That(binding.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed), path);
+                Assert.That(binding.ValidateAuthoring().HasErrors, Is.False, path);
+                Assert.That(binding.ValidateAuthoring().HasWarnings, Is.False, path);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SourceCloneMotionCueSpecificPlaceholder_IsGovernanceWarning_IfReferenced()
+        {
+            var prefab = CreateValidPrefab("SourceCloneHostOnlyPlaceholderPrefab");
+            var binding = CreateBinding(
+                GameplayVfxFamily.Box,
+                (int)BoxVfxCue.DestroyShrink,
+                prefab: prefab,
+                requirement: VfxBindingRequirement.DiagnosticIfMissing,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.ReportDiagnostic,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+
+            try
+            {
+                var validation = binding.ValidateAuthoring();
+
+                Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_BINDING_SOURCE_CLONE_CUE_SPECIFIC_PLACEHOLDER_PREFAB"));
+                Assert.DoesNotThrow(() => binding.BuildRuntimePolicy());
+            }
+            finally
+            {
+                Destroy(binding);
+                Destroy(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SourceCloneMotionCueReferencesActualVisualPrefab_IsGovernanceWarning()
+        {
+            var prefab = CreateVisualPrefab("SourceCloneActualVisualPrefab");
+            var binding = CreateBinding(
+                GameplayVfxFamily.Box,
+                (int)BoxVfxCue.DestroyShrink,
+                prefab: prefab,
+                requirement: VfxBindingRequirement.DiagnosticIfMissing,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.ReportDiagnostic,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+
+            try
+            {
+                var validation = binding.ValidateAuthoring();
+
+                Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+                Assert.That(validation.Messages.Select(message => message.Code), Does.Contain("VFX_BINDING_SOURCE_CLONE_ACTUAL_VISUAL_PREFAB"));
+                Assert.DoesNotThrow(() => binding.BuildRuntimePolicy());
+            }
+            finally
+            {
+                Destroy(binding);
+                Destroy(prefab);
             }
         }
 
@@ -521,6 +605,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var prefab = new GameObject(name);
             new GameObject("ModelRoot").transform.SetParent(prefab.transform, worldPositionStays: false);
+            return prefab;
+        }
+
+        private static GameObject CreateVisualPrefab(string name)
+        {
+            var prefab = CreateValidPrefab(name);
+            var visual = new GameObject("VisualParticles");
+            visual.transform.SetParent(prefab.transform.Find("ModelRoot"), worldPositionStays: false);
+            visual.AddComponent<ParticleSystem>();
             return prefab;
         }
 
