@@ -45,6 +45,8 @@ namespace Game.Feature.Gameplay.Host
                 BoardTileStyleCatalog boardTileStyleCatalog,
                 BoardTileOverlayCatalog boardTileOverlayCatalog,
                 IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
+                StageWorldGuideCatalog worldGuideCatalog = null,
+                IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions = null,
                 IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
                 IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
                 IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides = null,
@@ -79,6 +81,8 @@ namespace Game.Feature.Gameplay.Host
                     boardTileOverlayOverrides ?? Array.Empty<BoardTileOverlayOverride>();
                 TileFeaturePresentationBindings =
                     tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
+                WorldGuideCatalog = worldGuideCatalog;
+                WorldGuideInstructions = worldGuideInstructions ?? Array.Empty<StageWorldGuideInstructionResolved>();
                 SuppressedBaseTileCells = suppressedBaseTileCells ?? Array.Empty<SurfaceCell>();
             }
 
@@ -131,6 +135,10 @@ namespace Game.Feature.Gameplay.Host
             public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides { get; }
 
             public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
+
+            public StageWorldGuideCatalog WorldGuideCatalog { get; }
+
+            public IReadOnlyList<StageWorldGuideInstructionResolved> WorldGuideInstructions { get; }
 
             public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
         }
@@ -416,6 +424,8 @@ namespace Game.Feature.Gameplay.Host
                 BoardTilePaintOverrides = initialState.BoardTilePaintOverrides,
                 BoardTileOverlayOverrides = initialState.BoardTileOverlayOverrides,
                 TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
+                WorldGuideCatalog = initialState.WorldGuideCatalog,
+                WorldGuideInstructions = initialState.WorldGuideInstructions,
                 SuppressedBaseTileCells = initialState.SuppressedBaseTileCells,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,

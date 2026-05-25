@@ -151,6 +151,9 @@ namespace Game.Feature.Gameplay.Host
             Array.Empty<BoardTileOverlayOverride>();
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings =
             Array.Empty<TileFeaturePresentationResolvedBinding>();
+        public StageWorldGuideCatalog WorldGuideCatalog;
+        public IReadOnlyList<StageWorldGuideInstructionResolved> WorldGuideInstructions =
+            Array.Empty<StageWorldGuideInstructionResolved>();
         public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells =
             Array.Empty<SurfaceCell>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;

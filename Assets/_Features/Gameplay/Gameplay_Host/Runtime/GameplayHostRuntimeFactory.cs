@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
     public static class GameplayHostRuntimeFactory
     {
         private const string BoardRootObjectName = "GameplayBoardRoot";
+        private const string WorldGuideRootObjectName = "WorldGuideRoot";
         private const string MissingGameplayAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
         private const string MissingTileFeatureAudioRuntimeInstallerMessage =
@@ -212,9 +213,16 @@ namespace Game.Feature.Gameplay.Host
                 presenter.VisibleCubeBounds);
             var viewCamera = visualRuntime.ViewCamera;
             var viewCameraRig = visualRuntime.ViewCameraRig;
+            KeyboardBindingSettingsService.ApplySavedSettings(configuration.Actions);
+            AttachWorldGuidePresenter(
+                hostObject,
+                configuration,
+                boardSurfaceRenderer,
+                tileFeaturePoseResolver,
+                viewCamera,
+                boardRoot.transform);
 
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology, initialPresentationData);
-            KeyboardBindingSettingsService.ApplySavedSettings(configuration.Actions);
             inputHost.Initialize(
                 inputBuffer,
                 tickRunner,
@@ -275,6 +283,42 @@ namespace Game.Feature.Gameplay.Host
                 configuration?.EnemyPresentationCatalog,
                 configuration?.EnemyPresentationBindings,
                 nameof(GameplaySceneHostConfiguration));
+        }
+
+        private static void AttachWorldGuidePresenter(
+            GameObject hostObject,
+            GameplaySceneHostConfiguration configuration,
+            GameplayBoardSurfaceRenderer boardSurfaceRenderer,
+            ISurfaceCellPresentationPoseResolver poseResolver,
+            Camera viewCamera,
+            Transform boardRoot)
+        {
+            if (configuration.WorldGuideCatalog == null ||
+                configuration.WorldGuideInstructions == null ||
+                configuration.WorldGuideInstructions.Count == 0 ||
+                boardRoot == null)
+            {
+                return;
+            }
+
+            var root = boardRoot.Find(WorldGuideRootObjectName);
+            if (root == null)
+            {
+                var rootObject = new GameObject(WorldGuideRootObjectName);
+                root = rootObject.transform;
+                root.SetParent(boardRoot, worldPositionStays: false);
+            }
+
+            var presenter = hostObject.GetComponent<GameplayWorldGuidePresenter>() ??
+                            hostObject.AddComponent<GameplayWorldGuidePresenter>();
+            presenter.Initialize(
+                configuration.WorldGuideCatalog,
+                configuration.WorldGuideInstructions,
+                boardSurfaceRenderer,
+                poseResolver,
+                viewCamera,
+                root,
+                configuration.Actions);
         }
 
         private static void AttachPresentationExtensions(GameObject hostObject, GameplayTickViewPresenter presenter)

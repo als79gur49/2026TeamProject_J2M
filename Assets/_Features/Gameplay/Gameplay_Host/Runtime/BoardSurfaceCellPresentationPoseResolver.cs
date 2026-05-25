@@ -40,7 +40,8 @@ namespace Game.Feature.Gameplay.Host
             pose = new SurfaceCellPresentationPose(
                 projectedPose.LocalPosition,
                 projectedPose.LocalRotation,
-                Vector3.one);
+                Vector3.one,
+                _projector.SurfaceTileThickness);
             return true;
         }
     }

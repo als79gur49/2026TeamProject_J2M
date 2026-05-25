@@ -35,6 +35,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs";
         private const string StagePresentationDefinitionPath =
             "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs";
+        private const string StageWorldGuideInstructionPath =
+            "Assets/_Features/Stages/Runtime/Presentation/StageWorldGuideInstruction.cs";
         private const string TileFeatureAudioTypesPath =
             "Assets/_Features/Gameplay/Gameplay_TileFeatureAudio/Runtime/TileFeatureAudioTypes.cs";
         private const string GravityFieldPresentationRequestPlannerPath =
@@ -734,6 +736,32 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(stagePresentationDefinitionSource, Does.Contain("VisualPrefab"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("SurfaceCellPresentationPose"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("TileFeatureAudio"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldGuideInstruction_RemainsPresentationOnly()
+        {
+            var stageDefinitionSource = File.ReadAllText(GetAbsolutePath(StageDefinitionPath));
+            var buildResultSource = File.ReadAllText(GetAbsolutePath(StageRuntimeBuildResultPath));
+            var stagePresentationDefinitionSource = File.ReadAllText(GetAbsolutePath(StagePresentationDefinitionPath));
+            var worldGuideSource = File.ReadAllText(GetAbsolutePath(StageWorldGuideInstructionPath));
+            var uiSources = Directory.GetFiles(GetAbsolutePath(UiRuntimePath), "*.cs", SearchOption.AllDirectories);
+
+            Assert.That(stageDefinitionSource, Does.Not.Contain("StageWorldGuide"));
+            Assert.That(buildResultSource, Does.Not.Contain("StageWorldGuide"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("StageWorldGuideInstruction"));
+            Assert.That(worldGuideSource, Does.Contain("SurfaceCell"));
+            Assert.That(worldGuideSource, Does.Not.Contain("Vector2Int"));
+            Assert.That(worldGuideSource, Does.Not.Contain("WorldState"));
+            Assert.That(worldGuideSource, Does.Not.Contain("TickPipeline"));
+
+            for (var i = 0; i < uiSources.Length; i++)
+            {
+                var source = File.ReadAllText(uiSources[i]);
+                Assert.That(source, Does.Not.Contain("StageWorldGuide"), uiSources[i]);
+                Assert.That(source, Does.Not.Contain("WorldGuideInstructionView"), uiSources[i]);
+            }
         }
 
         [Test]
