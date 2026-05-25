@@ -491,7 +491,7 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return enemyGlideStatesByEntityId != null &&
                    enemyGlideStatesByEntityId.TryGetValue(entityId, out var state) &&
-                   (state.IsActive || state.IsLandingPending);
+                   state.IsActive;
         }
 
         // Legacy non-projectile lookup keeps solid-first resolution so existing box/wall callers stay stable.
