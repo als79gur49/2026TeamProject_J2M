@@ -21,6 +21,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string ImpactTransientBreakBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ImpactTransientBreak_Binding.asset";
+        private const string BoxOutOfBoundsExitBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxOutOfBoundsExit_Binding.asset";
+        private const string EnemyOutOfBoundsExitBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyOutOfBoundsExit_Binding.asset";
         private const string ExitControllerPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
         private const string TickResultBuilderPath =
@@ -76,7 +82,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayTimingProfile.DefaultFlipMotionDurationSeconds)).Within(0.0001f));
             Assert.That(command.BreakStartSeconds, Is.EqualTo(command.DurationSeconds * 0.62f).Within(0.0001f));
             Assert.That(command.FadeDurationSeconds, Is.EqualTo(command.DurationSeconds - command.BreakStartSeconds).Within(0.0001f));
-            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
             Assert.That(command.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.ScaleAndAlpha));
             Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.FlipArc));
         }
@@ -183,7 +189,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(command.SourceLocalRotation, Is.EqualTo(command.TargetLocalRotation));
             Assert.That(command.DurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds).Within(0.0001f));
             Assert.That(command.FadeDurationSeconds, Is.EqualTo(command.DurationSeconds).Within(0.0001f));
-            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
             Assert.That(command.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.DestroyShrinkEase));
             Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.Linear));
         }
@@ -242,19 +248,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void SyntheticReservedSignals_CanBeHandledByVfxRuntime()
         {
             var owner = new GameObject("ReservedSignalsRuntime");
-            var prefab = new GameObject("ReservedSignalsPrefab");
+            var commonHost = new GameObject("ReservedSignalsCommonHost");
+            var impactSource = CreateSourceView("ReservedSignalsImpactSource", 30);
+            var boxSource = CreateSourceView("ReservedSignalsBoxSource", 31);
+            var enemySource = CreateSourceView("ReservedSignalsEnemySource", 41);
             VfxBindingDefinitionAsset impactBinding = null;
             VfxBindingDefinitionAsset boxOutOfBoundsBinding = null;
             VfxBindingDefinitionAsset enemyOutOfBoundsBinding = null;
             VfxCueMapAsset cueMap = null;
             try
             {
-                impactBinding = CreateBinding(prefab, GameplayVfxFamily.Box, (int)BoxVfxCue.ImpactTransientBreak);
-                boxOutOfBoundsBinding = CreateBinding(prefab, GameplayVfxFamily.Box, (int)BoxVfxCue.OutOfBoundsExit);
-                enemyOutOfBoundsBinding = CreateBinding(prefab, GameplayVfxFamily.Enemy, (int)EnemyVfxCue.OutOfBoundsExit);
+                impactBinding = CreateBinding(
+                    null,
+                    GameplayVfxFamily.Box,
+                    (int)BoxVfxCue.ImpactTransientBreak,
+                    sourceCloneMotion: true);
+                boxOutOfBoundsBinding = CreateBinding(
+                    null,
+                    GameplayVfxFamily.Box,
+                    (int)BoxVfxCue.OutOfBoundsExit,
+                    sourceCloneMotion: true);
+                enemyOutOfBoundsBinding = CreateBinding(
+                    null,
+                    GameplayVfxFamily.Enemy,
+                    (int)EnemyVfxCue.OutOfBoundsExit,
+                    sourceCloneMotion: true);
                 cueMap = CreateCueMap(impactBinding, boxOutOfBoundsBinding, enemyOutOfBoundsBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureCommonEmptyHostPrefab(commonHost);
 
                 runtime.Present(CreateExtensionContext(
                     new[]
@@ -262,29 +284,94 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateExitSignal(31, TickEntityExitCause.OutOfBounds, entityType: EntityType.Box),
                         CreateExitSignal(41, TickEntityExitCause.OutOfBounds, entityType: EntityType.Unit),
                     },
-                    new[] { CreateImpactSignal(30) }));
+                    new[] { CreateImpactSignal(30) },
+                    impactSource.View,
+                    boxSource.View,
+                    enemySource.View));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(3));
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+                Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(3));
             }
             finally
             {
-                Destroy(cueMap, enemyOutOfBoundsBinding, boxOutOfBoundsBinding, impactBinding, prefab, owner);
+                impactSource.Destroy();
+                boxSource.Destroy();
+                enemySource.Destroy();
+                Destroy(cueMap, enemyOutOfBoundsBinding, boxOutOfBoundsBinding, impactBinding, commonHost, owner);
             }
         }
 
         [Test]
         [Category("Extended")]
-        public void ReservedHookAssets_RemovedFromHostDefaultMap()
+        public void ImpactTransientBreak_Binding_RestoredAsSourceCloneMotion()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ImpactTransientBreakBindingPath);
+
+            AssertSourceCloneMotionBinding(
+                binding,
+                ImpactTransientBreakBindingPath,
+                GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OutOfBoundsExit_Box_Binding_RestoredAsSourceCloneMotion()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(BoxOutOfBoundsExitBindingPath);
+
+            AssertSourceCloneMotionBinding(
+                binding,
+                BoxOutOfBoundsExitBindingPath,
+                GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OutOfBoundsExit_Enemy_Binding_RestoredAsSourceCloneMotion()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(EnemyOutOfBoundsExitBindingPath);
+
+            AssertSourceCloneMotionBinding(
+                binding,
+                EnemyOutOfBoundsExitBindingPath,
+                GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void HostDefaultMap_ResolvesReservedSourceCloneMotionCues()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
             Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak), out _), Is.False);
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit), out _), Is.False);
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit), out _), Is.False);
+            AssertHostDefaultSourceCloneMotionCue(
+                cueMap,
+                GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak));
+            AssertHostDefaultSourceCloneMotionCue(
+                cueMap,
+                GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+            AssertHostDefaultSourceCloneMotionCue(
+                cueMap,
+                GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OutOfBoundsExit_Enemy_DoesNotUseEnemyDeathMotionBinding()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+
+            Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+            Assert.That(
+                cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit), out var outOfBounds),
+                Is.True);
+            Assert.That(outOfBounds.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)));
+            Assert.That(outOfBounds.CueId, Is.Not.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
         }
 
         [Test]
@@ -347,11 +434,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             TickEntityExitPresentationSignal[] exitSignals,
-            TickImpactTransientPresentationSignal[] impactTransientSignals)
+            TickImpactTransientPresentationSignal[] impactTransientSignals,
+            params GameplayEntityView[] sourceViews)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
             stateStore.ResetSession(topology);
+            for (var i = 0; i < (sourceViews?.Length ?? 0); i++)
+            {
+                var sourceView = sourceViews[i];
+                if (sourceView != null)
+                {
+                    stateStore.ViewsByEntityId[sourceView.EntityId] = sourceView;
+                }
+            }
 
             return new GameplayTickPresentationExtensionContext(
                 new TickResult(
@@ -459,9 +555,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static VfxBindingDefinitionAsset CreateBinding(
             GameObject prefab,
             GameplayVfxFamily family,
-            int cueCode)
+            int cueCode,
+            bool sourceCloneMotion = false)
         {
-            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+            if (prefab != null)
+            {
+                GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+            }
 
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", family);
@@ -470,12 +570,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
             SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetField(
+                binding,
+                "visualSourceMode",
+                sourceCloneMotion
+                    ? VfxVisualSourceMode.SourceCloneMotion
+                    : VfxVisualSourceMode.PrefabOnly);
+            SetField(
+                binding,
+                "hostRequirement",
+                sourceCloneMotion
+                    ? GameplayVfxHostRequirement.CommonHostAllowed
+                    : GameplayVfxHostRequirement.ExplicitPrefabRequired);
             SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
             SetField(binding, "defaultLifetimeSeconds", 0f);
-            SetField(binding, "tailSeconds", 0.20f);
+            SetField(binding, "tailSeconds", sourceCloneMotion ? 0.18f : 0.20f);
             SetField(binding, "initialPoolSize", 4);
             SetField(binding, "maxConcurrentInstances", 8);
             return binding;
+        }
+
+        private static SourceViewFixture CreateSourceView(string name, int entityId)
+        {
+            var owner = new GameObject(name);
+            var view = owner.AddComponent<GameplayEntityView>();
+            view.Initialize(entityId);
+            var modelRoot = view.EnsureModelRoot();
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(visual.GetComponent<Collider>());
+            visual.transform.SetParent(modelRoot, worldPositionStays: false);
+            visual.transform.localScale = Vector3.one * 0.35f;
+            return new SourceViewFixture(owner, view);
         }
 
         private static VfxCueMapAsset CreateCueMap(params VfxBindingDefinitionAsset[] bindings)
@@ -483,6 +608,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
             SetField(cueMap, "bindings", bindings);
             return cueMap;
+        }
+
+        private static void AssertSourceCloneMotionBinding(
+            VfxBindingDefinitionAsset binding,
+            string path,
+            GameplayVfxCueId expectedCueId)
+        {
+            Assert.That(binding, Is.Not.Null, path);
+            Assert.That(binding.CueId, Is.EqualTo(expectedCueId));
+            Assert.That(binding.Prefab, Is.Null);
+            Assert.That(binding.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
+            Assert.That(binding.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed));
+            Assert.That(binding.TailSeconds, Is.EqualTo(0.18f).Within(0.0001f));
+            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(8));
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
+        }
+
+        private static void AssertHostDefaultSourceCloneMotionCue(
+            VfxCueMapAsset cueMap,
+            GameplayVfxCueId cueId)
+        {
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(cueId, out var policy), Is.True);
+            Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
+            Assert.That(policy.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed));
+            Assert.That(cueMap.TryResolvePrefab(cueId, out _), Is.False);
         }
 
         private static void SetField(object target, string name, object value)
@@ -514,6 +664,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     Object.DestroyImmediate(objects[i]);
                 }
+            }
+        }
+
+        private readonly struct SourceViewFixture
+        {
+            public SourceViewFixture(GameObject owner, GameplayEntityView view)
+            {
+                Owner = owner;
+                View = view;
+            }
+
+            public GameObject Owner { get; }
+
+            public GameplayEntityView View { get; }
+
+            public void Destroy()
+            {
+                GameplayVfxReservedHookMigrationTests.Destroy(Owner);
             }
         }
     }

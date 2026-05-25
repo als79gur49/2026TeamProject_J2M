@@ -418,6 +418,321 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ImpactTransientBreak_Plays_WithSourceClone_WhenPrefabIsMissing()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(fixture.Pool.CommonHostUnavailableCount, Is.Zero);
+                Assert.That(fixture.Root.OneShotRoot.GetChild(0).Find("ParameterizedMotionCloneRoot"), Is.Not.Null);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ImpactTransientBreak_UsesCommonHost_WhenCuePrefabIsNull()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(fixture.Root.OneShotRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.Root.OneShotRoot.GetChild(0).name, Does.Contain("ParameterizedMotionPoolPrefab_PooledVfx"));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ImpactTransientBreak_ReportsMissingSourceView_WhenSourceViewIsUnavailable()
+        {
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Null);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(fixture.Pool.CommonHostUnavailableCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ImpactTransientBreak_DoesNotReportMissingPrefab_ForSourceCloneMotion()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ImpactTransientBreak_ReportsCommonHostUnavailable_WhenCommonHostIsMissing()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed,
+                useNullPrefab: true);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Null);
+                Assert.That(fixture.Pool.CommonHostUnavailableCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ImpactTransientBreak_ReleasesHost_AfterLifetimeAndTail()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.25f,
+                cloneSourceProvider: sourceProvider,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                fixture.TimeProvider.TimeSeconds = 1f;
+                fixture.Pool.Advance(1f);
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+
+                fixture.TimeProvider.TimeSeconds = 1.25f;
+                fixture.Pool.Advance(0.25f);
+                Assert.That(fixture.Pool.ActiveCount, Is.Zero);
+                Assert.That(fixture.Pool.PooledCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ImpactTransientBreak_DoesNotMutateOriginalView()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var originalScale = sourceRoot.transform.localScale;
+            var originalPosition = sourceRoot.transform.localPosition;
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                fixture.TimeProvider.TimeSeconds = 0.9f;
+                fixture.Pool.Advance(0.9f);
+
+                Assert.That(sourceRoot.transform.localScale, Is.EqualTo(originalScale));
+                Assert.That(sourceRoot.transform.localPosition, Is.EqualTo(originalPosition));
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Box_Plays_WithSourceClone_WhenPrefabIsMissing()
+        {
+            AssertOutOfBoundsPlaysWithSourceClone(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Box_UsesCommonHost_WhenCuePrefabIsNull()
+        {
+            AssertOutOfBoundsUsesCommonHost(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Box_ReportsMissingSourceView_WhenSourceViewIsUnavailable()
+        {
+            AssertOutOfBoundsReportsMissingSourceView(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Box_DoesNotReportMissingPrefab_ForSourceCloneMotion()
+        {
+            AssertOutOfBoundsDoesNotReportMissingPrefab(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Box_ReportsCommonHostUnavailable_WhenCommonHostIsMissing()
+        {
+            AssertOutOfBoundsReportsCommonHostUnavailable(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Box_ReleasesHost_AfterLifetimeAndTail()
+        {
+            AssertOutOfBoundsReleasesHost(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Box_DoesNotMutateOriginalView()
+        {
+            AssertOutOfBoundsDoesNotMutateOriginalView(GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_Plays_WithSourceClone_WhenPrefabIsMissing()
+        {
+            AssertOutOfBoundsPlaysWithSourceClone(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_UsesCommonHost_WhenCuePrefabIsNull()
+        {
+            AssertOutOfBoundsUsesCommonHost(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_ReportsMissingSourceView_WhenSourceViewIsUnavailable()
+        {
+            AssertOutOfBoundsReportsMissingSourceView(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_DoesNotReportMissingPrefab_ForSourceCloneMotion()
+        {
+            AssertOutOfBoundsDoesNotReportMissingPrefab(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_ReportsCommonHostUnavailable_WhenCommonHostIsMissing()
+        {
+            AssertOutOfBoundsReportsCommonHostUnavailable(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_ReleasesHost_AfterLifetimeAndTail()
+        {
+            AssertOutOfBoundsReleasesHost(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_DoesNotMutateOriginalView()
+        {
+            AssertOutOfBoundsDoesNotMutateOriginalView(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void OutOfBoundsExit_Enemy_DoesNotUseEnemyDeathMotionCue()
+        {
+            var command = CreateOutOfBoundsExitCommand(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit));
+
+            Assert.That(command.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)));
+            Assert.That(command.CueId, Is.Not.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyShrink_Plays_WithSourceClone_WhenPrefabIsMissing()
         {
             var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
@@ -633,6 +948,242 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ParameterizedMotionVfxFadeMode.DestroyShrinkEase,
                 cloneMode,
                 ParameterizedMotionVfxSamplerMode.Linear);
+        }
+
+        private static ParameterizedMotionVfxCommand CreateImpactTransientBreakCommand(
+            ParameterizedMotionVfxCloneMode cloneMode = ParameterizedMotionVfxCloneMode.PrefabOnly)
+        {
+            return new ParameterizedMotionVfxCommand(
+                GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak),
+                sourceEntityId: 30,
+                sequenceId: 7,
+                presentationSeed: 7,
+                sourceLocalPosition: Vector3.zero,
+                sourceLocalRotation: Quaternion.identity,
+                targetLocalPosition: new Vector3(2f, 0f, 0f),
+                targetLocalRotation: Quaternion.AngleAxis(180f, Vector3.up),
+                durationSeconds: 1f,
+                arcHeight: 0.6f,
+                breakStartSeconds: 0.62f,
+                fadeDurationSeconds: 0.38f,
+                ParameterizedMotionVfxFadeMode.ScaleAndAlpha,
+                cloneMode,
+                ParameterizedMotionVfxSamplerMode.FlipArc);
+        }
+
+        private static ParameterizedMotionVfxCommand CreateOutOfBoundsExitCommand(
+            GameplayVfxCueId cueId,
+            ParameterizedMotionVfxCloneMode cloneMode = ParameterizedMotionVfxCloneMode.PrefabOnly)
+        {
+            return new ParameterizedMotionVfxCommand(
+                cueId,
+                sourceEntityId: 30,
+                sequenceId: 7,
+                presentationSeed: 7,
+                sourceLocalPosition: Vector3.zero,
+                sourceLocalRotation: Quaternion.identity,
+                targetLocalPosition: Vector3.zero,
+                targetLocalRotation: Quaternion.identity,
+                durationSeconds: 1f,
+                arcHeight: 0f,
+                breakStartSeconds: 0f,
+                fadeDurationSeconds: 1f,
+                ParameterizedMotionVfxFadeMode.DestroyShrinkEase,
+                cloneMode,
+                ParameterizedMotionVfxSamplerMode.Linear);
+        }
+
+        private static void AssertOutOfBoundsPlaysWithSourceClone(GameplayVfxCueId cueId)
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: cueId,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateOutOfBoundsExitCommand(cueId, ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(fixture.Pool.CommonHostUnavailableCount, Is.Zero);
+                Assert.That(fixture.Root.OneShotRoot.GetChild(0).Find("ParameterizedMotionCloneRoot"), Is.Not.Null);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        private static void AssertOutOfBoundsUsesCommonHost(GameplayVfxCueId cueId)
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: cueId,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateOutOfBoundsExitCommand(cueId, ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(fixture.Root.OneShotRoot.childCount, Is.EqualTo(1));
+                Assert.That(fixture.Root.OneShotRoot.GetChild(0).name, Does.Contain("ParameterizedMotionPoolPrefab_PooledVfx"));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        private static void AssertOutOfBoundsReportsMissingSourceView(GameplayVfxCueId cueId)
+        {
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cueId: cueId,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateOutOfBoundsExitCommand(cueId, ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Null);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(fixture.Pool.CommonHostUnavailableCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        private static void AssertOutOfBoundsDoesNotReportMissingPrefab(GameplayVfxCueId cueId)
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: cueId,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateOutOfBoundsExitCommand(cueId, ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        private static void AssertOutOfBoundsReportsCommonHostUnavailable(GameplayVfxCueId cueId)
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: cueId,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed,
+                useNullPrefab: true);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateOutOfBoundsExitCommand(cueId, ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                Assert.That(handle, Is.Null);
+                Assert.That(fixture.Pool.CommonHostUnavailableCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        private static void AssertOutOfBoundsReleasesHost(GameplayVfxCueId cueId)
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.25f,
+                cloneSourceProvider: sourceProvider,
+                cueId: cueId,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateOutOfBoundsExitCommand(cueId, ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                fixture.TimeProvider.TimeSeconds = 1f;
+                fixture.Pool.Advance(1f);
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+
+                fixture.TimeProvider.TimeSeconds = 1.25f;
+                fixture.Pool.Advance(0.25f);
+                Assert.That(fixture.Pool.ActiveCount, Is.Zero);
+                Assert.That(fixture.Pool.PooledCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        private static void AssertOutOfBoundsDoesNotMutateOriginalView(GameplayVfxCueId cueId)
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var originalScale = sourceRoot.transform.localScale;
+            var originalPosition = sourceRoot.transform.localPosition;
+            var fixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: sourceProvider,
+                cueId: cueId,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateOutOfBoundsExitCommand(cueId, ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+
+                fixture.TimeProvider.TimeSeconds = 0.9f;
+                fixture.Pool.Advance(0.9f);
+
+                Assert.That(sourceRoot.transform.localScale, Is.EqualTo(originalScale));
+                Assert.That(sourceRoot.transform.localPosition, Is.EqualTo(originalPosition));
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
         }
 
         internal static PoolFixture CreatePoolFixture(

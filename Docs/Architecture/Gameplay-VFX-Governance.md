@@ -61,9 +61,9 @@ Guard phrase: existing presenter migration is a future slice.
 
 The non-particle Gameplay VFX prefab authoring was removed for mesh-only or empty default host bindings. Cue ids, planners, feature flags, and runtime diagnostic/no-op behavior remain in place. The removed default authoring must not be treated as a cue sunset.
 
-Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, ItemConsume, FlipImpactStayTrail, reserved OutOfBounds/ImpactTransientBreak, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
+Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, ItemConsume, FlipImpactStayTrail, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
 
-`BoxDestroyShrink` and `FlipDestroySelfMotion` now keep host-default bindings as `SourceCloneMotion` cues with null cue prefabs and common empty host fallback.
+`BoxDestroyShrink`, `FlipDestroySelfMotion`, `ImpactTransientBreak`, and OutOfBounds exit now keep host-default bindings as `SourceCloneMotion` cues with null cue prefabs and common empty host fallback.
 
 `EnemyDeathMotionVfx`, `EnemyDeathMotion_Binding.asset`, `TileFeatureDestroyLaserActiveRedVfx`, and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
 
@@ -1108,7 +1108,7 @@ Cue and playback:
 - trigger: valid `TickImpactTransientPresentationSignal` with `EntityType.Box`
 - lifecycle: transient one-shot, no persistent key
 - command: `ParameterizedMotionVfxCommand`
-- playback: source-view clone with prefab fallback
+- playback: source-view clone motion with common empty host
 - motion: source pose to impact pose using `ParameterizedMotionVfxSamplerMode.FlipArc`
 - fade: `ScaleAndAlpha`, break start at normalized `0.62`, duration `max(BoxDestroyEffectDurationSeconds, FlipMotionDurationSeconds)`
 
@@ -1123,7 +1123,8 @@ Flag and fallback:
 - default true
 - flag off means no ImpactTransient break VFX and no old presenter fallback
 - old `GameplayTransientEffectPresenter.PlayImpactBreakEffect` playback surface is removed
-- missing binding, prefab, anchor, source pose, or impact pose is diagnostic/no-op
+- missing binding, source view, common host, anchor, source pose, or impact pose is diagnostic/no-op
+- null cue prefab is allowed for `SourceCloneMotion` and must not report `MissingPrefab`
 - missing binding no fallback applies to this reserved hook
 
 ## OutOfBounds Exit VFX Migration
@@ -1149,7 +1150,7 @@ Playback:
 
 - lifecycle: transient one-shot, no persistent key
 - command: `ParameterizedMotionVfxCommand`
-- playback: source-view clone with prefab fallback
+- playback: source-view clone motion with common empty host
 - motion: source pose to source pose using `ParameterizedMotionVfxSamplerMode.Linear`
 - fade: `DestroyShrinkEase` over `ItemConsumeEffectDurationSeconds`
 - anchor: source cell center
@@ -1160,7 +1161,8 @@ Flag and fallback:
 - default true
 - flag off means no OutOfBounds VFX and no old presenter fallback
 - old `GameplayExitPresentationController.PlayExitEffect` playback surface is removed for OutOfBounds
-- missing binding, prefab, anchor, or source pose is diagnostic/no-op
+- missing binding, source view, common host, anchor, or source pose is diagnostic/no-op
+- null cue prefab is allowed for `SourceCloneMotion` and must not report `MissingPrefab`
 - missing binding no fallback applies to this reserved hook
 - if no normal producer exists, tests use synthetic presentation facts
 
@@ -1182,7 +1184,7 @@ Cleaned legacy direct playback:
 | enemy killed old entity exit transient track | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away track removed; `ApplyEntityExitOwnership()` retained; `EnemyDeathExitEffectPlanBuilder` retained for DeathMotion target math | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
 | old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf entity membership bookkeeping retained | no flip destroy-self motion VFX | `PresentationMotionTrack` Stay branch remains unchanged |
 | old impact break transient track | `BoxVfxCue.ImpactTransientBreak` | old impact break playback removed; duplicate ownership retained | no ImpactTransient break VFX | no normal producer added |
-| OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | dormant/reserved hook only; no producer added |
+| OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | reserved SourceCloneMotion hook; no normal producer added |
 
 No stale old transient playback fallback remains: `GameplayTransientEffectPresenter`, `ImpactBreakEffectTrack`, `EntityExitEffectTrack`, `PlayImpactBreakEffect`, and `PlayExitEffect` playback APIs are removed.
 
