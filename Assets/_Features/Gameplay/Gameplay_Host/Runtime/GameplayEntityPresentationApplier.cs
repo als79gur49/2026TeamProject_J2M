@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationTrackState _trackState;
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
+        private readonly Dictionary<int, EnemySemanticDriverCacheEntry> _enemySemanticDriversByEntityId = new();
 
         public GameplayEntityPresentationApplier(
             GameplayPresentationStateStore stateStore,
@@ -55,7 +56,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(timingProfile));
             }
 
-            _animationSync.AdvancePresentation(deltaTime);
+            _animationSync.AdvancePresentationBeforeEnemySemantic(deltaTime);
             CleanupCompletedTopologyTransitionState(hasActiveBoardRotationTween);
 
             _trackState.CompletedMotionTrackIds.Clear();
@@ -276,6 +277,7 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.VisibleEntityIds.Add(entityId);
             }
 
+            _animationSync.AdvanceEnemyAutonomousPresentationAfterSemantic(deltaTime);
             CleanupCompletedMotionTracks();
             CleanupCompletedOriginalViewMotionTracks();
             CleanupCompletedJumpTracks();
@@ -310,6 +312,11 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.PlayerDeathDisplacementTracks.Clear();
             _stateStore.PresentedLocalPosesByEntityId.Clear();
+        }
+
+        public void ResetEnemySemanticPresentationDriverCache()
+        {
+            _enemySemanticDriversByEntityId.Clear();
         }
 
         private IReadOnlyList<int> BuildProcessingEntityIds()
@@ -713,8 +720,24 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.EnemyAiModesByEntityId.Remove(entityId);
             _stateStore.EnemyVisualFactsByEntityId.Remove(entityId);
             _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(entityId);
+            _enemySemanticDriversByEntityId.Remove(entityId);
             _stateStore.EntityTypesByEntityId.Remove(entityId);
             _stateStore.UnitRolesByEntityId.Remove(entityId);
+        }
+
+        private readonly struct EnemySemanticDriverCacheEntry
+        {
+            public EnemySemanticDriverCacheEntry(
+                int viewInstanceId,
+                IEnemyVisualSemanticPresentationDriver[] drivers)
+            {
+                ViewInstanceId = viewInstanceId;
+                Drivers = drivers;
+            }
+
+            public int ViewInstanceId { get; }
+
+            public IEnemyVisualSemanticPresentationDriver[] Drivers { get; }
         }
 
         private void ResetFlipInteraction(int playerEntityId, int boxEntityId)
@@ -791,22 +814,57 @@ namespace Game.Feature.Gameplay.Host
 
             var semanticState = _enemyVisualSemanticResolver.Resolve(facts);
             _stateStore.EnemyVisualSemanticStatesByEntityId[entityId] = semanticState;
-
-            if (view != null &&
-                view.TryGetComponent<EnemyInactiveVisualController>(out var controller) &&
-                controller != null)
-            {
-                controller.Apply(semanticState);
-            }
-
-            if (view != null &&
-                view.TryGetComponent<EnemyFloatingPresentationDriver>(out var floatingDriver) &&
-                floatingDriver != null)
-            {
-                floatingDriver.Apply(semanticState);
-            }
+            ApplyEnemyVisualSemanticPresentationDrivers(entityId, view, semanticState);
 
             return semanticState;
+        }
+
+        private void ApplyEnemyVisualSemanticPresentationDrivers(
+            int entityId,
+            GameplayEntityView view,
+            in EnemyVisualSemanticState state)
+        {
+            var drivers = ResolveEnemySemanticPresentationDrivers(entityId, view);
+            for (var i = 0; i < drivers.Length; i++)
+            {
+                drivers[i]?.ApplyEnemyVisualSemanticState(state);
+            }
+        }
+
+        private IEnemyVisualSemanticPresentationDriver[] ResolveEnemySemanticPresentationDrivers(
+            int entityId,
+            GameplayEntityView view)
+        {
+            if (view == null)
+            {
+                _enemySemanticDriversByEntityId.Remove(entityId);
+                return Array.Empty<IEnemyVisualSemanticPresentationDriver>();
+            }
+
+            var viewInstanceId = view.GetInstanceID();
+            if (_enemySemanticDriversByEntityId.TryGetValue(entityId, out var cached) &&
+                cached.ViewInstanceId == viewInstanceId &&
+                cached.Drivers != null)
+            {
+                return cached.Drivers;
+            }
+
+            var behaviours = view.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            var drivers = new List<IEnemyVisualSemanticPresentationDriver>(behaviours.Length);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is IEnemyVisualSemanticPresentationDriver driver)
+                {
+                    drivers.Add(driver);
+                }
+            }
+
+            var resolvedDrivers = drivers.Count == 0
+                ? Array.Empty<IEnemyVisualSemanticPresentationDriver>()
+                : drivers.ToArray();
+            _enemySemanticDriversByEntityId[entityId] =
+                new EnemySemanticDriverCacheEntry(viewInstanceId, resolvedDrivers);
+            return resolvedDrivers;
         }
 
         private EnemyVisualPresentationFacts BuildEnemyVisualPresentationFacts(

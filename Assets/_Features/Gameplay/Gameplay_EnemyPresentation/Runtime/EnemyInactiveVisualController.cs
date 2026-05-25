@@ -3,7 +3,9 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public sealed class EnemyInactiveVisualController : MonoBehaviour
+    public sealed class EnemyInactiveVisualController :
+        MonoBehaviour,
+        IEnemyVisualSemanticPresentationDriver
     {
         private static readonly int BaseColorHash = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorHash = Shader.PropertyToID("_Color");
@@ -70,6 +72,11 @@ namespace Game.Feature.Gameplay.Host
         public void Apply(in EnemyVisualSemanticState state)
         {
             Apply(state.ActivityState);
+        }
+
+        public void ApplyEnemyVisualSemanticState(in EnemyVisualSemanticState state)
+        {
+            Apply(state);
         }
 
         public void ResetVisual()

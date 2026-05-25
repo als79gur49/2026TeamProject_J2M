@@ -323,6 +323,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyAudioPresentationController.ResetSession();
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
+            _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
             _trackState.ResetSession();
             _frontFaceShieldVfxPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
@@ -531,6 +532,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyAudioPresentationController.ResetSession();
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
+            _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _frontFaceShieldVfxPresenter.Clear();

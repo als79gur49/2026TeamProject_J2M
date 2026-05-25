@@ -111,7 +111,8 @@ namespace Game.Feature.Gameplay.Host
             EnemyUtilityEffectPhase utilityPhase = EnemyUtilityEffectPhase.None,
             bool startedUtilityRecoverThisTick = false,
             int utilityEffectIndex = 0,
-            int utilityActivationSequence = 0)
+            int utilityActivationSequence = 0,
+            bool utilityCanceledThisTick = false)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -141,6 +142,7 @@ namespace Game.Feature.Gameplay.Host
             StartedUtilityRecoverThisTick = startedUtilityRecoverThisTick;
             UtilityEffectIndex = utilityEffectIndex;
             UtilityActivationSequence = utilityActivationSequence;
+            UtilityCanceledThisTick = utilityCanceledThisTick;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -201,6 +203,8 @@ namespace Game.Feature.Gameplay.Host
 
         public int UtilityActivationSequence { get; }
 
+        public bool UtilityCanceledThisTick { get; }
+
         public bool DidAttack => ExecutedThisTick;
 
         public bool TookDamage { get; }
@@ -239,7 +243,8 @@ namespace Game.Feature.Gameplay.Host
                 UtilityPhase,
                 StartedUtilityRecoverThisTick,
                 UtilityEffectIndex,
-                UtilityActivationSequence);
+                UtilityActivationSequence,
+                UtilityCanceledThisTick);
         }
 
         public EnemyViewPresentationState WithJumpLandingCompletionHold()
@@ -274,7 +279,8 @@ namespace Game.Feature.Gameplay.Host
                 UtilityPhase,
                 StartedUtilityRecoverThisTick,
                 UtilityEffectIndex,
-                UtilityActivationSequence);
+                UtilityActivationSequence,
+                UtilityCanceledThisTick);
         }
 
         public EnemyViewPresentationState WithJumpLandingCompletionSettled()
@@ -309,7 +315,8 @@ namespace Game.Feature.Gameplay.Host
                 UtilityPhase,
                 StartedUtilityRecoverThisTick,
                 UtilityEffectIndex,
-                UtilityActivationSequence);
+                UtilityActivationSequence,
+                UtilityCanceledThisTick);
         }
     }
 
@@ -407,6 +414,7 @@ namespace Game.Feature.Gameplay.Host
                 var startedUtilityWindupThisTick = false;
                 var utilityPhase = EnemyUtilityEffectPhase.None;
                 var startedUtilityRecoverThisTick = false;
+                var utilityCanceledThisTick = false;
                 var utilityEffectIndex = 0;
                 var utilityActivationSequence = 0;
                 var tookDamageThisTick = false;
@@ -462,6 +470,7 @@ namespace Game.Feature.Gameplay.Host
                     utilityPresentationKind = utilitySignal.Kind;
                     startedUtilityWindupThisTick = utilitySignal.Phase == EnemyUtilityPresentationPhase.WindupStarted;
                     startedUtilityRecoverThisTick = utilitySignal.Phase == EnemyUtilityPresentationPhase.RecoverStarted;
+                    utilityCanceledThisTick = utilitySignal.Phase == EnemyUtilityPresentationPhase.Canceled;
                     startedRecoveryThisTick |= startedUtilityRecoverThisTick;
                     utilityEffectIndex = utilitySignal.EffectIndex;
                     utilityActivationSequence = utilitySignal.ActivationSequence;
@@ -505,7 +514,8 @@ namespace Game.Feature.Gameplay.Host
                     utilityPhase,
                     startedUtilityRecoverThisTick,
                     utilityEffectIndex,
-                    utilityActivationSequence);
+                    utilityActivationSequence,
+                    utilityCanceledThisTick);
             }
         }
 
