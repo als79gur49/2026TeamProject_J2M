@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
 using UnityEngine;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -168,6 +169,76 @@ namespace Game.Feature.Gameplay.Tests.Core
             CollectionAssert.AreEqual(first.TickHashes, second.TickHashes);
             CollectionAssert.AreEqual(first.TickTraces, second.TickTraces);
             Assert.That(first.FinalState, Is.EqualTo(second.FinalState));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_WindupAndRecover_LockMovementAndKeepFacing()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(PlayerId, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateUnit(GliderId, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase, Direction.Left),
+            });
+            var logic = CreateGlideLogic(new EnemyGlideTimingSettings(
+                initialDelayTicks: 0,
+                windupTicks: 3,
+                durationTicks: 3,
+                recoveryTicks: 3,
+                cooldownTicks: 0,
+                glideMoveTicks: 2));
+
+            foreach (var phase in new[] { EnemyGlidePhase.Windup, EnemyGlidePhase.Recovery })
+            {
+                var movementIntents = new List<RawMovementIntent>();
+                worldState.CreateWriteContext().SetEnemyGlideState(
+                    GliderId,
+                    CreateGlideState(
+                        phase,
+                        windupUntilTickExclusive: phase == EnemyGlidePhase.Windup ? 5 : 0,
+                        recoveryUntilTickExclusive: phase == EnemyGlidePhase.Recovery ? 5 : 0,
+                        windupTicks: 3,
+                        durationTicks: 3,
+                        recoveryTicks: 3));
+
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(2), movementIntents);
+
+                Assert.That(movementIntents, Is.Empty);
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(GliderId, out var glider), Is.True);
+                Assert.That(glider.facing, Is.EqualTo(Direction.Left));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_BoxOverlapSmoke_DoesNotMoveBoxOrTriggerRecovery()
+        {
+            var boxCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(20, boxCell),
+                CreateUnit(PlayerId, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateUnit(GliderId, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                GliderId,
+                CreateActiveGlide(
+                    activeUntilTickExclusive: 6,
+                    durationTicks: 5,
+                    cooldownTicks: 0,
+                    recoveryTicks: 2,
+                    lockedStepX: 1,
+                    lockedStepY: 0,
+                    lockedTargetEntityId: PlayerId));
+
+            Assert.DoesNotThrow(() => writeContext.MoveEntity(GliderId, boxCell));
+            AssertEntityAt(worldState, GliderId, boxCell);
+            AssertEntityAt(worldState, 20, boxCell);
+            AssertActiveSolidPlacementAllowed(worldState, boxCell, GliderId);
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(GliderId, out var glide), Is.True);
+            Assert.That(glide.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+            Assert.That(glide.WantsRecover, Is.False);
         }
 
         private static LongRunOutcome RunExpiredActiveOnSolidLongRun()
@@ -537,6 +608,36 @@ namespace Game.Feature.Gameplay.Tests.Core
                 lockedTargetEntityId: lockedTargetEntityId);
         }
 
+        private static EnemyGlideRuntimeState CreateGlideState(
+            EnemyGlidePhase phase,
+            int windupUntilTickExclusive = 0,
+            int activeUntilTickExclusive = 0,
+            int recoveryUntilTickExclusive = 0,
+            int windupTicks = 0,
+            int durationTicks = 0,
+            int recoveryTicks = 0)
+        {
+            return EnemyGlideRuntimeState.Create(
+                phase,
+                sequence: 1,
+                windupUntilTickExclusive: windupUntilTickExclusive,
+                activeUntilTickExclusive: activeUntilTickExclusive,
+                recoveryUntilTickExclusive: recoveryUntilTickExclusive,
+                cooldownUntilTickExclusive: 0,
+                windupTicks: windupTicks,
+                durationTicks: durationTicks,
+                recoveryTicks: recoveryTicks,
+                cooldownTicks: 0,
+                glideMoveTicks: 2,
+                lastExitedTick: 0,
+                wantsRecover: false,
+                landingPendingCell: default,
+                hasLockedStep: true,
+                lockedStepX: 1,
+                lockedStepY: 0,
+                lockedTargetEntityId: PlayerId);
+        }
+
         private static UnitKinematicRuntimeState CreateVoluntaryStepState(
             SurfaceCell anchor,
             int elapsedTicks,
@@ -775,6 +876,23 @@ namespace Game.Feature.Gameplay.Tests.Core
                 type = EntityType.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateBox(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boxCapabilities = BoxCapabilities.Push,
                 boardPresence = EntityBoardPresence.Occupying,
             };
         }

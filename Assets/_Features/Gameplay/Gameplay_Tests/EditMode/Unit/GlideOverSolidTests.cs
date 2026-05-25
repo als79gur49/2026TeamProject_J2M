@@ -707,7 +707,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_PassesEverySolidType_ButNonActiveCannot()
         {
             foreach (var testCase in CreateP1SolidTileMatrixCases())
@@ -735,7 +735,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_PassesOverBoxWithoutSliding()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -752,7 +752,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_PassesOverBoxWithoutPushOrDisplacement()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -767,7 +767,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_PassesDestroyTileWithoutTriggeringDestroy()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -782,7 +782,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_PassesGeneratorDoorWithoutOpeningOrBlocking()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -808,7 +808,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_PassesLockedBoxWithoutPushSlideOrUnlock()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -844,7 +844,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_TargetLost_ForMultipleTicks_UsesFallbackWithoutClearingActive()
         {
             var worldState = CreateWorldState(new[]
@@ -882,7 +882,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_TargetLost_WhileOnSolid_DoesNotEnterRecoverUntilNonSolid()
         {
             var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -938,7 +938,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_TargetLost_ThenTargetReacquiredBehindSolid_UsesActiveDetectionAgain()
         {
             var profile = CreateCrossLineGlideChaserProfile(
@@ -968,35 +968,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Normal_AttackTargetBehindSolid_IsNotDetected()
         {
             AssertDetectionBehindSolid(EnemyGlidePhase.Cooldown, detected: false, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 0), senseRange: 5);
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_AttackTargetBehindSolid_IsDetectedWithinCrossRange()
         {
             AssertDetectionBehindSolid(EnemyGlidePhase.Active, detected: true, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 0), senseRange: 5);
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Recover_AttackTargetBehindSolid_IsNotDetected()
         {
             AssertDetectionBehindSolid(EnemyGlidePhase.Recovery, detected: false, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 0), senseRange: 5);
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_DetectsPlayerBehindMultipleSolidCellsWithinRange()
         {
             AssertDetectionBehindSolid(EnemyGlidePhase.Active, detected: true, wallCount: 2, playerCell: new SurfaceCell(FaceId.Floor, 4, 0), senseRange: 5);
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_DetectionStillUsesCrossShapeAndRange()
         {
             AssertDetectionBehindSolid(EnemyGlidePhase.Active, detected: false, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 1), senseRange: 5);
@@ -1004,21 +1004,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_UnitOverlap_UsesExistingPassiveContactDamage()
         {
             AssertGliderPassiveContactDamage(includeSolidUnderGlider: false);
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_OnSolidAndPlayerSameCell_ContactDamageStillFires()
         {
             AssertGliderPassiveContactDamage(includeSolidUnderGlider: true);
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_Active_GlideMoveTicks_DelaysNextMoveUntilCooldownExpires()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
@@ -1050,7 +1050,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_ActiveDurationExpiresDuringMoveCooldown_DoesNotRecoverOnSolidMidCooldown()
         {
             var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -1091,7 +1091,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void Glider_WantsRecoverTrue_MoveCooldownExpires_MovesUsingGlideSpeedUntilNonSolid()
         {
             Glider_Active_TargetLost_WhileOnSolid_DoesNotEnterRecoverUntilNonSolid();
