@@ -668,23 +668,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            if (queryMode != PlacementQueryMode.Representable ||
-                !glideState.IsLandingPending ||
-                glideState.LandingPendingCell != cell)
-            {
-                return false;
-            }
-
-            if (entitiesById == null ||
-                !entitiesById.TryGetValue(ignoredEntityId, out var actor))
-            {
-                return true;
-            }
-
-            return GlideSolidAnchorRepresentability.CanRepresentLandingPendingSolidAnchor(
-                actor,
-                glideState,
-                cell);
+            return false;
         }
 
         private static bool ShouldIgnoreStackedUnitForGlide(

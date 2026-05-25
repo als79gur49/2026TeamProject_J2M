@@ -18,6 +18,7 @@ MonoBehaviour:
     durationSeconds: 3
     recoverySeconds: 0.25
     cooldownSeconds: 4
+    glideMoveDurationSeconds: 0.85
   glidePresentationSettings:
     liftHeightCells: 1.25
     recoveryDipHeightCells: 0

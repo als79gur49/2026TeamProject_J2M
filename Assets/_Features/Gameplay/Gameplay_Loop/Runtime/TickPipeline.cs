@@ -69,7 +69,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             None = 0,
             Active = 1,
-            LandingPendingEgress = 2,
         }
 
         public TickPipeline(
@@ -538,8 +537,7 @@ namespace Game.Feature.Gameplay.Loop
                    snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
                    glideState.HasAuthoritativeRecord &&
                    (glideState.Phase == EnemyGlidePhase.Active ||
-                    glideState.Phase == EnemyGlidePhase.Recovery ||
-                    glideState.Phase == EnemyGlidePhase.LandingPending);
+                    glideState.Phase == EnemyGlidePhase.Recovery);
         }
 
         private PlanPhaseResult RunPlanPhase(
@@ -1956,9 +1954,7 @@ namespace Game.Feature.Gameplay.Loop
                 TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _, out var glideKinematicKind, out _) &&
                 glideKinematicKind != EnemyGlideKinematicKind.None)
             {
-                reason = glideKinematicKind == EnemyGlideKinematicKind.LandingPendingEgress
-                    ? "EnemyGlideLandingPendingKinematicReachedLegacyExpansion"
-                    : "EnemyGlideActiveKinematicReachedLegacyExpansion";
+                reason = "EnemyGlideActiveKinematicReachedLegacyExpansion";
                 return true;
             }
 
@@ -4015,24 +4011,6 @@ namespace Game.Feature.Gameplay.Loop
                     out var resolvedGlideKind)
                 ? resolvedGlideKind
                 : EnemyGlideKinematicKind.None;
-            if (ShouldBlockLandingPendingActiveGlideAnchorCommit(
-                    snapshot,
-                    entity,
-                    outcome,
-                    continuationGlideKind,
-                    out var landingPendingGlideState))
-            {
-                rejectedReasons.Add(FormatLandingPendingActiveGlideAnchorCommitBlockedReason(
-                    entityId,
-                    pose,
-                    outcome.ResolvedAnchorCell,
-                    landingPendingGlideState));
-                outcome = CreateBlockedKinematicMotionOutcome(
-                    entityId,
-                    pose,
-                    KinematicSweepRejectionReason.TraversalBlocked);
-            }
-
             if (continuationGlideKind == EnemyGlideKinematicKind.None &&
                 outcome.AnchorChanged)
             {
@@ -4108,39 +4086,6 @@ namespace Game.Feature.Gameplay.Loop
                 executionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
                 boundaryReason: "EnemyGlideBoundaryKinematicClosed");
             return true;
-        }
-
-        private static bool ShouldBlockLandingPendingActiveGlideAnchorCommit(
-            WorldSnapshot snapshot,
-            in EntityState entity,
-            in KinematicMotionOutcome outcome,
-            EnemyGlideKinematicKind continuationGlideKind,
-            out EnemyGlideRuntimeState glideState)
-        {
-            glideState = default;
-            if (continuationGlideKind != EnemyGlideKinematicKind.Active ||
-                !outcome.AnchorChanged ||
-                !snapshot.TryGetEnemyGlideState(entity.entityId, out glideState) ||
-                !glideState.IsLandingPending ||
-                !snapshot.TryGetSolidSemanticAt(outcome.ResolvedAnchorCell, out _))
-            {
-                return false;
-            }
-
-            return !GlideSolidAnchorRepresentability.CanRepresentLandingPendingSolidAnchor(
-                entity,
-                glideState,
-                outcome.ResolvedAnchorCell);
-        }
-
-        private static string FormatLandingPendingActiveGlideAnchorCommitBlockedReason(
-            int entityId,
-            UnitKinematicPose pose,
-            SurfaceCell blockedAnchorCell,
-            in EnemyGlideRuntimeState glideState)
-        {
-            return
-                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=GlideLandingPendingAnchorNotRepresentable|From={FormatCell(pose.AnchorCell)}|To={FormatCell(blockedAnchorCell)}|PendingCell={FormatCell(glideState.LandingPendingCell)}|Boundary={MovementExecutionBoundaryKind.LocomotionAnchorCommit}|BoundaryReason=GlideActiveKinematicAnchorCommit";
         }
 
         private static string FormatEnemyKinematicContinuationBlockedReason(
@@ -4339,7 +4284,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             return phase == EnemyGlidePhase.Windup ||
                    phase == EnemyGlidePhase.Active ||
-                   phase == EnemyGlidePhase.LandingPending ||
                    phase == EnemyGlidePhase.Recovery;
         }
 
@@ -4424,36 +4368,6 @@ namespace Game.Feature.Gameplay.Loop
                    !phasedState.IsActive;
         }
 
-        private static bool IsEnemyLandingPendingEgressKinematicParticipant(WorldSnapshot snapshot, in EntityState entity)
-        {
-            if (!IsEnemyLogicParticipant(entity) ||
-                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity))
-            {
-                return false;
-            }
-
-            if (!snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) ||
-                glideState.Phase != EnemyGlidePhase.LandingPending)
-            {
-                return false;
-            }
-
-            if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
-                jumpState.IsActive)
-            {
-                return false;
-            }
-
-            if (snapshot.TryGetEnemyChargeState(entity.entityId, out var chargeState) &&
-                chargeState.IsActive)
-            {
-                return false;
-            }
-
-            return !snapshot.TryGetPhasedState(entity.entityId, out var phasedState) ||
-                   !phasedState.IsActive;
-        }
-
         private static bool IsEnemyGlideKinematicContinuation(
             WorldSnapshot snapshot,
             in EntityState entity,
@@ -4486,8 +4400,7 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
-            return glideState.Phase == EnemyGlidePhase.LandingPending &&
-                   pose.State.startedTick >= glideState.ActiveUntilTickExclusive;
+            return false;
         }
 
         private static bool TryResolveEnemyGlideKinematicContinuationKind(
@@ -4533,7 +4446,8 @@ namespace Game.Feature.Gameplay.Loop
             var activeStartTick = glideState.ActiveUntilTickExclusive - glideState.DurationTicks;
             var startedDuringActive = pose.State.startedTick >= activeStartTick &&
                                       pose.State.startedTick < glideState.ActiveUntilTickExclusive;
-            if (glideState.Phase == EnemyGlidePhase.Active && startedDuringActive)
+            if (glideState.Phase == EnemyGlidePhase.Active &&
+                (startedDuringActive || glideState.WantsRecover))
             {
                 glideKinematicKind = EnemyGlideKinematicKind.Active;
                 return true;
@@ -4585,7 +4499,6 @@ namespace Game.Feature.Gameplay.Loop
             return glideKinematicKind switch
             {
                 EnemyGlideKinematicKind.Active => "EnemyGlideActiveKinematicStart",
-                EnemyGlideKinematicKind.LandingPendingEgress => "EnemyGlideLandingPendingKinematicStart",
                 _ => "KinematicUnitLocomotion",
             };
         }
@@ -4595,7 +4508,6 @@ namespace Game.Feature.Gameplay.Loop
             return glideKinematicKind switch
             {
                 EnemyGlideKinematicKind.Active => "EnemyGlideActiveKinematicContinuation",
-                EnemyGlideKinematicKind.LandingPendingEgress => "EnemyGlideLandingPendingKinematicContinuation",
                 _ => "KinematicUnitLocomotion",
             };
         }
@@ -8591,12 +8503,6 @@ namespace Game.Feature.Gameplay.Loop
                 payload.BoundaryReason == "EnemyGlideActiveKinematicContinuation")
             {
                 return "GlideActiveKinematicAnchorCommit";
-            }
-
-            if (payload.BoundaryReason == "EnemyGlideLandingPendingKinematicStart" ||
-                payload.BoundaryReason == "EnemyGlideLandingPendingKinematicContinuation")
-            {
-                return "GlideLandingPendingKinematicAnchorCommit";
             }
 
             if (payload.BoundaryReason == "EnemyGlideBoundaryKinematicClosed")

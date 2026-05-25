@@ -427,7 +427,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
-                (glideState.IsActive || glideState.IsLandingPending))
+                glideState.IsActive)
             {
                 return true;
             }
