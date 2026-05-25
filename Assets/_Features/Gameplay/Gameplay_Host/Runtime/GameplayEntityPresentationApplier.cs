@@ -149,7 +149,10 @@ namespace Game.Feature.Gameplay.Host
                     if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
                     {
                         _stateStore.JumpDetachedVisibilityStates[entityId] =
-                            new JumpDetachedVisibilityState(jumpDetachedState.JumpPhase, localPose);
+                            new JumpDetachedVisibilityState(
+                                jumpDetachedState.JumpPhase,
+                                localPose,
+                                jumpDetachedState.AuthoritativeCell);
                     }
 
                     if (!freezeJumpTrack && !jumpTrack.HasClip)
@@ -206,7 +209,7 @@ namespace Game.Feature.Gameplay.Host
                                 isDeferredExitRetained ||
                                 isContactDelayedRetained ||
                                 isDeathPresentationPlaying ||
-                                _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
+                                IsJumpDetachedVisibleForTopology(entityId, _stateStore.CommittedTopology) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
                 if (!hasPlayerDeathHoldPose &&
                     _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
@@ -366,6 +369,20 @@ namespace Game.Feature.Gameplay.Host
 
             return _stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var detachedState) &&
                    detachedState.JumpPhase == EnemyJumpPhase.Airborne;
+        }
+
+        private bool IsJumpDetachedVisibleForTopology(int entityId, CubeTopologyState topology)
+        {
+            return _stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var detachedState) &&
+                   IsJumpDetachedVisibleForTopology(detachedState, topology);
+        }
+
+        private static bool IsJumpDetachedVisibleForTopology(
+            in JumpDetachedVisibilityState detachedState,
+            CubeTopologyState topology)
+        {
+            return detachedState.JumpPhase == EnemyJumpPhase.Airborne &&
+                   topology.IsFaceActive(detachedState.AuthoritativeFace);
         }
 
         public void ClearJumpPresentationState(int entityId)
@@ -877,7 +894,13 @@ namespace Game.Feature.Gameplay.Host
             var isTransitionVisible = _stateStore.TransitionVisibilityStates.TryGetValue(
                 entityId,
                 out var transitionVisibilityState);
-            var isJumpDetachedVisible = _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId);
+            var hasJumpDetachedState = _stateStore.JumpDetachedVisibilityStates.TryGetValue(
+                entityId,
+                out var jumpDetachedState);
+            var isJumpDetachedVisible = hasJumpDetachedState &&
+                                        IsJumpDetachedVisibleForTopology(
+                                            jumpDetachedState,
+                                            _stateStore.CommittedTopology);
             var isJumpLandingCompletionHeld = _trackState.JumpLandingCompletionHoldEntityIds.Contains(entityId);
             var isJumpTopologySuspended = _trackState.JumpTopologySuspendedEntityIds.Contains(entityId);
             var isTransitionOnlyVisible = isTransitionVisible && !isCommittedVisible;
@@ -896,6 +919,10 @@ namespace Game.Feature.Gameplay.Host
             else if (isTransitionVisible)
             {
                 authoritativeFace = transitionVisibilityState.SurfaceFace;
+            }
+            else if (hasJumpDetachedState)
+            {
+                authoritativeFace = jumpDetachedState.AuthoritativeFace;
             }
 
             var isGameplayAutonomySuppressed = isEnemy &&

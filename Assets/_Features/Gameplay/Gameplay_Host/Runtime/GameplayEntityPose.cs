@@ -54,15 +54,21 @@ namespace Game.Feature.Gameplay.Host
     {
         public JumpDetachedVisibilityState(
             EnemyJumpPhase jumpPhase,
-            GameplayEntityPose localPose)
+            GameplayEntityPose localPose,
+            SurfaceCell authoritativeCell)
         {
             JumpPhase = jumpPhase;
             LocalPose = localPose;
+            AuthoritativeCell = authoritativeCell;
         }
 
         public EnemyJumpPhase JumpPhase { get; }
 
         public GameplayEntityPose LocalPose { get; }
+
+        public SurfaceCell AuthoritativeCell { get; }
+
+        public FaceId AuthoritativeFace => AuthoritativeCell.face;
     }
 
     public sealed class JumpTrack

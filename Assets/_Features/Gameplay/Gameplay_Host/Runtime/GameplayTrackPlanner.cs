@@ -961,14 +961,14 @@ namespace Game.Feature.Gameplay.Host
                 {
                     _trackState.JumpTracks[signal.EntityId] = jumpTrack;
                     _stateStore.JumpDetachedVisibilityStates[signal.EntityId] =
-                        new JumpDetachedVisibilityState(signal.Phase, localPose);
+                        new JumpDetachedVisibilityState(signal.Phase, localPose, signal.SourceCell);
                     continue;
                 }
 
                 if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(signal.EntityId, out var existingState))
                 {
                     _stateStore.JumpDetachedVisibilityStates[signal.EntityId] =
-                        new JumpDetachedVisibilityState(signal.Phase, existingState.LocalPose);
+                        new JumpDetachedVisibilityState(signal.Phase, existingState.LocalPose, signal.SourceCell);
                 }
             }
 
