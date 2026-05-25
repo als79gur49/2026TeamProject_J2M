@@ -24,6 +24,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDeathMotionVfx.prefab";
         private const string MotionBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyDeathMotion_Binding.asset";
+        private const string EnemyOutOfBoundsExitBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/EnemyOutOfBoundsExit_Binding.asset";
         private const string CommandPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs";
         private const string ProductionRuntimePath =
@@ -183,7 +185,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ToParameterizedCommand_UsesDeathMotionCueCloneFallbackAndLegacyFade()
+        public void ToParameterizedCommand_UsesDeathMotionCuePrefabWithSourceCloneAndLegacyFade()
         {
             var fixture = CreateBuilderFixture();
             try
@@ -199,7 +201,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var parameterized = command.ToParameterizedMotionVfxCommand();
 
                 Assert.That(parameterized.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
-                Assert.That(parameterized.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+                Assert.That(parameterized.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
+                Assert.That(parameterized.CloneMode, Is.Not.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
                 Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway));
                 Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.LegacyEnemyDeath));
                 Assert.That(parameterized.BreakStartSeconds, Is.EqualTo(parameterized.DurationSeconds * 0.12f).Within(0.0001f));
@@ -511,6 +514,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(binding.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
             Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(binding.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.PrefabWithSourceClone));
+            Assert.That(binding.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.ExplicitPrefabRequired));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
             Assert.That(binding.DefaultLifetimeSeconds, Is.EqualTo(0f).Within(0.001f));
             Assert.That(binding.TailSeconds, Is.InRange(0.18f, 0.25f));
@@ -529,9 +534,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), out var policy),
                 Is.True);
+            Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
+            Assert.That(policy.CueId, Is.Not.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)));
             Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.PrefabWithSourceClone));
             Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), out var prefab), Is.True);
             Assert.That(prefab, Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDeathMotion_DoesNotUseOutOfBoundsExitBinding()
+        {
+            var deathBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(MotionBindingPath);
+            var outOfBoundsBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(EnemyOutOfBoundsExitBindingPath);
+
+            Assert.That(deathBinding, Is.Not.Null, MotionBindingPath);
+            Assert.That(outOfBoundsBinding, Is.Not.Null, EnemyOutOfBoundsExitBindingPath);
+            Assert.That(deathBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
+            Assert.That(outOfBoundsBinding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)));
+            Assert.That(deathBinding.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.PrefabWithSourceClone));
+            Assert.That(outOfBoundsBinding.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
         }
 
         [Test]
@@ -755,6 +778,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
             SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetField(
+                binding,
+                "visualSourceMode",
+                cueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)
+                    ? VfxVisualSourceMode.PrefabWithSourceClone
+                    : VfxVisualSourceMode.PrefabOnly);
+            SetField(binding, "hostRequirement", GameplayVfxHostRequirement.ExplicitPrefabRequired);
             SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
             SetField(binding, "defaultLifetimeSeconds", defaultLifetimeSeconds);
             SetField(binding, "tailSeconds", tailSeconds);

@@ -107,12 +107,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return null;
             }
 
+            var canResolveSourceClone = CanResolveSourceClone(motionCommand);
             if (command.Policy.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
-                !CanResolveSourceClone(motionCommand))
+                !canResolveSourceClone)
             {
                 MissingSourceViewCount++;
                 LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingSourceView", command);
                 return null;
+            }
+
+            if (command.Policy.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone &&
+                !canResolveSourceClone)
+            {
+                MissingSourceViewCount++;
+                LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingSourceView", command);
             }
 
             if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
@@ -381,7 +389,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                        motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion;
             }
 
-            if (motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion)
+            if (policy.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone)
+            {
+                return policy.HostRequirement == GameplayVfxHostRequirement.ExplicitPrefabRequired &&
+                       motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.PrefabWithSourceClone;
+            }
+
+            if (motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion ||
+                motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.PrefabWithSourceClone)
             {
                 return false;
             }

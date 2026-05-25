@@ -212,6 +212,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void BindingAsset_ValidatesFallbackPrefab_ForPrefabWithSourceClone_WhenFallbackRequired()
+        {
+            var prefab = CreateValidPrefab("PrefabWithSourceCloneFallbackPrefab");
+            var valid = CreateBinding(
+                GameplayVfxFamily.Enemy,
+                (int)EnemyVfxCue.DeathMotion,
+                prefab: prefab,
+                requirement: VfxBindingRequirement.DiagnosticIfMissing,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.ReportDiagnostic,
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone,
+                hostRequirement: GameplayVfxHostRequirement.ExplicitPrefabRequired,
+                defaultLifetimeSeconds: 0f,
+                tailSeconds: 0.2f,
+                initialPoolSize: 4,
+                maxConcurrentInstances: 8);
+            var missingFallback = CreateBinding(
+                GameplayVfxFamily.Enemy,
+                (int)EnemyVfxCue.DeathMotion,
+                prefab: null,
+                requirement: VfxBindingRequirement.DiagnosticIfMissing,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.ReportDiagnostic,
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone,
+                hostRequirement: GameplayVfxHostRequirement.ExplicitPrefabRequired,
+                defaultLifetimeSeconds: 0f,
+                tailSeconds: 0.2f,
+                initialPoolSize: 4,
+                maxConcurrentInstances: 8);
+
+            try
+            {
+                Assert.That(valid.ValidateAuthoring().HasErrors, Is.False);
+                Assert.That(valid.BuildRuntimePolicy().VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.PrefabWithSourceClone));
+                Assert.That(missingFallback.ValidateAuthoring().HasErrors, Is.True);
+                Assert.Throws<InvalidOperationException>(() => missingFallback.BuildRuntimePolicy());
+            }
+            finally
+            {
+                Destroy(missingFallback);
+                Destroy(valid);
+                Destroy(prefab);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void BindingAsset_RejectsInvalidPolicyValues()
         {

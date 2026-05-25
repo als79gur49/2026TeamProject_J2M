@@ -96,6 +96,15 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            if (binding.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone &&
+                binding.HostRequirement != GameplayVfxHostRequirement.ExplicitPrefabRequired)
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_INVALID_PLAYBACK_MODE_POLICY",
+                    $"{binding.name} cue '{cueId}' uses PrefabWithSourceClone without ExplicitPrefabRequired host requirement.",
+                    binding));
+            }
+
             try
             {
                 binding.CreateRuntimePolicy().ValidateOrThrow();

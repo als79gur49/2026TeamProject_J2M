@@ -1,3 +1,4 @@
+using System;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx;
 using UnityEngine;
@@ -18,7 +19,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         PrefabOnly = 0,
         SourceViewClone = 1,
-        SourceViewCloneWithPrefabFallback = 2,
+        PrefabWithSourceClone = 2,
+        [Obsolete("Use PrefabWithSourceClone. This alias is kept for serialized/backward compatibility.")]
+        SourceViewCloneWithPrefabFallback = PrefabWithSourceClone,
         SourceCloneMotion = 3,
     }
 

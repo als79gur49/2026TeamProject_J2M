@@ -219,8 +219,12 @@ namespace Game.Feature.Gameplay.Vfx
 
     public enum VfxVisualSourceMode
     {
+        // The authored prefab is the visual body. A null prefab is invalid and source view lookup is not required.
         PrefabOnly = 0,
+        // A source view clone may be the primary visual path, while the authored prefab is a real fallback visual.
+        // ExplicitPrefabRequired keeps source-view and prefab diagnostics separate.
         PrefabWithSourceClone = 1,
+        // The source view clone is the visual body. The cue prefab is optional when a common empty host is available.
         SourceCloneMotion = 2,
     }
 

@@ -67,6 +67,45 @@ Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage
 
 `EnemyDeathMotionVfx`, `EnemyDeathMotion_Binding.asset`, `TileFeatureDestroyLaserActiveRedVfx`, and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
 
+## Visual Source Modes
+
+### PrefabOnly
+
+- the authored prefab is the visual body.
+- prefab is required; a null prefab is invalid and reports `MissingPrefab`.
+- source view lookup is not required.
+- examples include particle/contact prefab cues.
+
+### SourceCloneMotion
+
+- the source view clone is the visual body.
+- the cue prefab is optional when the binding allows a common empty host.
+- null cue prefab plus `CommonHostAllowed` uses the common empty host and must not report `MissingPrefab`.
+- missing source view reports `MissingSourceView` and no-ops.
+- missing common empty host reports `CommonHostUnavailable`.
+- examples: `BoxVfxCue.DestroyShrink`, `BoxVfxCue.FlipDestroySelfMotion`, `BoxVfxCue.ImpactTransientBreak`, `BoxVfxCue.OutOfBoundsExit`, and `EnemyVfxCue.OutOfBoundsExit`.
+
+### PrefabWithSourceClone
+
+- the source view clone may be the primary visual path.
+- the authored prefab is a real fallback visual, not only an empty host.
+- fallback prefab required policy means a null prefab is invalid and reports `MissingPrefab`.
+- missing source view reports `MissingSourceView`; if the fallback prefab is present, playback can degrade to the fallback prefab path.
+- source view missing and prefab missing diagnostics must remain separate.
+- example: `EnemyVfxCue.DeathMotion`.
+
+## Legacy Name
+
+`SourceViewCloneWithPrefabFallback` is a legacy clone-mode name. Its current meaning is `PrefabWithSourceClone`, and it is kept only as a compatibility alias until serialized compatibility is fully audited.
+
+Rules:
+
+- do not use `SourceViewCloneWithPrefabFallback` for `SourceCloneMotion` cues.
+- do not add cue-specific placeholder prefabs to `SourceCloneMotion` cues.
+- do not force cues with real fallback art, such as `EnemyVfxCue.DeathMotion`, into `SourceCloneMotion`.
+- do not combine source view missing and prefab missing into one failure.
+- do not mix `EnemyDeathMotion_Binding.asset` with `EnemyOutOfBoundsExit_Binding.asset`.
+
 ## FlipImpact MotionTrack Anchor Gate
 
 FlipImpact is not pure VFX. `FlipImpactPresentationDisposition.Stay` is an actual box view pose override track, while `FlipImpactPresentationDisposition.DestroySelf` is a transient clone/effect path where the source-to-impact flight overlaps break and fade presentation.
@@ -759,7 +798,7 @@ Runtime policy:
   - burst off / motion on: `EnemyVfxCue.DeathMotion` only.
   - burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
 - missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback.
-- missing source clone uses the fallback prefab through `SourceViewCloneWithPrefabFallback`.
+- missing source clone uses the fallback prefab through `PrefabWithSourceClone`.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; source view cleanup is not bypassed.
 
 Default binding:

@@ -45,13 +45,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
-                cloneSourceProvider: MissingCloneSourceProvider.Instance);
+                cloneSourceProvider: MissingCloneSourceProvider.Instance,
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
             try
             {
                 fixture.Pool.PlayParameterizedMotion(
                     fixture.PlaybackCommand,
                     GameplayVfxParameterizedMotionRuntimeTests.CreateCommand(
-                        cloneMode: ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+                        cloneMode: ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
                 var instance = fixture.Root.OneShotRoot.GetChild(0);
 
                 Assert.That(instance.Find("ParameterizedMotionCloneRoot"), Is.Null);
@@ -70,7 +71,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = CreateCloneSource("SourceViewNoMove");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
-                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
             try
             {
                 var originalPosition = source.ModelRoot.localPosition;
@@ -80,7 +82,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Pool.PlayParameterizedMotion(
                     fixture.PlaybackCommand,
                     GameplayVfxParameterizedMotionRuntimeTests.CreateCommand(
-                        cloneMode: ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+                        cloneMode: ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
                 fixture.TimeProvider.TimeSeconds = 0.8f;
                 fixture.Pool.Advance(0.8f);
 
@@ -102,7 +104,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = CreateCloneSource("SourceViewSharedMaterial");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
-                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
             try
             {
                 var originalColor = source.SharedMaterial.color;
@@ -110,7 +113,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Pool.PlayParameterizedMotion(
                     fixture.PlaybackCommand,
                     GameplayVfxParameterizedMotionRuntimeTests.CreateCommand(
-                        cloneMode: ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+                        cloneMode: ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
                 fixture.TimeProvider.TimeSeconds = 0.9f;
                 fixture.Pool.Advance(0.9f);
 
@@ -130,13 +133,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = CreateCloneSource("SourceViewAlphaFade");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
-                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
             try
             {
                 fixture.Pool.PlayParameterizedMotion(
                     fixture.PlaybackCommand,
                     GameplayVfxParameterizedMotionRuntimeTests.CreateCommand(
-                        cloneMode: ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+                        cloneMode: ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
                 fixture.TimeProvider.TimeSeconds = 0.9f;
                 fixture.Pool.Advance(0.9f);
 
@@ -158,13 +162,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = CreateCloneSource("SourceViewNullMaterial", assignMaterial: false);
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
-                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
             try
             {
                 fixture.Pool.PlayParameterizedMotion(
                     fixture.PlaybackCommand,
                     GameplayVfxParameterizedMotionRuntimeTests.CreateCommand(
-                        cloneMode: ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+                        cloneMode: ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
 
                 Assert.DoesNotThrow(() =>
                 {
@@ -186,13 +191,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = CreateCloneSource("SourceViewHardCleanup");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
-                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
             try
             {
                 fixture.Pool.PlayParameterizedMotion(
                     fixture.PlaybackCommand,
                     GameplayVfxParameterizedMotionRuntimeTests.CreateCommand(
-                        cloneMode: ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+                        cloneMode: ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
                 var clone = ResolveClone(fixture).gameObject;
                 var instancedMaterial = ResolveCloneRenderer(fixture).sharedMaterial;
 
@@ -215,11 +221,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = CreateCloneSource("SourceViewRepeated");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
-                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
             try
             {
                 var command = GameplayVfxParameterizedMotionRuntimeTests.CreateCommand(
-                    cloneMode: ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback);
+                    cloneMode: ParameterizedMotionVfxCloneMode.PrefabWithSourceClone);
                 fixture.Pool.PlayParameterizedMotion(fixture.PlaybackCommand, command);
                 var firstClone = ResolveClone(fixture).gameObject;
 

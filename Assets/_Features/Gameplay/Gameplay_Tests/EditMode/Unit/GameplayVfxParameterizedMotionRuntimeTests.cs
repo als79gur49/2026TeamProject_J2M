@@ -205,7 +205,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 breakStartSeconds: 0.12f,
                 fadeDurationSeconds: 0.88f,
                 ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
-                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
+                ParameterizedMotionVfxCloneMode.PrefabWithSourceClone,
                 ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
                 arcLocalDirection: Vector3.up,
                 spinDegrees: 360f,
@@ -733,6 +733,252 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ParameterizedMotionCloneMode_SourceViewCloneWithPrefabFallback_IsLegacyAliasForPrefabWithSourceClone()
+        {
+#pragma warning disable 0618
+            Assert.That(
+                (int)ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
+                Is.EqualTo((int)ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
+            Assert.That(
+                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
+                Is.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
+#pragma warning restore 0618
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_UsesPrefabWithSourceClone_NotSourceCloneMotion()
+        {
+            var command = CreateEnemyDeathMotionCommand();
+
+            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
+            Assert.That(command.CloneMode, Is.Not.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SourceCloneMotionCues_DoNotUseSourceViewCloneWithPrefabFallback()
+        {
+            var commands = new[]
+            {
+                CreateDestroyShrinkCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                CreateCommand(cloneMode: ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                CreateImpactTransientBreakCommand(ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                CreateOutOfBoundsExitCommand(
+                    GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit),
+                    ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                CreateOutOfBoundsExitCommand(
+                    GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit),
+                    ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+            };
+
+            for (var i = 0; i < commands.Length; i++)
+            {
+                Assert.That(commands[i].CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+                Assert.That(commands[i].CloneMode, Is.Not.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_UsesSourceClone_WhenSourceViewIsAvailable()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(fixture.Root.OneShotRoot.GetChild(0).Find("ParameterizedMotionCloneRoot"), Is.Not.Null);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_UsesFallbackPrefab_WhenSourceViewIsUnavailable_IfPolicyAllows()
+        {
+            var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(instance.Find("ParameterizedMotionCloneRoot"), Is.Null);
+                Assert.That(instance.GetComponentInChildren<Renderer>(includeInactive: true).enabled, Is.True);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_ReportsMissingSourceView_WhenSourceViewIsUnavailable()
+        {
+            var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_DoesNotReportMissingPrefab_WhenSourceViewIsMissingButFallbackPrefabExists()
+        {
+            var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_ReportsMissingPrefab_WhenFallbackPrefabIsRequiredAndMissing()
+        {
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                useNullPrefab: true);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                Assert.That(handle, Is.Null);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.CommonHostUnavailableCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_SeparatesMissingSourceView_FromMissingPrefab()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider,
+                useNullPrefab: true);
+            try
+            {
+                var handle = fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                Assert.That(handle, Is.Null);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_DoesNotMutateOriginalView()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var originalScale = sourceRoot.transform.localScale;
+            var originalPosition = sourceRoot.transform.localPosition;
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                fixture.TimeProvider.TimeSeconds = 0.9f;
+                fixture.Pool.Advance(0.9f);
+
+                Assert.That(sourceRoot.transform.localScale, Is.EqualTo(originalScale));
+                Assert.That(sourceRoot.transform.localPosition, Is.EqualTo(originalPosition));
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_ReleasesHost_AfterLifetimeAndTail()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.25f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                fixture.TimeProvider.TimeSeconds = 1f;
+                fixture.Pool.Advance(1f);
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+
+                fixture.TimeProvider.TimeSeconds = 1.25f;
+                fixture.Pool.Advance(0.25f);
+                Assert.That(fixture.Pool.ActiveCount, Is.Zero);
+                Assert.That(fixture.Pool.PooledCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyShrink_Plays_WithSourceClone_WhenPrefabIsMissing()
         {
             var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
@@ -991,6 +1237,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ParameterizedMotionVfxFadeMode.DestroyShrinkEase,
                 cloneMode,
                 ParameterizedMotionVfxSamplerMode.Linear);
+        }
+
+        private static ParameterizedMotionVfxCommand CreateEnemyDeathMotionCommand()
+        {
+            return new ParameterizedMotionVfxCommand(
+                GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                sourceEntityId: 30,
+                sequenceId: 7,
+                presentationSeed: 7,
+                sourceLocalPosition: Vector3.zero,
+                sourceLocalRotation: Quaternion.identity,
+                targetLocalPosition: new Vector3(0f, 0f, -2f),
+                targetLocalRotation: Quaternion.identity,
+                durationSeconds: 1f,
+                arcHeight: 0.2f,
+                breakStartSeconds: 0.12f,
+                fadeDurationSeconds: 0.88f,
+                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxCloneMode.PrefabWithSourceClone,
+                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
+                arcLocalDirection: Vector3.up,
+                spinDegrees: 360f,
+                spinAxisLocal: Vector3.forward);
+        }
+
+        private static PoolFixture CreateEnemyDeathMotionFixture(
+            float tailSeconds,
+            IGameplayVfxCloneSourceProvider cloneSourceProvider = null,
+            bool useNullPrefab = false)
+        {
+            return CreatePoolFixture(
+                tailSeconds,
+                cloneSourceProvider: cloneSourceProvider,
+                cueId: GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone,
+                hostRequirement: GameplayVfxHostRequirement.ExplicitPrefabRequired,
+                useNullPrefab: useNullPrefab);
         }
 
         private static void AssertOutOfBoundsPlaysWithSourceClone(GameplayVfxCueId cueId)

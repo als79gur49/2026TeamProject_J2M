@@ -75,6 +75,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "## Production Runtime Dependency Rule",
                 "## Gameplay VFX Legacy Old Path Cleanup",
                 "## Gameplay VFX Flag Rollout Policy",
+                "## Visual Source Modes",
+                "## Legacy Name",
             };
 
             Assert.That(readme, Does.Contain("Gameplay-VFX-Governance.md"));
@@ -91,6 +93,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
             Assert.That(document, Does.Contain("flag off means that VFX is off"));
             Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
+            Assert.That(document, Does.Contain("### PrefabOnly"));
+            Assert.That(document, Does.Contain("### SourceCloneMotion"));
+            Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
+            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsVisualSourceModes()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Visual Source Modes"));
+            Assert.That(document, Does.Contain("### PrefabOnly"));
+            Assert.That(document, Does.Contain("### SourceCloneMotion"));
+            Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
+            Assert.That(document, Does.Contain("## Legacy Name"));
+            Assert.That(document, Does.Contain("do not use `SourceViewCloneWithPrefabFallback` for `SourceCloneMotion` cues"));
+            Assert.That(document, Does.Contain("do not mix `EnemyDeathMotion_Binding.asset` with `EnemyOutOfBoundsExit_Binding.asset`"));
         }
 
         [Test]

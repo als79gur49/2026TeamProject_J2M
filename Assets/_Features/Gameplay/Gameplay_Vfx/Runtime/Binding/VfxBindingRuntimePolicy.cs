@@ -214,6 +214,13 @@ namespace Game.Feature.Gameplay.Vfx
                 return true;
             }
 
+            if (VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone &&
+                HostRequirement != GameplayVfxHostRequirement.ExplicitPrefabRequired)
+            {
+                error = "VFX binding policy PrefabWithSourceClone requires ExplicitPrefabRequired host requirement.";
+                return true;
+            }
+
             error = null;
             return false;
         }
