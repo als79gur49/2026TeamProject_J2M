@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f613e3fc1a5d4b8fb1a646eb0c5dd2e1, type: 3}
+  m_Name: StageWorldGuideCatalog_stage-0-1
+  m_EditorClassIdentifier: Game.Feature.Stages:Game.Feature.Stages:StageWorldGuideCatalog
+  entries:
+  - guideKey: movement
+    prefab: {fileID: 752909475881359397, guid: 23956d5055708d44aaa3969b38ea088c, type: 3}
+  - guideKey: push
+    prefab: {fileID: 1814859751575222530, guid: fb77e36249924f947b2ea13707b86c82, type: 3}
+  - guideKey: flip
+    prefab: {fileID: 3534170473461777912, guid: 9b0c6835458e3014ab69b5b457b04db3, type: 3}
