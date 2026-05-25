@@ -58,6 +58,27 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(settings.ResolveImpactDelayTicks(4), Is.EqualTo(96));
         }
 
+        [Test]
+        [Category("Core")]
+        public void ForwardProjectile_AuthoritativeFacing_UsesLockedAttackDirection()
+        {
+            var projectileAction = new EnemyActionRuntimeState
+            {
+                kind = EnemyActionKind.ForwardCellProjectile,
+                direction = Direction.Up,
+                hasLockedForwardCellImpact = true,
+                lockedAttackDirection = Direction.Right,
+            };
+            var meleeAction = new EnemyActionRuntimeState
+            {
+                kind = EnemyActionKind.Melee,
+                direction = Direction.Up,
+            };
+
+            Assert.That(EnemyActionQueries.ResolveAuthoritativeFacing(projectileAction), Is.EqualTo(Direction.Right));
+            Assert.That(EnemyActionQueries.ResolveAuthoritativeFacing(meleeAction), Is.EqualTo(Direction.Up));
+        }
+
         private static WorldSnapshot CreateSnapshot()
         {
             return GameplayCompositionRoot.CreateWorldState(

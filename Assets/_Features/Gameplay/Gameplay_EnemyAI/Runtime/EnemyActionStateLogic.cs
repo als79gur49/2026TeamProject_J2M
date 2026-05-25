@@ -164,6 +164,7 @@ namespace Game.Feature.Gameplay.Entities
                         workingAction.executeTick <= tickIndex)
                     {
                         var releasedAction = CommitForwardCellProjectileRelease(
+                            source,
                             workingAction,
                             writeContext,
                             tickIndex);
@@ -171,9 +172,10 @@ namespace Game.Feature.Gameplay.Entities
                         return releasedAction;
                     }
 
-                    if (source.facing != workingAction.direction)
+                    var authoritativeFacing = EnemyActionQueries.ResolveAuthoritativeFacing(workingAction);
+                    if (source.facing != authoritativeFacing)
                     {
-                        writeContext.SetFacing(_entityId, workingAction.direction);
+                        writeContext.SetFacing(_entityId, authoritativeFacing);
                     }
 
                     return workingAction;
@@ -287,10 +289,17 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         private EnemyActionRuntimeState CommitForwardCellProjectileRelease(
+            in EntityState source,
             in EnemyActionRuntimeState action,
             IEnemyActionCommitContext writeContext,
             int tickIndex)
         {
+            var authoritativeFacing = EnemyActionQueries.ResolveAuthoritativeFacing(action);
+            if (source.facing != authoritativeFacing)
+            {
+                writeContext.SetFacing(_entityId, authoritativeFacing);
+            }
+
             if (!action.hasLockedForwardCellImpact)
             {
                 return EnemyActionQueries.MarkExecutionAttempted(action, tickIndex);

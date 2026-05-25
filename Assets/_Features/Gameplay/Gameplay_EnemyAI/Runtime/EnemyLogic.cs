@@ -3305,7 +3305,11 @@ namespace Game.Feature.Gameplay.Entities
                 if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
                     actionState.hasLockedForwardCellImpact)
                 {
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Attack,
+                        0,
+                        "LockedForwardCellImpact",
+                        EnemyActionQueries.ResolveAuthoritativeFacing(actionState));
                 }
 
                 if (combatCapability != null &&
@@ -3671,7 +3675,11 @@ namespace Game.Feature.Gameplay.Entities
                 if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
                     actionState.hasLockedForwardCellImpact)
                 {
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Attack,
+                        0,
+                        "LockedForwardCellImpact",
+                        EnemyActionQueries.ResolveAuthoritativeFacing(actionState));
                 }
 
                 if (combatCapability != null &&
