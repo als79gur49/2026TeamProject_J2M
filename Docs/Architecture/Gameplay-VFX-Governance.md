@@ -183,6 +183,12 @@ Default cue map references are through binding assets, not direct prefab GUIDs.
 | `Gameplay_Vfx/Prefabs/TileFeature_SlideTileRedirectedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | slide-tile redirect visual |
 | `Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab` | ActualVisualPrefab | no | no | particle | document; do not delete in P2-1 | unreferenced visual asset needs separate owner review |
 
+### TileFeature EntranceSpawn Lifetime Policy
+
+`TileFeatureVfxCue.EntranceSpawn` is a `PrefabOnly` one-shot cue. The authored prefab is the visual body, so it keeps `ExplicitPrefabRequired` and must not depend on SourceCloneMotion, a source view clone, or the common empty host path.
+
+`TileFeature_EntranceSpawn_Binding.asset` keeps `VfxStopPolicy.AuthoredDuration`, `defaultLifetimeSeconds = 5`, and `tailSeconds = 5`. The five-second active lifetime is intentional for the current authored prefab because `TileFeature_EntranceSpawn_Vfx.prefab` contains a five-second particle system (`HolyMuzzle`). Shorter child particle systems, including the 0.6 second spark trail, are sub-effects and are not the cue-level release policy.
+
 ## ADR: SourceCloneMotion Host Strategy
 
 ### Context

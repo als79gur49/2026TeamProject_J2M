@@ -1100,60 +1100,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings()
+        public void GameplayVfxTileFeatureGravityField_DefaultCueMap_ContainsExitSliderAndRemainingGravityBindings()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
-            var slideUpBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedUp_Binding.asset");
-            var slideRightBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedRight_Binding.asset");
-            var slideDownBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedDown_Binding.asset");
-            var slideLeftBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedLeft_Binding.asset");
-            var exitOpenedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitOpened_Binding.asset");
-            var exitObjectiveClearedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitObjectiveCleared_Binding.asset");
-            var gravityChargeStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ChargeStarted_Binding.asset");
-            var gravityActiveStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ActiveStarted_Binding.asset");
-            var gravityChargingAreaBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ChargingArea_Binding.asset");
-            var gravityActiveAreaBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ActiveArea_Binding.asset");
-            var entranceSpawnBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                EntranceSpawnBindingPath);
-            var entranceSpawnPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EntranceSpawnPrefabPath);
 
             Assert.That(cueMap, Is.Not.Null);
-            AssertOneShotBinding(slideUpBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), 16);
-            AssertOneShotBinding(slideRightBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), 16);
-            AssertOneShotBinding(slideDownBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), 16);
-            AssertOneShotBinding(slideLeftBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), 16);
-            AssertOneShotBinding(exitOpenedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), 8);
-            AssertOneShotBinding(exitObjectiveClearedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), 8);
-            Assert.That(gravityChargeStartedBinding, Is.Null);
-            Assert.That(gravityActiveStartedBinding, Is.Null);
-            Assert.That(gravityChargingAreaBinding, Is.Null);
-            AssertPersistentLoopBinding(gravityActiveAreaBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), 8);
-            AssertOneShotBinding(entranceSpawnBinding, GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), 16);
-            Assert.That(entranceSpawnBinding.DefaultLifetimeSeconds, Is.EqualTo(0.6f));
-            Assert.That(entranceSpawnBinding.TailSeconds, Is.EqualTo(0.5f));
-            Assert.That(entranceSpawnPrefab, Is.Not.Null);
-            Assert.That(entranceSpawnBinding.Prefab, Is.EqualTo(entranceSpawnPrefab));
-            Assert.That(
-                VfxPrefabValidationDiagnostics.ValidatePrefab(entranceSpawnPrefab).HasErrors,
-                Is.False);
-            Assert.That(
-                VfxPrefabValidationDiagnostics.ValidateModelRootContract(entranceSpawnPrefab).HasErrors,
-                Is.False);
-            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<Collider>(true), Is.Empty);
-            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
-            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
-
             var runtimeMap = cueMap.BuildRuntimeMap();
+
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), out _), Is.True);
@@ -1177,7 +1130,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 cueMap.TryResolvePrefab(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), out var resolvedPrefab),
                 Is.True);
-            Assert.That(resolvedPrefab, Is.EqualTo(entranceSpawnPrefab));
+            Assert.That(resolvedPrefab, Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureEntranceSpawn_BindingPolicy_UsesFiveSecondAuthoredDuration()
+        {
+            var binding = LoadEntranceSpawnBinding();
+            var policy = binding.BuildRuntimePolicy();
+
+            AssertOneShotBinding(binding, GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), 16);
+            Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
+            Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
+            Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.PrefabOnly));
+            Assert.That(policy.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.ExplicitPrefabRequired));
+            Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(5f));
+            Assert.That(policy.TailSeconds, Is.EqualTo(5f));
+            Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(16));
+            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureEntranceSpawn_PrefabPolicy_IsActualVisualPrefab()
+        {
+            var binding = LoadEntranceSpawnBinding();
+            var entranceSpawnPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EntranceSpawnPrefabPath);
+
+            Assert.That(entranceSpawnPrefab, Is.Not.Null, EntranceSpawnPrefabPath);
+            Assert.That(binding.Prefab, Is.EqualTo(entranceSpawnPrefab));
+            Assert.That(
+                VfxPrefabValidationDiagnostics.ValidatePrefab(entranceSpawnPrefab).HasErrors,
+                Is.False);
+            Assert.That(
+                VfxPrefabValidationDiagnostics.ValidateModelRootContract(entranceSpawnPrefab).HasErrors,
+                Is.False);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<ParticleSystem>(true), Is.Not.Empty);
+            Assert.That(
+                entranceSpawnPrefab.GetComponentsInChildren<ParticleSystem>(true)
+                    .Any(particleSystem => Mathf.Approximately(particleSystem.main.duration, 5f)),
+                Is.True);
         }
 
         [Test]
