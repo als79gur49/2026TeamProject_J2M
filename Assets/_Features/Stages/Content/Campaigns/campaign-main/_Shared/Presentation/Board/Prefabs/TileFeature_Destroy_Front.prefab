@@ -109,6 +109,10 @@ MonoBehaviour:
   moonBlockGeneratorBlockedUnitTriggerName: 
   moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
   moonBlockGeneratorBlockedPlacementTriggerName: 
+  destroyTileMaterialRenderers:
+  - {fileID: 3592744949869042028}
+  destroyTileInactiveColor: {r: 0.7411765, g: 0.7568628, b: 0.77647066, a: 1}
+  destroyTileInactiveMetallic: 1
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -230,6 +234,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+--- !u!23 &3592744949869042028 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 7676125653098902540, guid: 2d47293a44485d147b600a6286e664d3, type: 3}
+  m_PrefabInstance: {fileID: 6583398317705456992}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &3950682141157539838 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7894609599482843806, guid: 2d47293a44485d147b600a6286e664d3, type: 3}

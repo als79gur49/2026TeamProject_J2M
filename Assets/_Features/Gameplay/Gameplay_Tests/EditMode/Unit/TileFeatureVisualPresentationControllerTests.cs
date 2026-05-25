@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
+        private static readonly int EmissionColorPropertyId = Shader.PropertyToID("_EmissionColor");
         private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
 
         [Test]
@@ -1594,6 +1595,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.EqualTo(Color.white));
             Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.EqualTo(Color.white));
             Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.EqualTo(1f));
         }
 
@@ -1604,6 +1606,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.Not.EqualTo(Color.white));
             Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.Not.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.Not.EqualTo(Color.white));
             Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.Not.EqualTo(1f));
         }
 

@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
+        private static readonly int EmissionColorPropertyId = Shader.PropertyToID("_EmissionColor");
         private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
 
         [SerializeField] private int tileId;
@@ -521,6 +522,7 @@ namespace Game.Feature.Gameplay.Host
                 targetRenderer.GetPropertyBlock(_destroyTileMaterialPropertyBlock);
                 _destroyTileMaterialPropertyBlock.SetColor(BaseColorPropertyId, destroyTileInactiveColor);
                 _destroyTileMaterialPropertyBlock.SetColor(ColorPropertyId, destroyTileInactiveColor);
+                _destroyTileMaterialPropertyBlock.SetColor(EmissionColorPropertyId, destroyTileInactiveColor);
                 _destroyTileMaterialPropertyBlock.SetFloat(MetallicPropertyId, destroyTileInactiveMetallic);
                 targetRenderer.SetPropertyBlock(_destroyTileMaterialPropertyBlock);
                 _destroyTileMaterialPropertyBlock.Clear();
