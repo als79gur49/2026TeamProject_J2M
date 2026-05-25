@@ -1571,7 +1571,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(glideResult.DeterminismHash));
             Assert.That(glideResult.Trace.Text, Does.Contain("Final.EnemyGlides"));
-            Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Phase=Active|Active=1|LandingPending=0|Seq=2|WindupUntil=0|ActiveUntil=8|RecoveryUntil=0|CooldownUntil=0|Windup=1|Duration=3|Recovery=1|Cooldown=2|LastExited=0"));
+            Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Phase=Active|Active=1|LandingPending=0|WantsRecover=0|Seq=2|WindupUntil=0|ActiveUntil=8|RecoveryUntil=0|CooldownUntil=0|Windup=1|Duration=3|Recovery=1|Cooldown=2|GlideMoveTicks=2|LastExited=0"));
             Assert.That(glideResult.Trace.Text, Does.Contain("LockedTarget=0"));
         }
 

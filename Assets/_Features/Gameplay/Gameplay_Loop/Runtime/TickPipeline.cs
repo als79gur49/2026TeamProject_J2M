@@ -182,11 +182,13 @@ namespace Game.Feature.Gameplay.Loop
 
         private static bool ShouldEmitTickTrace()
         {
-#if GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
-            return false;
+#if UNITY_EDITOR
+            return true;
 #elif GAMEPLAY_ENABLE_TICK_TRACE
             return true;
-#elif UNITY_EDITOR || DEVELOPMENT_BUILD
+#elif GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
+            return false;
+#elif DEVELOPMENT_BUILD
             return true;
 #else
             return false;
@@ -195,9 +197,11 @@ namespace Game.Feature.Gameplay.Loop
 
         private static bool ShouldEmitDeterminismHash()
         {
-#if UNITY_EDITOR && GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
+#if UNITY_EDITOR
+            return true;
+#elif GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
             return false;
-#elif UNITY_EDITOR || DEVELOPMENT_BUILD
+#elif DEVELOPMENT_BUILD
             return true;
 #else
             return false;
