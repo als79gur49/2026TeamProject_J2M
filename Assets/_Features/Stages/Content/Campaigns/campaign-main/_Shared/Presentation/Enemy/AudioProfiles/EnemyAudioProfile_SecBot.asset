@@ -10,30 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ab64c1bee5254184a7440f8826bf4d84, type: 3}
-  m_Name: EnemyAudioProfile_UtilitySummoner
+  m_Name: EnemyAudioProfile_SecBot
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioProfile
   entries:
   - Cue: 1
     Binding:
-      definition: {fileID: 11400000, guid: d85946de946d496f9da2a8152fdb7f7e, type: 2}
+      definition: {fileID: 11400000, guid: 4184b8e9f7b6462b9221571f8bcca8a5, type: 2}
       attachmentSlot:
         id:
       policy:
         rid: -2
     IsOptional: 0
-  - Cue: 5
-    Binding:
-      definition: {fileID: 11400000, guid: 2851eeb4c3874280a421b20828c3a837, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
-    IsOptional: 0
   - Cue: 2
     Binding:
-      definition: {fileID: 11400000, guid: 9d264d57ee9c46d19f25008355a3f9c5, type: 2}
+      definition: {fileID: 11400000, guid: 56833a8cf00e4586ac5c12a5dd82479c, type: 2}
       attachmentSlot:
-        id: 
+        id:
       policy:
         rid: -2
     IsOptional: 0
