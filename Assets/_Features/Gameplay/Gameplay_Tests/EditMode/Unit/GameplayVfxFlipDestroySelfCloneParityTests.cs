@@ -7,11 +7,11 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxFlipDestroySelfCloneParityTests
+    public sealed class GameplayVfxSourceCloneRuntimeTests
     {
         [Test]
         [Category("Extended")]
-        public void CloneProvider_SourceViewClone_UsesSourceModelRoot()
+        public void CloneSourceProvider_ResolvesSourceModelRoot()
         {
             var stateStore = new GameplayPresentationStateStore();
             var viewObject = new GameObject("SourceView");
@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CloneProvider_MissingSource_UsesFallbackPrefab()
+        public void PrefabWithSourceClone_UsesFallbackPrefab_WhenSourceViewIsUnavailable()
         {
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
                 tailSeconds: 0f,
@@ -66,7 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SourceViewClone_DoesNotMoveOriginalSourceView()
+        public void SourceClone_OriginalViewImmutability_DoesNotMoveSourceView()
         {
             var source = CreateCloneSource("SourceViewNoMove");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
@@ -99,7 +99,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SourceViewClone_DoesNotModifySharedMaterial()
+        public void SourceClone_OriginalViewImmutability_DoesNotModifySharedMaterial()
         {
             var source = CreateCloneSource("SourceViewSharedMaterial");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
@@ -128,7 +128,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SourceViewClone_AlphaFadesInstancedMaterials()
+        public void SourceClone_AlphaFade_UsesInstancedMaterials()
         {
             var source = CreateCloneSource("SourceViewAlphaFade");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
@@ -157,7 +157,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SourceViewClone_AlphaMissingMaterial_DoesNotCrash()
+        public void SourceClone_AlphaFade_MissingMaterialDoesNotCrash()
         {
             var source = CreateCloneSource("SourceViewNullMaterial", assignMaterial: false);
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
@@ -186,7 +186,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SourceViewClone_HardCleanupDestroysMaterialInstances()
+        public void SourceClone_HardCleanup_DestroysMaterialInstances()
         {
             var source = CreateCloneSource("SourceViewHardCleanup");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
@@ -216,7 +216,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SourceViewClone_RepeatedPlaybackDoesNotReuseDestroyedClone()
+        public void SourceClone_RepeatedPlayback_DoesNotReuseDestroyedClone()
         {
             var source = CreateCloneSource("SourceViewRepeated");
             var fixture = GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(

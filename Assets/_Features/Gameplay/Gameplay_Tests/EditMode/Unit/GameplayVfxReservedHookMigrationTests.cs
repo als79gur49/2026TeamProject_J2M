@@ -17,7 +17,7 @@ using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxReservedHookMigrationTests
+    public sealed class GameplayVfxReservedCueRuntimePolicyTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -89,7 +89,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ImpactTransientMissingBinding_DiagnosticNoOldFallback()
+        public void ImpactTransientBreak_MissingBinding_ReportsDiagnosticNoOp()
         {
             var owner = new GameObject("ImpactTransientMissingBinding");
             try
@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ImpactTransientFlagOff_NoVfxNoOldPlayback()
+        public void ImpactTransientBreak_FlagOff_DisablesVfxWithoutFallback()
         {
             var owner = new GameObject("ImpactTransientFlagOff");
             try
@@ -196,7 +196,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void OutOfBoundsFlagOff_NoVfxNoOldPlayback()
+        public void OutOfBoundsExit_FlagOff_DisablesVfxWithoutFallback()
         {
             var owner = new GameObject("OutOfBoundsFlagOff");
             try
@@ -220,7 +220,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void OutOfBoundsMissingBinding_DiagnosticNoOldFallback()
+        public void OutOfBoundsExit_MissingBinding_ReportsDiagnosticNoOp()
         {
             var owner = new GameObject("OutOfBoundsMissingBinding");
             try
@@ -245,7 +245,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SyntheticReservedSignals_CanBeHandledByVfxRuntime()
+        public void SourceCloneMotionReservedCues_PlayThroughRuntime_WhenSourcesAndCommonHostExist()
         {
             var owner = new GameObject("ReservedSignalsRuntime");
             var commonHost = new GameObject("ReservedSignalsCommonHost");
@@ -308,7 +308,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ImpactTransientBreak_Binding_RestoredAsSourceCloneMotion()
+        public void ImpactTransientBreak_BindingPolicy_IsSourceCloneMotionWithCommonHost()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ImpactTransientBreakBindingPath);
 
@@ -320,7 +320,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void OutOfBoundsExit_Box_Binding_RestoredAsSourceCloneMotion()
+        public void OutOfBoundsExit_Box_BindingPolicy_IsSourceCloneMotionWithCommonHost()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(BoxOutOfBoundsExitBindingPath);
 
@@ -332,7 +332,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void OutOfBoundsExit_Enemy_Binding_RestoredAsSourceCloneMotion()
+        public void OutOfBoundsExit_Enemy_BindingPolicy_IsSourceCloneMotionWithCommonHost()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(EnemyOutOfBoundsExitBindingPath);
 
@@ -344,7 +344,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultMap_ResolvesReservedSourceCloneMotionCues()
+        public void HostDefaultMap_ResolvesSourceCloneMotionReservedCues()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
@@ -681,7 +681,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Destroy()
             {
-                GameplayVfxReservedHookMigrationTests.Destroy(Owner);
+                GameplayVfxReservedCueRuntimePolicyTests.Destroy(Owner);
             }
         }
     }

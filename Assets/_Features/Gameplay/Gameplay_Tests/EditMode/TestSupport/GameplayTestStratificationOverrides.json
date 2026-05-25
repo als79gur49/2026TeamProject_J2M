@@ -152,7 +152,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitAuthoring_RemovesOldShrinkPrefabAndKeepsCommonHost",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_AuthoringKeepsCommonHostAndNoCuePrefab",
       "category": "Core",
       "contracts": [
         "box_exit_vfx_authoring",
@@ -162,7 +162,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitBindings_KeepSmokeAndRestoreDestroyShrinkSourceCloneMotionBinding",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_BindingPolicy_IsSourceCloneMotionWithCommonHost",
       "category": "Core",
       "contracts": [
         "box_exit_vfx_authoring",
@@ -222,7 +222,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.DestroyShrink_ReportsMissingSourceView_WhenSourceViewIsUnavailable",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_ReportsMissingSourceView_WhenSourceViewIsUnavailable",
       "category": "Core",
       "contracts": [
         "destroy_shrink_source_clone_motion",
@@ -232,7 +232,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect",
       "category": "Core",
       "contracts": [
         "destroy_shrink_source_clone_motion",

@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxFlipDestroySelfMotionMigrationTests
+    public sealed class GameplayVfxFlipDestroySelfSourceCloneMotionTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -211,7 +211,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Flag_DefaultTrue()
+        public void ProductionRuntime_FlipDestroySelfMotionFlag_DefaultsTrue()
         {
             var owner = new GameObject("FlipDestroySelfDefaultFlag");
             try
@@ -228,7 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOff_NoMotionVfxAndNoOldCloneFallback()
+        public void FlipDestroySelfMotionFlagOff_DisablesMotionVfxWithoutFallback()
         {
             var source = ReadRepoFile(ExitControllerPath);
             var owner = new GameObject("FlipDestroySelfFlagOff");
@@ -250,7 +250,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOn_BindingPresent_PlaysParameterizedMotionVfx()
+        public void FlipDestroySelfMotionFlagOn_WithBinding_PlaysParameterizedMotionVfx()
         {
             var owner = new GameObject("FlipDestroySelfRuntime");
             var commonHost = CreateRuntimePrefab("FlipDestroySelfRuntimeCommonHost");
@@ -297,7 +297,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOn_MissingBinding_DiagnosticNoOldFallback()
+        public void FlipDestroySelfMotion_MissingBinding_ReportsDiagnosticNoOp()
         {
             var owner = new GameObject("FlipDestroySelfMissingBinding");
             try
@@ -693,7 +693,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Prefab_RemovedFromDefaultAuthoring()
+        public void FlipDestroySelfMotion_AuthoringUsesCommonHostAndNoCuePrefab()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MotionPrefabPath);
 
@@ -702,7 +702,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Binding_RestoredAsSourceCloneMotion()
+        public void FlipDestroySelfMotion_BindingPolicy_IsSourceCloneMotionWithCommonHost()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(MotionBindingPath);
 
@@ -1198,7 +1198,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void Destroy()
             {
                 Pool?.HardCleanupAll();
-                GameplayVfxFlipDestroySelfMotionMigrationTests.Destroy(CommonHost, Owner);
+                GameplayVfxFlipDestroySelfSourceCloneMotionTests.Destroy(CommonHost, Owner);
             }
         }
 
@@ -1219,7 +1219,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Destroy()
             {
-                GameplayVfxFlipDestroySelfMotionMigrationTests.Destroy(Owner);
+                GameplayVfxFlipDestroySelfSourceCloneMotionTests.Destroy(Owner);
             }
         }
 

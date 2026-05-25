@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxBoxExitMigrationTests
+    public sealed class GameplayVfxBoxExitRuntimePolicyTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -218,7 +218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_BoxExitMigrationFlags_DefaultTrue()
+        public void ProductionRuntime_BoxExitRuntimeFlags_DefaultTrue()
         {
             var owner = new GameObject("BoxExitDefaultFlags");
             try
@@ -271,7 +271,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_BoxDestroyShrinkFlagOnMissingBinding_DiagnosticOnlyNoOldFallback()
+        public void DestroyShrink_SourceCloneMotionMissingBinding_ReportsDiagnosticNoOp()
         {
             var owner = new GameObject("BoxDestroyShrinkMissingBinding");
             try
@@ -783,7 +783,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxExitAuthoring_RemovesOldShrinkPrefabAndKeepsCommonHost()
+        public void DestroyShrink_AuthoringKeepsCommonHostAndNoCuePrefab()
         {
             AssertPrefabValid(BoxDestroySmokePrefabPath);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(BoxDestroyShrinkPrefabPath), Is.Null);
@@ -793,7 +793,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxExitBindings_KeepSmokeAndRestoreDestroyShrinkSourceCloneMotionBinding()
+        public void DestroyShrink_BindingPolicy_IsSourceCloneMotionWithCommonHost()
         {
             AssertBindingPolicy(
                 BoxDestroySmokeBindingPath,
@@ -811,7 +811,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultCueMap_ResolvesSmokeAndDestroyShrinkSourceCloneMotion()
+        public void HostDefaultCueMap_ResolvesDestroyShrinkSourceCloneMotion()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
@@ -1260,7 +1260,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Destroy()
             {
-                GameplayVfxBoxExitMigrationTests.Destroy(Root);
+                GameplayVfxBoxExitRuntimePolicyTests.Destroy(Root);
             }
         }
     }

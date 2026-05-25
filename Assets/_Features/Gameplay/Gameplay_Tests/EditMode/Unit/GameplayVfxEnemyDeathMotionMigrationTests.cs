@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxEnemyDeathMotionMigrationTests
+    public sealed class GameplayVfxEnemyDeathMotionPrefabWithSourceCloneTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -185,7 +185,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ToParameterizedCommand_UsesDeathMotionCuePrefabWithSourceCloneAndLegacyFade()
+        public void EnemyDeathMotionCommand_UsesPrefabWithSourceCloneAndDeathFade()
         {
             var fixture = CreateBuilderFixture();
             try
@@ -216,7 +216,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_DeathMotionFlag_DefaultsTrue()
+        public void ProductionRuntime_EnemyDeathMotionFlag_DefaultsTrue()
         {
             var owner = new GameObject("EnemyDeathMotionDefaultFlag");
             try
@@ -234,7 +234,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MotionFlagOff_NoDeathMotionVfxAndNoOldFlyawayFallback()
+        public void EnemyDeathMotionFlagOff_DisablesMotionVfxWithoutFallback()
         {
             var owner = new GameObject("EnemyDeathMotionFlagOffNoFallback");
             try
@@ -255,7 +255,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MotionFlagOn_BindingPresent_PlaysParameterizedMotion()
+        public void EnemyDeathMotionFlagOn_WithBinding_PlaysParameterizedMotion()
         {
             var owner = new GameObject("EnemyDeathMotionRuntime");
             var cameraObject = CreateCameraObject("EnemyDeathMotionRuntimeCamera");
@@ -363,7 +363,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MotionFlagOn_MissingBinding_DiagnosticNoOldFallback()
+        public void EnemyDeathMotion_MissingBinding_ReportsDiagnosticNoOp()
         {
             var owner = new GameObject("EnemyDeathMotionMissingBinding");
             var cameraObject = CreateCameraObject("EnemyDeathMotionMissingBindingCamera");
@@ -445,7 +445,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_MotionFlagOn_SuppressesOldFlyawayAndKeepsCleanup()
+        public void Coordinator_EnemyDeathMotionOn_UsesVfxMotionAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("EnemyDeathMotionCoordinator");
             var cameraObject = CreateCameraObject("EnemyDeathMotionCoordinatorCamera");
@@ -505,7 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyDeathMotionBinding_Validates()
+        public void EnemyDeathMotionBinding_IsPrefabWithSourceCloneFallbackPolicy()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(MotionBindingPath);
 
@@ -526,7 +526,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultMap_ResolvesEnemyDeathMotion()
+        public void HostDefaultMap_ResolvesEnemyDeathMotionPrefabWithSourceClone()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
@@ -922,7 +922,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Destroy()
             {
-                GameplayVfxEnemyDeathMotionMigrationTests.Destroy(CameraObject, LocalSpaceRoot);
+                GameplayVfxEnemyDeathMotionPrefabWithSourceCloneTests.Destroy(CameraObject, LocalSpaceRoot);
             }
         }
 
@@ -954,7 +954,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Destroy()
             {
-                GameplayVfxEnemyDeathMotionMigrationTests.Destroy(Root);
+                GameplayVfxEnemyDeathMotionPrefabWithSourceCloneTests.Destroy(Root);
             }
         }
     }
