@@ -714,7 +714,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_StageClearSystemPresentation_RemainsSilent_AndRecordsSingleSystemTrace()
+        public void UIFlowCoordinator_StageClearSystemPresentation_EmitsStageClear_AndRecordsSingleSystemTrace()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
@@ -738,10 +738,11 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
             Assert.That(popupController.Contains(PopupId.Reward), Is.True);
-            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageClear }));
             Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.SystemPresentation));
-            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
-            Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.SystemPresentationPolicy));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.StageClear));
+            Assert.That(coordinator.LastFlowAudioTrace.EmittedCueId, Is.EqualTo(UiAudioCueId.StageClear));
+            Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.None));
             Assert.That(
                 coordinator.LastFlowAudioTrace.Deltas,
                 Has.Some.Matches<UiFlowAudioDelta>(delta =>
@@ -828,10 +829,11 @@ namespace Game.Feature.UI.Tests
                 mainMenuReturnRouter,
                 out var screenController,
                 out var popupController,
-                out _,
+                out var uiAudioPort,
                 out var stageLaunchRouter);
 
             coordinator.Initialize();
+            uiAudioPort.Clear();
 
             presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(
                 tickIndex: 9,
@@ -840,6 +842,9 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.GameClear }));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.GameClear));
+            Assert.That(coordinator.LastFlowAudioTrace.EmittedCueId, Is.EqualTo(UiAudioCueId.GameClear));
             Assert.That(screenController.CurrentEntry.HasValue, Is.True);
             Assert.That(screenController.CurrentEntry.Value.Payload, Is.TypeOf<GameClearScreenPayload>());
             var gameClearPayload = screenController.CurrentEntry.Value.Payload as GameClearScreenPayload;
@@ -870,11 +875,13 @@ namespace Game.Feature.UI.Tests
                 screenRuntimeFactory,
                 presentationSource,
                 out var screenController,
-                out var popupController);
+                out var popupController,
+                out var uiAudioPort);
 
             coordinator.Initialize();
             Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
             Assert.That(coordinator.RequestPausePopup(), Is.True);
+            uiAudioPort.Clear();
 
             var restartRequest = new StageNavigationRequest(
                 StageId.CreateOrThrow("stage-1-1"),
@@ -891,6 +898,9 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishLevelFailed(payload);
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.LevelFailed));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.LevelFailed }));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.LevelFailed));
+            Assert.That(coordinator.LastFlowAudioTrace.EmittedCueId, Is.EqualTo(UiAudioCueId.LevelFailed));
             Assert.That(screenController.BackStackCount, Is.EqualTo(0));
             Assert.That(popupController.PopupCount, Is.EqualTo(0));
             var records = screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.LevelFailed);

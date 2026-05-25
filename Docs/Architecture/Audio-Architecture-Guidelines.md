@@ -408,6 +408,9 @@ future extension note:
 | `OpenForward` | any real forward visible delta | `NavigateForward` | `NavigateForward` |
 | `Confirm` | user-visible confirm completion plus any nested transition | `Confirm` | `Confirm` |
 | `Cancel` | user-visible cancel completion plus any nested cleanup | `Cancel` | `Cancel` |
+| `SystemPresentation` | `RootScreenSet(GameClear)` | `GameClear` | `GameClear` |
+| `SystemPresentation` | `RootScreenSet(StageResult)` | `StageClear` | `StageClear` |
+| `SystemPresentation` | `RootScreenSet(LevelFailed)` | `LevelFailed` | `LevelFailed` |
 | `SystemPresentation` | explicit whitelist entry가 없으면 | `Silent` | none |
 
 - canonical local-vs-flow ownership truth-source table:
@@ -424,21 +427,25 @@ future extension note:
 | objective tab changes | Local only | local `Select` only |
 | popup confirm/resume/reward acknowledge | Flow only | one `Confirm` |
 | popup cancel/back-cancel | Flow only | one `Cancel` |
+| `Stage clear -> StageResult + Reward popup` | Flow only | one `StageClear` |
+| `Final stage clear -> GameClear` | Flow only | one `GameClear` |
+| `Level failed -> LevelFailed` | Flow only | one `LevelFailed` |
 | `Death retry chance loss` | Transition overlay only | one `ChanceLoss` using retry-failed definition |
 | back buttons that trigger real pop | Flow only | one `NavigateBack`, never local + flow |
 
 - user/system policy:
   - user-driven navigation uses the classifier matrix above.
-  - `SystemPresentation` is silent by default and must not inherit navigation defaults accidentally.
-  - `Stage clear -> StageResult + Reward popup` is one system-driven transaction. v1에서는 silent unless future product policy explicitly whitelists it.
+  - `SystemPresentation` emits only explicit result-screen whitelist cues and must not inherit navigation defaults accidentally.
+  - `Stage clear -> StageResult + Reward popup` is one system-driven transaction and emits `StageClear`, not navigation or reward-popup audio.
   - `DeathRetryChanceLost` emits `ChanceLoss` from the transition overlay path because campaign retry can launch the next scene before HUD chance deltas are observed.
+  - `GameClear/StageClear may share one clip through separate definitions`; Def-level pitch/volume differences are the allowed content variation seam.
   - `LevelFailed/RetryFailed may share one clip through separate definitions`; retry-failed/chance-loss content should stay lower-pitched than terminal level failure.
 - transaction/debug rule:
   - internal trace는 root intent, collected deltas, chosen outcome, emitted cue 또는 silence reason을 기록한다.
   - test/debug는 raw event count 대신 transaction trace를 primary evidence로 본다.
 - authoring contract:
   - canonical asset는 `UiAudioCueMap_V1.asset` 하나다.
-  - seven v1 cues는 map에 explicit entry로 모두 존재해야 한다.
+  - every `UiAudioCueId` value는 map에 explicit entry로 모두 존재해야 한다.
   - `AudioCategory.Ui`만 허용한다.
   - looping definition은 금지다.
   - `AudioBinding.Policy`는 null이어야 한다.

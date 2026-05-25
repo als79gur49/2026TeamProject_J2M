@@ -157,10 +157,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(audioGuidelines, Does.Contain("Display Apply"));
             Assert.That(audioGuidelines, Does.Contain("Display Revert"));
             Assert.That(audioGuidelines, Does.Contain("Settings.Back` from pause origin"));
-            Assert.That(audioGuidelines, Does.Contain("`SystemPresentation` is silent by default"));
+            Assert.That(audioGuidelines, Does.Contain("`SystemPresentation` emits only explicit result-screen whitelist cues"));
             Assert.That(audioGuidelines, Does.Contain("Stage clear -> StageResult + Reward popup"));
             Assert.That(audioGuidelines, Does.Contain("transition overlay cue"));
             Assert.That(audioGuidelines, Does.Contain("DeathRetryChanceLost` emits `ChanceLoss` from the transition overlay path"));
+            Assert.That(audioGuidelines, Does.Contain("GameClear/StageClear may share one clip through separate definitions"));
             Assert.That(audioGuidelines, Does.Contain("Death retry chance loss"));
             Assert.That(audioGuidelines, Does.Contain("LevelFailed/RetryFailed may share one clip through separate definitions"));
             Assert.That(audioGuidelines, Does.Contain("placeholder `Ui` definitions/clips는 wiring과 architecture validation 용도로 허용된다."));

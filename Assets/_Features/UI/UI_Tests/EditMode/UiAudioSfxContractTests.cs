@@ -34,6 +34,9 @@ namespace Game.Feature.UI.Tests
                     "PrimaryMenuCommand",
                     "StageLaunch",
                     "KeyboardMove",
+                    "GameClear",
+                    "StageClear",
+                    "LevelFailed",
                 }));
         }
 

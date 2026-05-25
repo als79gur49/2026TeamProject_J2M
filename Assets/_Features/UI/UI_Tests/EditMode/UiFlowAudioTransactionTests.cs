@@ -82,7 +82,7 @@ namespace Game.Feature.UI.Tests
                 UiFlowAudioIntentKind.SystemPresentation,
                 new[]
                 {
-                    UiFlowAudioDelta.FromRootScreenSet(ScreenId.StageResult),
+                    UiFlowAudioDelta.FromRootScreenSet(ScreenId.Gameplay),
                     CreatePopupOpenDelta(PopupId.Reward),
                 },
                 isAborted: false,
@@ -91,6 +91,44 @@ namespace Game.Feature.UI.Tests
             Assert.That(result.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
             Assert.That(result.EmittedCueId, Is.Null);
             Assert.That(result.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.SystemPresentationPolicy));
+        }
+
+        [Test]
+        public void UiFlowAudioOutcomeClassifier_SystemPresentation_GameClearRootScreen_EmitsGameClear()
+        {
+            AssertSystemPresentationResult(ScreenId.GameClear, UiFlowAudioOutcomeKind.GameClear, UiAudioCueId.GameClear);
+        }
+
+        [Test]
+        public void UiFlowAudioOutcomeClassifier_SystemPresentation_StageResultRootScreen_EmitsStageClear()
+        {
+            AssertSystemPresentationResult(ScreenId.StageResult, UiFlowAudioOutcomeKind.StageClear, UiAudioCueId.StageClear);
+        }
+
+        [Test]
+        public void UiFlowAudioOutcomeClassifier_SystemPresentation_LevelFailedRootScreen_EmitsLevelFailed()
+        {
+            AssertSystemPresentationResult(ScreenId.LevelFailed, UiFlowAudioOutcomeKind.LevelFailed, UiAudioCueId.LevelFailed);
+        }
+
+        private static void AssertSystemPresentationResult(
+            ScreenId screenId,
+            UiFlowAudioOutcomeKind expectedOutcomeKind,
+            UiAudioCueId expectedCueId)
+        {
+            var result = UiFlowAudioOutcomeClassifier.Classify(
+                UiFlowAudioIntentKind.SystemPresentation,
+                new[]
+                {
+                    UiFlowAudioDelta.FromRootScreenSet(screenId),
+                    CreatePopupOpenDelta(PopupId.Reward),
+                },
+                isAborted: false,
+                UiFlowAudioSilenceReason.None);
+
+            Assert.That(result.OutcomeKind, Is.EqualTo(expectedOutcomeKind));
+            Assert.That(result.EmittedCueId, Is.EqualTo(expectedCueId));
+            Assert.That(result.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.None));
         }
 
         [Test]
