@@ -31,6 +31,9 @@ namespace Game.Feature.UI.Flow
         NavigateBack = 2,
         Confirm = 3,
         Cancel = 4,
+        GameClear = 5,
+        StageClear = 6,
+        LevelFailed = 7,
     }
 
     internal enum UiFlowAudioSilenceReason
@@ -329,7 +332,9 @@ namespace Game.Feature.UI.Flow
                         : Silent(UiFlowAudioSilenceReason.NoVisibleDelta);
 
                 case UiFlowAudioIntentKind.SystemPresentation:
-                    return Silent(UiFlowAudioSilenceReason.SystemPresentationPolicy);
+                    return TryResolveSystemPresentationCue(deltas, out var systemOutcome, out var systemCueId)
+                        ? Outcome(systemOutcome, systemCueId)
+                        : Silent(UiFlowAudioSilenceReason.SystemPresentationPolicy);
 
                 default:
                     return Silent(UiFlowAudioSilenceReason.Aborted);
@@ -360,6 +365,43 @@ namespace Game.Feature.UI.Flow
                 }
             }
 
+            return false;
+        }
+
+        private static bool TryResolveSystemPresentationCue(
+            IReadOnlyList<UiFlowAudioDelta> deltas,
+            out UiFlowAudioOutcomeKind outcomeKind,
+            out UiAudioCueId cueId)
+        {
+            for (var i = 0; i < deltas.Count; i++)
+            {
+                var delta = deltas[i];
+                if (delta.Kind != UiFlowAudioDeltaKind.RootScreenSet)
+                {
+                    continue;
+                }
+
+                switch (delta.CurrentScreenId)
+                {
+                    case ScreenId.GameClear:
+                        outcomeKind = UiFlowAudioOutcomeKind.GameClear;
+                        cueId = UiAudioCueId.GameClear;
+                        return true;
+
+                    case ScreenId.StageResult:
+                        outcomeKind = UiFlowAudioOutcomeKind.StageClear;
+                        cueId = UiAudioCueId.StageClear;
+                        return true;
+
+                    case ScreenId.LevelFailed:
+                        outcomeKind = UiFlowAudioOutcomeKind.LevelFailed;
+                        cueId = UiAudioCueId.LevelFailed;
+                        return true;
+                }
+            }
+
+            outcomeKind = UiFlowAudioOutcomeKind.Silent;
+            cueId = default;
             return false;
         }
 

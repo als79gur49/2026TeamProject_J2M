@@ -13,6 +13,14 @@ MonoBehaviour:
   m_Name: EnemyAudioProfile_UtilitySummoner
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioProfile
   entries:
+  - Cue: 1
+    Binding:
+      definition: {fileID: 11400000, guid: d85946de946d496f9da2a8152fdb7f7e, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+    IsOptional: 0
   - Cue: 5
     Binding:
       definition: {fileID: 11400000, guid: 2851eeb4c3874280a421b20828c3a837, type: 2}

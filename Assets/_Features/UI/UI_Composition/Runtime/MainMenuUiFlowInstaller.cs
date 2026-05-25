@@ -44,10 +44,12 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
         [SerializeField] private CampaignStageSequenceDefinition _campaignStageSequenceDefinition;
+        [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
         [SerializeField] private double _settingsPreviewTimeoutSeconds = 15d;
         [SerializeField] private bool _installOnStart = true;
 
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
+        private CinematicFlowCoordinator _cinematicFlowCoordinator;
         private IConfirmPopupPort _confirmPopupPort;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
@@ -128,6 +130,12 @@ namespace Game.Feature.UI.Composition
 
         public bool TryHandleBackRequested()
         {
+            if (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying)
+            {
+                _cinematicFlowCoordinator.RequestSkip();
+                return true;
+            }
+
             if (IsKeyboardBindingRebinding())
             {
                 return true;
@@ -214,11 +222,17 @@ namespace Game.Feature.UI.Composition
             var saveSlotStore = new SaveSlotStore();
             var activeSlotProvider = new ActiveSlotProvider();
             var validationService = new SaveSlotValidationService(sequenceResolver, _stageCatalogProvider);
+            IStageLaunchRouter stageLaunchRouter = new ConfiguredGameplayStageLaunchRouter(_routeConfig);
+            stageLaunchRouter = new CinematicStageLaunchRouter(
+                stageLaunchRouter,
+                saveSlotStore,
+                activeSlotProvider,
+                EnsureCinematicFlowCoordinator());
             Controller = new MainMenuController(
                 saveSlotStore,
                 activeSlotProvider,
                 sequenceResolver,
-                new ConfiguredGameplayStageLaunchRouter(_routeConfig),
+                stageLaunchRouter,
                 _confirmPopupPort,
                 validationService);
 
@@ -310,7 +324,9 @@ namespace Game.Feature.UI.Composition
                     screenProvider: new SingleUiNavigationTargetProvider(_mainMenuScreenView),
                     modalOverlayProvider: _settingsOverlayController),
                 TryHandleBackRequested,
-                () => IsKeyboardBindingRebinding() || _wasKeyboardBindingRebinding,
+                () => IsKeyboardBindingRebinding() ||
+                      _wasKeyboardBindingRebinding ||
+                      (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying),
                 EnsureUiAudioPort());
         }
 
@@ -546,6 +562,36 @@ namespace Game.Feature.UI.Composition
             }
 
             return new KeyboardBindingSettingsPortAdapter(new KeyboardBindingSettingsService(_inputActions));
+        }
+
+        private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()
+        {
+            if (_cinematicFlowCoordinator != null)
+            {
+                return _cinematicFlowCoordinator;
+            }
+
+            var overlay = GetComponentInChildren<CinematicVideoOverlayView>(includeInactive: true);
+            if (overlay == null)
+            {
+                var overlayObject = new GameObject("CinematicVideoOverlay", typeof(RectTransform));
+                overlayObject.transform.SetParent(transform, false);
+                overlay = overlayObject.AddComponent<CinematicVideoOverlayView>();
+                overlayObject.SetActive(false);
+            }
+
+            overlay.Initialize(_inputActions);
+            var audioFocus = GetComponent<CinematicAudioFocusController>();
+            if (audioFocus == null)
+            {
+                audioFocus = gameObject.AddComponent<CinematicAudioFocusController>();
+            }
+
+            _cinematicFlowCoordinator = new CinematicFlowCoordinator(
+                _slotCinematicDefinition,
+                overlay,
+                audioFocus);
+            return _cinematicFlowCoordinator;
         }
 
         private AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller()

@@ -39,8 +39,10 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
+        [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
         [SerializeField] private bool _installOnStart = true;
 
+        private CinematicFlowCoordinator _cinematicFlowCoordinator;
         private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
@@ -177,6 +179,11 @@ namespace Game.Feature.UI.Composition
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             _uiAudioPort = CreateUiAudioPort();
             var uiAudioPort = _uiAudioPort;
+            if (UnityEngine.Application.isPlaying)
+            {
+                SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(uiAudioPort);
+            }
+
             EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
@@ -408,9 +415,48 @@ namespace Game.Feature.UI.Composition
 
         private IMainMenuReturnRouter CreateMainMenuReturnRouter()
         {
-            return _routeConfig != null
+            IMainMenuReturnRouter inner = _routeConfig != null
                 ? new ConfiguredMainMenuReturnRouter(_routeConfig)
                 : NoOpMainMenuReturnRouter.Instance;
+            return new CinematicMainMenuReturnRouter(
+                inner,
+                new SaveSlotStore(),
+                new ActiveSlotProvider(),
+                EnsureCinematicFlowCoordinator(),
+                () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);
+        }
+
+        private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()
+        {
+            if (_cinematicFlowCoordinator != null)
+            {
+                return _cinematicFlowCoordinator;
+            }
+
+            var overlay = _rootView != null
+                ? _rootView.GetComponentInChildren<CinematicVideoOverlayView>(includeInactive: true)
+                : null;
+            if (overlay == null)
+            {
+                var parent = _rootView != null ? _rootView.transform : transform;
+                var overlayObject = new GameObject("CinematicVideoOverlay", typeof(RectTransform));
+                overlayObject.transform.SetParent(parent, false);
+                overlay = overlayObject.AddComponent<CinematicVideoOverlayView>();
+                overlayObject.SetActive(false);
+            }
+
+            overlay.Initialize(ResolveUiInputActions());
+            var audioFocus = GetComponent<CinematicAudioFocusController>();
+            if (audioFocus == null)
+            {
+                audioFocus = gameObject.AddComponent<CinematicAudioFocusController>();
+            }
+
+            _cinematicFlowCoordinator = new CinematicFlowCoordinator(
+                _slotCinematicDefinition,
+                overlay,
+                audioFocus);
+            return _cinematicFlowCoordinator;
         }
 
         private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)
@@ -462,7 +508,7 @@ namespace Game.Feature.UI.Composition
                 ResolveUiInputActions(),
                 resolver,
                 () => Coordinator != null && Coordinator.HandleBackRequested(),
-                () => false,
+                () => _cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying,
                 _uiAudioPort);
         }
 
