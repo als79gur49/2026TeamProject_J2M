@@ -707,6 +707,397 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void Glider_Active_PassesEverySolidType_ButNonActiveCannot()
+        {
+            foreach (var testCase in CreateP1SolidTileMatrixCases())
+            {
+                AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Active, shouldMove: true);
+                AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Windup, shouldMove: false);
+                AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Recovery, shouldMove: false);
+                AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Cooldown, shouldMove: false);
+
+                var activeWorldState = testCase.CreateWorldState();
+                MoveGliderOntoSolidWithActiveAllowance(
+                    activeWorldState,
+                    40,
+                    testCase.Destination,
+                    CreateActiveGlide(activeUntilTickExclusive: 10, durationTicks: 6, cooldownTicks: 0, recoveryTicks: 1));
+                Assert.That(activeWorldState.CreateSnapshot().TryGetPrimaryUnitAt(testCase.Destination, out var airborneUnit), Is.True, testCase.Name);
+                Assert.That(airborneUnit.entityId, Is.EqualTo(40), testCase.Name);
+                Assert.That(activeWorldState.CreateSnapshot().TryGetSolidSemanticAt(testCase.Destination, out _), Is.True, testCase.Name);
+
+                var nonActiveWorldState = testCase.CreateWorldState();
+                Assert.Throws<InvalidOperationException>(
+                    () => nonActiveWorldState.CreateWriteContext().MoveEntity(40, testCase.Destination),
+                    testCase.Name);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_PassesOverBoxWithoutSliding()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var slideTile = CreateTileFeature(100, destination, TileFeatureKind.Slide);
+            var result = RunActiveScriptedPass(
+                new[] { CreateBox(30, destination, BoxCapabilities.Push), CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol) },
+                new[] { slideTile },
+                new[] { CreateTileDefinition(100, TileFeatureKind.Slide, direction: Direction2D.Right) });
+
+            AssertEntityAt(result.WorldState, 40, destination);
+            AssertEntityAt(result.WorldState, 30, destination);
+            Assert.That(result.Tick.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.SlideTileRedirected), Is.False);
+            Assert.That(result.Tick.EventLog, Has.None.Contains("Slide"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_PassesOverBoxWithoutPushOrDisplacement()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = RunActiveScriptedPass(
+                new[] { CreateBox(30, destination, BoxCapabilities.Push | BoxCapabilities.Flip), CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol) });
+
+            AssertEntityAt(result.WorldState, 40, destination);
+            AssertEntityAt(result.WorldState, 30, destination);
+            Assert.That(result.Tick.MovementPhaseResult.ResolvedOperations.Any(operation => operation.EntityId == 30), Is.False);
+            Assert.That(result.Tick.EventLog, Has.None.Contains("Push"));
+            Assert.That(result.Tick.EventLog, Has.None.Contains("Reservation"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_PassesDestroyTileWithoutTriggeringDestroy()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = RunActiveScriptedPass(
+                new[] { CreateWall(30, destination), CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol) },
+                new[] { CreateTileFeature(100, destination, TileFeatureKind.Destroy) },
+                new[] { CreateTileDefinition(100, TileFeatureKind.Destroy) });
+
+            AssertEntityAt(result.WorldState, 40, destination);
+            Assert.That(result.Tick.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.DestroyTileTriggered), Is.False);
+            Assert.That(result.Tick.FinalEntities.Single(entity => entity.entityId == 40).markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_PassesGeneratorDoorWithoutOpeningOrBlocking()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = RunActiveScriptedPass(
+                new[] { CreateWall(30, destination), CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol) },
+                new[]
+                {
+                    CreateTileFeature(100, destination, TileFeatureKind.MoonBlockGenerator),
+                    CreateTileFeature(101, destination, TileFeatureKind.Exit),
+                },
+                new[]
+                {
+                    CreateTileDefinition(100, TileFeatureKind.MoonBlockGenerator),
+                    CreateTileDefinition(101, TileFeatureKind.Exit),
+                },
+                new[] { new MoonBlockRespawnDefinition(100, 31, destination, CreateBox(31, destination, BoxCapabilities.Push)) });
+
+            AssertEntityAt(result.WorldState, 40, destination);
+            Assert.That(result.Tick.PresentationData.TileEvents.Any(evt =>
+                evt.EventKind == TilePresentationEventKind.MoonBlockGenerated ||
+                evt.EventKind == TilePresentationEventKind.ExitOpened), Is.False);
+            Assert.That(result.Tick.EventLog, Has.None.Contains("MoonBlockGeneratorBlocked"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_PassesLockedBoxWithoutPushSlideOrUnlock()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(30, destination, BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy),
+                CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(40, CreateActiveGlide(activeUntilTickExclusive: 10, durationTicks: 6, cooldownTicks: 0, recoveryTicks: 1));
+            writeContext.SetBoxInteractionLockState(
+                30,
+                new BoxInteractionLockState(
+                    sourceEntityId: 90,
+                    sourceEffectIndex: 0,
+                    expiresTickExclusive: 100,
+                    blocksPush: true,
+                    blocksFlip: true,
+                    blocksDestroy: true,
+                    sourceReason: BoxInteractionLockSourceReason.MoonBlockGeneratorSpawn));
+
+            var tick = CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
+                    worldState,
+                    new ScriptedMovementLogic(new RawMovementIntent(40, priority: 100, destination: Vector2Int.right)))
+                .RunTick(new TickInput(1));
+
+            AssertEntityAt(worldState, 40, destination);
+            AssertEntityAt(worldState, 30, destination);
+            Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(30, tickIndex: 1, out var lockState), Is.True);
+            Assert.That(lockState.BlocksPush, Is.True);
+            Assert.That(tick.MovementPhaseResult.ResolvedOperations.Any(operation => operation.EntityId == 30), Is.False);
+            Assert.That(tick.EventLog, Has.None.Contains("PlayerActionBlockedByBoxInteractionLock"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_TargetLost_ForMultipleTicks_UsesFallbackWithoutClearingActive()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(
+                    activeUntilTickExclusive: 5,
+                    durationTicks: 4,
+                    cooldownTicks: 0,
+                    recoveryTicks: 1,
+                    lockedStepX: 1,
+                    lockedStepY: 0,
+                    lockedTargetEntityId: 10));
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 4, recoveryTicks: 1, cooldownTicks: 0));
+
+            try
+            {
+                var pipeline = CreateGlideKinematicPipeline(profile, worldState);
+                for (var tickIndex = 1; tickIndex <= 4; tickIndex++)
+                {
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var state), Is.True);
+                    Assert.That(state.Phase, Is.EqualTo(EnemyGlidePhase.Active), $"tick {tickIndex}");
+                    Assert.That(tick.Trace.Text, Does.Not.Contain("Snap"));
+                }
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_TargetLost_WhileOnSolid_DoesNotEnterRecoverUntilNonSolid()
+        {
+            var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var nonSolidCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(30, solidCell),
+                CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Chase),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                40,
+                CreateActiveGlide(
+                    activeUntilTickExclusive: 1,
+                    durationTicks: 1,
+                    cooldownTicks: 0,
+                    recoveryTicks: 2,
+                    glideMoveTicks: 6,
+                    wantsRecover: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0,
+                    lockedTargetEntityId: 10));
+            writeContext.MoveEntity(40, solidCell);
+            writeContext.SetUnitKinematicState(
+                40,
+                CreateVoluntaryStepState(
+                    solidCell,
+                    elapsedTicks: 2,
+                    totalTicks: 6,
+                    startedTick: 1,
+                    stepDirectionX: 1,
+                    stepDirectionY: 0));
+
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(initialDelayTicks: 0, windupTicks: 0, durationTicks: 1, recoveryTicks: 2, cooldownTicks: 0, glideMoveTicks: 6));
+            try
+            {
+                var pipeline = CreateGlideKinematicPipelineWithTiming(profile, worldState, ticksPerCell: 6);
+                var moveTick = pipeline.RunTick(new TickInput(3));
+                Assert.That(HasMoveEntity(moveTick, 40, nonSolidCell), Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var active), Is.True);
+                Assert.That(active.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                Assert.That(active.WantsRecover, Is.True);
+
+                pipeline.RunTick(new TickInput(4));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var recovery), Is.True);
+                Assert.That(recovery.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_TargetLost_ThenTargetReacquiredBehindSolid_UsesActiveDetectionAgain()
+        {
+            var profile = CreateCrossLineGlideChaserProfile(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 8, recoveryTicks: 1, cooldownTicks: 0),
+                senseRange: 5);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
+                CreateWall(30, new SurfaceCell(FaceId.Floor, 1, 0)),
+                CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 8, durationTicks: 8, cooldownTicks: 0, recoveryTicks: 1));
+
+            try
+            {
+                var tick = CreateGlideKinematicPipeline(profile, worldState).RunTick(new TickInput(1));
+
+                Assert.That(tick.FinalEntities.Single(entity => entity.entityId == 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.True);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Normal_AttackTargetBehindSolid_IsNotDetected()
+        {
+            AssertDetectionBehindSolid(EnemyGlidePhase.Cooldown, detected: false, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 0), senseRange: 5);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_AttackTargetBehindSolid_IsDetectedWithinCrossRange()
+        {
+            AssertDetectionBehindSolid(EnemyGlidePhase.Active, detected: true, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 0), senseRange: 5);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Recover_AttackTargetBehindSolid_IsNotDetected()
+        {
+            AssertDetectionBehindSolid(EnemyGlidePhase.Recovery, detected: false, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 0), senseRange: 5);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_DetectsPlayerBehindMultipleSolidCellsWithinRange()
+        {
+            AssertDetectionBehindSolid(EnemyGlidePhase.Active, detected: true, wallCount: 2, playerCell: new SurfaceCell(FaceId.Floor, 4, 0), senseRange: 5);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_DetectionStillUsesCrossShapeAndRange()
+        {
+            AssertDetectionBehindSolid(EnemyGlidePhase.Active, detected: false, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 3, 1), senseRange: 5);
+            AssertDetectionBehindSolid(EnemyGlidePhase.Active, detected: false, wallCount: 1, playerCell: new SurfaceCell(FaceId.Floor, 6, 0), senseRange: 5);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_UnitOverlap_UsesExistingPassiveContactDamage()
+        {
+            AssertGliderPassiveContactDamage(includeSolidUnderGlider: false);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_OnSolidAndPlayerSameCell_ContactDamageStillFires()
+        {
+            AssertGliderPassiveContactDamage(includeSolidUnderGlider: true);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_Active_GlideMoveTicks_DelaysNextMoveUntilCooldownExpires()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
+                new EnemyGlideTimingSettings(initialDelayTicks: 0, windupTicks: 0, durationTicks: 8, recoveryTicks: 1, cooldownTicks: 0, glideMoveTicks: 6));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 4, 0), EnemyAiMode.None),
+                CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 8, durationTicks: 8, cooldownTicks: 0, recoveryTicks: 1, glideMoveTicks: 6));
+
+            try
+            {
+                var pipeline = CreateGlideKinematicPipelineWithTiming(profile, worldState, ticksPerCell: 6);
+                var first = pipeline.RunTick(new TickInput(1));
+                Assert.That(HasMoveEntity(first, 40), Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out var kinematic), Is.True);
+                Assert.That(kinematic.totalTicks, Is.EqualTo(6));
+
+                var second = pipeline.RunTick(new TickInput(2));
+                Assert.That(HasMoveEntity(second, 40), Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_ActiveDurationExpiresDuringMoveCooldown_DoesNotRecoverOnSolidMidCooldown()
+        {
+            var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(30, solidCell),
+                CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                40,
+                CreateActiveGlide(
+                    activeUntilTickExclusive: 1,
+                    durationTicks: 1,
+                    cooldownTicks: 0,
+                    recoveryTicks: 2,
+                    glideMoveTicks: 6,
+                    wantsRecover: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0));
+            writeContext.MoveEntity(40, solidCell);
+
+            var profile = EnemyAiProfileTestFactory.CreateGlidePatrol(
+                new EnemyGlideTimingSettings(initialDelayTicks: 0, windupTicks: 0, durationTicks: 1, recoveryTicks: 2, cooldownTicks: 0, glideMoveTicks: 6));
+            try
+            {
+                var tick = CreateGlideKinematicPipelineWithTiming(profile, worldState, ticksPerCell: 6).RunTick(new TickInput(2));
+
+                Assert.That(HasMoveEntity(tick, 40), Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyGlideState(40, out var state), Is.True);
+                Assert.That(state.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+                Assert.That(state.WantsRecover, Is.True);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Glider_WantsRecoverTrue_MoveCooldownExpires_MovesUsingGlideSpeedUntilNonSolid()
+        {
+            Glider_Active_TargetLost_WhileOnSolid_DoesNotEnterRecoverUntilNonSolid();
+        }
+
+        [Test]
         [Category("Extended")]
         public void Glider_ActiveGlide_StillRequiresRangeAlignmentFace()
         {
@@ -1932,6 +2323,400 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new TickInput(1),
                 intents);
             return intents;
+        }
+
+        private static IEnumerable<P1SolidTileMatrixCase> CreateP1SolidTileMatrixCases()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            yield return new P1SolidTileMatrixCase("Wall", destination, new[] { CreateWall(30, destination) });
+            yield return new P1SolidTileMatrixCase("Box", destination, new[] { CreateBox(30, destination, BoxCapabilities.Push) });
+            yield return new P1SolidTileMatrixCase(
+                "Barricade",
+                destination,
+                new[] { CreateWall(30, destination) },
+                new[] { CreateTileFeature(100, destination, TileFeatureKind.Barricade, TileFeatureFlags.Activated) },
+                new[] { CreateTileDefinition(100, TileFeatureKind.Barricade) });
+            yield return new P1SolidTileMatrixCase(
+                "DestroyTile",
+                destination,
+                new[] { CreateWall(30, destination) },
+                new[] { CreateTileFeature(101, destination, TileFeatureKind.Destroy) },
+                new[] { CreateTileDefinition(101, TileFeatureKind.Destroy) });
+            yield return new P1SolidTileMatrixCase(
+                "LockedBox",
+                destination,
+                new[] { CreateBox(30, destination, BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy) },
+                seed: worldState => worldState.CreateWriteContext().SetBoxInteractionLockState(
+                    30,
+                    new BoxInteractionLockState(
+                        sourceEntityId: 90,
+                        sourceEffectIndex: 0,
+                        expiresTickExclusive: 100,
+                        blocksPush: true,
+                        blocksFlip: true,
+                        blocksDestroy: true,
+                        sourceReason: BoxInteractionLockSourceReason.EnemyUtility)));
+            yield return new P1SolidTileMatrixCase(
+                "SpawnLockBox",
+                destination,
+                new[] { CreateBox(30, destination, BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy) },
+                seed: worldState => worldState.CreateWriteContext().SetBoxInteractionLockState(
+                    30,
+                    new BoxInteractionLockState(
+                        sourceEntityId: 90,
+                        sourceEffectIndex: 0,
+                        expiresTickExclusive: 100,
+                        blocksPush: true,
+                        blocksFlip: true,
+                        blocksDestroy: false,
+                        sourceReason: BoxInteractionLockSourceReason.MoonBlockGeneratorSpawn)));
+            yield return new P1SolidTileMatrixCase(
+                "GeneratorDoor",
+                destination,
+                new[] { CreateWall(30, destination) },
+                new[]
+                {
+                    CreateTileFeature(102, destination, TileFeatureKind.MoonBlockGenerator),
+                    CreateTileFeature(103, destination, TileFeatureKind.Exit),
+                },
+                new[]
+                {
+                    CreateTileDefinition(102, TileFeatureKind.MoonBlockGenerator),
+                    CreateTileDefinition(103, TileFeatureKind.Exit),
+                },
+                new[] { new MoonBlockRespawnDefinition(102, 31, destination, CreateBox(31, destination, BoxCapabilities.Push)) });
+        }
+
+        private static void AssertP1SolidTilePhase(
+            P1SolidTileMatrixCase testCase,
+            EnemyGlidePhase phase,
+            bool shouldMove)
+        {
+            var worldState = testCase.CreateWorldState();
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateGlideState(
+                    phase,
+                    windupUntilTickExclusive: phase == EnemyGlidePhase.Windup ? 10 : 0,
+                    activeUntilTickExclusive: phase == EnemyGlidePhase.Active ? 10 : 0,
+                    recoveryUntilTickExclusive: phase == EnemyGlidePhase.Recovery ? 10 : 0,
+                    cooldownUntilTickExclusive: phase == EnemyGlidePhase.Cooldown ? 10 : 0,
+                    durationTicks: 6,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0));
+
+            var tick = CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
+                    worldState,
+                    new ScriptedMovementLogic(new RawMovementIntent(40, priority: 100, destination: testCase.Destination.PlanarPosition)),
+                    testCase.TileDefinitions,
+                    testCase.MoonBlockRespawnDefinitions)
+                .RunTick(new TickInput(1));
+
+            Assert.That(HasMoveEntity(tick, 40, testCase.Destination), Is.EqualTo(shouldMove), $"{testCase.Name}:{phase}");
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var glider), Is.True);
+            Assert.That(glider.position, Is.EqualTo(shouldMove ? testCase.Destination : SurfaceCell.FromPlanar(Vector2Int.zero)), $"{testCase.Name}:{phase}");
+        }
+
+        private static (TickResult Tick, WorldState WorldState) RunActiveScriptedPass(
+            IReadOnlyList<EntityState> entities,
+            IReadOnlyList<TileFeatureState> tileFeatures = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileDefinitions = null,
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                entities,
+                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
+                GameplayTerrainData.Empty,
+                tileFeatures);
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 10, durationTicks: 6, cooldownTicks: 0, recoveryTicks: 1));
+            var tick = CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
+                    worldState,
+                    new ScriptedMovementLogic(new RawMovementIntent(40, priority: 100, destination: destination.PlanarPosition)),
+                    tileDefinitions,
+                    moonBlockRespawnDefinitions)
+                .RunTick(new TickInput(1));
+
+            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.True);
+            return (tick, worldState);
+        }
+
+        private static void AssertDetectionBehindSolid(
+            EnemyGlidePhase phase,
+            bool detected,
+            int wallCount,
+            SurfaceCell playerCell,
+            int senseRange)
+        {
+            var entities = new List<EntityState>
+            {
+                CreateUnit(10, teamId: 1, playerCell, EnemyAiMode.None),
+                CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol),
+            };
+            for (var i = 0; i < wallCount; i++)
+            {
+                entities.Add(CreateWall(30 + i, new SurfaceCell(FaceId.Floor, i + 1, 0)));
+            }
+
+            var worldState = CreateWorldState(
+                entities,
+                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(8, 8)),
+                GameplayTerrainData.Empty);
+            if (phase != EnemyGlidePhase.Cooldown)
+            {
+                worldState.CreateWriteContext().SetEnemyGlideState(
+                    40,
+                    CreateGlideState(
+                        phase,
+                        windupUntilTickExclusive: phase == EnemyGlidePhase.Windup ? 10 : 0,
+                        activeUntilTickExclusive: phase == EnemyGlidePhase.Active ? 10 : 0,
+                        recoveryUntilTickExclusive: phase == EnemyGlidePhase.Recovery ? 10 : 0,
+                        cooldownUntilTickExclusive: phase == EnemyGlidePhase.Cooldown ? 10 : 0,
+                        durationTicks: 8,
+                        recoveryTicks: 1,
+                        cooldownTicks: 0,
+                        hasLockedStep: true,
+                        lockedStepX: 1,
+                        lockedStepY: 0,
+                        lockedTargetEntityId: 10));
+            }
+
+            var profile = CreateCrossLineGlideChaserProfile(
+                new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 8, recoveryTicks: 1, cooldownTicks: 0),
+                senseRange);
+            try
+            {
+                var tick = CreateGlideKinematicPipeline(profile, worldState).RunTick(new TickInput(1));
+                var glider = tick.FinalEntities.Single(entity => entity.entityId == 40);
+                Assert.That(glider.aiMode == EnemyAiMode.Chase, Is.EqualTo(detected), $"{phase}:{playerCell}");
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static void AssertGliderPassiveContactDamage(bool includeSolidUnderGlider)
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var gliderCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var entities = new List<EntityState>
+            {
+                CreateUnit(10, teamId: 1, playerCell, EnemyAiMode.None),
+                CreateUnit(
+                    40,
+                    teamId: 2,
+                    includeSolidUnderGlider ? new SurfaceCell(FaceId.Floor, 2, 0) : gliderCell,
+                    EnemyAiMode.Patrol),
+            };
+            if (includeSolidUnderGlider)
+            {
+                entities.Insert(0, CreateWall(30, gliderCell));
+            }
+
+            var worldState = CreateWorldState(entities);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                40,
+                CreateActiveGlide(
+                    activeUntilTickExclusive: 10,
+                    durationTicks: 6,
+                    cooldownTicks: 0,
+                    recoveryTicks: 1,
+                    lockedStepX: -1,
+                    lockedStepY: 0,
+                    lockedTargetEntityId: 10));
+            if (includeSolidUnderGlider)
+            {
+                writeContext.MoveEntity(40, gliderCell);
+            }
+
+            ((IPreMovementStateCommitContext)writeContext).SetFacing(40, Direction.Left);
+            var profile = EnemyAiProfileTestFactory.CreateContactDamage();
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                    .CreateTickPipeline(
+                        worldState,
+                        Array.Empty<IEntityLogic>(),
+                        GameplayTimingProfile.CreateDefault(),
+                        CreatePlayerTiming(),
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
+                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                TickResult contactTick = null;
+                for (var tickIndex = 1; tickIndex <= 10; tickIndex++)
+                {
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    if (tick.EventLog.Any(entry =>
+                            entry.Contains("DamageCommitted", StringComparison.Ordinal) &&
+                            entry.Contains("SourceKind=PassiveContact", StringComparison.Ordinal)))
+                    {
+                        contactTick = tick;
+                        break;
+                    }
+                }
+
+                Assert.That(contactTick, Is.Not.Null);
+                Assert.That(contactTick.EventLog, Has.Some.Contains("DamageCommitted").And.Contains("SourceKind=PassiveContact"));
+                Assert.That(contactTick.FinalEntities.Single(entity => entity.entityId == 10).hp, Is.LessThan(3));
+                if (includeSolidUnderGlider)
+                {
+                    Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(gliderCell, out _), Is.True);
+                }
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static void AssertEntityAt(WorldState worldState, int entityId, SurfaceCell expectedCell)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
+            Assert.That(entity.position, Is.EqualTo(expectedCell));
+        }
+
+        private static bool HasMoveEntity(TickResult tick, int entityId)
+        {
+            return tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.MoveEntity &&
+                operation.EntityId == entityId);
+        }
+
+        private static TickPipeline CreateGlideKinematicPipelineWithTiming(
+            EnemyAiProfile profile,
+            WorldState worldState,
+            int ticksPerCell,
+            params IEntityLogic[] extraLogics)
+        {
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                .CreateTickPipeline(
+                    worldState,
+                    extraLogics ?? Array.Empty<IEntityLogic>(),
+                    GameplayTimingProfile.CreateDefault(),
+                    CreatePlayerTiming(),
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                    playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell));
+        }
+
+        private static TickPipeline CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
+            WorldState worldState,
+            IEntityLogic staticLogic,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileDefinitions,
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions)
+        {
+            return new GameplayBootstrapper(
+                    new SnapshotEntityLogicProvider(Array.Empty<IEntityLogicFactory>()))
+                .CreateTickPipeline(
+                    worldState,
+                    staticLogic == null ? Array.Empty<IEntityLogic>() : new[] { staticLogic },
+                    GameplayTimingProfile.CreateDefault(),
+                    CreatePlayerTiming(),
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
+                    playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming(),
+                    tileFeatureDefinitions: tileDefinitions,
+                    moonBlockRespawnDefinitions: moonBlockRespawnDefinitions);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> entities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            IEnumerable<TileFeatureState> tileFeatures)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                entities,
+                boardBounds,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                tileFeatures);
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureFlags flags = TileFeatureFlags.None)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                flags,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileDefinition(
+            int tileId,
+            TileFeatureKind kind,
+            Direction2D direction = Direction2D.None)
+        {
+            _ = kind;
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                TileFeatureActivationRule.Always,
+                direction,
+                TileFeatureBoxSelector.AnyPushableBox,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
+        }
+
+        private sealed class P1SolidTileMatrixCase
+        {
+            private readonly IReadOnlyList<EntityState> _solidEntities;
+            private readonly IReadOnlyList<TileFeatureState> _tileFeatures;
+            private readonly Action<WorldState> _seed;
+
+            public P1SolidTileMatrixCase(
+                string name,
+                SurfaceCell destination,
+                IReadOnlyList<EntityState> solidEntities,
+                IReadOnlyList<TileFeatureState> tileFeatures = null,
+                IReadOnlyList<TileFeatureRuntimeDefinition> tileDefinitions = null,
+                IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
+                Action<WorldState> seed = null)
+            {
+                Name = name;
+                Destination = destination;
+                _solidEntities = solidEntities;
+                _tileFeatures = tileFeatures;
+                TileDefinitions = tileDefinitions;
+                MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions;
+                _seed = seed;
+            }
+
+            public string Name { get; }
+
+            public SurfaceCell Destination { get; }
+
+            public IReadOnlyList<TileFeatureRuntimeDefinition> TileDefinitions { get; }
+
+            public IReadOnlyList<MoonBlockRespawnDefinition> MoonBlockRespawnDefinitions { get; }
+
+            public WorldState CreateWorldState()
+            {
+                var entities = new List<EntityState>(_solidEntities)
+                {
+                    CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol),
+                };
+                var worldState = GlideOverSolidTests.CreateWorldState(
+                    entities,
+                    new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
+                    GameplayTerrainData.Empty,
+                    _tileFeatures);
+                _seed?.Invoke(worldState);
+                return worldState;
+            }
         }
 
         private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerTiming()
