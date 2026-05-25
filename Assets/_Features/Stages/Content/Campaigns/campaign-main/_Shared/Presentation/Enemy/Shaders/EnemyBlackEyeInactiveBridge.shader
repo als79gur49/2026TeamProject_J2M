@@ -12,9 +12,15 @@ Shader "Game/Enemy/BlackEyeInactiveBridge"
         [HDR] _EmissionColor("Color", Color) = (0,0,0,1)
 
         _InactiveBlend("Inactive Blend", Range(0.0, 1.0)) = 0.0
+        _InactiveNoiseReveal("Inactive Noise Reveal", Range(0.0, 1.0)) = 0.0
         _DesaturateStrength("Desaturate Strength", Range(0.0, 1.0)) = 0.85
         _InactiveTint("Inactive Tint", Color) = (0.62, 0.64, 0.68, 1.0)
         _EmissionSuppression("Emission Suppression", Range(0.0, 1.0)) = 0.85
+        _InactiveNoiseMap("Inactive Noise Map", 2D) = "white" {}
+        _InactiveNoiseStrength("Inactive Noise Strength", Range(0.0, 1.0)) = 0.0
+        _InactiveNoiseScale("Inactive Noise Scale", Float) = 1.0
+        _InactiveNoiseEdgeWidth("Inactive Noise Edge Width", Range(0.0001, 1.0)) = 0.08
+        _InactiveNoiseThreshold("Inactive Noise Threshold", Range(0.0, 1.0)) = 0.5
 
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         _Surface("__surface", Float) = 0.0
@@ -68,6 +74,7 @@ Shader "Game/Enemy/BlackEyeInactiveBridge"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_InactiveNoiseMap); SAMPLER(sampler_InactiveNoiseMap);
 
             CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
@@ -83,8 +90,13 @@ Shader "Game/Enemy/BlackEyeInactiveBridge"
             half _Cutoff;
             half _Surface;
             half _InactiveBlend;
+            half _InactiveNoiseReveal;
             half _DesaturateStrength;
             half _EmissionSuppression;
+            half _InactiveNoiseStrength;
+            half _InactiveNoiseScale;
+            half _InactiveNoiseEdgeWidth;
+            half _InactiveNoiseThreshold;
             CBUFFER_END
 
             struct Attributes
@@ -123,9 +135,29 @@ Shader "Game/Enemy/BlackEyeInactiveBridge"
                 return output;
             }
 
-            half3 ApplyInactive(half3 color, half inactiveBlend)
+            half EnemyInactiveNoiseCoverage(float2 uv)
             {
-                if (inactiveBlend <= half(0.0001))
+                half reveal = saturate(_InactiveNoiseReveal);
+                if (reveal <= half(0.0001))
+                {
+                    return half(0.0);
+                }
+
+                half noise = SAMPLE_TEXTURE2D(
+                    _InactiveNoiseMap,
+                    sampler_InactiveNoiseMap,
+                    uv * max(_InactiveNoiseScale, half(0.0001))).r;
+                half edge = max(_InactiveNoiseEdgeWidth, half(0.0001));
+                half progress = lerp(-edge, half(1.0) + edge, reveal);
+                half revealMask = smoothstep(noise - edge, noise + edge, progress);
+                half strength = saturate(_InactiveNoiseStrength);
+                half noiseMask = max(reveal * half(0.65), revealMask);
+                return lerp(reveal, noiseMask, strength);
+            }
+
+            half3 ApplyInactive(half3 color, half inactiveBlend, half noiseCoverage)
+            {
+                if (inactiveBlend <= half(0.0001) || noiseCoverage <= half(0.0001))
                 {
                     return color;
                 }
@@ -133,7 +165,7 @@ Shader "Game/Enemy/BlackEyeInactiveBridge"
                 half luminance = dot(color, half3(0.2126h, 0.7152h, 0.0722h));
                 half3 grayscale = luminance.xxx;
                 half3 inactiveTinted = lerp(grayscale, _InactiveTint.rgb, inactiveBlend * half(0.35));
-                return lerp(color, inactiveTinted, saturate(inactiveBlend * _DesaturateStrength));
+                return lerp(color, inactiveTinted, saturate(inactiveBlend * noiseCoverage * _DesaturateStrength));
             }
 
             half4 Frag(Varyings input) : SV_Target
@@ -147,8 +179,10 @@ Shader "Game/Enemy/BlackEyeInactiveBridge"
                 half4 albedoSample = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
                 half alpha = albedoSample.a * _BaseColor.a;
                 half inactiveBlend = saturate(_InactiveBlend);
+                half noiseCoverage = EnemyInactiveNoiseCoverage(input.uv);
+                half inactiveMask = inactiveBlend * noiseCoverage;
                 half3 albedo = lerp(_B.rgb, _W.rgb, borderMask) * albedoSample.rgb;
-                albedo = ApplyInactive(albedo, inactiveBlend);
+                albedo = ApplyInactive(albedo, inactiveBlend, noiseCoverage);
 
                 InputData inputData = (InputData)0;
                 inputData.positionWS = input.positionWS;
@@ -170,7 +204,7 @@ Shader "Game/Enemy/BlackEyeInactiveBridge"
                 surfaceData.smoothness = _Smoothness;
                 surfaceData.normalTS = half3(0, 0, 1);
                 surfaceData.occlusion = half(1.0);
-                surfaceData.emission = _EmissionColor.rgb * (half(1.0) - (_EmissionSuppression * inactiveBlend));
+                surfaceData.emission = _EmissionColor.rgb * (half(1.0) - (_EmissionSuppression * inactiveMask));
                 surfaceData.clearCoatMask = half(0.0);
                 surfaceData.clearCoatSmoothness = half(0.0);
 

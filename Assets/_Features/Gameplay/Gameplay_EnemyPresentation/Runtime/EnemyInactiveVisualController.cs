@@ -9,24 +9,39 @@ namespace Game.Feature.Gameplay.Host
         private static readonly int ColorHash = Shader.PropertyToID("_Color");
         private static readonly int EmissionColorHash = Shader.PropertyToID("_EmissionColor");
         private static readonly int InactiveBlendHash = Shader.PropertyToID("_InactiveBlend");
+        private static readonly int InactiveNoiseRevealHash = Shader.PropertyToID("_InactiveNoiseReveal");
         private static readonly int DesaturateStrengthHash = Shader.PropertyToID("_DesaturateStrength");
         private static readonly int EmissionSuppressionHash = Shader.PropertyToID("_EmissionSuppression");
         private static readonly int InactiveTintHash = Shader.PropertyToID("_InactiveTint");
+        private const float RevealEpsilon = 0.0001f;
 
         [SerializeField] private Color inactiveTint = new(0.62f, 0.64f, 0.68f, 1f);
         [SerializeField] [Range(0f, 1f)] private float desaturateStrength = 0.85f;
         [SerializeField] [Range(0f, 1f)] private float emissionSuppression = 0.85f;
         [SerializeField] private bool allowLegacyColorFallback;
         [SerializeField] private Renderer[] targetRenderers;
+        [SerializeField] [Min(0.0001f)] private float inactiveRevealInSeconds = 0.25f;
+        [SerializeField] [Min(0.0001f)] private float inactiveRevealOutSeconds = 0.18f;
+        [SerializeField] private AnimationCurve inactiveRevealCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
 
         private MaterialPropertyBlock _propertyBlock;
         private RendererCacheEntry[] _rendererEntries = Array.Empty<RendererCacheEntry>();
         private ParticleSystem[] _childParticleSystems = Array.Empty<ParticleSystem>();
         private TrailRenderer[] _childTrailRenderers = Array.Empty<TrailRenderer>();
+        private bool _isInactiveTarget;
+        private bool _inactiveGateEnabled;
+        private float _currentInactiveNoiseReveal;
+        private float _targetInactiveNoiseReveal;
 
         public EnemyVisualActivityState CurrentActivityState { get; private set; }
 
         public float CurrentInactiveBlend { get; private set; }
+
+        public float CurrentInactiveNoiseReveal => _currentInactiveNoiseReveal;
+
+        public float TargetInactiveNoiseReveal => _targetInactiveNoiseReveal;
+
+        public bool IsInactiveGateEnabled => _inactiveGateEnabled;
 
         public bool AllowLegacyColorFallback => allowLegacyColorFallback;
 
@@ -42,17 +57,25 @@ namespace Game.Feature.Gameplay.Host
             CacheChildEffects();
         }
 
+        private void Update()
+        {
+            AdvanceInactiveNoiseReveal(Time.deltaTime);
+        }
+
+        private void OnDisable()
+        {
+            ResetInactiveRevealImmediate();
+        }
+
         public void Apply(in EnemyVisualSemanticState state)
         {
-            var inactiveBlend = state.ActivityState == EnemyVisualActivityState.FrontFaceInactive
-                ? 1f
-                : 0f;
-            Apply(state.ActivityState, inactiveBlend);
+            Apply(state.ActivityState);
         }
 
         public void ResetVisual()
         {
-            Apply(EnemyVisualActivityState.Normal, 0f);
+            CurrentActivityState = EnemyVisualActivityState.Normal;
+            ResetInactiveRevealImmediate();
         }
 
         public void ConfigureLegacyColorFallback(bool allow)
@@ -60,17 +83,102 @@ namespace Game.Feature.Gameplay.Host
             allowLegacyColorFallback = allow;
         }
 
-        private void Apply(EnemyVisualActivityState activityState, float inactiveBlend)
+        public void AdvanceInactiveNoiseReveal(float deltaTime)
+        {
+            if (deltaTime < 0f)
+            {
+                deltaTime = 0f;
+            }
+
+            AdvanceCurrentReveal(deltaTime);
+
+            if (!_isInactiveTarget &&
+                _targetInactiveNoiseReveal <= RevealEpsilon &&
+                _currentInactiveNoiseReveal <= RevealEpsilon)
+            {
+                _inactiveGateEnabled = false;
+                _currentInactiveNoiseReveal = 0f;
+            }
+
+            WriteInactiveProperties();
+        }
+
+        private void Apply(EnemyVisualActivityState activityState)
         {
             CacheRenderers();
 
             CurrentActivityState = activityState;
-            CurrentInactiveBlend = inactiveBlend;
 
             if (activityState == EnemyVisualActivityState.FrontFaceInactive)
             {
+                _isInactiveTarget = true;
+                _inactiveGateEnabled = true;
+                _targetInactiveNoiseReveal = 1f;
                 StopAndClearChildEffects();
+                WriteInactiveProperties();
+                return;
             }
+
+            _isInactiveTarget = false;
+            _targetInactiveNoiseReveal = 0f;
+            if (_currentInactiveNoiseReveal > RevealEpsilon ||
+                _inactiveGateEnabled)
+            {
+                _inactiveGateEnabled = true;
+            }
+
+            WriteInactiveProperties();
+        }
+
+        private void ResetInactiveRevealImmediate()
+        {
+            _isInactiveTarget = false;
+            _inactiveGateEnabled = false;
+            _currentInactiveNoiseReveal = 0f;
+            _targetInactiveNoiseReveal = 0f;
+            WriteInactiveProperties();
+        }
+
+        private void AdvanceCurrentReveal(float deltaTime)
+        {
+            var targetReveal = Mathf.Clamp01(_targetInactiveNoiseReveal);
+            var duration = targetReveal > _currentInactiveNoiseReveal
+                ? inactiveRevealInSeconds
+                : inactiveRevealOutSeconds;
+
+            if (duration <= RevealEpsilon)
+            {
+                _currentInactiveNoiseReveal = targetReveal;
+                return;
+            }
+
+            _currentInactiveNoiseReveal = Mathf.MoveTowards(
+                _currentInactiveNoiseReveal,
+                targetReveal,
+                deltaTime / duration);
+        }
+
+        private float EvaluateInactiveReveal(float reveal)
+        {
+            var clampedReveal = Mathf.Clamp01(reveal);
+            if (inactiveRevealCurve == null ||
+                inactiveRevealCurve.length == 0)
+            {
+                return clampedReveal;
+            }
+
+            return Mathf.Clamp01(inactiveRevealCurve.Evaluate(clampedReveal));
+        }
+
+        private void WriteInactiveProperties()
+        {
+            CacheRenderers();
+
+            var inactiveBlend = _inactiveGateEnabled ? 1f : 0f;
+            var inactiveNoiseReveal = _inactiveGateEnabled
+                ? EvaluateInactiveReveal(_currentInactiveNoiseReveal)
+                : 0f;
+            CurrentInactiveBlend = inactiveBlend;
 
             if (_rendererEntries.Length == 0)
             {
@@ -91,6 +199,7 @@ namespace Game.Feature.Gameplay.Host
                 renderer.GetPropertyBlock(_propertyBlock);
 
                 _propertyBlock.SetFloat(InactiveBlendHash, inactiveBlend);
+                _propertyBlock.SetFloat(InactiveNoiseRevealHash, inactiveNoiseReveal);
                 _propertyBlock.SetFloat(DesaturateStrengthHash, desaturateStrength);
                 _propertyBlock.SetFloat(EmissionSuppressionHash, emissionSuppression);
                 _propertyBlock.SetColor(InactiveTintHash, inactiveTint);
@@ -215,6 +324,7 @@ namespace Game.Feature.Gameplay.Host
                         : Color.black,
                     sharedMaterial != null &&
                     sharedMaterial.HasProperty(InactiveBlendHash) &&
+                    sharedMaterial.HasProperty(InactiveNoiseRevealHash) &&
                     sharedMaterial.HasProperty(DesaturateStrengthHash) &&
                     sharedMaterial.HasProperty(EmissionSuppressionHash) &&
                     sharedMaterial.HasProperty(InactiveTintHash));

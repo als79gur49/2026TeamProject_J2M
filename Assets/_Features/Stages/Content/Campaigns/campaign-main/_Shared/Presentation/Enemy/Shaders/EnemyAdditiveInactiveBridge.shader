@@ -11,9 +11,15 @@ Shader "Game/Enemy/AdditiveInactiveBridge"
         [HDR] _EmissionColor("Emission", Color) = (0,0,0,1)
 
         _InactiveBlend("Inactive Blend", Range(0.0, 1.0)) = 0.0
+        _InactiveNoiseReveal("Inactive Noise Reveal", Range(0.0, 1.0)) = 0.0
         _DesaturateStrength("Desaturate Strength", Range(0.0, 1.0)) = 0.85
         _InactiveTint("Inactive Tint", Color) = (0.62, 0.64, 0.68, 1.0)
         _EmissionSuppression("Emission Suppression", Range(0.0, 1.0)) = 0.85
+        _InactiveNoiseMap("Inactive Noise Map", 2D) = "white" {}
+        _InactiveNoiseStrength("Inactive Noise Strength", Range(0.0, 1.0)) = 0.0
+        _InactiveNoiseScale("Inactive Noise Scale", Float) = 1.0
+        _InactiveNoiseEdgeWidth("Inactive Noise Edge Width", Range(0.0001, 1.0)) = 0.08
+        _InactiveNoiseThreshold("Inactive Noise Threshold", Range(0.0, 1.0)) = 0.5
 
         _Cull("__cull", Float) = 0.0
         _SrcBlend("__src", Float) = 5.0
@@ -57,6 +63,7 @@ Shader "Game/Enemy/AdditiveInactiveBridge"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
+            TEXTURE2D(_InactiveNoiseMap); SAMPLER(sampler_InactiveNoiseMap);
 
             CBUFFER_START(UnityPerMaterial)
             float4 _MainTex_ST;
@@ -68,8 +75,13 @@ Shader "Game/Enemy/AdditiveInactiveBridge"
             half4 _EmissionColor;
             half4 _InactiveTint;
             half _InactiveBlend;
+            half _InactiveNoiseReveal;
             half _DesaturateStrength;
             half _EmissionSuppression;
+            half _InactiveNoiseStrength;
+            half _InactiveNoiseScale;
+            half _InactiveNoiseEdgeWidth;
+            half _InactiveNoiseThreshold;
             CBUFFER_END
 
             struct Attributes
@@ -101,17 +113,24 @@ Shader "Game/Enemy/AdditiveInactiveBridge"
                 return output;
             }
 
-            half3 ApplyInactive(half3 color, half inactiveBlend)
+            half EnemyInactiveNoiseCoverage(float2 uv)
             {
-                if (inactiveBlend <= half(0.0001))
+                half reveal = saturate(_InactiveNoiseReveal);
+                if (reveal <= half(0.0001))
                 {
-                    return color;
+                    return half(0.0);
                 }
 
-                half luminance = dot(color, half3(0.2126h, 0.7152h, 0.0722h));
-                half3 grayscale = luminance.xxx;
-                half3 inactiveTinted = lerp(grayscale, _InactiveTint.rgb, inactiveBlend * half(0.35));
-                return lerp(color, inactiveTinted, saturate(inactiveBlend * _DesaturateStrength));
+                half noise = SAMPLE_TEXTURE2D(
+                    _InactiveNoiseMap,
+                    sampler_InactiveNoiseMap,
+                    uv * max(_InactiveNoiseScale, half(0.0001))).r;
+                half edge = max(_InactiveNoiseEdgeWidth, half(0.0001));
+                half progress = lerp(-edge, half(1.0) + edge, reveal);
+                half revealMask = smoothstep(noise - edge, noise + edge, progress);
+                half strength = saturate(_InactiveNoiseStrength);
+                half noiseMask = max(reveal * half(0.65), revealMask);
+                return lerp(reveal, noiseMask, strength);
             }
 
             half4 Frag(Varyings input) : SV_Target
@@ -119,9 +138,9 @@ Shader "Game/Enemy/AdditiveInactiveBridge"
                 UNITY_SETUP_INSTANCE_ID(input);
                 half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 half inactiveBlend = saturate(_InactiveBlend);
-                half emissionScale = half(1.0) - (_EmissionSuppression * inactiveBlend);
+                half suppressionMask = inactiveBlend * EnemyInactiveNoiseCoverage(input.uv);
+                half emissionScale = half(1.0) - (_EmissionSuppression * suppressionMask);
                 half4 color = tex * _BaseColor;
-                color.rgb = ApplyInactive(color.rgb, inactiveBlend);
                 color.rgb = (color.rgb + _EmissionColor.rgb) * emissionScale;
                 color.rgb = MixFog(color.rgb, input.fogFactor);
                 return color;

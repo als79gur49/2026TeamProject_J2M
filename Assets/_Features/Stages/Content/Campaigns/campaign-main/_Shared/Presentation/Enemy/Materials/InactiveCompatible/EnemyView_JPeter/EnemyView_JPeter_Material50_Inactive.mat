@@ -46,7 +46,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
-        m_Texture: {fileID: 2800000, guid: a578db03a2d0591429cb041a208d36de, type: 3}
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _InactiveNoiseMap:
+        m_Texture: {fileID: 2800000, guid: 2eaa3d1a90cc4f4ca1fbf95a6bf1be61, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -104,6 +108,11 @@ Material:
     - _Glossiness: 0
     - _GlossyReflections: 0
     - _InactiveBlend: 0
+    - _InactiveNoiseEdgeWidth: 0.08
+    - _InactiveNoiseReveal: 0
+    - _InactiveNoiseScale: 1
+    - _InactiveNoiseStrength: 0.3
+    - _InactiveNoiseThreshold: 0.5
     - _Metallic: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.005

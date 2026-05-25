@@ -22,6 +22,7 @@ namespace Game.Feature.Stages.EditorTools
         private const string BlackEyeSourceMaterialPath = "Assets/3DM/2BlackEye/BE_LS_M1.mat";
         private const string PackageLitMaterialPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Lit.mat";
         private const string JumpingInferredSourceMaterialPath = "Assets/_Shared/Art/Game_Enemy_CustomEnemyLit_NonAttacking.mat";
+        private const string InactiveNoiseTexturePath = "Assets/_Shared/Art/Textures/GravityFieldLockRevealNoise.png";
 
         private static readonly Color InactiveTint = new(0.62f, 0.64f, 0.68f, 1f);
 
@@ -61,6 +62,8 @@ namespace Game.Feature.Stages.EditorTools
 
             UpdateModelImporterRemaps(customEnemyLit, blackEyeBridge, duplicateCache);
             UpdateDirectPrefabRendererSlots(customEnemyLit, blackEyeBridge, additiveBridge, duplicateCache);
+            UpdateExistingDuplicateDefaults();
+            UpdateExistingCompatibleMaterialDefaults();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -376,6 +379,11 @@ namespace Game.Feature.Stages.EditorTools
                 material.SetFloat("_InactiveBlend", 0f);
             }
 
+            if (material.HasProperty("_InactiveNoiseReveal"))
+            {
+                material.SetFloat("_InactiveNoiseReveal", 0f);
+            }
+
             if (material.HasProperty("_DesaturateStrength"))
             {
                 material.SetFloat("_DesaturateStrength", 0.85f);
@@ -389,6 +397,145 @@ namespace Game.Feature.Stages.EditorTools
             if (material.HasProperty("_InactiveTint"))
             {
                 material.SetColor("_InactiveTint", InactiveTint);
+            }
+
+            ApplyInactiveNoiseDefaults(material);
+        }
+
+        private static void ApplyInactiveNoiseDefaults(Material material)
+        {
+            if (material.HasProperty("_InactiveNoiseMap") &&
+                material.GetTexture("_InactiveNoiseMap") == null)
+            {
+                material.SetTexture("_InactiveNoiseMap", RequireTexture(InactiveNoiseTexturePath));
+            }
+
+            if (material.HasProperty("_InactiveNoiseStrength") &&
+                !HasSerializedFloat(material, "_InactiveNoiseStrength"))
+            {
+                material.SetFloat("_InactiveNoiseStrength", ResolveInactiveNoiseStrength(material));
+            }
+
+            if (material.HasProperty("_InactiveNoiseScale") &&
+                !HasSerializedFloat(material, "_InactiveNoiseScale"))
+            {
+                material.SetFloat("_InactiveNoiseScale", 1f);
+            }
+
+            if (material.HasProperty("_InactiveNoiseEdgeWidth") &&
+                !HasSerializedFloat(material, "_InactiveNoiseEdgeWidth"))
+            {
+                material.SetFloat("_InactiveNoiseEdgeWidth", 0.08f);
+            }
+
+            if (material.HasProperty("_InactiveNoiseThreshold") &&
+                !HasSerializedFloat(material, "_InactiveNoiseThreshold"))
+            {
+                material.SetFloat("_InactiveNoiseThreshold", 0.5f);
+            }
+        }
+
+        private static bool HasSerializedFloat(Material material, string propertyName)
+        {
+            if (material == null)
+            {
+                return false;
+            }
+
+            var serializedObject = new SerializedObject(material);
+            var floats = serializedObject.FindProperty("m_SavedProperties.m_Floats");
+            if (floats == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < floats.arraySize; i++)
+            {
+                var element = floats.GetArrayElementAtIndex(i);
+                var first = element.FindPropertyRelative("first");
+                if (first != null &&
+                    string.Equals(first.stringValue, propertyName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static float ResolveInactiveNoiseStrength(Material material)
+        {
+            var shaderName = material.shader != null ? material.shader.name : string.Empty;
+            if (string.Equals(shaderName, AdditiveBridgeShaderName, StringComparison.Ordinal))
+            {
+                return 0f;
+            }
+
+            if (string.Equals(shaderName, BlackEyeBridgeShaderName, StringComparison.Ordinal))
+            {
+                return 0.25f;
+            }
+
+            return 0.3f;
+        }
+
+        private static void UpdateExistingCompatibleMaterialDefaults()
+        {
+            var prefabPaths = AssetDatabase.FindAssets("t:Prefab", new[] { PrefabRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => Path.GetFileNameWithoutExtension(path).StartsWith("EnemyView_", StringComparison.Ordinal))
+                .OrderBy(path => path, StringComparer.Ordinal);
+
+            foreach (var prefabPath in prefabPaths)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                if (prefab == null)
+                {
+                    continue;
+                }
+
+                foreach (var renderer in prefab.GetComponentsInChildren<Renderer>(true))
+                {
+                    foreach (var material in renderer.sharedMaterials)
+                    {
+                        if (material == null)
+                        {
+                            continue;
+                        }
+
+                        var materialPath = AssetDatabase.GetAssetPath(material);
+                        if (materialPath.StartsWith(MaterialRoot + "/", StringComparison.Ordinal) ||
+                            material.shader == null ||
+                            !string.Equals(material.shader.name, CustomEnemyLitShaderName, StringComparison.Ordinal) ||
+                            !SupportsInactiveContract(material))
+                        {
+                            continue;
+                        }
+
+                        ApplyInactiveDefaults(material);
+                        EditorUtility.SetDirty(material);
+                    }
+                }
+            }
+        }
+
+        private static void UpdateExistingDuplicateDefaults()
+        {
+            var materialPaths = AssetDatabase.FindAssets("t:Material", new[] { MaterialRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => path.EndsWith(".mat", StringComparison.Ordinal))
+                .OrderBy(path => path, StringComparer.Ordinal);
+
+            foreach (var materialPath in materialPaths)
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+                if (material == null || !SupportsInactiveContract(material))
+                {
+                    continue;
+                }
+
+                ApplyInactiveDefaults(material);
+                EditorUtility.SetDirty(material);
             }
         }
 
@@ -482,9 +629,15 @@ namespace Game.Feature.Stages.EditorTools
         private static bool SupportsInactiveContract(Material material)
         {
             return material.HasProperty("_InactiveBlend") &&
+                   material.HasProperty("_InactiveNoiseReveal") &&
                    material.HasProperty("_DesaturateStrength") &&
                    material.HasProperty("_EmissionSuppression") &&
-                   material.HasProperty("_InactiveTint");
+                   material.HasProperty("_InactiveTint") &&
+                   material.HasProperty("_InactiveNoiseMap") &&
+                   material.HasProperty("_InactiveNoiseStrength") &&
+                   material.HasProperty("_InactiveNoiseScale") &&
+                   material.HasProperty("_InactiveNoiseEdgeWidth") &&
+                   material.HasProperty("_InactiveNoiseThreshold");
         }
 
         private static string ReadInactiveCompatibleSourcePath(string materialPath)
@@ -506,6 +659,17 @@ namespace Game.Feature.Stages.EditorTools
             }
 
             return material;
+        }
+
+        private static Texture2D RequireTexture(string path)
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (texture == null)
+            {
+                throw new InvalidOperationException($"Missing texture: {path}");
+            }
+
+            return texture;
         }
 
         private static Shader RequireShader(string shaderName)

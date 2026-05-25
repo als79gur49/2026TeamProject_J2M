@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -21,9 +22,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string BlackEyeBridgeShaderName = "Game/Enemy/BlackEyeInactiveBridge";
         private const string AdditiveBridgeShaderName = "Game/Enemy/AdditiveInactiveBridge";
         private const string ExistingCompatibleMaterialPath = "Assets/_Shared/Art/Game_Enemy_CustomEnemyLit_NonAttacking.mat";
+        private const string MaterialAuthoringGeneratorPath =
+            "Assets/_Features/Stages/Editor/EnemyInactiveMaterialAuthoringGenerator.cs";
         private const string BlackEyeSourceMaterialPath = "Assets/3DM/2BlackEye/BE_LS_M1.mat";
         private const string PackageLitMaterialPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Lit.mat";
         private const string SecBotGlowSourceMaterialPath = "Assets/Polygon Arsenal/Materials/Gradients/PolySpriteGlow_ADD.mat";
+        private const string ExpectedInactiveNoiseTexturePath = "Assets/_Shared/Art/Textures/GravityFieldLockRevealNoise.png";
+
+        [Test]
+        [Category("Extended")]
+        public void AllowedInactiveShaders_ExposeNoiseContract()
+        {
+            foreach (var shaderName in new[] { CustomEnemyLitShaderName, BlackEyeBridgeShaderName, AdditiveBridgeShaderName })
+            {
+                var shader = Shader.Find(shaderName);
+                Assert.That(shader, Is.Not.Null, shaderName);
+                var material = new Material(shader);
+                try
+                {
+                    AssertInactiveContract(material, shaderName);
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(material);
+                }
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyInactiveMaterialAuthoringGenerator_WritesNoiseRevealDefault()
+        {
+            var source = File.ReadAllText(MaterialAuthoringGeneratorPath);
+
+            Assert.That(source, Does.Contain("material.SetFloat(\"_InactiveNoiseReveal\", 0f);"));
+        }
 
         [Test]
         [Category("Core")]
@@ -46,6 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         var context = $"{prefabPath}/{renderer.name}[{index}]";
                         Assert.That(material, Is.Not.Null, context);
                         AssertInactiveContract(material, context);
+                        AssertInactiveNoiseAuthoring(material, context);
                         AssertAllowedShader(material, context);
                         AssertDuplicatePathPolicy(material, context);
                     }
@@ -62,14 +96,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var duplicate = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
                 Assert.That(duplicate, Is.Not.Null, materialPath);
                 AssertInactiveContract(duplicate, materialPath);
+                AssertInactiveNoiseAuthoring(duplicate, materialPath);
 
                 var sourcePath = ReadSourcePath(materialPath);
                 Assert.That(sourcePath, Is.Not.Empty, materialPath);
                 Assert.That(sourcePath, Does.Not.StartWith(MaterialRoot), materialPath);
 
-                var source = LoadSourceMaterial(duplicate, sourcePath);
-                Assert.That(source, Is.Not.Null, $"Missing source for {materialPath}: {sourcePath}");
-                AssertCommonMaterialFidelity(source, duplicate, materialPath);
+                var sources = LoadSourceMaterials(duplicate, sourcePath).ToArray();
+                Assert.That(sources, Is.Not.Empty, $"Missing source for {materialPath}: {sourcePath}");
+                AssertCommonMaterialFidelityMatchesAnySource(sources, duplicate, materialPath);
             }
         }
 
@@ -87,6 +122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertColorEqual(source.GetColor("_B"), duplicate.GetColor("_B"), "_B");
             AssertColorEqual(source.GetColor("_W"), duplicate.GetColor("_W"), "_W");
             AssertFloatEqual(source.GetFloat("_Border"), duplicate.GetFloat("_Border"), "_Border");
+            AssertInactiveNoiseAuthoring(duplicate, AssetDatabase.GetAssetPath(duplicate));
         }
 
         [Test]
@@ -116,6 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(duplicate.shader.name, Is.EqualTo(AdditiveBridgeShaderName));
             Assert.That(ReadSourcePath(AssetDatabase.GetAssetPath(duplicate)), Is.EqualTo(SecBotGlowSourceMaterialPath));
+            AssertInactiveNoiseAuthoring(duplicate, AssetDatabase.GetAssetPath(duplicate));
             Assert.That(duplicate.GetTexture("_MainTex"), Is.EqualTo(source.GetTexture("_MainTex")));
             AssertFloatEqual(source.GetFloat("_SrcBlend"), duplicate.GetFloat("_SrcBlend"), "_SrcBlend");
             AssertFloatEqual(source.GetFloat("_DstBlend"), duplicate.GetFloat("_DstBlend"), "_DstBlend");
@@ -148,6 +185,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(material.HasProperty("_DesaturateStrength"), Is.True, context);
             Assert.That(material.HasProperty("_EmissionSuppression"), Is.True, context);
             Assert.That(material.HasProperty("_InactiveTint"), Is.True, context);
+            Assert.That(material.HasProperty("_InactiveNoiseMap"), Is.True, context);
+            Assert.That(material.HasProperty("_InactiveNoiseReveal"), Is.True, context);
+            Assert.That(material.HasProperty("_InactiveNoiseStrength"), Is.True, context);
+            Assert.That(material.HasProperty("_InactiveNoiseScale"), Is.True, context);
+            Assert.That(material.HasProperty("_InactiveNoiseEdgeWidth"), Is.True, context);
+            Assert.That(material.HasProperty("_InactiveNoiseThreshold"), Is.True, context);
+        }
+
+        private static void AssertInactiveNoiseAuthoring(Material material, string context)
+        {
+            var expectedNoise = LoadRequiredTexture(ExpectedInactiveNoiseTexturePath);
+            Assert.That(material.GetTexture("_InactiveNoiseMap"), Is.EqualTo(expectedNoise), $"{context}:_InactiveNoiseMap");
+            Assert.That(material.GetFloat("_InactiveNoiseReveal"), Is.EqualTo(0f).Within(0.0001f), $"{context}:_InactiveNoiseReveal");
+
+            var strength = material.GetFloat("_InactiveNoiseStrength");
+            var shaderName = material.shader != null ? material.shader.name : string.Empty;
+            if (string.Equals(shaderName, AdditiveBridgeShaderName, StringComparison.Ordinal))
+            {
+                Assert.That(strength, Is.InRange(0f, 0.15f), $"{context}:_InactiveNoiseStrength");
+            }
+            else
+            {
+                Assert.That(strength, Is.InRange(0f, 0.5f), $"{context}:_InactiveNoiseStrength");
+            }
+
+            Assert.That(material.GetFloat("_InactiveNoiseScale"), Is.GreaterThan(0f), $"{context}:_InactiveNoiseScale");
+            Assert.That(material.GetFloat("_InactiveNoiseEdgeWidth"), Is.GreaterThan(0f), $"{context}:_InactiveNoiseEdgeWidth");
+            Assert.That(material.GetFloat("_InactiveNoiseThreshold"), Is.InRange(0f, 1f), $"{context}:_InactiveNoiseThreshold");
         }
 
         private static void AssertAllowedShader(Material material, string context)
@@ -240,16 +305,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static Material LoadSourceMaterial(Material duplicate, string sourcePath)
         {
+            return LoadSourceMaterials(duplicate, sourcePath).FirstOrDefault();
+        }
+
+        private static IEnumerable<Material> LoadSourceMaterials(Material duplicate, string sourcePath)
+        {
             var direct = AssetDatabase.LoadAssetAtPath<Material>(sourcePath);
             if (direct != null)
             {
-                return direct;
+                yield return direct;
+                yield break;
             }
 
             var sourceName = ExtractSourceName(duplicate.name);
-            return AssetDatabase.LoadAllAssetsAtPath(sourcePath)
-                .OfType<Material>()
-                .FirstOrDefault(material => string.Equals(Sanitize(material.name), sourceName, StringComparison.Ordinal));
+            foreach (var material in AssetDatabase.LoadAllAssetsAtPath(sourcePath)
+                         .OfType<Material>()
+                         .Where(material => string.Equals(Sanitize(material.name), sourceName, StringComparison.Ordinal)))
+            {
+                yield return material;
+            }
+        }
+
+        private static void AssertCommonMaterialFidelityMatchesAnySource(
+            Material[] sources,
+            Material duplicate,
+            string context)
+        {
+            var failures = new List<string>();
+            foreach (var source in sources)
+            {
+                try
+                {
+                    AssertCommonMaterialFidelity(source, duplicate, context);
+                    return;
+                }
+                catch (AssertionException exception)
+                {
+                    failures.Add(exception.Message);
+                }
+            }
+
+            Assert.Fail($"{context}: duplicate did not match any source candidate.\n{string.Join("\n", failures)}");
         }
 
         private static Material LoadRequiredMaterial(string path)
@@ -257,6 +353,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             Assert.That(material, Is.Not.Null, path);
             return material;
+        }
+
+        private static Texture2D LoadRequiredTexture(string path)
+        {
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            Assert.That(texture, Is.Not.Null, path);
+            return texture;
         }
 
         private static string ReadSourcePath(string materialPath)
