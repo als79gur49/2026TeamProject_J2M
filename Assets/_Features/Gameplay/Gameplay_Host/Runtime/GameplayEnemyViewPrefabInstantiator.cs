@@ -11,7 +11,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityView prefab,
             Transform parent,
             in EntityState entity,
-            string ownerDescription)
+            string ownerDescription,
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             if (prefab == null)
             {
@@ -23,7 +24,7 @@ namespace Game.Feature.Gameplay.Host
             SanitizePrefabPhysics(instance);
             EnemyViewPrefabRequirements.ValidateEnemyViewInstance(instance, ownerDescription);
             GameplayActionAudioPrefabRequirements.GetOptionalValidatedAuthoring(instance, ownerDescription);
-            EnsureEnemyInactiveVisualController(instance, entity);
+            EnsureEnemyInactiveVisualController(instance, entity, enemyInactiveVisualSettings);
             return instance;
         }
 
@@ -36,16 +37,20 @@ namespace Game.Feature.Gameplay.Host
             view.Initialize(entityId);
         }
 
-        private static void EnsureEnemyInactiveVisualController(GameplayEntityView view, in EntityState entity)
+        private static void EnsureEnemyInactiveVisualController(
+            GameplayEntityView view,
+            in EntityState entity,
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings)
         {
             if (view == null ||
-                !EntityRolePolicy.IsEnemyUnit(entity) ||
-                view.GetComponent<EnemyInactiveVisualController>() != null)
+                !EntityRolePolicy.IsEnemyUnit(entity))
             {
                 return;
             }
 
-            view.gameObject.AddComponent<EnemyInactiveVisualController>();
+            var controller = view.GetComponent<EnemyInactiveVisualController>() ??
+                             view.gameObject.AddComponent<EnemyInactiveVisualController>();
+            controller.Configure(enemyInactiveVisualSettings);
         }
 
         private static void SanitizePrefabPhysics(GameplayEntityView view)

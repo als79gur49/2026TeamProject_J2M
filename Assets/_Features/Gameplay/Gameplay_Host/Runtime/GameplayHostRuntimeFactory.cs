@@ -143,7 +143,8 @@ namespace Game.Feature.Gameplay.Host
                         configuration.PlayerEntityId,
                         playerViewPrefab,
                         BuildEnemyViewPrefabs(configuration),
-                        BuildStaticViewPrefabs(configuration))
+                        BuildStaticViewPrefabs(configuration),
+                        configuration.EnemyInactiveVisualSettings)
                     : null);
             var viewBinder = new GameplayEntityViewBinder(viewRegistry, viewFactory);
             var tileFeaturePoseResolver = new BoardSurfaceCellPresentationPoseResolver(
@@ -178,7 +179,8 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationArchetypeRegistry,
                 configuration.EnemyPresentationCatalog,
                 configuration.EnemyPresentationBindings,
-                BuildTileFeatureVfxStyleBindings(configuration.TileFeaturePresentationBindings));
+                BuildTileFeatureVfxStyleBindings(configuration.TileFeaturePresentationBindings),
+                configuration.EnemyInactiveVisualSettings);
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             presenter.AttachTileFeatureVisualPoseSynchronizer(tileFeatureVisualPoseSynchronizer);
             AttachPresentationExtensions(hostObject, presenter);

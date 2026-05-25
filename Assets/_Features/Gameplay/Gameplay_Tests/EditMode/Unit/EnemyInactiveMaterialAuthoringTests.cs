@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -28,6 +29,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string PackageLitMaterialPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Lit.mat";
         private const string SecBotGlowSourceMaterialPath = "Assets/Polygon Arsenal/Materials/Gradients/PolySpriteGlow_ADD.mat";
         private const string ExpectedInactiveNoiseTexturePath = "Assets/_Shared/Art/Textures/GravityFieldLockRevealNoise.png";
+        private const string EnemyInactiveVisualSettingsPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/EnemyInactiveVisualSettings.asset";
 
         [Test]
         [Category("Extended")]
@@ -47,6 +50,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     UnityEngine.Object.DestroyImmediate(material);
                 }
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyInactiveVisualSettings_DefaultAsset_UsesCurrentRuntimeDefaults()
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<EnemyInactiveVisualSettings>(EnemyInactiveVisualSettingsPath);
+            Assert.That(settings, Is.Not.Null, EnemyInactiveVisualSettingsPath);
+
+            AssertColorEqual(new Color(0.62f, 0.64f, 0.68f, 1f), settings.InactiveTint, nameof(settings.InactiveTint));
+            AssertFloatEqual(0.85f, settings.DesaturateStrength, nameof(settings.DesaturateStrength));
+            AssertFloatEqual(0.85f, settings.EmissionSuppression, nameof(settings.EmissionSuppression));
+            AssertFloatEqual(0.25f, settings.InactiveRevealInSeconds, nameof(settings.InactiveRevealInSeconds));
+            AssertFloatEqual(0.18f, settings.InactiveRevealOutSeconds, nameof(settings.InactiveRevealOutSeconds));
+            Assert.That(settings.InactiveRevealCurve, Is.Not.Null);
+            Assert.That(settings.InactiveRevealCurve.Evaluate(0f), Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(settings.InactiveRevealCurve.Evaluate(1f), Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]

@@ -41,6 +41,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const float GravityFieldLockRevealOutSeconds = 0.208f;
         private const string EnemyInactiveBlendProperty = "_InactiveBlend";
         private const string EnemyInactiveNoiseRevealProperty = "_InactiveNoiseReveal";
+        private const string EnemyInactiveTintProperty = "_InactiveTint";
+        private const string EnemyInactiveDesaturateStrengthProperty = "_DesaturateStrength";
+        private const string EnemyInactiveEmissionSuppressionProperty = "_EmissionSuppression";
         private const float EnemyInactiveRevealInSeconds = 0.25f;
         private const float EnemyInactiveRevealOutSeconds = 0.18f;
         private const string StaticBoxShowcasePrefabPath =
@@ -7721,6 +7724,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyInactiveVisualController_ConfigureSettings_AppliesInactiveTintAndStrengths()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_ConfigureSettings_AppliesInactiveTintAndStrengths));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.25f, 0.5f, 0.75f, 1f),
+                desaturateStrength: 0.35f,
+                emissionSuppression: 0.45f);
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Configure(settings);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                AssertColorApproximately(
+                    new Color(0.25f, 0.5f, 0.75f, 1f),
+                    GetRendererColor(renderer, EnemyInactiveTintProperty));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.35f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.45f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_ConfigureSettings_DoesNotResetRevealState()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_ConfigureSettings_DoesNotResetRevealState));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.1f, 0.2f, 0.3f, 1f),
+                desaturateStrength: 0.4f,
+                emissionSuppression: 0.5f);
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds * 0.5f);
+                var revealBeforeConfigure = controller.CurrentInactiveNoiseReveal;
+
+                controller.Configure(settings);
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(revealBeforeConfigure).Within(0.0001f));
+                Assert.That(controller.TargetInactiveNoiseReveal, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(controller.IsInactiveGateEnabled, Is.True);
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.GreaterThan(0f).And.LessThan(1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyInactiveVisualController_FrontFaceInactive_StartsNoiseReveal()
         {
             var rootObject = new GameObject(nameof(EnemyInactiveVisualController_FrontFaceInactive_StartsNoiseReveal));
@@ -7929,6 +7999,89 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsLegacyFallback()
+        {
+            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsLegacyFallback));
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.18f, 0.28f, 0.38f, 1f),
+                desaturateStrength: 0.22f,
+                emissionSuppression: 0.66f);
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    cellSize: 1f,
+                    playerEntityId: 10,
+                    enemyInactiveVisualSettings: settings);
+
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                var view = factory.CreateView(enemy);
+                var renderer = view.GetComponentInChildren<Renderer>();
+
+                Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
+                Assert.That(controller.AllowLegacyColorFallback, Is.True);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                AssertColorApproximately(new Color(0.18f, 0.28f, 0.38f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.22f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.66f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutLegacyFallback()
+        {
+            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutLegacyFallback));
+            var prefabObject = new GameObject("EnemyPrefabWithInactiveSettings");
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.42f, 0.33f, 0.24f, 1f),
+                desaturateStrength: 0.31f,
+                emissionSuppression: 0.72f);
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                prefabObject.AddComponent<EnemyAnimatorDriver>();
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(prefabObject.transform, worldPositionStays: false);
+
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    cellSize: 1f,
+                    playerEntityId: 10,
+                    enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        [20] = prefabView,
+                    },
+                    enemyInactiveVisualSettings: settings);
+
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                var view = factory.CreateView(enemy);
+                var renderer = view.GetComponentInChildren<Renderer>();
+
+                Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
+                Assert.That(controller.AllowLegacyColorFallback, Is.False);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                AssertColorApproximately(new Color(0.42f, 0.33f, 0.24f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.31f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.72f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(prefabObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -9262,6 +9415,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var propertyBlock = new MaterialPropertyBlock();
             targetRenderer.GetPropertyBlock(propertyBlock);
             return propertyBlock.GetColor(propertyName);
+        }
+
+        private static EnemyInactiveVisualSettings CreateEnemyInactiveVisualSettings(
+            Color inactiveTint,
+            float desaturateStrength,
+            float emissionSuppression,
+            float revealInSeconds = 0.25f,
+            float revealOutSeconds = 0.18f)
+        {
+            var settings = ScriptableObject.CreateInstance<EnemyInactiveVisualSettings>();
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveTint", inactiveTint);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "desaturateStrength", desaturateStrength);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "emissionSuppression", emissionSuppression);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealInSeconds", revealInSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealOutSeconds", revealOutSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                settings,
+                "inactiveRevealCurve",
+                AnimationCurve.Linear(0f, 0f, 1f, 1f));
+            return settings;
         }
 
         private static void AssertColorApproximately(Color expected, Color actual, float tolerance = 0.0001f)

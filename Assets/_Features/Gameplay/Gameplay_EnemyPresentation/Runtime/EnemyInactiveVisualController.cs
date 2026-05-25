@@ -83,6 +83,22 @@ namespace Game.Feature.Gameplay.Host
             allowLegacyColorFallback = allow;
         }
 
+        public void Configure(EnemyInactiveVisualSettings settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            inactiveTint = settings.InactiveTint;
+            desaturateStrength = settings.DesaturateStrength;
+            emissionSuppression = settings.EmissionSuppression;
+            inactiveRevealInSeconds = settings.InactiveRevealInSeconds;
+            inactiveRevealOutSeconds = settings.InactiveRevealOutSeconds;
+            inactiveRevealCurve = CloneCurve(settings.InactiveRevealCurve);
+            WriteInactiveProperties();
+        }
+
         public void AdvanceInactiveNoiseReveal(float deltaTime)
         {
             if (deltaTime < 0f)
@@ -362,6 +378,21 @@ namespace Game.Feature.Gameplay.Host
         {
             var luminance = (color.r * 0.2126f) + (color.g * 0.7152f) + (color.b * 0.0722f);
             return new Color(luminance, luminance, luminance, color.a);
+        }
+
+        private static AnimationCurve CloneCurve(AnimationCurve source)
+        {
+            if (source == null ||
+                source.length == 0)
+            {
+                return AnimationCurve.Linear(0f, 0f, 1f, 1f);
+            }
+
+            return new AnimationCurve(source.keys)
+            {
+                preWrapMode = source.preWrapMode,
+                postWrapMode = source.postWrapMode
+            };
         }
 
         private readonly struct RendererCacheEntry

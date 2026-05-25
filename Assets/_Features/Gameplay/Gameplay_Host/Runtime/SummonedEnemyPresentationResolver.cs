@@ -17,19 +17,22 @@ namespace Game.Feature.Gameplay.Host
         private GameplayPresentationStateStore _stateStore;
         private Transform _viewParent;
         private GameplayEntityViewRegistry _viewRegistry;
+        private EnemyInactiveVisualSettings _enemyInactiveVisualSettings;
 
         public void Initialize(
             Transform viewParent,
             GameplayEntityViewRegistry viewRegistry,
             GameplayPresentationStateStore stateStore,
             GameplayAnimationSyncCoordinator animationSync,
-            EnemyPresentationArchetypeRegistry registry)
+            EnemyPresentationArchetypeRegistry registry,
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             _viewRegistry = viewRegistry ?? throw new ArgumentNullException(nameof(viewRegistry));
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _animationSync = animationSync ?? throw new ArgumentNullException(nameof(animationSync));
             _viewParent = viewParent != null ? viewParent : _viewRegistry.SearchRoot;
             _registry = registry;
+            _enemyInactiveVisualSettings = enemyInactiveVisualSettings;
         }
 
         public void Reconcile(TickResult result)
@@ -80,7 +83,8 @@ namespace Game.Feature.Gameplay.Host
                     runtime.ViewPrefab,
                     _viewParent,
                     entity,
-                    nameof(SummonedEnemyPresentationResolver));
+                    nameof(SummonedEnemyPresentationResolver),
+                    _enemyInactiveVisualSettings);
                 _viewRegistry.Register(view);
                 _ownedEntityIds.Add(binding.EntityId);
             }

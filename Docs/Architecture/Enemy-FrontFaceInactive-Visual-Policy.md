@@ -27,6 +27,12 @@ On FrontFaceInactive entry, `EnemyInactiveVisualController` enables `_InactiveBl
 
 `EnemyInactiveVisualController` owns this transition locally through `Update()` and `AdvanceInactiveNoiseReveal(deltaTime)`. Tests call `AdvanceInactiveNoiseReveal(float)` directly. Gameplay state, tick simulation, semantic resolution, and `GameplayEntityPresentationApplier` do not advance noise reveal properties.
 
+Enemy inactive visual tuning is externalized through one global `EnemyInactiveVisualSettings` asset. The default campaign asset is:
+
+`Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/EnemyInactiveVisualSettings.asset`
+
+The settings asset owns the common inactive tint, desaturation strength, emission suppression, reveal-in duration, reveal-out duration, and reveal curve. Runtime hosts inject it through `GameplaySceneHostConfiguration` and showcase installers. Enemy views still receive `EnemyInactiveVisualController` at runtime through the existing enemy view factory and prefab instantiator path, so prefab enemy legacy fallback policy stays unchanged and prefab references are not required on source enemy prefabs.
+
 Noise is used only as inactive reveal intensity. `_InactiveNoiseStrength == 0` must match uniform inactive reveal, `_InactiveNoiseReveal == 0` must match the source material appearance, and `_InactiveNoiseReveal == 1` must fully apply inactive presentation. The readability floor is scaled by reveal progress, so entry does not create immediate ghost tint. Production inactive-compatible materials must assign `_InactiveNoiseMap`; relying on the shader's white fallback hides missing authoring and is not accepted for campaign enemy materials. `_InactiveNoiseThreshold` remains serialized as compatibility contract but is not the fixed-threshold reveal mask.
 
 ## Campaign Duplicate Root
@@ -69,6 +75,6 @@ Default or unresolved enemy renderer slots must not keep Unity's default materia
 
 ## Validation
 
-`EnemyInactiveMaterialAuthoringTests` validates campaign enemy prefabs, all renderer material slots, allowed shaders, inactive contract and noise reveal properties, duplicate naming/root policy, source mapping, source fidelity for copied properties, BlackEye bridge-specific properties, BlackEye package Lit leg duplication, SecBot additive state, inactive noise texture assignment/ranges, `_InactiveNoiseReveal == 0` authoring defaults, and absence of the Unity default material GUID in campaign enemy prefabs.
+`EnemyInactiveMaterialAuthoringTests` validates campaign enemy prefabs, all renderer material slots, allowed shaders, inactive contract and noise reveal properties, duplicate naming/root policy, source mapping, source fidelity for copied properties, BlackEye bridge-specific properties, BlackEye package Lit leg duplication, SecBot additive state, inactive noise texture assignment/ranges, `_InactiveNoiseReveal == 0` authoring defaults, the global `EnemyInactiveVisualSettings` default asset, and absence of the Unity default material GUID in campaign enemy prefabs.
 
 Manual QA remains required for art fidelity: Startis, BlackEye, SecBot, Jumping, Astreton or DrSaturn, and RocketFace or Sunwheel are the minimum visual pass. Check source appearance before inactive, gradual inactive reveal on entry, gradual reveal removal on clear, inactive readability during reveal, BlackEye border/pupil fidelity, SecBot additive glow stability, texture/normal/emission fidelity, missing/pink shaders, missing textures, transparent/shadow/depth artifacts, and no ghost tint after disable/despawn.
