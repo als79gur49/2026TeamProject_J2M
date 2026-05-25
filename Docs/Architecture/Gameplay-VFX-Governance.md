@@ -61,7 +61,9 @@ Guard phrase: existing presenter migration is a future slice.
 
 The non-particle Gameplay VFX prefab authoring was removed for mesh-only or empty default host bindings. Cue ids, planners, feature flags, and runtime diagnostic/no-op behavior remain in place. The removed default authoring must not be treated as a cue sunset.
 
-Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, BoxDestroyShrink, ItemConsume, FlipDestroySelfMotion, FlipImpactStayTrail, reserved OutOfBounds/ImpactTransientBreak, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
+Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, ItemConsume, FlipImpactStayTrail, reserved OutOfBounds/ImpactTransientBreak, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
+
+`BoxDestroyShrink` and `FlipDestroySelfMotion` now keep host-default bindings as `SourceCloneMotion` cues with null cue prefabs and common empty host fallback.
 
 `EnemyDeathMotionVfx`, `EnemyDeathMotion_Binding.asset`, `TileFeatureDestroyLaserActiveRedVfx`, and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
 
@@ -279,13 +281,13 @@ Feature flag:
 - flag off means no `BoxVfxCue.FlipDestroySelfMotion` playback and no old clone/arc/fade fallback
 - suppress compatibility gates were removed in Legacy Surface Simplification; no old fallback switch remains
 - `ApplyEntityExitOwnership()` remains active and still hides/cleans the authoritative view
-- missing `FlipDestroySelfMotion` binding or prefab is diagnostic/no-op with no old fallback
+- missing `FlipDestroySelfMotion` binding, source view, or common host is diagnostic/no-op with no old fallback
 
 Visual parity:
 
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FlipDestroySelfMotion_Impact.mat`
-- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
-- exact source-view mesh clone/material parity remains future work
+- default host binding uses `SourceCloneMotion`; cue prefab is null and the common empty host provides the pooled host.
+- source-view mesh clone/material parity is the primary runtime path
 
 Boundaries:
 
@@ -397,20 +399,21 @@ Binding precedence remains source presentation-local profile, then family profil
 Windup visual assets:
 
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldWindup_Telegraph.mat`
-- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- no cue-specific placeholder prefab or old transient fallback prefab is used for `FlipDestroySelfMotion`.
 - `telegraphPrefab`, `VFX_FrontFaceShield_Telegraph`, and `M_FrontFaceShield_Telegraph.mat` are retained for deferred serialized reference and asset cleanup, not as fallback playback.
 
 ## FlipDestroySelf Source-View Clone Parity
 
-FlipDestroySelf v1 used a stylized clone-like prefab. The generalized playback keeps that prefab as fallback but can now clone the current source presentation `ModelRoot` through `IGameplayVfxCloneSourceProvider`.
+FlipDestroySelf v1 used a stylized clone-like prefab. Current playback clones the source presentation `ModelRoot` through `IGameplayVfxCloneSourceProvider` and uses the shared common empty host when the cue prefab is null.
 
 Clone policy:
 
-- `FlipDestroySelfMotion` uses `SourceViewCloneWithPrefabFallback`
+- `FlipDestroySelfMotion` uses `SourceCloneMotion`
 - source clone lookup is by `GameplayVfxRequest.SourceEntityId`
 - lookup reads the host presentation state store, not scene-global searches
-- missing source clone falls back to the authored prefab
-- missing binding or prefab remains diagnostic/no-op with no old fallback
+- missing source clone reports `MissingSourceView` and no-ops
+- null cue prefab is allowed and must not report `MissingPrefab`
+- missing common empty host reports `CommonHostUnavailable`
 
 Material ownership:
 

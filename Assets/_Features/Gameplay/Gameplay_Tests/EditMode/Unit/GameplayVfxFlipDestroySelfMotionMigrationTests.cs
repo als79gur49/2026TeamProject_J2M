@@ -165,7 +165,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Projector,
                 out var command);
 
-            Assert.That(command.ToParameterizedMotionVfxCommand().SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.FlipArc));
+            var parameterized = command.ToParameterizedMotionVfxCommand();
+            Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.FlipArc));
+            Assert.That(parameterized.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
         }
 
         [Test]
@@ -251,28 +253,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void FlagOn_BindingPresent_PlaysParameterizedMotionVfx()
         {
             var owner = new GameObject("FlipDestroySelfRuntime");
-            var prefab = CreateRuntimePrefab("FlipDestroySelfRuntimePrefab");
+            var commonHost = CreateRuntimePrefab("FlipDestroySelfRuntimeCommonHost");
+            var source = CreateSourceView("FlipDestroySelfRuntimeSource");
             VfxBindingDefinitionAsset binding = null;
             VfxCueMapAsset cueMap = null;
             try
             {
-                binding = CreateBinding(prefab, BoxVfxCue.FlipDestroySelfMotion, tailSeconds: 0.18f);
+                binding = CreateBinding(null, BoxVfxCue.FlipDestroySelfMotion, tailSeconds: 0.18f);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureCommonEmptyHostPrefab(commonHost);
 
-                runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
+                runtime.Present(CreateExtensionContext(source.View, CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+                Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
             finally
             {
-                Destroy(cueMap, binding, prefab, owner);
+                source.Destroy();
+                Destroy(cueMap, binding, commonHost, owner);
             }
         }
 
@@ -339,20 +346,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var owner = new GameObject("FlipDestroySelfBurstCoexist");
             var prefab = CreateRuntimePrefab("SharedBoxVfxPrefab");
+            var commonHost = CreateRuntimePrefab("FlipDestroySelfBurstCoexistCommonHost");
+            var source = CreateSourceView("FlipDestroySelfBurstCoexistSource");
             VfxBindingDefinitionAsset motionBinding = null;
             VfxBindingDefinitionAsset burstBinding = null;
             VfxCueMapAsset cueMap = null;
             try
             {
-                motionBinding = CreateBinding(prefab, BoxVfxCue.FlipDestroySelfMotion, tailSeconds: 0.18f);
+                motionBinding = CreateBinding(null, BoxVfxCue.FlipDestroySelfMotion, tailSeconds: 0.18f);
                 burstBinding = CreateBinding(prefab, BoxVfxCue.FlipImpactBurst, tailSeconds: 0.2f);
                 cueMap = CreateCueMap(motionBinding, burstBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
                 runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureCommonEmptyHostPrefab(commonHost);
 
-                runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
+                runtime.Present(CreateExtensionContext(source.View, CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.LessThanOrEqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.LessThanOrEqualTo(1));
@@ -363,7 +373,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(cueMap, motionBinding, burstBinding, prefab, owner);
+                source.Destroy();
+                Destroy(cueMap, motionBinding, burstBinding, commonHost, prefab, owner);
             }
         }
 
@@ -414,7 +425,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void Playback_StartsAtSourcePose_ReachesImpactAndReleasesAfterTail()
         {
-            var poolFixture = CreatePoolFixture(tailSeconds: 0.25f);
+            var source = CreateSourceView("FlipDestroySelfPlaybackSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.25f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
             try
             {
                 var command = CreateMotionCommand(flightDurationSeconds: 1f, contactNormalizedTime: 0.7f);
@@ -442,6 +456,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 poolFixture.Destroy();
+                source.Destroy();
             }
         }
 
@@ -449,7 +464,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void Playback_BreakFade_StartsAtContactThreshold()
         {
-            var poolFixture = CreatePoolFixture(tailSeconds: 0f);
+            var source = CreateSourceView("FlipDestroySelfBreakFadeSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
             try
             {
                 var command = CreateMotionCommand(flightDurationSeconds: 1f, contactNormalizedTime: 0.7f);
@@ -468,6 +486,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 poolFixture.Destroy();
+                source.Destroy();
             }
         }
 
@@ -475,7 +494,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void HardCleanup_ClearsActiveMotionInstances()
         {
-            var poolFixture = CreatePoolFixture(tailSeconds: 0.25f);
+            var source = CreateSourceView("FlipDestroySelfHardCleanupSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.25f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
             try
             {
                 var handle = poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand());
@@ -490,6 +512,182 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 poolFixture.Destroy();
+                source.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipDestroySelfMotion_Plays_WithSourceClone_WhenPrefabIsMissing()
+        {
+            var source = CreateSourceView("FlipDestroySelfSourceCloneSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+            try
+            {
+                var handle = poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand());
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(poolFixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(poolFixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(poolFixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(poolFixture.Pool.CommonHostUnavailableCount, Is.Zero);
+                Assert.That(poolFixture.Root.OneShotRoot.GetChild(0).Find("ParameterizedMotionCloneRoot"), Is.Not.Null);
+            }
+            finally
+            {
+                poolFixture.Destroy();
+                source.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipDestroySelfMotion_UsesCommonHost_WhenCuePrefabIsNull()
+        {
+            var source = CreateSourceView("FlipDestroySelfCommonHostSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+            try
+            {
+                var handle = poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand());
+                var instance = poolFixture.Root.OneShotRoot.GetChild(0);
+
+                Assert.That(handle, Is.Not.Null);
+                Assert.That(instance.name, Does.Contain("FlipDestroySelfCommonHost"));
+                Assert.That(instance.Find("ParameterizedMotionCloneRoot"), Is.Not.Null);
+            }
+            finally
+            {
+                poolFixture.Destroy();
+                source.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipDestroySelfMotion_ReportsMissingSourceView_WhenSourceViewIsUnavailable()
+        {
+            var poolFixture = CreatePoolFixture(tailSeconds: 0.18f);
+            try
+            {
+                var handle = poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand());
+
+                Assert.That(handle, Is.Null);
+                Assert.That(poolFixture.Pool.MissingSourceViewCount, Is.EqualTo(1));
+                Assert.That(poolFixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(poolFixture.Pool.CommonHostUnavailableCount, Is.Zero);
+            }
+            finally
+            {
+                poolFixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipDestroySelfMotion_DoesNotReportMissingPrefab_ForSourceCloneMotion()
+        {
+            var source = CreateSourceView("FlipDestroySelfNoMissingPrefabSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+            try
+            {
+                poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand());
+
+                Assert.That(poolFixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(poolFixture.Pool.MissingSourceViewCount, Is.Zero);
+                Assert.That(poolFixture.Pool.CommonHostUnavailableCount, Is.Zero);
+            }
+            finally
+            {
+                poolFixture.Destroy();
+                source.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipDestroySelfMotion_ReportsCommonHostUnavailable_WhenCommonHostIsMissing()
+        {
+            var source = CreateSourceView("FlipDestroySelfMissingCommonHostSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot),
+                commonHostAvailable: false);
+            try
+            {
+                var handle = poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand());
+
+                Assert.That(handle, Is.Null);
+                Assert.That(poolFixture.Pool.CommonHostUnavailableCount, Is.EqualTo(1));
+                Assert.That(poolFixture.Pool.MissingPrefabCount, Is.Zero);
+                Assert.That(poolFixture.Pool.MissingSourceViewCount, Is.Zero);
+            }
+            finally
+            {
+                poolFixture.Destroy();
+                source.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipDestroySelfMotion_ReleasesHost_AfterLifetimeAndTail()
+        {
+            var source = CreateSourceView("FlipDestroySelfReleaseSource");
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.25f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+            try
+            {
+                poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand(flightDurationSeconds: 1f));
+
+                poolFixture.TimeProvider.TimeSeconds = 1f;
+                poolFixture.Pool.Advance(1f);
+                Assert.That(poolFixture.Pool.ActiveCount, Is.EqualTo(1));
+
+                poolFixture.TimeProvider.TimeSeconds = 1.25f;
+                poolFixture.Pool.Advance(0.25f);
+                Assert.That(poolFixture.Pool.ActiveCount, Is.Zero);
+                Assert.That(poolFixture.Pool.PooledCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                poolFixture.Destroy();
+                source.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipDestroySelfMotion_DoesNotMutateOriginalView()
+        {
+            var source = CreateSourceView("FlipDestroySelfOriginalStableSource");
+            var originalPosition = source.ModelRoot.localPosition;
+            var originalRotation = source.ModelRoot.localRotation;
+            var originalScale = source.ModelRoot.localScale;
+            var poolFixture = CreatePoolFixture(
+                tailSeconds: 0.18f,
+                cloneSourceProvider: new SingleCloneSourceProvider(source.ModelRoot));
+            try
+            {
+                poolFixture.Pool.PlayFlipDestroySelfMotion(poolFixture.PlaybackCommand, CreateMotionCommand());
+
+                poolFixture.TimeProvider.TimeSeconds = 0.9f;
+                poolFixture.Pool.Advance(0.9f);
+
+                Assert.That(source.ModelRoot.localPosition, Is.EqualTo(originalPosition));
+                Assert.That(source.ModelRoot.localRotation, Is.EqualTo(originalRotation));
+                Assert.That(source.ModelRoot.localScale, Is.EqualTo(originalScale));
+            }
+            finally
+            {
+                poolFixture.Destroy();
+                source.Destroy();
             }
         }
 
@@ -504,23 +702,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Binding_RemovedFromDefaultAuthoring()
+        public void Binding_RestoredAsSourceCloneMotion()
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(MotionBindingPath);
 
-            Assert.That(binding, Is.Null, MotionBindingPath);
+            Assert.That(binding, Is.Not.Null, MotionBindingPath);
+            Assert.That(binding.Prefab, Is.Null);
+            Assert.That(binding.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
+            Assert.That(binding.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed));
+            Assert.That(binding.TailSeconds, Is.EqualTo(0.18f).Within(0.0001f));
+            Assert.That(binding.MaxConcurrentInstances, Is.EqualTo(8));
+            Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultMap_DoesNotResolveRemovedCue()
+        public void HostDefaultMap_ResolvesSourceCloneMotionCue()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
             Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
             Assert.That(
                 cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion), out var policy),
-                Is.False);
+                Is.True);
+            Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
+            Assert.That(policy.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed));
+            Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion), out _), Is.False);
         }
 
         [Test]
@@ -530,6 +737,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var owner = new GameObject("FlipDestroySelfProfileOverride");
             var hostPrefab = CreateRuntimePrefab("HostMotionPrefab");
             var profilePrefab = CreateRuntimePrefab("ProfileMotionPrefab");
+            var commonHost = CreateRuntimePrefab("ProfileOverrideCommonHost");
+            var source = CreateSourceView("ProfileOverrideSource");
             VfxBindingDefinitionAsset hostBinding = null;
             VfxBindingDefinitionAsset profileBinding = null;
             VfxCueMapAsset cueMap = null;
@@ -545,8 +754,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureFamilyProfiles(new[] { profile });
+                runtime.ConfigureCommonEmptyHostPrefab(commonHost);
 
-                runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
+                runtime.Present(CreateExtensionContext(source.View, CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 var spawned = owner.GetComponentInChildren<Transform>();
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
@@ -555,7 +765,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(profile, cueMap, hostBinding, profileBinding, hostPrefab, profilePrefab, owner);
+                source.Destroy();
+                Destroy(profile, cueMap, hostBinding, profileBinding, commonHost, hostPrefab, profilePrefab, owner);
             }
         }
 
@@ -611,10 +822,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             params FlipImpactPresentationSignal[] flipImpactSignals)
         {
+            return CreateExtensionContext(null, flipImpactSignals);
+        }
+
+        private static GameplayTickPresentationExtensionContext CreateExtensionContext(
+            GameplayEntityView sourceView,
+            params FlipImpactPresentationSignal[] flipImpactSignals)
+        {
             var topology = new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
             stateStore.ResetSession(topology);
             stateStore.EntityTypesByEntityId[30] = EntityType.Box;
+            if (sourceView != null)
+            {
+                stateStore.ViewsByEntityId[30] = sourceView;
+            }
+
             var projector = new GameplayCubeProjector(
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(8, 8)),
                 1f);
@@ -730,14 +953,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationSeed: 7);
         }
 
-        private static PoolFixture CreatePoolFixture(float tailSeconds)
+        private static PoolFixture CreatePoolFixture(
+            float tailSeconds,
+            IGameplayVfxCloneSourceProvider cloneSourceProvider = null,
+            bool commonHostAvailable = true)
         {
             var owner = new GameObject("FlipDestroySelfPoolOwner");
             var root = GameplayVfxRuntimeRoot.CreateUnder(owner.transform);
-            var prefab = CreateRuntimePrefab("FlipDestroySelfPoolPrefab");
-            var prefabProvider = new SinglePrefabProvider(prefab);
+            var commonHost = commonHostAvailable
+                ? CreateRuntimePrefab("FlipDestroySelfCommonHost")
+                : null;
+            var prefabProvider = new SinglePrefabProvider(commonHost);
             var timeProvider = new FakeTimeProvider();
-            var pool = new GameplayVfxGameObjectPool(root, prefabProvider, timeProvider);
+            var pool = new GameplayVfxGameObjectPool(root, prefabProvider, timeProvider, cloneSourceProvider);
             var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion);
             var request = new GameplayVfxRequest(
                 1,
@@ -758,7 +986,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 VfxStopPolicy.AuthoredDuration,
                 defaultLifetimeSeconds: 0f,
                 tailSeconds: tailSeconds,
-                maxConcurrentInstances: 8);
+                maxConcurrentInstances: 8,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed);
             var anchor = VfxResolvedAnchor.ForCell(
                 new SurfaceCell(FaceId.Floor, 1, 1),
                 new CubeTopologyState(FaceId.Floor),
@@ -767,7 +997,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Quaternion.identity);
             return new PoolFixture(
                 owner,
-                prefab,
+                commonHost,
                 root,
                 pool,
                 timeProvider,
@@ -789,7 +1019,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoxVfxCue cue,
             float tailSeconds)
         {
-            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+            if (prefab != null)
+            {
+                GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+            }
 
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Box);
@@ -798,12 +1031,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
             SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            var isSourceCloneMotion =
+                cue == BoxVfxCue.FlipDestroySelfMotion ||
+                cue == BoxVfxCue.DestroyShrink;
+            SetField(
+                binding,
+                "visualSourceMode",
+                isSourceCloneMotion
+                    ? VfxVisualSourceMode.SourceCloneMotion
+                    : VfxVisualSourceMode.PrefabOnly);
+            SetField(
+                binding,
+                "hostRequirement",
+                isSourceCloneMotion
+                    ? GameplayVfxHostRequirement.CommonHostAllowed
+                    : GameplayVfxHostRequirement.ExplicitPrefabRequired);
             SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
-            SetField(binding, "defaultLifetimeSeconds", 0f);
+            SetField(binding, "defaultLifetimeSeconds", isSourceCloneMotion ? 0f : tailSeconds);
             SetField(binding, "tailSeconds", tailSeconds);
             SetField(binding, "initialPoolSize", 4);
             SetField(binding, "maxConcurrentInstances", 8);
             return binding;
+        }
+
+        private static SourceViewFixture CreateSourceView(string name)
+        {
+            var owner = new GameObject(name);
+            var view = owner.AddComponent<GameplayEntityView>();
+            view.Initialize(30);
+            var modelRoot = view.EnsureModelRoot();
+            modelRoot.localPosition = new Vector3(0.1f, 0.2f, 0.3f);
+            modelRoot.localRotation = Quaternion.AngleAxis(15f, Vector3.up);
+            modelRoot.localScale = new Vector3(1.2f, 0.9f, 1.1f);
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(visual.GetComponent<Collider>());
+            visual.transform.SetParent(modelRoot, worldPositionStays: false);
+            visual.transform.localScale = Vector3.one * 0.35f;
+            return new SourceViewFixture(owner, view, modelRoot);
         }
 
         private static VfxCueMapAsset CreateCueMap(params VfxBindingDefinitionAsset[] bindings)
@@ -905,14 +1169,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public PoolFixture(
                 GameObject owner,
-                GameObject prefab,
+                GameObject commonHost,
                 GameplayVfxRuntimeRoot root,
                 GameplayVfxGameObjectPool pool,
                 FakeTimeProvider timeProvider,
                 ResolvedVfxPlaybackCommand playbackCommand)
             {
                 Owner = owner;
-                Prefab = prefab;
+                CommonHost = commonHost;
                 Root = root;
                 Pool = pool;
                 TimeProvider = timeProvider;
@@ -921,7 +1185,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public GameObject Owner { get; }
 
-            public GameObject Prefab { get; }
+            public GameObject CommonHost { get; }
 
             public GameplayVfxRuntimeRoot Root { get; }
 
@@ -934,7 +1198,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void Destroy()
             {
                 Pool?.HardCleanupAll();
-                GameplayVfxFlipDestroySelfMotionMigrationTests.Destroy(Prefab, Owner);
+                GameplayVfxFlipDestroySelfMotionMigrationTests.Destroy(CommonHost, Owner);
+            }
+        }
+
+        private readonly struct SourceViewFixture
+        {
+            public SourceViewFixture(GameObject owner, GameplayEntityView view, Transform modelRoot)
+            {
+                Owner = owner;
+                View = view;
+                ModelRoot = modelRoot;
+            }
+
+            public GameObject Owner { get; }
+
+            public GameplayEntityView View { get; }
+
+            public Transform ModelRoot { get; }
+
+            public void Destroy()
+            {
+                GameplayVfxFlipDestroySelfMotionMigrationTests.Destroy(Owner);
             }
         }
 
@@ -951,6 +1236,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 resolvedPrefab = prefab;
                 return resolvedPrefab != null;
+            }
+        }
+
+        private sealed class SingleCloneSourceProvider : IGameplayVfxCloneSourceProvider
+        {
+            private readonly Transform modelRoot;
+
+            public SingleCloneSourceProvider(Transform modelRoot)
+            {
+                this.modelRoot = modelRoot;
+            }
+
+            public bool TryResolveCloneSource(int sourceEntityId, out GameplayVfxCloneSource source)
+            {
+                if (modelRoot == null)
+                {
+                    source = default;
+                    return false;
+                }
+
+                source = new GameplayVfxCloneSource(modelRoot);
+                return true;
             }
         }
 
