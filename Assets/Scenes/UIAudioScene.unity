@@ -813,6 +813,7 @@ MonoBehaviour:
   gravityFieldAudioMap: {fileID: 11400000, guid: 20311d81a3644b22b830a914b49455d5, type: 2}
   blockAudioMap: {fileID: 11400000, guid: 5a6bb3f9bcde4e6ca7487767ab9ba305, type: 2}
   playerLocomotionAudioMap: {fileID: 11400000, guid: 6bf2bb925f794fe98b6b8e5a406e1f3d, type: 2}
+  enemyInactiveVisualSettings: {fileID: 11400000, guid: c6148ca1b06d469386e92647592d7538, type: 2}
   faceSeamGap: 3.5
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   campaignStageSequenceDefinition: {fileID: 11400000, guid: bdeaa9a608b8dde4b6d0192853f857b0, type: 2}
