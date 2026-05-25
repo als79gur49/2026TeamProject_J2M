@@ -38,7 +38,7 @@ namespace Game.Feature.Gameplay.Host
         {
             var activityState = facts.IsEnemy &&
                                 facts.IsVisible &&
-                                facts.ProjectedSlot == GameplayProjectedFaceSlot.Front &&
+                                facts.IsOnVisualFrontFace &&
                                 facts.IsGameplayAutonomySuppressed
                 ? EnemyVisualActivityState.FrontFaceInactive
                 : EnemyVisualActivityState.Normal;

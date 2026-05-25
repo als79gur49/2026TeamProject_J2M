@@ -7100,6 +7100,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(facts.IsTransitionOnlyVisible, Is.False);
                 Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Front));
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                Assert.That(facts.IsOnVisualFrontFace, Is.True);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
@@ -7115,6 +7116,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        [TestCase(FaceId.Front, FaceId.Ceiling, GameplayProjectedFaceSlot.Top)]
+        [TestCase(FaceId.Ceiling, FaceId.Back, GameplayProjectedFaceSlot.Back)]
+        [TestCase(FaceId.Back, FaceId.Floor, GameplayProjectedFaceSlot.Bottom)]
+        public void GameplayTickPresentationCoordinator_CommittedVisualFrontEnemy_StoresInactiveSemantic(FaceId bottomFace, FaceId enemyFace, GameplayProjectedFaceSlot expectedProjectedSlot)
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_CommittedVisualFrontEnemy_StoresInactiveSemantic");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(bottomFace);
+                var enemyCell = new SurfaceCell(enemyFace, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, enemyCell) }, topology);
+
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
+                Assert.That(facts.IsEnemy, Is.True);
+                Assert.That(facts.IsVisible, Is.True);
+                Assert.That(facts.IsCommittedVisible, Is.True);
+                Assert.That(facts.ProjectedSlot, Is.EqualTo(expectedProjectedSlot));
+                Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                Assert.That(facts.IsOnVisualFrontFace, Is.True);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
+                Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.True);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.GetComponent<EnemyInactiveVisualController>().CurrentActivityState,
+                    Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>().IsPlaybackSuppressed, Is.True);
+            }
+            finally
+            {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -7157,6 +7215,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(facts.IsVisible, Is.True);
                     Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Top));
                     Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                    Assert.That(facts.IsOnVisualFrontFace, Is.False);
                 }
 
                 if (stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic))
@@ -7214,6 +7273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(facts.IsVisible, Is.True);
                 Assert.That(facts.IsCommittedVisible, Is.True);
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+                Assert.That(facts.IsOnVisualFrontFace, Is.False);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
@@ -7264,6 +7324,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(facts.IsCommittedVisible, Is.True);
                 Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Front));
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+                Assert.That(facts.IsOnVisualFrontFace, Is.False);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
@@ -7312,6 +7373,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
                 Assert.That(facts.IsEnemy, Is.True);
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                Assert.That(facts.IsOnVisualFrontFace, Is.True);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
@@ -7359,6 +7421,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
                 Assert.That(facts.IsEnemy, Is.True);
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+                Assert.That(facts.IsOnVisualFrontFace, Is.False);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
@@ -7390,7 +7453,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Front,
                 isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: true);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7416,7 +7480,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Front,
                 isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: true);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7442,13 +7507,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Front,
                 isGameplayAutonomySuppressed: false,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 
             Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
             Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
             Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DefaultEnemyVisualSemanticResolver_PhysicalFrontSuppressedNonVisualFront_ResolvesNormal()
+        {
+            var resolver = new DefaultEnemyVisualSemanticResolver();
+            var facts = new EnemyVisualPresentationFacts(
+                entityId: 20,
+                isEnemy: true,
+                isVisible: true,
+                isCommittedVisible: true,
+                isTransitionVisible: false,
+                isTransitionOnlyVisible: false,
+                isJumpDetachedVisible: false,
+                isJumpLandingCompletionHeld: false,
+                projectedSlot: GameplayProjectedFaceSlot.Front,
+                isGameplayAutonomySuppressed: true,
+                aiMode: EnemyAiMode.Patrol,
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
+
+            var semantic = resolver.Resolve(facts);
+
+            Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
+            Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
+            Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.True);
         }
 
         [Test]
@@ -7468,7 +7561,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Top,
                 isGameplayAutonomySuppressed: false,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7494,7 +7588,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Top,
                 isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7520,7 +7615,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Top,
                 isGameplayAutonomySuppressed: false,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 

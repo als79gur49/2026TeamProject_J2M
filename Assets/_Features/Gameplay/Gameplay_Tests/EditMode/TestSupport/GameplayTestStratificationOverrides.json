@@ -12,6 +12,26 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_CommittedVisualFrontEnemy_StoresInactiveSemantic",
+      "category": "Core",
+      "contracts": [
+        "enemy_front_face_inactive_visual_semantic",
+        "visual_front_face_topology_mapping"
+      ],
+      "reason": "Locked Core coverage that FrontFaceInactive follows the current topology visual front face instead of the fixed physical Front slot.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.DefaultEnemyVisualSemanticResolver_PhysicalFrontSuppressedNonVisualFront_ResolvesNormal",
+      "category": "Core",
+      "contracts": [
+        "enemy_front_face_inactive_visual_semantic",
+        "physical_slot_regression_guard"
+      ],
+      "reason": "Locked Core coverage that a suppressed enemy on the physical Front slot is not inactive unless it is also on the visual front face.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.InactiveCompatibleDuplicates_RecordSourceAndPreserveMaterialValues",
       "category": "Extended",
       "contracts": [
