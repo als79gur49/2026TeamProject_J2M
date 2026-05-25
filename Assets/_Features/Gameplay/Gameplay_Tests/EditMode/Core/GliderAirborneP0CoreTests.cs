@@ -602,7 +602,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                 glideMoveTicks: glideMoveTicks,
                 lastExitedTick: 0,
                 wantsRecover: wantsRecover,
-                landingPendingCell: default,
                 hasLockedStep: true,
                 lockedStepX: lockedStepX,
                 lockedStepY: lockedStepY,
@@ -632,7 +631,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                 glideMoveTicks: 2,
                 lastExitedTick: 0,
                 wantsRecover: false,
-                landingPendingCell: default,
                 hasLockedStep: true,
                 lockedStepX: 1,
                 lockedStepY: 0,
@@ -741,8 +739,6 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         private static void AssertNoLandingSeekTrace(TickResult result)
         {
-            Assert.That(result.Trace.Text, Does.Not.Contain("Phase=LandingPending"));
-            Assert.That(result.Trace.Text, Does.Not.Contain("|Label=LandingPending|"));
             Assert.That(result.Trace.Text, Does.Not.Contain("LandingSeek"));
             Assert.That(result.Trace.Text, Does.Not.Contain("Egress"));
             Assert.That(result.Trace.Text, Does.Not.Contain("Snap"));

@@ -7638,7 +7638,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 recoveryTicks,
                 cooldownTicks,
                 lastExitedTick: 0,
-                landingPendingCell: default,
                 hasLockedStep: true,
                 lockedStepX: -1,
                 lockedStepY: 0);
@@ -7661,8 +7660,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 durationTicks,
                 recoveryTicks,
                 cooldownTicks,
-                lastExitedTick: 0,
-                landingPendingCell: default);
+                lastExitedTick: 0);
         }
 
         private static bool HasAcceptedPassiveContact(TickResult result, int sourceId, int targetId)

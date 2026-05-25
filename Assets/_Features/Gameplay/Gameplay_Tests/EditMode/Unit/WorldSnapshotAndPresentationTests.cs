@@ -3966,7 +3966,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GlidePresentation_ActiveAndLandingPending_HoldLiftHeight()
+        public void GlidePresentation_ActiveAndWantsRecover_HoldLiftHeight()
         {
             const int enemyId = 40;
             var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -3975,22 +3975,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sequence: 4,
                 activeUntilTickExclusive: 12,
                 durationTicks: 5);
-            var landingPendingState = CreateEnemyGlideState(
-                EnemyGlidePhase.LandingPending,
+            var wantsRecoverState = CreateEnemyGlideState(
+                EnemyGlidePhase.Active,
                 sequence: 4,
                 activeUntilTickExclusive: 12,
                 durationTicks: 5,
-                landingPendingCell: new SurfaceCell(FaceId.Floor, 2, 1));
+                wantsRecover: true);
 
             var activeSignal = BuildSingleGlideSignal(enemyId, enemyCell, activeState, currentTickIndex: 9);
-            var landingPendingSignal = BuildSingleGlideSignal(enemyId, enemyCell, landingPendingState, currentTickIndex: 12);
+            var wantsRecoverSignal = BuildSingleGlideSignal(enemyId, enemyCell, wantsRecoverState, currentTickIndex: 12);
 
             Assert.That(activeSignal.Phase, Is.EqualTo(EnemyGlidePhase.Active));
             Assert.That(activeSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
-            Assert.That(activeSignal.IsLandingPending, Is.False);
-            Assert.That(landingPendingSignal.Phase, Is.EqualTo(EnemyGlidePhase.LandingPending));
-            Assert.That(landingPendingSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
-            Assert.That(landingPendingSignal.IsLandingPending, Is.True);
+            Assert.That(activeSignal.WantsRecover, Is.False);
+            Assert.That(wantsRecoverSignal.Phase, Is.EqualTo(EnemyGlidePhase.Active));
+            Assert.That(wantsRecoverSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
+            Assert.That(wantsRecoverSignal.WantsRecover, Is.True);
         }
 
         [Test]
@@ -4556,7 +4556,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int recoveryTicks = 0,
             int cooldownTicks = 0,
             int lastExitedTick = 0,
-            SurfaceCell landingPendingCell = default)
+            bool wantsRecover = false)
         {
             return EnemyGlideRuntimeState.Create(
                 phase,
@@ -4569,8 +4569,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 durationTicks,
                 recoveryTicks,
                 cooldownTicks,
+                glideMoveTicks: 2,
                 lastExitedTick,
-                landingPendingCell);
+                wantsRecover);
         }
 
         private static EntityState CreateEnemyEntity(

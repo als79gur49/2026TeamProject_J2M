@@ -2562,7 +2562,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     glideMoveTicks: runtimeDefinition.GlideTimingSettings.GlideMoveTicks,
                     lastExitedTick: 0,
                     wantsRecover: false,
-                    landingPendingCell: default,
                     hasLockedStep: true,
                     lockedStepX: 1,
                     lockedStepY: 0,

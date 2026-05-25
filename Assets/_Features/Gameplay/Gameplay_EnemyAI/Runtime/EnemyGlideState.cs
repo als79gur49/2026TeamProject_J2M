@@ -9,17 +9,17 @@ namespace Game.Feature.Gameplay.Entities
         Ready = 0,
         Windup = 1,
         Active = 2,
-        // Compatibility-only residue for serialized/trace/presentation readers.
-        // Current runtime transitions keep expired solid overlap as Active + WantsRecover.
-        LandingPending = 3,
         Recovery = 4,
         Cooldown = 5,
     }
 
     public struct EnemyGlideRuntimeState
     {
+        private const int LegacyLandingPendingPhaseValue = 3;
+
         [SerializeField] private EnemyGlidePhase phase;
         [SerializeField] private bool isActive;
+        // Legacy serialized field only. Current runtime represents expired solid overlap as Active + WantsRecover.
         [SerializeField] private bool isLandingPending;
         [SerializeField] private int sequence;
         [SerializeField] private int windupUntilTickExclusive;
@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private bool wantsRecover;
         [SerializeField] private bool initialDelayInitialized;
         [SerializeField] private int initialDelayTicksRemaining;
+        // Legacy serialized field only. Current runtime no longer stores a pending landing cell.
         [SerializeField] private SurfaceCell landingPendingCell;
         [SerializeField] private bool hasLockedStep;
         [SerializeField] private int lockedStepX;
@@ -44,8 +45,6 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyGlidePhase Phase => ResolvePhase();
 
         public bool IsActive => Phase == EnemyGlidePhase.Active;
-
-        public bool IsLandingPending => Phase == EnemyGlidePhase.LandingPending;
 
         public int Sequence => sequence;
 
@@ -69,13 +68,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public int LastExitedTick => lastExitedTick;
 
-        public bool WantsRecover => wantsRecover;
+        public bool WantsRecover => wantsRecover || HasLegacyLandingPendingRecord;
 
         public bool InitialDelayInitialized => initialDelayInitialized;
 
         public int InitialDelayTicksRemaining => initialDelayTicksRemaining;
-
-        public SurfaceCell LandingPendingCell => landingPendingCell;
 
         public bool HasLockedStep => hasLockedStep;
 
@@ -109,53 +106,6 @@ namespace Game.Feature.Gameplay.Entities
             lockedTargetEntityId != 0;
 
         internal static EnemyGlideRuntimeState Create(
-            bool isActive,
-            bool isLandingPending,
-            int sequence,
-            int activeUntilTickExclusive,
-            int cooldownUntilTickExclusive,
-            int durationTicks,
-            int cooldownTicks,
-            int lastExitedTick,
-            SurfaceCell landingPendingCell,
-            bool hasLockedStep = false,
-            int lockedStepX = 0,
-            int lockedStepY = 0,
-            bool initialDelayInitialized = false,
-            int initialDelayTicksRemaining = 0,
-            int lockedTargetEntityId = 0,
-            bool wantsRecover = false,
-            int glideMoveTicks = 0)
-        {
-            var phase = isActive
-                ? EnemyGlidePhase.Active
-                : isLandingPending
-                    ? EnemyGlidePhase.LandingPending
-                    : EnemyGlidePhase.Ready;
-            return Create(
-                phase,
-                sequence,
-                windupUntilTickExclusive: 0,
-                activeUntilTickExclusive,
-                recoveryUntilTickExclusive: 0,
-                cooldownUntilTickExclusive,
-                windupTicks: 0,
-                durationTicks,
-                recoveryTicks: 0,
-                cooldownTicks,
-                glideMoveTicks,
-                lastExitedTick,
-                wantsRecover,
-                landingPendingCell,
-                hasLockedStep,
-                lockedStepX,
-                lockedStepY,
-                initialDelayInitialized,
-                initialDelayTicksRemaining,
-                lockedTargetEntityId);
-        }
-
-        internal static EnemyGlideRuntimeState Create(
             EnemyGlidePhase phase,
             int sequence,
             int windupUntilTickExclusive,
@@ -167,7 +117,6 @@ namespace Game.Feature.Gameplay.Entities
             int recoveryTicks,
             int cooldownTicks,
             int lastExitedTick,
-            SurfaceCell landingPendingCell,
             bool hasLockedStep = false,
             int lockedStepX = 0,
             int lockedStepY = 0,
@@ -189,7 +138,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: 2,
                 lastExitedTick,
                 wantsRecover: false,
-                landingPendingCell,
                 hasLockedStep,
                 lockedStepX,
                 lockedStepY,
@@ -212,7 +160,6 @@ namespace Game.Feature.Gameplay.Entities
             int glideMoveTicks,
             int lastExitedTick,
             bool wantsRecover,
-            SurfaceCell landingPendingCell,
             bool hasLockedStep = false,
             int lockedStepX = 0,
             int lockedStepY = 0,
@@ -224,7 +171,6 @@ namespace Game.Feature.Gameplay.Entities
             {
                 phase = phase,
                 isActive = phase == EnemyGlidePhase.Active,
-                isLandingPending = phase == EnemyGlidePhase.LandingPending,
                 sequence = sequence,
                 windupUntilTickExclusive = windupUntilTickExclusive,
                 activeUntilTickExclusive = activeUntilTickExclusive,
@@ -239,7 +185,6 @@ namespace Game.Feature.Gameplay.Entities
                 wantsRecover = wantsRecover,
                 initialDelayInitialized = initialDelayInitialized,
                 initialDelayTicksRemaining = initialDelayTicksRemaining,
-                landingPendingCell = landingPendingCell,
                 hasLockedStep = hasLockedStep,
                 lockedStepX = lockedStepX,
                 lockedStepY = lockedStepY,
@@ -247,8 +192,17 @@ namespace Game.Feature.Gameplay.Entities
             };
         }
 
+        private bool HasLegacyLandingPendingRecord =>
+            (int)phase == LegacyLandingPendingPhaseValue ||
+            (phase == EnemyGlidePhase.Ready && isLandingPending);
+
         private EnemyGlidePhase ResolvePhase()
         {
+            if (HasLegacyLandingPendingRecord)
+            {
+                return EnemyGlidePhase.Active;
+            }
+
             if (phase != EnemyGlidePhase.Ready)
             {
                 return phase;
@@ -259,7 +213,7 @@ namespace Game.Feature.Gameplay.Entities
                 return EnemyGlidePhase.Active;
             }
 
-            return isLandingPending ? EnemyGlidePhase.LandingPending : EnemyGlidePhase.Ready;
+            return EnemyGlidePhase.Ready;
         }
     }
 
@@ -301,7 +255,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: timingSettings.GlideMoveTicks,
                 lastExitedTick: previousState.LastExitedTick,
                 wantsRecover: false,
-                landingPendingCell: default,
                 hasLockedStep: true,
                 lockedStepX: lockedStep.x,
                 lockedStepY: lockedStep.y,
@@ -339,7 +292,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: 0,
                 lastExitedTick: state.LastExitedTick,
                 wantsRecover: false,
-                landingPendingCell: default,
                 initialDelayInitialized: true,
                 initialDelayTicksRemaining: remainingTicks);
         }
@@ -366,7 +318,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: state.GlideMoveTicks,
                 lastExitedTick: state.LastExitedTick,
                 wantsRecover: false,
-                landingPendingCell: default,
                 hasLockedStep: hasLockedStep || state.HasLockedStep,
                 lockedStepX: hasLockedStep ? lockedStep.Value.x : state.LockedStepX,
                 lockedStepY: hasLockedStep ? lockedStep.Value.y : state.LockedStepY,
@@ -391,7 +342,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: state.GlideMoveTicks,
                 lastExitedTick: state.LastExitedTick,
                 wantsRecover: true,
-                landingPendingCell: default,
                 hasLockedStep: state.HasLockedStep,
                 lockedStepX: state.LockedStepX,
                 lockedStepY: state.LockedStepY,
@@ -418,7 +368,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: state.GlideMoveTicks,
                 lastExitedTick: state.LastExitedTick,
                 wantsRecover: false,
-                landingPendingCell: default,
                 hasLockedStep: state.HasLockedStep,
                 lockedStepX: state.LockedStepX,
                 lockedStepY: state.LockedStepY,
@@ -445,7 +394,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: state.GlideMoveTicks,
                 lastExitedTick: tickIndex,
                 wantsRecover: false,
-                landingPendingCell: default,
                 hasLockedStep: state.HasLockedStep,
                 lockedStepX: state.LockedStepX,
                 lockedStepY: state.LockedStepY,
@@ -481,7 +429,6 @@ namespace Game.Feature.Gameplay.Entities
                 glideMoveTicks: 0,
                 lastExitedTick: state.LastExitedTick,
                 wantsRecover: false,
-                landingPendingCell: default,
                 initialDelayInitialized: state.InitialDelayInitialized,
                 initialDelayTicksRemaining: state.InitialDelayTicksRemaining);
         }

@@ -4439,7 +4439,7 @@ namespace Game.Feature.Gameplay.Loop
                         presentationSettings.RecoveryDipHeightUnits,
                         currentHeightUnits,
                         IsGlideVisualPhase(resolvedState.Phase) && currentHeightUnits != 0,
-                        resolvedState.Phase == EnemyGlidePhase.LandingPending,
+                        resolvedState.WantsRecover,
                         isTerminalZero));
             }
         }
@@ -4502,7 +4502,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             return phase == EnemyGlidePhase.Windup ||
                    phase == EnemyGlidePhase.Active ||
-                   phase == EnemyGlidePhase.LandingPending ||
                    phase == EnemyGlidePhase.Recovery;
         }
 
@@ -4545,7 +4544,6 @@ namespace Game.Feature.Gameplay.Loop
                     return LerpUnits(0, liftHeightUnits, progress);
 
                 case EnemyGlidePhase.Active:
-                case EnemyGlidePhase.LandingPending:
                     return liftHeightUnits;
 
                 case EnemyGlidePhase.Recovery:

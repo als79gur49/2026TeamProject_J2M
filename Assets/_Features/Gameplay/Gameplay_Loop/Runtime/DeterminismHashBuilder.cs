@@ -883,7 +883,6 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.EntityId).Append('|')
                     .Append((int)entry.State.Phase).Append('|')
                     .Append(entry.State.IsActive ? 1 : 0).Append('|')
-                    .Append(entry.State.IsLandingPending ? 1 : 0).Append('|')
                     .Append(entry.State.WantsRecover ? 1 : 0).Append('|')
                     .Append(entry.State.Sequence).Append('|')
                     .Append(entry.State.WindupUntilTickExclusive).Append('|')
@@ -898,9 +897,6 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.LastExitedTick).Append('|')
                     .Append(entry.State.InitialDelayInitialized ? 1 : 0).Append('|')
                     .Append(entry.State.InitialDelayTicksRemaining).Append('|')
-                    .Append((int)entry.State.LandingPendingCell.face).Append('|')
-                    .Append(entry.State.LandingPendingCell.x).Append('|')
-                    .Append(entry.State.LandingPendingCell.y).Append('|')
                     .Append(entry.State.LockedTargetEntityId).Append('\n');
             }
         }

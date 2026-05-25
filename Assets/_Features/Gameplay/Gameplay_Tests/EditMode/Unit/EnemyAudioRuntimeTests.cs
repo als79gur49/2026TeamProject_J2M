@@ -1222,7 +1222,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 recoveryDipHeightUnits: 0,
                 currentHeightUnits: phase == EnemyGlidePhase.Active ? 1024 : 0,
                 isAirborneVisual: phase == EnemyGlidePhase.Active,
-                isLandingPending: false,
+                wantsRecover: false,
                 isTerminalZero: false);
         }
 

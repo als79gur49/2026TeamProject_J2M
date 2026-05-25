@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame =>
-                frame.Trace.Contains("Phase=Active|Active=1|LandingPending=0|WantsRecover=1", StringComparison.Ordinal)), Is.True);
+                frame.Trace.Contains("Phase=Active|Active=1|WantsRecover=1", StringComparison.Ordinal)), Is.True);
         }
 
         [Test]
@@ -160,7 +160,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     glideMoveTicks: glideMoveTicks,
                     lastExitedTick: 0,
                     wantsRecover: wantsRecover,
-                    landingPendingCell: default,
                     hasLockedStep: true,
                     lockedStepX: 1,
                     lockedStepY: 0,

@@ -1569,15 +1569,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     durationTicks: 3,
                     recoveryTicks: 1,
                     cooldownTicks: 2,
-                    lastExitedTick: 0,
-                    landingPendingCell: default));
+                    lastExitedTick: 0));
 
             var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
             var glideResult = GameplayCompositionRoot.CreateTickPipeline(glideWorldState).RunTick(new TickInput(1));
 
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(glideResult.DeterminismHash));
             Assert.That(glideResult.Trace.Text, Does.Contain("Final.EnemyGlides"));
-            Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Phase=Active|Active=1|LandingPending=0|WantsRecover=0|Seq=2|WindupUntil=0|ActiveUntil=8|RecoveryUntil=0|CooldownUntil=0|Windup=1|Duration=3|Recovery=1|Cooldown=2|GlideMoveTicks=2|LastExited=0"));
+            Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Phase=Active|Active=1|WantsRecover=0|Seq=2|WindupUntil=0|ActiveUntil=8|RecoveryUntil=0|CooldownUntil=0|Windup=1|Duration=3|Recovery=1|Cooldown=2|GlideMoveTicks=2|LastExited=0"));
             Assert.That(glideResult.Trace.Text, Does.Contain("LockedTarget=0"));
         }
 
@@ -1608,7 +1607,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     recoveryTicks: 1,
                     cooldownTicks: 2,
                     lastExitedTick: 0,
-                    landingPendingCell: default,
                     lockedTargetEntityId: 10));
             secondWorldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -1624,7 +1622,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     recoveryTicks: 1,
                     cooldownTicks: 2,
                     lastExitedTick: 0,
-                    landingPendingCell: default,
                     lockedTargetEntityId: 20));
 
             var firstResult = GameplayCompositionRoot.CreateTickPipeline(firstWorldState).RunTick(new TickInput(1));

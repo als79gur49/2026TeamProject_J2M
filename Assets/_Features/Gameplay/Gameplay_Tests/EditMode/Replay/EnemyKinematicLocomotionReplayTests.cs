@@ -242,10 +242,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 // New 3-phase Glide keeps Active airborne state stable instead of forcing an
                 // old anchor commit while the solid bypass/landing path is still resolving.
                 Assert.That(firstLandingReplay[9].Trace, Does.Not.Contain("GlideActiveKinematicAnchorCommit"));
-                Assert.That(firstLandingReplay[9].Trace, Does.Contain("Phase=Active|Active=1|LandingPending=0|WantsRecover=0"));
+                Assert.That(firstLandingReplay[9].Trace, Does.Contain("Phase=Active|Active=1|WantsRecover=0"));
                 Assert.That(firstLandingReplay[9].OccupancyDump, Does.Contain("Layer=Solid|Cell=(1,0)|E=30|Face=Floor"));
                 Assert.That(firstLandingReplay[9].OccupancyDump, Does.Contain("Layer=Unit|Cell=(2,0)|E=40|Face=Floor"));
-                Assert.That(firstLandingReplay[11].Trace, Does.Contain("Phase=Active|Active=1|LandingPending=0|WantsRecover=1"));
+                Assert.That(firstLandingReplay[11].Trace, Does.Contain("Phase=Active|Active=1|WantsRecover=1"));
                 Assert.That(
                     firstLandingReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
                                                     frame.EventLogDump.Contains("KinematicPoseCommitted", StringComparison.Ordinal)),
@@ -289,7 +289,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
                 AssertEquivalentReplayOutputs(firstReplay, secondReplay);
                 Assert.That(
-                    firstReplay.Any(frame => frame.Trace.Contains("Phase=Active|Active=1|LandingPending=0|WantsRecover=1", StringComparison.Ordinal)),
+                    firstReplay.Any(frame => frame.Trace.Contains("Phase=Active|Active=1|WantsRecover=1", StringComparison.Ordinal)),
                     Is.True);
             }
             finally
@@ -1515,7 +1515,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     recoveryTicks: 1,
                     cooldownTicks: 0,
                     lastExitedTick: 0,
-                    landingPendingCell: default,
                     hasLockedStep: true,
                     lockedStepX: 1,
                     lockedStepY: 0));
@@ -1539,7 +1538,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     recoveryTicks: 1,
                     cooldownTicks: 0,
                     lastExitedTick: 0,
-                    landingPendingCell: default,
                     hasLockedStep: true,
                     lockedStepX: 1,
                     lockedStepY: 0));
