@@ -29,6 +29,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField, Range(0f, 1f)] private float gravityFieldDimFactor = 0.55f;
         [SerializeField] private Color gravityFieldLockedTint = new(0.45f, 0.55f, 0.85f, 1f);
         [SerializeField, Range(0f, 1f)] private float gravityFieldTintStrength = 0.15f;
+        [SerializeField, Range(0f, 1f)] private float gravityFieldEmissionSuppression = 0.85f;
         [SerializeField, Min(0f)] private float lockRevealInSeconds = 0.234f;
         [SerializeField, Min(0f)] private float lockRevealOutSeconds = 0.208f;
         [SerializeField, Range(0.001f, 0.5f)] private float gravityFieldLockEdgeWidth = 0.08f;
@@ -40,6 +41,7 @@ namespace Game.Feature.Gameplay.Host
         private static readonly int GravityFieldLockedTintId = Shader.PropertyToID("_GravityFieldLockedTint");
         private static readonly int GravityFieldDimFactorId = Shader.PropertyToID("_GravityFieldDimFactor");
         private static readonly int GravityFieldTintStrengthId = Shader.PropertyToID("_GravityFieldTintStrength");
+        private static readonly int GravityFieldEmissionSuppressionId = Shader.PropertyToID("_GravityFieldEmissionSuppression");
         private const float RevealEpsilon = 0.0001f;
 
         private readonly HashSet<int> _activeEmitterEntityIds = new();
@@ -312,6 +314,7 @@ namespace Game.Feature.Gameplay.Host
                 _propertyBlock.SetColor(GravityFieldLockedTintId, gravityFieldLockedTint);
                 _propertyBlock.SetFloat(GravityFieldDimFactorId, gravityFieldDimFactor);
                 _propertyBlock.SetFloat(GravityFieldTintStrengthId, gravityFieldTintStrength);
+                _propertyBlock.SetFloat(GravityFieldEmissionSuppressionId, gravityFieldEmissionSuppression);
                 targetRenderer.SetPropertyBlock(_propertyBlock);
                 _propertyBlock.Clear();
             }

@@ -843,6 +843,9 @@ namespace Game.Feature.Gameplay.Host
             var isGameplayAutonomySuppressed = isEnemy &&
                                                authoritativeFace.HasValue &&
                                                authoritativeFace.Value != _stateStore.CommittedTopology.BottomFace;
+            var isOnVisualFrontFace = isEnemy &&
+                                      authoritativeFace.HasValue &&
+                                      authoritativeFace.Value == _stateStore.CommittedTopology.FrontFace;
 
             return new EnemyVisualPresentationFacts(
                 entityId,
@@ -863,7 +866,8 @@ namespace Game.Feature.Gameplay.Host
                 hasActiveMotion,
                 HasJumpAirborneVisualState(entityId),
                 hasActiveBoardRotationTween,
-                isJumpTopologySuspended);
+                isJumpTopologySuspended,
+                isOnVisualFrontFace);
         }
     }
 }

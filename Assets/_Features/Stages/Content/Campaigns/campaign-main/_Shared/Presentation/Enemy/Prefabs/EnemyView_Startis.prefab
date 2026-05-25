@@ -113,7 +113,11 @@ MonoBehaviour:
   windupStateName: 
   jumpWindupStateName: 
   jumpAirborneStateName: 
+  chargeActiveStateName: Charge
   recoveryStateName: 
+  glideWindupStateName: Fly_Start
+  glideActiveStateName: Fly_Loop
+  glideRecoveryStateName: Fly_Done
   windupTriggerName: 
   jumpWindupTriggerName: 
   jumpAirborneTriggerName: 
@@ -171,7 +175,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
   profile: {fileID: 11400000, guid: df935bb388be4b518a80dd0c4d05d987, type: 2}
 --- !u!1 &2259020828330858425
@@ -240,7 +244,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f0b2adb2f01a0994b9cb9ce372e87744, type: 2}
+  - {fileID: 2100000, guid: 7ab693c6e17c4aa4cbc58efcb562944d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -506,8 +510,8 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 629fe32b042ed4440ada6aa41082a002, type: 2}
-  - {fileID: 2100000, guid: b334f41f38cbb41468ae86a2f1c866c4, type: 2}
+  - {fileID: 2100000, guid: 71f4930d6062c9947b4f57800d198806, type: 2}
+  - {fileID: 2100000, guid: 2237ad13f9e786545a70c2cc24fa80d0, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

@@ -137,6 +137,7 @@ namespace Game.Feature.Gameplay.Host
         public EnemyPresentationArchetypeCatalog EnemyPresentationArchetypeCatalog;
         public EnemyPresentationCatalog EnemyPresentationCatalog;
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
+        public EnemyInactiveVisualSettings EnemyInactiveVisualSettings;
         public StaticEntityPresentationCatalog StaticEntityPresentationCatalog;
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
         public BoardPresentationProfile BoardPresentationProfile;

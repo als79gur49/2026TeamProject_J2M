@@ -46,6 +46,7 @@ Shader "Game/Presentation/GravityFieldLockableBoxLit"
         _GravityFieldLockedTint("Gravity Field Locked Tint", Color) = (0.45, 0.55, 0.85, 1.0)
         _GravityFieldDimFactor("Gravity Field Dim Factor", Range(0.0, 1.0)) = 0.55
         _GravityFieldTintStrength("Gravity Field Tint Strength", Range(0.0, 1.0)) = 0.15
+        _GravityFieldEmissionSuppression("Gravity Field Emission Suppression", Range(0.0, 1.0)) = 0.85
 
         _DetailMask("Detail Mask", 2D) = "white" {}
         _DetailAlbedoMapScale("Scale", Range(0.0, 2.0)) = 1.0

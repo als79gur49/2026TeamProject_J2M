@@ -38,7 +38,8 @@ namespace Game.Feature.Gameplay.Host
                     initialState.EnemyPresentationBindings),
                 ResolveStaticEntityViewPrefabs(
                     initialState.StaticEntityPresentationCatalog,
-                    initialState.StaticEntityPresentationBindings));
+                    initialState.StaticEntityPresentationBindings),
+                EnemyInactiveVisualSettings);
         }
 
         protected override GameplayEntityView ResolvePlayerViewPrefab()

@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Transform _parent;
         private readonly int _playerEntityId;
         private readonly IReadOnlyDictionary<int, GameplayEntityView> _enemyViewPrefabsByEntityId;
+        private readonly EnemyInactiveVisualSettings _enemyInactiveVisualSettings;
         private readonly IReadOnlyDictionary<int, GameplayEntityView> _staticViewPrefabsByEntityId;
         private readonly Material _unitMaterial;
         private readonly Material _wallMaterial;
@@ -26,7 +27,8 @@ namespace Game.Feature.Gameplay.Host
             int playerEntityId,
             GameplayEntityView playerViewPrefab = null,
             IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null,
-            IReadOnlyDictionary<int, GameplayEntityView> staticViewPrefabsByEntityId = null)
+            IReadOnlyDictionary<int, GameplayEntityView> staticViewPrefabsByEntityId = null,
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             _parent = parent;
             _cellSize = cellSize;
@@ -34,6 +36,7 @@ namespace Game.Feature.Gameplay.Host
             _playerViewPrefab = playerViewPrefab;
             _enemyViewPrefabsByEntityId = enemyViewPrefabsByEntityId;
             _staticViewPrefabsByEntityId = staticViewPrefabsByEntityId;
+            _enemyInactiveVisualSettings = enemyInactiveVisualSettings;
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
 
             if (shader == null)
@@ -98,7 +101,8 @@ namespace Game.Feature.Gameplay.Host
                 prefab,
                 _parent,
                 entity,
-                nameof(DefaultGameplayEntityViewFactory));
+                nameof(DefaultGameplayEntityViewFactory),
+                _enemyInactiveVisualSettings);
             view = instance;
             return true;
         }
@@ -144,6 +148,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 viewObject.AddComponent<EnemyAnimatorDriver>();
                 var inactiveVisualController = viewObject.AddComponent<EnemyInactiveVisualController>();
+                inactiveVisualController.Configure(_enemyInactiveVisualSettings);
                 inactiveVisualController.ConfigureLegacyColorFallback(true);
             }
 

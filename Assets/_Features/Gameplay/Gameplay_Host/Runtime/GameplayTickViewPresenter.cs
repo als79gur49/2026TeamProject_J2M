@@ -83,7 +83,8 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null,
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
-            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,
@@ -99,7 +100,8 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationArchetypeRegistry,
                 enemyPresentationCatalog,
                 enemyPresentationBindings,
-                tileFeatureVfxStyleBindings);
+                tileFeatureVfxStyleBindings,
+                enemyInactiveVisualSettings);
             CapturePresentationState();
         }
 

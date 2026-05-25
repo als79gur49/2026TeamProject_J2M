@@ -37,8 +37,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string GravityFieldLockedTintProperty = "_GravityFieldLockedTint";
         private const string GravityFieldDimFactorProperty = "_GravityFieldDimFactor";
         private const string GravityFieldTintStrengthProperty = "_GravityFieldTintStrength";
+        private const string GravityFieldEmissionSuppressionProperty = "_GravityFieldEmissionSuppression";
         private const float GravityFieldLockRevealInSeconds = 0.234f;
         private const float GravityFieldLockRevealOutSeconds = 0.208f;
+        private const string EnemyInactiveBlendProperty = "_InactiveBlend";
+        private const string EnemyInactiveNoiseRevealProperty = "_InactiveNoiseReveal";
+        private const string EnemyInactiveTintProperty = "_InactiveTint";
+        private const string EnemyInactiveDesaturateStrengthProperty = "_DesaturateStrength";
+        private const string EnemyInactiveEmissionSuppressionProperty = "_EmissionSuppression";
+        private const float EnemyInactiveRevealInSeconds = 0.25f;
+        private const float EnemyInactiveRevealOutSeconds = 0.18f;
         private const string StaticBoxShowcasePrefabPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Boxes/Prefabs/StaticView_Box_Showcase.prefab";
         private const string StaticBoxShowcaseMaterialPath =
@@ -663,6 +671,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GetRendererColor(renderer, GravityFieldLockedTintProperty));
                 Assert.That(GetRendererFloat(renderer, GravityFieldDimFactorProperty), Is.EqualTo(0.55f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldTintStrengthProperty), Is.EqualTo(0.15f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty), Is.EqualTo(0.85f).Within(0.0001f));
 
                 target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealInSeconds * 0.5f);
 
@@ -673,6 +682,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(target.DebugCurrentLockReveal, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldLockRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionSuppression()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionSuppression));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "gravityFieldEmissionSuppression", 0.42f);
+
+                target.ApplyGravityFieldLockedTarget(1);
+
+                Assert.That(
+                    GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty),
+                    Is.EqualTo(0.42f).Within(0.0001f));
             }
             finally
             {
@@ -845,6 +881,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Assert.That(material.HasProperty(GravityFieldLockRevealProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockNoiseMapProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockEdgeWidthProperty), Is.True, $"{prefabPath} {material.name}");
+                        Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, $"{prefabPath} {material.name}");
                         Assert.That(
                             material.GetFloat(GravityFieldLockEdgeWidthProperty),
@@ -871,6 +908,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(material, Is.Not.Null, materialPath);
                 Assert.That(material.shader, Is.SameAs(lockableShader), materialPath);
+                Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, materialPath);
                 Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, materialPath);
                 Assert.That(material.GetFloat(GravityFieldLockEdgeWidthProperty), Is.InRange(0.001f, 0.5f), materialPath);
             }
@@ -7096,6 +7134,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(facts.IsTransitionOnlyVisible, Is.False);
                 Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Front));
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                Assert.That(facts.IsOnVisualFrontFace, Is.True);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
@@ -7111,6 +7150,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        [TestCase(FaceId.Front, FaceId.Ceiling, GameplayProjectedFaceSlot.Top)]
+        [TestCase(FaceId.Ceiling, FaceId.Back, GameplayProjectedFaceSlot.Back)]
+        [TestCase(FaceId.Back, FaceId.Floor, GameplayProjectedFaceSlot.Bottom)]
+        public void GameplayTickPresentationCoordinator_CommittedVisualFrontEnemy_StoresInactiveSemantic(FaceId bottomFace, FaceId enemyFace, GameplayProjectedFaceSlot expectedProjectedSlot)
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_CommittedVisualFrontEnemy_StoresInactiveSemantic");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(bottomFace);
+                var enemyCell = new SurfaceCell(enemyFace, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, enemyCell) }, topology);
+
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
+                Assert.That(facts.IsEnemy, Is.True);
+                Assert.That(facts.IsVisible, Is.True);
+                Assert.That(facts.IsCommittedVisible, Is.True);
+                Assert.That(facts.ProjectedSlot, Is.EqualTo(expectedProjectedSlot));
+                Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                Assert.That(facts.IsOnVisualFrontFace, Is.True);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
+                Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.True);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.GetComponent<EnemyInactiveVisualController>().CurrentActivityState,
+                    Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>().IsPlaybackSuppressed, Is.True);
+            }
+            finally
+            {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -7153,6 +7249,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(facts.IsVisible, Is.True);
                     Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Top));
                     Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                    Assert.That(facts.IsOnVisualFrontFace, Is.False);
                 }
 
                 if (stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic))
@@ -7210,6 +7307,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(facts.IsVisible, Is.True);
                 Assert.That(facts.IsCommittedVisible, Is.True);
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+                Assert.That(facts.IsOnVisualFrontFace, Is.False);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
@@ -7260,6 +7358,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(facts.IsCommittedVisible, Is.True);
                 Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Front));
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+                Assert.That(facts.IsOnVisualFrontFace, Is.False);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
@@ -7308,6 +7407,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
                 Assert.That(facts.IsEnemy, Is.True);
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+                Assert.That(facts.IsOnVisualFrontFace, Is.True);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
@@ -7355,6 +7455,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
                 Assert.That(facts.IsEnemy, Is.True);
                 Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+                Assert.That(facts.IsOnVisualFrontFace, Is.False);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
@@ -7386,7 +7487,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Front,
                 isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: true);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7412,7 +7514,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Front,
                 isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: true);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7438,13 +7541,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Front,
                 isGameplayAutonomySuppressed: false,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 
             Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
             Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
             Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DefaultEnemyVisualSemanticResolver_PhysicalFrontSuppressedNonVisualFront_ResolvesNormal()
+        {
+            var resolver = new DefaultEnemyVisualSemanticResolver();
+            var facts = new EnemyVisualPresentationFacts(
+                entityId: 20,
+                isEnemy: true,
+                isVisible: true,
+                isCommittedVisible: true,
+                isTransitionVisible: false,
+                isTransitionOnlyVisible: false,
+                isJumpDetachedVisible: false,
+                isJumpLandingCompletionHeld: false,
+                projectedSlot: GameplayProjectedFaceSlot.Front,
+                isGameplayAutonomySuppressed: true,
+                aiMode: EnemyAiMode.Patrol,
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
+
+            var semantic = resolver.Resolve(facts);
+
+            Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
+            Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
+            Assert.That(semantic.ShouldPauseAutonomousPresentation, Is.True);
         }
 
         [Test]
@@ -7464,7 +7595,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Top,
                 isGameplayAutonomySuppressed: false,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7490,7 +7622,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Top,
                 isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7516,7 +7649,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projectedSlot: GameplayProjectedFaceSlot.Top,
                 isGameplayAutonomySuppressed: false,
                 aiMode: EnemyAiMode.Patrol,
-                hasActiveMotion: false);
+                hasActiveMotion: false,
+                isOnVisualFrontFace: false);
 
             var semantic = resolver.Resolve(facts);
 
@@ -7615,6 +7749,370 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_ConfigureSettings_AppliesInactiveTintAndStrengths()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_ConfigureSettings_AppliesInactiveTintAndStrengths));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.25f, 0.5f, 0.75f, 1f),
+                desaturateStrength: 0.35f,
+                emissionSuppression: 0.45f);
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Configure(settings);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                AssertColorApproximately(
+                    new Color(0.25f, 0.5f, 0.75f, 1f),
+                    GetRendererColor(renderer, EnemyInactiveTintProperty));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.35f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.45f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_ConfigureSettings_DoesNotResetRevealState()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_ConfigureSettings_DoesNotResetRevealState));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.1f, 0.2f, 0.3f, 1f),
+                desaturateStrength: 0.4f,
+                emissionSuppression: 0.5f);
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds * 0.5f);
+                var revealBeforeConfigure = controller.CurrentInactiveNoiseReveal;
+
+                controller.Configure(settings);
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(revealBeforeConfigure).Within(0.0001f));
+                Assert.That(controller.TargetInactiveNoiseReveal, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(controller.IsInactiveGateEnabled, Is.True);
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.GreaterThan(0f).And.LessThan(1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_FrontFaceInactive_StartsNoiseReveal()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_FrontFaceInactive_StartsNoiseReveal));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                Assert.That(controller.CurrentActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(controller.CurrentInactiveBlend, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(controller.IsInactiveGateEnabled, Is.True);
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(controller.TargetInactiveNoiseReveal, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_FrontFaceInactive_AdvancesRevealIn()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_FrontFaceInactive_AdvancesRevealIn));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds * 0.5f);
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.GreaterThan(0f).And.LessThan(1f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.GreaterThan(0f).And.LessThan(1f));
+
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds * 0.5f + 0.01f);
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_Clear_StartsRevealOutButKeepsGate()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_Clear_StartsRevealOutButKeepsGate));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds + 0.01f);
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+
+                Assert.That(controller.CurrentActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
+                Assert.That(controller.IsInactiveGateEnabled, Is.True);
+                Assert.That(controller.TargetInactiveNoiseReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_Clear_AdvancesRevealOutAndDisablesGateAfterCompletion()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_Clear_AdvancesRevealOutAndDisablesGateAfterCompletion));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds + 0.01f);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealOutSeconds * 0.5f);
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.GreaterThan(0f).And.LessThan(1f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.GreaterThan(0f).And.LessThan(1f));
+
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealOutSeconds * 0.5f + 0.01f);
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(controller.IsInactiveGateEnabled, Is.False);
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_OnDisable_ResetsRevealImmediately()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_OnDisable_ResetsRevealImmediately));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds + 0.01f);
+
+                typeof(EnemyInactiveVisualController)
+                    .GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(controller, Array.Empty<object>());
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(controller.TargetInactiveNoiseReveal, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(controller.IsInactiveGateEnabled, Is.False);
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_PreservesExistingPropertyBlockValues()
+        {
+            const string existingPropertyName = "_ExistingEnemyInactiveMpbValue";
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_PreservesExistingPropertyBlockValues));
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+
+            try
+            {
+                var existingBlock = new MaterialPropertyBlock();
+                existingBlock.SetFloat(existingPropertyName, 0.75f);
+                renderer.SetPropertyBlock(existingBlock);
+
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds * 0.5f);
+
+                Assert.That(GetRendererFloat(renderer, existingPropertyName), Is.EqualTo(0.75f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveNoiseRevealProperty), Is.GreaterThan(0f).And.LessThan(1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisualController_NullAndEmptyRenderers_NoOp()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_NullAndEmptyRenderers_NoOp));
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                PlayerViewPrefabTestUtility.SetSerializedField(controller, "targetRenderers", new Renderer[] { null });
+
+                Assert.DoesNotThrow(() => controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive)));
+                Assert.DoesNotThrow(() => controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds));
+                Assert.DoesNotThrow(() => controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal)));
+
+                PlayerViewPrefabTestUtility.SetSerializedField(controller, "targetRenderers", Array.Empty<Renderer>());
+
+                Assert.DoesNotThrow(() => controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive)));
+                Assert.DoesNotThrow(() => controller.AdvanceInactiveNoiseReveal(EnemyInactiveRevealInSeconds));
+                Assert.DoesNotThrow(() => controller.ResetVisual());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsLegacyFallback()
+        {
+            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsLegacyFallback));
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.18f, 0.28f, 0.38f, 1f),
+                desaturateStrength: 0.22f,
+                emissionSuppression: 0.66f);
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    cellSize: 1f,
+                    playerEntityId: 10,
+                    enemyInactiveVisualSettings: settings);
+
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                var view = factory.CreateView(enemy);
+                var renderer = view.GetComponentInChildren<Renderer>();
+
+                Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
+                Assert.That(controller.AllowLegacyColorFallback, Is.True);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                AssertColorApproximately(new Color(0.18f, 0.28f, 0.38f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.22f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.66f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutLegacyFallback()
+        {
+            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutLegacyFallback));
+            var prefabObject = new GameObject("EnemyPrefabWithInactiveSettings");
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.42f, 0.33f, 0.24f, 1f),
+                desaturateStrength: 0.31f,
+                emissionSuppression: 0.72f);
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                prefabObject.AddComponent<EnemyAnimatorDriver>();
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(prefabObject.transform, worldPositionStays: false);
+
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    cellSize: 1f,
+                    playerEntityId: 10,
+                    enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        [20] = prefabView,
+                    },
+                    enemyInactiveVisualSettings: settings);
+
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                var view = factory.CreateView(enemy);
+                var renderer = view.GetComponentInChildren<Renderer>();
+
+                Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
+                Assert.That(controller.AllowLegacyColorFallback, Is.False);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                AssertColorApproximately(new Color(0.42f, 0.33f, 0.24f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.31f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.72f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(settings);
+                UnityEngine.Object.DestroyImmediate(prefabObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -8948,6 +9446,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var propertyBlock = new MaterialPropertyBlock();
             targetRenderer.GetPropertyBlock(propertyBlock);
             return propertyBlock.GetColor(propertyName);
+        }
+
+        private static EnemyInactiveVisualSettings CreateEnemyInactiveVisualSettings(
+            Color inactiveTint,
+            float desaturateStrength,
+            float emissionSuppression,
+            float revealInSeconds = 0.25f,
+            float revealOutSeconds = 0.18f)
+        {
+            var settings = ScriptableObject.CreateInstance<EnemyInactiveVisualSettings>();
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveTint", inactiveTint);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "desaturateStrength", desaturateStrength);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "emissionSuppression", emissionSuppression);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealInSeconds", revealInSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealOutSeconds", revealOutSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                settings,
+                "inactiveRevealCurve",
+                AnimationCurve.Linear(0f, 0f, 1f, 1f));
+            return settings;
         }
 
         private static void AssertColorApproximately(Color expected, Color actual, float tolerance = 0.0001f)

@@ -285,7 +285,8 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null,
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
-            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             if (viewBinder == null)
             {
@@ -336,7 +337,8 @@ namespace Game.Feature.Gameplay.Host
                 viewBinder.ViewRegistry,
                 _stateStore,
                 _animationSync,
-                enemyPresentationArchetypeRegistry);
+                enemyPresentationArchetypeRegistry,
+                enemyInactiveVisualSettings);
             _moonBlockEmergencePresentationController.ResetSession();
 
             _isInitialized = true;

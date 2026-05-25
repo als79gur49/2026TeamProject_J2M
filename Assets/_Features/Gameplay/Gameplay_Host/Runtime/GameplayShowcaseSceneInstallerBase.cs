@@ -155,11 +155,14 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GravityFieldAudioMap gravityFieldAudioMap;
         [SerializeField] private BlockAudioMap blockAudioMap;
         [SerializeField] private PlayerLocomotionAudioMap playerLocomotionAudioMap;
+        [SerializeField] private EnemyInactiveVisualSettings enemyInactiveVisualSettings;
         [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
 
         protected float CellSize => cellSize;
+
+        protected EnemyInactiveVisualSettings EnemyInactiveVisualSettings => enemyInactiveVisualSettings;
 
         protected float FaceSeamGap => ResolveFaceSeamGap();
 
@@ -258,7 +261,8 @@ namespace Game.Feature.Gameplay.Host
                     initialState.EnemyPresentationBindings),
                 ResolveStaticEntityViewPrefabs(
                     ResolveConfiguredStaticEntityPresentationCatalog(initialState),
-                    initialState.StaticEntityPresentationBindings));
+                    initialState.StaticEntityPresentationBindings),
+                enemyInactiveVisualSettings);
         }
 
         protected virtual EnemyAiProfile ResolveDefaultEnemyAiProfile()
@@ -406,6 +410,7 @@ namespace Game.Feature.Gameplay.Host
                 StageContentEntry = initialState.StageContentEntry,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
                 EnemyPresentationCatalog = ResolveConfiguredEnemyPresentationCatalog(initialState),
+                EnemyInactiveVisualSettings = enemyInactiveVisualSettings,
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
                 StaticEntityPresentationCatalog = ResolveConfiguredStaticEntityPresentationCatalog(initialState),
                 BoardPresentationProfile = initialState.BoardPresentationProfile,
