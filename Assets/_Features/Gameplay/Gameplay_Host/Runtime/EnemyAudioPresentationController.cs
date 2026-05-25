@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class EnemyAudioPresentationController
     {
         private readonly EnemyMoveCadenceGate _moveCadenceGate = new();
+        private readonly EnemyStationaryActiveCadenceGate _stationaryActiveCadenceGate = new();
         private readonly List<ScheduledEnemyAudioRequest> _pendingRequests = new();
         private readonly GameplayPresentationStateStore _stateStore;
 
@@ -23,6 +24,7 @@ namespace Game.Feature.Gameplay.Host
         public void ConfigureMoveCadence(int simulationTicksPerSecond)
         {
             _moveCadenceGate.Configure(simulationTicksPerSecond);
+            _stationaryActiveCadenceGate.Configure(simulationTicksPerSecond);
         }
 
         public void AttachRuntime(IGameplayAudioPlaybackPort playbackPort)
@@ -30,12 +32,14 @@ namespace Game.Feature.Gameplay.Host
             _playbackPort = playbackPort ?? throw new ArgumentNullException(nameof(playbackPort));
             ClearPendingPlan();
             _moveCadenceGate.ResetState();
+            _stationaryActiveCadenceGate.ResetState();
         }
 
         public void DetachRuntime()
         {
             ClearPendingPlan();
             _moveCadenceGate.ResetState();
+            _stationaryActiveCadenceGate.ResetState();
             _playbackPort = null;
         }
 
@@ -43,6 +47,7 @@ namespace Game.Feature.Gameplay.Host
         {
             ClearPendingPlan();
             _moveCadenceGate.ResetState();
+            _stationaryActiveCadenceGate.ResetState();
         }
 
         public void ReplacePendingPlan(IReadOnlyList<EnemyAudioRequest> plannedRequests)
@@ -134,6 +139,12 @@ namespace Game.Feature.Gameplay.Host
 
             if (request.Cue == EnemyAudioCue.Move &&
                 !_moveCadenceGate.ShouldPlayMove(request.OwnerEntityId, tickIndex))
+            {
+                return;
+            }
+
+            if (request.Cue == EnemyAudioCue.StationaryActive &&
+                !_stationaryActiveCadenceGate.ShouldPlayStationaryActive(request.OwnerEntityId, tickIndex))
             {
                 return;
             }

@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
             timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             var enemyEntityIds = BuildEnemyEntityIdSet(result.FinalEntities);
+            var motionFactEntityIds = BuildMotionFactEntityIdSet(result.PresentationData);
             var requests = new List<EnemyAudioRequest>();
             BuildMoveRequests(result.PresentationData, result.TickIndex, enemyEntityIds, requests);
             BuildActionRequests(result.PresentationData, requests);
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
             BuildChargeRequests(result.PresentationData, requests);
             BuildProjectileImpactRequests(result.PresentationData, requests);
             BuildDeathRequests(result.PresentationData, timingProfile, requests);
+            BuildStationaryActiveRequests(result.FinalEntities, motionFactEntityIds, requests);
             return requests;
         }
 
@@ -42,6 +44,30 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 if (EntityRolePolicy.IsEnemyUnit(entity))
                 {
                     entityIds.Add(entity.entityId);
+                }
+            }
+
+            return entityIds;
+        }
+
+        private static HashSet<int> BuildMotionFactEntityIdSet(TickPresentationData presentationData)
+        {
+            var entityIds = new HashSet<int>();
+            var motions = presentationData.EntityMotions;
+            for (var i = 0; i < motions.Count; i++)
+            {
+                if (motions[i].EntityId > 0)
+                {
+                    entityIds.Add(motions[i].EntityId);
+                }
+            }
+
+            var kinematicTracks = presentationData.KinematicMotionTracks;
+            for (var i = 0; i < kinematicTracks.Count; i++)
+            {
+                if (kinematicTracks[i].EntityId > 0)
+                {
+                    entityIds.Add(kinematicTracks[i].EntityId);
                 }
             }
 
@@ -298,6 +324,39 @@ namespace Game.Feature.Gameplay.EnemyAudio
                     : 0f;
                 AddRequest(signal.ExitedEntityId, EnemyAudioCue.Death, requests, delaySeconds);
             }
+        }
+
+        private static void BuildStationaryActiveRequests(
+            IReadOnlyList<EntityState> finalEntities,
+            ISet<int> motionFactEntityIds,
+            ICollection<EnemyAudioRequest> requests)
+        {
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                if (!EntityRolePolicy.IsEnemyUnit(entity) ||
+                    entity.entityId <= 0 ||
+                    motionFactEntityIds.Contains(entity.entityId) ||
+                    HasRequestForOwner(requests, entity.entityId))
+                {
+                    continue;
+                }
+
+                AddRequest(entity.entityId, EnemyAudioCue.StationaryActive, requests);
+            }
+        }
+
+        private static bool HasRequestForOwner(IEnumerable<EnemyAudioRequest> requests, int ownerEntityId)
+        {
+            foreach (var request in requests)
+            {
+                if (request.OwnerEntityId == ownerEntityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void AddRequestIf(
