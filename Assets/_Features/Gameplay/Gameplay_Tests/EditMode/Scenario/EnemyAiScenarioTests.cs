@@ -1058,9 +1058,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtilitySummon_IneligibleDuringWindup_CancelsAndRestartsFullWindup()
+        public void EnemyUtilityWindup_TopologyParticipationRestored_ResumesFromSuspendedPhase()
         {
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 1);
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 2);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(
@@ -1075,38 +1075,95 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
 
                 var firstWarning = pipeline.RunTick(new TickInput(1));
+                var firstState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
                 Assert.That(firstWarning.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(firstState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(firstState.windupStartTick, Is.EqualTo(1));
+                Assert.That(firstState.windupEndTick, Is.EqualTo(3));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var canceledTick = pipeline.RunTick(new TickInput(2));
-                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var firstSuspendedTick = pipeline.RunTick(new TickInput(2));
+                var firstSuspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(canceledTick.PresentationData.SummonWindupWarnings, Is.Empty);
-                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(canceledState.cooldownTicksRemaining, Is.EqualTo(2));
+                Assert.That(firstSuspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(firstSuspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(firstSuspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(firstSuspendedState.cooldownTicksRemaining, Is.Zero);
+                Assert.That(firstSuspendedTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                var secondSuspendedTick = pipeline.RunTick(new TickInput(3));
+                var secondSuspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(secondSuspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(secondSuspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(secondSuspendedState.windupEndTick, Is.EqualTo(5));
+                Assert.That(secondSuspendedState.cooldownTicksRemaining, Is.Zero);
+                Assert.That(secondSuspendedTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
-                var cooldownTick = pipeline.RunTick(new TickInput(3));
-                var cooldownState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var resumedTick = pipeline.RunTick(new TickInput(4));
+                var resumedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(cooldownTick.PresentationData.SummonWindupWarnings, Is.Empty);
-                Assert.That(cooldownState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(cooldownState.cooldownTicksRemaining, Is.EqualTo(1));
-                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
-
-                var restartedWarning = pipeline.RunTick(new TickInput(4));
-
-                Assert.That(restartedWarning.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(restartedWarning.PresentationData.SummonWindupWarnings[0].ActivationSequence, Is.EqualTo(2));
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(resumedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(resumedState.windupEndTick, Is.EqualTo(5));
+                Assert.That(resumedState.activationSequence, Is.EqualTo(1));
+                Assert.That(resumedTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
 
                 var committedTick = pipeline.RunTick(new TickInput(5));
+                var committedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
                 Assert.That(committedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(committedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(committedState.cooldownTicksRemaining, Is.EqualTo(2));
                 Assert.That(committedTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilityWindup_HardInvalidState_CancelsAndAppliesCooldown()
+        {
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+
+                pipeline.RunTick(new TickInput(1));
+                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+
+                worldState.CreateWriteContext().SetBoardPresence(40, EntityBoardPresence.Detached);
+                var canceledTick = pipeline.RunTick(new TickInput(2));
+                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(canceledState.cooldownTicksRemaining, Is.EqualTo(2));
+                Assert.That(canceledState.windupStartTick, Is.Zero);
+                Assert.That(canceledState.windupEndTick, Is.Zero);
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals[0].Phase, Is.EqualTo(EnemyUtilityPresentationPhase.Canceled));
+                Assert.That(canceledTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
             }
             finally
             {
@@ -2115,7 +2172,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_CancelClearsMovementSuppression()
+        public void EnemyAi_LockNearbyBoxesWindup_TopologySuspendExtendsMovementSuppression()
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
@@ -2140,13 +2197,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].movementSuppressionUntilTickInclusive, Is.EqualTo(3));
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var canceledTick = pipeline.RunTick(new TickInput(2));
-                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var suspendedTick = pipeline.RunTick(new TickInput(2));
+                var suspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(canceledState.movementSuppressionUntilTickInclusive, Is.Zero);
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(suspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(suspendedState.cooldownTicksRemaining, Is.Zero);
+                Assert.That(suspendedState.movementSuppressionUntilTickInclusive, Is.EqualTo(4));
                 Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(canceledTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
+                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
             }
             finally
             {
@@ -2185,7 +2245,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
                 Assert.That(recoverState.movementSuppressionUntilTickInclusive, Is.EqualTo(3));
 
-                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
+                worldState.CreateWriteContext().SetBoardPresence(40, EntityBoardPresence.Detached);
                 var canceledTick = pipeline.RunTick(new TickInput(3));
                 var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
@@ -2193,6 +2253,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(canceledState.recoverStartTick, Is.Zero);
                 Assert.That(canceledState.recoverEndTickExclusive, Is.Zero);
                 Assert.That(canceledState.movementSuppressionUntilTickInclusive, Is.Zero);
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals[0].Phase, Is.EqualTo(EnemyUtilityPresentationPhase.Canceled));
                 Assert.That(canceledTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=3"));
             }
             finally
@@ -2203,7 +2265,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_DelayedWindup_CancelsWhenSourceLeavesBottomFace()
+        public void EnemyUtilityLockNearbyBoxes_DelayedWindup_TopologySuspendResumesBeforeExecute()
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
@@ -2223,13 +2285,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 pipeline.RunTick(new TickInput(1));
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var executeTick = pipeline.RunTick(new TickInput(2));
-                var state = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var suspendedTick = pipeline.RunTick(new TickInput(2));
+                var suspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(state.cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(suspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(3));
+                Assert.That(suspendedState.cooldownTicksRemaining, Is.Zero);
                 Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(executeTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
+                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
+                var executeTick = pipeline.RunTick(new TickInput(3));
+                var executeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(executeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(executeState.cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.True);
             }
             finally
             {

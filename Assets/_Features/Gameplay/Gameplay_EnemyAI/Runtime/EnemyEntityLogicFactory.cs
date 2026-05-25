@@ -334,10 +334,16 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState entity)
         {
             return CanParticipateOnCurrentTopology(snapshot, entity) &&
-                   entity.hp > 0 &&
-                   !entity.markedForDeath &&
-                   entity.boardPresence == EntityBoardPresence.Occupying &&
-                   entity.aiMode != EnemyAiMode.Dead;
+                   !IsHardInvalidParticipant(entity);
+        }
+
+        public static bool IsHardInvalidParticipant(in EntityState entity)
+        {
+            return !IsEnemyLogicEntity(entity) ||
+                   entity.hp <= 0 ||
+                   entity.markedForDeath ||
+                   entity.boardPresence != EntityBoardPresence.Occupying ||
+                   entity.aiMode == EnemyAiMode.Dead;
         }
     }
 
