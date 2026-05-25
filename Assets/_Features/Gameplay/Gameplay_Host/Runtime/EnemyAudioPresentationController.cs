@@ -130,6 +130,12 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (request.Cue == EnemyAudioCue.StationaryActive &&
+                ShouldSuppressStationaryActive(request.OwnerEntityId))
+            {
+                return;
+            }
+
             var authoring = EnemyAudioAuthoring.GetOptionalValidatedAuthoring(ownerView);
             if (authoring == null ||
                 !authoring.Profile.TryResolve(request.Cue, out var binding))
@@ -167,6 +173,33 @@ namespace Game.Feature.Gameplay.Host
             {
                 ownerView = null;
                 return false;
+            }
+
+            return true;
+        }
+
+        private bool ShouldSuppressStationaryActive(int ownerEntityId)
+        {
+            if (ownerEntityId <= 0)
+            {
+                return true;
+            }
+
+            if (_stateStore.CommittedFacesByEntityId.TryGetValue(ownerEntityId, out var committedFace))
+            {
+                return committedFace != _stateStore.CommittedTopology.BottomFace;
+            }
+
+            if (_stateStore.EnemyVisualFactsByEntityId.TryGetValue(ownerEntityId, out var facts) &&
+                facts.IsGameplayAutonomySuppressed)
+            {
+                return true;
+            }
+
+            if (_stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(ownerEntityId, out var semanticState) &&
+                semanticState.ActivityState == EnemyVisualActivityState.FrontFaceInactive)
+            {
+                return true;
             }
 
             return true;

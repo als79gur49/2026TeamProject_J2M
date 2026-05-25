@@ -401,6 +401,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_FrontFaceStationaryActive_SuppressesWithoutConsumingCadenceOrMoveCue()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_FrontFaceStationaryActive_SuppressesWithoutConsumingCadenceOrMoveCue));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()),
+                new EnemyAudioEntrySpec(EnemyAudioCue.StationaryActive, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var frontStationaryEnemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Front, 0, 0));
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 1);
+                var targetCell = new SurfaceCell(FaceId.Front, 1, 1);
+                var frontMovingEnemy = CreateUnit(21, UnitRole.Enemy, targetCell);
+                var bottomStationaryEnemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { frontStationaryEnemy, frontMovingEnemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(entityMotions: new[]
+                    {
+                        new TickEntityMotion(frontMovingEnemy.entityId, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    }),
+                    new[] { frontStationaryEnemy, frontMovingEnemy },
+                    tickIndex: 1));
+
+                var snapshot = presenter.DebugCaptureEntityPresentationLifecycle(frontStationaryEnemy.entityId);
+                Assert.That(snapshot.ViewsByEntityIdContainsEntityId, Is.True);
+                Assert.That(snapshot.GameObjectActiveSelf, Is.True);
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Move" }));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(),
+                    new[] { bottomStationaryEnemy, frontMovingEnemy },
+                    tickIndex: 2));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Move", "StationaryActive" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_Present_StationaryActiveWithoutBinding_DropsCandidate()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_StationaryActiveWithoutBinding_DropsCandidate));
