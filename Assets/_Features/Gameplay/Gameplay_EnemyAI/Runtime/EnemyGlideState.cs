@@ -194,7 +194,7 @@ namespace Game.Feature.Gameplay.Entities
 
         private bool HasLegacyLandingPendingRecord =>
             (int)phase == LegacyLandingPendingPhaseValue ||
-            (phase == EnemyGlidePhase.Ready && isLandingPending);
+            isLandingPending;
 
         private EnemyGlidePhase ResolvePhase()
         {
