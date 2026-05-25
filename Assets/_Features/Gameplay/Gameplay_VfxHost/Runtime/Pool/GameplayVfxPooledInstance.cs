@@ -366,16 +366,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void TraceIfEntrance(string method, string reason, bool includeStackTrace)
         {
-            if (handle == null || !GameplayVfxLifetimeTrace.IsEntranceSpawn(handle.CueId))
+            if (handle == null || !GameplayVfxLifetimeUnityTrace.IsEntranceSpawn(handle.CueId))
             {
                 return;
             }
 
             var age = Time.time - handle.StartedAtSeconds;
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 method,
                 reason,
-                $"handleId={handle.HandleId} cueFamily={handle.CueId.Family} cueCode={handle.CueId.Code} cueName={GameplayVfxLifetimeTrace.DescribeCueName(handle.CueId)} state={handle.State} createdAt={handle.StartedAtSeconds:F3} age={age:F3} stopPolicy={handle.Policy.StopPolicy} defaultLifetimeSeconds={handle.Policy.DefaultLifetimeSeconds:F3} tailSeconds={handle.Policy.TailSeconds:F3} effectiveLifetimeSeconds={(handle.Policy.DefaultLifetimeSeconds + handle.Policy.TailSeconds):F3} {GameplayVfxLifetimeTrace.DescribeGameObject(GameObject)} {GameplayVfxLifetimeTrace.DescribeParticles(GameObject)}",
+                $"handleId={handle.HandleId} cueFamily={handle.CueId.Family} cueCode={handle.CueId.Code} cueName={GameplayVfxLifetimeUnityTrace.DescribeCueName(handle.CueId)} state={handle.State} createdAt={handle.StartedAtSeconds:F3} age={age:F3} stopPolicy={handle.Policy.StopPolicy} defaultLifetimeSeconds={handle.Policy.DefaultLifetimeSeconds:F3} tailSeconds={handle.Policy.TailSeconds:F3} effectiveLifetimeSeconds={(handle.Policy.DefaultLifetimeSeconds + handle.Policy.TailSeconds):F3} {GameplayVfxLifetimeUnityTrace.DescribeGameObject(GameObject)} {GameplayVfxLifetimeUnityTrace.DescribeParticles(GameObject)}",
                 GameObject,
                 includeStackTrace);
         }

@@ -34,6 +34,16 @@ Family-specific planners are:
 
 The family planners preserve domain-specific presentation facts and translate them into common request values. They must not collapse gameplay domains into a generic string dispatcher.
 
+## Runtime Diagnostics Boundary
+
+`Gameplay_Vfx/Runtime` owns Unity-object-free VFX request, planning, binding, lifecycle, and trace formatting contracts. Core source guards scan this folder for authority/runtime boundary tokens, including `WorldState`, `WorldSnapshot`, `TickPipeline`, `GameObject`, `Renderer`, `MonoBehaviour`, and `ParticleSystem`.
+
+`GameplayVfxLifetimeTrace` is the core trace formatter. It may describe cue ids, request values, runtime policy values, and trace timing, but it must not inspect Unity object hierarchies or particle/renderer state.
+
+`Gameplay_VfxHost/Runtime/Diagnostics` owns host-runtime diagnostic adapters. UnityEngine object inspection is host-runtime diagnostics, so `GameplayVfxLifetimeUnityTrace` may reference `GameObject`, `Renderer`, `ParticleSystem`, `Transform`, and Unity object contexts while describing production runtime or pool state. This adapter must remain presentation-only and must not mutate authoritative simulation state.
+
+This split preserves runtime trace behavior while keeping the core source guard focused on core VFX contracts rather than production host object inspection.
+
 ## Non-Goals For This Phase
 
 - No production playback connection.

@@ -732,18 +732,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enemyMotionAttachedFollowerPlanner.Clear();
             motionFollowingVfxController.ResetSession();
             forwardCellProjectileVfxController.ResetSession(pool);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ResetSession),
                 "SessionResetHardCleanup",
-                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this,
                 includeStackTrace: true);
             RecordCleanup(GameplayVfxCleanupReason.SessionReset, GameplayVfxCleanupScope.AllFamilies);
             controller?.HardCleanupAll();
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ResetSession),
                 "SessionResetHardCleanupCompleted",
-                $"activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             planBuilder.Clear();
         }
@@ -760,15 +760,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             lastInitialPlannedRequestCount = 0;
             lastInitialEntranceSpawnRequestCount = 0;
             lastInitialActiveEntranceSpawnInstanceCount = 0;
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(PresentInitial),
                 "Entry",
-                $"mapConfigured={IsHostDefaultMapConfigured} tileFeatureLaneEnabled={enableGameplayVfxTileFeatureLane} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} missingBindingBefore={MissingBindingCount} missingPrefabBefore={MissingPrefabCount}",
+                $"mapConfigured={IsHostDefaultMapConfigured} tileFeatureLaneEnabled={enableGameplayVfxTileFeatureLane} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)} missingBindingBefore={MissingBindingCount} missingPrefabBefore={MissingPrefabCount}",
                 this);
             if (!AnyGameplayVfxEnabled ||
                 context.PresentationData == null)
             {
-                GameplayVfxLifetimeTrace.Log(
+                GameplayVfxLifetimeUnityTrace.Log(
                     nameof(PresentInitial),
                     "Skipped",
                     $"anyGameplayVfxEnabled={AnyGameplayVfxEnabled} hasPresentationData={context.PresentationData != null}",
@@ -799,10 +799,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (enabledPlan.Requests.Count == 0)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
-                GameplayVfxLifetimeTrace.Log(
+                GameplayVfxLifetimeUnityTrace.Log(
                     nameof(PresentInitial),
                     "EmptyEnabledPlan",
-                    $"activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                    $"activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                     this);
                 return;
             }
@@ -828,26 +828,26 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (plan.Requests.Count == 0)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
-                GameplayVfxLifetimeTrace.Log(
+                GameplayVfxLifetimeUnityTrace.Log(
                     nameof(PresentInitial),
                     "EmptyVisiblePlan",
-                    $"activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} missingBindingAfter={MissingBindingCount} missingPrefabAfter={MissingPrefabCount}",
+                    $"activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)} missingBindingAfter={MissingBindingCount} missingPrefabAfter={MissingPrefabCount}",
                     this);
                 return;
             }
 
             EnsureRuntime(context.Projector, context.StateStore);
             controller.SetVisibilityContext(visibilityContext);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(PresentInitial),
                 "BeforeRefresh",
-                $"rawRequestCount={enabledPlan.Requests.Count} entranceRequests={lastInitialEntranceSpawnRequestCount} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} missingBindingBefore={MissingBindingCount} missingPrefabBefore={MissingPrefabCount}",
+                $"rawRequestCount={enabledPlan.Requests.Count} entranceRequests={lastInitialEntranceSpawnRequestCount} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)} missingBindingBefore={MissingBindingCount} missingPrefabBefore={MissingPrefabCount}",
                 this);
             controller.Refresh(plan);
             LastPlannedRequestCount = plan.Requests.Count;
             lastInitialActiveEntranceSpawnInstanceCount =
                 GetActiveVfxInstanceCount(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn));
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(PresentInitial),
                 "AfterRefresh",
                 $"plannedRequests={LastPlannedRequestCount} entranceRequests={lastInitialEntranceSpawnRequestCount} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={lastInitialActiveEntranceSpawnInstanceCount} missingBindingAfter={MissingBindingCount} missingPrefabAfter={MissingPrefabCount}",
@@ -894,10 +894,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             var requestCount = plan?.Requests.Count ?? 0;
             var entranceCount = CountEntranceSpawnRequests(plan);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 method,
                 reason,
-                $"requestCount={requestCount} entranceRequestCount={entranceCount} activeEntrance={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"requestCount={requestCount} entranceRequestCount={entranceCount} activeEntrance={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             if (plan == null || entranceCount == 0)
             {
@@ -907,7 +907,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < plan.Requests.Count; i++)
             {
                 var request = plan.Requests[i];
-                if (!GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
+                if (!GameplayVfxLifetimeUnityTrace.IsEntranceSpawn(request.CueId))
                 {
                     continue;
                 }
@@ -915,10 +915,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 var policy = default(VfxBindingRuntimePolicy);
                 var hasBinding = bindingResolver != null &&
                                  bindingResolver.TryResolve(request, out policy);
-                GameplayVfxLifetimeTrace.Log(
+                GameplayVfxLifetimeUnityTrace.Log(
                     method,
                     "EntranceSpawnBindingResolve",
-                    $"bindingResolverPresent={bindingResolver != null} bindingResolved={hasBinding} {GameplayVfxLifetimeTrace.DescribeRequest(request)} {(hasBinding ? GameplayVfxLifetimeTrace.DescribePolicy(policy) : string.Empty)}",
+                    $"bindingResolverPresent={bindingResolver != null} bindingResolved={hasBinding} {GameplayVfxLifetimeUnityTrace.DescribeRequest(request)} {(hasBinding ? GameplayVfxLifetimeUnityTrace.DescribePolicy(policy) : string.Empty)}",
                     this);
             }
         }
@@ -926,10 +926,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Present(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(Present),
                 "Entry",
-                $"tick={context.Result?.TickIndex ?? -1} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} topologyStart={IsTopologyTransitionStart(context)} topologySuppressed={isTopologyTransitionVfxSuppressed}",
+                $"tick={context.Result?.TickIndex ?? -1} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)} topologyStart={IsTopologyTransitionStart(context)} topologySuppressed={isTopologyTransitionVfxSuppressed}",
                 this);
             if (IsTopologyTransitionStart(context))
             {
@@ -951,10 +951,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var didResetRuntimeComposition = ConfigureEnemyPresentationProfiles(
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(Present),
                 "AfterConfigureEnemyPresentationProfiles",
-                $"tick={context.Result?.TickIndex ?? -1} resetRuntimeComposition={didResetRuntimeComposition} activeTotalAfterConfigure={ActiveVfxInstanceCount} activeEntranceAfterConfigure={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"tick={context.Result?.TickIndex ?? -1} resetRuntimeComposition={didResetRuntimeComposition} activeTotalAfterConfigure={ActiveVfxInstanceCount} activeEntranceAfterConfigure={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             var visibilityContext = BuildVisibilityContext(
                 context.StateStore,
@@ -1041,26 +1041,26 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 controller?.Refresh(
                     GameplayVfxRequestPlan.Empty,
                     ResolveRefreshOptions(context));
-                GameplayVfxLifetimeTrace.Log(
+                GameplayVfxLifetimeUnityTrace.Log(
                     nameof(Present),
                     "EmptyPlanRefresh",
-                    $"tick={context.Result?.TickIndex ?? -1} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                    $"tick={context.Result?.TickIndex ?? -1} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                     this);
                 return;
             }
 
             EnsureRuntime(context);
             controller.SetVisibilityContext(visibilityContext);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(Present),
                 "BeforeRefresh",
-                $"tick={context.Result?.TickIndex ?? -1} rawRequestCount={plan.Requests.Count} entranceRequests={CountEntranceSpawnRequests(plan)} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"tick={context.Result?.TickIndex ?? -1} rawRequestCount={plan.Requests.Count} entranceRequests={CountEntranceSpawnRequests(plan)} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             controller.Refresh(plan, ResolveRefreshOptions(context));
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(Present),
                 "AfterRefresh",
-                $"tick={context.Result?.TickIndex ?? -1} rawRequestCount={plan.Requests.Count} entranceRequests={CountEntranceSpawnRequests(plan)} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"tick={context.Result?.TickIndex ?? -1} rawRequestCount={plan.Requests.Count} entranceRequests={CountEntranceSpawnRequests(plan)} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             var flipDestroySelfMotionCommandCount = shouldPlayFlipDestroySelfMotion
                 ? PlayFlipDestroySelfMotionCommands(context)
@@ -1100,10 +1100,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                                       outOfBoundsExitCommandCount +
                                       enemyDeathMotionCommandCount +
                                       forwardCellProjectileCommandCount;
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(Present),
                 "Exit",
-                $"tick={context.Result?.TickIndex ?? -1} lastPlannedRequestCount={LastPlannedRequestCount} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"tick={context.Result?.TickIndex ?? -1} lastPlannedRequestCount={LastPlannedRequestCount} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
         }
 
@@ -1224,18 +1224,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
             topologyTransitionSuppressEpoch = 0;
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(HardCleanup),
                 "RuntimeHardCleanup",
-                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this,
                 includeStackTrace: true);
             RecordCleanup(GameplayVfxCleanupReason.ManualHardCleanup, GameplayVfxCleanupScope.AllFamilies);
             controller?.HardCleanupAll();
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(HardCleanup),
                 "RuntimeHardCleanupCompleted",
-                $"activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             LastPlannedRequestCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
@@ -1277,10 +1277,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             motionFollowingVfxController.HardCleanup();
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(EnsureRuntime),
                 "ProjectorOrStateStoreChanged",
-                $"configuredProjector={GameplayVfxLifetimeTrace.DescribeObject(configuredProjector)} incomingProjector={GameplayVfxLifetimeTrace.DescribeObject(projector)} configuredStateStore={GameplayVfxLifetimeTrace.DescribeObject(configuredStateStore)} incomingStateStore={GameplayVfxLifetimeTrace.DescribeObject(stateStore)} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"configuredProjector={GameplayVfxLifetimeUnityTrace.DescribeObject(configuredProjector)} incomingProjector={GameplayVfxLifetimeUnityTrace.DescribeObject(projector)} configuredStateStore={GameplayVfxLifetimeUnityTrace.DescribeObject(configuredStateStore)} incomingStateStore={GameplayVfxLifetimeUnityTrace.DescribeObject(stateStore)} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this,
                 includeStackTrace: true);
             RecordCleanup(GameplayVfxCleanupReason.ProjectorOrStateStoreChanged, GameplayVfxCleanupScope.AllFamilies);
@@ -1304,10 +1304,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 bindingResolver,
                 new VfxPersistentHandleRegistry(),
                 new VfxLifetimeRunner());
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(EnsureRuntime),
                 "RuntimeCreated",
-                $"runtimeRoot={GameplayVfxLifetimeTrace.DescribeUnityObject(runtimeRoot)} oneShotRoot={GameplayVfxLifetimeTrace.GetPath(runtimeRoot.OneShotRoot)} poolRoot={GameplayVfxLifetimeTrace.GetPath(runtimeRoot.PoolRoot)} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"runtimeRoot={GameplayVfxLifetimeUnityTrace.DescribeUnityObject(runtimeRoot)} oneShotRoot={GameplayVfxLifetimeUnityTrace.GetPath(runtimeRoot.OneShotRoot)} poolRoot={GameplayVfxLifetimeUnityTrace.GetPath(runtimeRoot.PoolRoot)} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
         }
 
@@ -1346,10 +1346,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var catalogMatches = ReferenceEquals(configuredEnemyPresentationCatalog, catalog);
             var bindingsMatch = ReferenceEquals(configuredEnemyPresentationBindings, resolvedBindings);
             var willCleanup = hasConfiguredEnemyPresentationProfiles && (!catalogMatches || !bindingsMatch);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ConfigureEnemyPresentationProfiles),
                 "Entry",
-                $"currentCatalog={GameplayVfxLifetimeTrace.DescribeObject(configuredEnemyPresentationCatalog)} incomingCatalog={GameplayVfxLifetimeTrace.DescribeObject(catalog)} currentBindingsId={(configuredEnemyPresentationBindings != null ? configuredEnemyPresentationBindings.GetHashCode() : 0)} incomingBindingsId={(resolvedBindings != null ? resolvedBindings.GetHashCode() : 0)} currentBindingsCount={configuredEnemyPresentationBindings?.Length ?? 0} incomingBindingsCount={resolvedBindings?.Length ?? 0} hasConfiguredEnemyPresentationProfiles={hasConfiguredEnemyPresentationProfiles} catalogReferenceEquals={catalogMatches} bindingsReferenceEquals={bindingsMatch} willCleanupEnemyRuntimeComposition={willCleanup} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"currentCatalog={GameplayVfxLifetimeUnityTrace.DescribeObject(configuredEnemyPresentationCatalog)} incomingCatalog={GameplayVfxLifetimeUnityTrace.DescribeObject(catalog)} currentBindingsId={(configuredEnemyPresentationBindings != null ? configuredEnemyPresentationBindings.GetHashCode() : 0)} incomingBindingsId={(resolvedBindings != null ? resolvedBindings.GetHashCode() : 0)} currentBindingsCount={configuredEnemyPresentationBindings?.Length ?? 0} incomingBindingsCount={resolvedBindings?.Length ?? 0} hasConfiguredEnemyPresentationProfiles={hasConfiguredEnemyPresentationProfiles} catalogReferenceEquals={catalogMatches} bindingsReferenceEquals={bindingsMatch} willCleanupEnemyRuntimeComposition={willCleanup} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             if (!hasConfiguredEnemyPresentationProfiles)
             {
@@ -1363,10 +1363,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 RebuildBindingRuntime();
                 ApplyBindingRuntimeToExistingComposition();
                 EnemyProfileFirstConfigureCount++;
-                GameplayVfxLifetimeTrace.Log(
+                GameplayVfxLifetimeUnityTrace.Log(
                     nameof(ConfigureEnemyPresentationProfiles),
                     GameplayVfxCleanupReason.EnemyProfileFirstConfigure.ToString(),
-                    $"nonDestructive=True activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                    $"nonDestructive=True activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                     this);
                 return false;
             }
@@ -1385,20 +1385,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
             RebuildBindingRuntime();
             ApplyBindingRuntimeToExistingComposition();
             ResetEnemyPresentationRuntimeComposition(GameplayVfxCleanupReason.EnemyProfileChanged);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ConfigureEnemyPresentationProfiles),
                 "Exit",
-                $"cleanupReason={GameplayVfxCleanupReason.EnemyProfileChanged} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"cleanupReason={GameplayVfxCleanupReason.EnemyProfileChanged} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
             return true;
         }
 
         private void ResetEnemyPresentationRuntimeComposition(GameplayVfxCleanupReason reason)
         {
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ResetEnemyPresentationRuntimeComposition),
                 reason.ToString(),
-                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} controllerPresent={controller != null} poolPresent={pool != null} affectedFamily={GameplayVfxFamily.Enemy}",
+                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)} controllerPresent={controller != null} poolPresent={pool != null} affectedFamily={GameplayVfxFamily.Enemy}",
                 this,
                 includeStackTrace: true);
             RecordCleanup(reason, GameplayVfxCleanupScope.EnemyFamily);
@@ -1409,10 +1409,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void ResetRuntimeComposition(GameplayVfxCleanupReason reason)
         {
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ResetRuntimeComposition),
                 reason.ToString(),
-                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} controllerPresent={controller != null} poolPresent={pool != null} tileFeatureControllerIncluded=True enemyControllerIncluded=True playerControllerIncluded=True projectileControllerIncluded=True",
+                $"activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)} controllerPresent={controller != null} poolPresent={pool != null} tileFeatureControllerIncluded=True enemyControllerIncluded=True playerControllerIncluded=True projectileControllerIncluded=True",
                 this,
                 includeStackTrace: true);
             RecordCleanup(reason, GameplayVfxCleanupScope.AllFamilies);
@@ -1421,19 +1421,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
             enemyMotionAttachedFollowerPlanner.Clear();
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ResetRuntimeComposition),
                 "BeforeControllerHardCleanupAll",
-                $"reason={reason} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"reason={reason} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this,
                 includeStackTrace: true);
             controller?.HardCleanupAll();
             controller = null;
             pool = null;
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ResetRuntimeComposition),
                 "Exit",
-                $"reason={reason} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} controllerPresent={controller != null} poolPresent={pool != null}",
+                $"reason={reason} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)} controllerPresent={controller != null} poolPresent={pool != null}",
                 this);
         }
 
@@ -1494,7 +1494,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            var activeTileFeaturesBefore = pool?.GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue) ?? 0;
+            var activeTileFeaturesBefore = pool?.GetActiveCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue) ?? 0;
             LastCleanupReason = reason;
             LastCleanupScope = scope;
             if (scope == GameplayVfxCleanupScope.AllFamilies)
@@ -1633,10 +1633,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void ClearGameplayVfxForTopologyTransitionStart(int epoch)
         {
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ClearGameplayVfxForTopologyTransitionStart),
                 "TopologyTransitionStart",
-                $"epoch={epoch} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"epoch={epoch} activeTotalBefore={ActiveVfxInstanceCount} activeEntranceBefore={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this,
                 includeStackTrace: true);
             isTopologyTransitionVfxSuppressed = true;
@@ -1655,10 +1655,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             pendingDelayedEnemyDeathMotionVfx.Clear();
             readyDelayedEnemyDeathMotionVfx.Clear();
             LastPlannedRequestCount = 0;
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 nameof(ClearGameplayVfxForTopologyTransitionStart),
                 "TopologyTransitionStartCompleted",
-                $"epoch={epoch} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
+                $"epoch={epoch} activeTotalAfter={ActiveVfxInstanceCount} activeEntranceAfter={GetActiveVfxInstanceCount(GameplayVfxLifetimeUnityTrace.EntranceSpawnCue)}",
                 this);
         }
 

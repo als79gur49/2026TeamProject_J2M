@@ -209,16 +209,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void TraceIfEntrance(string method, string reason, bool includeStackTrace)
         {
-            if (!GameplayVfxLifetimeTrace.IsEntranceSpawn(CueId))
+            if (!GameplayVfxLifetimeUnityTrace.IsEntranceSpawn(CueId))
             {
                 return;
             }
 
             var age = Mathf.Max(0f, (timeProvider?.TimeSeconds ?? 0f) - StartedAtSeconds);
-            GameplayVfxLifetimeTrace.Log(
+            GameplayVfxLifetimeUnityTrace.Log(
                 method,
                 reason,
-                $"handleId={HandleId} state={State} cueFamily={CueId.Family} cueCode={CueId.Code} cueName={GameplayVfxLifetimeTrace.DescribeCueName(CueId)} isPersistent={IsPersistent} createdAt={StartedAtSeconds:F3} age={age:F3} stopPolicy={Policy.StopPolicy} defaultLifetimeSeconds={Policy.DefaultLifetimeSeconds:F3} tailSeconds={Policy.TailSeconds:F3} effectiveLifetimeSeconds={(Policy.DefaultLifetimeSeconds + Policy.TailSeconds):F3} {GameplayVfxLifetimeTrace.DescribeGameObject(Instance?.GameObject)}",
+                $"handleId={HandleId} state={State} cueFamily={CueId.Family} cueCode={CueId.Code} cueName={GameplayVfxLifetimeUnityTrace.DescribeCueName(CueId)} isPersistent={IsPersistent} createdAt={StartedAtSeconds:F3} age={age:F3} stopPolicy={Policy.StopPolicy} defaultLifetimeSeconds={Policy.DefaultLifetimeSeconds:F3} tailSeconds={Policy.TailSeconds:F3} effectiveLifetimeSeconds={(Policy.DefaultLifetimeSeconds + Policy.TailSeconds):F3} {GameplayVfxLifetimeUnityTrace.DescribeGameObject(Instance?.GameObject)}",
                 Instance?.GameObject,
                 includeStackTrace);
         }

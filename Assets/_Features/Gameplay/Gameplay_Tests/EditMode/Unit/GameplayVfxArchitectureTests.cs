@@ -20,6 +20,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string VfxRuntimePath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime";
         private const string VfxPlanningPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string VfxEnumsPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs";
+        private const string VfxHostDiagnosticsPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Diagnostics";
         private const string PresentationMotionTrackPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs";
         private const string FlipImpactStayMotionCommandPath =
@@ -482,6 +484,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void RuntimeDiagnostics_MayReferenceUnityRuntimeObjects()
+        {
+            var source = ReadSourceDirectory(VfxHostDiagnosticsPath);
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(source, Does.Contain(nameof(GameplayVfxLifetimeUnityTrace)));
+            Assert.That(source, Does.Contain("GameObject"));
+            Assert.That(source, Does.Contain("Renderer"));
+            Assert.That(source, Does.Contain("ParticleSystem"));
+            Assert.That(document, Does.Contain("`Gameplay_VfxHost/Runtime/Diagnostics`"));
+            Assert.That(document, Does.Contain("UnityEngine object inspection is host-runtime diagnostics"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxLifetimeTrace_IsHostRuntimeDiagnostic_NotCorePolicy()
+        {
+            var coreTrace = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxLifetimeTrace.cs");
+            var hostTrace = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Diagnostics/GameplayVfxLifetimeUnityTrace.cs");
+
+            Assert.That(coreTrace, Does.Contain(nameof(GameplayVfxLifetimeTrace.DescribeRequest)));
+            Assert.That(coreTrace, Does.Not.Contain("DescribeGameObject"));
+            Assert.That(coreTrace, Does.Not.Contain("DescribeParticles"));
+            Assert.That(hostTrace, Does.Contain("DescribeGameObject"));
+            Assert.That(hostTrace, Does.Contain("DescribeParticles"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CloneProvider_LivesOnlyOutsideVfxCore()
         {
             var coreSource = ReadRuntimeSources();
@@ -637,7 +669,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static string ReadRuntimeSources()
         {
-            var absoluteDirectory = GetAbsolutePath(VfxRuntimePath);
+            return ReadSourceDirectory(VfxRuntimePath);
+        }
+
+        private static string ReadSourceDirectory(string relativePath)
+        {
+            var absoluteDirectory = GetAbsolutePath(relativePath);
             return string.Join(
                 "\n",
                 Directory.GetFiles(absoluteDirectory, "*.cs", SearchOption.AllDirectories)
