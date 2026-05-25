@@ -969,6 +969,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (snapshot.TryGetEntity(unitEntityId, out unit) &&
                 unit.type == EntityType.Unit &&
+                !IsActiveGlider(snapshot, unitEntityId) &&
                 TileFeatureHazardQueries.IsDestroyTileLethalForUnit(unit) &&
                 unit.position == contactCell &&
                 unit.boardPresence == EntityBoardPresence.Occupying &&
@@ -980,6 +981,12 @@ namespace Game.Feature.Gameplay.Loop
 
             unit = default;
             return false;
+        }
+
+        private static bool IsActiveGlider(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetEnemyGlideState(entityId, out var glideState) &&
+                   glideState.IsActive;
         }
 
         private static bool TryGetValidSlideTarget(
