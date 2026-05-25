@@ -4706,14 +4706,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_NoContactBeforeCommit()
+        public void GlideActive_NoPassiveContactWithoutFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                CreateUnit(
+                    entityId: 40,
+                    teamId: 2,
+                    position: enemySourceCell,
+                    hp: 3,
+                    aiMode: EnemyAiMode.Chase,
+                    facing: Direction.Left,
+                    enemyLocomotionCooldownTicks: 3),
             });
             var profile = CreateGlideContactDamageProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
@@ -4727,24 +4734,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
 
-                for (var tick = 1; tick <= 9; tick++)
-                {
-                    var result = pipeline.RunTick(new TickInput(tick));
-                    var snapshot = worldState.CreateSnapshot();
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
 
-                    Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-                    Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                    Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(tick, "EnemyGlide", 40, 10, snapshot, result));
-                    Assert.That(player.position, Is.EqualTo(playerCell));
-                    Assert.That(snapshot.TryGetUnitKinematicState(40, out var enemyKinematic), Is.True);
-                    Assert.That(enemyKinematic.mode, Is.EqualTo(MotionMode.Voluntary));
-                    Assert.That(
-                        HasAcceptedPassiveContact(result, 40, 10),
-                        Is.False,
-                        BuildContactTimingDebug(tick, "EnemyGlide", 40, 10, snapshot, result));
-                    Assert.That(player.hp, Is.EqualTo(3));
-                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
-                }
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(HasMoveEntityTo(result, 40, playerCell), Is.False);
+                Assert.That(
+                    HasAcceptedPassiveContact(result, 40, 10),
+                    Is.False,
+                    BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(player.hp, Is.EqualTo(3));
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
             }
             finally
             {
@@ -4755,7 +4758,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_ContactAtCommit()
+        public void GlideActive_PassiveContactFiresOnFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4776,21 +4779,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
 
-                TickResult result = null;
-                for (var tick = 1; tick <= 10; tick++)
-                {
-                    result = pipeline.RunTick(new TickInput(tick));
-                }
+                var result = pipeline.RunTick(new TickInput(1));
 
                 var snapshot = worldState.CreateSnapshot();
                 Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(10, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
                 Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(HasMoveEntityTo(result, 40, playerCell), Is.True);
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
                 Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
-                Assert.That(state.elapsedTicks, Is.EqualTo(10));
-                Assert.That(state.commitTick, Is.EqualTo(10));
                 Assert.That(
                     result.MovementPhaseResult.CommitEvents.Any(entry =>
                         entry.Contains("KinematicAnchorCommitted", StringComparison.Ordinal) &&
@@ -4805,7 +4803,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(
                     HasAcceptedPassiveContact(result, 40, 10),
                     Is.True,
-                    BuildContactTimingDebug(10, "EnemyGlide", 40, 10, snapshot, result));
+                    BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
                 Assert.That(player.hp, Is.EqualTo(2));
                 LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
             }
@@ -7674,6 +7672,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                           record.SourceId == sourceId &&
                           record.TargetId == targetId &&
                           record.SourceKind == AttackSourceKind.PassiveContact);
+        }
+
+        private static bool HasMoveEntityTo(TickResult result, int entityId, SurfaceCell destination)
+        {
+            return result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.MoveEntity &&
+                operation.EntityId == entityId &&
+                operation.Destination == destination);
         }
 
         private static string BuildContactTimingDebug(

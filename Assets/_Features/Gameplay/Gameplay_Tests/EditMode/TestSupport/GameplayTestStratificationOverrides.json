@@ -2913,13 +2913,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_GlideChaserAsset_DefaultGameplay_ActiveGlideKinematicMovesOverSolid",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_GlideChaserAsset_DefaultGameplay_ActiveGlideMovesOverSolid",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core asset-backed coverage that the authored GlideChaser profile moves over a solid blocker under default gameplay.",
+      "reason": "Locked Core asset-backed coverage that the authored GlideChaser profile actively moves over solid blockers under default gameplay.",
       "locked": true
     },
     {
