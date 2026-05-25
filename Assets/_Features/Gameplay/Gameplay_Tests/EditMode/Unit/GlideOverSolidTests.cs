@@ -1910,7 +1910,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void Glide_CurrentContract_ActiveCanAnchorOnSolid()
+        public void Glide_AirborneContract_ActiveCanAnchorOnSolid()
         {
             var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
@@ -2045,7 +2045,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void Glide_CurrentContract_PresentationSignalDoesNotOwnWorldState()
+        public void Glide_AirborneContract_PresentationSignalDoesNotOwnWorldState()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 2, recoveryTicks: 2, cooldownTicks: 0));

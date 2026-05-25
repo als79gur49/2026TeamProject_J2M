@@ -9,6 +9,8 @@ namespace Game.Feature.Gameplay.Entities
         Ready = 0,
         Windup = 1,
         Active = 2,
+        // Compatibility-only residue for serialized/trace/presentation readers.
+        // Current runtime transitions keep expired solid overlap as Active + WantsRecover.
         LandingPending = 3,
         Recovery = 4,
         Cooldown = 5,

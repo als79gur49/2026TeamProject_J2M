@@ -443,7 +443,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void PlayerMovesIntoEnemy_KinematicMidpoint_NoContactBeforeCommit()
+        public void PlayerMovesIntoEnemy_KinematicMidpoint_NoPassiveContactWithoutFinalizedSameCellMove()
         {
             var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
@@ -479,7 +479,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerMovesIntoEnemy_KinematicMidpoint_ContactAtCommit()
+        public void PlayerMovesIntoEnemy_KinematicMidpoint_PassiveContactFiresOnFinalizedSameCellMove()
         {
             var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(

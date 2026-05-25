@@ -208,8 +208,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract()
         {
             EnemyPatrol_KinematicMovement();
-            EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit();
-            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+            EnemyMovesIntoPlayer_Kinematic_NoPassiveContactWithoutFinalizedSameCellMove();
+            EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove();
             EnemyAi_WindupProfile_TelegraphsBeforeExecuteAndThenEntersRecover();
         }
 
@@ -227,8 +227,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void EnemyAi_MoveOccupancy_BlocksAttackUntilKinematicCommitUnlocksRange()
         {
-            EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit();
-            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+            EnemyMovesIntoPlayer_Kinematic_NoPassiveContactWithoutFinalizedSameCellMove();
+            EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove();
         }
 
         [Test]
@@ -4595,7 +4595,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit()
+        public void EnemyMovesIntoPlayer_Kinematic_NoPassiveContactWithoutFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4639,7 +4639,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyMovesIntoPlayer_Kinematic_ContactAtCommit()
+        public void EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4700,7 +4700,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void Phase5_EnemyKinematicAnchorCommit_UsesMoveEntityButNoLegacyMove()
         {
-            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+            EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove();
         }
 
         [Test]

@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         private const int WallId = 30;
         private const int Stage31GliderId = 241;
         private const int Stage31WallId = 238;
+        private const string GlideActiveKinematicAnchorCommitReason = "GlideActiveKinematicAnchorCommit";
 
         [Test]
         [Category("Core")]
@@ -702,7 +703,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 operation.Kind == FinalizationOperationKind.MoveEntity &&
                 operation.EntityId == entityId &&
                 operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit &&
-                operation.Metadata.BoundaryReason == "EnemyGlideActiveKinematicAnchorCommit");
+                operation.Metadata.BoundaryReason == GlideActiveKinematicAnchorCommitReason);
         }
 
         private static void AssertNoSameTickMoveAndRecovery(TickResult result, int entityId)

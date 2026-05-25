@@ -2523,7 +2523,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_GlideChaserAsset_DefaultGameplay_ActiveGlideMovesOverSolid()
+        public void BoundaryInventory_GlideChaserAsset_DefaultGameplay_AllowsActiveGliderSolidOverlap()
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(GlideChaserProfileAssetPath);
             Assert.That(profile, Is.Not.Null, $"Missing GlideChaser profile asset at '{GlideChaserProfileAssetPath}'.");
@@ -2587,13 +2587,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     wallCell,
                     40).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void DeprecationPhase1_DefaultGameplayLocomotion_GlideActiveKinematic()
-        {
-            BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic();
         }
 
         [Test]
@@ -2698,13 +2691,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 EnemyAiProfileTestFactory.Destroy(glideProfile);
             }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void DeprecationPhase1_ExplicitGlideFlag_NoLegacyFallback()
-        {
-            ExplicitGlideFlag_ActiveGlide_NoLegacyOrdinaryMove();
         }
 
         [Test]

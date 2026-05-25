@@ -2009,9 +2009,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GlidePresentation_ComposesWithLegacyActiveMove()
+        public void GlidePresentation_ComposesWithActiveMove()
         {
-            var rootObject = new GameObject("GlidePresentation_ComposesWithLegacyActiveMove");
+            var rootObject = new GameObject("GlidePresentation_ComposesWithActiveMove");
 
             try
             {

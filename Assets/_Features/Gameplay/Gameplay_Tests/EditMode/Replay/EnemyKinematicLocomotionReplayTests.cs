@@ -17,7 +17,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
     {
         [Test]
         [Category("Extended")]
-        public void Replay_EnemySameFaceContinuousLocomotion_PassiveContactAtCommit_IsDeterministic()
+        public void Replay_EnemySameFaceContinuousLocomotion_PassiveContactFiresOnFinalizedSameCellMove_IsDeterministic()
         {
             var inputs = Enumerable.Range(1, 10)
                 .Select(tick => new TickInput(tick))
