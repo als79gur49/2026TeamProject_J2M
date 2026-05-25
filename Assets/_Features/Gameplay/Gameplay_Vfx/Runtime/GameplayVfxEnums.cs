@@ -217,6 +217,19 @@ namespace Game.Feature.Gameplay.Vfx
         Decal = 4,
     }
 
+    public enum VfxVisualSourceMode
+    {
+        PrefabOnly = 0,
+        PrefabWithSourceClone = 1,
+        SourceCloneMotion = 2,
+    }
+
+    public enum GameplayVfxHostRequirement
+    {
+        ExplicitPrefabRequired = 0,
+        CommonHostAllowed = 1,
+    }
+
     public enum VfxStopPolicy
     {
         NaturalCompletion = 0,

@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         PrefabOnly = 0,
         SourceViewClone = 1,
         SourceViewCloneWithPrefabFallback = 2,
+        SourceCloneMotion = 3,
     }
 
     public enum ParameterizedMotionVfxSamplerMode

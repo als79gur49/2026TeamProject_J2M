@@ -29,17 +29,32 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
 
         public bool TryResolvePrefab(GameplayVfxCueId cueId, VfxStyleKey styleKey, out GameObject prefab)
         {
+            if (TryResolveBinding(cueId, styleKey, out var binding))
+            {
+                prefab = binding.Prefab;
+                return prefab != null;
+            }
+
+            prefab = null;
+            return false;
+        }
+
+        public bool TryResolveBinding(
+            GameplayVfxCueId cueId,
+            VfxStyleKey styleKey,
+            out VfxBindingDefinitionAsset resolvedBinding)
+        {
             foreach (var binding in GetOrderedBindings())
             {
                 if (binding.CueId == cueId &&
                     binding.StyleKey == styleKey)
                 {
-                    prefab = binding.Prefab;
-                    return prefab != null;
+                    resolvedBinding = binding;
+                    return true;
                 }
             }
 
-            prefab = null;
+            resolvedBinding = null;
             return false;
         }
 

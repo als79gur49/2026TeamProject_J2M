@@ -78,6 +78,24 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            if (binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                binding.HostRequirement != GameplayVfxHostRequirement.CommonHostAllowed)
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_INVALID_PLAYBACK_MODE_POLICY",
+                    $"{binding.name} cue '{cueId}' uses SourceCloneMotion without CommonHostAllowed host requirement.",
+                    binding));
+            }
+
+            if (binding.VisualSourceMode == VfxVisualSourceMode.PrefabOnly &&
+                binding.HostRequirement != GameplayVfxHostRequirement.ExplicitPrefabRequired)
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_INVALID_PLAYBACK_MODE_POLICY",
+                    $"{binding.name} cue '{cueId}' uses PrefabOnly without ExplicitPrefabRequired host requirement.",
+                    binding));
+            }
+
             try
             {
                 binding.CreateRuntimePolicy().ValidateOrThrow();
@@ -90,16 +108,28 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            var prefabOptionalForSourceClone =
+                binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                binding.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed &&
+                binding.Prefab == null;
+            if (prefabOptionalForSourceClone)
+            {
+                return;
+            }
+
             var prefabValidation = VfxPrefabValidationDiagnostics.ValidatePrefab(binding.Prefab, binding);
             for (var i = 0; i < prefabValidation.Messages.Count; i++)
             {
                 messages.Add(prefabValidation.Messages[i]);
             }
 
-            var modelRootValidation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(binding.Prefab, binding);
-            for (var i = 0; i < modelRootValidation.Messages.Count; i++)
+            if (binding.Prefab != null)
             {
-                messages.Add(modelRootValidation.Messages[i]);
+                var modelRootValidation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(binding.Prefab, binding);
+                for (var i = 0; i < modelRootValidation.Messages.Count; i++)
+                {
+                    messages.Add(modelRootValidation.Messages[i]);
+                }
             }
         }
 

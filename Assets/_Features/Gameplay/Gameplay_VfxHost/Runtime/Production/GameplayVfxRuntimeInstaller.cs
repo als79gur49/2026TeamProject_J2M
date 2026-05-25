@@ -13,14 +13,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         [SerializeField] private bool installOnAwake = true;
         [SerializeField] private VfxCueMapAsset hostDefaultCueMap;
+        [SerializeField] private GameObject commonEmptyHostPrefab;
 
         private GameplayVfxProductionRuntime productionRuntime;
 
         public VfxCueMapAsset HostDefaultCueMap => hostDefaultCueMap;
 
+        public GameObject CommonEmptyHostPrefab => commonEmptyHostPrefab;
+
         public GameplayVfxProductionRuntime ProductionRuntime => ResolveProductionRuntimeOrNull();
 
-        public bool IsReady => ResolveProductionRuntimeOrNull()?.IsHostDefaultMapConfigured == true;
+        public bool IsReady =>
+            ResolveProductionRuntimeOrNull()?.IsHostDefaultMapConfigured == true &&
+            commonEmptyHostPrefab != null;
 
         private void Awake()
         {
@@ -39,6 +44,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             productionRuntime.ConfigureHostDefaultMap(hostDefaultCueMap);
+            productionRuntime.ConfigureCommonEmptyHostPrefab(commonEmptyHostPrefab);
         }
 
         public string DescribeReadiness()
@@ -52,6 +58,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (hostDefaultCueMap == null)
             {
                 return "GameplayVfxRuntimeInstaller requires a host default cue map before gameplay host initialization.";
+            }
+
+            if (commonEmptyHostPrefab == null)
+            {
+                return "GameplayVfxRuntimeInstaller requires a common empty VFX host prefab before gameplay host initialization.";
             }
 
             return runtime.IsHostDefaultMapConfigured

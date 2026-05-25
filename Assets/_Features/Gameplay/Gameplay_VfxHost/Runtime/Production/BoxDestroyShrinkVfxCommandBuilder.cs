@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 breakStartSeconds: 0f,
                 fadeDurationSeconds: durationSeconds,
                 ParameterizedMotionVfxFadeMode.DestroyShrinkEase,
-                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
+                ParameterizedMotionVfxCloneMode.SourceCloneMotion,
                 ParameterizedMotionVfxSamplerMode.Linear);
             return true;
         }

@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         [SerializeField] private VfxBindingRequirement requirement;
         [SerializeField] private VfxMissingAnchorPolicy missingAnchorPolicy;
         [SerializeField] private VfxPlaybackMode playbackMode;
+        [SerializeField] private VfxVisualSourceMode visualSourceMode;
+        [SerializeField] private GameplayVfxHostRequirement hostRequirement;
         [SerializeField] private VfxStopPolicy stopPolicy;
         [SerializeField] private GameplayVfxVisibilityMode visibilityMode;
         [SerializeField] private float defaultLifetimeSeconds;
@@ -36,6 +38,10 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
         public VfxMissingAnchorPolicy MissingAnchorPolicy => missingAnchorPolicy;
 
         public VfxPlaybackMode PlaybackMode => playbackMode;
+
+        public VfxVisualSourceMode VisualSourceMode => visualSourceMode;
+
+        public GameplayVfxHostRequirement HostRequirement => hostRequirement;
 
         public VfxStopPolicy StopPolicy => stopPolicy;
 
@@ -79,7 +85,9 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                 tailSeconds,
                 maxConcurrentInstances,
                 styleKey,
-                visibilityMode);
+                visibilityMode,
+                visualSourceMode,
+                hostRequirement);
         }
 
         private void LogValidationMessages(VfxAuthoringValidationResult result)

@@ -268,6 +268,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            if (command.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion)
+            {
+                HidePrefabVisuals();
+                activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(Array.Empty<Renderer>());
+                usingSourceClone = true;
+                return;
+            }
+
             activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(prefabRenderers);
             usingSourceClone = false;
         }
