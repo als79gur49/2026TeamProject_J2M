@@ -28,6 +28,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroySmoke_Binding.asset";
         private const string BoxDestroyShrinkBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroyShrink_Binding.asset";
+        private const string CommonEmptyHostPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Common/GameplayVfxCommonEmptyHost.prefab";
         private const string ItemConsumeBurstPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ItemConsumeBurstVfx.prefab";
         private const string ItemConsumeBurstBindingPath =
@@ -193,7 +195,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(command.SourceLocalPosition, Is.EqualTo(command.TargetLocalPosition));
             Assert.That(command.SourceLocalRotation, Is.EqualTo(command.TargetLocalRotation));
             Assert.That(command.DurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds).Within(0.0001f));
-            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback));
+            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
             Assert.That(command.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.DestroyShrinkEase));
             Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.Linear));
         }
@@ -288,6 +290,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Destroy(owner);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DestroyShrink_ReportsMissingSourceView_WhenSourceViewIsUnavailable()
+        {
+            var owner = new GameObject("BoxDestroyShrinkMissingSource");
+            var commonHost = new GameObject("CommonEmptyHost");
+            VfxBindingDefinitionAsset shrinkBinding = null;
+            VfxCueMapAsset cueMap = null;
+            try
+            {
+                shrinkBinding = CreateBinding(null, BoxVfxCue.DestroyShrink);
+                cueMap = CreateCueMap(shrinkBinding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureCommonEmptyHostPrefab(commonHost);
+
+                runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
+
+                Assert.That(runtime.IsRuntimeInitialized, Is.True);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingSourceViewCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
+            }
+            finally
+            {
+                Destroy(cueMap, shrinkBinding, commonHost, owner);
             }
         }
 
@@ -617,21 +652,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect()
         {
             var scenario = CreatePresenterScenario("ShrinkOnSmokeOff");
-            var vfxPrefab = new GameObject("ShrinkOnSmokeOff_VfxPrefab");
+            var commonHost = new GameObject("ShrinkOnSmokeOff_CommonHost");
             VfxBindingDefinitionAsset shrinkBinding = null;
             VfxCueMapAsset cueMap = null;
             try
             {
-                shrinkBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroyShrink);
+                shrinkBinding = CreateBinding(null, BoxVfxCue.DestroyShrink);
                 cueMap = CreateCueMap(shrinkBinding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
                 runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
                 runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureCommonEmptyHostPrefab(commonHost);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateBox(20, scenario.BoxCell) },
@@ -643,10 +679,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EntityState>()));
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
             }
             finally
             {
-                Destroy(cueMap, shrinkBinding, vfxPrefab);
+                Destroy(cueMap, shrinkBinding, commonHost);
                 scenario.Destroy();
             }
         }
@@ -744,28 +783,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxExitAuthoring_RemovesNonParticleObjectPrefabs()
+        public void BoxExitAuthoring_RemovesOldShrinkPrefabAndKeepsCommonHost()
         {
             AssertPrefabValid(BoxDestroySmokePrefabPath);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(BoxDestroyShrinkPrefabPath), Is.Null);
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(CommonEmptyHostPrefabPath), Is.Not.Null);
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(ItemConsumeBurstPrefabPath), Is.Null);
         }
 
         [Test]
         [Category("Core")]
-        public void BoxExitBindings_KeepSmokeAndRemoveNonParticleObjectBindings()
+        public void BoxExitBindings_KeepSmokeAndRestoreDestroyShrinkSourceCloneMotionBinding()
         {
             AssertBindingPolicy(
                 BoxDestroySmokeBindingPath,
                 BoxVfxCue.DestroySmoke,
                 expectedMaxConcurrent: 12);
-            Assert.That(AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(BoxDestroyShrinkBindingPath), Is.Null);
+            AssertBindingPolicy(
+                BoxDestroyShrinkBindingPath,
+                BoxVfxCue.DestroyShrink,
+                expectedMaxConcurrent: 12,
+                expectedVisualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                expectedHostRequirement: GameplayVfxHostRequirement.CommonHostAllowed,
+                expectNullPrefab: true);
             Assert.That(AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(ItemConsumeBurstBindingPath), Is.Null);
         }
 
         [Test]
         [Category("Extended")]
-        public void HostDefaultCueMap_ResolvesOnlyParticleBoxExitAuthoring()
+        public void HostDefaultCueMap_ResolvesSmokeAndDestroyShrinkSourceCloneMotion()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
@@ -774,7 +820,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(smoke.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(smoke.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
             Assert.That(smoke.MaxConcurrentInstances, Is.EqualTo(12));
-            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink), out _), Is.False);
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink), out var shrink), Is.True);
+            Assert.That(shrink.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
+            Assert.That(shrink.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed));
+            Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink), out _), Is.False);
             Assert.That(cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(BoxVfxCue.ItemConsume), out _), Is.False);
         }
 
@@ -1082,7 +1131,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static VfxBindingDefinitionAsset CreateBinding(GameObject prefab, BoxVfxCue cue)
         {
-            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+            if (prefab != null)
+            {
+                GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+            }
 
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Box);
@@ -1091,6 +1143,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
             SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetField(
+                binding,
+                "visualSourceMode",
+                cue == BoxVfxCue.DestroyShrink
+                    ? VfxVisualSourceMode.SourceCloneMotion
+                    : VfxVisualSourceMode.PrefabOnly);
+            SetField(
+                binding,
+                "hostRequirement",
+                cue == BoxVfxCue.DestroyShrink
+                    ? GameplayVfxHostRequirement.CommonHostAllowed
+                    : GameplayVfxHostRequirement.ExplicitPrefabRequired);
             SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
             SetField(binding, "defaultLifetimeSeconds", cue == BoxVfxCue.DestroyShrink ? 0f : 0.18f);
             SetField(binding, "tailSeconds", cue == BoxVfxCue.DestroySmoke ? 0.25f : cue == BoxVfxCue.DestroyShrink ? 0.18f : 0.20f);
@@ -1123,16 +1187,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertBindingPolicy(
             string path,
             BoxVfxCue cue,
-            int expectedMaxConcurrent)
+            int expectedMaxConcurrent,
+            VfxVisualSourceMode expectedVisualSourceMode = VfxVisualSourceMode.PrefabOnly,
+            GameplayVfxHostRequirement expectedHostRequirement = GameplayVfxHostRequirement.ExplicitPrefabRequired,
+            bool expectNullPrefab = false)
         {
             var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(path);
 
             Assert.That(binding, Is.Not.Null, path);
             Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
             Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(cue)));
+            if (expectNullPrefab)
+            {
+                Assert.That(binding.Prefab, Is.Null);
+            }
             Assert.That(binding.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
             Assert.That(binding.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+            Assert.That(binding.VisualSourceMode, Is.EqualTo(expectedVisualSourceMode));
+            Assert.That(binding.HostRequirement, Is.EqualTo(expectedHostRequirement));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
             Assert.That(binding.DefaultLifetimeSeconds, Is.GreaterThanOrEqualTo(0f));
             Assert.That(binding.TailSeconds, Is.GreaterThanOrEqualTo(0f));

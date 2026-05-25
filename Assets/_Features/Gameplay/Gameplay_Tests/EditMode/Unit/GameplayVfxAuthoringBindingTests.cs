@@ -128,6 +128,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.Required));
                 Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.FailFast));
                 Assert.That(policy.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
+                Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.PrefabOnly));
+                Assert.That(policy.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.ExplicitPrefabRequired));
                 Assert.That(policy.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
                 Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(1.25f));
                 Assert.That(policy.TailSeconds, Is.EqualTo(0.5f));
@@ -147,7 +149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BindingAsset_RejectsNullPrefab()
+        public void BindingAsset_RejectsNullPrefab_ForPrefabOnly()
         {
             var required = CreateBinding(
                 GameplayVfxFamily.Player,
@@ -173,6 +175,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Destroy(required);
                 Destroy(optional);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BindingAsset_AllowsNullPrefab_ForSourceCloneMotion_WhenCommonHostAllowed()
+        {
+            var binding = CreateBinding(
+                GameplayVfxFamily.Box,
+                (int)BoxVfxCue.DestroyShrink,
+                prefab: null,
+                requirement: VfxBindingRequirement.DiagnosticIfMissing,
+                missingAnchorPolicy: VfxMissingAnchorPolicy.ReportDiagnostic,
+                visualSourceMode: VfxVisualSourceMode.SourceCloneMotion,
+                hostRequirement: GameplayVfxHostRequirement.CommonHostAllowed,
+                defaultLifetimeSeconds: 0f,
+                tailSeconds: 0.18f,
+                initialPoolSize: 4,
+                maxConcurrentInstances: 12);
+
+            try
+            {
+                var validation = binding.ValidateAuthoring();
+                var policy = binding.BuildRuntimePolicy();
+
+                Assert.That(validation.HasErrors, Is.False, string.Join("\n", validation.Messages));
+                Assert.That(policy.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)));
+                Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.SourceCloneMotion));
+                Assert.That(policy.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.CommonHostAllowed));
+            }
+            finally
+            {
+                Destroy(binding);
             }
         }
 
@@ -406,6 +441,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             VfxMissingAnchorPolicy missingAnchorPolicy = VfxMissingAnchorPolicy.SkipOptional,
             VfxPlaybackMode playbackMode = VfxPlaybackMode.OneShot,
             VfxStopPolicy stopPolicy = VfxStopPolicy.AuthoredDuration,
+            VfxVisualSourceMode visualSourceMode = VfxVisualSourceMode.PrefabOnly,
+            GameplayVfxHostRequirement hostRequirement = GameplayVfxHostRequirement.ExplicitPrefabRequired,
             float defaultLifetimeSeconds = 0f,
             float tailSeconds = 0f,
             int initialPoolSize = 0,
@@ -418,6 +455,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "requirement", requirement);
             SetField(binding, "missingAnchorPolicy", missingAnchorPolicy);
             SetField(binding, "playbackMode", playbackMode);
+            SetField(binding, "visualSourceMode", visualSourceMode);
+            SetField(binding, "hostRequirement", hostRequirement);
             SetField(binding, "stopPolicy", stopPolicy);
             SetField(binding, "defaultLifetimeSeconds", defaultLifetimeSeconds);
             SetField(binding, "tailSeconds", tailSeconds);
