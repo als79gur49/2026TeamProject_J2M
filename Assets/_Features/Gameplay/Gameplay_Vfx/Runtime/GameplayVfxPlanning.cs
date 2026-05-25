@@ -1075,7 +1075,7 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < spawnSignals.Count; i++)
             {
                 var signal = spawnSignals[i];
-                if (!IsEntranceSpawnCueSource(signal, out var sourceTileFeature))
+                if (!TryGetEntranceSourceTileFeature(signal, out var sourceTileFeature))
                 {
                     continue;
                 }
@@ -1102,15 +1102,11 @@ namespace Game.Feature.Gameplay.Vfx
                         signal.Topology,
                         VfxAnchorSlot.CellFloor),
                     timing: VfxTimingKind.ImmediateOnTickPresentation);
-                GameplayVfxLifetimeTrace.Log(
-                    nameof(PlanEntitySpawnSignals),
-                    signal.Reason.ToString(),
-                    $"entityKind={signal.EntityKind} sourceTileFeatureKind={sourceTileFeature.FeatureKind} sourceTileFeatureCell={sourceTileFeature.Cell} sourceTileId={sourceTileFeature.TileId} anchorCell={request.Anchor.Cell} anchorSlot={request.Anchor.Slot} {GameplayVfxLifetimeTrace.DescribeRequest(request)}");
                 builder.Add(request);
             }
         }
 
-        private static bool IsEntranceSpawnCueSource(
+        private static bool TryGetEntranceSourceTileFeature(
             EntitySpawnPresentationSignal signal,
             out TileFeaturePresentationSource sourceTileFeature)
         {

@@ -91,11 +91,6 @@ namespace Game.Feature.Gameplay.Vfx
 
         public void HardCleanupAll()
         {
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardCleanupAll),
-                "ControllerHardCleanupAll",
-                "controller=GameplayVfxPresentationController affectedFamilies=PersistentRegistry,Pool tileFeatureControllerIncluded=True enemyControllerIncluded=True playerControllerIncluded=True projectileControllerIncluded=True",
-                includeStackTrace: true);
             delayedRequests.Clear();
             topologyTransitionStartsSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
@@ -110,11 +105,6 @@ namespace Game.Feature.Gameplay.Vfx
                 return;
             }
 
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardCleanupFamily),
-                reason.ToString(),
-                $"controller=GameplayVfxPresentationController affectedFamily={family}",
-                includeStackTrace: true);
             RemoveDelayedRequestsForFamily(family);
             persistentRegistry.HardCleanupFamily(pool, family);
             pool.HardCleanupFamily(family);
@@ -203,27 +193,11 @@ namespace Game.Feature.Gameplay.Vfx
 
             if (!bindingResolver.TryResolve(request, out var policy))
             {
-                if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
-                {
-                    GameplayVfxLifetimeTrace.Log(
-                        nameof(ProcessNow),
-                        "EntranceSpawnMissingBinding",
-                        GameplayVfxLifetimeTrace.DescribeRequest(request),
-                        includeStackTrace: true);
-                }
-
                 MissingBindingCount++;
                 return;
             }
 
             policy.ValidateOrThrow();
-            if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
-            {
-                GameplayVfxLifetimeTrace.Log(
-                    nameof(ProcessNow),
-                    "EntranceSpawnBindingResolved",
-                    $"{GameplayVfxLifetimeTrace.DescribeRequest(request)} {GameplayVfxLifetimeTrace.DescribePolicy(policy)}");
-            }
             ValidateCompatibility(request, policy);
 
             var preAnchorVisibility = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
@@ -240,15 +214,6 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 if (!TryHandleMissingAnchor(request, policy, out anchor))
                 {
-                    if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
-                    {
-                        GameplayVfxLifetimeTrace.Log(
-                            nameof(ProcessNow),
-                            "EntranceSpawnMissingAnchor",
-                            $"{GameplayVfxLifetimeTrace.DescribeRequest(request)} {GameplayVfxLifetimeTrace.DescribePolicy(policy)}",
-                            includeStackTrace: true);
-                    }
-
                     return;
                 }
             }
@@ -279,22 +244,7 @@ namespace Game.Feature.Gameplay.Vfx
                 return;
             }
 
-            if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
-            {
-                GameplayVfxLifetimeTrace.Log(
-                    nameof(ProcessNow),
-                    "EntranceSpawnPlayTransient",
-                    $"{GameplayVfxLifetimeTrace.DescribeRequest(request)} {GameplayVfxLifetimeTrace.DescribePolicy(policy)} anchorResolved={anchor.IsResolved} anchorKind={anchor.Kind} anchorSlot={anchor.Slot} anchorCell={anchor.Cell}");
-            }
-
-            var handle = pool.PlayTransient(command);
-            if (GameplayVfxLifetimeTrace.IsEntranceSpawn(request.CueId))
-            {
-                GameplayVfxLifetimeTrace.Log(
-                    nameof(ProcessNow),
-                    "EntranceSpawnPlayTransientCompleted",
-                    $"handleCreated={handle != null} {GameplayVfxLifetimeTrace.DescribeRequest(request)}");
-            }
+            pool.PlayTransient(command);
         }
 
         private bool IsSuppressedByTopologyTransition(

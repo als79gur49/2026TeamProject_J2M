@@ -12,7 +12,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly Dictionary<int, GameplayVfxFamily> familyByPrefabId = new();
         private readonly Dictionary<GameplayVfxPlaybackHandle, ParameterizedMotionVfxCommand> activeParameterizedMotions = new();
         private readonly HashSet<GameplayVfxPlaybackHandle> activeHandles = new();
-        private readonly Dictionary<int, int> entranceParticleDumpMasks = new();
         private readonly IGameplayVfxCloneSourceProvider cloneSourceProvider;
         private readonly GameplayVfxRuntimeRoot root;
         private readonly IGameplayVfxTimeProvider timeProvider;
@@ -103,15 +102,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (IsOverConcurrentLimit(command.Policy))
             {
                 DroppedByLimitCount++;
-                if (GameplayVfxLifetimeTrace.IsEntranceSpawn(command.CueId))
-                {
-                    GameplayVfxLifetimeTrace.Log(
-                        nameof(PlayParameterizedMotion),
-                        "DroppedByMaxConcurrent",
-                        $"{GameplayVfxLifetimeTrace.DescribeRequest(command.Request)} {GameplayVfxLifetimeTrace.DescribePolicy(command.Policy)} activeEntrance={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
-                        includeStackTrace: true);
-                }
-
                 return null;
             }
 
@@ -125,7 +115,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             handle.MarkActive();
             activeHandles.Add(handle);
             activeParameterizedMotions[handle] = motionCommand;
-            TraceEntranceHandle(nameof(PlayParameterizedMotion), "HandleActivated", handle, now, includeStackTrace: false);
             return handle;
         }
 
@@ -146,11 +135,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void HardClearActiveForTopologyTransition()
         {
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardClearActiveForTopologyTransition),
-                "Entry",
-                $"activeTotalBefore={ActiveCount} activeEntranceBefore={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
-                includeStackTrace: true);
             foreach (var handle in activeHandles.ToArray())
             {
                 if (handle == null ||
@@ -172,32 +156,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 handle.Stop(GameplayVfxStopMode.TopologyTransitionHardClear);
-                TraceEntranceHandle(nameof(HardClearActiveForTopologyTransition), "TopologyTransitionHardClear", handle, timeProvider.TimeSeconds, includeStackTrace: true);
                 ReleaseInternal(handle, forceHardCleanup: false);
             }
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardClearActiveForTopologyTransition),
-                "Exit",
-                $"activeTotalAfter={ActiveCount} activeEntranceAfter={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}");
         }
 
         public void HardCleanupAll()
         {
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardCleanupAll),
-                "PoolHardCleanupAllEntry",
-                $"activeTotalBefore={ActiveCount} activeEntranceBefore={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} pooledCount={PooledCount}",
-                includeStackTrace: true);
             foreach (var handle in activeHandles.ToArray())
             {
-                TraceEntranceHandle(nameof(HardCleanupAll), "HandleHardCleanup", handle, timeProvider.TimeSeconds, includeStackTrace: true);
                 handle?.HardCleanup();
             }
 
             activeHandles.Clear();
             activeParameterizedMotions.Clear();
             releaseToPoolCountByCue.Clear();
-            entranceParticleDumpMasks.Clear();
 
             foreach (var instance in allByPrefabId.Values.SelectMany(list => list).ToArray())
             {
@@ -210,10 +182,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             availableByPrefabId.Clear();
             allByPrefabId.Clear();
             familyByPrefabId.Clear();
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardCleanupAll),
-                "PoolHardCleanupAllExit",
-                $"activeTotalAfter={ActiveCount} activeEntranceAfter={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} pooledCount={PooledCount}");
         }
 
         public void HardCleanupFamily(GameplayVfxFamily family)
@@ -223,11 +191,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardCleanupFamily),
-                "PoolHardCleanupFamilyEntry",
-                $"family={family} activeTotalBefore={ActiveCount} activeEntranceBefore={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} pooledCount={PooledCount}",
-                includeStackTrace: true);
             foreach (var handle in activeHandles.ToArray())
             {
                 if (handle == null || handle.CueId.Family != family)
@@ -235,11 +198,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                TraceEntranceHandle(nameof(HardCleanupFamily), "HandleHardCleanupFamily", handle, timeProvider.TimeSeconds, includeStackTrace: true);
                 handle.HardCleanup();
                 activeHandles.Remove(handle);
                 activeParameterizedMotions.Remove(handle);
-                entranceParticleDumpMasks.Remove(handle.HandleId);
             }
 
             foreach (var cue in releaseToPoolCountByCue.Keys.ToArray())
@@ -251,10 +212,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             CleanupStoredInstancesForFamily(family);
-            GameplayVfxLifetimeTrace.Log(
-                nameof(HardCleanupFamily),
-                "PoolHardCleanupFamilyExit",
-                $"family={family} activeTotalAfter={ActiveCount} activeEntranceAfter={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} pooledCount={PooledCount}");
         }
 
         public void Advance(float deltaSeconds)
@@ -262,20 +219,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var now = timeProvider.TimeSeconds;
             foreach (var handle in activeHandles.ToArray())
             {
-            if (handle == null || handle.IsTerminal)
-            {
-                if (handle != null)
+                if (handle == null || handle.IsTerminal)
                 {
-                    entranceParticleDumpMasks.Remove(handle.HandleId);
+                    activeHandles.Remove(handle);
+                    continue;
                 }
 
-                activeHandles.Remove(handle);
-                continue;
+                AdvanceHandle(handle, now);
             }
-
-            TraceEntranceParticleDumpThresholds(handle, now);
-            AdvanceHandle(handle, now);
-        }
         }
 
         private GameplayVfxPlaybackHandle Play(
@@ -293,15 +244,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (IsOverConcurrentLimit(command.Policy))
             {
                 DroppedByLimitCount++;
-                if (GameplayVfxLifetimeTrace.IsEntranceSpawn(command.CueId))
-                {
-                    GameplayVfxLifetimeTrace.Log(
-                        nameof(Play),
-                        "DroppedByMaxConcurrent",
-                        $"{GameplayVfxLifetimeTrace.DescribeRequest(command.Request)} {GameplayVfxLifetimeTrace.DescribePolicy(command.Policy)} activeEntrance={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
-                        includeStackTrace: true);
-                }
-
                 return null;
             }
 
@@ -320,7 +262,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             handle.MarkSpawned();
             handle.MarkActive();
             activeHandles.Add(handle);
-            TraceEntranceHandle(nameof(Play), "HandleActivated", handle, now, includeStackTrace: false);
             return handle;
         }
 
@@ -418,7 +359,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void AdvanceActiveHandle(GameplayVfxPlaybackHandle handle, float now)
         {
-            TraceEntranceHandle(nameof(AdvanceActiveHandle), "LifetimeCheck", handle, now, includeStackTrace: false);
             if (handle.IsPersistent)
             {
                 return;
@@ -435,7 +375,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            TraceEntranceHandle(nameof(AdvanceActiveHandle), "LifetimeBoundaryReached", handle, now, includeStackTrace: true);
             switch (handle.Policy.StopPolicy)
             {
                 case VfxStopPolicy.DetachThenStopEmittingThenRelease:
@@ -465,15 +404,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             var instance = handle.Instance;
-            TraceEntranceHandle(
-                nameof(ReleaseInternal),
-                forceHardCleanup ? "ForceHardCleanupRelease" : "Release",
-                handle,
-                timeProvider.TimeSeconds,
-                includeStackTrace: true);
             activeHandles.Remove(handle);
             activeParameterizedMotions.Remove(handle);
-            entranceParticleDumpMasks.Remove(handle.HandleId);
 
             if (instance == null || instance.GameObject == null)
             {
@@ -502,10 +434,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             available.Push(instance);
-            GameplayVfxLifetimeTrace.Log(
-                nameof(ReleaseInternal),
-                "ReleaseCompleted",
-                $"cueFamily={handle.CueId.Family} cueCode={handle.CueId.Code} cueName={GameplayVfxLifetimeTrace.DescribeCueName(handle.CueId)} activeTotalAfter={ActiveCount} activeEntranceAfter={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)} releaseToPoolCount={GetReleaseToPoolCount(handle.CueId)}");
         }
 
         private void ReleaseIfTailComplete(GameplayVfxPlaybackHandle handle, float now)
@@ -515,7 +443,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            TraceEntranceHandle(nameof(ReleaseIfTailComplete), "TailComplete", handle, now, includeStackTrace: true);
             handle.ReleaseToPool();
             ReleaseInternal(handle, forceHardCleanup: false);
         }
@@ -545,88 +472,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             activeParameterizedMotions.Remove(handle);
             ReleaseIfTailComplete(handle, now);
             return true;
-        }
-
-        private void TraceEntranceHandle(
-            string method,
-            string reason,
-            GameplayVfxPlaybackHandle handle,
-            float now,
-            bool includeStackTrace)
-        {
-            if (handle == null || !GameplayVfxLifetimeTrace.IsEntranceSpawn(handle.CueId))
-            {
-                return;
-            }
-
-            GameplayVfxLifetimeTrace.Log(
-                method,
-                reason,
-                $"{DescribeHandle(handle, now)} activeTotal={ActiveCount} activeEntrance={GetActiveCount(GameplayVfxLifetimeTrace.EntranceSpawnCue)}",
-                handle.Instance?.GameObject,
-                includeStackTrace);
-        }
-
-        private void TraceEntranceParticleDumpThresholds(GameplayVfxPlaybackHandle handle, float now)
-        {
-            if (handle == null || !GameplayVfxLifetimeTrace.IsEntranceSpawn(handle.CueId))
-            {
-                return;
-            }
-
-            var age = now - handle.StartedAtSeconds;
-            var mask = entranceParticleDumpMasks.TryGetValue(handle.HandleId, out var currentMask)
-                ? currentMask
-                : 0;
-            var nextMask = mask;
-            if (age >= 1f && (mask & 1) == 0)
-            {
-                nextMask |= 1;
-                TraceEntranceHandle(nameof(Advance), "ParticleStateDump_1s", handle, now, includeStackTrace: false);
-                GameplayVfxLifetimeTrace.Log(
-                    nameof(Advance),
-                    "ParticleStateDump_1s",
-                    GameplayVfxLifetimeTrace.DescribeParticles(handle.Instance?.GameObject),
-                    handle.Instance?.GameObject);
-            }
-
-            if (age >= 2f && (mask & 2) == 0)
-            {
-                nextMask |= 2;
-                TraceEntranceHandle(nameof(Advance), "ParticleStateDump_2s", handle, now, includeStackTrace: false);
-                GameplayVfxLifetimeTrace.Log(
-                    nameof(Advance),
-                    "ParticleStateDump_2s",
-                    GameplayVfxLifetimeTrace.DescribeParticles(handle.Instance?.GameObject),
-                    handle.Instance?.GameObject);
-            }
-
-            if (age >= 5f && (mask & 4) == 0)
-            {
-                nextMask |= 4;
-                TraceEntranceHandle(nameof(Advance), "ParticleStateDump_5s", handle, now, includeStackTrace: false);
-                GameplayVfxLifetimeTrace.Log(
-                    nameof(Advance),
-                    "ParticleStateDump_5s",
-                    GameplayVfxLifetimeTrace.DescribeParticles(handle.Instance?.GameObject),
-                    handle.Instance?.GameObject);
-            }
-
-            if (nextMask != mask)
-            {
-                entranceParticleDumpMasks[handle.HandleId] = nextMask;
-            }
-        }
-
-        private static string DescribeHandle(GameplayVfxPlaybackHandle handle, float now)
-        {
-            if (handle == null)
-            {
-                return "handle=<null>";
-            }
-
-            var age = Mathf.Max(0f, now - handle.StartedAtSeconds);
-            return $"handleId={handle.HandleId} state={handle.State} cueFamily={handle.CueId.Family} cueCode={handle.CueId.Code} cueName={GameplayVfxLifetimeTrace.DescribeCueName(handle.CueId)} isPersistent={handle.IsPersistent} createdAt={handle.StartedAtSeconds:F3} age={age:F3} stopPolicy={handle.Policy.StopPolicy} defaultLifetimeSeconds={handle.Policy.DefaultLifetimeSeconds:F3} tailSeconds={handle.Policy.TailSeconds:F3} effectiveLifetimeSeconds={(handle.Policy.DefaultLifetimeSeconds + handle.Policy.TailSeconds):F3} {GameplayVfxLifetimeTrace.DescribeGameObject(handle.Instance?.GameObject)}";
         }
     }
 }
