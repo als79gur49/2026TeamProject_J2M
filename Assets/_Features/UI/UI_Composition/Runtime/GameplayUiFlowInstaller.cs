@@ -179,6 +179,11 @@ namespace Game.Feature.UI.Composition
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             _uiAudioPort = CreateUiAudioPort();
             var uiAudioPort = _uiAudioPort;
+            if (UnityEngine.Application.isPlaying)
+            {
+                SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(uiAudioPort);
+            }
+
             EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();

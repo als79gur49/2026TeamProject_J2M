@@ -61,7 +61,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`UI_Application` owns presenter-level orchestration for screen, popup, and HUD slices."));
             Assert.That(guidelines, Does.Contain("`UI_Screens`, `UI_Popups`, and `UI_HUD` own view-facing feature assets and local UI types; they do not own application-layer presenter orchestration."));
             Assert.That(guidelines, Does.Contain("`UI_Composition` instantiates presenters and binds them to canonical views at runtime."));
-            Assert.That(guidelines, Does.Contain("UI SFX ownership is split between coordinator-owned flow outcome cues and screen-runtime-owned local widget cues"));
+            Assert.That(guidelines, Does.Contain("UI SFX ownership is split between coordinator-owned flow outcome cues, local widget/HUD cues, and transition-overlay whitelist cues"));
             Assert.That(guidelines, Does.Contain("the coordinator transaction/outcome layer is the only flow-cue trigger seam"));
             Assert.That(guidelines, Does.Contain("Audio-Architecture-Guidelines.md"));
             Assert.That(
@@ -159,6 +159,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(audioGuidelines, Does.Contain("Settings.Back` from pause origin"));
             Assert.That(audioGuidelines, Does.Contain("`SystemPresentation` is silent by default"));
             Assert.That(audioGuidelines, Does.Contain("Stage clear -> StageResult + Reward popup"));
+            Assert.That(audioGuidelines, Does.Contain("transition overlay cue"));
+            Assert.That(audioGuidelines, Does.Contain("DeathRetryChanceLost` emits `ChanceLoss` from the transition overlay path"));
+            Assert.That(audioGuidelines, Does.Contain("Death retry chance loss"));
+            Assert.That(audioGuidelines, Does.Contain("LevelFailed/RetryFailed may share one clip through separate definitions"));
             Assert.That(audioGuidelines, Does.Contain("placeholder `Ui` definitions/clips는 wiring과 architecture validation 용도로 허용된다."));
             Assert.That(audioGuidelines, Does.Contain("placeholder clip reuse may make distinct cues sound similar"));
             Assert.That(audioGuidelines, Does.Contain("hover, disabled/no-op, backdrop-consume feedback는 v1 shipped scope가 아니다."));

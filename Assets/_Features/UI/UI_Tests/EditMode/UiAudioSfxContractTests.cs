@@ -5,6 +5,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Shared.Audio;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.UI.Tests
@@ -139,6 +140,21 @@ namespace Game.Feature.UI.Tests
             cueMap.ValidateOrThrow();
 
             Assert.That(cueMap.Entries.Count, Is.EqualTo(Enum.GetValues(typeof(UiAudioCueId)).Length));
+        }
+
+        [Test]
+        public void UiAudioCueMap_CanonicalAuthoredMap_ChanceLossUsesLowerPitchedRetryFailedDefinition()
+        {
+            var cueMap = UiTestPrefabAssetUtility.LoadUiAudioCueMap();
+            var binding = ResolveBinding(cueMap, UiAudioCueId.ChanceLoss);
+            var retryFailedDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(
+                "Assets/_Shared/Audio/Definitions/Ui/Ui_RetryFailed_Def.asset");
+
+            Assert.That(retryFailedDefinition, Is.Not.Null);
+            Assert.That(binding.Definition, Is.SameAs(retryFailedDefinition));
+            Assert.That(binding.Definition.Category, Is.EqualTo(AudioCategory.Ui));
+            Assert.That(binding.Definition.Loop, Is.False);
+            Assert.That(binding.Definition.PitchRange, Is.EqualTo(new Vector2(0.95f, 0.95f)));
         }
 
         [Test]
@@ -298,6 +314,20 @@ namespace Game.Feature.UI.Tests
                 Assert.That(field, Is.Not.Null, fieldName);
                 field.SetValue(instance, value);
             }
+        }
+
+        private static AudioBinding ResolveBinding(UiAudioCueMap cueMap, UiAudioCueId cueId)
+        {
+            for (var i = 0; i < cueMap.Entries.Count; i++)
+            {
+                if (cueMap.Entries[i].CueId == cueId)
+                {
+                    return cueMap.Entries[i].Binding;
+                }
+            }
+
+            Assert.Fail($"Missing cue map entry for {cueId}.");
+            return null;
         }
     }
 }

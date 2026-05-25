@@ -390,9 +390,10 @@ future extension note:
 - 이 동작은 v1에서 intentional하다. `Sfx`를 mute해도 UI feedback은 계속 들릴 수 있다.
 - public `Ui` slider 또는 mute를 Settings에 노출하는 것은 separate future product decision이다. 이번 작업 범위가 아니다.
 - UI SFX playback은 `Play2D`만 사용한다. `PlayAttached`, spatial ownership, attachment slot authoring은 금지다.
-- UI SFX owner split은 아래 둘뿐이다.
+- UI SFX owner split은 아래 셋뿐이다.
   - flow cue: `UIFlowCoordinator`의 transaction/outcome layer만 재생한다.
-  - local widget cue: `GameplayScreenRuntimeFactory` screen runtime이 widget-local interaction에서만 재생한다.
+  - local widget/HUD cue: screen runtime과 HUD feedback controller가 local presentation interaction에서만 재생한다.
+  - transition overlay cue: `SceneTransitionCoordinator`가 scene transition overlay가 표시되는 순간의 transition-kind whitelist만 재생한다.
 - `ScreenTransitioned`, `PopupOpened`, `PopupCompleted`는 mechanical lifecycle signal이다. direct audio trigger가 아니다.
 - one interaction may contain multiple raw lifecycle deltas but still emit only one cue.
 - classifier governance rule:
@@ -423,12 +424,15 @@ future extension note:
 | objective tab changes | Local only | local `Select` only |
 | popup confirm/resume/reward acknowledge | Flow only | one `Confirm` |
 | popup cancel/back-cancel | Flow only | one `Cancel` |
+| `Death retry chance loss` | Transition overlay only | one `ChanceLoss` using retry-failed definition |
 | back buttons that trigger real pop | Flow only | one `NavigateBack`, never local + flow |
 
 - user/system policy:
   - user-driven navigation uses the classifier matrix above.
   - `SystemPresentation` is silent by default and must not inherit navigation defaults accidentally.
   - `Stage clear -> StageResult + Reward popup` is one system-driven transaction. v1에서는 silent unless future product policy explicitly whitelists it.
+  - `DeathRetryChanceLost` emits `ChanceLoss` from the transition overlay path because campaign retry can launch the next scene before HUD chance deltas are observed.
+  - `LevelFailed/RetryFailed may share one clip through separate definitions`; retry-failed/chance-loss content should stay lower-pitched than terminal level failure.
 - transaction/debug rule:
   - internal trace는 root intent, collected deltas, chosen outcome, emitted cue 또는 silence reason을 기록한다.
   - test/debug는 raw event count 대신 transaction trace를 primary evidence로 본다.

@@ -71,7 +71,7 @@ MonoBehaviour:
         rid: -2
   - cueId: 8
     binding:
-      definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
+      definition: {fileID: 11400000, guid: 615591c294564ea0820a3d70d1a9ffda, type: 2}
       attachmentSlot:
         id:
       policy:
