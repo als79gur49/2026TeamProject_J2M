@@ -1848,6 +1848,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.PresentationData.EntityExitSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(30));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.Killed));
+            Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.Not.EqualTo(TickEntityExitCause.OutOfBounds));
+            Assert.That(result.PresentationData.EntityExitSignals[0].EntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(result.PresentationData.EntityExitSignals[0].SourceCell, Is.EqualTo(destroyCell));
+            Assert.That(
+                result.PresentationData.EntityExitSignals[0].Timing,
+                Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
             Assert.That(worldState.CreateSnapshot().TryGetEntity(30, out _), Is.False);
         }

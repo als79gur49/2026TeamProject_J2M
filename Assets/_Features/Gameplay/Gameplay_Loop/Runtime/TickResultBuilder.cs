@@ -3217,7 +3217,7 @@ namespace Game.Feature.Gameplay.Loop
         private static bool IsExitPresentationSupportedEntity(EntityState entity)
         {
             return entity.type == EntityType.Box ||
-                   (entity.type == EntityType.Unit && entity.aiMode != EnemyAiMode.None);
+                   EntityRolePolicy.IsEnemyUnit(entity);
         }
 
         private static EntityExitPresentationTiming ResolveEntityExitPresentationTiming(
