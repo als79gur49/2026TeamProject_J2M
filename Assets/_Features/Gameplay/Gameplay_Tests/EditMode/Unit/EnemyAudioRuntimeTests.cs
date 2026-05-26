@@ -1232,6 +1232,171 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_Present_LethalEnemyDamageWithEnemyDeathCueSuppressesCoreEnemyDamage()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_LethalEnemyDamageWithEnemyDeathCueSuppressesCoreEnemyDamage));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Death, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var lethalEnemy = CreateUnit(20, UnitRole.Enemy);
+                var damagedEnemy = CreateUnit(21, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { lethalEnemy, damagedEnemy }, topology);
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyDamageSignals: new[]
+                        {
+                            new TickEnemyDamagePresentationSignal(
+                                lethalEnemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                            new TickEnemyDamagePresentationSignal(
+                                damagedEnemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        },
+                        entityExitSignals: new[]
+                        {
+                            new TickEntityExitPresentationSignal(
+                                lethalEnemy.entityId,
+                                TickEntityExitCause.EnemyDeath,
+                                sourceCell,
+                                topology,
+                                Direction.Left,
+                                EntityType.Unit),
+                        }),
+                    finalEntities: new[] { damagedEnemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => (call.Context.OwnerEntityId, call.Context.DebugTag)).ToArray(),
+                    Is.EqualTo(new[]
+                    {
+                        ((int?)damagedEnemy.entityId, "EnemyDamage"),
+                        ((int?)lethalEnemy.entityId, "Death"),
+                    }));
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call =>
+                        call.Context.OwnerEntityId == lethalEnemy.entityId &&
+                        call.Context.DebugTag == "EnemyDamage"),
+                    Is.False);
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call => call.Context.DebugTag == "EntityExitEnemyDeath"),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_NonLethalEnemyDamageKeepsCoreEnemyDamage()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_NonLethalEnemyDamageKeepsCoreEnemyDamage));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Death, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyDamageSignals: new[]
+                        {
+                            new TickEnemyDamagePresentationSignal(
+                                enemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        }),
+                    finalEntities: new[] { enemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => (call.Context.OwnerEntityId, call.Context.DebugTag)).ToArray(),
+                    Is.EqualTo(new[]
+                    {
+                        ((int?)enemy.entityId, "EnemyDamage"),
+                    }));
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call => call.Context.DebugTag == "Death"),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_LethalEnemyDamageWithoutEnemyDeathCueKeepsCoreDamageFeedback()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_LethalEnemyDamageWithoutEnemyDeathCueKeepsCoreDamageFeedback));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, topology);
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyDamageSignals: new[]
+                        {
+                            new TickEnemyDamagePresentationSignal(
+                                enemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        },
+                        entityExitSignals: new[]
+                        {
+                            new TickEntityExitPresentationSignal(
+                                enemy.entityId,
+                                TickEntityExitCause.EnemyDeath,
+                                sourceCell,
+                                topology,
+                                Direction.Left,
+                                EntityType.Unit),
+                        }),
+                    finalEntities: Array.Empty<EntityState>()));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => (call.Context.OwnerEntityId, call.Context.DebugTag)).ToArray(),
+                    Is.EqualTo(new[]
+                    {
+                        ((int?)enemy.entityId, "EnemyDamage"),
+                        ((int?)enemy.entityId, "EntityExitEnemyDeath"),
+                    }));
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call => call.Context.DebugTag == "Death"),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void EnemyPrefabs_HaveValidEnemyAudioAuthoring()
         {
@@ -1435,7 +1600,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickVisibilityChange> visibilityChanges = null,
             IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null,
             IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
-            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
+            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
+            IReadOnlyList<TickEnemyDamagePresentationSignal> enemyDamageSignals = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -1446,7 +1612,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                 Array.Empty<TickPlayerDamagePresentationSignal>(),
                 Array.Empty<TickPlayerDeathPresentationSignal>(),
-                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyDamageSignals ?? Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals ?? Array.Empty<TickEnemyActionPresentationSignal>(),
                 enemyJumpSignals ?? Array.Empty<TickEnemyJumpPresentationSignal>(),
                 enemyChargeSignals ?? Array.Empty<TickEnemyChargePresentationSignal>(),

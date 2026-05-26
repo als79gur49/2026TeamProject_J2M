@@ -397,9 +397,7 @@ namespace Game.Feature.Gameplay.Host
             var previousCommittedTopology = _stateStore.CommittedTopology;
 
             TraceStep("RefreshAudioPlan");
-            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result, _timingProfile));
-            _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
-            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result, _timingProfile));
+            RefreshGameplayAudioPlan(result);
             _blockAudioPresentationController.ReplacePendingPlan(
                 _blockAudioRequestPlanner.BuildRequests(result, _timingProfile));
             RefreshTilePresentationRequests(result.PresentationData);
@@ -732,9 +730,144 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(result));
             }
 
-            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result, _timingProfile));
+            RefreshGameplayAudioPlan(result);
+        }
+
+        private void RefreshGameplayAudioPlan(TickResult result)
+        {
+            var gameplayAudioRequests = _audioRequestPlanner.BuildRequests(result, _timingProfile);
+            var enemyAudioRequests = _enemyAudioRequestPlanner.BuildRequests(result, _timingProfile);
+            var filteredGameplayAudioRequests = SuppressLethalEnemyDamageRequests(
+                result.PresentationData,
+                gameplayAudioRequests,
+                enemyAudioRequests);
+
+            _audioPresentationController.ReplacePendingPlan(filteredGameplayAudioRequests);
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
-            _enemyAudioPresentationController.ReplacePendingPlan(_enemyAudioRequestPlanner.BuildRequests(result, _timingProfile));
+            _enemyAudioPresentationController.ReplacePendingPlan(enemyAudioRequests);
+        }
+
+        private IReadOnlyList<GameplayAudioRequest> SuppressLethalEnemyDamageRequests(
+            TickPresentationData presentationData,
+            IReadOnlyList<GameplayAudioRequest> gameplayAudioRequests,
+            IReadOnlyList<EnemyAudioRequest> enemyAudioRequests)
+        {
+            if (gameplayAudioRequests.Count == 0 || enemyAudioRequests.Count == 0)
+            {
+                return gameplayAudioRequests;
+            }
+
+            var playableDeathCueEntityIds = BuildPlayableEnemyDeathCueEntityIds(
+                presentationData,
+                enemyAudioRequests);
+            if (playableDeathCueEntityIds.Count == 0)
+            {
+                return gameplayAudioRequests;
+            }
+
+            List<GameplayAudioRequest> filteredRequests = null;
+            for (var i = 0; i < gameplayAudioRequests.Count; i++)
+            {
+                var request = gameplayAudioRequests[i];
+                if (ShouldSuppressLethalEnemyDamageRequest(request, playableDeathCueEntityIds))
+                {
+                    if (filteredRequests == null)
+                    {
+                        filteredRequests = new List<GameplayAudioRequest>(gameplayAudioRequests.Count);
+                        for (var copyIndex = 0; copyIndex < i; copyIndex++)
+                        {
+                            filteredRequests.Add(gameplayAudioRequests[copyIndex]);
+                        }
+                    }
+
+                    continue;
+                }
+
+                filteredRequests?.Add(request);
+            }
+
+            return filteredRequests ?? gameplayAudioRequests;
+        }
+
+        private HashSet<int> BuildPlayableEnemyDeathCueEntityIds(
+            TickPresentationData presentationData,
+            IReadOnlyList<EnemyAudioRequest> enemyAudioRequests)
+        {
+            var deathExitEntityIds = BuildEnemyDeathExitEntityIds(presentationData);
+            if (deathExitEntityIds.Count == 0)
+            {
+                return deathExitEntityIds;
+            }
+
+            var playableDeathCueEntityIds = new HashSet<int>();
+            for (var i = 0; i < enemyAudioRequests.Count; i++)
+            {
+                var request = enemyAudioRequests[i];
+                if (request.Cue != EnemyAudioCue.Death ||
+                    !deathExitEntityIds.Contains(request.OwnerEntityId) ||
+                    !HasPlayableEnemyDeathCue(request.OwnerEntityId))
+                {
+                    continue;
+                }
+
+                playableDeathCueEntityIds.Add(request.OwnerEntityId);
+            }
+
+            return playableDeathCueEntityIds;
+        }
+
+        private static HashSet<int> BuildEnemyDeathExitEntityIds(TickPresentationData presentationData)
+        {
+            var entityIds = new HashSet<int>();
+            var exitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < exitSignals.Count; i++)
+            {
+                var signal = exitSignals[i];
+                if (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
+                    signal.ExitCause != TickEntityExitCause.Killed)
+                {
+                    continue;
+                }
+
+                entityIds.Add(signal.ExitedEntityId);
+            }
+
+            return entityIds;
+        }
+
+        private bool HasPlayableEnemyDeathCue(int ownerEntityId)
+        {
+            if (!TryResolveActiveOwner(ownerEntityId, out var owner))
+            {
+                return false;
+            }
+
+            var authoring = EnemyAudioAuthoring.GetOptionalValidatedAuthoring(owner);
+            return authoring != null &&
+                   authoring.Profile.HasCue(EnemyAudioCue.Death);
+        }
+
+        private static bool ShouldSuppressLethalEnemyDamageRequest(
+            in GameplayAudioRequest request,
+            ISet<int> playableDeathCueEntityIds)
+        {
+            return request.SemanticId == GameplayAudioSemanticId.EnemyDamage &&
+                   request.OwnerEntityId.HasValue &&
+                   playableDeathCueEntityIds.Contains(request.OwnerEntityId.Value);
+        }
+
+        private bool TryResolveActiveOwner(int ownerEntityId, out GameplayEntityView owner)
+        {
+            owner = null;
+            if (!_stateStore.ViewsByEntityId.TryGetValue(ownerEntityId, out owner) ||
+                owner == null ||
+                !owner.gameObject.activeInHierarchy)
+            {
+                owner = null;
+                return false;
+            }
+
+            return true;
         }
 
         internal void SetTraceSink(Action<string> traceSink)
