@@ -346,6 +346,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2622141770595935588}
   - component: {fileID: 3082900766525459827}
+  - component: {fileID: -736510001000000002}
   m_Layer: 0
   m_Name: WallRoot_BGate
   m_TagString: Untagged
@@ -400,6 +401,62 @@ MonoBehaviour:
   - TargetObject: {fileID: 3243902815972722749}
     FirstFace: 3
     SecondFace: 0
+--- !u!114 &-736510001000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4032346886678373965}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 736b5fb467ae49dabb4a91b9d5a42a45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  profile: {fileID: 11400000, guid: 7a8645923b8243f8bcc692d78e994d3c, type: 2}
+  targets:
+  - renderer: {fileID: 1885536798970264721}
+    materialIndex: 1
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 1885536798970264721}
+    materialIndex: 2
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 1885536798970264721}
+    materialIndex: 5
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 6516560297228481673}
+    materialIndex: 1
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 6516560297228481673}
+    materialIndex: 2
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 6516560297228481673}
+    materialIndex: 5
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
 --- !u!1 &6120799147251309629
 GameObject:
   m_ObjectHideFlags: 0
@@ -586,6 +643,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: f803ad4e1bf618546b025c76b2aefe0c, type: 3}
   m_PrefabInstance: {fileID: 1002983420444155925}
   m_PrefabAsset: {fileID: 0}
+--- !u!23 &1885536798970264721 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: f803ad4e1bf618546b025c76b2aefe0c, type: 3}
+  m_PrefabInstance: {fileID: 1002983420444155925}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &5597671634960197645
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -658,5 +720,10 @@ PrefabInstance:
 --- !u!4 &5342489395946082278 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: f803ad4e1bf618546b025c76b2aefe0c, type: 3}
+  m_PrefabInstance: {fileID: 5597671634960197645}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &6516560297228481673 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: f803ad4e1bf618546b025c76b2aefe0c, type: 3}
   m_PrefabInstance: {fileID: 5597671634960197645}
   m_PrefabAsset: {fileID: 0}
