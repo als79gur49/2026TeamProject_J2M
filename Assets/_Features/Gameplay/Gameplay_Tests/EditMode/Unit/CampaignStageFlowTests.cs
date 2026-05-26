@@ -30,8 +30,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resolver = CreateResolver();
 
             Assert.That(resolver.FirstStageId.Value, Is.EqualTo("stage-0-1"));
-            Assert.That(resolver.FinalStageId.Value, Is.EqualTo("stage-5-1"));
-            Assert.That(resolver.IsFinal(StageId.CreateOrThrow("stage-5-1")), Is.True);
+            Assert.That(resolver.FinalStageId.Value, Is.EqualTo("stage-4-2"));
+            Assert.That(resolver.IsFinal(StageId.CreateOrThrow("stage-4-2")), Is.True);
+            Assert.That(resolver.Contains(StageId.CreateOrThrow("stage-5-1")), Is.False);
+            Assert.That(
+                CampaignStageSequenceDefinition.IsRetiredCompletedStageId(StageId.CreateOrThrow("stage-5-1")),
+                Is.True);
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-2-1")).Value, Is.EqualTo("stage-2-2"));
             Assert.That(resolver.GetFirstStageInLevelGroupOrNone("level-2").Value, Is.EqualTo("stage-2-1"));
             Assert.That(
@@ -206,10 +210,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             CampaignStageResultNavigationStore.Set(
                 new CampaignStageResultNavigationPlan(
-                    StageId.CreateOrThrow("stage-5-1"),
+                    StageId.CreateOrThrow("stage-4-2"),
                     StageNavigationRequest.None,
                     campaignCompleted: true));
-            Assert.That(CampaignStageResultNavigationStore.TryGet(StageId.CreateOrThrow("stage-5-1"), out var finalPlan), Is.True);
+            Assert.That(CampaignStageResultNavigationStore.TryGet(StageId.CreateOrThrow("stage-4-2"), out var finalPlan), Is.True);
             Assert.That(finalPlan.CampaignCompleted, Is.True);
             Assert.That(finalPlan.NextStageRequest.IsValid, Is.False);
         }

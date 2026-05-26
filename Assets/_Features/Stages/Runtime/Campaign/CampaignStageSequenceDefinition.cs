@@ -33,7 +33,6 @@ namespace Game.Feature.Stages
         public const string Level2GroupId = "level-2";
         public const string Level3GroupId = "level-3";
         public const string Level4GroupId = "level-4";
-        public const string Level5GroupId = "level-5";
 
         public static readonly string[] CanonicalStageIdValues =
         {
@@ -46,7 +45,6 @@ namespace Game.Feature.Stages
             "stage-3-2",
             "stage-4-1",
             "stage-4-2",
-            "stage-5-1",
         };
 
         public static readonly string[] CanonicalDisplayNames =
@@ -60,7 +58,6 @@ namespace Game.Feature.Stages
             "3-2",
             "4-1",
             "4-2",
-            "5-1",
         };
 
         public static readonly string[] CanonicalLevelGroupIds =
@@ -74,7 +71,11 @@ namespace Game.Feature.Stages
             Level3GroupId,
             Level4GroupId,
             Level4GroupId,
-            Level5GroupId,
+        };
+
+        public static readonly string[] RetiredCompletedStageIdValues =
+        {
+            "stage-5-1",
         };
 
         [SerializeField] private CampaignStageSequenceEntry[] entries = CreateCanonicalEntries();
@@ -91,6 +92,24 @@ namespace Game.Feature.Stages
         public void SetEntries(CampaignStageSequenceEntry[] value)
         {
             entries = value ?? Array.Empty<CampaignStageSequenceEntry>();
+        }
+
+        public static bool IsRetiredCompletedStageId(StageId stageId)
+        {
+            if (!stageId.IsValid)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < RetiredCompletedStageIdValues.Length; i++)
+            {
+                if (string.Equals(RetiredCompletedStageIdValues[i], stageId.Value, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static CampaignStageSequenceEntry[] CreateCanonicalEntries()

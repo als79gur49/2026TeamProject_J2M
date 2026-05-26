@@ -19,12 +19,14 @@ namespace Game.Feature.Stages
             SaveSlotData slot,
             SaveSlotValidationStatus status,
             string derivedLevelGroupId,
-            bool levelGroupWasSynced)
+            bool levelGroupWasSynced,
+            bool requiresSaveSync = false)
         {
             Slot = slot?.Clone() ?? SaveSlotData.CreateEmpty(1);
             Status = status;
             DerivedLevelGroupId = derivedLevelGroupId ?? string.Empty;
             LevelGroupWasSynced = levelGroupWasSynced;
+            RequiresSaveSync = requiresSaveSync || levelGroupWasSynced;
         }
 
         public SaveSlotData Slot { get; }
@@ -34,6 +36,8 @@ namespace Game.Feature.Stages
         public string DerivedLevelGroupId { get; }
 
         public bool LevelGroupWasSynced { get; }
+
+        public bool RequiresSaveSync { get; }
 
         public bool CanContinue => Status == SaveSlotValidationStatus.Valid;
 
@@ -98,6 +102,11 @@ namespace Game.Feature.Stages
 
             if (!_sequenceResolver.Contains(mutableSlot.CurrentStageId))
             {
+                if (CampaignStageSequenceDefinition.IsRetiredCompletedStageId(mutableSlot.CurrentStageId))
+                {
+                    return ValidateRetiredCompletedStage(mutableSlot);
+                }
+
                 return new SaveSlotValidationResult(
                     mutableSlot,
                     SaveSlotValidationStatus.StageMissingFromSequence,
@@ -133,6 +142,32 @@ namespace Game.Feature.Stages
                 levelGroupWasSynced);
         }
 
+        private SaveSlotValidationResult ValidateRetiredCompletedStage(SaveSlotData mutableSlot)
+        {
+            var completionStageId = _sequenceResolver.FinalStageId;
+            var completionLevelGroupId = _sequenceResolver.GetLevelGroupId(completionStageId);
+            mutableSlot.CurrentStageId = completionStageId;
+            mutableSlot.CurrentLevelGroupId = completionLevelGroupId;
+            mutableSlot.CampaignCompleted = true;
+
+            if (!_catalogResolver.TryResolve(completionStageId, out _))
+            {
+                return new SaveSlotValidationResult(
+                    mutableSlot,
+                    SaveSlotValidationStatus.StageMissingFromCatalog,
+                    completionLevelGroupId,
+                    levelGroupWasSynced: false,
+                    requiresSaveSync: true);
+            }
+
+            return new SaveSlotValidationResult(
+                mutableSlot,
+                SaveSlotValidationStatus.Completed,
+                completionLevelGroupId,
+                levelGroupWasSynced: false,
+                requiresSaveSync: true);
+        }
+
         public SaveSlotValidationResult ValidateAndSync(SaveSlotStore saveSlotStore, int slotNumber)
         {
             if (saveSlotStore == null)
@@ -142,7 +177,7 @@ namespace Game.Feature.Stages
 
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
             var result = Validate(saveSlotStore.LoadSlot(slotNumber));
-            if (result.LevelGroupWasSynced)
+            if (result.RequiresSaveSync)
             {
                 saveSlotStore.SaveSlot(result.Slot);
                 result = Validate(result.Slot);

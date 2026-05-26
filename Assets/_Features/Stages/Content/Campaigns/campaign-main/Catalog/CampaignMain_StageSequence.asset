@@ -49,7 +49,3 @@ MonoBehaviour:
       value: stage-4-2
     displayName: 4-2
     levelGroupId: level-4
-  - stageId:
-      value: stage-5-1
-    displayName: 5-1
-    levelGroupId: level-5

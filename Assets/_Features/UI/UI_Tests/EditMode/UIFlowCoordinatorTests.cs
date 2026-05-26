@@ -838,7 +838,7 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(
                 tickIndex: 9,
                 includeReward: true,
-                stageIdValue: "stage-5-1"));
+                stageIdValue: "stage-4-2"));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
