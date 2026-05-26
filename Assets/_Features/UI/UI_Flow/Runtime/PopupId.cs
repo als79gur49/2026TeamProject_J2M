@@ -8,5 +8,6 @@ namespace Game.Feature.UI.Flow
         Confirm = 3,
         Tooltip = 4,
         Reward = 5,
+        DebugCommands = 6,
     }
 }

@@ -62,7 +62,7 @@ namespace Game.Feature.UI.Screens
 
         public void ClickContinue()
         {
-            if (!IsVisible)
+            if (!IsVisible || (_viewModel != null && !_viewModel.IsContinueEnabled))
             {
                 return;
             }
@@ -167,6 +167,11 @@ namespace Game.Feature.UI.Screens
             if (_continueButtonLabel != null)
             {
                 _continueButtonLabel.text = _viewModel.ContinueLabel;
+            }
+
+            if (_continueButton != null)
+            {
+                _continueButton.interactable = _viewModel.IsContinueEnabled;
             }
         }
 

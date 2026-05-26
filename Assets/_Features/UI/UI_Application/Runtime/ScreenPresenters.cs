@@ -977,7 +977,8 @@ namespace Game.Feature.UI.Application
                 payload.TitleText,
                 payload.SummaryText,
                 payload.DetailText,
-                payload.ContinueLabel);
+                payload.ContinueLabel,
+                payload.IsContinueEnabled);
         }
     }
 
