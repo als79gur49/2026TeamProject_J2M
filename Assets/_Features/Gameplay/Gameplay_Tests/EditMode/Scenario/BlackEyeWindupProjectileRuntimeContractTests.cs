@@ -261,6 +261,284 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_TerrainBlocked_CurrentContract()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var terrainData = new GameplayTerrainData(
+                new[]
+                {
+                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                });
+            var worldState = CreateCombatWorld(targetCell, terrainData: terrainData);
+
+            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.True);
+
+            var observation = ReleaseForwardCellProjectile(worldState);
+
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_SolidBlocked_CurrentContract()
+        {
+            var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new[] { CreateBox(60, solidCell) });
+
+            Assert.That(
+                worldState.CreateSnapshot().TryGetPlacementBlocker(EntityType.Unit, solidCell, EnemyId, out _),
+                Is.True);
+
+            var before = DumpOccupancy(worldState.CreateSnapshot());
+            var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
+
+            AssertNoForwardCellProjectileStarted(worldState);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_BoardEdge_CurrentContract()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            var snapshot = worldState.CreateSnapshot();
+
+            var resolved = WindupMeleeCombatPoseQueries.TryResolveForwardTargetCell(
+                snapshot,
+                new SurfaceCell(FaceId.Floor, 4, 0),
+                Direction.Right,
+                out _);
+
+            Assert.That(resolved, Is.False, "Current forward-cell resolver does not produce an off-board SurfaceCell.");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_ProjectileOccupied_CurrentContract()
+        {
+            var projectileCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new[] { CreateProjectile(70, projectileCell) });
+
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Does.Contain($"Projectile:70@{projectileCell};"));
+
+            var observation = ReleaseForwardCellProjectile(worldState);
+
+            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_UnitOccupied_CurrentContract()
+        {
+            var occupiedCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new[] { CreateUnit(50, 2, occupiedCell, EnemyAiMode.None, Direction.Left, UnitRole.Enemy) });
+
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Does.Contain($"Unit:40@{new SurfaceCell(FaceId.Floor, 0, 0)};50@{occupiedCell};"));
+
+            var observation = ReleaseForwardCellProjectile(worldState);
+
+            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_InactiveFace_CurrentContract()
+        {
+            var inactiveTargetCell = new SurfaceCell(FaceId.Ceiling, 4, 0);
+            var worldState = CreateCombatWorld(inactiveTargetCell);
+            var pipeline = CreatePipeline(worldState);
+
+            var tick = pipeline.RunTick(new TickInput(1));
+
+            if (worldState.CreateSnapshot().TryGetEnemyActionState(EnemyId, out var action))
+            {
+                Assert.That(action.kind, Is.Not.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            }
+
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotFlattenAcrossFaces_CurrentContract()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var frontTerrainCell = new SurfaceCell(FaceId.Front, 4, 0);
+            var frontSolidCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var frontProjectileCell = new SurfaceCell(FaceId.Front, 3, 0);
+            var frontUnitCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var terrainData = new GameplayTerrainData(
+                new[]
+                {
+                    new TerrainCellState(frontTerrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                });
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new[]
+                {
+                    CreateUnit(50, 2, frontUnitCell, EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
+                    CreateBox(60, frontSolidCell),
+                    CreateProjectile(70, frontProjectileCell),
+                },
+                terrainData: terrainData);
+
+            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(frontTerrainCell), Is.True);
+            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.False);
+
+            var observation = ReleaseForwardCellProjectile(worldState);
+
+            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotMutateOccupancy_CurrentContract()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var terrainData = new GameplayTerrainData(
+                new[]
+                {
+                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                });
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new EntityState[]
+                {
+                    CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
+                    CreateProjectile(70, new SurfaceCell(FaceId.Floor, 3, 0)),
+                },
+                terrainData: terrainData);
+
+            var observation = ReleaseForwardCellProjectile(worldState);
+
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+            Assert.That(observation.ReleaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_TargetMovesDuringWindup_CurrentContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, 3, 0);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(lockedCell, movedCell);
+
+            Assert.That(observation.StartedAction.lockedTargetEntityId, Is.EqualTo(PlayerId));
+            Assert.That(observation.StartedAction.lockedTargetCell, Is.EqualTo(lockedCell));
+            Assert.That(observation.TargetAfterMove.position, Is.EqualTo(movedCell));
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_TargetMovesOutOfTelegraphedCell_CurrentContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, 4, 1);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(lockedCell, movedCell);
+
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
+        }
+
+        [Test]
+        [Category("Extended")]
+        [TestCase((int)FaceId.Front, true)]
+        [TestCase((int)FaceId.Ceiling, false)]
+        public void BlackEye_TargetMovesAcrossFacesDuringWindup_CurrentContract(int movedFaceValue, bool expectFaceActive)
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell((FaceId)movedFaceValue, 4, 0);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(
+                lockedCell,
+                movedCell,
+                expectMovedFaceActive: expectFaceActive);
+
+            Assert.That(observation.StartedAction.lockedTargetCell, Is.EqualTo(lockedCell));
+            Assert.That(observation.TargetAfterMove.position, Is.EqualTo(movedCell));
+            Assert.That(observation.TargetAfterMove.position.PlanarPosition, Is.EqualTo(lockedCell.PlanarPosition));
+            Assert.That(observation.TargetAfterMove.position.face, Is.Not.EqualTo(lockedCell.face));
+
+            if (expectFaceActive)
+            {
+                AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
+                return;
+            }
+
+            Assert.That(observation.HasImpact, Is.False);
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileClearSignals, Is.Empty);
+            Assert.That(observation.AfterReleaseOccupancy, Is.EqualTo(observation.AfterMoveOccupancy));
+            AssertActionInactiveOrMissing(observation);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_TargetMovesButRemainsValid_DoesNotMutateOccupancy_CurrentContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, 4, 1);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(lockedCell, movedCell);
+
+            Assert.That(observation.BeforeMoveOccupancy, Is.Not.EqualTo(observation.AfterMoveOccupancy));
+            Assert.That(observation.AfterReleaseOccupancy, Is.EqualTo(observation.AfterMoveOccupancy));
+            Assert.That(observation.ProjectileCountAfterRelease, Is.EqualTo(observation.ProjectileCountBeforeMove));
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_TargetMovesDuringWindup_ReplayDeterminism_CurrentContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, 4, 1);
+
+            var firstReplay = RunTargetMoveDuringWindupReplay(lockedCell, movedCell);
+            var secondReplay = RunTargetMoveDuringWindupReplay(lockedCell, movedCell);
+
+            Assert.That(secondReplay.Count, Is.EqualTo(firstReplay.Count));
+            for (var i = 0; i < firstReplay.Count; i++)
+            {
+                Assert.That(secondReplay[i].TickIndex, Is.EqualTo(firstReplay[i].TickIndex), $"Tick index mismatch at frame {i}.");
+                Assert.That(secondReplay[i].DeterminismHash, Is.EqualTo(firstReplay[i].DeterminismHash), $"Hash mismatch at frame {i}.");
+                Assert.That(secondReplay[i].FinalEntitiesDump, Is.EqualTo(firstReplay[i].FinalEntitiesDump), $"Final entity mismatch at frame {i}.");
+                Assert.That(secondReplay[i].ActionDump, Is.EqualTo(firstReplay[i].ActionDump), $"Action state mismatch at frame {i}.");
+                Assert.That(secondReplay[i].PendingImpactDump, Is.EqualTo(firstReplay[i].PendingImpactDump), $"Pending impact mismatch at frame {i}.");
+                Assert.That(secondReplay[i].ReleaseSignalDump, Is.EqualTo(firstReplay[i].ReleaseSignalDump), $"Release signal mismatch at frame {i}.");
+                Assert.That(secondReplay[i].OccupancyDump, Is.EqualTo(firstReplay[i].OccupancyDump), $"Occupancy mismatch at frame {i}.");
+            }
+
+            Assert.That(firstReplay.Any(frame => frame.PendingImpactDump.Contains("Target=Floor:4,0")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.ReleaseSignalDump.Contains("Target=Floor:4,0")), Is.True);
+        }
+
+
         private static TickPipeline CreatePipeline(WorldState worldState)
         {
             return GameplayCompositionRoot.CreateDefaultBootstrapper(LoadProfile()).CreateTickPipeline(worldState);
@@ -296,17 +574,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return profile;
         }
 
-        private static WorldState CreateCombatWorld(SurfaceCell playerCell)
+        private static WorldState CreateCombatWorld(
+            SurfaceCell playerCell,
+            IEnumerable<EntityState> extraEntities = null,
+            GameplayTerrainData terrainData = null,
+            BoardBounds? boardBounds = null,
+            CubeTopologyState? topology = null)
         {
+            var entities = new List<EntityState>
+            {
+                CreateUnit(PlayerId, 1, playerCell, EnemyAiMode.None, Direction.Left, UnitRole.Player),
+                CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Attack, Direction.Right, UnitRole.Enemy),
+            };
+            if (extraEntities != null)
+            {
+                entities.AddRange(extraEntities);
+            }
+
             return GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(PlayerId, 1, playerCell, EnemyAiMode.None, Direction.Left, UnitRole.Player),
-                    CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Attack, Direction.Right, UnitRole.Enemy),
-                },
-                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor));
+                entities,
+                boardBounds ?? new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
+                terrainData ?? GameplayTerrainData.Empty,
+                topology ?? new CubeTopologyState(FaceId.Floor));
         }
 
         private static EntityState CreateUnit(
@@ -336,6 +625,46 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
+        private static EntityState CreateBox(int entityId, SurfaceCell cell)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = cell,
+                hp = 3,
+                maxHp = 3,
+                teamId = 0,
+                type = EntityType.Box,
+                unitRole = UnitRole.None,
+                unitMobilityKind = UnitMobilityKind.Ground,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+                boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+            };
+        }
+
+        private static EntityState CreateProjectile(int entityId, SurfaceCell cell)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = cell,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Projectile,
+                unitRole = UnitRole.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+            };
+        }
+
         private static EntityState GetEntity(WorldState worldState, int entityId)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
@@ -355,6 +684,177 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return impacts.Single().Impact;
         }
 
+        private static ForwardCellProjectileReleaseObservation ReleaseForwardCellProjectile(WorldState worldState)
+        {
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var action = GetEnemyActionState(worldState);
+            Assert.That(action.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            var beforeOccupancy = DumpOccupancy(worldState.CreateSnapshot());
+
+            var releaseTick = pipeline.RunTick(new TickInput(action.executeTick));
+            var impact = GetSinglePendingImpact(worldState);
+            var afterOccupancy = DumpOccupancy(worldState.CreateSnapshot());
+
+            Assert.That(releaseTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(releaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.EqualTo(CountProjectiles(worldState.CreateSnapshot())));
+
+            return new ForwardCellProjectileReleaseObservation(
+                action,
+                releaseTick,
+                impact,
+                beforeOccupancy,
+                afterOccupancy);
+        }
+
+        private static TargetMoveDuringWindupObservation ReleaseForwardCellProjectileAfterTargetMove(
+            SurfaceCell initialTargetCell,
+            SurfaceCell movedTargetCell,
+            bool expectMovedFaceActive = true)
+        {
+            var worldState = CreateCombatWorld(initialTargetCell);
+            var pipeline = CreatePipeline(worldState);
+            var startTick = pipeline.RunTick(new TickInput(1));
+            var startedAction = GetEnemyActionState(worldState);
+            var beforeMoveOccupancy = DumpOccupancy(worldState.CreateSnapshot());
+            var projectileCountBeforeMove = CountProjectiles(worldState.CreateSnapshot());
+
+            Assert.That(startedAction.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            Assert.That(startedAction.lockedTargetEntityId, Is.EqualTo(PlayerId));
+            Assert.That(startedAction.lockedTargetCell, Is.EqualTo(initialTargetCell));
+            Assert.That(startedAction.executeTick, Is.GreaterThan(startedAction.startTick));
+
+            worldState.CreateWriteContext().MoveEntity(PlayerId, movedTargetCell);
+            var targetAfterMove = GetEntity(worldState, PlayerId);
+            AssertTargetMovedButAlive(worldState, targetAfterMove, movedTargetCell, expectMovedFaceActive);
+            var afterMoveOccupancy = DumpOccupancy(worldState.CreateSnapshot());
+
+            if (startedAction.executeTick > 2)
+            {
+                var windupTickAfterMove = pipeline.RunTick(new TickInput(2));
+                Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+                Assert.That(windupTickAfterMove.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+                afterMoveOccupancy = DumpOccupancy(worldState.CreateSnapshot());
+            }
+
+            var releaseTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
+            var afterReleaseOccupancy = DumpOccupancy(worldState.CreateSnapshot());
+            var projectileCountAfterRelease = CountProjectiles(worldState.CreateSnapshot());
+            var impacts = new List<PendingCellImpactSnapshotEntry>();
+            worldState.CreateSnapshot().EnumeratePendingCellImpactsOrdered(impacts);
+            var hasActionAfterRelease = worldState.CreateSnapshot().TryGetEnemyActionState(EnemyId, out var actionAfterRelease);
+
+            Assert.That(releaseTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+
+            return new TargetMoveDuringWindupObservation(
+                startTick,
+                startedAction,
+                targetAfterMove,
+                releaseTick,
+                impacts.Count == 1,
+                impacts.Count == 1 ? impacts[0].Impact : default,
+                hasActionAfterRelease,
+                actionAfterRelease,
+                beforeMoveOccupancy,
+                afterMoveOccupancy,
+                afterReleaseOccupancy,
+                projectileCountBeforeMove,
+                projectileCountAfterRelease);
+        }
+
+        private static IReadOnlyList<TargetMoveReplayFrame> RunTargetMoveDuringWindupReplay(
+            SurfaceCell initialTargetCell,
+            SurfaceCell movedTargetCell)
+        {
+            var worldState = CreateCombatWorld(initialTargetCell);
+            var pipeline = CreatePipeline(worldState);
+            var frames = new List<TargetMoveReplayFrame>();
+
+            frames.Add(CaptureTargetMoveReplayFrame(pipeline.RunTick(new TickInput(1)), worldState));
+            var startedAction = GetEnemyActionState(worldState);
+            worldState.CreateWriteContext().MoveEntity(PlayerId, movedTargetCell);
+            AssertTargetMovedButAlive(worldState, GetEntity(worldState, PlayerId), movedTargetCell, expectMovedFaceActive: true);
+
+            if (startedAction.executeTick > 2)
+            {
+                frames.Add(CaptureTargetMoveReplayFrame(pipeline.RunTick(new TickInput(2)), worldState));
+            }
+
+            frames.Add(CaptureTargetMoveReplayFrame(pipeline.RunTick(new TickInput(startedAction.executeTick)), worldState));
+            return frames;
+        }
+
+        private static TargetMoveReplayFrame CaptureTargetMoveReplayFrame(TickResult result, WorldState worldState)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            return new TargetMoveReplayFrame(
+                result.TickIndex,
+                result.DeterminismHash,
+                DumpFinalEntities(result.FinalEntities),
+                DumpActionState(snapshot),
+                DumpPendingImpacts(snapshot),
+                DumpReleaseSignals(result),
+                DumpOccupancy(snapshot));
+        }
+
+        private static int CountProjectiles(WorldSnapshot snapshot)
+        {
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            return entities.Count(entity => entity.type == EntityType.Projectile);
+        }
+
+        private static void AssertReleasedAtLockedCell(
+            in TargetMoveDuringWindupObservation observation,
+            SurfaceCell lockedCell,
+            SurfaceCell movedCell)
+        {
+            Assert.That(observation.HasImpact, Is.True);
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(lockedCell));
+            Assert.That(observation.Impact.TargetCell, Is.Not.EqualTo(movedCell));
+            Assert.That(observation.Impact.ReleaseTick, Is.EqualTo(observation.StartedAction.executeTick));
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals, Has.Count.EqualTo(1));
+            Assert.That(
+                observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell,
+                Is.EqualTo(lockedCell));
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileClearSignals, Is.Empty);
+            Assert.That(observation.AfterReleaseOccupancy, Is.EqualTo(observation.AfterMoveOccupancy));
+            Assert.That(observation.ProjectileCountAfterRelease, Is.EqualTo(observation.ProjectileCountBeforeMove));
+            Assert.That(observation.HasActionAfterRelease, Is.True);
+            Assert.That(observation.ActionAfterRelease.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            Assert.That(observation.ActionAfterRelease.executionAttempted, Is.True);
+            Assert.That(GetEntityAfterTick(observation.ReleaseTick, EnemyId).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+        }
+
+        private static void AssertActionInactiveOrMissing(in TargetMoveDuringWindupObservation observation)
+        {
+            if (!observation.HasActionAfterRelease)
+            {
+                return;
+            }
+
+            Assert.That(observation.ActionAfterRelease.IsActive, Is.False);
+        }
+
+        private static void AssertTargetMovedButAlive(
+            WorldState worldState,
+            in EntityState target,
+            SurfaceCell expectedCell,
+            bool expectMovedFaceActive)
+        {
+            Assert.That(target.position, Is.EqualTo(expectedCell));
+            Assert.That(target.hp, Is.GreaterThan(0));
+            Assert.That(target.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(target.markedForDeath, Is.False);
+            Assert.That(worldState.CreateSnapshot().Topology.IsFaceActive(expectedCell.face), Is.EqualTo(expectMovedFaceActive));
+        }
+
+        private static EntityState GetEntityAfterTick(TickResult tick, int entityId)
+        {
+            return tick.FinalEntities.Single(entity => entity.entityId == entityId);
+        }
+
         private static void AssertNoEnemyMovement(TickResult tick)
         {
             Assert.That(tick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == EnemyId), Is.Empty);
@@ -369,6 +869,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             Assert.That(action.IsActive, Is.False);
+        }
+
+        private static void AssertNoForwardCellProjectileStarted(WorldState worldState)
+        {
+            if (!worldState.CreateSnapshot().TryGetEnemyActionState(EnemyId, out var action))
+            {
+                return;
+            }
+
+            Assert.That(action.kind, Is.Not.EqualTo(EnemyActionKind.ForwardCellProjectile));
         }
 
         private static string DumpOccupancy(WorldSnapshot snapshot)
@@ -399,6 +909,220 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             builder.Append('\n');
+        }
+
+        private static string DumpFinalEntities(IReadOnlyList<EntityState> entities)
+        {
+            var builder = new StringBuilder();
+            foreach (var entity in entities.OrderBy(entity => entity.entityId))
+            {
+                builder
+                    .Append("E=").Append(entity.entityId)
+                    .Append("|Type=").Append(entity.type)
+                    .Append("|Cell=").Append(FormatCell(entity.position))
+                    .Append("|Hp=").Append(entity.hp)
+                    .Append("|Presence=").Append(entity.boardPresence)
+                    .Append("|Marked=").Append(entity.markedForDeath ? 1 : 0)
+                    .Append("|Ai=").Append(entity.aiMode)
+                    .Append('\n');
+            }
+
+            return builder.Length == 0 ? "<empty>" : builder.ToString();
+        }
+
+        private static string DumpActionState(WorldSnapshot snapshot)
+        {
+            if (!snapshot.TryGetEnemyActionState(EnemyId, out var action))
+            {
+                return "<empty>";
+            }
+
+            return new StringBuilder()
+                .Append("Kind=").Append(action.kind)
+                .Append("|Seq=").Append(action.sequence)
+                .Append("|TargetId=").Append(action.lockedTargetEntityId)
+                .Append("|Start=").Append(action.startTick)
+                .Append("|Execute=").Append(action.executeTick)
+                .Append("|Attempted=").Append(action.executionAttempted ? 1 : 0)
+                .Append("|HasForward=").Append(action.hasLockedForwardCellImpact ? 1 : 0)
+                .Append("|Locked=").Append(FormatCell(action.lockedTargetCell))
+                .ToString();
+        }
+
+        private static string DumpPendingImpacts(WorldSnapshot snapshot)
+        {
+            var impacts = new List<PendingCellImpactSnapshotEntry>();
+            snapshot.EnumeratePendingCellImpactsOrdered(impacts);
+            if (impacts.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            var builder = new StringBuilder();
+            for (var i = 0; i < impacts.Count; i++)
+            {
+                var impact = impacts[i].Impact;
+                builder
+                    .Append("Id=").Append(impact.ImpactId)
+                    .Append("|Owner=").Append(impact.OwnerId)
+                    .Append("|Target=").Append(FormatCell(impact.TargetCell))
+                    .Append("|Release=").Append(impact.ReleaseTick)
+                    .Append("|Impact=").Append(impact.ImpactTick)
+                    .Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static string DumpReleaseSignals(TickResult tick)
+        {
+            var signals = tick.PresentationData.ForwardCellProjectileReleaseSignals;
+            if (signals.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            var builder = new StringBuilder();
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                builder
+                    .Append("Impact=").Append(signal.ImpactId)
+                    .Append("|Owner=").Append(signal.OwnerId)
+                    .Append("|Source=").Append(FormatCell(signal.SourceCell))
+                    .Append("|Target=").Append(FormatCell(signal.TargetCell))
+                    .Append("|Release=").Append(signal.ReleaseTick)
+                    .Append("|Impact=").Append(signal.ImpactTick)
+                    .Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static string FormatCell(SurfaceCell cell)
+        {
+            return $"{cell.face}:{cell.x},{cell.y}";
+        }
+
+        private readonly struct ForwardCellProjectileReleaseObservation
+        {
+            public ForwardCellProjectileReleaseObservation(
+                in EnemyActionRuntimeState action,
+                TickResult releaseTick,
+                in PendingCellImpact impact,
+                string beforeOccupancy,
+                string afterOccupancy)
+            {
+                Action = action;
+                ReleaseTick = releaseTick;
+                Impact = impact;
+                BeforeOccupancy = beforeOccupancy;
+                AfterOccupancy = afterOccupancy;
+            }
+
+            public EnemyActionRuntimeState Action { get; }
+
+            public TickResult ReleaseTick { get; }
+
+            public PendingCellImpact Impact { get; }
+
+            public string BeforeOccupancy { get; }
+
+            public string AfterOccupancy { get; }
+        }
+
+        private readonly struct TargetMoveDuringWindupObservation
+        {
+            public TargetMoveDuringWindupObservation(
+                TickResult startTick,
+                in EnemyActionRuntimeState startedAction,
+                in EntityState targetAfterMove,
+                TickResult releaseTick,
+                bool hasImpact,
+                in PendingCellImpact impact,
+                bool hasActionAfterRelease,
+                in EnemyActionRuntimeState actionAfterRelease,
+                string beforeMoveOccupancy,
+                string afterMoveOccupancy,
+                string afterReleaseOccupancy,
+                int projectileCountBeforeMove,
+                int projectileCountAfterRelease)
+            {
+                StartTick = startTick;
+                StartedAction = startedAction;
+                TargetAfterMove = targetAfterMove;
+                ReleaseTick = releaseTick;
+                HasImpact = hasImpact;
+                Impact = impact;
+                HasActionAfterRelease = hasActionAfterRelease;
+                ActionAfterRelease = actionAfterRelease;
+                BeforeMoveOccupancy = beforeMoveOccupancy;
+                AfterMoveOccupancy = afterMoveOccupancy;
+                AfterReleaseOccupancy = afterReleaseOccupancy;
+                ProjectileCountBeforeMove = projectileCountBeforeMove;
+                ProjectileCountAfterRelease = projectileCountAfterRelease;
+            }
+
+            public TickResult StartTick { get; }
+
+            public EnemyActionRuntimeState StartedAction { get; }
+
+            public EntityState TargetAfterMove { get; }
+
+            public TickResult ReleaseTick { get; }
+
+            public bool HasImpact { get; }
+
+            public PendingCellImpact Impact { get; }
+
+            public bool HasActionAfterRelease { get; }
+
+            public EnemyActionRuntimeState ActionAfterRelease { get; }
+
+            public string BeforeMoveOccupancy { get; }
+
+            public string AfterMoveOccupancy { get; }
+
+            public string AfterReleaseOccupancy { get; }
+
+            public int ProjectileCountBeforeMove { get; }
+
+            public int ProjectileCountAfterRelease { get; }
+        }
+
+        private readonly struct TargetMoveReplayFrame
+        {
+            public TargetMoveReplayFrame(
+                int tickIndex,
+                string determinismHash,
+                string finalEntitiesDump,
+                string actionDump,
+                string pendingImpactDump,
+                string releaseSignalDump,
+                string occupancyDump)
+            {
+                TickIndex = tickIndex;
+                DeterminismHash = determinismHash;
+                FinalEntitiesDump = finalEntitiesDump;
+                ActionDump = actionDump;
+                PendingImpactDump = pendingImpactDump;
+                ReleaseSignalDump = releaseSignalDump;
+                OccupancyDump = occupancyDump;
+            }
+
+            public int TickIndex { get; }
+
+            public string DeterminismHash { get; }
+
+            public string FinalEntitiesDump { get; }
+
+            public string ActionDump { get; }
+
+            public string PendingImpactDump { get; }
+
+            public string ReleaseSignalDump { get; }
+
+            public string OccupancyDump { get; }
         }
     }
 }
