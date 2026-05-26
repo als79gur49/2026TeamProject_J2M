@@ -56,6 +56,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public bool HasPendingStageClearPresentation => _pendingStageClearPresentation.HasValue;
 
+        internal StageCompletionReadModel ForceClearResultOnly()
+        {
+            return _stageCompletionRuntime.ForceClearResultOnly();
+        }
+
         internal void PublishLevelFailed(GameplayLevelFailedReadModel readModel)
         {
             CurrentLevelFailed = readModel ?? throw new ArgumentNullException(nameof(readModel));

@@ -1,4 +1,5 @@
 using Game.Feature.Flow.Audio;
+using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Stages;
 using UnityEngine;
 
@@ -132,6 +133,9 @@ namespace Game.Feature.Gameplay.Host
                 _activeSlotProvider,
                 _campaignChanceDisplayOverride);
             configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
+                _saveSlotStore,
+                _activeSlotProvider);
+            configuration.DebugStageLaunchConstraint = new CampaignActiveSlotDebugStageLaunchConstraint(
                 _saveSlotStore,
                 _activeSlotProvider);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)

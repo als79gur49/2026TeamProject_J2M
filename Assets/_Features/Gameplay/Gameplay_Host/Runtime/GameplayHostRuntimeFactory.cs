@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Host.UIAccess;
+using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
@@ -238,6 +239,13 @@ namespace Game.Feature.Gameplay.Host
             var pauseService = new GameplayHostPauseService(inputHost);
             var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, tickRunner, inputHost, presenter, pauseService);
             var presentationBarrierTracker = new GameplayPresentationBarrierTracker();
+            var presentationFeed = new GameplayHostPresentationFeed(
+                inputHost,
+                presenter,
+                configuration.StageContentEntry,
+                configuration.StageCompletionProfileStore,
+                generalTimingProfile,
+                presentationBarrierTracker);
             var uiAccess = new GameplayHostUiAccessContext(
                 new GameplayHostCommandGateway(inputHost, admissionPolicy),
                 new GameplayQueryFacade(
@@ -249,14 +257,12 @@ namespace Game.Feature.Gameplay.Host
                         admissionPolicy,
                         configuration.CampaignChancesReadSource),
                     new GameplayHostObjectiveQuery(tickRunner, presentationBarrierTracker)),
-                new GameplayHostPresentationFeed(
-                    inputHost,
-                    presenter,
+                presentationFeed,
+                pauseService,
+                CreateDebugCommandAccess(
                     configuration.StageContentEntry,
-                    configuration.StageCompletionProfileStore,
-                    generalTimingProfile,
-                    presentationBarrierTracker),
-                pauseService);
+                    presentationFeed,
+                    configuration.DebugStageLaunchConstraint));
 
             return new GameplayHostRuntimeContext(
                 boardRoot,
@@ -276,6 +282,26 @@ namespace Game.Feature.Gameplay.Host
                 presentedInitialEntities,
                 uiAccess,
                 playerRespawnTiming.RespawnDelayTicks);
+        }
+
+        private static DebugCommandAccess CreateDebugCommandAccess(
+            StageContentEntry stageContentEntry,
+            GameplayHostPresentationFeed presentationFeed,
+            IDebugStageLaunchConstraint launchConstraint)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!DebugCommandBuildGate.IsRuntimeEnabled(UnityEngine.Application.isEditor, UnityEngine.Debug.isDebugBuild))
+            {
+                return DebugCommandAccess.Disabled;
+            }
+
+            var resolver = new CampaignDebugStageNavigationResolver(
+                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
+            return DebugCommandAccess.Enabled(
+                new GameplayHostDebugStageCommandPort(stageContentEntry, presentationFeed, resolver, launchConstraint));
+#else
+            return DebugCommandAccess.Disabled;
+#endif
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(
