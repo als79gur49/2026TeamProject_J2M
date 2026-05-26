@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 387ba5f544444087b3e1ccd40d27500d, type: 3}
   m_Name: SlotCinematicDefinition_CampaignMain
   m_EditorClassIdentifier: 
-  _introClip: {fileID: 32900000, guid: 047463db1ffadfd408450af2f1ea164b, type: 3}
-  _outroClip: {fileID: 32900000, guid: 047463db1ffadfd408450af2f1ea164b, type: 3}
+  _introClip: {fileID: 32900000, guid: 662eaa3ae9395c9409bd1426e9f4c3b7, type: 3}
+  _outroClip: {fileID: 32900000, guid: 662eaa3ae9395c9409bd1426e9f4c3b7, type: 3}
   _skipEnabled: 1
   _aspectSource: 0
   _scaleMode: 0
