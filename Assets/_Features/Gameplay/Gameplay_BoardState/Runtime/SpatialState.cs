@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.BoardState
         Airborne = 1,
         Phased = 2,
         Attached = 3,
+        BoxInFlight = 4,
     }
 
     internal enum ResolvedSpatialStateSource
@@ -20,6 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
         PhasedVisible = 4,
         PhasedHiddenByTopology = 5,
         InvalidSourceCombination = 6,
+        BoxInFlight = 7,
     }
 
     internal enum PhasedRuntimeStateOwnerKind
@@ -409,6 +411,18 @@ namespace Game.Feature.Gameplay.BoardState
                         isGameplayVisible: false,
                         ResolvedSpatialStateSource.DetachedNonAirborne);
 
+                case EntityBoardPresence.InFlight:
+                    if (hasPhasedState || phase != EnemyJumpPhase.None)
+                    {
+                        throw CreateInvalidSourceCombination(boardPresence, phase, phasedState);
+                    }
+
+                    return new ResolvedSpatialState(
+                        SpatialState.BoxInFlight,
+                        claimsAuthoritativeOccupancy: false,
+                        isGameplayVisible: true,
+                        ResolvedSpatialStateSource.BoxInFlight);
+
                 default:
                     throw new ArgumentOutOfRangeException(nameof(boardPresence), boardPresence, "Unsupported board presence.");
             }
@@ -435,6 +449,11 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool ParticipatesInGameplayQueries(in ResolvedSpatialState spatialState)
         {
             EnsureProductionSupported(spatialState.Kind);
+            if (spatialState.Kind == SpatialState.BoxInFlight)
+            {
+                return false;
+            }
+
             return spatialState.ClaimsAuthoritativeOccupancy &&
                    spatialState.IsGameplayVisible;
         }
@@ -447,6 +466,11 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool ParticipatesInSettlementBlocking(in ResolvedSpatialState spatialState)
         {
             EnsureProductionSupported(spatialState.Kind);
+            if (spatialState.Kind == SpatialState.BoxInFlight)
+            {
+                return false;
+            }
+
             return spatialState.ClaimsAuthoritativeOccupancy;
         }
 
@@ -460,6 +484,7 @@ namespace Game.Feature.Gameplay.BoardState
         {
             EnsureProductionSupported(spatialState.Kind);
             return spatialState.Kind != SpatialState.Phased &&
+                   spatialState.Kind != SpatialState.BoxInFlight &&
                    ParticipatesInGameplayQueries(spatialState);
         }
 

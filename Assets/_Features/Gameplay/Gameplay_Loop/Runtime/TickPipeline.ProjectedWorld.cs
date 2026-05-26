@@ -366,6 +366,13 @@ namespace Game.Feature.Gameplay.Loop
                 writeContext.AddPendingCellImpact(pendingCellImpacts[i].Impact);
             }
 
+            var scheduledFlipContacts = new List<ScheduledFlipContactSnapshotEntry>();
+            snapshot.EnumerateScheduledFlipContactsOrdered(scheduledFlipContacts);
+            for (var i = 0; i < scheduledFlipContacts.Count; i++)
+            {
+                writeContext.AddScheduledFlipContact(scheduledFlipContacts[i].Contact);
+            }
+
             return worldState;
         }
 

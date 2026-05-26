@@ -65,6 +65,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("PendingCellImpacts").Append('\n');
             AppendPendingCellImpactLines(builder, GetOrderedPendingCellImpacts(finalSnapshot));
 
+            builder.Append("ScheduledFlipContacts").Append('\n');
+            AppendScheduledFlipContactLines(builder, GetOrderedScheduledFlipContacts(finalSnapshot));
+
             builder.Append("EnemyPatrols").Append('\n');
             AppendEnemyPatrolLines(builder, GetOrderedEnemyPatrolStates(finalSnapshot));
 
@@ -310,6 +313,13 @@ namespace Game.Feature.Gameplay.Loop
             var pendingCellImpacts = new List<PendingCellImpactSnapshotEntry>();
             finalSnapshot.EnumeratePendingCellImpactsOrdered(pendingCellImpacts);
             return pendingCellImpacts;
+        }
+
+        private static List<ScheduledFlipContactSnapshotEntry> GetOrderedScheduledFlipContacts(WorldSnapshot finalSnapshot)
+        {
+            var scheduledFlipContacts = new List<ScheduledFlipContactSnapshotEntry>();
+            finalSnapshot.EnumerateScheduledFlipContactsOrdered(scheduledFlipContacts);
+            return scheduledFlipContacts;
         }
 
         private static List<SnapshotOccupancyEntry> GetOrderedProjectileOccupancy(WorldSnapshot finalSnapshot)
@@ -830,6 +840,49 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(impact.CreatedTick).Append('|')
                     .Append(impact.ReleaseTick).Append('|')
                     .Append(impact.ImpactTick).Append('\n');
+            }
+        }
+
+        private static void AppendScheduledFlipContactLines(
+            StringBuilder builder,
+            IReadOnlyList<ScheduledFlipContactSnapshotEntry> scheduledFlipContacts)
+        {
+            if (scheduledFlipContacts.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < scheduledFlipContacts.Count; i++)
+            {
+                var contact = scheduledFlipContacts[i].Contact;
+                builder
+                    .Append(contact.ActionId).Append('|')
+                    .Append(contact.ActorEntityId).Append('|')
+                    .Append(contact.SourceBoxEntityId).Append('|')
+                    .Append((int)contact.SourceCell.face).Append('|')
+                    .Append(contact.SourceCell.x).Append('|')
+                    .Append(contact.SourceCell.y).Append('|')
+                    .Append((int)contact.ContactCell.face).Append('|')
+                    .Append(contact.ContactCell.x).Append('|')
+                    .Append(contact.ContactCell.y).Append('|')
+                    .Append((int)contact.LandingCell.face).Append('|')
+                    .Append(contact.LandingCell.x).Append('|')
+                    .Append(contact.LandingCell.y).Append('|')
+                    .Append((int)contact.FlipDirection).Append('|')
+                    .Append((int)contact.SourceFace).Append('|')
+                    .Append((int)contact.SourceCapabilitiesSnapshot).Append('|')
+                    .Append(contact.DamageSpec.DamageAmount).Append('|')
+                    .Append((int)contact.DamageSpec.DamageKind).Append('|')
+                    .Append((int)contact.DamageSpec.SourceKind).Append('|')
+                    .Append(contact.DamageSpec.SourceActionId).Append('|')
+                    .Append(contact.KineticInstigatorEntityId).Append('|')
+                    .Append(contact.KineticInstigatorTeamId).Append('|')
+                    .Append(contact.ExecuteTick).Append('|')
+                    .Append(contact.DueTick).Append('|')
+                    .Append(contact.OrderingKey).Append('|')
+                    .Append((int)contact.CancellationPolicy).Append('|')
+                    .Append((int)contact.DispositionPolicy).Append('\n');
             }
         }
 

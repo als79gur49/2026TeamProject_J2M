@@ -150,6 +150,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         new void RemoveEnemyGravityFieldAuraFieldState(int fieldId);
 
+        void AddScheduledFlipContact(ScheduledFlipContact contact);
+
+        void RemoveScheduledFlipContact(int actionId);
+
+        void RemoveScheduledFlipContactsForEntity(int entityId);
+
         void AddTileFeature(TileFeatureState state);
 
         void UpdateTileFeature(TileFeatureState state);

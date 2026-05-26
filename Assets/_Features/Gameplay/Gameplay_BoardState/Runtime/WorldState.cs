@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, PendingCellImpact> _pendingCellImpactsById = new();
+        private readonly Dictionary<int, ScheduledFlipContact> _scheduledFlipContactsByActionId = new();
         private readonly Dictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId = new();
         private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
@@ -131,6 +132,7 @@ namespace Game.Feature.Gameplay.BoardState
                 CloneTileFeatureIdsByCell(),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, PendingCellImpact>(_pendingCellImpactsById),
+                new Dictionary<int, ScheduledFlipContact>(_scheduledFlipContactsByActionId),
                 new Dictionary<int, EnemyPatrolRuntimeState>(_enemyPatrolStatesByEntityId),
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
@@ -421,6 +423,41 @@ namespace Game.Feature.Gameplay.BoardState
         private void RemovePendingCellImpact(int impactId)
         {
             _pendingCellImpactsById.Remove(impactId);
+        }
+
+        private void AddScheduledFlipContact(ScheduledFlipContact contact)
+        {
+            _scheduledFlipContactsByActionId[contact.ActionId] = contact;
+        }
+
+        private void RemoveScheduledFlipContact(int actionId)
+        {
+            _scheduledFlipContactsByActionId.Remove(actionId);
+        }
+
+        private void RemoveScheduledFlipContactsForEntity(int entityId)
+        {
+            if (entityId <= 0 || _scheduledFlipContactsByActionId.Count == 0)
+            {
+                return;
+            }
+
+            var actionIdsToRemove = new List<int>();
+            foreach (var pair in _scheduledFlipContactsByActionId)
+            {
+                var contact = pair.Value;
+                if (contact.ActorEntityId == entityId ||
+                    contact.SourceBoxEntityId == entityId ||
+                    contact.KineticInstigatorEntityId == entityId)
+                {
+                    actionIdsToRemove.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < actionIdsToRemove.Count; i++)
+            {
+                _scheduledFlipContactsByActionId.Remove(actionIdsToRemove[i]);
+            }
         }
 
         private void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
@@ -1264,6 +1301,21 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.RemovePendingCellImpact(int impactId)
         {
             RemovePendingCellImpact(impactId);
+        }
+
+        void IWorldStateMutationPort.AddScheduledFlipContact(ScheduledFlipContact contact)
+        {
+            AddScheduledFlipContact(contact);
+        }
+
+        void IWorldStateMutationPort.RemoveScheduledFlipContact(int actionId)
+        {
+            RemoveScheduledFlipContact(actionId);
+        }
+
+        void IWorldStateMutationPort.RemoveScheduledFlipContactsForEntity(int entityId)
+        {
+            RemoveScheduledFlipContactsForEntity(entityId);
         }
 
         void IWorldStateMutationPort.SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)

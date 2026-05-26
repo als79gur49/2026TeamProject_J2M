@@ -58,6 +58,21 @@ namespace Game.Feature.Gameplay.BoardState
             _port.RemovePendingCellImpact(impactId);
         }
 
+        public void AddScheduledFlipContact(ScheduledFlipContact contact)
+        {
+            _port.AddScheduledFlipContact(contact);
+        }
+
+        public void RemoveScheduledFlipContact(int actionId)
+        {
+            _port.RemoveScheduledFlipContact(actionId);
+        }
+
+        public void RemoveScheduledFlipContactsForEntity(int entityId)
+        {
+            _port.RemoveScheduledFlipContactsForEntity(entityId);
+        }
+
         public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
         {
             _port.SetEnemyPatrolState(entityId, state);

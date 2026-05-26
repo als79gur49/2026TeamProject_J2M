@@ -117,6 +117,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.PlayerDamage", GetPlayerDamageEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.ScheduledFlipContacts", GetScheduledFlipContactEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyPatrols", GetEnemyPatrolEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
@@ -215,6 +216,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Kind={entry.State.kind}|Seq={entry.State.sequence}|Target={entry.State.lockedTargetEntityId}|Direction={entry.State.direction}|Start={entry.State.startTick}|Execute={entry.State.executeTick}|Attempted={(entry.State.executionAttempted ? 1 : 0)}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetScheduledFlipContactEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<ScheduledFlipContactSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateScheduledFlipContactsOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var contact = entries[i].Contact;
+                lines.Add(
+                    $"Action={contact.ActionId}|Actor={contact.ActorEntityId}|Box={contact.SourceBoxEntityId}|Source={FormatCell(contact.SourceCell)}|Contact={FormatCell(contact.ContactCell)}|Landing={FormatCell(contact.LandingCell)}|Direction={contact.FlipDirection}|Capabilities={contact.SourceCapabilitiesSnapshot}|Damage={contact.DamageSpec.DamageAmount}|SourceKind={contact.DamageSpec.SourceKind}|Kinetic={contact.KineticInstigatorEntityId}|KineticTeam={contact.KineticInstigatorTeamId}|Execute={contact.ExecuteTick}|Due={contact.DueTick}|Ordering={contact.OrderingKey}|Cancel={contact.CancellationPolicy}|Disposition={contact.DispositionPolicy}");
             }
 
             return lines;
@@ -736,6 +753,22 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|Damage=").Append(operation.DelayedAttackEffect.Damage)
                         .Append("|ExecuteTick=").Append(operation.DelayedAttackEffect.ExecuteAtTick)
                         .Append("|EffectSequence=").Append(operation.DelayedAttackEffect.EffectSequence);
+                    break;
+
+                case FinalizationOperationKind.AddScheduledFlipContact:
+                    builder.Append("|ScheduledFlipAction=").Append(operation.ScheduledFlipContact.ActionId)
+                        .Append("|Actor=").Append(operation.ScheduledFlipContact.ActorEntityId)
+                        .Append("|Box=").Append(operation.ScheduledFlipContact.SourceBoxEntityId)
+                        .Append("|Contact=").Append(FormatCell(operation.ScheduledFlipContact.ContactCell))
+                        .Append("|Due=").Append(operation.ScheduledFlipContact.DueTick);
+                    break;
+
+                case FinalizationOperationKind.RemoveScheduledFlipContact:
+                    builder.Append("|RemoveScheduledFlipAction=").Append(operation.EntityId);
+                    break;
+
+                case FinalizationOperationKind.RemoveScheduledFlipContactsForEntity:
+                    builder.Append("|RemoveScheduledFlipEntity=").Append(operation.EntityId);
                     break;
             }
 
