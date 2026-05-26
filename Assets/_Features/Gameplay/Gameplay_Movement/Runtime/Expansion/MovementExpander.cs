@@ -13,8 +13,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 {
     internal sealed class MovementExpander
     {
+        private const int BoxImpactDamageAmount = 1;
         private readonly int _projectileStateTimerTicks;
         private readonly int _slidingStateTimerTicks;
+        private readonly int _flipContactDelayTicks;
 
         public MovementExpander()
             : this(GameplayTimingProfile.CreateDefault())
@@ -26,6 +28,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _projectileStateTimerTicks = resolvedTimingProfile.ProjectileStepIntervalTicks;
             _slidingStateTimerTicks = resolvedTimingProfile.BoxSlideStepIntervalTicks;
+            _flipContactDelayTicks = resolvedTimingProfile.FlipContactDelayTicks;
         }
 
         public void Expand(
@@ -410,7 +413,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return usesPlayerTraversal || rotationKind == CubeRotationKind.None;
         }
 
-        private static void ExpandFlip(
+        private void ExpandFlip(
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
@@ -474,15 +477,15 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(landingContext);
             if (landingLegality.Verdict == LegalityVerdict.Blocked)
             {
-                if (TryExpandBoxImpact(
+                if (TryExpandB1HostileFlipImpact(
                         snapshot,
                         source,
                         target,
                         intent,
+                        tickIndex,
+                        interactionFacing,
                         landingCell,
-                        stopSliding: false,
-                        assignKineticOwner: true,
-                        skipActiveGlideTargets: false,
+                        _flipContactDelayTicks,
                         buffer))
                 {
                     return;
@@ -506,6 +509,71 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     landingCell,
                     ResolveCardinalFacing(-delta, "Flip landing requires an orthogonal adjacent interaction direction.")));
             buffer.Add(actionGroup);
+        }
+
+        private static bool TryExpandB1HostileFlipImpact(
+            WorldSnapshot snapshot,
+            EntityState actorSource,
+            EntityState sourceBox,
+            MoveIntent intent,
+            int tickIndex,
+            Direction flipDirection,
+            SurfaceCell contactCell,
+            int flipContactDelayTicks,
+            List<ActionGroup> buffer)
+        {
+            if (!TryResolveBoxImpactTeamId(actorSource, sourceBox, out var sourceTeamId))
+            {
+                return false;
+            }
+
+            var targets = new List<EntityState>();
+            snapshot.EnumerateUnitImpactTargetsAt(contactCell, targets);
+
+            var hasHostileTarget = false;
+            for (var i = 0; i < targets.Count; i++)
+            {
+                var target = targets[i];
+                if (target.teamId > 0 &&
+                    target.teamId != sourceTeamId)
+                {
+                    hasHostileTarget = true;
+                    break;
+                }
+            }
+
+            if (!hasHostileTarget)
+            {
+                return false;
+            }
+
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Flip);
+            actionGroup.BoardPresenceChanges.Add(
+                new BoardPresenceChangeAction(sourceBox.entityId, EntityBoardPresence.InFlight));
+            actionGroup.AssignScheduledFlipContact(
+                new ScheduledFlipContactDraft(
+                    actorSource.entityId,
+                    sourceBox.entityId,
+                    sourceBox.position,
+                    contactCell,
+                    contactCell,
+                    flipDirection,
+                    sourceBox.position.face,
+                    sourceBox.boxCapabilities,
+                    BoxImpactDamageAmount,
+                    actorSource.type == EntityType.Unit && actorSource.teamId > 0 ? actorSource.entityId : 0,
+                    sourceTeamId,
+                    tickIndex,
+                    tickIndex + flipContactDelayTicks,
+                    intent.LocalSequence,
+                    FlipContactCancellationPolicy.SafeReturnOrDestroy,
+                    FlipContactDispositionPolicy.DefaultB1HostileImpact));
+            buffer.Add(actionGroup);
+            return true;
         }
 
         private void ExpandProjectileMove(

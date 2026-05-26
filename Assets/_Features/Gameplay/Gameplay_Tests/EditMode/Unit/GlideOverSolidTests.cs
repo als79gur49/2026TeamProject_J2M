@@ -2270,7 +2270,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 landingCell,
                 CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1, lockedStepX: -1, lockedStepY: 0));
 
-            AssertFlipCreatesImpactOnTarget(worldState, 40);
+            AssertFlipSchedulesB1Contact(worldState);
         }
 
         [Test]
@@ -2294,7 +2294,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 worldState.CreateWriteContext().SetEnemyGlideState(40, glideState);
 
-                AssertFlipCreatesImpactOnTarget(worldState, 40);
+                AssertFlipSchedulesB1Contact(worldState);
             }
         }
 
@@ -3012,7 +3012,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return groups;
         }
 
-        private static void AssertFlipCreatesImpactOnTarget(WorldState worldState, int expectedImpactTargetId)
+        private static void AssertFlipSchedulesB1Contact(WorldState worldState)
         {
             var flipIntent = new FlipIntent(10, priority: 50, destination: new Vector2Int(1, 0));
             flipIntent.AssignIntentId(1);
@@ -3026,8 +3026,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 rejected);
 
             Assert.That(groups, Has.Count.EqualTo(1), string.Join("\n", rejected));
-            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
-            Assert.That(groups[0].ImpactTargetId, Is.EqualTo(expectedImpactTargetId));
+            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            Assert.That(groups[0].HasScheduledFlipContact, Is.True);
+            Assert.That(groups[0].ScheduledFlipContactDraft.SourceBoxEntityId, Is.EqualTo(20));
+            Assert.That(groups[0].ScheduledFlipContactDraft.ContactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> entities)

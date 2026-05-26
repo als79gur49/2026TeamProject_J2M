@@ -5522,7 +5522,9 @@ namespace Game.Feature.Gameplay.Loop
                 payload.DeferredImpactPayload,
                 payload.KinematicMotionOutcomes,
                 payload.ExecutionBoundaryKind,
-                payload.BoundaryReason);
+                payload.BoundaryReason,
+                payload.HasScheduledFlipContact,
+                payload.ScheduledFlipContact);
         }
 
         private static void MergeMovementActionPlanPayloads(
@@ -5889,6 +5891,10 @@ namespace Game.Feature.Gameplay.Loop
                 var hasDeferredImpactPayload = TryBuildDeferredImpactPayload(
                     group,
                     out var deferredImpactPayload);
+                var hasScheduledFlipContact = group.HasScheduledFlipContact;
+                var scheduledFlipContact = hasScheduledFlipContact
+                    ? group.ScheduledFlipContactDraft.ToScheduledContact(group.GroupId)
+                    : default;
                 var executionBoundaryKind = ResolveMovementExecutionBoundaryKind(snapshot, sortedIntents, group);
 
                 payloads[group.GroupId] = new MovementActionPlanPayload(
@@ -5922,7 +5928,9 @@ namespace Game.Feature.Gameplay.Loop
                     hasDeferredImpactPayload,
                     deferredImpactPayload,
                     executionBoundaryKind: executionBoundaryKind,
-                    boundaryReason: ResolveMovementExecutionBoundaryReason(executionBoundaryKind));
+                    boundaryReason: ResolveMovementExecutionBoundaryReason(executionBoundaryKind),
+                    hasScheduledFlipContact: hasScheduledFlipContact,
+                    scheduledFlipContact: scheduledFlipContact);
             }
 
             return payloads;
@@ -8430,6 +8438,15 @@ namespace Game.Feature.Gameplay.Loop
                         boxKineticOwnerWrite.InstigatorEntityId,
                         boxKineticOwnerWrite.InstigatorTeamId,
                         CreateMovementMetadata(payload, baseResolution, kineticIndex));
+                }
+
+                if (payload.HasScheduledFlipContact)
+                {
+                    batch.AddScheduledFlipContact(
+                        payload.ScheduledFlipContact,
+                        CreateMovementMetadata(payload, baseResolution, localActionIndex: 0));
+                    commitEvents.Add(
+                        $"FlipB1ContactScheduled|G={actionPlanId}|I={payload.IntentId}|Actor={payload.ScheduledFlipContact.ActorEntityId}|Box={payload.ScheduledFlipContact.SourceBoxEntityId}|Contact={FormatCell(payload.ScheduledFlipContact.ContactCell)}|Landing={FormatCell(payload.ScheduledFlipContact.LandingCell)}|Execute={payload.ScheduledFlipContact.ExecuteTick}|Due={payload.ScheduledFlipContact.DueTick}|Ordering={payload.ScheduledFlipContact.OrderingKey}");
                 }
 
                 for (var executionIndex = 0; executionIndex < payload.ExecutionLockWrites.Count; executionIndex++)

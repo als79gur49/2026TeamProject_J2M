@@ -616,7 +616,9 @@ namespace Game.Feature.Gameplay.Loop
             MovementDeferredImpactPayload deferredImpactPayload,
             IReadOnlyList<KinematicMotionOutcome> kinematicMotionOutcomes = null,
             MovementExecutionBoundaryKind executionBoundaryKind = MovementExecutionBoundaryKind.Unknown,
-            string boundaryReason = null)
+            string boundaryReason = null,
+            bool hasScheduledFlipContact = false,
+            ScheduledFlipContact scheduledFlipContact = default)
             : base(actionPlanId, intentId, sourceActorEntityId, priority, semanticKind)
         {
             MovementCandidateKind = movementCandidateKind;
@@ -646,6 +648,8 @@ namespace Game.Feature.Gameplay.Loop
             KinematicMotionOutcomes = kinematicMotionOutcomes ?? Array.Empty<KinematicMotionOutcome>();
             ExecutionBoundaryKind = executionBoundaryKind;
             BoundaryReason = boundaryReason ?? string.Empty;
+            HasScheduledFlipContact = hasScheduledFlipContact;
+            ScheduledFlipContact = scheduledFlipContact;
         }
 
         public MovementCandidateKind MovementCandidateKind { get; }
@@ -701,6 +705,10 @@ namespace Game.Feature.Gameplay.Loop
         public MovementExecutionBoundaryKind ExecutionBoundaryKind { get; }
 
         public string BoundaryReason { get; }
+
+        public bool HasScheduledFlipContact { get; }
+
+        public ScheduledFlipContact ScheduledFlipContact { get; }
     }
 
 }

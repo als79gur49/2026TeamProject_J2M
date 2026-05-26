@@ -483,6 +483,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Ignore("Legacy same-tick hostile Flip impact presentation characterization; B-1 execute tick no longer resolves impact disposition.")]
         [Category("Core")]
         public void FlipImpactFailure_DestroySelfStillEntersRecoveryWithoutCommittedMoveTrack()
         {

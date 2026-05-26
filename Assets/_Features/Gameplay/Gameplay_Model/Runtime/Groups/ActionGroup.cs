@@ -6,6 +6,103 @@ using Game.Feature.Gameplay.Model.Actions;
 
 namespace Game.Feature.Gameplay.Model.Groups
 {
+    internal readonly struct ScheduledFlipContactDraft
+    {
+        public ScheduledFlipContactDraft(
+            int actorEntityId,
+            int sourceBoxEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell contactCell,
+            SurfaceCell landingCell,
+            Direction flipDirection,
+            FaceId sourceFace,
+            BoxCapabilities sourceCapabilitiesSnapshot,
+            int damageAmount,
+            int kineticInstigatorEntityId,
+            int kineticInstigatorTeamId,
+            int executeTick,
+            int dueTick,
+            int orderingKey,
+            FlipContactCancellationPolicy cancellationPolicy,
+            FlipContactDispositionPolicy dispositionPolicy)
+        {
+            ActorEntityId = actorEntityId;
+            SourceBoxEntityId = sourceBoxEntityId;
+            SourceCell = sourceCell;
+            ContactCell = contactCell;
+            LandingCell = landingCell;
+            FlipDirection = flipDirection;
+            SourceFace = sourceFace;
+            SourceCapabilitiesSnapshot = sourceCapabilitiesSnapshot;
+            DamageAmount = damageAmount;
+            KineticInstigatorEntityId = kineticInstigatorEntityId;
+            KineticInstigatorTeamId = kineticInstigatorTeamId;
+            ExecuteTick = executeTick;
+            DueTick = dueTick;
+            OrderingKey = orderingKey;
+            CancellationPolicy = cancellationPolicy;
+            DispositionPolicy = dispositionPolicy;
+        }
+
+        public int ActorEntityId { get; }
+
+        public int SourceBoxEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell ContactCell { get; }
+
+        public SurfaceCell LandingCell { get; }
+
+        public Direction FlipDirection { get; }
+
+        public FaceId SourceFace { get; }
+
+        public BoxCapabilities SourceCapabilitiesSnapshot { get; }
+
+        public int DamageAmount { get; }
+
+        public int KineticInstigatorEntityId { get; }
+
+        public int KineticInstigatorTeamId { get; }
+
+        public int ExecuteTick { get; }
+
+        public int DueTick { get; }
+
+        public int OrderingKey { get; }
+
+        public FlipContactCancellationPolicy CancellationPolicy { get; }
+
+        public FlipContactDispositionPolicy DispositionPolicy { get; }
+
+        public ScheduledFlipContact ToScheduledContact(int actionId)
+        {
+            return new ScheduledFlipContact(
+                actionId,
+                ActorEntityId,
+                SourceBoxEntityId,
+                SourceCell,
+                ContactCell,
+                LandingCell,
+                FlipDirection,
+                SourceFace,
+                SourceCapabilitiesSnapshot,
+                new FlipImpactDamageSpec(
+                    DamageAmount,
+                    FlipImpactDamageKind.Impact,
+                    AttackSourceKind.ImpactReservation,
+                    actionId),
+                KineticInstigatorEntityId,
+                KineticInstigatorTeamId,
+                ExecuteTick,
+                DueTick,
+                OrderingKey,
+                CancellationPolicy,
+                DispositionPolicy);
+        }
+    }
+
     internal sealed class ActionGroup
     {
         public ActionGroup(
@@ -65,6 +162,10 @@ namespace Game.Feature.Gameplay.Model.Groups
         public int BoxKineticInstigatorEntityId { get; private set; }
 
         public int BoxKineticInstigatorTeamId { get; private set; }
+
+        public bool HasScheduledFlipContact { get; private set; }
+
+        public ScheduledFlipContactDraft ScheduledFlipContactDraft { get; private set; }
 
         public List<MoveAction> Moves { get; }
 
@@ -191,6 +292,22 @@ namespace Game.Feature.Gameplay.Model.Groups
             BoxKineticTargetId = targetBoxId;
             BoxKineticInstigatorEntityId = instigatorEntityId;
             BoxKineticInstigatorTeamId = instigatorTeamId;
+        }
+
+        public void AssignScheduledFlipContact(ScheduledFlipContactDraft contactDraft)
+        {
+            if (GroupKind != ActionGroupKind.Flip)
+            {
+                throw new InvalidOperationException("Only flip groups can schedule flip contacts.");
+            }
+
+            if (HasScheduledFlipContact)
+            {
+                throw new InvalidOperationException("Scheduled flip contact has already been assigned.");
+            }
+
+            HasScheduledFlipContact = true;
+            ScheduledFlipContactDraft = contactDraft;
         }
 
         internal void AssignGroupId(int groupId)
