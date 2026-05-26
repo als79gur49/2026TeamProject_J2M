@@ -414,6 +414,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   profile: {fileID: 11400000, guid: 7a8645923b8243f8bcc692d78e994d3c, type: 2}
+  noiseProfile: {fileID: 11400000, guid: c2c7e6b48e814b4fb556b9d81be1edab, type: 2}
   targets:
   - renderer: {fileID: 885211508276521787}
     materialIndex: 0
