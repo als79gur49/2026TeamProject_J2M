@@ -160,6 +160,17 @@ namespace Game.Feature.Gameplay.Entities
             {
                 if (workingAction.kind == EnemyActionKind.ForwardCellProjectile)
                 {
+                    if (!EnemyActionStateTargeting.IsLockedTargetValidForCurrentAction(
+                            snapshot,
+                            source,
+                            workingAction,
+                            _detectionSettings))
+                    {
+                        ApplyCancelFallback(snapshot, source, writeContext);
+                        ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
+                        return EnemyActionQueries.Clear(workingAction);
+                    }
+
                     if (!workingAction.executionAttempted &&
                         workingAction.executeTick <= tickIndex)
                     {
@@ -615,7 +626,7 @@ namespace Game.Feature.Gameplay.Entities
             target = default;
 
             if (!snapshot.TryGetEntity(actionState.lockedTargetEntityId, out target) ||
-                !IsValidLockedTarget(snapshot, source, target, detectionSettings) ||
+                !IsValidLockedTargetForCurrentAction(snapshot, source, target, detectionSettings) ||
                 !attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings))
             {
                 target = default;
@@ -668,7 +679,17 @@ namespace Game.Feature.Gameplay.Entities
             return source.facing;
         }
 
-        private static bool IsValidLockedTarget(
+        public static bool IsLockedTargetValidForCurrentAction(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyActionRuntimeState actionState,
+            in DetectionSettings detectionSettings)
+        {
+            return snapshot.TryGetEntity(actionState.lockedTargetEntityId, out var target) &&
+                   IsValidLockedTargetForCurrentAction(snapshot, source, target, detectionSettings);
+        }
+
+        private static bool IsValidLockedTargetForCurrentAction(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
