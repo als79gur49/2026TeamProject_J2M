@@ -241,6 +241,144 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        [Category("Core")]
+        public void StagePresentationDefinition_WorldGuideInstructions_DefaultsToEmpty()
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+
+            try
+            {
+                Assert.That(presentation.WorldGuideInstructions, Is.Empty);
+            }
+            finally
+            {
+                DestroyObjects(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StagePresentationAssembler_PreservesWorldGuideInstructions()
+        {
+            var guideCatalog = CreateWorldGuideCatalog(CreateWorldGuideCatalogEntry("push", new GameObject("GuidePrefab")));
+            var instruction = new StageWorldGuideInstruction(
+                enabled: true,
+                guideKey: " push ",
+                cell: new SurfaceCell(FaceId.Floor, 2, 3),
+                localOffset: new Vector3(0.1f, 0.2f, 0.3f),
+                heightOffset: 0.5f,
+                facingMode: StageWorldGuideFacingMode.YawOnlyBillboard,
+                hideWhenFaceInactive: false);
+            var presentation = CreateWorldGuidePresentation(guideCatalog, instruction);
+
+            try
+            {
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+
+                Assert.That(resolved.WorldGuideCatalog, Is.SameAs(guideCatalog));
+                Assert.That(resolved.WorldGuideInstructions.Count, Is.EqualTo(1));
+                Assert.That(resolved.WorldGuideInstructions[0].GuideKey, Is.EqualTo("push"));
+                Assert.That(resolved.WorldGuideInstructions[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 3)));
+                Assert.That(resolved.WorldGuideInstructions[0].LocalOffset, Is.EqualTo(new Vector3(0.1f, 0.2f, 0.3f)));
+                Assert.That(resolved.WorldGuideInstructions[0].HeightOffset, Is.EqualTo(0.5f));
+                Assert.That(resolved.WorldGuideInstructions[0].FacingMode, Is.EqualTo(StageWorldGuideFacingMode.YawOnlyBillboard));
+                Assert.That(resolved.WorldGuideInstructions[0].HideWhenFaceInactive, Is.False);
+            }
+            finally
+            {
+                DestroyObjects(presentation, guideCatalog, guideCatalog.Entries[0].Prefab);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StagePresentationAssembler_SkipsDisabledWorldGuideInstructions()
+        {
+            var presentation = CreateWorldGuidePresentation(
+                null,
+                new StageWorldGuideInstruction(
+                    enabled: false,
+                    guideKey: "push",
+                    cell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    localOffset: Vector3.zero,
+                    heightOffset: 0.25f,
+                    facingMode: StageWorldGuideFacingMode.BillboardToCamera,
+                    hideWhenFaceInactive: true));
+
+            try
+            {
+                var resolved = StagePresentationAssembler.Resolve(presentation);
+
+                Assert.That(resolved.WorldGuideInstructions, Is.Empty);
+            }
+            finally
+            {
+                DestroyObjects(presentation);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StagePresentationDefinition_ApplyResolvedData_PreservesWorldGuideInstructions()
+        {
+            var guideCatalog = CreateWorldGuideCatalog(CreateWorldGuideCatalogEntry("flip", new GameObject("GuidePrefab")));
+            var source = CreateWorldGuidePresentation(
+                guideCatalog,
+                new StageWorldGuideInstruction(
+                    enabled: true,
+                    guideKey: "flip",
+                    cell: new SurfaceCell(FaceId.Front, 4, 5),
+                    localOffset: Vector3.up,
+                    heightOffset: 0.75f,
+                    facingMode: StageWorldGuideFacingMode.BillboardToCamera,
+                    hideWhenFaceInactive: true));
+            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+
+            try
+            {
+                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
+
+                Assert.That(copy.WorldGuideCatalog, Is.SameAs(guideCatalog));
+                Assert.That(copy.WorldGuideInstructions.Count, Is.EqualTo(1));
+                Assert.That(copy.WorldGuideInstructions[0].GuideKey, Is.EqualTo("flip"));
+                Assert.That(copy.WorldGuideInstructions[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 4, 5)));
+            }
+            finally
+            {
+                DestroyObjects(source, copy, guideCatalog, guideCatalog.Entries[0].Prefab);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageCatalogValidator_RejectsWorldGuideOutsideBounds()
+        {
+            var guideCatalog = CreateWorldGuideCatalog(CreateWorldGuideCatalogEntry("movement", new GameObject("GuidePrefab")));
+            var presentation = CreateWorldGuidePresentation(
+                guideCatalog,
+                new StageWorldGuideInstruction(
+                    enabled: true,
+                    guideKey: "movement",
+                    cell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    localOffset: Vector3.zero,
+                    heightOffset: 0.25f,
+                    facingMode: StageWorldGuideFacingMode.BillboardToCamera,
+                    hideWhenFaceInactive: true));
+            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.world-guide.cell-outside-bounds");
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.GameplayDefinition, stageEntry, stageEntry.PresentationDefinition, guideCatalog, guideCatalog.Entries[0].Prefab);
+            }
+        }
+
+        [Test]
         public void StageCatalogValidator_ReportsDuplicateBoardTileOverrideCell()
         {
             var material = CreateMaterial("DuplicateOverrideMaterial");
@@ -595,6 +733,34 @@ namespace Game.Feature.Stages.Editor.Tests
             SetPrivateField(presentation, "boardPresentationProfile", profile);
             SetPrivateField(presentation, "boardTileOverlayOverrides", overrides ?? Array.Empty<BoardTileOverlayOverride>());
             return presentation;
+        }
+
+        private static StagePresentationDefinition CreateWorldGuidePresentation(
+            StageWorldGuideCatalog catalog,
+            params StageWorldGuideInstruction[] instructions)
+        {
+            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            presentation.name = "WorldGuidePresentation";
+            SetPrivateField(presentation, "worldGuideCatalog", catalog);
+            SetPrivateField(presentation, "worldGuideInstructions", instructions ?? Array.Empty<StageWorldGuideInstruction>());
+            return presentation;
+        }
+
+        private static StageWorldGuideCatalogEntry CreateWorldGuideCatalogEntry(string guideKey, GameObject prefab)
+        {
+            var entry = new StageWorldGuideCatalogEntry();
+            SetPrivateField(entry, "guideKey", guideKey);
+            SetPrivateField(entry, "prefab", prefab);
+            return entry;
+        }
+
+        private static StageWorldGuideCatalog CreateWorldGuideCatalog(
+            params StageWorldGuideCatalogEntry[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<StageWorldGuideCatalog>();
+            catalog.name = "WorldGuideCatalogTests";
+            SetPrivateField(catalog, "entries", entries ?? Array.Empty<StageWorldGuideCatalogEntry>());
+            return catalog;
         }
 
         private static BoardPresentationProfile CreateBoardPresentationProfile(BoardTileOverlayCatalog overlayCatalog)

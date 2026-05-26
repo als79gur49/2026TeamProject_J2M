@@ -29,6 +29,14 @@ MonoBehaviour:
       policy:
         rid: -2
     IsOptional: 0
+  - Cue: 9
+    Binding:
+      definition: {fileID: 11400000, guid: 4184b8e9f7b6462b9221571f8bcca8a5, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+    IsOptional: 0
   references:
     version: 2
     RefIds:

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Player_Flip_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.SingleAudioDefinition
   category: 2
-  defaultVolumeTrim: 1
+  defaultVolumeTrim: 0.6
   pitchRange: {x: 1, y: 1}
   loop: 0
   clip: {fileID: 8300000, guid: 25a2f88d1430c0e4cba71216e3e93b8b, type: 3}

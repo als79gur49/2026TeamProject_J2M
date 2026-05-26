@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.AudioPolicy;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.EnemyAudio;
@@ -125,6 +126,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     (23, EnemyAudioCue.Landing),
                     (24, EnemyAudioCue.Death),
                 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioCue_SerializedValuesRemainStable_WhenStationaryActiveIsAppended()
+        {
+            Assert.That((int)EnemyAudioCue.None, Is.EqualTo(0));
+            Assert.That((int)EnemyAudioCue.Move, Is.EqualTo(1));
+            Assert.That((int)EnemyAudioCue.Death, Is.EqualTo(2));
+            Assert.That((int)EnemyAudioCue.Windup, Is.EqualTo(3));
+            Assert.That((int)EnemyAudioCue.Landing, Is.EqualTo(4));
+            Assert.That((int)EnemyAudioCue.Active, Is.EqualTo(5));
+            Assert.That((int)EnemyAudioCue.Recover, Is.EqualTo(6));
+            Assert.That((int)EnemyAudioCue.ProjectileImpact, Is.EqualTo(7));
+            Assert.That((int)EnemyAudioCue.ChargeActiveLoop, Is.EqualTo(8));
+            Assert.That((int)EnemyAudioCue.StationaryActive, Is.EqualTo(9));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_StationaryEnemyWithoutMotionFact_EmitsStationaryActiveCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var enemy = CreateUnit(20, UnitRole.Enemy);
+            var result = CreateTickResult(CreatePresentationData(), new[] { enemy });
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue, request.Context.DebugTag)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.StationaryActive, "StationaryActive") }));
         }
 
         [Test]
@@ -337,6 +369,210 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_StationaryActiveBinding_PlaysWithoutMoveFact()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_StationaryActiveBinding_PlaysWithoutMoveFact));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.StationaryActive, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(), new[] { enemy }, tickIndex: 1));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "StationaryActive" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_FrontFaceStationaryActive_SuppressesWithoutConsumingCadenceOrMoveCue()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_FrontFaceStationaryActive_SuppressesWithoutConsumingCadenceOrMoveCue));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()),
+                new EnemyAudioEntrySpec(EnemyAudioCue.StationaryActive, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var frontStationaryEnemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Front, 0, 0));
+                var sourceCell = new SurfaceCell(FaceId.Front, 0, 1);
+                var targetCell = new SurfaceCell(FaceId.Front, 1, 1);
+                var frontMovingEnemy = CreateUnit(21, UnitRole.Enemy, targetCell);
+                var bottomStationaryEnemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { frontStationaryEnemy, frontMovingEnemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(entityMotions: new[]
+                    {
+                        new TickEntityMotion(frontMovingEnemy.entityId, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    }),
+                    new[] { frontStationaryEnemy, frontMovingEnemy },
+                    tickIndex: 1));
+
+                var snapshot = presenter.DebugCaptureEntityPresentationLifecycle(frontStationaryEnemy.entityId);
+                Assert.That(snapshot.ViewsByEntityIdContainsEntityId, Is.True);
+                Assert.That(snapshot.GameObjectActiveSelf, Is.True);
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Move" }));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(),
+                    new[] { bottomStationaryEnemy, frontMovingEnemy },
+                    tickIndex: 2));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Move", "StationaryActive" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_StationaryActiveWithoutBinding_DropsCandidate()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_StationaryActiveWithoutBinding_DropsCandidate));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(), new[] { enemy }, tickIndex: 1));
+
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_StationaryActiveCadence_ThrottlesRepeatedTicks()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_StationaryActiveCadence_ThrottlesRepeatedTicks));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.StationaryActive, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(), new[] { enemy }, tickIndex: 1));
+                presenter.Present(CreateTickResult(CreatePresentationData(), new[] { enemy }, tickIndex: 2));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "StationaryActive" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_StationaryActive_DoesNotConsumeMoveCadence()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_StationaryActive_DoesNotConsumeMoveCadence));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()),
+                new EnemyAudioEntrySpec(EnemyAudioCue.StationaryActive, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(), new[] { enemy }, tickIndex: 1));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(entityMotions: new[]
+                    {
+                        new TickEntityMotion(enemy.entityId, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    }),
+                    new[] { enemy },
+                    tickIndex: 2));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "StationaryActive", "Move" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_PresentInitial_StationaryActive_DoesNotPlay()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_PresentInitial_StationaryActive_DoesNotPlay));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.StationaryActive, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySfxPolicyCatalog_StationaryActive_UsesGenericGameplayNotEnemyMovement()
+        {
+            Assert.That(GameplaySfxPolicyCatalog.Resolve("Move").Group, Is.EqualTo(AudioVoiceGroupId.EnemyMovement));
+            Assert.That(GameplaySfxPolicyCatalog.Resolve("StationaryActive").Group, Is.EqualTo(AudioVoiceGroupId.GenericGameplay));
         }
 
         [Test]
@@ -996,6 +1232,171 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_Present_LethalEnemyDamageWithEnemyDeathCueSuppressesCoreEnemyDamage()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_LethalEnemyDamageWithEnemyDeathCueSuppressesCoreEnemyDamage));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Death, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var lethalEnemy = CreateUnit(20, UnitRole.Enemy);
+                var damagedEnemy = CreateUnit(21, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { lethalEnemy, damagedEnemy }, topology);
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyDamageSignals: new[]
+                        {
+                            new TickEnemyDamagePresentationSignal(
+                                lethalEnemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                            new TickEnemyDamagePresentationSignal(
+                                damagedEnemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        },
+                        entityExitSignals: new[]
+                        {
+                            new TickEntityExitPresentationSignal(
+                                lethalEnemy.entityId,
+                                TickEntityExitCause.EnemyDeath,
+                                sourceCell,
+                                topology,
+                                Direction.Left,
+                                EntityType.Unit),
+                        }),
+                    finalEntities: new[] { damagedEnemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => (call.Context.OwnerEntityId, call.Context.DebugTag)).ToArray(),
+                    Is.EqualTo(new[]
+                    {
+                        ((int?)damagedEnemy.entityId, "EnemyDamage"),
+                        ((int?)lethalEnemy.entityId, "Death"),
+                    }));
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call =>
+                        call.Context.OwnerEntityId == lethalEnemy.entityId &&
+                        call.Context.DebugTag == "EnemyDamage"),
+                    Is.False);
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call => call.Context.DebugTag == "EntityExitEnemyDeath"),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_NonLethalEnemyDamageKeepsCoreEnemyDamage()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_NonLethalEnemyDamageKeepsCoreEnemyDamage));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Death, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyDamageSignals: new[]
+                        {
+                            new TickEnemyDamagePresentationSignal(
+                                enemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        }),
+                    finalEntities: new[] { enemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => (call.Context.OwnerEntityId, call.Context.DebugTag)).ToArray(),
+                    Is.EqualTo(new[]
+                    {
+                        ((int?)enemy.entityId, "EnemyDamage"),
+                    }));
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call => call.Context.DebugTag == "Death"),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_LethalEnemyDamageWithoutEnemyDeathCueKeepsCoreDamageFeedback()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_LethalEnemyDamageWithoutEnemyDeathCueKeepsCoreDamageFeedback));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, topology);
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyDamageSignals: new[]
+                        {
+                            new TickEnemyDamagePresentationSignal(
+                                enemy.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        },
+                        entityExitSignals: new[]
+                        {
+                            new TickEntityExitPresentationSignal(
+                                enemy.entityId,
+                                TickEntityExitCause.EnemyDeath,
+                                sourceCell,
+                                topology,
+                                Direction.Left,
+                                EntityType.Unit),
+                        }),
+                    finalEntities: Array.Empty<EntityState>()));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => (call.Context.OwnerEntityId, call.Context.DebugTag)).ToArray(),
+                    Is.EqualTo(new[]
+                    {
+                        ((int?)enemy.entityId, "EnemyDamage"),
+                        ((int?)enemy.entityId, "EntityExitEnemyDeath"),
+                    }));
+                Assert.That(
+                    playbackPort.TwoDCalls.Any(call => call.Context.DebugTag == "Death"),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void EnemyPrefabs_HaveValidEnemyAudioAuthoring()
         {
@@ -1061,6 +1462,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 ResolveRandomDefinitionClips(clipsProperty),
                 Is.EquivalentTo(new[] { moveClip, actClip }));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void SecBotAudioProfile_StationaryActive_ReusesSecBotMoveDefinition()
+        {
+            const string profilePath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_SecBot.asset";
+            const string definitionPath =
+                "Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/SecBot_Move_Def.asset";
+
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(profilePath);
+            var definition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(definitionPath);
+
+            Assert.That(profile, Is.Not.Null, $"Missing SecBot audio profile at '{profilePath}'.");
+            Assert.That(definition, Is.Not.Null, $"Missing SecBot move definition at '{definitionPath}'.");
+            Assert.That(profile.TryResolve(EnemyAudioCue.Move, out var moveBinding), Is.True);
+            Assert.That(profile.TryResolve(EnemyAudioCue.StationaryActive, out var stationaryBinding), Is.True);
+            Assert.That(moveBinding.Definition, Is.SameAs(definition));
+            Assert.That(stationaryBinding.Definition, Is.SameAs(definition));
         }
 
         private static IReadOnlyList<EnemyPrefabExpectation> PrefabExpectations()
@@ -1149,7 +1570,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickResult CreateTickResult(
             TickPresentationData presentationData,
             IReadOnlyList<EntityState> finalEntities = null,
-            int tickIndex = 1)
+            int tickIndex = 1,
+            CubeTopologyState? finalTopology = null)
         {
             return new TickResult(
                 tickIndex,
@@ -1159,7 +1581,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AttackPhaseResult.Empty,
                 finalEntities ?? Array.Empty<EntityState>(),
                 Array.Empty<string>(),
-                new CubeTopologyState(FaceId.Floor),
+                finalTopology ?? new CubeTopologyState(FaceId.Floor),
                 presentationData,
                 string.Empty,
                 TickTrace.Empty,
@@ -1178,7 +1600,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickVisibilityChange> visibilityChanges = null,
             IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null,
             IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
-            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
+            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
+            IReadOnlyList<TickEnemyDamagePresentationSignal> enemyDamageSignals = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -1189,7 +1612,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                 Array.Empty<TickPlayerDamagePresentationSignal>(),
                 Array.Empty<TickPlayerDeathPresentationSignal>(),
-                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyDamageSignals ?? Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals ?? Array.Empty<TickEnemyActionPresentationSignal>(),
                 enemyJumpSignals ?? Array.Empty<TickEnemyJumpPresentationSignal>(),
                 enemyChargeSignals ?? Array.Empty<TickEnemyChargePresentationSignal>(),
@@ -1300,12 +1723,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 startedRecoveryThisTick: false);
         }
 
-        private static EntityState CreateUnit(int entityId, UnitRole unitRole)
+        private static EntityState CreateUnit(int entityId, UnitRole unitRole, SurfaceCell? position = null)
         {
             return new EntityState
             {
                 entityId = entityId,
-                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                position = position ?? new SurfaceCell(FaceId.Floor, 0, 0),
                 hp = 1,
                 maxHp = 1,
                 teamId = unitRole == UnitRole.Player ? 1 : 2,

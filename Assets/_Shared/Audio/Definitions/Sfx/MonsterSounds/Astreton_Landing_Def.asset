@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Astreton_Landing_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.SingleAudioDefinition
   category: 2
-  defaultVolumeTrim: 0.85
+  defaultVolumeTrim: 0.7
   pitchRange: {x: 1, y: 1}
   loop: 0
   clip: {fileID: 8300000, guid: f66d7672a28f5d64d980147bcca51865, type: 3}

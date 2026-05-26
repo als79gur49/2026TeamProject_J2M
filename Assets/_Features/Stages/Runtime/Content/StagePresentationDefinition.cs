@@ -58,6 +58,9 @@ namespace Game.Feature.Stages
             Array.Empty<BoardTileOverlayOverride>();
         [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
         [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
+        [SerializeField] private StageWorldGuideCatalog worldGuideCatalog;
+        [SerializeField] private StageWorldGuideInstruction[] worldGuideInstructions =
+            Array.Empty<StageWorldGuideInstruction>();
         [SerializeField] private string resultTitle = "Stage Cleared";
         [SerializeField] private string resultSummaryText = string.Empty;
         [SerializeField] private string resultDetailText = string.Empty;
@@ -108,6 +111,11 @@ namespace Game.Feature.Stages
         public TileFeaturePresentationBinding[] TileFeaturePresentationBindings =>
             tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationBinding>();
 
+        public StageWorldGuideCatalog WorldGuideCatalog => worldGuideCatalog;
+
+        public IReadOnlyList<StageWorldGuideInstruction> WorldGuideInstructions =>
+            worldGuideInstructions ?? Array.Empty<StageWorldGuideInstruction>();
+
         public string ResultTitle => resultTitle ?? string.Empty;
 
         public string ResultSummaryText => resultSummaryText ?? string.Empty;
@@ -144,6 +152,10 @@ namespace Game.Feature.Stages
             tileFeaturePresentationCatalog = resolvedData.TileFeaturePresentationCatalog;
             tileFeaturePresentationBindings =
                 StagePresentationAssembler.ToAuthoringBindings(resolvedData.TileFeatureBindings);
+            worldGuideCatalog = resolvedData.WorldGuideCatalog;
+            worldGuideInstructions =
+                StagePresentationAssembler.ToAuthoringWorldGuideInstructions(
+                    resolvedData.WorldGuideInstructions);
             resultTitle = resolvedData.ResultTitle;
             resultSummaryText = resolvedData.ResultSummaryText;
             resultDetailText = resolvedData.ResultDetailText;
