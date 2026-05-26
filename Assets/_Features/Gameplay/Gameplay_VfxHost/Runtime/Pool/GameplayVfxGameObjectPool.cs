@@ -36,6 +36,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int MissingPrefabCount { get; private set; }
 
+        public int MissingSourceViewCount { get; private set; }
+
+        public int CommonHostUnavailableCount { get; private set; }
+
+        public int InvalidPlaybackModePolicyCount { get; private set; }
+
         public int ActiveCount => activeHandles.Count(handle => handle != null && !handle.IsTerminal);
 
         public int PooledCount => availableByPrefabId.Values.Sum(stack => stack.Count);
@@ -93,9 +99,43 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 throw new InvalidOperationException("Parameterized VFX command cue does not match resolved playback command cue.");
             }
 
+            if (!ValidateParameterizedMotionPolicy(command.Policy, motionCommand))
+            {
+                InvalidPlaybackModePolicyCount++;
+                LogPoolDiagnostic(nameof(PlayParameterizedMotion), "InvalidPlaybackModePolicy", command);
+                return null;
+            }
+
+            var canResolveSourceClone = CanResolveSourceClone(motionCommand);
+            if (command.Policy.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                !canResolveSourceClone)
+            {
+                MissingSourceViewCount++;
+                LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingSourceView", command);
+                return null;
+            }
+
+            if (command.Policy.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone &&
+                !canResolveSourceClone)
+            {
+                MissingSourceViewCount++;
+                LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingSourceView", command);
+            }
+
             if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
             {
-                MissingPrefabCount++;
+                if (command.Policy.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                    command.Policy.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed)
+                {
+                    CommonHostUnavailableCount++;
+                    LogPoolDiagnostic(nameof(PlayParameterizedMotion), "CommonHostUnavailable", command);
+                }
+                else
+                {
+                    MissingPrefabCount++;
+                    LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingPrefab", command);
+                }
+
                 return null;
             }
 
@@ -238,6 +278,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
             {
                 MissingPrefabCount++;
+                LogPoolDiagnostic(nameof(Play), "MissingPrefab", command);
                 return null;
             }
 
@@ -277,6 +318,54 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 !handle.IsTerminal &&
                 handle.CueId == policy.CueId);
             return activeForCue >= policy.MaxConcurrentInstances;
+        }
+
+        private bool ValidateParameterizedMotionPolicy(
+            VfxBindingRuntimePolicy policy,
+            in ParameterizedMotionVfxCommand motionCommand)
+        {
+            if (policy.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion)
+            {
+                return policy.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed &&
+                       motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion;
+            }
+
+            if (policy.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone)
+            {
+                return policy.HostRequirement == GameplayVfxHostRequirement.ExplicitPrefabRequired &&
+                       motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.PrefabWithSourceClone;
+            }
+
+            if (motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion ||
+                motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.PrefabWithSourceClone)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool CanResolveSourceClone(in ParameterizedMotionVfxCommand motionCommand)
+        {
+            if (cloneSourceProvider == null ||
+                !cloneSourceProvider.TryResolveCloneSource(motionCommand.SourceEntityId, out var source) ||
+                source.ModelRoot == null)
+            {
+                return false;
+            }
+
+            return source.ModelRoot.GetComponentsInChildren<Renderer>(includeInactive: true).Length > 0;
+        }
+
+        private static void LogPoolDiagnostic(
+            string method,
+            string reason,
+            in ResolvedVfxPlaybackCommand command)
+        {
+            UnityEngine.Debug.LogWarning(
+                $"{nameof(GameplayVfxGameObjectPool)}.{method} skipped VFX playback. " +
+                $"reason={reason} cueFamily={command.CueId.Family} cueCode={command.CueId.Code} " +
+                $"visualSourceMode={command.Policy.VisualSourceMode} hostRequirement={command.Policy.HostRequirement}");
         }
 
         private GameplayVfxPooledInstance Lease(GameObject prefab, int prefabInstanceId)

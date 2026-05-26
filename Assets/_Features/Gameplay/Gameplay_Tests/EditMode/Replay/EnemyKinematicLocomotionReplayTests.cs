@@ -239,8 +239,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
 
                 AssertEquivalentReplayOutputs(firstLandingReplay, secondLandingReplay);
-                Assert.That(firstLandingReplay[9].Trace, Does.Contain("GlideActiveKinematicAnchorCommit"));
-                Assert.That(firstLandingReplay[11].Trace, Does.Contain("LandingPending=1"));
+                // New 3-phase Glide keeps Active airborne state stable instead of forcing an
+                // old anchor commit while the solid bypass/landing path is still resolving.
+                Assert.That(firstLandingReplay[9].Trace, Does.Not.Contain("GlideActiveKinematicAnchorCommit"));
+                Assert.That(firstLandingReplay[9].Trace, Does.Contain("Phase=Active|Active=1|LandingPending=0|WantsRecover=0"));
+                Assert.That(firstLandingReplay[9].OccupancyDump, Does.Contain("Layer=Solid|Cell=(1,0)|E=30|Face=Floor"));
+                Assert.That(firstLandingReplay[9].OccupancyDump, Does.Contain("Layer=Unit|Cell=(2,0)|E=40|Face=Floor"));
+                Assert.That(firstLandingReplay[11].Trace, Does.Contain("Phase=Active|Active=1|LandingPending=0|WantsRecover=1"));
                 Assert.That(
                     firstLandingReplay.Any(frame => frame.Trace.Contains("UnitKinematics", StringComparison.Ordinal) ||
                                                     frame.EventLogDump.Contains("KinematicPoseCommitted", StringComparison.Ordinal)),
@@ -258,7 +263,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Test]
         [Category("Extended")]
         [Category("GlideKinematicV11")]
-        public void Replay_Determinism_GliderLandingPendingEgressStable()
+        public void Replay_Determinism_GliderExpiredActiveOnSolidStable()
         {
             var inputs = Enumerable.Range(4, 5)
                 .Select(tick => new TickInput(tick))
@@ -271,23 +276,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 var firstReplay = harness.Run(
                     GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
-                    CreateLandingPendingEgressWorldState(),
+                    CreateExpiredActiveOnSolidWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
                 var secondReplay = harness.Run(
                     GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
-                    CreateLandingPendingEgressWorldState(),
+                    CreateExpiredActiveOnSolidWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
 
                 AssertEquivalentReplayOutputs(firstReplay, secondReplay);
                 Assert.That(
-                    firstReplay.Any(frame => frame.Trace.Contains("GlideLandingPendingKinematicAnchorCommit", StringComparison.Ordinal)),
-                    Is.True);
-                Assert.That(
-                    firstReplay.Any(frame => frame.Trace.Contains("LandingPending=1", StringComparison.Ordinal)),
+                    firstReplay.Any(frame => frame.Trace.Contains("Phase=Active|Active=1|LandingPending=0|WantsRecover=1", StringComparison.Ordinal)),
                     Is.True);
             }
             finally
@@ -1489,7 +1491,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return worldState;
         }
 
-        private static WorldState CreateLandingPendingEgressWorldState()
+        private static WorldState CreateExpiredActiveOnSolidWorldState()
         {
             var landingCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var enemy = CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0));
@@ -1518,24 +1520,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     lockedStepX: 1,
                     lockedStepY: 0));
             worldState.CreateWriteContext().MoveEntity(40, landingCell);
-            worldState.CreateWriteContext().SetEnemyGlideState(
-                40,
-                EnemyGlideRuntimeState.Create(
-                    EnemyGlidePhase.LandingPending,
-                    sequence: 1,
-                    windupUntilTickExclusive: 0,
-                    activeUntilTickExclusive: 3,
-                    recoveryUntilTickExclusive: 0,
-                    cooldownUntilTickExclusive: 0,
-                    windupTicks: 0,
-                    durationTicks: 3,
-                    recoveryTicks: 1,
-                    cooldownTicks: 0,
-                    lastExitedTick: 0,
-                    landingPendingCell: landingCell,
-                    hasLockedStep: true,
-                    lockedStepX: 1,
-                    lockedStepY: 0));
             return worldState;
         }
 

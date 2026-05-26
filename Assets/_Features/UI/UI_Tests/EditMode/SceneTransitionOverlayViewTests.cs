@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using NUnit.Framework;
 using TMPro;
@@ -25,6 +26,7 @@ namespace Game.Feature.UI.Tests
             SceneTransitionCoordinator.SetOverlayShellResourceLoaderForTests(null);
             SceneTransitionCoordinator.SetContentCatalogResourceLoaderForTests(null);
             SceneTransitionCoordinator.SetContentResourceLoaderForTests(null);
+            SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(null);
         }
 
         [Test]
@@ -199,6 +201,72 @@ namespace Game.Feature.UI.Tests
                 InvokeEnsureOverlay(coordinator);
 
                 Assert.That(coordinator.IsUsingGeneratedOverlayForTests, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_DeathRetryChanceLostTransitionPlaysChanceLossCue()
+        {
+            var coordinatorObject = new GameObject("Coordinator");
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var uiAudioPort = new RecordingUiAudioPort();
+                coordinator.BindUiAudioPort(uiAudioPort);
+
+                coordinator.PlayTransitionAudio(new SceneTransitionOverlayViewModel(
+                    StageTransitionKind.DeathRetryChanceLost,
+                    TransitionOverlayKind.ChanceLost,
+                    "Chance Lost",
+                    "Retrying.",
+                    blockInput: true,
+                    showProgress: true,
+                    progress01: 0f,
+                    hasChanceLost: true,
+                    previousRemainingChances: 2,
+                    currentRemainingChances: 1,
+                    totalChances: 3,
+                    deathCount: 1));
+
+                Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.ChanceLoss }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_NonRetryTransitionsDoNotPlayOverlayAudio()
+        {
+            var coordinatorObject = new GameObject("Coordinator");
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var uiAudioPort = new RecordingUiAudioPort();
+                coordinator.BindUiAudioPort(uiAudioPort);
+
+                coordinator.PlayTransitionAudio(new SceneTransitionOverlayViewModel(
+                    StageTransitionKind.LevelFailedRestart,
+                    TransitionOverlayKind.Restart,
+                    "Restarting Level",
+                    "Returning.",
+                    blockInput: true,
+                    showProgress: true,
+                    progress01: 0f,
+                    hasChanceLost: false,
+                    previousRemainingChances: 0,
+                    currentRemainingChances: 0,
+                    totalChances: 0,
+                    deathCount: 0));
+
+                Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
             }
             finally
             {

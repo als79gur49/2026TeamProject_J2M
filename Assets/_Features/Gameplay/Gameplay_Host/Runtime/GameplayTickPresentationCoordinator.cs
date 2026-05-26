@@ -453,7 +453,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
             _playerLocomotionAudioPresentationController.RefreshSignals(
-                result.PresentationData.PlayerLocomotionSignals,
+                result,
                 _timingProfile.MoveMotionDurationSeconds);
             _topologyTransitionController.RefreshTopologyTrack(
                 result.PresentationData,

@@ -1086,7 +1086,8 @@ namespace Game.Feature.Gameplay.Loop
                         stop.StopperEntityId,
                         stop.SolidKind,
                         stop.Topology,
-                        stop.Cause));
+                        stop.Cause,
+                        stop.StopperTileId));
             }
         }
 
@@ -3266,7 +3267,7 @@ namespace Game.Feature.Gameplay.Loop
         private static bool IsExitPresentationSupportedEntity(EntityState entity)
         {
             return entity.type == EntityType.Box ||
-                   (entity.type == EntityType.Unit && entity.aiMode != EnemyAiMode.None);
+                   EntityRolePolicy.IsEnemyUnit(entity);
         }
 
         private static EntityExitPresentationTiming ResolveEntityExitPresentationTiming(

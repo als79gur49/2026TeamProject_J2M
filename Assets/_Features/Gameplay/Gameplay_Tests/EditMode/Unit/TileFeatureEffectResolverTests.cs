@@ -1848,6 +1848,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.PresentationData.EntityExitSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(30));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.Killed));
+            Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.Not.EqualTo(TickEntityExitCause.OutOfBounds));
+            Assert.That(result.PresentationData.EntityExitSignals[0].EntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(result.PresentationData.EntityExitSignals[0].SourceCell, Is.EqualTo(destroyCell));
+            Assert.That(
+                result.PresentationData.EntityExitSignals[0].Timing,
+                Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
             Assert.That(worldState.CreateSnapshot().TryGetEntity(30, out _), Is.False);
         }
@@ -2535,6 +2541,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshotAfter = worldState.CreateSnapshot();
 
             Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=PushStart"));
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             var tileEvent = result.PresentationData.TileEvents[0];
             Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
@@ -2606,6 +2613,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=SlidingContinuation"));
             Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+            var stopSignal = result.PresentationData.BoxSlideStopSignals[0];
+            Assert.That(stopSignal.BoxEntityId, Is.EqualTo(20));
+            Assert.That(stopSignal.StopperKind, Is.EqualTo(BoxSlideStopperKind.Barricade));
+            Assert.That(stopSignal.StopperTileId, Is.EqualTo(100));
+            Assert.That(stopSignal.StopperEntityId, Is.Zero);
+            Assert.That(stopSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(stopSignal.StopperCell, Is.EqualTo(barricadeCell));
+            Assert.That(stopSignal.SlideDirection, Is.EqualTo(Direction.Up));
+            Assert.That(stopSignal.Cause, Is.EqualTo(BoxSlideStopCause.SlidingContinuationBlocked));
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
             Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));

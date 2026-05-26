@@ -20,6 +20,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string VfxRuntimePath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime";
         private const string VfxPlanningPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
         private const string VfxEnumsPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs";
+        private const string VfxHostDiagnosticsPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Diagnostics";
         private const string PresentationMotionTrackPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs";
         private const string FlipImpactStayMotionCommandPath =
@@ -75,6 +77,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "## Production Runtime Dependency Rule",
                 "## Gameplay VFX Legacy Old Path Cleanup",
                 "## Gameplay VFX Flag Rollout Policy",
+                "## Visual Source Modes",
+                "## Placeholder Prefab Policy",
+                "## ADR: SourceCloneMotion Host Strategy",
+                "## Test Naming Policy",
+                "## Legacy Name",
             };
 
             Assert.That(readme, Does.Contain("Gameplay-VFX-Governance.md"));
@@ -91,6 +98,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
             Assert.That(document, Does.Contain("flag off means that VFX is off"));
             Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
+            Assert.That(document, Does.Contain("### PrefabOnly"));
+            Assert.That(document, Does.Contain("### SourceCloneMotion"));
+            Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
+            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsVisualSourceModes()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Visual Source Modes"));
+            Assert.That(document, Does.Contain("### PrefabOnly"));
+            Assert.That(document, Does.Contain("### SourceCloneMotion"));
+            Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
+            Assert.That(document, Does.Contain("## Legacy Name"));
+            Assert.That(document, Does.Contain("do not use `SourceViewCloneWithPrefabFallback` for `SourceCloneMotion` cues"));
+            Assert.That(document, Does.Contain("do not mix `EnemyDeathMotion_Binding.asset` with `EnemyOutOfBoundsExit_Binding.asset`"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsPlaceholderPrefabPolicy()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Placeholder Prefab Policy"));
+            Assert.That(document, Does.Contain("cue-specific placeholder prefabs must not be created for `SourceCloneMotion`"));
+            Assert.That(document, Does.Contain("the prefab field may be null; null prefab is normal and must not warn or fail"));
+            Assert.That(document, Does.Contain("`GameplayVfxCommonEmptyHost.prefab` is deletion-protected"));
+            Assert.That(document, Does.Contain("`EnemyDeathMotionVfx.prefab` is a fallback visual and must not be deleted"));
+            Assert.That(document, Does.Contain("particle/contact visual prefabs are actual visual prefabs, not placeholders"));
+            Assert.That(document, Does.Contain("`Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab`"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsSourceCloneMotionHostStrategy()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## ADR: SourceCloneMotion Host Strategy"));
+            Assert.That(document, Does.Contain("Keep `GameplayVfxCommonEmptyHost.prefab` as the default and required common host for `SourceCloneMotion`"));
+            Assert.That(document, Does.Contain("Do not implement a runtime-created host path in P2-2"));
+            Assert.That(document, Does.Contain("Runtime-created hosts remain a documented future extension only"));
+            Assert.That(document, Does.Contain("prefab instance id keys pooled host storage"));
+            Assert.That(document, Does.Contain("max concurrency is enforced by cue id"));
+            Assert.That(document, Does.Contain("Sharing one common host prefab therefore has no current pool-key issue"));
+            Assert.That(document, Does.Contain("Missing common host setup reports `CommonHostUnavailable`"));
+            Assert.That(document, Does.Contain("no `RuntimeHostAllowed` policy is introduced in P2-2"));
+            Assert.That(document, Does.Contain("Future Entry Criteria"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxTestNaming_DocumentsRuntimeBehaviorNamingPolicy()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Test Naming Policy"));
+            Assert.That(document, Does.Contain("VFX tests should describe the runtime contract they guard"));
+            Assert.That(document, Does.Contain("`SourceCloneMotion`"));
+            Assert.That(document, Does.Contain("`PrefabWithSourceClone`"));
+            Assert.That(document, Does.Contain("`PrefabOnly`"));
+            Assert.That(document, Does.Contain("`CommonHost`"));
+            Assert.That(document, Does.Contain("`MissingSourceView`"));
+            Assert.That(document, Does.Contain("`MissingPrefab`"));
+            Assert.That(document, Does.Contain("`FallbackPrefab`"));
+            Assert.That(document, Does.Contain("`OriginalViewImmutability`"));
+            Assert.That(document, Does.Contain("`HostRelease`"));
+            Assert.That(document, Does.Contain("Avoid for new tests"));
+            Assert.That(document, Does.Contain("tests that explicitly verify obsolete compatibility aliases"));
+            Assert.That(document, Does.Contain("tests that verify historical cleanup rules"));
+            Assert.That(document, Does.Contain("tests that document intentional non-regression against a past bug"));
         }
 
         [Test]
@@ -402,6 +484,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void RuntimeDiagnostics_DoNotUseDedicatedLifetimeTraceAdapter()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(Directory.Exists(GetAbsolutePath(VfxHostDiagnosticsPath)), Is.False);
+            Assert.That(document, Does.Contain("Dedicated Gameplay VFX lifetime trace adapters are removed."));
+            Assert.That(document, Does.Not.Contain("`Gameplay_VfxHost/Runtime/Diagnostics`"));
+            Assert.That(document, Does.Not.Contain("GameplayVfxLifetimeUnityTrace"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxLifetimeTrace_IsRemovedFromCoreAndHostRuntime()
+        {
+            var vfxSource = ReadRuntimeSources();
+            var hostSource = ReadSourceDirectory("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime");
+
+            Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxLifetimeTrace.cs")), Is.False);
+            Assert.That(
+                File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Diagnostics/GameplayVfxLifetimeUnityTrace.cs")),
+                Is.False);
+            Assert.That(vfxSource, Does.Not.Contain("GameplayVfxLifetimeTrace"));
+            Assert.That(hostSource, Does.Not.Contain("GameplayVfxLifetimeUnityTrace"));
+            Assert.That(hostSource, Does.Not.Contain("TraceEntrance"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CloneProvider_LivesOnlyOutsideVfxCore()
         {
             var coreSource = ReadRuntimeSources();
@@ -557,7 +667,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static string ReadRuntimeSources()
         {
-            var absoluteDirectory = GetAbsolutePath(VfxRuntimePath);
+            return ReadSourceDirectory(VfxRuntimePath);
+        }
+
+        private static string ReadSourceDirectory(string relativePath)
+        {
+            var absoluteDirectory = GetAbsolutePath(relativePath);
             return string.Join(
                 "\n",
                 Directory.GetFiles(absoluteDirectory, "*.cs", SearchOption.AllDirectories)

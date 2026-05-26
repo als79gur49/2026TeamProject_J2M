@@ -480,6 +480,14 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Entity {entityId} cannot hold enemy glide runtime state because only unit entities are supported.");
             }
 
+            if (!state.IsActive &&
+                _solidOccupancy.TryGetValue(entity.position, out var solidEntityId) &&
+                solidEntityId != entityId)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot leave active glide while occupying solid cell {entity.position}.");
+            }
+
             _enemyGlideStatesByEntityId[entityId] = state;
         }
 

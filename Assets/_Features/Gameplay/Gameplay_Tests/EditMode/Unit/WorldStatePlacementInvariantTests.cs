@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -457,6 +458,122 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(occupant.entityId, Is.EqualTo(10));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void WorldState_MoveEntityTo_GliderActive_CanRepresentAirborneOverSolid()
+        {
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateWall(entityId: 238, position: wallCell),
+                    CreateUnit(entityId: 241, position: Vector2Int.zero),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyGlideState(
+                241,
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Active,
+                    sequence: 1,
+                    windupUntilTickExclusive: 0,
+                    activeUntilTickExclusive: 5,
+                    recoveryUntilTickExclusive: 0,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 0,
+                    durationTicks: 5,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    lastExitedTick: 0,
+                    landingPendingCell: default,
+                    hasLockedStep: true,
+                    lockedStepX: 1,
+                    lockedStepY: 0));
+
+            Assert.DoesNotThrow(() => writeContext.MoveEntity(241, wallCell));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(241, out var glider), Is.True);
+            Assert.That(glider.position, Is.EqualTo(wallCell));
+            Assert.That(snapshot.TryGetSolidOccupantAt(wallCell, out var solid), Is.True);
+            Assert.That(solid.entityId, Is.EqualTo(238));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_MoveEntityTo_GliderNormal_CannotRepresentGroundedOnSolid()
+        {
+            AssertGliderGroundedPhaseCannotMoveOntoSolid(null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_MoveEntityTo_GliderWindup_CannotRepresentGroundedOnSolid()
+        {
+            AssertGliderGroundedPhaseCannotMoveOntoSolid(
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Windup,
+                    sequence: 1,
+                    windupUntilTickExclusive: 5,
+                    activeUntilTickExclusive: 0,
+                    recoveryUntilTickExclusive: 0,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 2,
+                    durationTicks: 5,
+                    recoveryTicks: 1,
+                    cooldownTicks: 0,
+                    lastExitedTick: 0,
+                    landingPendingCell: default));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldState_MoveEntityTo_GliderRecover_CannotRepresentGroundedOnSolid()
+        {
+            AssertGliderGroundedPhaseCannotMoveOntoSolid(
+                EnemyGlideRuntimeState.Create(
+                    EnemyGlidePhase.Recovery,
+                    sequence: 1,
+                    windupUntilTickExclusive: 0,
+                    activeUntilTickExclusive: 3,
+                    recoveryUntilTickExclusive: 5,
+                    cooldownUntilTickExclusive: 0,
+                    windupTicks: 0,
+                    durationTicks: 3,
+                    recoveryTicks: 2,
+                    cooldownTicks: 0,
+                    lastExitedTick: 0,
+                    landingPendingCell: default));
+        }
+
+        private static void AssertGliderGroundedPhaseCannotMoveOntoSolid(EnemyGlideRuntimeState? glideState)
+        {
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateWall(entityId: 238, position: wallCell),
+                    CreateUnit(entityId: 241, position: Vector2Int.zero),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var writeContext = worldState.CreateWriteContext();
+            if (glideState.HasValue)
+            {
+                writeContext.SetEnemyGlideState(241, glideState.Value);
+            }
+
+            Assert.Throws<InvalidOperationException>(
+                () => writeContext.MoveEntity(241, wallCell));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(241, out var glider), Is.True);
+            Assert.That(glider.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetSolidOccupantAt(wallCell, out var solid), Is.True);
+            Assert.That(solid.entityId, Is.EqualTo(238));
+        }
+
         private static EntityState CreateUnit(int entityId, Vector2Int position, bool markedForDeath = false)
         {
             return CreateUnit(entityId, SurfaceCell.FromPlanar(position), markedForDeath);
@@ -524,6 +641,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 markedForDeath = false,
                 spawnTick = 0,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                markedForDeath = false,
+                spawnTick = 0,
             };
         }
 

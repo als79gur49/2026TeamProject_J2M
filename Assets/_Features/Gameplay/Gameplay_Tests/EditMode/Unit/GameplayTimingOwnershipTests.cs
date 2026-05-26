@@ -2440,7 +2440,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void PlayerS1Controller_StageClearVictory_UsesItemStateAndClip()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
@@ -2456,6 +2456,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(itemState.transitions, Is.Empty);
             Assert.That(itemMotion, Is.Not.Null);
             Assert.That(itemMotion.name, Is.EqualTo("Item"));
+            Assert.That(itemMotion.isLooping, Is.False);
+            Assert.That(AnimationUtility.GetAnimationEvents(itemMotion), Is.Empty);
             Assert.That(controller.animationClips.Any(clip => clip != null && clip.name == "Item"), Is.True);
         }
 

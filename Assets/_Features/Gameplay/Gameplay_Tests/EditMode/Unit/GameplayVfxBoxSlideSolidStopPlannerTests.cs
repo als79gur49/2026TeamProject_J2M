@@ -45,21 +45,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void SolidEntitySignal_EmitsBoxSlideSolidStopRequest()
+        public void SolidEntityAndBarricadeSignals_EmitBoxSlideSolidStopRequest()
         {
-            var signal = CreateSignal(BoxSlideStopperKind.SolidEntity);
-            var presentationData = CreatePresentationData(signal);
-            var builder = new GameplayVfxRequestPlanBuilder();
+            var stopperKinds = new[]
+            {
+                BoxSlideStopperKind.SolidEntity,
+                BoxSlideStopperKind.Barricade,
+            };
 
-            new BoxVfxRequestPlanner().Plan(
-                new GameplayVfxPlanningContext(7, presentationData, signal.Topology),
-                builder);
+            for (var i = 0; i < stopperKinds.Length; i++)
+            {
+                var signal = CreateSignal(stopperKinds[i]);
+                var presentationData = CreatePresentationData(signal);
+                var builder = new GameplayVfxRequestPlanBuilder();
 
-            var request = builder.Build().Requests.Single();
-            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)));
-            Assert.That(request.SourceEntityId, Is.EqualTo(signal.BoxEntityId));
-            Assert.That(request.Anchor.Cell, Is.EqualTo(signal.SourceCell));
-            Assert.That(request.Anchor.Topology, Is.EqualTo(signal.Topology));
+                new BoxVfxRequestPlanner().Plan(
+                    new GameplayVfxPlanningContext(7, presentationData, signal.Topology),
+                    builder);
+
+                var request = builder.Build().Requests.Single();
+                Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)));
+                Assert.That(request.SourceEntityId, Is.EqualTo(signal.BoxEntityId));
+                Assert.That(request.Anchor.Cell, Is.EqualTo(signal.SourceCell));
+                Assert.That(request.Anchor.Topology, Is.EqualTo(signal.Topology));
+            }
         }
 
         [TestCase(BoxSlideStopperKind.Terrain)]
@@ -151,23 +160,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void CommandBuilder_UsesMidpointBetweenSourceAndStopperCells()
         {
-            var signal = CreateSignal(BoxSlideStopperKind.SolidEntity);
             var projector = CreateProjector();
+            var stopperKinds = new[]
+            {
+                BoxSlideStopperKind.SolidEntity,
+                BoxSlideStopperKind.Barricade,
+            };
 
-            var built = BoxSlideSolidStopVfxCommandBuilder.TryBuild(
-                7,
-                signal,
-                projector,
-                out var request,
-                out var anchor);
+            for (var i = 0; i < stopperKinds.Length; i++)
+            {
+                var signal = CreateSignal(stopperKinds[i]);
+                var built = BoxSlideSolidStopVfxCommandBuilder.TryBuild(
+                    7,
+                    signal,
+                    projector,
+                    out var request,
+                    out var anchor);
 
-            projector.TryProjectSurfaceCell(signal.SourceCell, signal.Topology, out var sourcePose);
-            projector.TryProjectSurfaceCell(signal.StopperCell, signal.Topology, out var stopperPose);
-            var expected = Vector3.Lerp(sourcePose.LocalPosition, stopperPose.LocalPosition, 0.5f);
-            Assert.That(built, Is.True);
-            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)));
-            Assert.That(anchor.HasLocalPose, Is.True);
-            AssertVector(anchor.LocalPosition, expected);
+                projector.TryProjectSurfaceCell(signal.SourceCell, signal.Topology, out var sourcePose);
+                projector.TryProjectSurfaceCell(signal.StopperCell, signal.Topology, out var stopperPose);
+                var expected = Vector3.Lerp(sourcePose.LocalPosition, stopperPose.LocalPosition, 0.5f);
+                Assert.That(built, Is.True);
+                Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)));
+                Assert.That(anchor.HasLocalPose, Is.True);
+                AssertVector(anchor.LocalPosition, expected);
+            }
         }
 
         [Test]
@@ -287,7 +304,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stopperEntityId: stopperKind == BoxSlideStopperKind.SolidEntity ? 90 : 0,
                 solidKind: SolidKind.Box,
                 topology: new CubeTopologyState(FaceId.Floor),
-                cause: BoxSlideStopCause.SlidingContinuationBlocked);
+                cause: BoxSlideStopCause.SlidingContinuationBlocked,
+                stopperTileId: stopperKind == BoxSlideStopperKind.Barricade ? 100 : 0);
         }
 
         private static BoxSlideStopPresentationSignal CreateInactiveFaceSignal()

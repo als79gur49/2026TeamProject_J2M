@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 1141000000000010002}
   - component: {fileID: 1141000000000010003}
   - component: {fileID: 1141000000000010004}
+  - component: {fileID: 1141000000000010005}
   m_Layer: 0
   m_Name: EnemyView_SecBot
   m_TagString: Untagged
@@ -109,6 +110,19 @@ MonoBehaviour:
   deathViewTailSeconds: 0.2
   deathOwnershipMode: 0
   deathAnchorName: Chest
+--- !u!114 &1141000000000010005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1001000000000010001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
+  profile: {fileID: 11400000, guid: 5cb3acfea82942bcb882855094acd20e, type: 2}
 --- !u!1 &1001000000000010002
 GameObject:
   m_ObjectHideFlags: 0

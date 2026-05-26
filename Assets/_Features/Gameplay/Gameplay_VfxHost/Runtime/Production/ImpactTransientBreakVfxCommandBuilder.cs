@@ -59,7 +59,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 breakStartSeconds,
                 fadeDurationSeconds,
                 ParameterizedMotionVfxFadeMode.ScaleAndAlpha,
-                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
+                ParameterizedMotionVfxCloneMode.SourceCloneMotion,
                 ParameterizedMotionVfxSamplerMode.FlipArc);
             return true;
         }

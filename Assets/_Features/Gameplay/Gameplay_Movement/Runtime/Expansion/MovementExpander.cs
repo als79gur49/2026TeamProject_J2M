@@ -851,6 +851,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     out var barricade))
             {
                 AddBarricadeBlockFact(barricadeBlockFacts, barricade, source.entityId, stepFacing);
+                AddBarricadeBoxSlideStop(
+                    boxSlideStops,
+                    intent.IntentId,
+                    source,
+                    barricade,
+                    stepFacing,
+                    snapshot.Topology);
                 rejectedReasons.Add(
                     BuildBarricadeRejectedReason(
                         intent.SourceId,
@@ -1228,6 +1235,34 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     barricade.Cell,
                     boxEntityId,
                     attemptedDirection));
+        }
+
+        private static void AddBarricadeBoxSlideStop(
+            List<BoxSlideStopResult> stops,
+            int intentId,
+            EntityState box,
+            TileFeatureState barricade,
+            Direction slideDirection,
+            CubeTopologyState topology)
+        {
+            if (stops == null || barricade.TileId <= 0)
+            {
+                return;
+            }
+
+            stops.Add(
+                new BoxSlideStopResult(
+                    intentId,
+                    box.entityId,
+                    box.position,
+                    barricade.Cell,
+                    slideDirection,
+                    BoxSlideStopperKind.Barricade,
+                    stopperEntityId: 0,
+                    solidKind: SolidKind.Box,
+                    topology: topology,
+                    cause: BoxSlideStopCause.SlidingContinuationBlocked,
+                    stopperTileId: barricade.TileId));
         }
 
         private static void AddSolidEntityBoxSlideStop(

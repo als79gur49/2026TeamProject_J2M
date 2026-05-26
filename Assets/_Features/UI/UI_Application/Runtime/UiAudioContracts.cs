@@ -17,6 +17,9 @@ namespace Game.Feature.UI.Application
         PrimaryMenuCommand = 12,
         StageLaunch = 13,
         KeyboardMove = 14,
+        GameClear = 15,
+        StageClear = 16,
+        LevelFailed = 17,
     }
 
     public interface IUiAudioPort

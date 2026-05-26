@@ -189,8 +189,6 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 73
     PresentationId: box_tutorial
-  - EntityId: 74
-    PresentationId: box_tutorial
   - EntityId: 75
     PresentationId: box_tutorial
   - EntityId: 76
@@ -323,6 +321,8 @@ MonoBehaviour:
     PresentationId: box_tutorial
   - EntityId: 142
     PresentationId: box_tutorial
+  - EntityId: 152
+    PresentationId: box_metal
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []

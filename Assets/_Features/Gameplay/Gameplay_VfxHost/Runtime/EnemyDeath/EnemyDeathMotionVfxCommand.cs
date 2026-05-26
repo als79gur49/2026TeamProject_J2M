@@ -94,7 +94,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 FadeStartSeconds,
                 FadeDurationSeconds,
                 ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
-                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
+                ParameterizedMotionVfxCloneMode.PrefabWithSourceClone,
                 ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
                 ArcLocalDirection,
                 SpinDegrees,

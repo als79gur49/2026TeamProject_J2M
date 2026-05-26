@@ -10,10 +10,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         public static bool IsCandidate(in BoxSlideStopPresentationSignal signal)
         {
-            return signal.StopperKind == BoxSlideStopperKind.SolidEntity &&
-                   signal.BoxEntityId > 0 &&
-                   signal.StopperEntityId > 0 &&
-                   signal.Cause == BoxSlideStopCause.SlidingContinuationBlocked;
+            if (signal.Cause != BoxSlideStopCause.SlidingContinuationBlocked ||
+                signal.BoxEntityId <= 0)
+            {
+                return false;
+            }
+
+            return (signal.StopperKind == BoxSlideStopperKind.SolidEntity && signal.StopperEntityId > 0) ||
+                   (signal.StopperKind == BoxSlideStopperKind.Barricade && signal.StopperTileId > 0);
         }
 
         public static bool TryBuild(
@@ -158,6 +162,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 hash = (hash * 31) + tickIndex;
                 hash = (hash * 31) + signal.BoxEntityId;
                 hash = (hash * 31) + signal.StopperEntityId;
+                hash = (hash * 31) + signal.StopperTileId;
                 hash = (hash * 31) + (int)BoxVfxCue.BoxSlideSolidStop;
                 hash = (hash * 31) + signal.SourceCell.GetHashCode();
                 hash = (hash * 31) + signal.StopperCell.GetHashCode();

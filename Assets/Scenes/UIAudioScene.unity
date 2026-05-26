@@ -869,6 +869,7 @@ MonoBehaviour:
   _popupPrefabCatalog: {fileID: 11400000, guid: b2310c16b9b12f0478d2bff3c647ea03, type: 2}
   _uiAudioCueMap: {fileID: 11400000, guid: f22f968bc51249c19c72dc545d349f23, type: 2}
   _routeConfig: {fileID: 11400000, guid: 610a3d54d20a4aad80ceecaee720675b, type: 2}
+  _slotCinematicDefinition: {fileID: 11400000, guid: 8729fd4ab5964d5695e76381ad9fd3cf, type: 2}
   _installOnStart: 1
 --- !u!114 &1179627485
 MonoBehaviour:
@@ -990,6 +991,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Vfx.ProductionRuntime::Game.Feature.Gameplay.Vfx.Host.GameplayVfxRuntimeInstaller
   installOnAwake: 1
   hostDefaultCueMap: {fileID: 11400000, guid: 3ed23d03c1c440cb9a1441a4b18c46e5, type: 2}
+  commonEmptyHostPrefab: {fileID: 100000, guid: 62d75846029847938447feaa2f46ef7f, type: 3}
 --- !u!114 &1179627490
 MonoBehaviour:
   m_ObjectHideFlags: 0

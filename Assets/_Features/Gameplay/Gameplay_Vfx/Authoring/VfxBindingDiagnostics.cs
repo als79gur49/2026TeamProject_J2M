@@ -78,6 +78,33 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            if (binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                binding.HostRequirement != GameplayVfxHostRequirement.CommonHostAllowed)
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_INVALID_PLAYBACK_MODE_POLICY",
+                    $"{binding.name} cue '{cueId}' uses SourceCloneMotion without CommonHostAllowed host requirement.",
+                    binding));
+            }
+
+            if (binding.VisualSourceMode == VfxVisualSourceMode.PrefabOnly &&
+                binding.HostRequirement != GameplayVfxHostRequirement.ExplicitPrefabRequired)
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_INVALID_PLAYBACK_MODE_POLICY",
+                    $"{binding.name} cue '{cueId}' uses PrefabOnly without ExplicitPrefabRequired host requirement.",
+                    binding));
+            }
+
+            if (binding.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone &&
+                binding.HostRequirement != GameplayVfxHostRequirement.ExplicitPrefabRequired)
+            {
+                messages.Add(VfxAuthoringValidationResult.Error(
+                    "VFX_BINDING_INVALID_PLAYBACK_MODE_POLICY",
+                    $"{binding.name} cue '{cueId}' uses PrefabWithSourceClone without ExplicitPrefabRequired host requirement.",
+                    binding));
+            }
+
             try
             {
                 binding.CreateRuntimePolicy().ValidateOrThrow();
@@ -90,16 +117,42 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            var prefabOptionalForSourceClone =
+                binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                binding.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed &&
+                binding.Prefab == null;
+            if (prefabOptionalForSourceClone)
+            {
+                return;
+            }
+
+            if (binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                binding.Prefab != null)
+            {
+                var hasVisualContent = VfxPrefabValidationDiagnostics.HasPresentationVisualContent(binding.Prefab);
+                messages.Add(VfxAuthoringValidationResult.Warning(
+                    hasVisualContent
+                        ? "VFX_BINDING_SOURCE_CLONE_ACTUAL_VISUAL_PREFAB"
+                        : "VFX_BINDING_SOURCE_CLONE_CUE_SPECIFIC_PLACEHOLDER_PREFAB",
+                    hasVisualContent
+                        ? $"{binding.name} cue '{cueId}' uses SourceCloneMotion while referencing a visual prefab. Confirm the cue should not be PrefabWithSourceClone or PrefabOnly."
+                        : $"{binding.name} cue '{cueId}' uses SourceCloneMotion with a cue-specific host-only prefab. Prefer a null cue prefab plus the common empty host.",
+                    binding));
+            }
+
             var prefabValidation = VfxPrefabValidationDiagnostics.ValidatePrefab(binding.Prefab, binding);
             for (var i = 0; i < prefabValidation.Messages.Count; i++)
             {
                 messages.Add(prefabValidation.Messages[i]);
             }
 
-            var modelRootValidation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(binding.Prefab, binding);
-            for (var i = 0; i < modelRootValidation.Messages.Count; i++)
+            if (binding.Prefab != null)
             {
-                messages.Add(modelRootValidation.Messages[i]);
+                var modelRootValidation = VfxPrefabValidationDiagnostics.ValidateModelRootContract(binding.Prefab, binding);
+                for (var i = 0; i < modelRootValidation.Messages.Count; i++)
+                {
+                    messages.Add(modelRootValidation.Messages[i]);
+                }
             }
         }
 

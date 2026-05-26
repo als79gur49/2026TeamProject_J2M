@@ -14,8 +14,10 @@
     "Game.Feature.UI.Screens",
     "Game.Feature.UI.Popups",
     "Game.Shared.Input",
+    "Game.Feature.Flow.Audio",
     "Unity.Cinemachine",
     "Unity.InputSystem",
+    "UnityEngine.VideoModule",
     "Unity.Splines",
     "Unity.TextMeshPro",
     "DOTween.Modules"

@@ -157,6 +157,10 @@ namespace Game.Feature.Stages
 
         public bool CampaignCompleted { get; set; }
 
+        public bool IntroPlayed { get; set; }
+
+        public bool OutroPlayed { get; set; }
+
         public int TotalDeaths { get; set; }
 
         public string LastPlayedAt { get; set; } = string.Empty;
@@ -165,6 +169,8 @@ namespace Game.Feature.Stages
 
         public bool IsEmpty => !CurrentStageId.IsValid &&
                                !CampaignCompleted &&
+                               !IntroPlayed &&
+                               !OutroPlayed &&
                                TotalDeaths == 0 &&
                                string.IsNullOrWhiteSpace(LastPlayedAt) &&
                                IsCompletionProfileEmpty(StageCompletionProfileSnapshot);
@@ -178,6 +184,8 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = RemainingChances,
                 CampaignCompleted = CampaignCompleted,
+                IntroPlayed = IntroPlayed,
+                OutroPlayed = OutroPlayed,
                 TotalDeaths = TotalDeaths,
                 LastPlayedAt = LastPlayedAt ?? string.Empty,
                 StageCompletionProfileSnapshot = StageCompletionProfileSnapshot?.Clone() ?? new StageCompletionProfileSnapshot(),
@@ -193,6 +201,8 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = string.Empty,
                 RemainingChances = SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = false,
+                IntroPlayed = false,
+                OutroPlayed = false,
                 TotalDeaths = 0,
                 LastPlayedAt = string.Empty,
                 StageCompletionProfileSnapshot = new StageCompletionProfileSnapshot(),
@@ -217,6 +227,8 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = sequenceResolver.GetLevelGroupId(firstStageId),
                 RemainingChances = SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = false,
+                IntroPlayed = false,
+                OutroPlayed = false,
                 TotalDeaths = 0,
                 LastPlayedAt = lastPlayedAt ?? string.Empty,
                 StageCompletionProfileSnapshot = new StageCompletionProfileSnapshot(),
@@ -466,6 +478,8 @@ namespace Game.Feature.Stages
         public string CurrentLevelGroupId;
         public int RemainingChances;
         public bool CampaignCompleted;
+        public bool IntroPlayed;
+        public bool OutroPlayed;
         public int TotalDeaths;
         public string LastPlayedAt;
         public StageCompletionProfileSnapshotDto StageCompletionProfileSnapshot;
@@ -634,6 +648,8 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = slot.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                IntroPlayed = slot.IntroPlayed,
+                OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAt = slot.LastPlayedAt ?? string.Empty,
                 StageCompletionProfileSnapshot = ToDto(slot.StageCompletionProfileSnapshot),
@@ -652,6 +668,8 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = dto.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = dto.RemainingChances > 0 ? dto.RemainingChances : SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = dto.CampaignCompleted,
+                IntroPlayed = dto.IntroPlayed,
+                OutroPlayed = dto.OutroPlayed,
                 TotalDeaths = Math.Max(0, dto.TotalDeaths),
                 LastPlayedAt = dto.LastPlayedAt ?? string.Empty,
                 StageCompletionProfileSnapshot = FromDto(dto.StageCompletionProfileSnapshot),

@@ -162,7 +162,17 @@ MonoBehaviour:
   unlockedDimWeight: 0
   gravityFieldDimFactor: 0.55
   gravityFieldLockedTint: {r: 0.45, g: 0.55, b: 0.85, a: 1}
-  gravityFieldTintStrength: 0.15
+  gravityFieldTintStrength: 0.18
+  gravityFieldEmissionSuppression: 0.85
+  lockRevealInSeconds: 0.234
+  lockRevealOutSeconds: 0.208
+  gravityFieldLockEdgeWidth: 0.08
+  lockRevealCurve:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &2489755458357871006
 GameObject:
   m_ObjectHideFlags: 0

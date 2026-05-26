@@ -152,23 +152,93 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitAuthoring_RemovesNonParticleObjectPrefabs",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_AuthoringKeepsCommonHostAndNoCuePrefab",
       "category": "Core",
       "contracts": [
         "box_exit_vfx_authoring",
         "vfx_authoring_removal_contract"
       ],
-      "reason": "Locked Core coverage that removed non-particle box exit prefabs stay absent after PR69.",
+      "reason": "Locked Core coverage that the old DestroyShrink prefab stays absent while the common VFX host exists.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitBindings_KeepSmokeAndRemoveNonParticleObjectBindings",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_BindingPolicy_IsSourceCloneMotionWithCommonHost",
       "category": "Core",
       "contracts": [
         "box_exit_vfx_authoring",
-        "vfx_authoring_removal_contract"
+        "destroy_shrink_source_clone_motion"
       ],
-      "reason": "Locked Core coverage that the host keeps smoke authoring while removed shrink/item bindings stay absent.",
+      "reason": "Locked Core coverage that DestroyShrink keeps a binding policy while the cue prefab remains null.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxAuthoringBindingTests.BindingAsset_AllowsNullPrefab_ForSourceCloneMotion_WhenCommonHostAllowed",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_authoring_null_prefab_policy"
+      ],
+      "reason": "Locked Core coverage that SourceCloneMotion bindings may omit cue-specific prefabs when a common host is allowed.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.DestroyShrink_Plays_WithSourceClone_WhenPrefabIsMissing",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_common_host"
+      ],
+      "reason": "Locked Core coverage that DestroyShrink can play from a source clone using the common host path.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.DestroyShrink_ReportsMissingSourceView_WhenSourceViewIsUnavailable",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_missing_source_diagnostic"
+      ],
+      "reason": "Locked Core coverage that missing source view is diagnosed separately from missing prefab.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.PrefabOnlyCue_ReportsMissingPrefab_WhenPrefabIsNull",
+      "category": "Core",
+      "contracts": [
+        "vfx_prefab_only_policy",
+        "vfx_missing_prefab_diagnostic"
+      ],
+      "reason": "Locked Core coverage that PrefabOnly cues still require an explicit prefab.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.SourceCloneMotion_DoesNotMutateOriginalView",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_clone_ownership"
+      ],
+      "reason": "Locked Core coverage that SourceCloneMotion mutates the clone host, not the original view.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_ReportsMissingSourceView_WhenSourceViewIsUnavailable",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_missing_source_diagnostic"
+      ],
+      "reason": "Locked Core production-runtime coverage for missing source view diagnostic separation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_common_host"
+      ],
+      "reason": "Locked Core presenter/runtime coverage that DestroyShrink plays through the common host without smoke.",
       "locked": true
     },
     {
@@ -3028,6 +3098,26 @@
         "enemy_kinematic_locomotion"
       ],
       "reason": "Locked Extended coverage that default active glide kinematic preserves solid bypass behavior.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.Glide_Target_PendingDoesNotCreateMoveEntity",
+      "category": "Core",
+      "contracts": [
+        "enemy_kinematic_locomotion",
+        "world_state_placement_invariant"
+      ],
+      "reason": "Locked Core regression coverage that LandingPending glide active-origin carry-over cannot materialize MoveEntity and closes as non-movement authority.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.Stage31_Target_NoStaleActiveCommitToFloor37Wall",
+      "category": "Core",
+      "contracts": [
+        "enemy_kinematic_locomotion",
+        "stage_runtime_builder"
+      ],
+      "reason": "Locked Core regression coverage that the stage-3-1 glider 241 cannot materialize a stale active-origin MoveEntity onto wall 238 at Floor(3,7).",
       "locked": true
     },
     {

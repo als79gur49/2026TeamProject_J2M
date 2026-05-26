@@ -363,21 +363,6 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (HasGlideMovementSkill() &&
-                snapshot.TryGetEnemyGlideState(_entityId, out var movementGlideState) &&
-                movementGlideState.Phase == EnemyGlidePhase.LandingPending)
-            {
-                if (TryResolveLandingPendingEgressLocomotion(snapshot, source, out var egressLocomotion))
-                {
-                    buffer.Add(ApplyMovementTiming(
-                        egressLocomotion.Intent,
-                        egressLocomotion.CooldownTicks,
-                        egressLocomotion.OrdinaryKinematicMoveTicks));
-                }
-
-                return;
-            }
-
             if (ShouldSuppressAutonomousMovementAndFacing(snapshot, source, input.TickIndex))
             {
                 return;
@@ -842,50 +827,54 @@ namespace Game.Feature.Gameplay.Entities
                             return changed;
                         }
 
-                        nextState = EnemyGlideQueries.BeginActive(nextState, input.TickIndex);
+                        var activeLockedStep = default(Vector2Int?);
+                        var activeLockedTargetEntityId = 0;
+                        if (TryResolveGlideActiveStartTarget(
+                                snapshot,
+                                source,
+                                out var activeTarget,
+                                out var activeStep))
+                        {
+                            activeLockedStep = activeStep;
+                            activeLockedTargetEntityId = activeTarget.entityId;
+                        }
+
+                        nextState = EnemyGlideQueries.BeginActive(
+                            nextState,
+                            input.TickIndex,
+                            activeLockedStep,
+                            activeLockedTargetEntityId);
                         hasPreviousState = true;
                         changed = true;
                         AppendGlideUpdate(updates, _entityId, "EnterActive", nextState);
                         continue;
 
                     case EnemyGlidePhase.Active:
-                        if (input.TickIndex < nextState.ActiveUntilTickExclusive)
+                        if (input.TickIndex < nextState.ActiveUntilTickExclusive &&
+                            !nextState.WantsRecover)
                         {
                             return changed;
                         }
 
-                        var sourcePositionIsSolid = snapshot.TryGetSolidSemanticAt(source.position, out _);
-                        var hasSolidBoundTerminal = TryResolveSolidBoundGlideKinematicTerminal(
-                            snapshot,
-                            source.entityId,
-                            nextState,
-                            out var pendingCell);
-                        if (sourcePositionIsSolid || hasSolidBoundTerminal)
+                        if (snapshot.TryGetSolidSemanticAt(source.position, out _))
                         {
-                            nextState = EnemyGlideQueries.EndActiveToLandingPending(
-                                nextState,
-                                input.TickIndex,
-                                sourcePositionIsSolid ? source.position : pendingCell);
-                        }
-                        else
-                        {
-                            nextState = EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
-                        }
+                            if (!nextState.WantsRecover)
+                            {
+                                nextState = EnemyGlideQueries.MarkActiveWantsRecover(nextState);
+                                hasPreviousState = true;
+                                changed = true;
+                                AppendGlideUpdate(updates, _entityId, "WantsRecover", nextState);
+                            }
 
-                        hasPreviousState = true;
-                        changed = true;
-                        AppendGlideUpdate(
-                            updates,
-                            _entityId,
-                            nextState.IsLandingPending ? "EnterLandingPending" : "EnterRecovery",
-                            nextState);
-                        continue;
-
-                    case EnemyGlidePhase.LandingPending:
-                        if (snapshot.TryGetSolidSemanticAt(source.position, out _) ||
-                            HasUnsettledVoluntaryKinematicPose(snapshot, source.entityId))
-                        {
                             return changed;
+                        }
+
+                        if (!nextState.WantsRecover)
+                        {
+                            nextState = EnemyGlideQueries.MarkActiveWantsRecover(nextState);
+                            hasPreviousState = true;
+                            changed = true;
+                            AppendGlideUpdate(updates, _entityId, "WantsRecover", nextState);
                         }
 
                         nextState = EnemyGlideQueries.BeginRecovery(nextState, input.TickIndex);
@@ -1031,212 +1020,6 @@ namespace Game.Feature.Gameplay.Entities
                     chargeState.phase == EnemyChargePhase.Recover);
         }
 
-        private bool TryResolveLandingPendingEgressLocomotion(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            out GroundLocomotionResolution locomotion)
-        {
-            locomotion = default;
-            if (!HasGlideMovementSkill() ||
-                !snapshot.TryGetEnemyGlideState(_entityId, out var glideState) ||
-                glideState.Phase != EnemyGlidePhase.LandingPending)
-            {
-                return false;
-            }
-
-            var sourceIsSolid = snapshot.TryGetSolidSemanticAt(source.position, out _);
-            if (!sourceIsSolid)
-            {
-                return false;
-            }
-
-            var hasLockedStep = TryGetLockedGlideStep(glideState, out var lockedStep);
-            if (hasLockedStep &&
-                TryBuildLandingPendingEgressIntentForStep(snapshot, source, lockedStep, out var lockedEgressIntent))
-            {
-                locomotion = BuildLandingPendingEgressLocomotion(lockedEgressIntent);
-                return true;
-            }
-
-            if (!TryBuildLandingPendingRing1EgressIntent(
-                    snapshot,
-                    source,
-                    hasLockedStep ? lockedStep : (Vector2Int?)null,
-                    out var ringEgressIntent))
-            {
-                return false;
-            }
-
-            locomotion = BuildLandingPendingEgressLocomotion(ringEgressIntent);
-            return true;
-        }
-
-        private GroundLocomotionResolution BuildLandingPendingEgressLocomotion(RawMovementIntent intent)
-        {
-            return new GroundLocomotionResolution(
-                hasIntent: true,
-                intent,
-                _locomotionTimingSettings.MoveCooldownTicks,
-                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
-        }
-
-        private bool TryBuildLandingPendingRing1EgressIntent(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            Vector2Int? attemptedLockedStep,
-            out RawMovementIntent intent)
-        {
-            intent = default;
-            var basisFacing = ResolveLandingPendingEgressBasisFacing(source, attemptedLockedStep);
-            var candidateDirections = new[]
-            {
-                basisFacing,
-                TurnLeft(basisFacing),
-                TurnRight(basisFacing),
-                TurnBack(basisFacing),
-            };
-
-            foreach (var candidateDirection in candidateDirections)
-            {
-                if (!EnemyMovementStrategyShared.TryResolveDelta(candidateDirection, out var candidateStep) ||
-                    attemptedLockedStep.HasValue &&
-                    candidateStep == attemptedLockedStep.Value)
-                {
-                    continue;
-                }
-
-                if (TryBuildLandingPendingEgressIntentForStep(snapshot, source, candidateStep, out intent))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private bool TryBuildLandingPendingEgressIntentForStep(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            Vector2Int? step,
-            out RawMovementIntent intent)
-        {
-            intent = default;
-            if (!step.HasValue ||
-                !snapshot.TryResolveUnitStep(
-                    source.position,
-                    step.Value,
-                    out var destination,
-                    out var rotationKind,
-                    out _) ||
-                rotationKind != CubeRotationKind.None ||
-                destination.face != source.position.face ||
-                !IsLandingPendingEgressDestinationLegal(
-                    snapshot,
-                    source,
-                    destination,
-                    rotationKind,
-                    snapshot.Topology))
-            {
-                return false;
-            }
-
-            intent = new RawMovementIntent(
-                source.entityId,
-                _commonSettings.MovementPriority,
-                destination.PlanarPosition);
-            return true;
-        }
-
-        private static Direction ResolveLandingPendingEgressBasisFacing(
-            in EntityState source,
-            Vector2Int? lockedStep)
-        {
-            if (DirectionUtility.IsCardinal(source.facing))
-            {
-                return source.facing;
-            }
-
-            if (lockedStep.HasValue &&
-                EnemyMovementStrategyShared.TryResolveDirection(lockedStep.Value, out var lockedDirection) &&
-                DirectionUtility.IsCardinal(lockedDirection))
-            {
-                return lockedDirection;
-            }
-
-            return Direction.Right;
-        }
-
-        private static Direction TurnLeft(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Up => Direction.Left,
-                Direction.Left => Direction.Down,
-                Direction.Down => Direction.Right,
-                Direction.Right => Direction.Up,
-                _ => Direction.None,
-            };
-        }
-
-        private static Direction TurnRight(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Up => Direction.Right,
-                Direction.Right => Direction.Down,
-                Direction.Down => Direction.Left,
-                Direction.Left => Direction.Up,
-                _ => Direction.None,
-            };
-        }
-
-        private static Direction TurnBack(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Up => Direction.Down,
-                Direction.Right => Direction.Left,
-                Direction.Down => Direction.Up,
-                Direction.Left => Direction.Right,
-                _ => Direction.None,
-            };
-        }
-
-        private bool IsLandingPendingEgressDestinationLegal(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            SurfaceCell destination,
-            CubeRotationKind rotationKind,
-            CubeTopologyState updatedTopology)
-        {
-            if (rotationKind != CubeRotationKind.None ||
-                destination.face != source.position.face)
-            {
-                return false;
-            }
-
-            var traversalLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
-                snapshot,
-                EntityType.Unit,
-                destination,
-                source.entityId,
-                snapshot.Topology,
-                rotationKind,
-                updatedTopology,
-                tileFeatureDefinitions: _tileFeatureDefinitions);
-            if (traversalLegality.Verdict != LegalityVerdict.Allowed)
-            {
-                return false;
-            }
-
-            var settlementLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
-                snapshot,
-                EntityType.Unit,
-                destination,
-                source.entityId);
-            return settlementLegality.Verdict == LegalityVerdict.Allowed;
-        }
-
         private static bool TryResolveSolidBoundGlideKinematicTerminal(
             WorldSnapshot snapshot,
             int entityId,
@@ -1344,6 +1127,27 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return TryResolveGlideLockedStepTowardTarget(source, target, _chaseSettings, out lockedStep);
+        }
+
+        private bool TryResolveGlideActiveStartTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            out EntityState target,
+            out Vector2Int lockedStep)
+        {
+            target = default;
+            lockedStep = Vector2Int.zero;
+            if (!_detectionStrategy.TryFindTarget(
+                    snapshot,
+                    source,
+                    _detectionSettings,
+                    out target,
+                    new EnemyDetectionQueryOptions(LineOfSightSolidBlockerPolicy.IgnoreSolid)))
+            {
+                return false;
+            }
+
+            return TryResolveGlideStartLockedStep(snapshot, source, target, out lockedStep);
         }
 
         private static bool TryResolveGlideLockedStepTowardTarget(
@@ -2551,7 +2355,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(
-                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}|LockedTarget={state.LockedTargetEntityId}");
+                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|WantsRecover={(state.WantsRecover ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|GlideMoveTicks={state.GlideMoveTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}|LockedTarget={state.LockedTargetEntityId}");
         }
 
         private static bool AreEqual(
@@ -2570,7 +2374,9 @@ namespace Game.Feature.Gameplay.Entities
                    left.DurationTicks == right.DurationTicks &&
                    left.RecoveryTicks == right.RecoveryTicks &&
                    left.CooldownTicks == right.CooldownTicks &&
+                   left.GlideMoveTicks == right.GlideMoveTicks &&
                    left.LastExitedTick == right.LastExitedTick &&
+                   left.WantsRecover == right.WantsRecover &&
                    left.InitialDelayInitialized == right.InitialDelayInitialized &&
                    left.InitialDelayTicksRemaining == right.InitialDelayTicksRemaining &&
                    left.LandingPendingCell == right.LandingPendingCell &&
@@ -2617,11 +2423,7 @@ namespace Game.Feature.Gameplay.Entities
                                 _tileFeatureDefinitions,
                                 out var patrolIntent))
                         {
-                            return new GroundLocomotionResolution(
-                                hasIntent: true,
-                                patrolIntent,
-                                _locomotionTimingSettings.MoveCooldownTicks,
-                                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+                            return CreateGroundLocomotionResolution(snapshot, source, patrolIntent);
                         }
 
                         return default;
@@ -2635,11 +2437,7 @@ namespace Game.Feature.Gameplay.Entities
                             _tileFeatureDefinitions,
                             out var fallbackPatrolIntent))
                     {
-                        return new GroundLocomotionResolution(
-                            hasIntent: true,
-                            fallbackPatrolIntent,
-                            _locomotionTimingSettings.MoveCooldownTicks,
-                            _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+                        return CreateGroundLocomotionResolution(snapshot, source, fallbackPatrolIntent);
                     }
 
                     return default;
@@ -2652,6 +2450,18 @@ namespace Game.Feature.Gameplay.Entities
                             out var chaseTarget,
                             EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, _movementSkillCapability)))
                     {
+                        if (IsActiveGlide(snapshot, source) &&
+                            _patrolStrategy.TryBuildMovementIntent(
+                                snapshot,
+                                source,
+                                _commonSettings,
+                                _patrolSettings,
+                                _tileFeatureDefinitions,
+                                out var glideFallbackIntent))
+                        {
+                            return CreateGroundLocomotionResolution(snapshot, source, glideFallbackIntent);
+                        }
+
                         return default;
                     }
 
@@ -2669,11 +2479,7 @@ namespace Game.Feature.Gameplay.Entities
                             _tileFeatureDefinitions,
                             out var chaseIntent))
                     {
-                        return new GroundLocomotionResolution(
-                            hasIntent: true,
-                            chaseIntent,
-                            _locomotionTimingSettings.MoveCooldownTicks,
-                            _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+                        return CreateGroundLocomotionResolution(snapshot, source, chaseIntent);
                     }
 
                     if (TryBuildWindupMeleeSimulationApproachIntent(
@@ -2682,11 +2488,7 @@ namespace Game.Feature.Gameplay.Entities
                             chaseTarget,
                             out var windupApproachIntent))
                     {
-                        return new GroundLocomotionResolution(
-                            hasIntent: true,
-                            windupApproachIntent,
-                            _locomotionTimingSettings.MoveCooldownTicks,
-                            _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+                        return CreateGroundLocomotionResolution(snapshot, source, windupApproachIntent);
                     }
 
                     return default;
@@ -2745,6 +2547,34 @@ namespace Game.Feature.Gameplay.Entities
                 approachSettings,
                 _tileFeatureDefinitions,
                 out intent);
+        }
+
+        private GroundLocomotionResolution CreateGroundLocomotionResolution(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            RawMovementIntent intent)
+        {
+            if (IsActiveGlide(snapshot, source) &&
+                snapshot.TryGetEnemyGlideState(source.entityId, out var glideState))
+            {
+                return new GroundLocomotionResolution(
+                    hasIntent: true,
+                    intent,
+                    cooldownTicks: 0,
+                    ordinaryKinematicMoveTicks: Math.Max(1, glideState.GlideMoveTicks));
+            }
+
+            return new GroundLocomotionResolution(
+                hasIntent: true,
+                intent,
+                _locomotionTimingSettings.MoveCooldownTicks,
+                _locomotionTimingSettings.OrdinaryKinematicMoveTicks);
+        }
+
+        private static bool IsActiveGlide(WorldSnapshot snapshot, in EntityState source)
+        {
+            return snapshot.TryGetEnemyGlideState(source.entityId, out var glideState) &&
+                   glideState.Phase == EnemyGlidePhase.Active;
         }
 
         private bool ShouldHoldWindupMeleeMovementForAttackerTransition(
@@ -3398,7 +3228,11 @@ namespace Game.Feature.Gameplay.Entities
                 if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
                     actionState.hasLockedForwardCellImpact)
                 {
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Attack,
+                        0,
+                        "LockedForwardCellImpact",
+                        EnemyActionQueries.ResolveAuthoritativeFacing(actionState));
                 }
 
                 if (combatCapability != null &&
@@ -3764,7 +3598,11 @@ namespace Game.Feature.Gameplay.Entities
                 if (actionState.kind == EnemyActionKind.ForwardCellProjectile &&
                     actionState.hasLockedForwardCellImpact)
                 {
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedForwardCellImpact", actionState.direction);
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Attack,
+                        0,
+                        "LockedForwardCellImpact",
+                        EnemyActionQueries.ResolveAuthoritativeFacing(actionState));
                 }
 
                 if (combatCapability != null &&

@@ -2453,9 +2453,26 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: wall_tutorial
-  - StableGuid: 7c5e48c5346a41e39004772c78dd1db7
+  - StableGuid: 3acc1778b8bd427f8e3eed6d47e6663d
     DisplayName: Placement
     Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 01c230d916ad40429f7f6bf6f54fab14
+    DisplayName: Placement
+    Kind: 2
     Cell:
       face: 2
       x: 6
@@ -2464,15 +2481,15 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 0
+    BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: ec11ead10a0f4cdc836f6b458311c4da
+    PresentationId: box_tutorial
+  - StableGuid: dc152db394d143e183a968b239a7b53e
     DisplayName: Placement
-    Kind: 3
+    Kind: 2
     Cell:
       face: 2
       x: 8
@@ -2481,12 +2498,12 @@ MonoBehaviour:
     Hp: 1
     UnitMobilityKind: 0
     UnitStackGroup: 
-    BoxCapabilities: 0
+    BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: box_tutorial
   tileFeatures:
   - TileId: 8
     Cell:
@@ -3827,10 +3844,22 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: 7c5e48c5346a41e39004772c78dd1db7
     EntityId: 344
-    Retired: 0
+    Retired: 1
     LastKnownDisplayName: Placement
   - StableGuid: ec11ead10a0f4cdc836f6b458311c4da
     EntityId: 345
+    Retired: 1
+    LastKnownDisplayName: Placement
+  - StableGuid: 3acc1778b8bd427f8e3eed6d47e6663d
+    EntityId: 346
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 01c230d916ad40429f7f6bf6f54fab14
+    EntityId: 347
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: dc152db394d143e183a968b239a7b53e
+    EntityId: 348
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

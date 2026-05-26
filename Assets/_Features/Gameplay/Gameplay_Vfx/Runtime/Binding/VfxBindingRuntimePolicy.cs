@@ -15,7 +15,9 @@ namespace Game.Feature.Gameplay.Vfx
             float tailSeconds = 0f,
             int maxConcurrentInstances = 0,
             VfxStyleKey styleKey = default,
-            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay,
+            VfxVisualSourceMode visualSourceMode = VfxVisualSourceMode.PrefabOnly,
+            GameplayVfxHostRequirement hostRequirement = GameplayVfxHostRequirement.ExplicitPrefabRequired)
         {
             CueId = cueId;
             StyleKey = styleKey;
@@ -27,6 +29,8 @@ namespace Game.Feature.Gameplay.Vfx
             TailSeconds = tailSeconds;
             MaxConcurrentInstances = maxConcurrentInstances;
             VisibilityMode = visibilityMode;
+            VisualSourceMode = visualSourceMode;
+            HostRequirement = hostRequirement;
         }
 
         public GameplayVfxCueId CueId { get; }
@@ -49,6 +53,10 @@ namespace Game.Feature.Gameplay.Vfx
 
         public GameplayVfxVisibilityMode VisibilityMode { get; }
 
+        public VfxVisualSourceMode VisualSourceMode { get; }
+
+        public GameplayVfxHostRequirement HostRequirement { get; }
+
         public bool IsValid => TryGetValidationError(out _) == false;
 
         public static VfxBindingRuntimePolicy Optional(
@@ -60,7 +68,9 @@ namespace Game.Feature.Gameplay.Vfx
             float tailSeconds = 0f,
             int maxConcurrentInstances = 0,
             VfxStyleKey styleKey = default,
-            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay,
+            VfxVisualSourceMode visualSourceMode = VfxVisualSourceMode.PrefabOnly,
+            GameplayVfxHostRequirement hostRequirement = GameplayVfxHostRequirement.ExplicitPrefabRequired)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -72,7 +82,9 @@ namespace Game.Feature.Gameplay.Vfx
                 tailSeconds,
                 maxConcurrentInstances,
                 styleKey,
-                visibilityMode);
+                visibilityMode,
+                visualSourceMode,
+                hostRequirement);
         }
 
         public static VfxBindingRuntimePolicy Required(
@@ -84,7 +96,9 @@ namespace Game.Feature.Gameplay.Vfx
             float tailSeconds = 0f,
             int maxConcurrentInstances = 0,
             VfxStyleKey styleKey = default,
-            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay,
+            VfxVisualSourceMode visualSourceMode = VfxVisualSourceMode.PrefabOnly,
+            GameplayVfxHostRequirement hostRequirement = GameplayVfxHostRequirement.ExplicitPrefabRequired)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -96,7 +110,9 @@ namespace Game.Feature.Gameplay.Vfx
                 tailSeconds,
                 maxConcurrentInstances,
                 styleKey,
-                visibilityMode);
+                visibilityMode,
+                visualSourceMode,
+                hostRequirement);
         }
 
         public void ValidateOrThrow()
@@ -118,7 +134,9 @@ namespace Game.Feature.Gameplay.Vfx
                 && DefaultLifetimeSeconds.Equals(other.DefaultLifetimeSeconds)
                 && TailSeconds.Equals(other.TailSeconds)
                 && MaxConcurrentInstances == other.MaxConcurrentInstances
-                && VisibilityMode == other.VisibilityMode;
+                && VisibilityMode == other.VisibilityMode
+                && VisualSourceMode == other.VisualSourceMode
+                && HostRequirement == other.HostRequirement;
         }
 
         public override bool Equals(object obj)
@@ -140,6 +158,8 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ TailSeconds.GetHashCode();
                 hash = (hash * 397) ^ MaxConcurrentInstances;
                 hash = (hash * 397) ^ (int)VisibilityMode;
+                hash = (hash * 397) ^ (int)VisualSourceMode;
+                hash = (hash * 397) ^ (int)HostRequirement;
                 return hash;
             }
         }
@@ -177,6 +197,27 @@ namespace Game.Feature.Gameplay.Vfx
             if (MaxConcurrentInstances < 0)
             {
                 error = "VFX binding policy max concurrent instances cannot be negative.";
+                return true;
+            }
+
+            if (VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                HostRequirement != GameplayVfxHostRequirement.CommonHostAllowed)
+            {
+                error = "VFX binding policy SourceCloneMotion requires CommonHostAllowed host requirement.";
+                return true;
+            }
+
+            if (VisualSourceMode == VfxVisualSourceMode.PrefabOnly &&
+                HostRequirement != GameplayVfxHostRequirement.ExplicitPrefabRequired)
+            {
+                error = "VFX binding policy PrefabOnly requires ExplicitPrefabRequired host requirement.";
+                return true;
+            }
+
+            if (VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone &&
+                HostRequirement != GameplayVfxHostRequirement.ExplicitPrefabRequired)
+            {
+                error = "VFX binding policy PrefabWithSourceClone requires ExplicitPrefabRequired host requirement.";
                 return true;
             }
 

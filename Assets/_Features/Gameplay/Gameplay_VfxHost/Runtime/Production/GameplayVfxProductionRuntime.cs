@@ -43,6 +43,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxGravityFieldLockedTarget = true;
         [SerializeField] private bool enableGameplayVfxForwardCellProjectile = true;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
+        [SerializeField] private GameObject commonEmptyHostPrefab;
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
         private readonly BoxVfxRequestPlanner boxPlanner = new();
@@ -608,6 +609,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int MissingPrefabCount => pool?.MissingPrefabCount ?? 0;
 
+        public int MissingSourceViewCount => pool?.MissingSourceViewCount ?? 0;
+
+        public int CommonHostUnavailableCount => pool?.CommonHostUnavailableCount ?? 0;
+
+        public int InvalidPlaybackModePolicyCount => pool?.InvalidPlaybackModePolicyCount ?? 0;
+
         public bool IsRuntimeInitialized => controller != null;
 
         public bool IsHostDefaultMapConfigured => hostDefaultCueMap != null;
@@ -647,6 +654,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
             hostDefaultCueMap = cueMap;
             RebuildBindingRuntime();
             ResetRuntimeComposition(GameplayVfxCleanupReason.HostDefaultMapReconfigured);
+        }
+
+        public void ConfigureCommonEmptyHostPrefab(GameObject prefab)
+        {
+            if (commonEmptyHostPrefab == prefab)
+            {
+                return;
+            }
+
+            commonEmptyHostPrefab = prefab;
+            RebuildBindingRuntime();
+            ApplyBindingRuntimeToExistingComposition();
         }
 
         public void ConfigureFamilyProfiles(VfxProfileAsset[] profiles)
@@ -1166,7 +1185,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             prefabProvider = new AuthoringPrefabProvider(
                 profileProvider,
                 hostDefaultCueMap,
-                familyProfiles);
+                familyProfiles,
+                commonEmptyHostPrefab);
         }
 
         private void ApplyBindingRuntimeToExistingComposition()
@@ -2937,6 +2957,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private sealed class AuthoringPrefabProvider : IVfxPrefabProvider
         {
+            private readonly GameObject commonEmptyHostPrefab;
             private readonly EnemyPresentationVfxProfileProvider enemyProfileProvider;
             private readonly VfxCueMapAsset hostDefaultMap;
             private readonly VfxProfileAsset[] profiles;
@@ -2944,11 +2965,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             public AuthoringPrefabProvider(
                 EnemyPresentationVfxProfileProvider enemyProfileProvider,
                 VfxCueMapAsset hostDefaultMap,
-                VfxProfileAsset[] profiles)
+                VfxProfileAsset[] profiles,
+                GameObject commonEmptyHostPrefab)
             {
                 this.enemyProfileProvider = enemyProfileProvider;
                 this.hostDefaultMap = hostDefaultMap;
                 this.profiles = profiles ?? Array.Empty<VfxProfileAsset>();
+                this.commonEmptyHostPrefab = commonEmptyHostPrefab;
             }
 
             public bool TryResolvePrefab(in ResolvedVfxPlaybackCommand command, out GameObject prefab)
@@ -2957,7 +2980,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     enemyProfileProvider.TryResolveProfileAssetForSourceEntity(
                         command.Request.SourceEntityId,
                         out var sourceProfile) &&
-                    sourceProfile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
+                    TryResolvePrefabFromBinding(
+                        sourceProfile,
+                        command.CueId,
+                        command.Request.StyleKey,
+                        out prefab))
                 {
                     return true;
                 }
@@ -2966,19 +2993,69 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 {
                     var profile = profiles[i];
                     if (profile != null &&
-                        profile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
+                        TryResolvePrefabFromBinding(
+                            profile,
+                            command.CueId,
+                            command.Request.StyleKey,
+                            out prefab))
                     {
                         return true;
                     }
                 }
 
                 if (hostDefaultMap != null &&
-                    hostDefaultMap.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
+                    TryResolvePrefabFromBinding(
+                        hostDefaultMap,
+                        command.CueId,
+                        command.Request.StyleKey,
+                        out prefab))
                 {
                     return true;
                 }
 
                 prefab = null;
+                return false;
+            }
+
+            private bool TryResolvePrefabFromBinding(
+                VfxProfileAsset profile,
+                GameplayVfxCueId cueId,
+                VfxStyleKey styleKey,
+                out GameObject prefab)
+            {
+                prefab = null;
+                return profile.TryResolveBinding(cueId, styleKey, out var binding) &&
+                       TryResolvePrefabFromBinding(binding, out prefab);
+            }
+
+            private bool TryResolvePrefabFromBinding(
+                VfxCueMapAsset cueMap,
+                GameplayVfxCueId cueId,
+                VfxStyleKey styleKey,
+                out GameObject prefab)
+            {
+                prefab = null;
+                return cueMap.TryResolveBinding(cueId, styleKey, out var binding) &&
+                       TryResolvePrefabFromBinding(binding, out prefab);
+            }
+
+            private bool TryResolvePrefabFromBinding(
+                VfxBindingDefinitionAsset binding,
+                out GameObject prefab)
+            {
+                prefab = binding.Prefab;
+                if (prefab != null)
+                {
+                    return true;
+                }
+
+                if (binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                    binding.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed)
+                {
+                    prefab = commonEmptyHostPrefab;
+                    return prefab != null;
+                }
+
                 return false;
             }
         }
