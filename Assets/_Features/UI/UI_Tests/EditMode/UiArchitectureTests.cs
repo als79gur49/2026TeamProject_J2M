@@ -68,6 +68,33 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void DebugCommandAccess_IsCompositionOnly()
+        {
+            var applicationSource = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/GameplayUiFlowPorts.cs");
+            var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var popupFactorySource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+
+            Assert.That(applicationSource, Does.Not.Contain("DebugCommandAccess"));
+            Assert.That(installerSource, Does.Contain("DebugCommandAccess"));
+            Assert.That(popupFactorySource, Does.Contain("DebugCommandAccess"));
+            Assert.That(installerSource, Does.Not.Contain("SceneManager.LoadScene"));
+            Assert.That(popupFactorySource, Does.Not.Contain("SceneManager.LoadScene"));
+        }
+
+        [Test]
+        public void DebugPanelToggle_DoesNotConflictWithDiagnosticsKeys()
+        {
+            var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+
+            Assert.That(installerSource, Does.Contain("WasF3PressedThisFrame()"));
+            Assert.That(installerSource, Does.Contain("WasF4PressedThisFrame()"));
+            Assert.That(installerSource, Does.Contain("WasF10PressedThisFrame()"));
+            Assert.That(installerSource, Does.Contain("ToggleVisibility();"));
+            Assert.That(installerSource, Does.Contain("ToggleExpanded();"));
+            Assert.That(installerSource, Does.Contain("TryToggleDebugCommandsPopup();"));
+        }
+
+        [Test]
         public void PresenterOrchestrationTypes_RemainOwnedByApplicationAssembly()
         {
             var applicationAssembly = typeof(HUDRootPresenter).Assembly;
@@ -768,6 +795,8 @@ namespace Game.Feature.UI.Tests
                     "OpenObjectiveStatusScreen()",
                     "OpenSettingsScreen()",
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
+                    "RequestDebugCommandsPopup(DebugCommandsPopupPayload)",
+                    "RequestDebugStageResultOnly(StageCompletionReadModel, StageNavigationRequest)",
                     "RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload)",
                     "RequestPausePopup()",
                     "RequestRewardPopup(RewardPopupPayload, Action<PopupCompletion>)",
@@ -1526,6 +1555,11 @@ namespace Game.Feature.UI.Tests
                        .Any(method =>
                            NormalizeType(method.ReturnType) == dependencyType ||
                            method.GetParameters().Any(parameter => NormalizeType(parameter.ParameterType) == dependencyType));
+        }
+
+        private static string ReadRepoFile(string relativePath)
+        {
+            return File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), relativePath));
         }
     }
 }

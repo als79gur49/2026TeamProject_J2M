@@ -4,9 +4,11 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
@@ -473,6 +475,387 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DebugForceClearResultOnly_DoesNotCommitProgressOrReward()
+        {
+            var entry = CreateEntry("debug-clear-stage");
+            var store = new InMemoryStageCompletionProfileStore();
+            var runtime = new GameplayHostStageCompletionRuntime(entry, store);
+
+            var readModel = runtime.ForceClearResultOnly();
+
+            Assert.That(readModel, Is.Not.Null);
+            Assert.That(readModel.RewardGrantResult.AnyGranted, Is.False);
+            Assert.That(readModel.UpdatedProgress.HasCleared, Is.False);
+            Assert.That(store.Snapshot.Version, Is.Zero);
+            Assert.That(store.Snapshot.ProgressByStageId, Is.Empty);
+            Assert.That(store.Snapshot.InventoryBalances, Is.Empty);
+        }
+
+        [Test]
+        public void DebugForceClearResultOnly_ProducesDebugMarkedStageResultPayload()
+        {
+            var entry = CreateEntry("debug-marked-stage");
+            var runtime = new GameplayHostStageCompletionRuntime(entry, new InMemoryStageCompletionProfileStore());
+
+            var readModel = runtime.ForceClearResultOnly();
+
+            Assert.That(readModel.ResultTitle, Does.Contain("DEBUG FORCED CLEAR"));
+            Assert.That(readModel.ResultDetailText, Does.Contain("DEBUG FORCED CLEAR"));
+            Assert.That(readModel.ResultDetailText, Does.Contain("NO SAVE / NO REWARD"));
+            Assert.That(readModel.RewardGrantResult.AnyGranted, Is.False);
+        }
+
+        [Test]
+        public void DebugForceClearResultOnly_WhenCanGoNextStageFalse_DisablesContinue()
+        {
+            var hostObject = new GameObject("DebugForceClearUnavailableHost");
+            var presenterObject = new GameObject("DebugForceClearUnavailablePresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("debug-force-current");
+                var nextStage = StageId.CreateOrThrow("debug-force-next");
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    new FixedDebugStageNavigationResolver(nextStage),
+                    new RejectingDebugStageLaunchConstraint("Debug launch blocked by test constraint."));
+                port.BindStageLaunchGateway(new LaunchContextRecordingGateway());
+
+                var availability = port.GetAvailability();
+                var result = port.ForceClearResultOnly();
+
+                Assert.That(availability.NextStageId, Is.EqualTo(nextStage));
+                Assert.That(availability.CanGoNextStage, Is.False);
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Success));
+                Assert.That(result.TargetStageId.IsValid, Is.False);
+                Assert.That(result.StageNavigationRequest.IsValid, Is.False);
+                Assert.That(result.StageResultReadModel, Is.Not.Null);
+                Assert.That(result.StageResultReadModel.ResultContinueLabel, Is.EqualTo("Next stage unavailable"));
+                Assert.That(result.StageResultReadModel.ResultDetailText, Does.Contain("Next stage unavailable"));
+                Assert.That(result.StageResultReadModel.ResultDetailText, Does.Contain("Debug launch blocked by test constraint"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugForceClearResultOnly_WhenCampaignActiveSlotMismatch_DoesNotCreateNextStageRequest()
+        {
+            StageLaunchContextStore.Clear();
+            var saveKey = $"DebugForceClearMismatchSave-{Guid.NewGuid():N}";
+            var activeKey = $"DebugForceClearMismatchActive-{Guid.NewGuid():N}";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("DebugForceClearMismatchHost");
+            var presenterObject = new GameObject("DebugForceClearMismatchPresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("stage-0-1");
+                var nextStage = StageId.CreateOrThrow("stage-0-2");
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = currentStage,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    new FixedDebugStageNavigationResolver(nextStage),
+                    new CampaignActiveSlotDebugStageLaunchConstraint(saveStore, activeSlotProvider));
+                port.BindStageLaunchGateway(new LaunchContextRecordingGateway());
+
+                var availability = port.GetAvailability();
+                var result = port.ForceClearResultOnly();
+
+                Assert.That(availability.NextStageId, Is.EqualTo(nextStage));
+                Assert.That(availability.CanGoNextStage, Is.False);
+                Assert.That(availability.ReasonText, Does.Contain("campaign active slot stage"));
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Success));
+                Assert.That(result.StageNavigationRequest.IsValid, Is.False);
+                Assert.That(result.StageResultReadModel.ResultContinueLabel, Is.EqualTo("Next stage unavailable"));
+                Assert.That(result.StageResultReadModel.ResultDetailText, Does.Contain("campaign active slot stage"));
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugForceClearResultOnly_WhenCanGoNextStageTrue_AllowsContinue()
+        {
+            var hostObject = new GameObject("DebugForceClearAllowedHost");
+            var presenterObject = new GameObject("DebugForceClearAllowedPresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("debug-force-allowed-current");
+                var nextStage = StageId.CreateOrThrow("debug-force-allowed-next");
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    new FixedDebugStageNavigationResolver(nextStage));
+                port.BindStageLaunchGateway(new LaunchContextRecordingGateway());
+
+                var availability = port.GetAvailability();
+                var result = port.ForceClearResultOnly();
+
+                Assert.That(availability.CanGoNextStage, Is.True);
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Success));
+                Assert.That(result.TargetStageId, Is.EqualTo(nextStage));
+                Assert.That(result.StageNavigationRequest.IsValid, Is.True);
+                Assert.That(result.StageNavigationRequest.StageId, Is.EqualTo(nextStage));
+                Assert.That(result.StageNavigationRequest.NavigationKind, Is.EqualTo(StageNavigationKind.NextStage));
+                Assert.That(result.StageResultReadModel.ResultContinueLabel, Is.Not.EqualTo("Next stage unavailable"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugNextStage_RoutesThroughLaunchContextStore()
+        {
+            StageLaunchContextStore.Clear();
+            var hostObject = new GameObject("DebugNextStageHost");
+            var presenterObject = new GameObject("DebugNextStagePresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("debug-current-stage");
+                var nextStage = StageId.CreateOrThrow("debug-next-stage");
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    new FixedDebugStageNavigationResolver(nextStage));
+                port.BindStageLaunchGateway(new LaunchContextRecordingGateway());
+
+                var result = port.GoToNextStage();
+
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Success));
+                Assert.That(result.StageNavigationRequest.StageId, Is.EqualTo(nextStage));
+                Assert.That(result.StageNavigationRequest.NavigationKind, Is.EqualTo(StageNavigationKind.NextStage));
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out var storedStage), Is.True);
+                Assert.That(storedStage, Is.EqualTo(nextStage));
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugNextStage_NoNextStageReturnsUnavailable()
+        {
+            var hostObject = new GameObject("DebugNoNextStageHost");
+            var presenterObject = new GameObject("DebugNoNextStagePresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("debug-last-stage");
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    MissingDebugStageNavigationResolver.Instance);
+
+                var result = port.GoToNextStage();
+
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Unavailable));
+                Assert.That(result.Message, Does.Contain("No next stage"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugNextStage_WhenSceneTransitionInProgress_ReturnsUnavailable()
+        {
+            var hostObject = new GameObject("DebugTransitionBusyHost");
+            var presenterObject = new GameObject("DebugTransitionBusyPresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("debug-transition-current");
+                var nextStage = StageId.CreateOrThrow("debug-transition-next");
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    new FixedDebugStageNavigationResolver(nextStage));
+                port.BindStageLaunchGateway(new BusyDebugStageLaunchGateway());
+
+                var availability = port.GetAvailability();
+                var result = port.GoToNextStage();
+
+                Assert.That(availability.CanGoNextStage, Is.False);
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Unavailable));
+                Assert.That(result.Message, Does.Contain("transition"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugNextStage_WhenCampaignActiveSlotMismatchWouldOccur_ReturnsUnavailable()
+        {
+            StageLaunchContextStore.Clear();
+            var saveKey = $"DebugNextStageSave-{Guid.NewGuid():N}";
+            var activeKey = $"DebugNextStageActive-{Guid.NewGuid():N}";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("DebugCampaignMismatchHost");
+            var presenterObject = new GameObject("DebugCampaignMismatchPresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("stage-0-1");
+                var nextStage = StageId.CreateOrThrow("stage-0-2");
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = currentStage,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    new FixedDebugStageNavigationResolver(nextStage),
+                    new CampaignActiveSlotDebugStageLaunchConstraint(saveStore, activeSlotProvider));
+                port.BindStageLaunchGateway(new LaunchContextRecordingGateway());
+
+                var availability = port.GetAvailability();
+                var result = port.GoToNextStage();
+
+                Assert.That(availability.CanGoNextStage, Is.False);
+                Assert.That(availability.ReasonText, Does.Contain("campaign active slot stage"));
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Unavailable));
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugNextStage_RouterFailureDoesNotReturnSuccess()
+        {
+            var hostObject = new GameObject("DebugRouterFailureHost");
+            var presenterObject = new GameObject("DebugRouterFailurePresenter");
+            try
+            {
+                var currentStage = StageId.CreateOrThrow("debug-router-current");
+                var nextStage = StageId.CreateOrThrow("debug-router-next");
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                using var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    CreateEntry(currentStage.Value),
+                    new InMemoryStageCompletionProfileStore());
+                var port = new GameplayHostDebugStageCommandPort(
+                    CreateEntry(currentStage.Value),
+                    feed,
+                    new FixedDebugStageNavigationResolver(nextStage));
+                port.BindStageLaunchGateway(new FailingDebugStageLaunchGateway());
+
+                var result = port.GoToNextStage();
+
+                Assert.That(result.Status, Is.EqualTo(DebugCommandStatus.Unavailable));
+                Assert.That(result.IsSuccess, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presenterObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void DebugCommandRuntime_ProductionDisabled()
+        {
+            Assert.That(DebugCommandBuildGate.IsRuntimeEnabled(isEditor: false, isDebugBuild: false), Is.False);
+
+            var access = DebugCommandAccess.Disabled;
+            var availability = access.StageCommandPort.GetAvailability();
+
+            Assert.That(access.IsEnabled, Is.False);
+            Assert.That(availability.CanOpenPanel, Is.False);
+            Assert.That(availability.CanGoNextStage, Is.False);
+            Assert.That(availability.CanForceClearResultOnly, Is.False);
+            Assert.That(access.StageCommandPort.GoToNextStage().Status, Is.EqualTo(DebugCommandStatus.Unavailable));
+            Assert.That(access.StageCommandPort.ForceClearResultOnly().Status, Is.EqualTo(DebugCommandStatus.Unavailable));
+        }
+
+        [Test]
         public void StageProgressionEvaluator_DerivesUnlock_FromSavedProgress()
         {
             var progressionDefinition = ScriptableObject.CreateInstance<StageProgressionDefinition>();
@@ -747,6 +1130,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void Save(StageCompletionProfileSnapshot snapshot)
             {
                 Snapshot = snapshot.Clone();
+            }
+        }
+
+        private sealed class FixedDebugStageNavigationResolver : IDebugStageNavigationResolver
+        {
+            private readonly StageId nextStageId;
+
+            public FixedDebugStageNavigationResolver(StageId nextStageId)
+            {
+                this.nextStageId = nextStageId;
+            }
+
+            public bool TryResolveNextStage(StageId currentStageId, out StageId nextStageId)
+            {
+                nextStageId = this.nextStageId;
+                return true;
+            }
+        }
+
+        private sealed class MissingDebugStageNavigationResolver : IDebugStageNavigationResolver
+        {
+            public static MissingDebugStageNavigationResolver Instance { get; } = new();
+
+            public bool TryResolveNextStage(StageId currentStageId, out StageId nextStageId)
+            {
+                nextStageId = StageId.None;
+                return false;
+            }
+        }
+
+        private sealed class RejectingDebugStageLaunchConstraint : IDebugStageLaunchConstraint
+        {
+            private readonly string reasonText;
+
+            public RejectingDebugStageLaunchConstraint(string reasonText)
+            {
+                this.reasonText = reasonText;
+            }
+
+            public bool CanLaunch(StageId targetStageId, out string reasonText)
+            {
+                reasonText = this.reasonText;
+                return false;
+            }
+        }
+
+        private sealed class LaunchContextRecordingGateway : IDebugStageLaunchGateway
+        {
+            public bool IsLaunchInProgress => false;
+
+            public DebugCommandResult TryLaunch(StageNavigationRequest request)
+            {
+                StageLaunchContextStore.SetCurrent(request.StageId);
+                return DebugCommandResult.Success("Recorded launch context.", request.StageId, request);
+            }
+        }
+
+        private sealed class BusyDebugStageLaunchGateway : IDebugStageLaunchGateway
+        {
+            public bool IsLaunchInProgress => true;
+
+            public DebugCommandResult TryLaunch(StageNavigationRequest request)
+            {
+                return DebugCommandResult.Unavailable("Scene transition is already in progress.");
+            }
+        }
+
+        private sealed class FailingDebugStageLaunchGateway : IDebugStageLaunchGateway
+        {
+            public bool IsLaunchInProgress => false;
+
+            public DebugCommandResult TryLaunch(StageNavigationRequest request)
+            {
+                return DebugCommandResult.Unavailable("Scene transition could not be started.");
             }
         }
     }

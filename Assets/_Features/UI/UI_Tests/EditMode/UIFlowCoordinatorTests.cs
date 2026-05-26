@@ -814,6 +814,70 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void DebugForceClearResultOnly_WhenCanGoNextStageFalse_DisablesContinue()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinatorWithStageLaunchRouter(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out _,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            var readModel = WithDebugDisabledContinue(
+                CreateStageCompletionReadModel(tickIndex: 9, includeReward: false),
+                "Campaign active slot stage 'stage-0-1' does not match launch stage 'stage-0-2'.");
+
+            Assert.That(coordinator.RequestDebugStageResultOnly(readModel, StageNavigationRequest.None), Is.True);
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+            var payload = screenController.CurrentEntry.Value.Payload as StageResultScreenPayload;
+            Assert.That(payload, Is.Not.Null);
+            Assert.That(payload.IsContinueEnabled, Is.False);
+            Assert.That(payload.ContinueLabel, Is.EqualTo("Next stage unavailable"));
+            Assert.That(payload.ContinueStageRequest.IsValid, Is.False);
+            Assert.That(payload.NextStageRequest.IsValid, Is.False);
+            Assert.That(payload.DetailText, Does.Contain("Campaign active slot stage"));
+            Assert.That(stageLaunchRouter.Requests, Is.Empty);
+        }
+
+        [Test]
+        public void DebugForceClearResultOnly_ContinueDoesNotBypassDebugConstraint()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinatorWithStageLaunchRouter(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out _,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            var readModel = WithDebugDisabledContinue(
+                CreateStageCompletionReadModel(tickIndex: 9, includeReward: false),
+                "Debug next stage launch is unavailable.");
+
+            Assert.That(coordinator.RequestDebugStageResultOnly(readModel, StageNavigationRequest.None), Is.True);
+
+            var payload = screenController.CurrentEntry.Value.Payload as StageResultScreenPayload;
+            Assert.That(payload, Is.Not.Null);
+            Assert.That(payload.ContinueStageRequest.IsValid, Is.False);
+            Assert.That(payload.IsContinueEnabled, Is.False);
+            Assert.That(stageLaunchRouter.Requests, Is.Empty);
+        }
+
+        [Test]
         public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_WithoutRewardPopup()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -1263,6 +1327,23 @@ namespace Game.Feature.UI.Tests
                 evaluationResult,
                 rewardResult,
                 PlayerStageProgress.CreateEmpty(stageId));
+        }
+
+        private static StageCompletionReadModel WithDebugDisabledContinue(
+            StageCompletionReadModel readModel,
+            string unavailableReason)
+        {
+            return new StageCompletionReadModel(
+                readModel.StageId,
+                readModel.DisplayName,
+                readModel.ResultTitle,
+                readModel.ResultSummaryText,
+                $"DEBUG FORCED CLEAR{System.Environment.NewLine}NO SAVE / NO REWARD{System.Environment.NewLine}Next stage unavailable: {unavailableReason}",
+                "Next stage unavailable",
+                readModel.ClearResult,
+                readModel.ClearEvaluationResult,
+                readModel.RewardGrantResult,
+                readModel.UpdatedProgress);
         }
 
         private static string ReadPauseReturnModeName(UIFlowCoordinator coordinator)
