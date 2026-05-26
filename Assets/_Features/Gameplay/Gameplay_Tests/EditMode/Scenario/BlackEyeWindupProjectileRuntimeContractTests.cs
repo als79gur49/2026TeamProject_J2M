@@ -538,6 +538,106 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(firstReplay.Any(frame => frame.ReleaseSignalDump.Contains("Target=Floor:4,0")), Is.True);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_LockedTelegraphCell_StrongContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var observation = ReleaseForwardCellProjectile(CreateCombatWorld(lockedCell));
+
+            Assert.That(observation.Action.lockedTargetEntityId, Is.EqualTo(PlayerId));
+            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(lockedCell));
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(lockedCell));
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals, Has.Count.EqualTo(1));
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(lockedCell));
+            Assert.That(observation.ReleaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_TargetMovesSameFace_KeepsLockedCell_StrongContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, 4, 1);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(lockedCell, movedCell);
+
+            Assert.That(observation.TargetAfterMove.position.face, Is.EqualTo(lockedCell.face));
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_TargetMovesActiveOtherFace_KeepsLockedCell_StrongContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Front, 4, 0);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(
+                lockedCell,
+                movedCell,
+                expectMovedFaceActive: true);
+
+            Assert.That(observation.TargetAfterMove.position.face, Is.Not.EqualTo(lockedCell.face));
+            Assert.That(observation.TargetAfterMove.position.PlanarPosition, Is.EqualTo(lockedCell.PlanarPosition));
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_TargetMovesInactiveFace_CancelsWithoutPendingImpact_StrongContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Ceiling, 4, 0);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(
+                lockedCell,
+                movedCell,
+                expectMovedFaceActive: false);
+
+            Assert.That(observation.TargetAfterMove.position.face, Is.EqualTo(FaceId.Ceiling));
+            Assert.That(observation.HasImpact, Is.False);
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileClearSignals, Is.Empty);
+            Assert.That(observation.AfterReleaseOccupancy, Is.EqualTo(observation.AfterMoveOccupancy));
+            AssertActionInactiveOrMissing(observation);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_TerrainBlockedTarget_ReleasesCellImpact_StrongContract()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var terrainData = new GameplayTerrainData(
+                new[]
+                {
+                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+                });
+            var worldState = CreateCombatWorld(targetCell, terrainData: terrainData);
+
+            var observation = ReleaseForwardCellProjectile(worldState);
+
+            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.True);
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_ReleaseDoesNotCreateProjectileEntityOrMutateOccupancy_StrongContract()
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, 4, 1);
+
+            var observation = ReleaseForwardCellProjectileAfterTargetMove(lockedCell, movedCell);
+
+            Assert.That(observation.ProjectileCountBeforeMove, Is.Zero);
+            Assert.That(observation.ProjectileCountAfterRelease, Is.Zero);
+            Assert.That(observation.BeforeMoveOccupancy, Is.Not.EqualTo(observation.AfterMoveOccupancy));
+            Assert.That(observation.AfterReleaseOccupancy, Is.EqualTo(observation.AfterMoveOccupancy));
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
+        }
 
         private static TickPipeline CreatePipeline(WorldState worldState)
         {
