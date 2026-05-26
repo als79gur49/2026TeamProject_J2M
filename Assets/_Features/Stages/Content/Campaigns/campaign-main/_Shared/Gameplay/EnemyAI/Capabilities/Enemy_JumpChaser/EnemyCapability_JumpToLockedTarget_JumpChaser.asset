@@ -15,5 +15,5 @@ MonoBehaviour:
   jumpTimingSettings:
     initialDelaySeconds: 5
     windupSeconds: 0.35
-    airborneSeconds: 1
+    airborneSeconds: 1.5
     cooldownSeconds: 5
