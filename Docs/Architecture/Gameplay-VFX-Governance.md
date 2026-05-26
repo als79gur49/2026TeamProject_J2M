@@ -36,13 +36,13 @@ The family planners preserve domain-specific presentation facts and translate th
 
 ## Runtime Diagnostics Boundary
 
-`Gameplay_Vfx/Runtime` owns Unity-object-free VFX request, planning, binding, lifecycle, and trace formatting contracts. Core source guards scan this folder for authority/runtime boundary tokens, including `WorldState`, `WorldSnapshot`, `TickPipeline`, `GameObject`, `Renderer`, `MonoBehaviour`, and `ParticleSystem`.
+`Gameplay_Vfx/Runtime` owns Unity-object-free VFX request, planning, binding, and lifecycle contracts. Core source guards scan this folder for authority/runtime boundary tokens, including `WorldState`, `WorldSnapshot`, `TickPipeline`, `GameObject`, `Renderer`, `MonoBehaviour`, and `ParticleSystem`.
 
-`GameplayVfxLifetimeTrace` is the core trace formatter. It may describe cue ids, request values, runtime policy values, and trace timing, but it must not inspect Unity object hierarchies or particle/renderer state.
+Dedicated Gameplay VFX lifetime trace adapters are removed. Cue identity should stay explicit in request, binding, policy, and runtime diagnostic values instead of flowing through a trace formatter.
 
-`Gameplay_VfxHost/Runtime/Diagnostics` owns host-runtime diagnostic adapters. UnityEngine object inspection is host-runtime diagnostics, so `GameplayVfxLifetimeUnityTrace` may reference `GameObject`, `Renderer`, `ParticleSystem`, `Transform`, and Unity object contexts while describing production runtime or pool state. This adapter must remain presentation-only and must not mutate authoritative simulation state.
+`Gameplay_VfxHost/Runtime` may still report bounded runtime diagnostics such as missing binding, missing source view, missing prefab, unavailable common host, and invalid playback policy. Those diagnostics must remain presentation-only and must not mutate authoritative simulation state.
 
-This split preserves runtime trace behavior while keeping the core source guard focused on core VFX contracts rather than production host object inspection.
+This keeps the core source guard focused on core VFX contracts while avoiding a separate lifetime trace path.
 
 ## Non-Goals For This Phase
 

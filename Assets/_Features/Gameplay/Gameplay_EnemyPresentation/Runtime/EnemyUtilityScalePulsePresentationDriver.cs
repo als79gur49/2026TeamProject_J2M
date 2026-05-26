@@ -4,7 +4,9 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
-    public sealed class EnemyUtilityScalePulsePresentationDriver : MonoBehaviour
+    public sealed class EnemyUtilityScalePulsePresentationDriver :
+        MonoBehaviour,
+        IEnemyVisualSemanticPresentationDriver
     {
         private const float MinimumDurationSeconds = 0.0001f;
 
@@ -20,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
         private Transform _modelRoot;
         private Vector3 _baseLocalScale = Vector3.one;
         private bool _hasBaseLocalScale;
+        private bool _presentationPlaybackSuppressed;
         private ScalePulsePhase _phase;
         private float _elapsedSeconds;
         private float _phaseStartScaleMultiplier = 1f;
@@ -52,6 +55,12 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (state.UtilityCanceledThisTick)
+            {
+                NormalizeToBaseScale();
+                return;
+            }
+
             if (state.StartedUtilityWindupThisTick)
             {
                 BeginWindup();
@@ -65,6 +74,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void Advance(float deltaTime)
         {
+            if (_presentationPlaybackSuppressed)
+            {
+                return;
+            }
+
             if (!IsPlaying)
             {
                 return;
@@ -78,6 +92,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             AdvanceRecover();
+        }
+
+        public void ApplyEnemyVisualSemanticState(in EnemyVisualSemanticState state)
+        {
+            _presentationPlaybackSuppressed = state.ShouldPauseAutonomousPresentation;
         }
 
         public void NormalizeToBaseScale()
@@ -226,6 +245,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void ResetState()
         {
+            _presentationPlaybackSuppressed = false;
             _phase = ScalePulsePhase.Idle;
             _elapsedSeconds = 0f;
             _phaseStartScaleMultiplier = 1f;

@@ -484,32 +484,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RuntimeDiagnostics_MayReferenceUnityRuntimeObjects()
+        public void RuntimeDiagnostics_DoNotUseDedicatedLifetimeTraceAdapter()
         {
-            var source = ReadSourceDirectory(VfxHostDiagnosticsPath);
             var document = ReadRepoFile(GovernancePath);
 
-            Assert.That(source, Does.Contain(nameof(GameplayVfxLifetimeUnityTrace)));
-            Assert.That(source, Does.Contain("GameObject"));
-            Assert.That(source, Does.Contain("Renderer"));
-            Assert.That(source, Does.Contain("ParticleSystem"));
-            Assert.That(document, Does.Contain("`Gameplay_VfxHost/Runtime/Diagnostics`"));
-            Assert.That(document, Does.Contain("UnityEngine object inspection is host-runtime diagnostics"));
+            Assert.That(Directory.Exists(GetAbsolutePath(VfxHostDiagnosticsPath)), Is.False);
+            Assert.That(document, Does.Contain("Dedicated Gameplay VFX lifetime trace adapters are removed."));
+            Assert.That(document, Does.Not.Contain("`Gameplay_VfxHost/Runtime/Diagnostics`"));
+            Assert.That(document, Does.Not.Contain("GameplayVfxLifetimeUnityTrace"));
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayVfxLifetimeTrace_IsHostRuntimeDiagnostic_NotCorePolicy()
+        public void GameplayVfxLifetimeTrace_IsRemovedFromCoreAndHostRuntime()
         {
-            var coreTrace = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxLifetimeTrace.cs");
-            var hostTrace = ReadRepoFile(
-                "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Diagnostics/GameplayVfxLifetimeUnityTrace.cs");
+            var vfxSource = ReadRuntimeSources();
+            var hostSource = ReadSourceDirectory("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime");
 
-            Assert.That(coreTrace, Does.Contain(nameof(GameplayVfxLifetimeTrace.DescribeRequest)));
-            Assert.That(coreTrace, Does.Not.Contain("DescribeGameObject"));
-            Assert.That(coreTrace, Does.Not.Contain("DescribeParticles"));
-            Assert.That(hostTrace, Does.Contain("DescribeGameObject"));
-            Assert.That(hostTrace, Does.Contain("DescribeParticles"));
+            Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxLifetimeTrace.cs")), Is.False);
+            Assert.That(
+                File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Diagnostics/GameplayVfxLifetimeUnityTrace.cs")),
+                Is.False);
+            Assert.That(vfxSource, Does.Not.Contain("GameplayVfxLifetimeTrace"));
+            Assert.That(hostSource, Does.Not.Contain("GameplayVfxLifetimeUnityTrace"));
+            Assert.That(hostSource, Does.Not.Contain("TraceEntrance"));
         }
 
         [Test]

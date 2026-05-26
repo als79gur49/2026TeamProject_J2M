@@ -1742,6 +1742,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
             });
+            var utilitySuspendedWindowWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
             var replayWorldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
@@ -1768,6 +1772,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
                             movementSuppressionUntilTickInclusive = 4,
                         },
                     }));
+            utilitySuspendedWindowWorldState.SetEnemyUtilityState(
+                40,
+                new EnemyUtilityRuntimeState(
+                    new[]
+                    {
+                        new EnemyUtilityEffectState
+                        {
+                            phase = EnemyUtilityEffectPhase.Windup,
+                            windupStartTick = 1,
+                            windupEndTick = 4,
+                            activationSequence = 1,
+                        },
+                    }));
             replayWorldState.SetEnemyUtilityState(
                 40,
                 new EnemyUtilityRuntimeState(
@@ -1779,6 +1796,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var baselineResult = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState).RunTick(new TickInput(1));
             var utilityResult = GameplayCompositionRoot.CreateTickPipeline(utilityWorldState).RunTick(new TickInput(1));
             var utilitySuppressionResult = GameplayCompositionRoot.CreateTickPipeline(utilitySuppressionWorldState).RunTick(new TickInput(1));
+            var utilitySuspendedWindowResult = GameplayCompositionRoot.CreateTickPipeline(utilitySuspendedWindowWorldState).RunTick(new TickInput(1));
             var replay = new TickReplayHarness().Run(
                 replayWorldState,
                 Array.Empty<IEntityLogic>(),
@@ -1786,6 +1804,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             Assert.That(baselineResult.DeterminismHash, Is.Not.EqualTo(utilityResult.DeterminismHash));
             Assert.That(utilitySuppressionResult.DeterminismHash, Is.Not.EqualTo(utilityResult.DeterminismHash));
+            Assert.That(utilitySuspendedWindowResult.DeterminismHash, Is.Not.EqualTo(utilityResult.DeterminismHash));
             Assert.That(utilityResult.Trace.Text, Does.Contain("Final.EnemyUtilities"));
             Assert.That(utilityResult.Trace.Text, Does.Contain("E=40|Effect=0|Cooldown=2"));
             Assert.That(utilitySuppressionResult.Trace.Text, Does.Contain("Phase=Recover"));

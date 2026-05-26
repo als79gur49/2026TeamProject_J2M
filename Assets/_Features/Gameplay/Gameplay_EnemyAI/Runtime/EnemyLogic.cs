@@ -243,6 +243,12 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!EnemyParticipationPolicy.TryGetEnemyLogicEntity(snapshot, _entityId, out var source))
             {
+                if (_utilityCapability != null &&
+                    snapshot.TryGetEnemyUtilityState(_entityId, out var currentUtilityState))
+                {
+                    CancelEnemyUtilityWindups(currentUtilityState, writeContext, updates);
+                }
+
                 return;
             }
 
@@ -1273,7 +1279,9 @@ namespace Game.Feature.Gameplay.Entities
             IPreMovementStateCommitContext writeContext,
             List<string> updates)
         {
-            var isControllableParticipant = EnemyParticipationPolicy.IsControllableParticipant(snapshot, source);
+            var canParticipateOnCurrentTopology = EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source);
+            var isHardInvalidParticipant = EnemyParticipationPolicy.IsHardInvalidParticipant(source);
+            var isControllableParticipant = canParticipateOnCurrentTopology && !isHardInvalidParticipant;
             var hasCurrentState = snapshot.TryGetEnemyUtilityState(_entityId, out var currentState);
             var initializedState = false;
             if ((!hasCurrentState || !currentState.HasEffectCount(_utilityCapability.Effects.Count)) &&
@@ -1291,7 +1299,14 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (!isControllableParticipant)
+            if (!canParticipateOnCurrentTopology &&
+                !isHardInvalidParticipant)
+            {
+                SuspendEnemyUtilityForTopologyParticipationLoss(currentState, writeContext, updates);
+                return;
+            }
+
+            if (isHardInvalidParticipant)
             {
                 CancelEnemyUtilityWindups(currentState, writeContext, updates);
                 return;
@@ -1553,6 +1568,84 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             writeContext.SetEnemyUtilityState(_entityId, new EnemyUtilityRuntimeState(nextEffectStates));
+        }
+
+        private void SuspendEnemyUtilityForTopologyParticipationLoss(
+            EnemyUtilityRuntimeState currentState,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (currentState == null)
+            {
+                return;
+            }
+
+            var nextEffectStates = new EnemyUtilityEffectState[currentState.EffectStates.Count];
+            var hasAnyChange = false;
+            for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
+            {
+                var nextEffectState = currentState.EffectStates[effectIndex];
+                if (effectIndex < _utilityCapability.Effects.Count)
+                {
+                    nextEffectState.effectKind = _utilityCapability.Effects[effectIndex].Kind;
+                }
+
+                if (ShiftEnemyUtilitySuspendedWindow(ref nextEffectState))
+                {
+                    hasAnyChange = true;
+                    updates.Add(
+                        $"EnemyUtilityTopologySuspended|E={_entityId}|Effect={effectIndex}|Phase={nextEffectState.phase}|Sequence={nextEffectState.activationSequence}|WindupEnd={nextEffectState.windupEndTick}|ActiveEnd={nextEffectState.activeEndTickExclusive}|RecoverEnd={nextEffectState.recoverEndTickExclusive}|Cooldown={nextEffectState.cooldownTicksRemaining}");
+                }
+
+                nextEffectStates[effectIndex] = nextEffectState;
+            }
+
+            if (hasAnyChange)
+            {
+                writeContext.SetEnemyUtilityState(_entityId, new EnemyUtilityRuntimeState(nextEffectStates));
+            }
+        }
+
+        private static bool ShiftEnemyUtilitySuspendedWindow(ref EnemyUtilityEffectState state)
+        {
+            var shifted = false;
+            switch (state.phase)
+            {
+                case EnemyUtilityEffectPhase.Windup:
+                    if (state.windupEndTick > 0)
+                    {
+                        state.windupEndTick++;
+                        shifted = true;
+                    }
+
+                    break;
+
+                case EnemyUtilityEffectPhase.Active:
+                    if (state.activeEndTickExclusive > 0)
+                    {
+                        state.activeEndTickExclusive++;
+                        shifted = true;
+                    }
+
+                    break;
+
+                case EnemyUtilityEffectPhase.Recover:
+                    if (state.recoverEndTickExclusive > 0)
+                    {
+                        state.recoverEndTickExclusive++;
+                        shifted = true;
+                    }
+
+                    break;
+            }
+
+            if (state.movementSuppressionUntilTickInclusive > 0)
+            {
+                state.movementSuppressionUntilTickInclusive++;
+                shifted = true;
+            }
+
+            return shifted;
         }
 
         private void EmitEnemyUtilityTriggerIntent(

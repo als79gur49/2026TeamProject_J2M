@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
@@ -498,6 +499,112 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyUtilityScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale()
+        {
+            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale));
+            try
+            {
+                var view = rootObject.AddComponent<GameplayEntityView>();
+                var modelRoot = view.ModelRoot;
+                modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
+                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+
+                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Advance(0.5f);
+
+                var frozenMultiplier = driver.CurrentScaleMultiplier;
+                var frozenScale = modelRoot.localScale;
+                Assert.That(frozenMultiplier, Is.GreaterThan(1f));
+
+                driver.ApplyEnemyVisualSemanticState(new EnemyVisualSemanticState(
+                    EnemyVisualActivityState.FrontFaceInactive,
+                    shouldPauseAnimatorPlayback: true,
+                    shouldPauseAutonomousPresentation: true));
+                driver.Advance(10f);
+
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(frozenMultiplier).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(frozenScale.x).Within(0.0001f));
+
+                driver.ApplyEnemyVisualSemanticState(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+                driver.Advance(0.1f);
+
+                Assert.That(driver.CurrentScaleMultiplier, Is.GreaterThan(frozenMultiplier));
+                Assert.That(modelRoot.localScale.x, Is.GreaterThan(frozenScale.x));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyUtilityScalePulsePresentationDriver_DisableStillNormalizesToBaseScale()
+        {
+            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_DisableStillNormalizesToBaseScale));
+            try
+            {
+                var view = rootObject.AddComponent<GameplayEntityView>();
+                var modelRoot = view.ModelRoot;
+                modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
+                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+
+                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Advance(0.5f);
+                Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
+
+                driver.ApplyEnemyVisualSemanticState(new EnemyVisualSemanticState(
+                    EnemyVisualActivityState.FrontFaceInactive,
+                    shouldPauseAnimatorPlayback: true,
+                    shouldPauseAutonomousPresentation: true));
+                driver.Advance(10f);
+                Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
+
+                typeof(EnemyUtilityScalePulsePresentationDriver)
+                    .GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(driver, Array.Empty<object>());
+
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(driver.IsPlaying, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyUtilityScalePulse_HardUtilityCancel_DoesNotRemainInWindupHold()
+        {
+            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulse_HardUtilityCancel_DoesNotRemainInWindupHold));
+            try
+            {
+                var view = rootObject.AddComponent<GameplayEntityView>();
+                var modelRoot = view.ModelRoot;
+                modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
+                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+
+                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Advance(1.7f);
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(0.75f).Within(0.0001f));
+                Assert.That(driver.IsPlaying, Is.False);
+
+                driver.Apply(CreateSummonUtilityState(utilityCanceledThisTick: true, tickIndex: 2));
+
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(driver.IsPlaying, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic()
         {
             var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic");
@@ -693,6 +800,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = EntityBoardPresence.Occupying,
                 aiMode = aiMode,
             };
+        }
+
+        private static EnemyViewPresentationState CreateSummonUtilityState(
+            bool startedUtilityWindupThisTick = false,
+            bool startedRecoveryThisTick = false,
+            bool didDie = false,
+            bool utilityCanceledThisTick = false,
+            int tickIndex = 1)
+        {
+            return new EnemyViewPresentationState(
+                entityId: 40,
+                tickIndex: tickIndex,
+                aiMode: EnemyAiMode.Patrol,
+                activeActionKind: EnemyActionKind.None,
+                jumpPhase: EnemyJumpPhase.None,
+                chargePhase: EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: startedRecoveryThisTick,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: didDie,
+                utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
+                startedUtilityWindupThisTick: startedUtilityWindupThisTick,
+                utilityCanceledThisTick: utilityCanceledThisTick);
         }
     }
 }

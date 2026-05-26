@@ -2073,6 +2073,12 @@ namespace Game.Feature.Gameplay.Loop
                 for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
                 {
                     var effectState = entry.State.EffectStates[effectIndex];
+                    AddEnemyUtilityCanceledPresentationSignal(
+                        context,
+                        entry.EntityId,
+                        effectIndex,
+                        effectState,
+                        enemyUtilitySignals);
                     AddEnemyUtilityCooldownPresentationSignal(
                         entry.EntityId,
                         effectIndex,
@@ -2253,6 +2259,50 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             AddEnemyGravityFieldAuraFieldPresentation(context, enemyGravityFieldAuraVisualStates);
+        }
+
+        private static void AddEnemyUtilityCanceledPresentationSignal(
+            in TickPresentationBuildContext context,
+            int entityId,
+            int effectIndex,
+            in EnemyUtilityEffectState effectState,
+            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals)
+        {
+            if (effectState.phase != EnemyUtilityEffectPhase.None ||
+                !WasEnemyUtilityCanceledThisTick(context, entityId, effectIndex) ||
+                !TryResolveEnemyUtilityPresentationKind(effectState.effectKind, out var presentationKind))
+            {
+                return;
+            }
+
+            enemyUtilitySignals.Add(
+                new TickEnemyUtilityPresentationSignal(
+                    entityId,
+                    presentationKind,
+                    EnemyUtilityPresentationPhase.Canceled,
+                    context.CurrentTickIndex,
+                    context.CurrentTickIndex,
+                    durationTicks: 0,
+                    effectIndex,
+                    effectState.activationSequence));
+        }
+
+        private static bool WasEnemyUtilityCanceledThisTick(
+            in TickPresentationBuildContext context,
+            int entityId,
+            int effectIndex)
+        {
+            var prefix = $"EnemyUtilityWindupCanceled|E={entityId}|Effect={effectIndex}|";
+            var updates = context.PreMovementStatePhaseResult.Updates;
+            for (var i = 0; i < updates.Count; i++)
+            {
+                if (updates[i].StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void AddEnemyUtilityCooldownPresentationSignal(

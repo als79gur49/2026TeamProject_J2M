@@ -1952,6 +1952,7 @@ namespace Game.Feature.Gameplay.Loop
         RecoverStarted = 2,
         ActiveStarted = 3,
         AttackStarted = 4,
+        Canceled = 5,
     }
 
     public readonly struct TickEnemyUtilityPresentationSignal

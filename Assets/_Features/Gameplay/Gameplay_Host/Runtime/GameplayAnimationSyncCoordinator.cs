@@ -237,12 +237,13 @@ namespace Game.Feature.Gameplay.Host
 
         public void AdvancePresentation(float deltaTime)
         {
-            AdvanceEnemyUtilityAnimationTracks(deltaTime);
+            AdvancePresentationBeforeEnemySemantic(deltaTime);
+            AdvanceEnemyAutonomousPresentationAfterSemantic(deltaTime);
+        }
 
-            foreach (var pair in _enemyScalePulseDriversByEntityId)
-            {
-                pair.Value?.Advance(deltaTime);
-            }
+        public void AdvancePresentationBeforeEnemySemantic(float deltaTime)
+        {
+            AdvanceEnemyUtilityAnimationTracks(deltaTime);
 
             _completedPlayerVisualHoldEntityIds.Clear();
             _playerVisualHoldEntityIds.Clear();
@@ -268,6 +269,14 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _completedPlayerVisualHoldEntityIds.Count; i++)
             {
                 _playerVisualHoldStates.Remove(_completedPlayerVisualHoldEntityIds[i]);
+            }
+        }
+
+        public void AdvanceEnemyAutonomousPresentationAfterSemantic(float deltaTime)
+        {
+            foreach (var pair in _enemyScalePulseDriversByEntityId)
+            {
+                pair.Value?.Advance(deltaTime);
             }
         }
 
