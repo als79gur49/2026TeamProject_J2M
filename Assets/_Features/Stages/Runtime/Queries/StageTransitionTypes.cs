@@ -331,7 +331,8 @@ namespace Game.Feature.Stages
                 true,
                 true,
                 true,
-                TransitionOverlayKind.StageClear));
+                TransitionOverlayKind.StageClear,
+                preOverlayDelaySeconds: 1.0f));
             AddProfile(new StageTransitionProfile(
                 StageTransitionKind.StageRetryManual,
                 string.Empty,
@@ -350,7 +351,7 @@ namespace Game.Feature.Stages
                 true,
                 true,
                 TransitionOverlayKind.ChanceLost,
-                preOverlayDelaySeconds: 0.75f,
+                preOverlayDelaySeconds: 1.0f,
                 blockInputDuringPreOverlayDelay: true,
                 startAsyncLoadBeforeOverlay: true));
             AddProfile(new StageTransitionProfile(
@@ -361,7 +362,8 @@ namespace Game.Feature.Stages
                 true,
                 true,
                 true,
-                TransitionOverlayKind.Restart));
+                TransitionOverlayKind.Restart,
+                preOverlayDelaySeconds: 1.0f));
         }
 
         private void AddProfile(StageTransitionProfile profile)
