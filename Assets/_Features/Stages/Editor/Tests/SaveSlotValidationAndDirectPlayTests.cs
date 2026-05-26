@@ -269,6 +269,50 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void SaveSlotValidation_MigratesRetiredStageFiveOne_ToCompletedFinalStage()
+        {
+            var provider = CreateProvider("stage-4-2");
+            var saveStore = new SaveSlotStore();
+            saveStore.ClearAll();
+            try
+            {
+                var validation = new SaveSlotValidationService(
+                    new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                    provider.Provider);
+                var legacySlot = new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-5-1"),
+                    CurrentLevelGroupId = "level-5",
+                    RemainingChances = 2,
+                };
+
+                var result = validation.Validate(legacySlot);
+
+                Assert.That(result.Status, Is.EqualTo(SaveSlotValidationStatus.Completed));
+                Assert.That(result.RequiresSaveSync, Is.True);
+                Assert.That(result.Slot.CurrentStageId.Value, Is.EqualTo("stage-4-2"));
+                Assert.That(result.Slot.CurrentLevelGroupId, Is.EqualTo("level-4"));
+                Assert.That(result.Slot.CampaignCompleted, Is.True);
+
+                saveStore.SaveSlot(legacySlot);
+                var synced = validation.ValidateAndSync(saveStore, 1);
+                var persisted = saveStore.LoadSlot(1);
+
+                Assert.That(synced.Status, Is.EqualTo(SaveSlotValidationStatus.Completed));
+                Assert.That(synced.RequiresSaveSync, Is.False);
+                Assert.That(persisted.CurrentStageId.Value, Is.EqualTo("stage-4-2"));
+                Assert.That(persisted.CurrentLevelGroupId, Is.EqualTo("level-4"));
+                Assert.That(persisted.CampaignCompleted, Is.True);
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                provider.Dispose();
+            }
+        }
+
+        [Test]
         public void DirectPlayRouteConfigAsset_UsesBuildSettingsScenes()
         {
             var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(
