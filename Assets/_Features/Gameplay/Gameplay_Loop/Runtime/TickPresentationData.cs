@@ -2282,7 +2282,7 @@ namespace Game.Feature.Gameplay.Loop
             int recoveryDipHeightUnits,
             int currentHeightUnits,
             bool isAirborneVisual,
-            bool isLandingPending,
+            bool wantsRecover,
             bool isTerminalZero)
         {
             EntityId = entityId;
@@ -2296,7 +2296,7 @@ namespace Game.Feature.Gameplay.Loop
             RecoveryDipHeightUnits = Math.Max(0, recoveryDipHeightUnits);
             CurrentHeightUnits = currentHeightUnits;
             IsAirborneVisual = isAirborneVisual;
-            IsLandingPending = isLandingPending;
+            WantsRecover = wantsRecover;
             IsTerminalZero = isTerminalZero;
         }
 
@@ -2322,7 +2322,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public bool IsAirborneVisual { get; }
 
-        public bool IsLandingPending { get; }
+        public bool WantsRecover { get; }
 
         public bool IsTerminalZero { get; }
     }

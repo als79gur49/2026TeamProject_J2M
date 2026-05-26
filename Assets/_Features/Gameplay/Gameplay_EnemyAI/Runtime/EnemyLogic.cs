@@ -2355,7 +2355,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(
-                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|LandingPending={(state.IsLandingPending ? 1 : 0)}|WantsRecover={(state.WantsRecover ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|GlideMoveTicks={state.GlideMoveTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|PendingCell={state.LandingPendingCell}|LockedStep={FormatLockedGlideStep(state)}|LockedTarget={state.LockedTargetEntityId}");
+                $"EnemyGlideStateUpdated|E={entityId}|Label={label}|Phase={state.Phase}|Active={(state.IsActive ? 1 : 0)}|WantsRecover={(state.WantsRecover ? 1 : 0)}|Seq={state.Sequence}|WindupUntil={state.WindupUntilTickExclusive}|ActiveUntil={state.ActiveUntilTickExclusive}|RecoveryUntil={state.RecoveryUntilTickExclusive}|CooldownUntil={state.CooldownUntilTickExclusive}|Windup={state.WindupTicks}|Duration={state.DurationTicks}|Recovery={state.RecoveryTicks}|Cooldown={state.CooldownTicks}|GlideMoveTicks={state.GlideMoveTicks}|LastExited={state.LastExitedTick}|InitialDelayInitialized={(state.InitialDelayInitialized ? 1 : 0)}|InitialDelayRemaining={state.InitialDelayTicksRemaining}|LockedStep={FormatLockedGlideStep(state)}|LockedTarget={state.LockedTargetEntityId}");
         }
 
         private static bool AreEqual(
@@ -2364,7 +2364,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return left.Phase == right.Phase &&
                    left.IsActive == right.IsActive &&
-                   left.IsLandingPending == right.IsLandingPending &&
                    left.Sequence == right.Sequence &&
                    left.WindupUntilTickExclusive == right.WindupUntilTickExclusive &&
                    left.ActiveUntilTickExclusive == right.ActiveUntilTickExclusive &&
@@ -2379,7 +2378,6 @@ namespace Game.Feature.Gameplay.Entities
                    left.WantsRecover == right.WantsRecover &&
                    left.InitialDelayInitialized == right.InitialDelayInitialized &&
                    left.InitialDelayTicksRemaining == right.InitialDelayTicksRemaining &&
-                   left.LandingPendingCell == right.LandingPendingCell &&
                    left.HasLockedStep == right.HasLockedStep &&
                    left.LockedStepX == right.LockedStepX &&
                    left.LockedStepY == right.LockedStepY &&

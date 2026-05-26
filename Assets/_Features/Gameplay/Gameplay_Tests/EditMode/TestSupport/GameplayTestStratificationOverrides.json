@@ -1208,7 +1208,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerMovesIntoEnemy_KinematicMidpoint_ContactAtCommit",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerMovesIntoEnemy_KinematicMidpoint_PassiveContactFiresOnFinalizedSameCellMove",
       "category": "Core",
       "contracts": [
         "damage_affects_movement",
@@ -3053,13 +3053,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_GlideChaserAsset_DefaultGameplay_ActiveGlideKinematicMovesOverSolid",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_GlideChaserAsset_DefaultGameplay_AllowsActiveGliderSolidOverlap",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core asset-backed coverage that the authored GlideChaser profile moves over a solid blocker under default gameplay.",
+      "reason": "Locked Core asset-backed coverage that the authored GlideChaser profile allows active glider Unit+Solid overlap under default gameplay.",
       "locked": true
     },
     {
@@ -3098,26 +3098,6 @@
         "enemy_kinematic_locomotion"
       ],
       "reason": "Locked Extended coverage that default active glide kinematic preserves solid bypass behavior.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.Glide_Target_PendingDoesNotCreateMoveEntity",
-      "category": "Core",
-      "contracts": [
-        "enemy_kinematic_locomotion",
-        "world_state_placement_invariant"
-      ],
-      "reason": "Locked Core regression coverage that LandingPending glide active-origin carry-over cannot materialize MoveEntity and closes as non-movement authority.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GlideOverSolidTests.Stage31_Target_NoStaleActiveCommitToFloor37Wall",
-      "category": "Core",
-      "contracts": [
-        "enemy_kinematic_locomotion",
-        "stage_runtime_builder"
-      ],
-      "reason": "Locked Core regression coverage that the stage-3-1 glider 241 cannot materialize a stale active-origin MoveEntity onto wall 238 at Floor(3,7).",
       "locked": true
     },
     {

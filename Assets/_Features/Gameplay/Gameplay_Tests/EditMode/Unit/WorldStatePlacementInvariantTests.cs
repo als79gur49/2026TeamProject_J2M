@@ -486,7 +486,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     recoveryTicks: 1,
                     cooldownTicks: 0,
                     lastExitedTick: 0,
-                    landingPendingCell: default,
                     hasLockedStep: true,
                     lockedStepX: 1,
                     lockedStepY: 0));
@@ -523,8 +522,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     durationTicks: 5,
                     recoveryTicks: 1,
                     cooldownTicks: 0,
-                    lastExitedTick: 0,
-                    landingPendingCell: default));
+                    lastExitedTick: 0));
         }
 
         [Test]
@@ -543,8 +541,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     durationTicks: 3,
                     recoveryTicks: 2,
                     cooldownTicks: 0,
-                    lastExitedTick: 0,
-                    landingPendingCell: default));
+                    lastExitedTick: 0));
         }
 
         private static void AssertGliderGroundedPhaseCannotMoveOntoSolid(EnemyGlideRuntimeState? glideState)

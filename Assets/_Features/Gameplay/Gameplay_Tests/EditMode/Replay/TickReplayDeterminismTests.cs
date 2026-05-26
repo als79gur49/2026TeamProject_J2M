@@ -745,24 +745,25 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("MoveCommitted|E=30"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
+                    firstReplay[1].EventLogDump,
                     "StateChanged",
                     "E=30",
                     "State=Sliding",
-                    "Timer=12"),
+                    "Timer=7"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
+                    firstReplay[1].EventLogDump,
                     "MoveCommitted",
                     "E=30",
                     "To=(2,0)",
                     "Facing=Right"),
                 Is.True);
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(2,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Sliding|Timer=11|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Push"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=30|Pos=(2,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Sliding|Timer=6|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Push"));
         }
 
         [Test]
@@ -784,7 +785,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(2,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Sliding|Timer=11|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Push"));
+            Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("MoveCommitted|E=30"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=30|Pos=(2,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Sliding|Timer=6|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Push"));
         }
 
         [Test]
@@ -806,7 +809,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(2,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Sliding|Timer=11|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Push"));
+            Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("MoveCommitted|E=30"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=30|Pos=(2,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Sliding|Timer=6|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Push"));
         }
 
         [Test]
@@ -948,16 +953,17 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Flip|ActionSeq=1|ActionDirection=Left|ActionTarget=30"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("MoveCommitted|E=30"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
+                    firstReplay[1].EventLogDump,
                     "MoveCommitted",
                     "E=30",
                     "To=(1,0)",
                     "Facing=Right"),
                 Is.True);
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Left|Marked=0|SpawnTick=0|BoxCapabilities=None"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain($"E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities={BoxCapabilities.Flip}"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain($"E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities={BoxCapabilities.Flip}"));
         }
 
         [Test]
@@ -1563,15 +1569,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     durationTicks: 3,
                     recoveryTicks: 1,
                     cooldownTicks: 2,
-                    lastExitedTick: 0,
-                    landingPendingCell: default));
+                    lastExitedTick: 0));
 
             var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
             var glideResult = GameplayCompositionRoot.CreateTickPipeline(glideWorldState).RunTick(new TickInput(1));
 
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(glideResult.DeterminismHash));
             Assert.That(glideResult.Trace.Text, Does.Contain("Final.EnemyGlides"));
-            Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Phase=Active|Active=1|LandingPending=0|WantsRecover=0|Seq=2|WindupUntil=0|ActiveUntil=8|RecoveryUntil=0|CooldownUntil=0|Windup=1|Duration=3|Recovery=1|Cooldown=2|GlideMoveTicks=2|LastExited=0"));
+            Assert.That(glideResult.Trace.Text, Does.Contain("E=40|Phase=Active|Active=1|WantsRecover=0|Seq=2|WindupUntil=0|ActiveUntil=8|RecoveryUntil=0|CooldownUntil=0|Windup=1|Duration=3|Recovery=1|Cooldown=2|GlideMoveTicks=2|LastExited=0"));
             Assert.That(glideResult.Trace.Text, Does.Contain("LockedTarget=0"));
         }
 
@@ -1602,7 +1607,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     recoveryTicks: 1,
                     cooldownTicks: 2,
                     lastExitedTick: 0,
-                    landingPendingCell: default,
                     lockedTargetEntityId: 10));
             secondWorldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -1618,7 +1622,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     recoveryTicks: 1,
                     cooldownTicks: 2,
                     lastExitedTick: 0,
-                    landingPendingCell: default,
                     lockedTargetEntityId: 20));
 
             var firstResult = GameplayCompositionRoot.CreateTickPipeline(firstWorldState).RunTick(new TickInput(1));
@@ -2929,7 +2932,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
                 });
         }
 
@@ -2970,11 +2973,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    CreateImmediatePushPlayerLogic(10),
+                    new PlayerLogic(10),
                 },
                 new[]
                 {
                     new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Up)),
                 });
         }
 
@@ -2993,11 +2997,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    CreateImmediatePushPlayerLogic(10),
+                    new PlayerLogic(10),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Up)),
                 });
         }
 
@@ -3016,11 +3021,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    CreateImmediatePushPlayerLogic(10),
+                    new PlayerLogic(10),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Up)),
                 });
         }
 
@@ -3056,11 +3062,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    CreateImmediateFlipPlayerLogic(10),
+                    new PlayerLogic(10),
                 },
                 new[]
                 {
                     new TickInput(1, PlayerTickCommand.Flip(Direction.Left)),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Up)),
                 });
         }
 

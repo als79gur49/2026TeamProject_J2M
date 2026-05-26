@@ -444,9 +444,9 @@ Enemy motion-attached followers are Gameplay VFX lane instances parented under t
 
 First users:
 
-- `EnemyVfxCue.GlideWindTrail` follows `TickEnemyGlidePresentationSignal` while `EnemyGlidePhase.Active`.
+- `EnemyVfxCue.GlideWindTrail` follows `TickEnemyGlidePresentationSignal` while `EnemyGlidePhase.Active`, including Active + WantsRecover.
 - `EnemyVfxCue.ChargeBoosterTrail` follows `TickEnemyChargePresentationSignal` while `EnemyChargePhase.Active`.
-- `EnemyGlidePhase.Windup`, `LandingPending`, `Recovery`, `Cooldown`, ordinary jump airborne, charge windup, and charge recover are excluded unless a future visual policy changes that.
+- `EnemyGlidePhase.Windup`, `Recovery`, `Cooldown`, ordinary jump airborne, charge windup, and charge recover are excluded from GlideWindTrail unless a future visual policy changes that.
 
 Ownership and lifecycle:
 
