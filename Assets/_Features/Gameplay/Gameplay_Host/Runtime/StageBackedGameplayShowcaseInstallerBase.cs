@@ -32,6 +32,7 @@ namespace Game.Feature.Gameplay.Host
         private StagePresentationDefinition _resolvedPresentationDefinition;
         private SaveSlotStore _saveSlotStore;
         private readonly StagePresentationRuntimeAdapter _stagePresentationRuntimeAdapter = new();
+        private BackgroundWallSurfaceTintPresenterAdapter _backgroundWallSurfaceTintPresenterAdapter;
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
 
@@ -184,6 +185,7 @@ namespace Game.Feature.Gameplay.Host
                 ResolveStageBackgroundRoot(),
                 stageBgmProfileCatalog,
                 globalAudioFlowBootstrap);
+            AttachBackgroundWallSurfaceTintPresenter(host);
 
             if (!_campaignRuntimeActive)
             {
@@ -227,7 +229,30 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnDestroy()
         {
+            _backgroundWallSurfaceTintPresenterAdapter?.Dispose();
+            _backgroundWallSurfaceTintPresenterAdapter = null;
             _campaignFlowController?.Dispose();
+        }
+
+        private void AttachBackgroundWallSurfaceTintPresenter(GameplaySceneHost host)
+        {
+            _backgroundWallSurfaceTintPresenterAdapter?.Dispose();
+            _backgroundWallSurfaceTintPresenterAdapter = null;
+
+            var backgroundInstance = _stagePresentationRuntimeAdapter.CurrentBackgroundInstance;
+            if (host == null || host.Presenter == null || backgroundInstance == null)
+            {
+                return;
+            }
+
+            var authoring = backgroundInstance.GetComponent<BackgroundWallSurfaceTintAuthoring>();
+            if (authoring == null)
+            {
+                return;
+            }
+
+            _backgroundWallSurfaceTintPresenterAdapter =
+                new BackgroundWallSurfaceTintPresenterAdapter(authoring, host.Presenter);
         }
 
         private StageLoadRequest CreateStageLoadRequest()
