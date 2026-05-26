@@ -14,6 +14,13 @@ namespace Game.Feature.Stages
         [SerializeField] private bool applyEmission = true;
         [SerializeField] private string emissionColorPropertyName = "_EmissionColor";
         [SerializeField] private bool preserveAlpha = true;
+        [SerializeField] private bool applyNoise = true;
+        [SerializeField] private bool noiseAffectsBaseColor = true;
+        [SerializeField] private bool noiseAffectsEmission = true;
+        [SerializeField] private bool hasBaseNoiseStrengthOverride;
+        [SerializeField] private float baseNoiseStrengthOverride = 1f;
+        [SerializeField] private bool hasEmissionNoiseStrengthOverride;
+        [SerializeField] private float emissionNoiseStrengthOverride = 1f;
 
         public Renderer Renderer => renderer;
 
@@ -32,6 +39,20 @@ namespace Game.Feature.Stages
             : emissionColorPropertyName;
 
         public bool PreserveAlpha => preserveAlpha;
+
+        public bool ApplyNoise => applyNoise;
+
+        public bool NoiseAffectsBaseColor => noiseAffectsBaseColor;
+
+        public bool NoiseAffectsEmission => noiseAffectsEmission;
+
+        public bool HasBaseNoiseStrengthOverride => hasBaseNoiseStrengthOverride;
+
+        public float BaseNoiseStrengthOverride => Mathf.Max(0f, baseNoiseStrengthOverride);
+
+        public bool HasEmissionNoiseStrengthOverride => hasEmissionNoiseStrengthOverride;
+
+        public float EmissionNoiseStrengthOverride => Mathf.Max(0f, emissionNoiseStrengthOverride);
     }
 
     [DisallowMultipleComponent]
@@ -41,6 +62,7 @@ namespace Game.Feature.Stages
         private const string EmissionKeyword = "_EMISSION";
 
         [SerializeField] private BackgroundWallSurfaceTintProfile profile;
+        [SerializeField] private BackgroundWallSurfaceNoiseProfile noiseProfile;
         [SerializeField] private BackgroundWallSurfaceTintTarget[] targets =
             Array.Empty<BackgroundWallSurfaceTintTarget>();
 
@@ -50,6 +72,8 @@ namespace Game.Feature.Stages
 
         public BackgroundWallSurfaceTintProfile Profile => profile;
 
+        public BackgroundWallSurfaceNoiseProfile NoiseProfile => noiseProfile;
+
         public BackgroundWallSurfaceTintTarget[] Targets => targets ?? Array.Empty<BackgroundWallSurfaceTintTarget>();
 
         internal FaceId DebugLastAppliedFace => _lastAppliedFace;
@@ -58,28 +82,42 @@ namespace Game.Feature.Stages
 
         public void ApplyFaceTint(FaceId face)
         {
+            ApplyFaceTint(face, BackgroundWallSurfaceNoiseOverlay.Inactive);
+        }
+
+        public void ApplyFaceTint(FaceId face, BackgroundWallSurfaceNoiseOverlay noiseOverlay)
+        {
             if (profile == null)
             {
                 Debug.LogWarning($"{LogPrefix} '{name}' has no tint profile assigned.", this);
                 return;
             }
 
-            if (!profile.TryGetBaseColor(face, out var baseColor))
+            if (!TryResolveTintColors(face, out var baseColor, out var emissionColor))
             {
-                Debug.LogWarning($"{LogPrefix} '{name}' has no base color for face '{face}'.", this);
                 return;
             }
 
-            if (!profile.TryGetEmissionColor(face, out var emissionColor))
+            var sourceBaseColor = baseColor;
+            var sourceEmissionColor = emissionColor;
+            if (noiseOverlay.IsActive &&
+                !TryResolveTintColors(noiseOverlay.SourceFace, out sourceBaseColor, out sourceEmissionColor))
             {
-                Debug.LogWarning($"{LogPrefix} '{name}' has no emission color for face '{face}'.", this);
                 return;
             }
 
             var targetList = Targets;
             for (var i = 0; i < targetList.Length; i++)
             {
-                ApplyTarget(face, baseColor, emissionColor, targetList[i], i);
+                ApplyTarget(
+                    face,
+                    sourceBaseColor,
+                    baseColor,
+                    sourceEmissionColor,
+                    emissionColor,
+                    noiseOverlay,
+                    targetList[i],
+                    i);
             }
 
             _lastAppliedFace = face;
@@ -88,8 +126,11 @@ namespace Game.Feature.Stages
 
         private void ApplyTarget(
             FaceId face,
+            Color sourceBaseColor,
             Color baseColor,
+            Color sourceEmissionColor,
             Color emissionColor,
+            BackgroundWallSurfaceNoiseOverlay noiseOverlay,
             BackgroundWallSurfaceTintTarget target,
             int targetIndex)
         {
@@ -135,7 +176,7 @@ namespace Game.Feature.Stages
                     materialIndex,
                     material,
                     target.BaseColorPropertyName,
-                    baseColor,
+                    noiseOverlay.ApplyBaseColor(sourceBaseColor, baseColor, face, target, targetIndex),
                     profile.PreserveMaterialAlpha || target.PreserveAlpha,
                     "base",
                     face);
@@ -148,12 +189,30 @@ namespace Game.Feature.Stages
                     materialIndex,
                     material,
                     target.EmissionColorPropertyName,
-                    emissionColor,
+                    noiseOverlay.ApplyEmissionColor(sourceEmissionColor, emissionColor, face, target, targetIndex),
                     face);
             }
 
             targetRenderer.SetPropertyBlock(_propertyBlock, materialIndex);
             _propertyBlock.Clear();
+        }
+
+        private bool TryResolveTintColors(FaceId face, out Color baseColor, out Color emissionColor)
+        {
+            if (!profile.TryGetBaseColor(face, out baseColor))
+            {
+                emissionColor = default;
+                Debug.LogWarning($"{LogPrefix} '{name}' has no base color for face '{face}'.", this);
+                return false;
+            }
+
+            if (!profile.TryGetEmissionColor(face, out emissionColor))
+            {
+                Debug.LogWarning($"{LogPrefix} '{name}' has no emission color for face '{face}'.", this);
+                return false;
+            }
+
+            return true;
         }
 
         private void ApplyColorProperty(

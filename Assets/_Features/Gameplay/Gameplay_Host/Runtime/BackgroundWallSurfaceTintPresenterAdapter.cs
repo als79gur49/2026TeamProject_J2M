@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly BackgroundWallSurfaceTintAuthoring _authoring;
         private readonly GameplayTickViewPresenter _presenter;
+        private readonly BackgroundWallSurfaceTintNoiseController _noiseController;
         private bool _isDisposed;
 
         public BackgroundWallSurfaceTintPresenterAdapter(
@@ -23,8 +24,10 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            _noiseController = new BackgroundWallSurfaceTintNoiseController(_authoring);
             _presenter.PresentationStateChanged += HandlePresentationStateChanged;
-            ApplyCurrentTint();
+            _presenter.PresentationAdvanced += HandlePresentationAdvanced;
+            ApplyCurrentTint(initialApply: true);
         }
 
         public void Dispose()
@@ -37,8 +40,10 @@ namespace Game.Feature.Gameplay.Host
             if (_presenter != null)
             {
                 _presenter.PresentationStateChanged -= HandlePresentationStateChanged;
+                _presenter.PresentationAdvanced -= HandlePresentationAdvanced;
             }
 
+            _noiseController?.Reset();
             _isDisposed = true;
         }
 
@@ -53,20 +58,35 @@ namespace Game.Feature.Gameplay.Host
 
         private void HandlePresentationStateChanged()
         {
-            ApplyCurrentTint();
+            ApplyCurrentTint(initialApply: false);
         }
 
-        private void ApplyCurrentTint()
+        private void HandlePresentationAdvanced(float deltaTime)
         {
-            if (_authoring == null || _presenter == null)
+            _noiseController?.Advance(deltaTime);
+        }
+
+        private void ApplyCurrentTint(bool initialApply)
+        {
+            if (_authoring == null || _presenter == null || _noiseController == null)
             {
                 return;
             }
 
+            var transitionState = _presenter.CurrentTopologyTransitionVisualState;
             var face = ResolveTintFace(
                 _presenter.CurrentTopology,
-                _presenter.CurrentTopologyTransitionVisualState);
-            _authoring.ApplyFaceTint(face);
+                transitionState);
+            if (initialApply)
+            {
+                _noiseController.ApplyInitialStableFace(face);
+                return;
+            }
+
+            _noiseController.ObservePresentationFace(
+                face,
+                transitionState.IsActive,
+                transitionState.DurationSeconds);
         }
     }
 }
