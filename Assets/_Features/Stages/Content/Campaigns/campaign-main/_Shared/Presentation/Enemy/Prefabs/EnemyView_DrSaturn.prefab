@@ -65,7 +65,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a1c4a2f7bf37431fa19e2d57c1d803aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
-  moveMotionDurationSeconds: 0.68
+  moveMotionDurationSeconds: 0.8
 --- !u!114 &1141000000000008003
 MonoBehaviour:
   m_ObjectHideFlags: 0
