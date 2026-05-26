@@ -46,7 +46,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var profile = resolver.Resolve(request, "UIAudioScene", "UIAudioScene");
 
-            Assert.That(profile.PreOverlayDelaySeconds, Is.EqualTo(0.75f));
+            Assert.That(profile.PreOverlayDelaySeconds, Is.EqualTo(1.0f));
             Assert.That(profile.MinimumVisibleSeconds, Is.EqualTo(1.75f));
             Assert.That(profile.HoldSceneActivationUntilMinimumElapsed, Is.True);
         }
@@ -80,6 +80,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(profile.Kind, Is.EqualTo(StageTransitionKind.LevelFailedRestart));
             Assert.That(profile.OverlayKind, Is.EqualTo(TransitionOverlayKind.Restart));
+            Assert.That(profile.PreOverlayDelaySeconds, Is.EqualTo(1.0f));
             Assert.That(profile.OverlayKind, Is.Not.EqualTo(TransitionOverlayKind.ChanceLost));
         }
 
@@ -145,6 +146,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var retryProfile = resolver.Resolve(retry, "UIAudioScene", "UIAudioScene");
 
             Assert.That(nextProfile.Kind, Is.EqualTo(StageTransitionKind.StageClearNext));
+            Assert.That(nextProfile.PreOverlayDelaySeconds, Is.EqualTo(1.0f));
             Assert.That(retryProfile.Kind, Is.EqualTo(StageTransitionKind.StageRetryManual));
             Assert.That(nextProfile.OverlayKind, Is.Not.EqualTo(retryProfile.OverlayKind));
         }
