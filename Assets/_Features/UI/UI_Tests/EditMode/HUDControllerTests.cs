@@ -1213,9 +1213,16 @@ namespace Game.Feature.UI.Tests
                 objectiveView.Bind(viewModel);
                 var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
                 CompleteObjectiveEnter(objectiveView, row);
+                var highlightGraphics = GetPrivateField<Graphic[]>(row, "_progressHighlightGraphics");
+                Assert.That(highlightGraphics, Is.Not.Null);
+                Assert.That(highlightGraphics.Length, Is.EqualTo(2));
 
                 row.PlayProgressPulse();
                 Assert.That(GetProgressHighlightAlpha(row), Is.GreaterThan(0.0f));
+                for (var i = 0; i < highlightGraphics.Length; i++)
+                {
+                    Assert.That(highlightGraphics[i].color.a, Is.GreaterThan(0.99f), $"highlightGraphics[{i}]");
+                }
 
                 row.Tick(1.0f);
 
@@ -1901,18 +1908,28 @@ namespace Game.Feature.UI.Tests
                     itemTemplate.GetComponentsInChildren<TMP_Text>(true).Any(label => label.name == "Label_Objective"),
                     Is.True);
 
-                var overlay = itemTemplate
-                    .GetComponentsInChildren<RectTransform>(true)
-                    .SingleOrDefault(rect => rect.name == "ProgressHighlightOverlay");
-                Assert.That(overlay, Is.Not.Null);
-                AssertSerializedReference(rowView, "_progressHighlightGraphic", overlay.GetComponent<Graphic>());
-                AssertSerializedReference(rowView, "_progressHighlightGroup", overlay.GetComponent<CanvasGroup>());
-                AssertSerializedReference(rowView, "_progressPulseScaleTarget", overlay.parent);
-                Assert.That(overlay.GetComponent<CanvasGroup>().alpha, Is.Zero);
-                Assert.That(overlay.GetComponent<Graphic>().color.a, Is.EqualTo(1.0f));
-                Assert.That(overlay.GetComponent<Graphic>().raycastTarget, Is.False);
-                Assert.That(overlay.GetSiblingIndex(), Is.LessThan(FindRequiredRect(itemTemplate, "Icon").GetSiblingIndex()));
-                Assert.That(overlay.GetSiblingIndex(), Is.LessThan(FindRequiredRect(itemTemplate, "Text").GetSiblingIndex()));
+                var textRoot = FindRequiredRect(itemTemplate, "Text");
+                var leftGradient = FindRequiredRect(textRoot, "LeftGradient");
+                var rightGradient = FindRequiredRect(textRoot, "RightGradient");
+                var leftGradientGraphic = leftGradient.GetComponent<Graphic>();
+                var rightGradientGraphic = rightGradient.GetComponent<Graphic>();
+                Assert.That(leftGradientGraphic, Is.Not.Null);
+                Assert.That(rightGradientGraphic, Is.Not.Null);
+                Assert.That(leftGradientGraphic.raycastTarget, Is.False);
+                Assert.That(rightGradientGraphic.raycastTarget, Is.False);
+                Assert.That(GetPrivateField<Graphic>(rowView, "_progressHighlightGraphic"), Is.Null);
+                Assert.That(GetPrivateField<CanvasGroup>(rowView, "_progressHighlightGroup"), Is.Null);
+                AssertSerializedReference(rowView, "_progressPulseScaleTarget", textRoot.parent);
+                AssertSerializedGraphicArray(
+                    rowView,
+                    "_progressHighlightGraphics",
+                    leftGradientGraphic,
+                    rightGradientGraphic);
+                var progressHighlightColor = GetPrivateField<Color>(rowView, "_progressHighlightColor");
+                Assert.That(progressHighlightColor.g, Is.EqualTo(0.98f).Within(0.001f));
+                Assert.That(progressHighlightColor.b, Is.EqualTo(0.65f).Within(0.001f));
+                Assert.That(GetPrivateField<float>(rowView, "progressPulseDuration"), Is.EqualTo(0.33f).Within(0.001f));
+                Assert.That(GetPrivateField<float>(rowView, "progressPulseScale"), Is.EqualTo(1.05f).Within(0.001f));
             }
             finally
             {
@@ -1953,14 +1970,7 @@ namespace Game.Feature.UI.Tests
 
         private static float GetProgressHighlightAlpha(ObjectiveHudRowView rowView)
         {
-            var group = GetPrivateField<CanvasGroup>(rowView, "_progressHighlightGroup");
-            if (group != null)
-            {
-                return group.alpha;
-            }
-
-            var graphic = GetPrivateField<Graphic>(rowView, "_progressHighlightGraphic");
-            return graphic != null ? graphic.color.a : 0.0f;
+            return GetPrivateField<float>(rowView, "_progressHighlightAlpha");
         }
 
         private static Transform GetProgressPulseScaleTarget(ObjectiveHudRowView rowView)
@@ -2400,6 +2410,20 @@ namespace Game.Feature.UI.Tests
         {
             var actual = GetSerializedReference<UnityEngine.Object>(target, fieldName);
             Assert.That(actual, Is.SameAs(expected), fieldName);
+        }
+
+        private static void AssertSerializedGraphicArray(
+            object target,
+            string fieldName,
+            params Graphic[] expected)
+        {
+            var actual = GetPrivateField<Graphic[]>(target, fieldName);
+            Assert.That(actual, Is.Not.Null, fieldName);
+            Assert.That(actual.Length, Is.EqualTo(expected.Length), fieldName);
+            for (var i = 0; i < expected.Length; i++)
+            {
+                Assert.That(actual[i], Is.SameAs(expected[i]), $"{fieldName}[{i}]");
+            }
         }
 
         private static void SetSerializedReference(

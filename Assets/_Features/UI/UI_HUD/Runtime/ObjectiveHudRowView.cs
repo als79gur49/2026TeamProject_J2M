@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -31,6 +32,7 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private LayoutElement _layoutElement;
         [SerializeField] private Graphic _progressHighlightGraphic;
         [SerializeField] private CanvasGroup _progressHighlightGroup;
+        [SerializeField] private Graphic[] _progressHighlightGraphics = Array.Empty<Graphic>();
         [SerializeField] private Transform _progressPulseScaleTarget;
         [SerializeField] private float maxTransitionDeltaSeconds = 1.0f / 30.0f;
         [SerializeField] private bool _enableProgressPulse = true;
@@ -56,8 +58,10 @@ namespace Game.Feature.UI.HUD
         private float _progressPulseElapsed;
         private Vector3 _progressPulseBaseScale = Vector3.one;
         private bool _hasProgressPulseBaseScale;
-        private Color _progressHighlightBaseColor = Color.white;
-        private bool _hasProgressHighlightBaseColor;
+        private Graphic[] _resolvedProgressHighlightGraphics = Array.Empty<Graphic>();
+        private Color[] _progressHighlightBaseColors = Array.Empty<Color>();
+        private bool _hasProgressHighlightBaseColors;
+        private float _progressHighlightAlpha;
         private bool _missingProgressHighlightWarningRaised;
 
         public event Action<ObjectiveHudRowView> DismissFinished;
@@ -384,13 +388,19 @@ namespace Game.Feature.UI.HUD
 
         private void CaptureProgressHighlightBaseColorIfNeeded()
         {
-            if (_hasProgressHighlightBaseColor || _progressHighlightGraphic == null)
+            if (_hasProgressHighlightBaseColors)
             {
                 return;
             }
 
-            _progressHighlightBaseColor = _progressHighlightGraphic.color;
-            _hasProgressHighlightBaseColor = true;
+            _resolvedProgressHighlightGraphics = ResolveProgressHighlightGraphics();
+            _progressHighlightBaseColors = new Color[_resolvedProgressHighlightGraphics.Length];
+            for (var i = 0; i < _resolvedProgressHighlightGraphics.Length; i++)
+            {
+                _progressHighlightBaseColors[i] = _resolvedProgressHighlightGraphics[i].color;
+            }
+
+            _hasProgressHighlightBaseColors = true;
         }
 
         private void ResetProgressPulseState()
@@ -449,42 +459,115 @@ namespace Game.Feature.UI.HUD
 
         private bool HasProgressHighlightTarget()
         {
-            return _progressHighlightGroup != null || _progressHighlightGraphic != null;
+            return _progressHighlightGroup != null ||
+                   _progressHighlightGraphic != null ||
+                   HasProgressHighlightGraphics();
         }
 
         private float GetProgressHighlightAlpha()
         {
-            if (_progressHighlightGroup != null)
-            {
-                return _progressHighlightGroup.alpha;
-            }
-
-            return _progressHighlightGraphic != null ? _progressHighlightGraphic.color.a : 0.0f;
+            return _progressHighlightAlpha;
         }
 
         private void SetProgressHighlightAlpha(float alpha)
         {
             var clampedAlpha = Mathf.Clamp01(alpha);
+            _progressHighlightAlpha = clampedAlpha;
             if (_progressHighlightGroup != null)
             {
                 _progressHighlightGroup.alpha = clampedAlpha;
             }
 
-            if (_progressHighlightGraphic == null)
+            CaptureProgressHighlightBaseColorIfNeeded();
+            for (var i = 0; i < _resolvedProgressHighlightGraphics.Length; i++)
+            {
+                var graphic = _resolvedProgressHighlightGraphics[i];
+                if (graphic == null)
+                {
+                    continue;
+                }
+
+                var baseColor = i < _progressHighlightBaseColors.Length
+                    ? _progressHighlightBaseColors[i]
+                    : graphic.color;
+                graphic.color = ResolveProgressHighlightColor(graphic, baseColor, clampedAlpha);
+            }
+        }
+
+        private Color ResolveProgressHighlightColor(Graphic graphic, Color baseColor, float alpha)
+        {
+            if (graphic == _progressHighlightGraphic && _progressHighlightGroup != null)
+            {
+                var color = _progressHighlightColor;
+                color.a = Mathf.Clamp01(color.a);
+                return color;
+            }
+
+            if (graphic == _progressHighlightGraphic && !HasAdditionalProgressHighlightGraphics())
+            {
+                var color = _progressHighlightColor;
+                color.a = alpha;
+                return color;
+            }
+
+            var tintAmount = _progressHighlightMaxAlpha > 0.0f
+                ? Mathf.Clamp01(alpha / _progressHighlightMaxAlpha)
+                : alpha;
+            var tinted = Color.Lerp(baseColor, _progressHighlightColor, tintAmount);
+            tinted.a = Mathf.Lerp(
+                baseColor.a,
+                Mathf.Max(baseColor.a, Mathf.Clamp01(_progressHighlightColor.a)),
+                tintAmount);
+            return tinted;
+        }
+
+        private bool HasProgressHighlightGraphics()
+        {
+            if (_progressHighlightGraphics == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < _progressHighlightGraphics.Length; i++)
+            {
+                if (_progressHighlightGraphics[i] != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool HasAdditionalProgressHighlightGraphics()
+        {
+            return HasProgressHighlightGraphics();
+        }
+
+        private Graphic[] ResolveProgressHighlightGraphics()
+        {
+            var graphics = new List<Graphic>();
+            AddProgressHighlightGraphic(graphics, _progressHighlightGraphic);
+
+            if (_progressHighlightGraphics != null)
+            {
+                for (var i = 0; i < _progressHighlightGraphics.Length; i++)
+                {
+                    AddProgressHighlightGraphic(graphics, _progressHighlightGraphics[i]);
+                }
+            }
+
+            return graphics.ToArray();
+        }
+
+        private static void AddProgressHighlightGraphic(List<Graphic> graphics, Graphic graphic)
+        {
+            if (graphic == null || graphics.Contains(graphic))
             {
                 return;
             }
 
-            var color = _progressHighlightColor;
-            if (color.a <= 0.0f && _hasProgressHighlightBaseColor)
-            {
-                color = _progressHighlightBaseColor;
-            }
-
-            color.a = _progressHighlightGroup != null
-                ? Mathf.Clamp01(color.a)
-                : clampedAlpha;
-            _progressHighlightGraphic.color = color;
+            graphics.Add(graphic);
         }
 
         private static float EaseOutQuad(float value)
@@ -689,10 +772,12 @@ namespace Game.Feature.UI.HUD
                 Debug.LogWarning($"{nameof(ObjectiveHudRowView)} on '{name}' is missing serialized reference '{nameof(_layoutElement)}'.", this);
             }
 
-            if (_progressHighlightGraphic == null && _progressHighlightGroup == null)
+            if (_progressHighlightGraphic == null &&
+                _progressHighlightGroup == null &&
+                !HasProgressHighlightGraphics())
             {
                 Debug.LogWarning(
-                    $"{nameof(ObjectiveHudRowView)} on '{name}' is missing serialized reference '{nameof(_progressHighlightGraphic)}' or '{nameof(_progressHighlightGroup)}'.",
+                    $"{nameof(ObjectiveHudRowView)} on '{name}' is missing a serialized progress highlight reference.",
                     this);
             }
 
@@ -701,6 +786,20 @@ namespace Game.Feature.UI.HUD
                 Debug.LogWarning(
                     $"{nameof(ObjectiveHudRowView)} on '{name}' progress highlight must have Raycast Target disabled.",
                     _progressHighlightGraphic);
+            }
+
+            if (_progressHighlightGraphics != null)
+            {
+                for (var i = 0; i < _progressHighlightGraphics.Length; i++)
+                {
+                    var graphic = _progressHighlightGraphics[i];
+                    if (graphic != null && graphic.raycastTarget)
+                    {
+                        Debug.LogWarning(
+                            $"{nameof(ObjectiveHudRowView)} on '{name}' progress highlight must have Raycast Target disabled.",
+                            graphic);
+                    }
+                }
             }
         }
 #endif
