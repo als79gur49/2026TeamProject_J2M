@@ -20,8 +20,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] RuntimeSourcePaths =
         {
+            "Assets/_Features/Stages/Runtime/Presentation/BackgroundWallSurfaceNoiseProfile.cs",
             "Assets/_Features/Stages/Runtime/Presentation/BackgroundWallSurfaceTintProfile.cs",
             "Assets/_Features/Stages/Runtime/Presentation/BackgroundWallSurfaceTintAuthoring.cs",
+            "Assets/_Features/Stages/Runtime/Presentation/BackgroundWallSurfaceTintNoiseController.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BackgroundWallSurfaceTintPresenterAdapter.cs",
         };
 
@@ -38,6 +40,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Background/Prefabs/WallRoot_BGate.prefab",
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Background/Prefabs/WallRoot_Lv4Gate.prefab",
         };
+
+        private const string NoiseProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Background/Profiles/BackgroundWallSurfaceNoiseProfile.asset";
 
         [Test]
         public void Profile_ReturnsSemanticBaseColors()
@@ -110,8 +115,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var propertyBlock = new MaterialPropertyBlock();
                 renderer.GetPropertyBlock(propertyBlock, 0);
-                AssertColorApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FloorBaseColor);
-                AssertColorApproximately(propertyBlock.GetColor(EmissionColorPropertyName), profile.FloorEmissionColor);
+                AssertRgbApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FloorBaseColor);
+                AssertRgbApproximately(propertyBlock.GetColor(EmissionColorPropertyName), profile.FloorEmissionColor);
                 Assert.That(material.GetColor(baseColorPropertyName), Is.EqualTo(originalBaseColor));
                 Assert.That(material.GetColor(EmissionColorPropertyName), Is.EqualTo(originalEmissionColor));
             }
@@ -208,6 +213,437 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void NoiseController_InitialStableApply_DoesNotStartOverlay()
+        {
+            var root = new GameObject(nameof(NoiseController_InitialStableApply_DoesNotStartOverlay));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Initial Stable Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile(preserveMaterialAlpha: false);
+            var noiseProfile = CreateNoiseProfile();
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, baseColorPropertyName: baseColorPropertyName, preserveAlpha: false));
+
+                var controller = new BackgroundWallSurfaceTintNoiseController(authoring);
+                controller.ApplyInitialStableFace(FaceId.Floor);
+
+                Assert.That(controller.IsOverlayActive, Is.False);
+                Assert.That(controller.DebugRestartSequence, Is.EqualTo(0));
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertColorApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FloorBaseColor);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void NoiseController_TransitionDestinationFaceChange_StartsAndDoesNotRestartForRepeatedFace()
+        {
+            var root = new GameObject(nameof(NoiseController_TransitionDestinationFaceChange_StartsAndDoesNotRestartForRepeatedFace));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Repeated Face Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile();
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, baseColorPropertyName: baseColorPropertyName));
+
+                var controller = new BackgroundWallSurfaceTintNoiseController(authoring);
+                controller.ApplyInitialStableFace(FaceId.Floor);
+                controller.ObservePresentationFace(FaceId.Front, isTopologyTransitionActive: true, topologyTransitionDurationSeconds: 1f);
+                Assert.That(controller.DebugActiveSourceFace, Is.EqualTo(FaceId.Floor));
+                controller.Advance(0.25f);
+                var elapsedAfterAdvance = controller.DebugElapsedSeconds;
+                var restartSequence = controller.DebugRestartSequence;
+
+                controller.ObservePresentationFace(FaceId.Front, isTopologyTransitionActive: true, topologyTransitionDurationSeconds: 1f);
+
+                Assert.That(controller.IsOverlayActive, Is.True);
+                Assert.That(controller.DebugActiveFace, Is.EqualTo(FaceId.Front));
+                Assert.That(controller.DebugRestartSequence, Is.EqualTo(restartSequence));
+                Assert.That(controller.DebugElapsedSeconds, Is.EqualTo(elapsedAfterAdvance).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void NoiseController_DifferentDestinationFace_RestartsOverlay()
+        {
+            var root = new GameObject(nameof(NoiseController_DifferentDestinationFace_RestartsOverlay));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Restart Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile();
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, baseColorPropertyName: baseColorPropertyName));
+
+                var controller = new BackgroundWallSurfaceTintNoiseController(authoring);
+                controller.ApplyInitialStableFace(FaceId.Floor);
+                controller.ObservePresentationFace(FaceId.Front, isTopologyTransitionActive: true, topologyTransitionDurationSeconds: 1f);
+                controller.Advance(0.25f);
+                var restartSequence = controller.DebugRestartSequence;
+
+                controller.ObservePresentationFace(FaceId.Back, isTopologyTransitionActive: true, topologyTransitionDurationSeconds: 1f);
+
+                Assert.That(controller.IsOverlayActive, Is.True);
+                Assert.That(controller.DebugActiveSourceFace, Is.EqualTo(FaceId.Front));
+                Assert.That(controller.DebugActiveFace, Is.EqualTo(FaceId.Back));
+                Assert.That(controller.DebugRestartSequence, Is.GreaterThan(restartSequence));
+                Assert.That(controller.DebugElapsedSeconds, Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void NoiseController_DuringDuration_ChangesBaseAndEmissionThenReturnsToProfileColors()
+        {
+            var root = new GameObject(nameof(NoiseController_DuringDuration_ChangesBaseAndEmissionThenReturnsToProfileColors));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Duration Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile(preserveMaterialAlpha: false);
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, baseColorPropertyName: baseColorPropertyName, preserveAlpha: false));
+
+                var controller = new BackgroundWallSurfaceTintNoiseController(authoring);
+                controller.ApplyInitialStableFace(FaceId.Floor);
+                controller.ObservePresentationFace(FaceId.Front, isTopologyTransitionActive: true, topologyTransitionDurationSeconds: 1f);
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertRgbApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FloorBaseColor);
+                AssertRgbApproximately(propertyBlock.GetColor(EmissionColorPropertyName), profile.FloorEmissionColor);
+
+                controller.Advance(0.5f);
+
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertRgbDifferent(propertyBlock.GetColor(baseColorPropertyName), profile.FloorBaseColor);
+                AssertRgbDifferent(propertyBlock.GetColor(baseColorPropertyName), profile.FrontBaseColor);
+                AssertRgbDifferent(propertyBlock.GetColor(EmissionColorPropertyName), profile.FloorEmissionColor);
+                AssertRgbDifferent(propertyBlock.GetColor(EmissionColorPropertyName), profile.FrontEmissionColor);
+
+                controller.Advance(0.5f);
+
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertColorApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FrontBaseColor);
+                AssertColorApproximately(propertyBlock.GetColor(EmissionColorPropertyName), profile.FrontEmissionColor);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void NoiseController_PreserveMaterialAlpha_KeepsBaseAlphaDuringNoise()
+        {
+            var root = new GameObject(nameof(NoiseController_PreserveMaterialAlpha_KeepsBaseAlphaDuringNoise));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Alpha Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile(preserveMaterialAlpha: true);
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                const float materialAlpha = 0.23f;
+                material.EnableKeyword(EmissionKeyword);
+                material.SetColor(baseColorPropertyName, new Color(1f, 1f, 1f, materialAlpha));
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, baseColorPropertyName: baseColorPropertyName));
+
+                var controller = new BackgroundWallSurfaceTintNoiseController(authoring);
+                controller.ApplyInitialStableFace(FaceId.Floor);
+                controller.ObservePresentationFace(FaceId.Front, isTopologyTransitionActive: true, topologyTransitionDurationSeconds: 1f);
+                controller.Advance(0.5f);
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                Assert.That(propertyBlock.GetColor(baseColorPropertyName).a, Is.EqualTo(materialAlpha).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ApplyFaceTint_WithNoisePolicyDisabled_PerTargetChannelsRemainProfileColors()
+        {
+            var root = new GameObject(nameof(ApplyFaceTint_WithNoisePolicyDisabled_PerTargetChannelsRemainProfileColors));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Policy Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile(preserveMaterialAlpha: false);
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(
+                        renderer,
+                        baseColorPropertyName: baseColorPropertyName,
+                        preserveAlpha: false,
+                        noiseAffectsBaseColor: false,
+                        noiseAffectsEmission: false));
+
+                authoring.ApplyFaceTint(
+                    FaceId.Front,
+                    BackgroundWallSurfaceNoiseOverlay.Active(noiseProfile, FaceId.Floor, 0.5f, 1f, sequence: 1));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertColorApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FrontBaseColor);
+                AssertColorApproximately(propertyBlock.GetColor(EmissionColorPropertyName), profile.FrontEmissionColor);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ApplyFaceTint_WhenApplyEmissionIsFalse_DoesNotApplyEmissionNoise()
+        {
+            var root = new GameObject(nameof(ApplyFaceTint_WhenApplyEmissionIsFalse_DoesNotApplyEmissionNoise));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("No Emission Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile(preserveMaterialAlpha: false);
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(
+                        renderer,
+                        baseColorPropertyName: baseColorPropertyName,
+                        applyEmission: false,
+                        preserveAlpha: false));
+
+                authoring.ApplyFaceTint(
+                    FaceId.Front,
+                    BackgroundWallSurfaceNoiseOverlay.Active(noiseProfile, FaceId.Floor, 0.5f, 1f, sequence: 1));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertRgbDifferent(propertyBlock.GetColor(baseColorPropertyName), profile.FrontBaseColor);
+                Assert.That(propertyBlock.GetColor(EmissionColorPropertyName), Is.Not.EqualTo(profile.FrontEmissionColor));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ApplyFaceTint_WhenEmissionKeywordDisabledDuringNoise_WarnsAndSkipsEmission()
+        {
+            var root = new GameObject(nameof(ApplyFaceTint_WhenEmissionKeywordDisabledDuringNoise_WarnsAndSkipsEmission));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Emission Disabled Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile();
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.DisableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, baseColorPropertyName: baseColorPropertyName));
+
+                LogAssert.Expect(LogType.Warning, new Regex("does not enable _EMISSION"));
+                authoring.ApplyFaceTint(
+                    FaceId.Front,
+                    BackgroundWallSurfaceNoiseOverlay.Active(noiseProfile, FaceId.Floor, 0.5f, 1f, sequence: 1));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                Assert.That(propertyBlock.GetColor(EmissionColorPropertyName), Is.Not.EqualTo(profile.FrontEmissionColor));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ApplyFaceTint_WithNoise_MaterialSlotsUseIndependentPropertyBlocks()
+        {
+            var root = new GameObject(nameof(ApplyFaceTint_WithNoise_MaterialSlotsUseIndependentPropertyBlocks));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var firstMaterial = CreateTintMaterial("Slot 0 Material", out var baseColorPropertyName);
+            var secondMaterial = CreateTintMaterial("Slot 1 Material", out _);
+            var profile = CreateProfile(preserveMaterialAlpha: false);
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                firstMaterial.EnableKeyword(EmissionKeyword);
+                secondMaterial.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { firstMaterial, secondMaterial };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, materialIndex: 0, baseColorPropertyName: baseColorPropertyName, preserveAlpha: false),
+                    CreateTarget(
+                        renderer,
+                        materialIndex: 1,
+                        baseColorPropertyName: baseColorPropertyName,
+                        preserveAlpha: false,
+                        hasBaseNoiseStrengthOverride: true,
+                        baseNoiseStrengthOverride: 0f,
+                        hasEmissionNoiseStrengthOverride: true,
+                        emissionNoiseStrengthOverride: 0f));
+
+                authoring.ApplyFaceTint(
+                    FaceId.Front,
+                    BackgroundWallSurfaceNoiseOverlay.Active(noiseProfile, FaceId.Floor, 0.5f, 1f, sequence: 1));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertRgbDifferent(propertyBlock.GetColor(baseColorPropertyName), profile.FrontBaseColor);
+                renderer.GetPropertyBlock(propertyBlock, 1);
+                AssertColorApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FrontBaseColor);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(firstMaterial);
+                UnityEngine.Object.DestroyImmediate(secondMaterial);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void NoiseController_Reset_ClearsOverlayAndReappliesBaseTint()
+        {
+            var root = new GameObject(nameof(NoiseController_Reset_ClearsOverlayAndReappliesBaseTint));
+            var renderer = root.AddComponent<MeshRenderer>();
+            var material = CreateTintMaterial("Reset Noise Material", out var baseColorPropertyName);
+            var profile = CreateProfile(preserveMaterialAlpha: false);
+            var noiseProfile = CreateNoiseProfile(durationSeconds: 1f);
+            var authoring = root.AddComponent<BackgroundWallSurfaceTintAuthoring>();
+
+            try
+            {
+                material.EnableKeyword(EmissionKeyword);
+                renderer.sharedMaterials = new[] { material };
+                ConfigureAuthoring(
+                    authoring,
+                    profile,
+                    noiseProfile,
+                    CreateTarget(renderer, baseColorPropertyName: baseColorPropertyName, preserveAlpha: false));
+
+                var controller = new BackgroundWallSurfaceTintNoiseController(authoring);
+                controller.ApplyInitialStableFace(FaceId.Floor);
+                controller.ObservePresentationFace(FaceId.Front, isTopologyTransitionActive: true, topologyTransitionDurationSeconds: 1f);
+                controller.Advance(0.5f);
+                controller.Reset();
+
+                Assert.That(controller.IsOverlayActive, Is.False);
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock, 0);
+                AssertColorApproximately(propertyBlock.GetColor(baseColorPropertyName), profile.FrontBaseColor);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(noiseProfile);
+                UnityEngine.Object.DestroyImmediate(material);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void ApplyFaceTint_WithMissingRendererOrMaterialIndex_WarnsAndNoOps()
         {
             var root = new GameObject(nameof(ApplyFaceTint_WithMissingRendererOrMaterialIndex_WarnsAndNoOps));
@@ -247,6 +683,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(source, Does.Not.Contain("SurfaceBeltStyleProfile"), path);
                 Assert.That(source, Does.Not.Contain("Game.Feature.UI.HUD"), path);
                 Assert.That(source, Does.Not.Contain("UI_HUD"), path);
+                Assert.That(source, Does.Not.Contain("_GravityField"), path);
+                Assert.That(source, Does.Not.Contain("_Inactive"), path);
+                Assert.That(source, Does.Not.Contain("EnemyInactiveVisual"), path);
+                Assert.That(source, Does.Not.Contain("Renderer.material"), path);
+                Assert.That(source, Does.Not.Contain("NoiseColor"), path);
+                Assert.That(source, Does.Not.Contain("noiseColor"), path);
             }
 
             foreach (var path in RuntimeAssemblyDefinitionPaths)
@@ -258,10 +700,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void RuntimeNoiseCode_DoesNotWriteAuthoritativeGameplayOrDeterminismState()
+        {
+            foreach (var path in RuntimeSourcePaths)
+            {
+                var source = File.ReadAllText(path);
+                Assert.That(source, Does.Not.Contain("WorldState"), path);
+                Assert.That(source, Does.Not.Contain("TickResult"), path);
+                Assert.That(source, Does.Not.Contain("Determinism"), path);
+                Assert.That(source, Does.Not.Contain("Hash"), path);
+            }
+        }
+
+        [Test]
         public void BoundWallPrefabs_UseExplicitTintTargetsWithEmissionKeywordEnabledMaterials()
         {
             var expectedProfile = AssetDatabase.LoadAssetAtPath<BackgroundWallSurfaceTintProfile>(ProfilePath);
             Assert.That(expectedProfile, Is.Not.Null, ProfilePath);
+            var expectedNoiseProfile = AssetDatabase.LoadAssetAtPath<BackgroundWallSurfaceNoiseProfile>(NoiseProfilePath);
+            Assert.That(expectedNoiseProfile, Is.Not.Null, NoiseProfilePath);
+            Assert.That(expectedNoiseProfile.Enabled, Is.True, NoiseProfilePath);
+            Assert.That(expectedNoiseProfile.SeedMode, Is.EqualTo(BackgroundWallSurfaceNoiseSeedMode.FaceAndTarget), NoiseProfilePath);
+            var noiseProfileAssetText = File.ReadAllText(NoiseProfilePath);
+            Assert.That(noiseProfileAssetText, Does.Not.Contain("noiseColor"), NoiseProfilePath);
 
             foreach (var path in BoundWallPrefabPaths)
             {
@@ -271,6 +732,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var authoring = prefab.GetComponent<BackgroundWallSurfaceTintAuthoring>();
                 Assert.That(authoring, Is.Not.Null, path);
                 Assert.That(authoring.Profile, Is.EqualTo(expectedProfile), path);
+                Assert.That(authoring.NoiseProfile, Is.EqualTo(expectedNoiseProfile), path);
                 Assert.That(authoring.Targets, Is.Not.Empty, path);
 
                 foreach (var target in authoring.Targets)
@@ -283,6 +745,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(material, Is.Not.Null, path);
                     Assert.That(material.HasProperty(target.BaseColorPropertyName), Is.True, $"{path}:{material.name}");
                     Assert.That(material.HasProperty(target.EmissionColorPropertyName), Is.True, $"{path}:{material.name}");
+                    Assert.That(target.ApplyNoise, Is.True, path);
 
                     if (target.ApplyEmission)
                     {
@@ -307,6 +770,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(profile, "ceilingEmissionColor", new Color(0.7f, 0.8f, 0.9f, 1f));
             SetPrivateField(profile, "backEmissionColor", new Color(0.8f, 0.9f, 1f, 0.9f));
             SetPrivateField(profile, "preserveMaterialAlpha", preserveMaterialAlpha);
+            return profile;
+        }
+
+        private static BackgroundWallSurfaceNoiseProfile CreateNoiseProfile(
+            bool enabled = true,
+            float durationSeconds = 0.5f,
+            bool useTopologyTransitionDuration = true)
+        {
+            var profile = ScriptableObject.CreateInstance<BackgroundWallSurfaceNoiseProfile>();
+            SetPrivateField(profile, "enabled", enabled);
+            SetPrivateField(profile, "durationSeconds", durationSeconds);
+            SetPrivateField(profile, "useTopologyTransitionDuration", useTopologyTransitionDuration);
+            SetPrivateField(profile, "noiseFrequency", 8f);
+            SetPrivateField(profile, "noiseStrength", 1f);
+            SetPrivateField(profile, "baseColorNoiseAmount", 0.2f);
+            SetPrivateField(profile, "emissionNoiseAmount", 0.2f);
+            SetPrivateField(
+                profile,
+                "progressCurve",
+                new AnimationCurve(
+                    new Keyframe(0f, 0f),
+                    new Keyframe(1f, 1f)));
+            SetPrivateField(profile, "seedMode", BackgroundWallSurfaceNoiseSeedMode.FaceAndTarget);
+            SetPrivateField(profile, "seed", 137);
             return profile;
         }
 
@@ -350,7 +837,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             string baseColorPropertyName = "_Color",
             bool applyEmission = true,
             string emissionColorPropertyName = EmissionColorPropertyName,
-            bool preserveAlpha = true)
+            bool preserveAlpha = true,
+            bool applyNoise = true,
+            bool noiseAffectsBaseColor = true,
+            bool noiseAffectsEmission = true,
+            bool hasBaseNoiseStrengthOverride = false,
+            float baseNoiseStrengthOverride = 1f,
+            bool hasEmissionNoiseStrengthOverride = false,
+            float emissionNoiseStrengthOverride = 1f)
         {
             var target = new BackgroundWallSurfaceTintTarget();
             SetPrivateField(target, "renderer", renderer);
@@ -360,6 +854,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(target, "applyEmission", applyEmission);
             SetPrivateField(target, "emissionColorPropertyName", emissionColorPropertyName);
             SetPrivateField(target, "preserveAlpha", preserveAlpha);
+            SetPrivateField(target, "applyNoise", applyNoise);
+            SetPrivateField(target, "noiseAffectsBaseColor", noiseAffectsBaseColor);
+            SetPrivateField(target, "noiseAffectsEmission", noiseAffectsEmission);
+            SetPrivateField(target, "hasBaseNoiseStrengthOverride", hasBaseNoiseStrengthOverride);
+            SetPrivateField(target, "baseNoiseStrengthOverride", baseNoiseStrengthOverride);
+            SetPrivateField(target, "hasEmissionNoiseStrengthOverride", hasEmissionNoiseStrengthOverride);
+            SetPrivateField(target, "emissionNoiseStrengthOverride", emissionNoiseStrengthOverride);
             return target;
         }
 
@@ -368,7 +869,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BackgroundWallSurfaceTintProfile profile,
             params BackgroundWallSurfaceTintTarget[] targets)
         {
+            ConfigureAuthoring(authoring, profile, null, targets);
+        }
+
+        private static void ConfigureAuthoring(
+            BackgroundWallSurfaceTintAuthoring authoring,
+            BackgroundWallSurfaceTintProfile profile,
+            BackgroundWallSurfaceNoiseProfile noiseProfile,
+            params BackgroundWallSurfaceTintTarget[] targets)
+        {
             SetPrivateField(authoring, "profile", profile);
+            SetPrivateField(authoring, "noiseProfile", noiseProfile);
             SetPrivateField(authoring, "targets", targets);
         }
 
@@ -378,6 +889,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.0001f));
             Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.0001f));
             Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.0001f));
+        }
+
+        private static void AssertRgbApproximately(Color actual, Color expected)
+        {
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(0.0001f));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.0001f));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.0001f));
+        }
+
+        private static void AssertRgbDifferent(Color actual, Color expected)
+        {
+            var difference =
+                Mathf.Abs(actual.r - expected.r) +
+                Mathf.Abs(actual.g - expected.g) +
+                Mathf.Abs(actual.b - expected.b);
+            Assert.That(difference, Is.GreaterThan(0.0001f), $"Expected RGB to differ. Actual={actual}, Expected={expected}");
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)
