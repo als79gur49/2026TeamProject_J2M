@@ -9,5 +9,9 @@ namespace Game.Feature.Gameplay.Loop
         // Ordinary Flip box motion visual slam contact. This is the point where the
         // visual sampler reaches the floor, not the earlier interaction onset.
         public const float FlipVisualSlamContactNormalizedTime = 0.936f;
+
+        // B-1 due contact is already authoritative at the due tick; this short
+        // screen gate only keeps stage-result UI from covering the contact frame.
+        public const float FlipB1DueContactStageClearBarrierSeconds = 0.12f;
     }
 }

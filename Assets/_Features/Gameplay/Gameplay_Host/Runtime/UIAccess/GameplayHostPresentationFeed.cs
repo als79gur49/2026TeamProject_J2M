@@ -350,6 +350,33 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 maxDelaySeconds = Math.Max(maxDelaySeconds, delaySeconds);
             }
 
+            if (result.ObjectiveResult.ClearedThisTick)
+            {
+                var dueContactSignals = result.PresentationData.FlipDueContactSignals;
+                for (var i = 0; i < dueContactSignals.Count; i++)
+                {
+                    var signal = dueContactSignals[i];
+                    if (signal.TimingMode != GameplayPresentationTimingMode.DueContactImmediate ||
+                        signal.BoxDisposition == FlipBoxDisposition.Cancelled)
+                    {
+                        continue;
+                    }
+
+                    var delaySeconds = GameplayPresentationTimingConstants.FlipB1DueContactStageClearBarrierSeconds;
+                    _pendingBarriers.Add(new PendingBarrier(
+                        PresentationBarrierKey.StageClear(result.TickIndex + 1),
+                        result.TickIndex,
+                        signal.SourceActionPlanId,
+                        localActionIndex: 0,
+                        signal.ContactCell,
+                        TilePresentationEventKind.None,
+                        signal.BoxEntityId,
+                        delaySeconds));
+                    maxDelaySeconds = Math.Max(maxDelaySeconds, delaySeconds);
+                    break;
+                }
+            }
+
             if (maxDelaySeconds <= 0f)
             {
                 return 0f;
