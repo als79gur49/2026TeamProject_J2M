@@ -4,6 +4,8 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement;
+using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using Game.Feature.Stages;
@@ -226,20 +228,493 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(CountUnitsAt(worldState.CreateSnapshot(), sourceCell, EnemyId), Is.Zero);
         }
 
-        private static TickPipeline CreatePipeline(WorldState worldState)
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_PushImpactDuringWindupIfKilledClearsJumpStateAndPreventsLanding()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateImpactWorld(
+                sourceCell,
+                targetCell,
+                enemyHp: 1,
+                EnemyJumpPhase.Windup,
+                BoxCapabilities.Push,
+                EntityBoardPresence.Occupying);
+            var pipeline = CreatePipeline(worldState);
+
+            var impactTick = pipeline.RunTick(new TickInput(1));
+            pipeline.RunTick(new TickInput(2));
+            pipeline.RunTick(new TickInput(10));
+
+            Assert.That(impactTick.AttackPhaseResult.DrainedImpactReservations.Any(reservation => reservation.TargetId == EnemyId), Is.True);
+            AssertNoStaleJumpLanding(worldState, sourceCell, targetCell);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_PushImpactDuringAirborneIfKilledClearsJumpStateAndPreventsLanding()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateImpactWorld(
+                sourceCell,
+                targetCell,
+                enemyHp: 1,
+                EnemyJumpPhase.Airborne,
+                BoxCapabilities.Push,
+                EntityBoardPresence.Detached);
+            var pipeline = CreatePipeline(worldState);
+
+            var impactTick = pipeline.RunTick(new TickInput(1));
+            pipeline.RunTick(new TickInput(2));
+            pipeline.RunTick(new TickInput(5));
+
+            Assert.That(impactTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty, "CurrentContract: detached airborne Astreton is not targetable by push impact.");
+            Assert.That(GetEntity(worldState, EnemyId).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying), "CurrentContract: untargeted airborne Astreton eventually resolves landing normally.");
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), targetCell, EnemyId), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_FlipImpactDuringWindupUsesDispositionAndDoesNotLeaveStaleJumpState()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 5, 0);
+            var worldState = CreateFlipImpactWorld(
+                sourceCell,
+                targetCell,
+                enemyHp: 1,
+                EnemyJumpPhase.Windup,
+                EntityBoardPresence.Occupying);
+            var pipeline = CreatePipeline(worldState, CreateFlipImpactLogic(sourceCell));
+
+            var impactTick = pipeline.RunTick(new TickInput(1));
+            pipeline.RunTick(new TickInput(2));
+            pipeline.RunTick(new TickInput(10));
+            var disposition = impactTick.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 50);
+
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.Flip));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(
+                disposition.DispositionKind,
+                Is.EqualTo(ImpactDispositionKind.FollowThrough).Or.EqualTo(ImpactDispositionKind.Stay),
+                "CurrentContract: lethal flip impact follows through when settlement is legal, otherwise stays.");
+            AssertNoStaleJumpLanding(worldState, sourceCell, targetCell);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_FlipImpactDuringAirborneTargetabilityIsDocumented()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateImpactWorld(
+                sourceCell,
+                targetCell,
+                enemyHp: 1,
+                EnemyJumpPhase.Airborne,
+                BoxCapabilities.Flip,
+                EntityBoardPresence.Detached);
+
+            var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
+
+            Assert.That(tick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(tick.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
+            Assert.That(GetEntity(worldState, EnemyId).hp, Is.EqualTo(1), "CurrentContract: detached airborne Astreton is ignored by flip impact.");
+            Assert.That(GetJumpState(worldState).phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), sourceCell, EnemyId), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_FlipImpactDuringAirborneDoesNotCreateDoubleOccupancy()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateImpactWorld(
+                sourceCell,
+                targetCell,
+                enemyHp: 3,
+                EnemyJumpPhase.Airborne,
+                BoxCapabilities.Flip,
+                EntityBoardPresence.Detached);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            pipeline.RunTick(new TickInput(5));
+
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), sourceCell, EnemyId), Is.Zero);
+            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), targetCell, EnemyId), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_PushImpactThenTopologyReturnDoesNotReviveStaleLanding()
+        {
+            AssertImpactThenTopologyReturnDoesNotReviveStaleLanding(BoxCapabilities.Push);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_FlipImpactThenTopologyReturnDoesNotReviveStaleLanding()
+        {
+            AssertImpactThenTopologyReturnDoesNotReviveStaleLanding(BoxCapabilities.Flip);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_DestroyTileAppearsOnLockedLandingCell_RevalidatesLandingSettlement()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            var pipeline = CreatePipeline(worldState);
+
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(100, targetCell, TileFeatureKind.Destroy));
+            var landingTick = pipeline.RunTick(new TickInput(2));
+
+            AssertLandingResolvedWithoutIllegalOverlap(worldState, targetCell, landingTick);
+            Assert.That(worldState.CreateSnapshot().TryGetTileFeature(100, out _), Is.True, "CurrentContract: Destroy tile feature alone is not a settlement blocker.");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_DestroyTileOnSamePlanarOtherFace_DoesNotBlockLanding()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var otherFaceCell = new SurfaceCell(FaceId.Front, 3, 0);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(101, otherFaceCell, TileFeatureKind.Destroy));
+
+            CreatePipeline(worldState).RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(targetCell));
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.Not.EqualTo(otherFaceCell));
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_BarricadeOnLandingCell_RevalidatesSettlementAndAvoidsIllegalOverlap()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            var pipeline = CreatePipeline(worldState);
+
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(102, targetCell, TileFeatureKind.Barricade));
+            var landingTick = pipeline.RunTick(new TickInput(2));
+
+            AssertLandingResolvedWithoutIllegalOverlap(worldState, targetCell, landingTick);
+            Assert.That(worldState.CreateSnapshot().TryGetTileFeature(102, out _), Is.True, "CurrentContract: Barricade feature alone is not a settlement blocker.");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_BarricadeOnSamePlanarOtherFace_DoesNotBlockLanding()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var otherFaceCell = new SurfaceCell(FaceId.Front, 3, 0);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(103, otherFaceCell, TileFeatureKind.Barricade));
+
+            CreatePipeline(worldState).RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(targetCell));
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.Not.EqualTo(otherFaceCell));
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_MoonBlockGeneratorCreatesSolidOnLandingCell_BlocksOrRedirectsLandingByCurrentPolicy()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var fallbackCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            var pipeline = CreatePipeline(worldState);
+
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(104, targetCell, TileFeatureKind.MoonBlockGenerator, boundEntityId: 90));
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(90, targetCell, BoxCapabilities.Push | BoxCapabilities.Flip, EntityPhaseState.Idle, Direction.None, 0, 0, BoxArchetype.Moon));
+            var landingTick = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(targetCell, out var solid), Is.True);
+            Assert.That(solid.Kind, Is.EqualTo(SolidKind.Box));
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(fallbackCell), "CurrentContract: moon Solid blocks exact landing and Astreton redirects to first legal target fallback.");
+            Assert.That(landingTick.PresentationData.EnemyJumpSignals.Single().Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.Landed));
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_MoonBlockGeneratorOnSamePlanarOtherFace_DoesNotBlockLanding()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var otherFaceCell = new SurfaceCell(FaceId.Front, 3, 0);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(105, otherFaceCell, TileFeatureKind.MoonBlockGenerator, boundEntityId: 91));
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(91, otherFaceCell, BoxCapabilities.Push | BoxCapabilities.Flip, EntityPhaseState.Idle, Direction.None, 0, 0, BoxArchetype.Moon));
+
+            CreatePipeline(worldState).RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(targetCell));
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.Not.EqualTo(otherFaceCell));
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_MoonBlockGeneratedDuringAirborne_RevalidatesLandingAtResolve()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var fallbackCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(92, targetCell, BoxCapabilities.Push | BoxCapabilities.Flip, EntityPhaseState.Idle, Direction.None, 0, 0, BoxArchetype.Moon));
+            var landingTick = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(fallbackCell), landingTick.Trace.Text);
+            Assert.That(landingTick.PresentationData.EnemyJumpSignals.Single().Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.Landed));
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_BlockedLandingDoesNotCreateGhostOccupancyOrStaleJumpState()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var blockedCells = FullyBlockedRightFacingLandingCells(sourceCell, targetCell);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(PlayerId, 1, new SurfaceCell(FaceId.Floor, -3, -3), hp: 3),
+                    CreateUnit(EnemyId, 2, sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right, boardPresence: EntityBoardPresence.Detached),
+                }.Concat(blockedCells.Select((cell, index) => CreateWall(90 + index, cell))));
+            SeedJumpState(worldState, sourceCell, targetCell, EnemyJumpPhase.Airborne, landingTick: 2);
+            var landingTick = CreatePipeline(worldState).RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, EnemyId).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(GetJumpState(worldState).phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(GetJumpState(worldState).landingTick, Is.GreaterThan(2), "CurrentContract: fully blocked landing remains airborne and retries.");
+            Assert.That(landingTick.PresentationData.EnemyJumpSignals.Single().Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.Retried));
+            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), targetCell, EnemyId), Is.Zero);
+            AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+        }
+
+        private static TickPipeline CreatePipeline(WorldState worldState, params IEntityLogic[] entityLogics)
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(JumpChaserProfilePath);
             Assert.That(profile, Is.Not.Null, $"Missing Astreton JumpChaser profile at '{JumpChaserProfilePath}'.");
 
             return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
-                Array.Empty<IEntityLogic>(),
+                entityLogics ?? Array.Empty<IEntityLogic>(),
                 GameplayTimingProfile.CreateDefault(),
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 playerKinematicLocomotionTiming: CreateOneTickKinematicTiming());
+        }
+
+        private static void AssertImpactThenTopologyReturnDoesNotReviveStaleLanding(BoxCapabilities capabilities)
+        {
+            var sourceCell = capabilities == BoxCapabilities.Flip
+                ? new SurfaceCell(FaceId.Front, 3, 0)
+                : new SurfaceCell(FaceId.Front, 0, 0);
+            var targetCell = capabilities == BoxCapabilities.Flip
+                ? new SurfaceCell(FaceId.Front, 5, 0)
+                : new SurfaceCell(FaceId.Front, 3, 0);
+            var worldState = capabilities == BoxCapabilities.Flip
+                ? CreateFlipImpactWorld(
+                    sourceCell,
+                    targetCell,
+                    enemyHp: 1,
+                    EnemyJumpPhase.Windup,
+                    EntityBoardPresence.Occupying,
+                    topology: new CubeTopologyState(FaceId.Front))
+                : CreateImpactWorld(
+                    sourceCell,
+                    targetCell,
+                    enemyHp: 1,
+                    EnemyJumpPhase.Windup,
+                    capabilities,
+                    EntityBoardPresence.Occupying,
+                    topology: new CubeTopologyState(FaceId.Front));
+            var pipeline = capabilities == BoxCapabilities.Flip
+                ? CreatePipeline(worldState, CreateFlipImpactLogic(sourceCell))
+                : CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+            pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            pipeline.RunTick(new TickInput(10));
+
+            AssertNoStaleJumpLanding(worldState, sourceCell, targetCell);
+        }
+
+        private static WorldState CreateImpactWorld(
+            SurfaceCell sourceCell,
+            SurfaceCell targetCell,
+            int enemyHp,
+            EnemyJumpPhase phase,
+            BoxCapabilities capabilities,
+            EntityBoardPresence boardPresence,
+            CubeTopologyState? topology = null)
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(PlayerId, 1, targetCell, hp: 3),
+                    CreateUnit(EnemyId, 2, sourceCell, hp: enemyHp, aiMode: EnemyAiMode.Chase, facing: Direction.Right, boardPresence: boardPresence),
+                    CreateBox(50, sourceCell + new Vector2Int(-1, 0), capabilities, EntityPhaseState.Sliding, Direction.Right, PlayerId, 1),
+                },
+                topology: topology);
+            SeedJumpState(worldState, sourceCell, targetCell, phase, landingTick: phase == EnemyJumpPhase.Airborne ? 5 : 10);
+            return worldState;
+        }
+
+        private static WorldState CreateFlipImpactWorld(
+            SurfaceCell sourceCell,
+            SurfaceCell targetCell,
+            int enemyHp,
+            EnemyJumpPhase phase,
+            EntityBoardPresence boardPresence,
+            CubeTopologyState? topology = null)
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(PlayerId, 1, sourceCell + new Vector2Int(-1, 0), hp: 3),
+                    CreateUnit(EnemyId, 2, sourceCell, hp: enemyHp, aiMode: EnemyAiMode.Chase, facing: Direction.Right, boardPresence: boardPresence),
+                    CreateBox(50, sourceCell + new Vector2Int(-2, 0), BoxCapabilities.Flip, EntityPhaseState.Idle, Direction.None, 0, 0),
+                },
+                topology: topology);
+            SeedJumpState(worldState, sourceCell, targetCell, phase, landingTick: phase == EnemyJumpPhase.Airborne ? 5 : 10);
+            return worldState;
+        }
+
+        private static WorldState CreateAirborneLandingWorld(SurfaceCell targetCell)
+        {
+            var sourceCell = new SurfaceCell(targetCell.face, 0, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(PlayerId, 1, new SurfaceCell(targetCell.face, -3, -3), hp: 3),
+                CreateUnit(EnemyId, 2, sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right, boardPresence: EntityBoardPresence.Detached),
+            });
+            SeedJumpState(worldState, sourceCell, targetCell, EnemyJumpPhase.Airborne, landingTick: 2);
+            return worldState;
+        }
+
+        private static void SeedJumpState(
+            WorldState worldState,
+            SurfaceCell sourceCell,
+            SurfaceCell targetCell,
+            EnemyJumpPhase phase,
+            int landingTick)
+        {
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                EnemyId,
+                new EnemyJumpRuntimeState
+                {
+                    phase = phase,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = targetCell,
+                    windupEndTick = phase == EnemyJumpPhase.Windup ? 5 : 0,
+                    landingTick = landingTick,
+                });
+        }
+
+        private static void AssertNoStaleJumpLanding(WorldState worldState, SurfaceCell sourceCell, SurfaceCell targetCell)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(EnemyId, out _), Is.False, "Killed Astreton must be removed before any stale landing can resolve.");
+            if (snapshot.TryGetEnemyJumpState(EnemyId, out var jumpState))
+            {
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.None));
+            }
+
+            Assert.That(CountUnitsAt(snapshot, sourceCell, EnemyId), Is.Zero);
+            Assert.That(CountUnitsAt(snapshot, targetCell, EnemyId), Is.Zero);
+            AssertNoIllegalUnitSolidOverlap(snapshot);
+        }
+
+        private static void AssertLandingResolvedWithoutIllegalOverlap(WorldState worldState, SurfaceCell targetCell, TickResult tick)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            AssertNoIllegalUnitSolidOverlap(snapshot);
+            if (snapshot.TryGetEntity(EnemyId, out var enemy))
+            {
+                Assert.That(enemy.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying), tick.Trace.Text);
+                Assert.That(CountUnitsAt(snapshot, enemy.position, EnemyId), Is.EqualTo(1));
+            }
+            else
+            {
+                Assert.That(CountUnitsAt(snapshot, targetCell, EnemyId), Is.Zero);
+            }
+        }
+
+        private static void AssertNoIllegalUnitSolidOverlap(WorldSnapshot snapshot)
+        {
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            foreach (var entity in entities)
+            {
+                if (entity.type != EntityType.Unit ||
+                    entity.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                Assert.That(
+                    snapshot.TryGetSolidSemanticAt(entity.position, out var solid) && solid.Entity.entityId != entity.entityId,
+                    Is.False,
+                    $"Unit {entity.entityId} illegally overlaps Solid at {entity.position}.");
+            }
+        }
+
+        private static IReadOnlyList<SurfaceCell> FullyBlockedRightFacingLandingCells(SurfaceCell sourceCell, SurfaceCell targetCell)
+        {
+            var offsets = new[]
+            {
+                new Vector2Int(0, 0),
+                new Vector2Int(1, 0),
+                new Vector2Int(0, -1),
+                new Vector2Int(0, 1),
+                new Vector2Int(-1, 0),
+                new Vector2Int(2, 0),
+                new Vector2Int(1, -1),
+                new Vector2Int(1, 1),
+                new Vector2Int(0, -2),
+                new Vector2Int(0, 2),
+                new Vector2Int(-1, -1),
+                new Vector2Int(-1, 1),
+                new Vector2Int(-2, 0),
+            };
+
+            return offsets
+                .Select(offset => targetCell + offset)
+                .Concat(offsets.Select(offset => sourceCell + offset))
+                .Distinct()
+                .ToArray();
+        }
+
+        private static IEntityLogic CreateFlipImpactLogic(SurfaceCell sourceCell)
+        {
+            return new SingleTickMovementLogic(
+                new RawMovementIntent(
+                    PlayerId,
+                    priority: 100,
+                    (sourceCell + new Vector2Int(-2, 0)).PlanarPosition,
+                    MovementCommandKind.Flip,
+                    localSequence: 0),
+                tickIndex: 1);
         }
 
         private static void RunUntilNotAirborne(TickPipeline pipeline, WorldState worldState, int startTick, int maxTick)
@@ -254,6 +729,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             Assert.Fail($"Astreton stayed airborne through tick {maxTick}.");
+        }
+
+        private sealed class SingleTickMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly RawMovementIntent _movementIntent;
+            private readonly int _tickIndex;
+
+            public SingleTickMovementLogic(RawMovementIntent movementIntent, int tickIndex)
+            {
+                _movementIntent = movementIntent;
+                _tickIndex = tickIndex;
+            }
+
+            public int ControlledEntityId => _movementIntent.SourceId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (input.TickIndex == _tickIndex)
+                {
+                    buffer.Add(_movementIntent);
+                }
+            }
         }
 
         private static PlayerKinematicLocomotionTimingSnapshot CreateOneTickKinematicTiming()
@@ -330,7 +830,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EntityPhaseState state,
             Direction facing,
             int kineticInstigatorEntityId,
-            int kineticInstigatorTeamId)
+            int kineticInstigatorTeamId,
+            BoxArchetype boxArchetype = BoxArchetype.Normal)
         {
             return new EntityState
             {
@@ -343,6 +844,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 facing = facing,
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = capabilities,
+                boxArchetype = boxArchetype,
                 kineticInstigatorEntityId = kineticInstigatorEntityId,
                 kineticInstigatorTeamId = kineticInstigatorTeamId,
             };
@@ -361,6 +863,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            int boundEntityId = 0)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: boundEntityId);
         }
     }
 }

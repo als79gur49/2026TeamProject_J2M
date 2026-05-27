@@ -110,6 +110,18 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void SurfaceCellIdentity_IncludesFaceForSamePlanarCoordinate()
+        {
+            var floorCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var frontCell = new SurfaceCell(FaceId.Front, 2, 1);
+
+            Assert.That(frontCell, Is.Not.EqualTo(floorCell));
+            Assert.That(frontCell == floorCell, Is.False);
+            Assert.That(frontCell != floorCell, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void GravityFieldLockedTargetPolicy_DocumentsReadModelAndLockedBoxOneShotScope()
         {
             var document = File.ReadAllText(GetAbsolutePath(GravityFieldLockedTargetPresentationPolicyPath));
