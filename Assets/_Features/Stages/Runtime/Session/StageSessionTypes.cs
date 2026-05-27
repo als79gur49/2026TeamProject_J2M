@@ -371,5 +371,34 @@ namespace Game.Feature.Stages
                 CurrentState.ChallengeRuntimeStates);
             return true;
         }
+
+        public bool TryEmitForcedClear(out StageClearResult clearResult)
+        {
+            if (CurrentState == null || terminalResultEmitted)
+            {
+                clearResult = null;
+                return false;
+            }
+
+            terminalResultEmitted = true;
+            CurrentState = CurrentState.With(
+                CurrentState.CurrentTickIndex,
+                isTerminal: true,
+                StageTerminalReason.Cleared,
+                CurrentState.ObjectiveProgress,
+                CurrentState.SessionMetrics,
+                CurrentState.ChallengeRuntimeStates);
+            clearResult = new StageClearResult(
+                CurrentState.StageId,
+                CurrentState.RunId,
+                StageTerminalReason.Cleared,
+                wasCleared: true,
+                CurrentState.CurrentTickIndex,
+                CurrentState.ObjectiveProgress,
+                CurrentState.SessionMetrics,
+                CurrentState.ChallengeRuntimeStates,
+                StageClearSource.ForcedByDemoStageControl);
+            return true;
+        }
     }
 }

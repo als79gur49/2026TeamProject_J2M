@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         private readonly StageContentEntry _entry;
         private readonly IStageCompletionProfileStore _profileStore;
         private readonly StageSessionTracker _sessionTracker = new();
+        private bool _completionInProgress;
         private bool _debugResultOnlyEmitted;
 
         public GameplayHostStageCompletionRuntime(
@@ -24,6 +25,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public StageCompletionReadModel CurrentStageCompletion { get; private set; }
 
+        public bool IsCompletionInProgress => _completionInProgress;
+
         public StageCompletionReadModel ProcessTick(TickResult result)
         {
             if (result == null)
@@ -37,32 +40,65 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return CurrentStageCompletion;
             }
 
+            return CompleteStage(clearResult);
+        }
+
+        public StageCompletionReadModel ForceClearCurrentStage()
+        {
+            if (CurrentStageCompletion != null)
+            {
+                throw new InvalidOperationException("Current stage already has a completion result.");
+            }
+
+            if (!_sessionTracker.TryEmitForcedClear(out var clearResult))
+            {
+                throw new InvalidOperationException("Current stage cannot emit another terminal clear result.");
+            }
+
+            return CompleteStage(clearResult);
+        }
+
+        private StageCompletionReadModel CompleteStage(StageClearResult clearResult)
+        {
             if (!clearResult.StageId.IsValid)
             {
                 throw new InvalidOperationException(
                     "Stage completion requires a valid StageContentEntry StageId. Runtime default stage fallback is not allowed.");
             }
 
-            var clearEvaluationResult = StageClearEvaluator.Evaluate(_entry?.ClearEvaluationDefinition, clearResult);
-            var preUpdateProgress = LoadCurrentProgress(clearResult.StageId);
-            var rewardGrantResult = RewardEvaluator.Evaluate(_entry?.RewardDefinition, clearEvaluationResult, preUpdateProgress);
-            var transaction = StageCompletionTransactionBuilder.Build(
-                clearResult,
-                clearEvaluationResult,
-                rewardGrantResult,
-                preUpdateProgress);
-            var commitResult = _committer.Commit(transaction);
+            if (_completionInProgress)
+            {
+                throw new InvalidOperationException("Stage completion is already in progress.");
+            }
 
-            var updatedProgress = commitResult.CommittedNow || commitResult.AlreadyCommitted
-                ? LoadCurrentProgress(clearResult.StageId)
-                : transaction.ProgressPatch.ApplyTo(preUpdateProgress);
-            CurrentStageCompletion = StageCompletionReadModelBuilder.Build(
-                _entry,
-                clearResult,
-                clearEvaluationResult,
-                rewardGrantResult,
-                updatedProgress);
-            return CurrentStageCompletion;
+            _completionInProgress = true;
+            try
+            {
+                var clearEvaluationResult = StageClearEvaluator.Evaluate(_entry?.ClearEvaluationDefinition, clearResult);
+                var preUpdateProgress = LoadCurrentProgress(clearResult.StageId);
+                var rewardGrantResult = RewardEvaluator.Evaluate(_entry?.RewardDefinition, clearEvaluationResult, preUpdateProgress);
+                var transaction = StageCompletionTransactionBuilder.Build(
+                    clearResult,
+                    clearEvaluationResult,
+                    rewardGrantResult,
+                    preUpdateProgress);
+                var commitResult = _committer.Commit(transaction);
+
+                var updatedProgress = commitResult.CommittedNow || commitResult.AlreadyCommitted
+                    ? LoadCurrentProgress(clearResult.StageId)
+                    : transaction.ProgressPatch.ApplyTo(preUpdateProgress);
+                CurrentStageCompletion = StageCompletionReadModelBuilder.Build(
+                    _entry,
+                    clearResult,
+                    clearEvaluationResult,
+                    rewardGrantResult,
+                    updatedProgress);
+                return CurrentStageCompletion;
+            }
+            finally
+            {
+                _completionInProgress = false;
+            }
         }
 
         public StageCompletionReadModel ForceClearResultOnly()
