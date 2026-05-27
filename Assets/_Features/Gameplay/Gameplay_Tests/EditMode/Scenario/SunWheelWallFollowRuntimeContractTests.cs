@@ -113,29 +113,66 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyWallFollow_SunWheelProfile_ActivatedBarricadeBlocksWallFollowWithoutSolidOccupancy()
+        public void EnemyWallFollow_SunWheelProfile_ActivatedBarricadeDoesNotEnterFeatureCellButMayUseFallback_CurrentPolicy()
         {
             var barricade = CreateTileFeature(100, WallFollowDestination, TileFeatureKind.Barricade);
-            var worldState = CreateWallFollowWorld(initialTileFeatures: new[] { barricade });
+            var samePlanarOtherFaceBarricade = CreateTileFeature(
+                101,
+                new SurfaceCell(FaceId.Front, WallFollowDestination.x, WallFollowDestination.y),
+                TileFeatureKind.Barricade);
 
-            var blockedEvidence = RunTicksAndAssertEnemyNeverReaches(
-                CreatePipeline(worldState, LoadSunWheelProfile(), CreateActiveDefinitions(barricade)),
-                worldState,
+            var otherFaceWorld = CreateWallFollowWorld(initialTileFeatures: new[] { samePlanarOtherFaceBarricade });
+            RunUntilEntityAt(
+                CreatePipeline(
+                    otherFaceWorld,
+                    LoadSunWheelProfile(),
+                    CreateActiveDefinitions(samePlanarOtherFaceBarricade)),
+                otherFaceWorld,
                 startTick: 1,
-                forbiddenCell: WallFollowDestination,
-                tickCount: 40);
+                destination: WallFollowDestination);
+
+            Assert.That(GetEntity(otherFaceWorld, EnemyId).position, Is.EqualTo(WallFollowDestination));
+            AssertNoGhostOrUnitSolidOverlap(
+                otherFaceWorld,
+                WallFollowSource,
+                WallFollowDestination,
+                samePlanarOtherFaceBarricade.Cell);
+
+            var worldState = CreateWallFollowWorld(initialTileFeatures: new[] { barricade });
+            var pipeline = CreatePipeline(worldState, LoadSunWheelProfile(), CreateActiveDefinitions(barricade));
 
             Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(WallFollowSource));
             Assert.That(
-                blockedEvidence.Contains("TileFeature", StringComparison.Ordinal),
-                Is.True);
+                EnemyMovementStrategyShared.CanTraverseStep(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, EnemyId),
+                    WallFollowDestination.PlanarPosition - WallFollowSource.PlanarPosition,
+                    CreateActiveDefinitions(barricade)),
+                Is.False,
+                "Activated Barricade remains a hard TileFeature blocker for its own cell.");
+
+            // SunWheel is WallFollow traversal: blocked own cell is StrongContract; legal fallback is CurrentPolicy.
+            var fallbackCell = RunTicksAndAssertEnemyNeverReachesUntilMoved(
+                pipeline,
+                worldState,
+                startTick: 1,
+                sourceCell: WallFollowSource,
+                forbiddenCell: WallFollowDestination,
+                maxTicks: 80);
+
+            AssertFallbackCellHasNoSolidOrTileFeature(worldState, fallbackCell, TileFeatureKind.Barricade);
             Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(WallFollowDestination, out _), Is.False);
-            AssertNoGhostOrUnitSolidOverlap(worldState, WallFollowSource, WallFollowDestination);
+            AssertNoGhostOrUnitSolidOverlap(
+                worldState,
+                WallFollowSource,
+                WallFollowDestination,
+                fallbackCell,
+                samePlanarOtherFaceBarricade.Cell);
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyWallFollow_SunWheelProfile_MoonBlockGeneratorFeatureAloneDoesNotBlock_GeneratedMoonBlockSolidBlocks()
+        public void EnemyWallFollow_SunWheelProfile_MoonBlockGeneratorFeatureAloneDoesNotBlock_GeneratedSolidCandidateMayFallback_CurrentPolicy()
         {
             var generator = CreateTileFeature(101, WallFollowDestination, TileFeatureKind.MoonBlockGenerator, boundEntityId: 50);
             var generatorOnlyWorld = CreateWallFollowWorld(initialTileFeatures: new[] { generator });
@@ -158,20 +195,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 initialTileFeatures: new[] { generator });
 
-            var blockedEvidence = RunTicksAndAssertEnemyNeverReaches(
+            Assert.That(generatedSolidWorld.CreateSnapshot().TryGetSolidSemanticAt(WallFollowDestination, out _), Is.True);
+            Assert.That(
+                EnemyMovementStrategyShared.CanTraverseStep(
+                    generatedSolidWorld.CreateSnapshot(),
+                    GetEntity(generatedSolidWorld, EnemyId),
+                    WallFollowDestination.PlanarPosition - WallFollowSource.PlanarPosition,
+                    CreateActiveDefinitions(generator)),
+                Is.False,
+                "Generated MoonBlock Solid remains a Solid blocker for its own cell.");
+
+            // MoonBlockGenerator feature alone is non-blocking; generated Solid own cell is StrongContract; fallback is CurrentPolicy.
+            var fallbackCell = RunTicksAndAssertEnemyNeverReachesUntilMoved(
                 CreatePipeline(generatedSolidWorld, LoadSunWheelProfile(), CreateActiveDefinitions(generator)),
                 generatedSolidWorld,
                 startTick: 1,
+                sourceCell: WallFollowSource,
                 forbiddenCell: WallFollowDestination,
-                tickCount: 40);
+                maxTicks: 80);
 
-            Assert.That(GetEntity(generatedSolidWorld, EnemyId).position, Is.EqualTo(WallFollowSource));
-            Assert.That(
-                blockedEvidence.Contains("TraversalBlocked", StringComparison.Ordinal) ||
-                blockedEvidence.Contains("Solid", StringComparison.Ordinal),
-                Is.True);
-            Assert.That(generatedSolidWorld.CreateSnapshot().TryGetSolidSemanticAt(WallFollowDestination, out _), Is.True);
-            AssertNoGhostOrUnitSolidOverlap(generatedSolidWorld, WallFollowSource, WallFollowDestination);
+            AssertFallbackCellHasNoSolidOrTileFeature(generatedSolidWorld, fallbackCell, TileFeatureKind.MoonBlockGenerator);
+            AssertNoGhostOrUnitSolidOverlap(
+                generatedSolidWorld,
+                WallFollowSource,
+                WallFollowDestination,
+                fallbackCell);
         }
 
         [Test]
@@ -450,6 +498,50 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             return string.Join("\n", evidence);
+        }
+
+        private static SurfaceCell RunTicksAndAssertEnemyNeverReachesUntilMoved(
+            TickPipeline pipeline,
+            WorldState worldState,
+            int startTick,
+            SurfaceCell sourceCell,
+            SurfaceCell forbiddenCell,
+            int maxTicks = 60)
+        {
+            TickResult result = null;
+            for (var tick = startTick; tick < startTick + maxTicks; tick++)
+            {
+                result = pipeline.RunTick(new TickInput(tick));
+                if (!worldState.CreateSnapshot().TryGetEntity(EnemyId, out var enemy))
+                {
+                    Assert.Fail($"SunWheel WallFollow entity was removed before leaving {sourceCell}. Last trace: {result.Trace.Text}");
+                }
+
+                Assert.That(enemy.position, Is.Not.EqualTo(forbiddenCell), result.Trace.Text);
+                if (enemy.position != sourceCell)
+                {
+                    return enemy.position;
+                }
+            }
+
+            Assert.Fail($"SunWheel WallFollow did not use a fallback candidate within {maxTicks} ticks. Last trace: {result?.Trace.Text}");
+            return default;
+        }
+
+        private static void AssertFallbackCellHasNoSolidOrTileFeature(
+            WorldState worldState,
+            SurfaceCell fallbackCell,
+            TileFeatureKind blockedFeatureKind)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            var tileFeatures = new List<TileFeatureState>();
+            snapshot.EnumerateTileFeaturesAt(fallbackCell, tileFeatures);
+
+            Assert.That(snapshot.TryGetSolidSemanticAt(fallbackCell, out _), Is.False, $"Fallback cell {fallbackCell} must not be Solid-blocked.");
+            Assert.That(
+                tileFeatures.Any(tileFeature => tileFeature.Kind == blockedFeatureKind),
+                Is.False,
+                $"Fallback cell {fallbackCell} must not contain the skipped blocker feature.");
         }
 
         private static void AssertNoGhostOrUnitSolidOverlap(WorldState worldState, params SurfaceCell[] cells)
