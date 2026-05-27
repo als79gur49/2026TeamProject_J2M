@@ -9,15 +9,19 @@ namespace Game.Feature.DemoStageControl.UI
     {
         public DemoStageControlPanelPayload(
             IReadOnlyList<DemoStageControlStageItem> stages,
-            DemoStageControlStatus status)
+            DemoStageControlStatus status,
+            DemoGameplayOverrideStatus overrideStatus = default)
         {
             Stages = stages ?? Array.Empty<DemoStageControlStageItem>();
             Status = status;
+            OverrideStatus = overrideStatus;
         }
 
         public IReadOnlyList<DemoStageControlStageItem> Stages { get; }
 
         public DemoStageControlStatus Status { get; }
+
+        public DemoGameplayOverrideStatus OverrideStatus { get; }
     }
 
     public sealed class DemoStageControlPanelViewModel
@@ -39,6 +43,10 @@ namespace Game.Feature.DemoStageControl.UI
 
         public string LastResultText { get; private set; } = string.Empty;
 
+        public bool PlayerInvincible { get; private set; }
+
+        public string PlayerInvincibleText { get; private set; } = "Player Invincible: OFF";
+
         public bool CanStartSelectedStage { get; private set; }
 
         public bool CanForceClearCurrentStage { get; private set; }
@@ -57,8 +65,12 @@ namespace Game.Feature.DemoStageControl.UI
             CampaignActiveStageText = FormatStageLine("Campaign Active StageId", payload.Status.CampaignActiveStageId);
             SelectedStageText = FormatSelectedStage(Stages, SelectedStageIndex);
             LastResultText = string.IsNullOrWhiteSpace(payload.Status.LastResultMessage)
-                ? string.Empty
+                ? payload.OverrideStatus.LastOverrideMessage
                 : payload.Status.LastResultMessage;
+            PlayerInvincible = payload.OverrideStatus.PlayerInvincible;
+            PlayerInvincibleText = PlayerInvincible
+                ? "Player Invincible: ON"
+                : "Player Invincible: OFF";
             CanStartSelectedStage = SelectedStageId.IsValid && !payload.Status.IsSceneTransitionInProgress;
             CanForceClearCurrentStage = !payload.Status.IsCompletionInProgress;
             Changed?.Invoke();

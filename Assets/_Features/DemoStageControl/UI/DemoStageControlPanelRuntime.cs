@@ -10,6 +10,7 @@ namespace Game.Feature.DemoStageControl.UI
     public sealed class DemoStageControlPanelRuntime : IPopupRuntime, IUiNavigationTargetProvider
     {
         private readonly IDemoStageControlCommandPort _commandPort;
+        private readonly IDemoGameplayOverrideCommandPort _overrideCommandPort;
         private readonly Action _dispose;
         private readonly DemoStageControlPanelView _view;
         private readonly DemoStageControlPanelViewModel _viewModel;
@@ -18,17 +19,20 @@ namespace Game.Feature.DemoStageControl.UI
         public DemoStageControlPanelRuntime(
             DemoStageControlPanelView view,
             IDemoStageControlCommandPort commandPort,
+            IDemoGameplayOverrideCommandPort overrideCommandPort,
             DemoStageControlPanelPayload initialPayload,
             Action dispose)
         {
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _commandPort = commandPort ?? throw new ArgumentNullException(nameof(commandPort));
+            _overrideCommandPort = overrideCommandPort;
             _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
             _viewModel = new DemoStageControlPanelViewModel();
             _view.Bind(_viewModel);
             _view.SelectedStageChanged += HandleSelectedStageChanged;
             _view.StartStageClicked += HandleStartStageClicked;
             _view.ForceClearClicked += HandleForceClearClicked;
+            _view.PlayerInvincibleToggled += HandlePlayerInvincibleToggled;
             ApplyPayload(initialPayload);
         }
 
@@ -43,6 +47,7 @@ namespace Game.Feature.DemoStageControl.UI
             _view.SelectedStageChanged -= HandleSelectedStageChanged;
             _view.StartStageClicked -= HandleStartStageClicked;
             _view.ForceClearClicked -= HandleForceClearClicked;
+            _view.PlayerInvincibleToggled -= HandlePlayerInvincibleToggled;
             _view.Bind(null);
             _view.IsVisible = false;
             _dispose();
@@ -78,6 +83,18 @@ namespace Game.Feature.DemoStageControl.UI
             Refresh();
         }
 
+        private void HandlePlayerInvincibleToggled(bool enabled)
+        {
+            if (_overrideCommandPort == null)
+            {
+                Refresh();
+                return;
+            }
+
+            _overrideCommandPort.SetPlayerInvincible(enabled);
+            Refresh();
+        }
+
         private void ApplyPayload(DemoStageControlPanelPayload payload)
         {
             if (payload == null)
@@ -94,7 +111,8 @@ namespace Game.Feature.DemoStageControl.UI
         {
             ApplyPayload(new DemoStageControlPanelPayload(
                 _commandPort.GetStages(),
-                _commandPort.GetStatus()));
+                _commandPort.GetStatus(),
+                _overrideCommandPort?.GetOverrideStatus() ?? default));
         }
     }
 }
