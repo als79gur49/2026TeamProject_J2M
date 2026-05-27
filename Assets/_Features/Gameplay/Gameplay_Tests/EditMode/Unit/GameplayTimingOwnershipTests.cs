@@ -1296,6 +1296,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayPresentationBarrierTracker_B1DueContactStageClear_UsesMinimumVisibilityWindow()
+        {
+            var tracker = new GameplayPresentationBarrierTracker();
+
+            var delaySeconds = tracker.RegisterFromTick(
+                CreateStageClearDueContactTickResult(includeDueContact: true),
+                GameplayTimingProfile.CreateDefault());
+
+            Assert.That(
+                delaySeconds,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipB1DueContactStageClearBarrierSeconds).Within(0.0001f));
+            Assert.That(tracker.Advance(delaySeconds * 0.5f), Is.False);
+            Assert.That(tracker.Advance(delaySeconds * 0.6f), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPresentationBarrierTracker_UnrelatedStageClear_DoesNotAddB1DueContactBarrier()
+        {
+            var tracker = new GameplayPresentationBarrierTracker();
+
+            var delaySeconds = tracker.RegisterFromTick(
+                CreateStageClearDueContactTickResult(includeDueContact: false),
+                GameplayTimingProfile.CreateDefault());
+
+            Assert.That(delaySeconds, Is.Zero);
+            Assert.That(tracker.Advance(GameplayPresentationTimingConstants.FlipB1DueContactStageClearBarrierSeconds), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayAnimationSyncCoordinator_ActionAttemptPush_HoldsUntilPlaybackComplete_EvenWhenNextTickHasWalk()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_ActionAttemptPush_HoldsUntilPlaybackComplete_EvenWhenNextTickHasWalk");
@@ -4481,6 +4512,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             sourceTileId: 100,
                             new SurfaceCell(FaceId.Floor, 1, 1)),
                     }),
+                string.Empty,
+                TickTrace.Empty,
+                new StageObjectiveTickResult(
+                    hasObjective: true,
+                    goalReached: true,
+                    allConditionsSatisfied: true,
+                    clearedThisTick: true,
+                    isCleared: true,
+                    Array.Empty<StageConditionStatus>()));
+        }
+
+        private static TickResult CreateStageClearDueContactTickResult(bool includeDueContact)
+        {
+            return new TickResult(
+                12,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { CreatePlayerEntity() },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEnemyChargePresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
+                    flipDueContactSignals: includeDueContact
+                        ? new[]
+                        {
+                            new FlipDueContactPresentationSignal(
+                                sourceActionPlanId: 100,
+                                boxEntityId: 20,
+                                actorEntityId: 10,
+                                hitEntityId: 30,
+                                sourceCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                                contactCell: new SurfaceCell(FaceId.Floor, -1, 0),
+                                landingCell: new SurfaceCell(FaceId.Floor, -1, 0),
+                                new CubeTopologyState(FaceId.Floor),
+                                Direction.Right,
+                                Direction.Right,
+                                FlipContactResolutionKind.HitHostileDiedSettlementAllowed,
+                                FlipBoxDisposition.MaterializeAtLanding,
+                                hasMaterializeCell: true,
+                                materializeCell: new SurfaceCell(FaceId.Floor, -1, 0)),
+                        }
+                        : Array.Empty<FlipDueContactPresentationSignal>()),
                 string.Empty,
                 TickTrace.Empty,
                 new StageObjectiveTickResult(

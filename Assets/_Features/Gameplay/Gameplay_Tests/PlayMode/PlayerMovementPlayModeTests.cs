@@ -3,14 +3,18 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Stages;
 using Game.Shared.Input;
 using NUnit.Framework;
 using Unity.Cinemachine;
@@ -979,6 +983,189 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
+        public IEnumerator FlipB1_PlayMode_MovingEnemyDoesNotFreezeBeforeDue()
+        {
+            var contactCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var movedCell = new SurfaceCell(FaceId.Floor, -2, 0);
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateInFlightFlipBox(entityId: 30, sourceCell: new SurfaceCell(FaceId.Floor, 1, 0)),
+                    CreateHostileUnit(entityId: 40, position: contactCell, hp: 3),
+                },
+                staticEntityLogics: new IEntityLogic[]
+                {
+                    new StubMovementLogic(
+                        new RawMovementIntent(
+                            sourceId: 40,
+                            priority: 200,
+                            destination: movedCell.PlanarPosition,
+                            MovementCommandKind.Move,
+                            localSequence: 0),
+                        tickIndex: 2),
+                });
+
+            SeedFlipB1Contact(host, dueTick: 3);
+
+            var preDueTick = host.InputHost.RunSingleTick();
+            Assert.That(preDueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(preDueTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 40), Is.False);
+
+            var moveTick = host.InputHost.RunSingleTick();
+            var movedSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(moveTick, Is.Not.Null);
+            Assert.That(moveTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(moveTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 40), Is.False);
+            Assert.That(movedSnapshot.TryGetEntity(40, out var movedEnemy), Is.True);
+            Assert.That(movedEnemy.position, Is.EqualTo(movedCell));
+            Assert.That(movedEnemy.hp, Is.EqualTo(3));
+            AdvancePresentation(host, host.TimingProfile.MoveMotionDurationSeconds);
+            AssertViewMatchesProjectedState(host, 40);
+
+            var dueTick = RunUntilFlipB1Due(host, alreadyAdvancedTicksAfterExecute: 2);
+            var dueSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.EmptyLand));
+            Assert.That(dueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(dueTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 40), Is.False);
+            Assert.That(dueSnapshot.TryGetEntity(40, out var originalEnemy), Is.True);
+            Assert.That(originalEnemy.position, Is.EqualTo(movedCell));
+            Assert.That(originalEnemy.hp, Is.EqualTo(3));
+            Assert.That(dueSnapshot.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(contactCell));
+            Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator FlipB1_PlayMode_DueDeathUsesExitOwnedTail()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateInFlightFlipBox(entityId: 30, sourceCell: new SurfaceCell(FaceId.Floor, 1, 0)),
+                CreateHostileUnit(entityId: 40, position: new SurfaceCell(FaceId.Floor, -1, 0), hp: 1),
+            });
+
+            SeedFlipB1Contact(host, dueTick: 2);
+            var preDueTick = host.InputHost.RunSingleTick();
+            Assert.That(preDueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(preDueTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 40), Is.False);
+            Assert.That(host.ViewRegistry.TryGetView(40, out var enemyView), Is.True);
+            Assert.That(enemyView.gameObject.activeSelf, Is.True);
+
+            var dueTick = RunUntilFlipB1Due(host, alreadyAdvancedTicksAfterExecute: 1);
+            var dueSnapshot = CaptureAuthoritativeSnapshot(host);
+            var exitSignal = dueTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 40);
+
+            Assert.That(dueTick.PresentationData.EnemyDamageSignals.Single().EntityId, Is.EqualTo(40));
+            Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.Immediate));
+            Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(dueSnapshot.TryGetEntity(40, out _), Is.False);
+            Assert.That(enemyView.gameObject.activeSelf, Is.False);
+            Assert.That(
+                Resources.FindObjectsOfTypeAll<GameplayEntityView>().Count(view => view.EntityId == 40 && view.gameObject.activeInHierarchy),
+                Is.LessThanOrEqualTo(1));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator FlipB1_PlayMode_StageResultDoesNotCoverDueContact()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, teamId: 1, facing: Direction.Up, unitRole: UnitRole.Player),
+                    CreateInFlightFlipBox(entityId: 30, sourceCell: new SurfaceCell(FaceId.Floor, 1, 0)),
+                    CreateHostileUnit(entityId: 40, position: new SurfaceCell(FaceId.Floor, -1, 0), hp: 1, unitRole: UnitRole.Enemy),
+                },
+                objectiveDefinition: CreateAllEnemiesDefeatedObjective(),
+                stageContentEntry: CreateStageContentEntry("flip-b1-playmode-clear"));
+
+            SeedFlipB1Contact(host, dueTick: 1);
+
+            var dueTick = RunUntilFlipB1Due(host, alreadyAdvancedTicksAfterExecute: 0);
+            var exitSignal = dueTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 40);
+
+            Assert.That(dueTick.ObjectiveResult.ClearedThisTick, Is.True);
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.Immediate));
+            Assert.That(host.CurrentObjectiveResult.ClearedThisTick, Is.True);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator FlipB1_PlayMode_DifferentEnemyEnteringContactCellGetsHit()
+        {
+            var contactCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
+                CreateInFlightFlipBox(entityId: 30, sourceCell: new SurfaceCell(FaceId.Floor, 1, 0)),
+                CreateHostileUnit(entityId: 40, position: contactCell, hp: 3),
+            });
+
+            SeedFlipB1Contact(host, dueTick: 2);
+            var preDueTick = host.InputHost.RunSingleTick();
+            Assert.That(preDueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            MoveEntity(host.WorldState, 40, new SurfaceCell(FaceId.Floor, -2, 0));
+            SpawnEntity(host.WorldState, CreateHostileUnit(entityId: 41, position: contactCell, hp: 3));
+
+            var dueTick = RunUntilFlipB1Due(host, alreadyAdvancedTicksAfterExecute: 1);
+            var dueSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().HitEntityId, Is.EqualTo(41));
+            Assert.That(dueTick.PresentationData.EnemyDamageSignals.Single().EntityId, Is.EqualTo(41));
+            Assert.That(dueTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 40), Is.False);
+            Assert.That(dueSnapshot.TryGetEntity(40, out var originalEnemy), Is.True);
+            Assert.That(originalEnemy.hp, Is.EqualTo(3));
+            Assert.That(dueSnapshot.TryGetEntity(41, out var enteredEnemy), Is.True);
+            Assert.That(enteredEnemy.hp, Is.EqualTo(2));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator FlipB1_PlayMode_OriginalEnemyMovedAwayDoesNotGetHit()
+        {
+            var contactCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
+                CreateInFlightFlipBox(entityId: 30, sourceCell: new SurfaceCell(FaceId.Floor, 1, 0)),
+                CreateHostileUnit(entityId: 40, position: contactCell, hp: 3),
+            });
+
+            SeedFlipB1Contact(host, dueTick: 2);
+            var preDueTick = host.InputHost.RunSingleTick();
+            Assert.That(preDueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            MoveEntity(host.WorldState, 40, new SurfaceCell(FaceId.Floor, -2, 0));
+
+            var dueTick = RunUntilFlipB1Due(host, alreadyAdvancedTicksAfterExecute: 1);
+            var dueSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.EmptyLand));
+            Assert.That(dueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(dueTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 40), Is.False);
+            Assert.That(dueSnapshot.TryGetEntity(40, out var originalEnemy), Is.True);
+            Assert.That(originalEnemy.hp, Is.EqualTo(3));
+            Assert.That(originalEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         [Category("Full")]
         public IEnumerator GameplayInputHost_NoSampledDirection_DropsBufferedPushAndFlip()
         {
@@ -1298,7 +1485,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
             Camera viewCamera = null,
             GameplayEntityView playerViewPrefabOverride = null,
-            GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null)
+            GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            StageContentEntry stageContentEntry = null)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1342,6 +1531,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 MaxTicksPerFrame = 8,
                 MoveDeadzone = 0.5f,
                 MoveMotionDurationSeconds = moveMotionDurationSeconds,
+                ObjectiveRuntimeDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds,
                 BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
                 PlayerEntityId = 10,
@@ -1350,6 +1540,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 PushMotionDurationSeconds = 0.2f,
                 RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
                 SimulationTicksPerSecond = 60,
+                StageContentEntry = stageContentEntry,
                 StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
                 SnapViewCameraToTarget = viewCamera != null,
                 TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile ?? TopologyTransitionPostFxProfile.CreateDefault(),
@@ -1383,6 +1574,37 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 state = EntityPhaseState.Idle,
                 facing = facing,
             };
+        }
+
+        private static EntityState CreateUnit(
+            int entityId,
+            SurfaceCell position,
+            int hp,
+            int teamId,
+            Direction facing = Direction.Right,
+            UnitRole unitRole = UnitRole.None)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = hp,
+                maxHp = hp,
+                teamId = teamId,
+                type = EntityType.Unit,
+                unitRole = unitRole,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+            };
+        }
+
+        private static EntityState CreateHostileUnit(
+            int entityId,
+            SurfaceCell position,
+            int hp,
+            UnitRole unitRole = UnitRole.None)
+        {
+            return CreateUnit(entityId, position, hp, teamId: 2, facing: Direction.Right, unitRole: unitRole);
         }
 
         private static EntityState CreateWall(int entityId, Vector2Int position)
@@ -1424,6 +1646,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 facing = Direction.Right,
                 boxCapabilities = capabilities,
             };
+        }
+
+        private static EntityState CreateInFlightFlipBox(int entityId, SurfaceCell sourceCell)
+        {
+            var box = CreateBox(entityId, sourceCell, BoxCapabilities.Flip);
+            box.boardPresence = EntityBoardPresence.InFlight;
+            return box;
         }
 
         private static IEnumerator DestroyHost(GameplaySceneHost host, UnityEngine.Object ownedActions = null)
@@ -1483,6 +1712,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static void ApplyAuthoritativeDamage(WorldState worldState, int entityId, int amount)
         {
             InvokeWorldWriteContextMethod(worldState, "ApplyDamage", entityId, amount);
+        }
+
+        private static void MoveEntity(WorldState worldState, int entityId, SurfaceCell destination)
+        {
+            InvokeWorldWriteContextMethod(worldState, "MoveEntity", entityId, destination);
+        }
+
+        private static void SpawnEntity(WorldState worldState, EntityState entity)
+        {
+            InvokeWorldWriteContextMethod(worldState, "SpawnEntity", entity);
+        }
+
+        private static void AddScheduledFlipContact(WorldState worldState, ScheduledFlipContact contact)
+        {
+            InvokeWorldWriteContextMethod(worldState, "AddScheduledFlipContact", contact);
         }
 
         private static void InvokeWorldWriteContextMethod(WorldState worldState, string methodName, params object[] arguments)
@@ -1554,6 +1798,59 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return null;
         }
 
+        private static TickResult RunUntilFlipB1Due(
+            GameplaySceneHost host,
+            int alreadyAdvancedTicksAfterExecute = 0)
+        {
+            TickResult result = null;
+            var remainingTicks = GameplayTimingProfile.DefaultFlipContactDelayTicks - alreadyAdvancedTicksAfterExecute;
+            Assert.That(remainingTicks, Is.GreaterThanOrEqualTo(0));
+            for (var i = 0; i <= remainingTicks + 2; i++)
+            {
+                result = host.InputHost.RunSingleTick();
+                Assert.That(result, Is.Not.Null);
+                if (result.PresentationData.FlipDueContactSignals.Count > 0)
+                {
+                    return result;
+                }
+            }
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.FlipDueContactSignals, Has.Count.EqualTo(1));
+            return result;
+        }
+
+        private static void SeedFlipB1Contact(GameplaySceneHost host, int dueTick)
+        {
+            var contactCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var actionId = 3000 + dueTick;
+            AddScheduledFlipContact(
+                host.WorldState,
+                new ScheduledFlipContact(
+                    actionId,
+                    actorEntityId: 10,
+                    sourceBoxEntityId: 30,
+                    sourceCell: sourceCell,
+                    contactCell: contactCell,
+                    landingCell: contactCell,
+                    flipDirection: Direction.Right,
+                    sourceFace: sourceCell.face,
+                    sourceCapabilitiesSnapshot: BoxCapabilities.Flip,
+                    damageSpec: new FlipImpactDamageSpec(
+                        damageAmount: 1,
+                        damageKind: FlipImpactDamageKind.Impact,
+                        sourceKind: AttackSourceKind.ImpactReservation,
+                        sourceActionId: actionId),
+                    kineticInstigatorEntityId: 10,
+                    kineticInstigatorTeamId: 1,
+                    executeTick: 0,
+                    dueTick,
+                    orderingKey: 0,
+                    FlipContactCancellationPolicy.SafeReturnOrDestroy,
+                    FlipContactDispositionPolicy.DefaultB1HostileImpact));
+        }
+
         private static void AdvancePresentation(GameplaySceneHost host, float durationSeconds)
         {
             var stepSeconds = Mathf.Max(host.TimingProfile.SimulationTickIntervalSeconds, 1f / 60f);
@@ -1607,6 +1904,35 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static WorldSnapshot CaptureAuthoritativeSnapshot(GameplaySceneHost host)
         {
             return GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+        }
+
+        private static StageContentEntry CreateStageContentEntry(string stageId)
+        {
+            var entry = ScriptableObject.CreateInstance<StageContentEntry>();
+            entry.AssignStageId(StageId.CreateOrThrow(stageId));
+            return entry;
+        }
+
+        private static StageObjectiveRuntimeDefinition CreateAllEnemiesDefeatedObjective()
+        {
+            return new StageObjectiveRuntimeDefinition(
+                StageCompletionPolicy.RequireAllConditions,
+                playerEntityId: 10,
+                zones: new[]
+                {
+                    new StageZoneRuntimeDefinition(
+                        "unused",
+                        FaceId.Floor,
+                        new[] { new StageZoneRuntimeRegion(Vector2Int.zero, Vector2Int.zero) }),
+                },
+                conditionEntries: new[]
+                {
+                    new StageObjectiveConditionRuntimeDefinitionEntry(
+                        new AllEnemiesDefeatedConditionRuntimeDefinition(),
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "all-enemies-defeated"),
+                });
         }
 
         private static class GameplayCameraRigReflectionAdapter
@@ -1745,6 +2071,89 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 if (snapshot.TryGetEntity(_sourceId, out var source) && source.hp > 0 && !source.markedForDeath)
                 {
                     buffer.Add(RawAttackIntent.CreateFireProjectile(_sourceId, _priority));
+                }
+            }
+        }
+
+        private sealed class StubMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly RawMovementIntent _intent;
+            private readonly int _tickIndex;
+
+            public StubMovementLogic(RawMovementIntent intent, int tickIndex)
+            {
+                _intent = intent;
+                _tickIndex = tickIndex;
+                SourceEntityId = intent.SourceId;
+            }
+
+            public int SourceEntityId { get; }
+
+            public int ControlledEntityId => SourceEntityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (input.TickIndex != _tickIndex ||
+                    !snapshot.TryGetEntity(SourceEntityId, out _))
+                {
+                    return;
+                }
+
+                buffer.Add(_intent);
+            }
+        }
+
+        private sealed class AllEnemiesDefeatedConditionRuntimeDefinition : StageConditionRuntimeDefinition
+        {
+            public AllEnemiesDefeatedConditionRuntimeDefinition()
+                : base("all-enemies-defeated", "All Enemies Defeated")
+            {
+            }
+
+            public override IStageConditionRuntime CreateRuntime()
+            {
+                return new Runtime(ConditionId, DisplayName);
+            }
+
+            private sealed class Runtime : IStageConditionRuntime
+            {
+                private readonly string _conditionId;
+                private readonly string _displayName;
+
+                public Runtime(string conditionId, string displayName)
+                {
+                    _conditionId = conditionId;
+                    _displayName = displayName;
+                }
+
+                public bool IsSatisfied { get; private set; }
+
+                public void Reset()
+                {
+                    IsSatisfied = false;
+                }
+
+                public void Advance(WorldSnapshot finalSnapshot, in StageObjectiveTickFacts tickFacts)
+                {
+                    var entities = new List<EntityState>();
+                    finalSnapshot.EnumerateEntitiesOrdered(entities);
+                    IsSatisfied = !entities.Any(entity =>
+                        EntityRolePolicy.IsEnemyUnit(entity) &&
+                        entity.hp > 0 &&
+                        !entity.markedForDeath);
+                }
+
+                public StageConditionStatus CreateStatus()
+                {
+                    return new StageConditionStatus(
+                        _conditionId,
+                        _displayName,
+                        "AllEnemiesDefeatedPlayModeCondition",
+                        IsSatisfied,
+                        $"Satisfied={(IsSatisfied ? 1 : 0)}");
                 }
             }
         }
