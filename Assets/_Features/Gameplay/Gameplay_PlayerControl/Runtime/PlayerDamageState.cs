@@ -39,6 +39,14 @@ namespace Game.Feature.Gameplay.PlayerControl
             int tickIndex,
             int damageCooldownTicks)
         {
+            return ConsumeReceiverCooldown(state, tickIndex, damageCooldownTicks);
+        }
+
+        public static PlayerDamageState ConsumeReceiverCooldown(
+            in PlayerDamageState state,
+            int tickIndex,
+            int damageCooldownTicks)
+        {
             if (damageCooldownTicks < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(damageCooldownTicks));

@@ -965,6 +965,46 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_WhenOffAgain_DamageWaitsForReceiverCooldownThenAppliesAgain",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage that PlayerInvincible rejected contact consumes the receiver cooldown before normal damage can resume.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_PassiveContactOverlap_ConsumesReceiverCooldown",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage that invincible passive contact rejection writes only player damage cooldown state.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_PassiveContactOverlap_DoesNotRetryInvincibleEveryTick",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage that repeated invincible overlap is bounded by receiver cooldown cadence.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_RejectedDamage_DoesNotEmitCorePlayerDamageAudio",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "gameplay_audio_request_contract"
+      ],
+      "reason": "Locked Core coverage that cooldown-only invincible rejection does not emit core PlayerDamage audio.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_DetachedEntityWithoutDestroyMark_RemainsDetachedAndSurvivesCleanup",
       "category": "Core",
       "contracts": [
@@ -3206,6 +3246,34 @@
         "gameplay_audio_overlap_refactor"
       ],
       "reason": "Locked Core coverage for action audio exact duplicate handling.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.DemoStageControlTests.PlayerInvincible_DoesNotDependOnEnemyProfileNames",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_architecture_guard"
+      ],
+      "reason": "Locked Core architecture coverage that PlayerInvincible production code is not bound to representative enemy profile names.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.DemoStageControlTests.PlayerInvincible_DoesNotImplementEnemiesIgnorePlayer",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_architecture_guard"
+      ],
+      "reason": "Locked Core architecture coverage that PlayerInvincible does not hide the player from target eligibility or snapshot reads.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.DemoStageControlTests.AudioRuntime_DoesNotAddGameplaySpecificSuppressRules",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_architecture_guard",
+        "gameplay_audio_runtime_boundary"
+      ],
+      "reason": "Locked Core architecture coverage that shared audio runtime stays free of PlayerInvincible and passive-contact suppression rules.",
       "locked": true
     },
     {

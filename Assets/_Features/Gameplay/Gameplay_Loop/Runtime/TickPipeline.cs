@@ -8569,20 +8569,36 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     var damageWrite = payload.DamageWrites[damageIndex];
                     var damageResolution = FindDamageResolution(damageResolutions, actionPlanId, damageWrite.TargetEntityId, damageIndex);
-                    if (!TryFindResolutionRecord(resolutionRecords, ContestKind.Damage, actionPlanId, damageIndex, out var damageContestResolution) ||
+                    var hasDamageContestResolution = TryFindResolutionRecord(
+                        resolutionRecords,
+                        ContestKind.Damage,
+                        actionPlanId,
+                        damageIndex,
+                        out var damageContestResolution);
+                    if (!hasDamageContestResolution ||
                         !damageContestResolution.Accepted)
                     {
+                        if (hasDamageContestResolution &&
+                            damageResolution.ConsumesReceiverCooldown &&
+                            damageResolution.HasPlayerDamageState)
+                        {
+                            batch.SetPlayerDamageState(
+                                damageResolution.TargetId,
+                                damageResolution.PlayerDamageState,
+                                CreateAttackMetadata(payload, damageContestResolution, damageIndex, attackSourceKind: damageWrite.AttackSourceKind));
+                        }
+
                         var sourceKindSuffix = BuildSourceKindSuffix(damageWrite.AttackSourceKind);
                         commitEvents.Add(
                             $"DamageRejected|G={actionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}{sourceKindSuffix}|Target={damageWrite.TargetEntityId}|Amount={damageWrite.Amount}|Reason={damageResolution.RejectReason}");
                         continue;
                     }
 
-                    if (damageWrite.HasPlayerDamageState)
+                    if (damageResolution.HasPlayerDamageState)
                     {
                         batch.SetPlayerDamageState(
-                            damageWrite.TargetEntityId,
-                            damageWrite.PlayerDamageState,
+                            damageResolution.TargetId,
+                            damageResolution.PlayerDamageState,
                             CreateAttackMetadata(payload, damageContestResolution, damageIndex, attackSourceKind: damageWrite.AttackSourceKind));
                     }
 
@@ -9447,23 +9463,6 @@ namespace Game.Feature.Gameplay.Loop
                             : default;
                     }
 
-                    if (demoGameplayOverrideSnapshot.PlayerInvincible)
-                    {
-                        playerDamageStatesByEntityId[damageWrite.TargetEntityId] = damageState;
-                        damageResolutions.Add(
-                            new DamageResolutionRecord(
-                                payload.ActionPlanId,
-                                payload.IntentId,
-                                payload.SourceActorEntityId,
-                                damageWrite.AttackSourceKind,
-                                damageWrite.TargetEntityId,
-                                damageWrite.Amount,
-                                accepted: false,
-                                DamageRejectReason.PlayerInvincible,
-                                localActionIndex: damageIndex));
-                        continue;
-                    }
-
                     if (!PlayerDamageQueries.CanAcceptDamage(damageState, tickIndex))
                     {
                         playerDamageStatesByEntityId[damageWrite.TargetEntityId] = damageState;
@@ -9478,6 +9477,30 @@ namespace Game.Feature.Gameplay.Loop
                                 accepted: false,
                                 DamageRejectReason.ReceiverCooldown,
                                 localActionIndex: damageIndex));
+                        continue;
+                    }
+
+                    if (demoGameplayOverrideSnapshot.PlayerInvincible)
+                    {
+                        var cooldownState = PlayerDamageQueries.ConsumeReceiverCooldown(
+                            damageState,
+                            tickIndex,
+                            _playerDamageCooldownTicks);
+                        playerDamageStatesByEntityId[damageWrite.TargetEntityId] = cooldownState;
+                        damageResolutions.Add(
+                            new DamageResolutionRecord(
+                                payload.ActionPlanId,
+                                payload.IntentId,
+                                payload.SourceActorEntityId,
+                                damageWrite.AttackSourceKind,
+                                damageWrite.TargetEntityId,
+                                damageWrite.Amount,
+                                accepted: false,
+                                DamageRejectReason.PlayerInvincible,
+                                localActionIndex: damageIndex,
+                                hasPlayerDamageState: true,
+                                playerDamageState: cooldownState,
+                                consumesReceiverCooldown: true));
                         continue;
                     }
 

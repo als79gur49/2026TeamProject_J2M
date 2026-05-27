@@ -4129,7 +4129,11 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                executedEntityIds.Add(resolutionRecord.SourceId);
+                if (HasEnemyActionExecutionPresentation(context.AttackPhaseResult, resolutionRecord.ActionPlanId))
+                {
+                    executedEntityIds.Add(resolutionRecord.SourceId);
+                }
+
                 if (seenEntityIds.Add(resolutionRecord.SourceId))
                 {
                     candidateEntityIds.Add(resolutionRecord.SourceId);
@@ -4168,6 +4172,29 @@ namespace Game.Feature.Gameplay.Loop
                         executedEntityIds.Contains(entityId),
                         DidStartEnemyRecovery(context.PostMovementSnapshot, context.PostAttackSnapshot, entityId)));
             }
+        }
+
+        private static bool HasEnemyActionExecutionPresentation(AttackPhaseResult attackPhaseResult, int actionPlanId)
+        {
+            var sawDamageResolution = false;
+            var damageResolutions = attackPhaseResult.DamageResolutions;
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                var damageResolution = damageResolutions[i];
+                if (damageResolution.ActionPlanId != actionPlanId)
+                {
+                    continue;
+                }
+
+                sawDamageResolution = true;
+                if (damageResolution.Accepted ||
+                    damageResolution.RejectReason != DamageRejectReason.ReceiverCooldown)
+                {
+                    return true;
+                }
+            }
+
+            return !sawDamageResolution;
         }
 
         private static void BuildEnemyDamagePresentation(

@@ -217,6 +217,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(sources, Does.Not.Contain("SetPlayerHp"));
         }
 
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_DoesNotDependOnEnemyProfileNames()
+        {
+            var sources = string.Join(
+                Environment.NewLine,
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/AttackPhaseResult.cs"),
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerDamageState.cs"));
+
+            Assert.That(sources, Does.Not.Contain("JPeter"));
+            Assert.That(sources, Does.Not.Contain("Nebulous"));
+            Assert.That(sources, Does.Not.Contain("Nebuolus"));
+            Assert.That(sources, Does.Not.Contain("DrSaturn"));
+            Assert.That(sources, Does.Not.Contain("Saturn"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_DoesNotImplementEnemiesIgnorePlayer()
+        {
+            var sources = string.Join(
+                Environment.NewLine,
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldSnapshot.cs"),
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyTargetSelector.cs"));
+
+            Assert.That(sources, Does.Not.Contain("EnemiesIgnorePlayer"));
+            Assert.That(sources, Does.Not.Contain("IgnorePlayer"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AudioRuntime_DoesNotAddGameplaySpecificSuppressRules()
+        {
+            var sources = string.Join(
+                Environment.NewLine,
+                File.ReadAllText("Assets/_Shared/Audio/Runtime/AudioPlaybackService.cs"),
+                File.ReadAllText("Assets/_Shared/Audio/Runtime/AudioManager.cs"));
+
+            Assert.That(sources, Does.Not.Contain("PlayerInvincible"));
+            Assert.That(sources, Does.Not.Contain("DamageRejectReason"));
+            Assert.That(sources, Does.Not.Contain("PassiveContact"));
+        }
+
         private DemoStageControlService CreateService(
             IReadOnlyList<StageContentEntry> entries,
             out SaveSlotStore saveStore,
