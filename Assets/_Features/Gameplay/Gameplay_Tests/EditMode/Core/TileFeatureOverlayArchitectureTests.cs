@@ -97,6 +97,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(document, Does.Contain("TileFeature is not Unit/Solid/Projectile occupancy."));
             Assert.That(document, Does.Contain("Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`"));
             Assert.That(document, Does.Contain("Box + TileFeature is allowed."));
+            Assert.That(document, Does.Contain("TileFeature overlay names are not interpreted uniformly as blockers."));
+            Assert.That(document, Does.Contain("All checks are `SurfaceCell(face,x,y)`-aware and must not flatten same-planar coordinates across faces."));
             Assert.That(document, Does.Contain("Other Solid + TileFeature"));
             Assert.That(document, Does.Contain("requires an explicit future policy decision"));
             Assert.That(document, Does.Contain("## Implemented Order"));
@@ -197,6 +199,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "A logical TileFeature activation transition may produce an occupant effect for a valid Box or lethal Ground Unit on the same `SurfaceCell`; Air Unit hazard exceptions remain preserved.",
                 "Player-authored ordinary Move into an active DestroyTile is rejected during movement expansion using the topology-resolved destination cell.",
                 "DestroyTile is not a global traversal blocker; do not model it as runtime traversal, placement, or settlement blockage.",
+                "Active DestroyTile is a non-hard-blocking risk/avoidance candidate for Jpeter summon placement and Astreton jump landing settlement",
                 "The player DestroyTile access guard applies only to voluntary player movement and does not apply to enemy, box, projectile, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.",
                 "Free2D same-face voluntary player movement injects a scoped active DestroyTile predicate into the existing CollisionRadius-based continuous locomotion blocker/clamp structure.",
                 "Free2D same-face DestroyTile access must not use DestroyTile-specific approach helpers or manual local-offset clamps.",
@@ -222,9 +225,10 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "TileFeatureAudio is separate from core GameplayAudio, GameplayActionAudio, and UI audio lanes.",
                 "Only Sfx one-shot playback is allowed.",
                 "`StagePresentationDefinition` has no TileFeature audio binding.",
-                "Barricade is a TileFeature movement blocker.",
+                "Barricade is a hard TileFeature blocker.",
                 "Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.",
-                "Active Barricade blocks Unit ground traversal, including player, enemy, and future NPC/friendly units.",
+                "Active Barricade blocks Unit ground traversal, placement, and settlement, including player, enemy, and future NPC/friendly units.",
+                "Active Barricade blocks Jpeter summon placement and Astreton jump landing settlement through TileFeature legality blockers such as `LegalityBlockerKind.TileFeature`.",
                 "Barricade does not occupy Unit, Solid, or Projectile layer.",
                 "Barricade does not invalidate existing Unit occupancy.",
                 "EnemyParticipationPolicy is unchanged; current enemy bottom-face participation remains unchanged.",
@@ -234,6 +238,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Exit open is not mutable TileFeature state and must not reuse `TileFeatureFlags.Activated`.",
                 "Same-tick open and enter emits both events, ordered `ExitOpened` before `ExitEntered`.",
                 "Live MoonBlock no-op and inactive generator do not emit `MoonBlockGeneratorBlocked`.",
+                "MoonBlockGenerator feature itself is not a placement or settlement blocker; generated MoonBlock Solid is the authoritative blocker.",
             };
 
             for (var i = 0; i < requiredSnippets.Length; i++)

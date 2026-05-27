@@ -24,6 +24,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string CombinedArchetypeCatalogPath =
             StageContentPaths.SharedEnemyAiRoot + "/Catalogs/EnemyUnitArchetypeCatalog_CombinedGameplayShowcase.asset";
 
+        // Jpeter is the ArchetypeSummoner utility profile: windup arms SummonMinion state, then resolve revalidates summon placement.
+
         [Test]
         [Category("Extended")]
         public void EnemyUtility_JPeterProfile_WindupArmsSummonEffectButDoesNotCreateSummoned()
@@ -173,6 +175,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(CountUnitsAt(worldState.CreateSnapshot(), forwardCell), Is.EqualTo(1));
         }
 
+        // TileFeature summon placement policy is face-aware: DestroyTile is risk/avoidance, active Barricade is a hard TileFeature blocker, and generated MoonBlock Solid is the Solid blocker.
+
         [Test]
         [Category("Extended")]
         public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSummonCellBlocksPlacementWithoutGhost()
@@ -200,7 +204,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_MoonBlockGeneratorPlacementBlockerBehaviorIsObserved()
+        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidBlocksSummonPlacementAndUsesFallback()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -216,14 +220,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CreatePipeline(worldState).RunTick(new TickInput(1));
             var child = GetSingleSummonedChild(worldState);
 
-            Assert.That(child.position, Is.EqualTo(rightCell), "CurrentContract: the moon box blocks via Solid occupancy; the generator tile is not itself the Unit placement blocker.");
+            Assert.That(child.position, Is.EqualTo(rightCell), "Generated MoonBlock Solid blocks summon placement; the MoonBlockGenerator feature itself remains non-blocking.");
             Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(forwardCell, out var solid), Is.True);
             Assert.That(solid.Kind, Is.EqualTo(SolidKind.Box));
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BlockerOnSamePlanarDifferentFaceDoesNotAffectSummonCandidate()
+        public void EnemyUtility_JPeterProfile_SolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
         {
             var floorForward = new SurfaceCell(FaceId.Floor, 1, 0);
             var frontSamePlanar = new SurfaceCell(FaceId.Front, 1, 0);
@@ -244,7 +248,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_DestroyTileAppearsDuringWindup_RevalidatesCandidateAtResolve()
+        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileAppearsDuringWindup_RevalidatesPlacementAndAvoidsRiskAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -265,7 +269,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeAppearsDuringWindup_RevalidatesCandidateAndBlocksAtResolve()
+        public void EnemyUtility_JPeterProfile_ActivatedBarricadeAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -286,7 +290,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_MoonBlockGeneratorCreatesSolidDuringWindup_RevalidatesCandidateAtResolve()
+        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -299,7 +303,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             pipeline.RunTick(new TickInput(2));
             var child = GetSingleSummonedChild(worldState);
 
-            Assert.That(child.position, Is.EqualTo(rightCell), "CurrentContract: generated Moon Solid blocks the forward candidate, then Jpeter selects the next legal candidate.");
+            Assert.That(child.position, Is.EqualTo(rightCell), "Generated MoonBlock Solid blocks the forward summon placement candidate, then Jpeter selects the next legal candidate.");
             Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(forwardCell, out var solid), Is.True);
             Assert.That(solid.Kind, Is.EqualTo(SolidKind.Box));
             AssertSummonedMetadata(worldState, child.entityId);
@@ -308,7 +312,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectSummonCandidate()
+        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -327,7 +331,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockSummonCandidate()
+        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockSummonPlacementSurfaceCell()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -388,7 +392,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_MoonBlockGeneratorOnSamePlanarOtherFace_DoesNotAffectSummonCandidate()
+        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -432,7 +436,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CreatePipeline(worldState).RunTick(new TickInput(1));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover), "CurrentContract: blocked summon execution still enters Recover instead of staying in Windup.");
+            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover), "CurrentPolicy: blocked summon execution enters Recover instead of staying in Windup.");
             Assert.That(state.recoverEndTickExclusive, Is.GreaterThan(1));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             AssertNoSummonCandidateGhostOccupancy(worldState);

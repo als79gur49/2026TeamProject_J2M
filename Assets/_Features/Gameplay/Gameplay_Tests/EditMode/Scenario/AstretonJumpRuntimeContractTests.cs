@@ -23,6 +23,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string JumpChaserProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset";
 
+        // Astreton is the JumpChaser movement-skill profile: Windup/Airborne/Landing are jump runtime state, and landing legality is settlement.
+
         [Test]
         [Category("Extended")]
         public void EnemyJump_AstretonProfile_WindupDoesNotMoveDamageOrMutateOccupancy()
@@ -394,9 +396,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(worldState.CreateSnapshot().TryGetTileFeature(100, out _), Is.True);
         }
 
+        // TileFeature jump settlement policy is face-aware: DestroyTile is a non-hard-blocking risk candidate, active Barricade blocks settlement without Solid occupancy, and generated MoonBlock Solid blocks as Solid.
+
         [Test]
         [Category("Extended")]
-        public void EnemyJump_AstretonProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectLanding()
+        public void EnemyJump_AstretonProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectLandingSettlementSurfaceCell()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 3, 0);
@@ -446,7 +450,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyJump_AstretonProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockLanding()
+        public void EnemyJump_AstretonProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockLandingSettlementSurfaceCell()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 3, 0);
@@ -482,7 +486,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyJump_AstretonProfile_MoonBlockGeneratorCreatesSolidOnLandingCell_BlocksOrRedirectsLandingByCurrentPolicy()
+        public void EnemyJump_AstretonProfile_GeneratedMoonBlockSolidOnExactLandingCellBlocksSettlementAndUsesFallback()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
             var fallbackCell = new SurfaceCell(FaceId.Floor, 4, 0);
@@ -495,14 +499,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(targetCell, out var solid), Is.True);
             Assert.That(solid.Kind, Is.EqualTo(SolidKind.Box));
-            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(fallbackCell), "CurrentContract: moon Solid blocks exact landing and Astreton redirects to first legal target fallback.");
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(fallbackCell), "Generated MoonBlock Solid blocks exact jump landing settlement and Astreton uses the first legal fallback.");
             Assert.That(landingTick.PresentationData.EnemyJumpSignals.Single().Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.Landed));
             AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyJump_AstretonProfile_MoonBlockGeneratorOnSamePlanarOtherFace_DoesNotBlockLanding()
+        public void EnemyJump_AstretonProfile_GeneratedMoonBlockSolidOnSamePlanarOtherFaceDoesNotBlockLandingSettlement()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 3, 0);
@@ -519,7 +523,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyJump_AstretonProfile_MoonBlockGeneratedDuringAirborne_RevalidatesLandingAtResolve()
+        public void EnemyJump_AstretonProfile_GeneratedMoonBlockSolidDuringAirborne_RevalidatesLandingSettlementAtResolve()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
             var fallbackCell = new SurfaceCell(FaceId.Floor, 4, 0);
@@ -553,7 +557,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(GetEntity(worldState, EnemyId).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
             Assert.That(GetJumpState(worldState).phase, Is.EqualTo(EnemyJumpPhase.Airborne));
-            Assert.That(GetJumpState(worldState).landingTick, Is.GreaterThan(2), "CurrentContract: fully blocked landing remains airborne and retries.");
+            Assert.That(GetJumpState(worldState).landingTick, Is.GreaterThan(2), "CurrentPolicy: fully blocked landing remains airborne and retries.");
             Assert.That(landingTick.PresentationData.EnemyJumpSignals.Single().Outcome, Is.EqualTo(TickEnemyJumpPresentationOutcome.Retried));
             Assert.That(CountUnitsAt(worldState.CreateSnapshot(), targetCell, EnemyId), Is.Zero);
             AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
