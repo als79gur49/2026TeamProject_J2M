@@ -1856,7 +1856,7 @@ MonoBehaviour:
     BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
     PresentationId: black_eye
   - StableGuid: d51704bd88804af98e914f034a7a9bfa
     DisplayName: Placement
@@ -2502,7 +2502,7 @@ MonoBehaviour:
     BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
     PresentationId: black_eye
   - StableGuid: cb26732a37054826bb0e39a48280ce9d
     DisplayName: Placement
@@ -3403,7 +3403,7 @@ MonoBehaviour:
     BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
     PresentationId: black_eye
   - StableGuid: f01cee48330b43919817263cee8ad1a7
     DisplayName: Placement
@@ -3420,7 +3420,7 @@ MonoBehaviour:
     BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
     PresentationId: black_eye
   - StableGuid: d2be8dc67f7848d4b144ec07957196c9
     DisplayName: Placement
