@@ -1,4 +1,6 @@
 using System;
+using Game.Feature.DemoStageControl;
+using Game.Feature.DemoStageControl.UI;
 using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -14,6 +16,7 @@ namespace Game.Feature.UI.Composition
         private readonly PopupLayerView _popupLayerView;
         private readonly DebugCommandAccess _debugCommandAccess;
         private readonly Action<DebugCommandResult> _debugStageResultRequested;
+        private readonly IDemoStageControlCommandPort _demoStageControlCommandPort;
         private readonly Func<bool> _isDebugCommandsRuntimeEnabled;
 
         public GameplayPopupRuntimeFactory(
@@ -21,12 +24,14 @@ namespace Game.Feature.UI.Composition
             PopupPrefabCatalog popupPrefabCatalog,
             DebugCommandAccess debugCommandAccess = null,
             Action<DebugCommandResult> debugStageResultRequested = null,
+            IDemoStageControlCommandPort demoStageControlCommandPort = null,
             Func<bool> isDebugCommandsRuntimeEnabled = null)
         {
             _popupLayerView = popupLayerView ?? throw new ArgumentNullException(nameof(popupLayerView));
             _popupPrefabCatalog = popupPrefabCatalog ?? throw new ArgumentNullException(nameof(popupPrefabCatalog));
             _debugCommandAccess = debugCommandAccess ?? DebugCommandAccess.Disabled;
             _debugStageResultRequested = debugStageResultRequested;
+            _demoStageControlCommandPort = demoStageControlCommandPort;
             _isDebugCommandsRuntimeEnabled = isDebugCommandsRuntimeEnabled ?? IsDebugCommandsRuntimeEnabled;
         }
 
@@ -48,6 +53,9 @@ namespace Game.Feature.UI.Composition
 
                 case PopupId.Reward:
                     return CreateRewardPopup(ExpectPayload<RewardPopupPayload>(request.Payload));
+
+                case PopupId.DemoStageControl:
+                    return CreateDemoStageControlPopup(ExpectPayload<DemoStageControlPanelPayload>(request.Payload));
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                 case PopupId.DebugCommands:
@@ -206,6 +214,31 @@ namespace Game.Feature.UI.Composition
                     view.Bind(null);
                     DestroyObject(view.gameObject);
                 }));
+        }
+
+        private PopupRuntimeFactoryResult CreateDemoStageControlPopup(DemoStageControlPanelPayload payload)
+        {
+            if (_demoStageControlCommandPort == null)
+            {
+                throw new InvalidOperationException("Demo Stage Control command port is not available.");
+            }
+
+            var view = DemoStageControlPanelView.CreateRuntime(_popupLayerView.ContentRoot);
+            view.IsVisible = true;
+
+            return new PopupRuntimeFactoryResult(
+                new PopupPolicy(
+                    PopupPolicyClass.ModalBlocking,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.Consume,
+                    showsDim: true,
+                    blocksLowerLayers: true),
+                new DemoStageControlPanelRuntime(
+                    view,
+                    _demoStageControlCommandPort,
+                    payload,
+                    () => DestroyObject(view.gameObject)));
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

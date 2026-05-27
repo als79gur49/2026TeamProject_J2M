@@ -4,6 +4,8 @@
   "references": [
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.DemoStageControl.Runtime",
+    "Game.Feature.DemoStageControl.UI",
     "Game.Feature.Stages",
     "Game.Shared.Audio",
     "Game.Shared.Display",
