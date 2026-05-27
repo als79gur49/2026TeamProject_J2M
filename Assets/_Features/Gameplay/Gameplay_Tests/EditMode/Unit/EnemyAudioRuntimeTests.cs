@@ -24,6 +24,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string EnemyPrefabRoot =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs";
+        private const string BlackEyeAudioProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_BlackEye.asset";
+        private const string BlackEyeActiveDefinitionPath =
+            "Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/BlackEye_Act_Def.asset";
+        private const string BlackEyePlasmaDefinitionPath =
+            "Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/BlackEye_Plasma_Def.asset";
+        private const string BlackEyePlasmaClipPath =
+            "Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_BlackEye_plazma.wav";
 
         [Test]
         [Category("Extended")]
@@ -397,6 +405,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ForwardCellImpact_DoesNotEmitEnemyActiveCue()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.ForwardCellImpact,
+                        EnemyActionPresentationOutcome.Executed),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyAudioPlanner_DoesNotDependOnEnemyProfileNames()
         {
             var source = File.ReadAllText("Assets/_Features/Gameplay/Gameplay_EnemyAudio/Runtime/EnemyAudioRequestPlanner.cs");
@@ -404,6 +431,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("JPeter"));
             Assert.That(source, Does.Not.Contain("Nebulous"));
             Assert.That(source, Does.Not.Contain("DrSaturn"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAudioRequestPlanner_DoesNotUseEnemyNameSpecialCase()
+        {
+            var source = File.ReadAllText("Assets/_Features/Gameplay/Gameplay_EnemyAudio/Runtime/EnemyAudioRequestPlanner.cs");
+
+            Assert.That(source, Does.Not.Contain("BlackEye"));
+            Assert.That(source, Does.Not.Contain("black_eye"));
+            Assert.That(source, Does.Not.Contain("plazma"));
         }
 
         [Test]
@@ -417,6 +455,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(audioManager, Does.Not.Contain("PassiveContact"));
             Assert.That(playbackService, Does.Not.Contain("PlayerInvincible"));
             Assert.That(audioManager, Does.Not.Contain("PlayerInvincible"));
+            Assert.That(playbackService, Does.Not.Contain("ForwardCellImpact"));
+            Assert.That(audioManager, Does.Not.Contain("ForwardCellImpact"));
+            Assert.That(playbackService, Does.Not.Contain("ProjectileImpact"));
+            Assert.That(audioManager, Does.Not.Contain("ProjectileImpact"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AudioRuntime_DoesNotAddBlackEyeSpecificRules()
+        {
+            var playbackService = File.ReadAllText("Assets/_Shared/Audio/Runtime/AudioPlaybackService.cs");
+            var audioManager = File.ReadAllText("Assets/_Shared/Audio/Runtime/AudioManager.cs");
+
+            Assert.That(playbackService, Does.Not.Contain("BlackEye"));
+            Assert.That(audioManager, Does.Not.Contain("BlackEye"));
+            Assert.That(playbackService, Does.Not.Contain("black_eye"));
+            Assert.That(audioManager, Does.Not.Contain("black_eye"));
+            Assert.That(playbackService, Does.Not.Contain("plazma"));
+            Assert.That(audioManager, Does.Not.Contain("plazma"));
         }
 
         [Test]
@@ -1127,6 +1184,88 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void BlackEyeProjectile_PlayerHit_EmitsProjectileImpactRequest()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    enemyActionSignals: new[]
+                    {
+                        CreateEnemyActionExecutedSignal(
+                            20,
+                            EnemyActionPresentationSource.ForwardCellImpact,
+                            EnemyActionPresentationOutcome.Executed),
+                    },
+                    forwardCellImpactSignals: new[]
+                    {
+                        CreateForwardCellImpactSignal(
+                            ownerId: 20,
+                            sourceEnemyId: 20,
+                            targetCell: targetCell,
+                            hit: true,
+                            targetEntityId: 10),
+                    }),
+                new[]
+                {
+                    CreateUnit(10, UnitRole.Player, targetCell),
+                    CreateUnit(20, UnitRole.Enemy),
+                });
+
+            var requests = planner.BuildRequests(result);
+            var requestPairs = requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray();
+
+            Assert.That(
+                requestPairs,
+                Has.Some.EqualTo((20, EnemyAudioCue.ProjectileImpact)));
+            Assert.That(
+                requestPairs,
+                Has.No.EqualTo((20, EnemyAudioCue.Active)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenProjectileImpactExists()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    enemyActionSignals: new[]
+                    {
+                        CreateEnemyActionExecutedSignal(
+                            20,
+                            EnemyActionPresentationSource.Combat,
+                            EnemyActionPresentationOutcome.Executed),
+                    },
+                    forwardCellImpactSignals: new[]
+                    {
+                        CreateForwardCellImpactSignal(
+                            ownerId: 20,
+                            sourceEnemyId: 20,
+                            targetCell: targetCell,
+                            hit: true,
+                            targetEntityId: 10),
+                    }),
+                new[]
+                {
+                    CreateUnit(10, UnitRole.Player, targetCell),
+                    CreateUnit(20, UnitRole.Enemy),
+                });
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (20, EnemyAudioCue.Active),
+                    (20, EnemyAudioCue.ProjectileImpact),
+                }));
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyAudioRequestPlanner_GravityFieldAuraPhases_EmitWindupAttackAndRecoverCues()
         {
@@ -1695,14 +1834,249 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void BlackEyeProjectile_PlayerHit_ResolvesProjectileImpactToBlackEyePlasma()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
+            var expectedDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyePlasmaDefinitionPath);
+
+            Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
+            Assert.That(expectedDefinition, Is.Not.Null, $"Missing BlackEye plasma definition at '{BlackEyePlasmaDefinitionPath}'.");
+            Assert.That(profile.TryResolve(EnemyAudioCue.ProjectileImpact, out var binding), Is.True);
+            Assert.That(binding.Definition, Is.SameAs(expectedDefinition));
+            Assert.That(
+                AssetDatabase.GetAssetPath(binding.Definition.Resolve(new AudioPlaybackContext()).Clip),
+                Is.EqualTo(BlackEyePlasmaClipPath));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlackEyeProjectile_PlayerHit_DoesNotResolveProjectileImpactToBlackEyeActive()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
+            var activeDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyeActiveDefinitionPath);
+
+            Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
+            Assert.That(activeDefinition, Is.Not.Null, $"Missing BlackEye active definition at '{BlackEyeActiveDefinitionPath}'.");
+            Assert.That(profile.TryResolve(EnemyAudioCue.ProjectileImpact, out var projectileBinding), Is.True);
+            Assert.That(profile.TryResolve(EnemyAudioCue.Active, out var activeBinding), Is.True);
+            Assert.That(projectileBinding.Definition, Is.Not.SameAs(activeDefinition));
+            Assert.That(projectileBinding.Definition, Is.Not.SameAs(activeBinding.Definition));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlackEyeProjectile_PlayerHit_FinalPlaybackContainsBlackEyePlasma()
+        {
+            var rootObject = new GameObject(nameof(BlackEyeProjectile_PlayerHit_FinalPlaybackContainsBlackEyePlasma));
+            using var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
+                var expectedDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyePlasmaDefinitionPath);
+                var activeDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyeActiveDefinitionPath);
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var player = CreateUnit(10, UnitRole.Player, targetCell);
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
+                Assert.That(expectedDefinition, Is.Not.Null, $"Missing BlackEye plasma definition at '{BlackEyePlasmaDefinitionPath}'.");
+                Assert.That(activeDefinition, Is.Not.Null, $"Missing BlackEye active definition at '{BlackEyeActiveDefinitionPath}'.");
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player, enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyActionSignals: new[]
+                        {
+                            CreateEnemyActionExecutedSignal(
+                                enemy.entityId,
+                                EnemyActionPresentationSource.ForwardCellImpact,
+                                EnemyActionPresentationOutcome.Executed),
+                        },
+                        forwardCellImpactSignals: new[]
+                        {
+                            CreateForwardCellImpactSignal(
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
+                                targetCell: targetCell,
+                                hit: true,
+                                targetEntityId: player.entityId),
+                        },
+                        playerDamageSignals: new[]
+                        {
+                            new TickPlayerDamagePresentationSignal(
+                                player.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        }),
+                    finalEntities: new[] { player, enemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "PlayerDamage", "ProjectileImpact" }));
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Definition), Has.No.SameAs(activeDefinition));
+
+                var projectileCall = playbackPort.TwoDCalls.Single(call => call.Context.DebugTag == "ProjectileImpact");
+                Assert.That(projectileCall.Definition, Is.SameAs(expectedDefinition));
+                Assert.That(projectileCall.Definition, Is.Not.SameAs(activeDefinition));
+                Assert.That(
+                    AssetDatabase.GetAssetPath(projectileCall.Definition.Resolve(new AudioPlaybackContext()).Clip),
+                    Is.EqualTo(BlackEyePlasmaClipPath));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlackEyeProjectile_PlayerHit_FinalPlaybackDoesNotContainBlackEyeActiveWhenActiveIsImpactDerived()
+        {
+            var rootObject = new GameObject(nameof(BlackEyeProjectile_PlayerHit_FinalPlaybackDoesNotContainBlackEyeActiveWhenActiveIsImpactDerived));
+            using var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
+                var activeDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyeActiveDefinitionPath);
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var player = CreateUnit(10, UnitRole.Player, targetCell);
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
+                Assert.That(activeDefinition, Is.Not.Null, $"Missing BlackEye active definition at '{BlackEyeActiveDefinitionPath}'.");
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player, enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyActionSignals: new[]
+                        {
+                            CreateEnemyActionExecutedSignal(
+                                enemy.entityId,
+                                EnemyActionPresentationSource.ForwardCellImpact,
+                                EnemyActionPresentationOutcome.Executed),
+                        },
+                        forwardCellImpactSignals: new[]
+                        {
+                            CreateForwardCellImpactSignal(
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
+                                targetCell: targetCell,
+                                hit: true,
+                                targetEntityId: player.entityId),
+                        }),
+                    finalEntities: new[] { player, enemy }));
+
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag), Has.No.EqualTo("Active"));
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Definition), Has.No.SameAs(activeDefinition));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlackEyeProjectile_FireRelease_StillEmitsBlackEyeActive()
+        {
+            var rootObject = new GameObject(nameof(BlackEyeProjectile_FireRelease_StillEmitsBlackEyeActive));
+            using var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
+                var activeDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyeActiveDefinitionPath);
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
+                Assert.That(activeDefinition, Is.Not.Null, $"Missing BlackEye active definition at '{BlackEyeActiveDefinitionPath}'.");
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        enemyActionSignals: new[]
+                        {
+                            CreateEnemyActionExecutedSignal(
+                                enemy.entityId,
+                                EnemyActionPresentationSource.Combat,
+                                EnemyActionPresentationOutcome.Executed),
+                        }),
+                    finalEntities: new[] { enemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Active" }));
+                Assert.That(playbackPort.TwoDCalls.Single().Definition, Is.SameAs(activeDefinition));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BlackEyeProjectile_Miss_FinalPlaybackStillContainsBlackEyePlasma()
+        {
+            var rootObject = new GameObject(nameof(BlackEyeProjectile_Miss_FinalPlaybackStillContainsBlackEyePlasma));
+            using var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
+                var expectedDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyePlasmaDefinitionPath);
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
+                Assert.That(expectedDefinition, Is.Not.Null, $"Missing BlackEye plasma definition at '{BlackEyePlasmaDefinitionPath}'.");
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        forwardCellImpactSignals: new[]
+                        {
+                            CreateForwardCellImpactSignal(
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
+                                targetCell: targetCell,
+                                hit: false,
+                                targetEntityId: 0),
+                        }),
+                    finalEntities: new[] { enemy }));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "ProjectileImpact" }));
+                Assert.That(playbackPort.TwoDCalls[0].Definition, Is.SameAs(expectedDefinition));
+                Assert.That(
+                    AssetDatabase.GetAssetPath(playbackPort.TwoDCalls[0].Definition.Resolve(new AudioPlaybackContext()).Clip),
+                    Is.EqualTo(BlackEyePlasmaClipPath));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void BlackEyeAudioProfile_UsesActForActiveAndPlasmaForProjectileImpact()
         {
-            const string path =
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_BlackEye.asset";
-            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(path);
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
 
-            Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{path}'.");
+            Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
             Assert.That(profile.HasCue(EnemyAudioCue.Windup), Is.False);
             Assert.That(profile.HasCue(EnemyAudioCue.Active), Is.True);
             Assert.That(profile.HasCue(EnemyAudioCue.ProjectileImpact), Is.True);
@@ -1902,7 +2276,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null,
             IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
             IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
-            IReadOnlyList<TickEnemyDamagePresentationSignal> enemyDamageSignals = null)
+            IReadOnlyList<TickEnemyDamagePresentationSignal> enemyDamageSignals = null,
+            IReadOnlyList<TickPlayerDamagePresentationSignal> playerDamageSignals = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
@@ -1911,7 +2286,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),
                 Array.Empty<TickPlayerLocomotionPresentationSignal>(),
-                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDamageSignals ?? Array.Empty<TickPlayerDamagePresentationSignal>(),
                 Array.Empty<TickPlayerDeathPresentationSignal>(),
                 enemyDamageSignals ?? Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals ?? Array.Empty<TickEnemyActionPresentationSignal>(),
@@ -2010,6 +2385,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 startedTick: startedTick,
                 elapsedTicks: elapsedTicks,
                 totalTicks: totalTicks);
+        }
+
+        private static TickForwardCellImpactPresentationSignal CreateForwardCellImpactSignal(
+            int ownerId,
+            int sourceEnemyId,
+            SurfaceCell targetCell,
+            bool hit,
+            int targetEntityId)
+        {
+            return new TickForwardCellImpactPresentationSignal(
+                100,
+                100,
+                ownerId,
+                sourceEnemyId,
+                targetCell,
+                Direction.Right,
+                hit,
+                targetEntityId);
         }
 
         private static TickEnemyActionPresentationSignal CreateEnemyActionStartedSignal(int entityId)

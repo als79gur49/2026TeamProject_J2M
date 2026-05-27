@@ -175,6 +175,11 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 return;
             }
 
+            if (signal.PresentationSource == EnemyActionPresentationSource.ForwardCellImpact)
+            {
+                return;
+            }
+
             AddRequest(signal.EntityId, EnemyAudioCue.Active, requests);
         }
 

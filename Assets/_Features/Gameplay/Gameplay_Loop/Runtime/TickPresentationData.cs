@@ -1719,6 +1719,7 @@ namespace Game.Feature.Gameplay.Loop
         Unknown = 0,
         Combat = 1,
         PassiveContact = 2,
+        ForwardCellImpact = 3,
     }
 
     public enum EnemyActionPresentationOutcome

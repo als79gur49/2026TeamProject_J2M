@@ -3440,6 +3440,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(signal.CanceledThisTick, Is.False);
             Assert.That(signal.ExecutedThisTick, Is.True);
             Assert.That(signal.StartedRecoveryThisTick, Is.True);
+            Assert.That(signal.PresentationSource, Is.EqualTo(EnemyActionPresentationSource.Combat));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationDataBuilder_ForwardCellImpactDamage_UsesForwardCellImpactPresentationSource()
+        {
+            const int enemyId = 40;
+            const int targetId = 10;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var enemy = CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Attack, Direction.Right);
+            var target = CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left);
+            var preMovementSnapshot = CreateSnapshotWithEnemyActionStates(new[] { enemy, target });
+            var postMovementSnapshot = CreateSnapshotWithEnemyActionStates(new[] { enemy, target });
+            var postAttackSnapshot = CreateSnapshotWithEnemyActionStates(new[] { enemy, target });
+            var attackGroup = new ActionGroup(
+                intentId: 1,
+                sourceId: enemyId,
+                priority: 5,
+                ActionGroupKind.Attack,
+                AttackSourceKind.ForwardCellImpact);
+            attackGroup.AssignGroupId(1);
+            attackGroup.Damages.Add(new DamageAction(targetId, 1));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    postAttackSnapshot,
+                    CreateMovementPhaseResult(),
+                    CreateAttackPhaseResult(attackGroup),
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 7));
+
+            var signal = presentationData.EnemyActionSignals.Single();
+            Assert.That(signal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(signal.ExecutedThisTick, Is.True);
+            Assert.That(signal.PresentationSource, Is.EqualTo(EnemyActionPresentationSource.ForwardCellImpact));
+            Assert.That(signal.PresentationOutcome, Is.EqualTo(EnemyActionPresentationOutcome.Executed));
         }
 
         [Test]

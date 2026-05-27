@@ -4261,9 +4261,7 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 sawDamageResolution = true;
-                var source = damageResolution.SourceKind == AttackSourceKind.PassiveContact
-                    ? EnemyActionPresentationSource.PassiveContact
-                    : EnemyActionPresentationSource.Combat;
+                var source = ResolveEnemyActionPresentationSource(damageResolution.SourceKind);
 
                 if (damageResolution.Accepted)
                 {
@@ -4319,7 +4317,7 @@ namespace Game.Feature.Gameplay.Loop
             in EnemyActionPresentationMetadata existing,
             in EnemyActionPresentationMetadata candidate)
         {
-            if (existing.PresentationSource == EnemyActionPresentationSource.PassiveContact &&
+            if (existing.PresentationSource != EnemyActionPresentationSource.Combat &&
                 candidate.PresentationSource == EnemyActionPresentationSource.Combat)
             {
                 return true;
@@ -4327,6 +4325,16 @@ namespace Game.Feature.Gameplay.Loop
 
             return existing.PresentationOutcome != EnemyActionPresentationOutcome.Executed &&
                    candidate.PresentationOutcome == EnemyActionPresentationOutcome.Executed;
+        }
+
+        private static EnemyActionPresentationSource ResolveEnemyActionPresentationSource(AttackSourceKind sourceKind)
+        {
+            return sourceKind switch
+            {
+                AttackSourceKind.PassiveContact => EnemyActionPresentationSource.PassiveContact,
+                AttackSourceKind.ForwardCellImpact => EnemyActionPresentationSource.ForwardCellImpact,
+                _ => EnemyActionPresentationSource.Combat,
+            };
         }
 
         private static EnemyActionPresentationSource ResolveEnemyActionPresentationSource(
