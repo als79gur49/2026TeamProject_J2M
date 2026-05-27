@@ -319,7 +319,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
                     continue;
                 }
 
-                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime
+                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                                   signal.TimingMode != GameplayPresentationTimingMode.DueContactImmediate
                     ? timingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime
                     : 0f;
                 AddRequest(signal.ExitedEntityId, EnemyAudioCue.Death, requests, delaySeconds);

@@ -41,7 +41,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var correlationId = signal.SourceActionPlanId > 0
                 ? signal.SourceActionPlanId
                 : signal.BoxEntityId;
-            var delaySeconds = context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
+            var delaySeconds = signal.TimingMode == GameplayPresentationTimingMode.DueContactImmediate
+                ? 0f
+                : context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
 
             builder.Add(
                 new GameplayVfxRequest(

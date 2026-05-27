@@ -110,7 +110,8 @@ namespace Game.Feature.Gameplay.Audio
                     timingProfile);
             }
 
-            if (signal.Timing == EntityExitPresentationTiming.AtContactTime)
+            if (signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                signal.TimingMode != GameplayPresentationTimingMode.DueContactImmediate)
             {
                 return timingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
             }

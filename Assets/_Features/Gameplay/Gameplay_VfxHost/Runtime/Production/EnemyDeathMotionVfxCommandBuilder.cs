@@ -155,6 +155,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var hasContactDelay =
                 signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                signal.TimingMode != GameplayPresentationTimingMode.DueContactImmediate &&
                 signal.VisualContactNormalizedTime > 0f;
             GameplayEntityPose sourceLocalPose;
             var hasSourcePose = hasContactDelay

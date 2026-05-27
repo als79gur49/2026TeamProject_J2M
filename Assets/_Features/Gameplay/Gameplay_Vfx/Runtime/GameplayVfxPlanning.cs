@@ -530,7 +530,8 @@ namespace Game.Feature.Gameplay.Vfx
                     continue;
                 }
 
-                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime
+                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                                   signal.TimingMode != GameplayPresentationTimingMode.DueContactImmediate
                     ? context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime
                     : 0f;
                 builder.Add(

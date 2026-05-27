@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Shared.Audio;
 
@@ -27,6 +28,7 @@ namespace Game.Feature.Gameplay.BlockAudio
 
             var requests = new List<BlockAudioRequest>();
             BuildFlipLandingRequests(result, timingProfile, requests);
+            BuildFlipDueContactRequests(result, requests);
             BuildBoxSlideStartedRequests(result, requests);
             BuildBoxSlideSolidStopRequests(result, requests);
             return requests;
@@ -73,6 +75,32 @@ namespace Game.Feature.Gameplay.BlockAudio
                     signal.BoxEntityId,
                     ComputeFlipImpactStaySequenceId(result.TickIndex, signal),
                     timingProfile.FlipMotionDurationSeconds * FlipImpactContactNormalizedTime,
+                    new AudioPlaybackContext(
+                        ownerEntityId: signal.BoxEntityId,
+                        debugTag: BlockAudioCueCatalog.Format(BlockAudioCue.FlipLanding))));
+            }
+        }
+
+        private static void BuildFlipDueContactRequests(
+            TickResult result,
+            ICollection<BlockAudioRequest> requests)
+        {
+            var signals = result.PresentationData.FlipDueContactSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.BoxEntityId <= 0 ||
+                    signal.TimingMode != GameplayPresentationTimingMode.DueContactImmediate ||
+                    signal.BoxDisposition == FlipBoxDisposition.Cancelled)
+                {
+                    continue;
+                }
+
+                requests.Add(new BlockAudioRequest(
+                    BlockAudioCue.FlipLanding,
+                    signal.BoxEntityId,
+                    ComputeFlipDueContactSequenceId(result.TickIndex, signal),
+                    delaySeconds: 0f,
                     new AudioPlaybackContext(
                         ownerEntityId: signal.BoxEntityId,
                         debugTag: BlockAudioCueCatalog.Format(BlockAudioCue.FlipLanding))));
@@ -165,6 +193,21 @@ namespace Game.Feature.Gameplay.BlockAudio
                 hash = (hash * 31) + (int)BlockAudioCue.FlipLanding;
                 hash = (hash * 31) + signal.SourceCell.GetHashCode();
                 hash = (hash * 31) + signal.ImpactCell.GetHashCode();
+                return hash == 0 ? 1 : hash;
+            }
+        }
+
+        private static int ComputeFlipDueContactSequenceId(int tickIndex, in FlipDueContactPresentationSignal signal)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 31) + tickIndex;
+                hash = (hash * 31) + signal.BoxEntityId;
+                hash = (hash * 31) + signal.SourceActionPlanId;
+                hash = (hash * 31) + (int)BlockAudioCue.FlipLanding;
+                hash = (hash * 31) + signal.SourceCell.GetHashCode();
+                hash = (hash * 31) + signal.ContactCell.GetHashCode();
                 return hash == 0 ? 1 : hash;
             }
         }

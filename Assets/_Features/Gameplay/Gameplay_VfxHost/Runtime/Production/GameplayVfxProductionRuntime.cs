@@ -1885,6 +1885,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 if (signal.Timing == EntityExitPresentationTiming.AtContactTime &&
+                    signal.TimingMode != GameplayPresentationTimingMode.DueContactImmediate &&
                     signal.VisualContactNormalizedTime > 0f)
                 {
                     if (ScheduleDelayedEnemyDeathMotionVfx(context.Result.TickIndex, signal, context.TimingProfile))
