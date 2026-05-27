@@ -228,6 +228,152 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(frontSamePlanar, out _), Is.True);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_DestroyTileAppearsDuringWindup_RevalidatesCandidateAtResolve()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWindupWorldForCandidateMutation();
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(110, forwardCell, TileFeatureKind.Destroy));
+            pipeline.RunTick(new TickInput(2));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(forwardCell), "CurrentContract: Destroy tile feature alone remains legal for summon placement at resolve.");
+            AssertSummonedMetadata(worldState, child.entityId);
+            AssertNoGhostSummonState(worldState);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_BarricadeAppearsDuringWindup_RevalidatesCandidateAtResolve()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWindupWorldForCandidateMutation();
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(111, forwardCell, TileFeatureKind.Barricade));
+            pipeline.RunTick(new TickInput(2));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(forwardCell), "CurrentContract: Barricade feature alone remains legal for summon placement at resolve.");
+            AssertSummonedMetadata(worldState, child.entityId);
+            AssertNoGhostSummonState(worldState);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_MoonBlockGeneratorCreatesSolidDuringWindup_RevalidatesCandidateAtResolve()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
+            var worldState = CreateWindupWorldForCandidateMutation();
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(112, forwardCell, TileFeatureKind.MoonBlockGenerator, boundEntityId: 50));
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(50, forwardCell, BoxArchetype.Moon));
+            pipeline.RunTick(new TickInput(2));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(rightCell), "CurrentContract: generated Moon Solid blocks the forward candidate, then Jpeter selects the next legal candidate.");
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(forwardCell, out var solid), Is.True);
+            Assert.That(solid.Kind, Is.EqualTo(SolidKind.Box));
+            AssertSummonedMetadata(worldState, child.entityId);
+            AssertNoGhostSummonState(worldState);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_DestroyTileOnSamePlanarOtherFace_DoesNotAffectSummonCandidate()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10));
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(113, otherFaceCell, TileFeatureKind.Destroy));
+            SeedWindupUtilityState(worldState, windupEndTick: 1);
+
+            CreatePipeline(worldState).RunTick(new TickInput(1));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(forwardCell));
+            Assert.That(child.position, Is.Not.EqualTo(otherFaceCell));
+            AssertSummonedMetadata(worldState, child.entityId);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_BarricadeOnSamePlanarOtherFace_DoesNotAffectSummonCandidate()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10));
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(114, otherFaceCell, TileFeatureKind.Barricade));
+            SeedWindupUtilityState(worldState, windupEndTick: 1);
+
+            CreatePipeline(worldState).RunTick(new TickInput(1));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(forwardCell));
+            Assert.That(child.position, Is.Not.EqualTo(otherFaceCell));
+            AssertSummonedMetadata(worldState, child.entityId);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_MoonBlockGeneratorOnSamePlanarOtherFace_DoesNotAffectSummonCandidate()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10),
+                CreateBox(51, otherFaceCell, BoxArchetype.Moon),
+            });
+            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(115, otherFaceCell, TileFeatureKind.MoonBlockGenerator, boundEntityId: 51));
+            SeedWindupUtilityState(worldState, windupEndTick: 1);
+
+            CreatePipeline(worldState).RunTick(new TickInput(1));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(forwardCell));
+            Assert.That(child.position, Is.Not.EqualTo(otherFaceCell));
+            AssertSummonedMetadata(worldState, child.entityId);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_BlockedSummonDoesNotCreateGhostEntityOrOccupancy()
+        {
+            var worldState = CreateFullyBlockedSummonWorld();
+
+            var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
+
+            Assert.That(GetSummonedChildren(worldState), Is.Empty);
+            Assert.That(GetSummonedStates(worldState), Is.Empty);
+            Assert.That(tick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+            Assert.That(tick.EventLog, Has.Some.Contains("SummonSkipped|Source=40").And.Contains("Reason=NoCandidateCell"));
+            AssertNoSummonCandidateGhostOccupancy(worldState);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_BlockedSummonStillCompletesOrRecoversAccordingToCurrentPolicy()
+        {
+            var worldState = CreateFullyBlockedSummonWorld();
+
+            CreatePipeline(worldState).RunTick(new TickInput(1));
+            var state = GetUtilityEffectState(worldState);
+
+            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover), "CurrentContract: blocked summon execution still enters Recover instead of staying in Windup.");
+            Assert.That(state.recoverEndTickExclusive, Is.GreaterThan(1));
+            Assert.That(GetSummonedChildren(worldState), Is.Empty);
+            AssertNoSummonCandidateGhostOccupancy(worldState);
+        }
+
         private static void AssertInvalidatedWindupDoesNotSummon(string invalidationKind)
         {
             var worldState = CreateWorldState(CreateJpeter());
@@ -378,6 +524,74 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var children = GetSummonedChildren(worldState);
             Assert.That(children, Has.Count.EqualTo(1));
             return children[0];
+        }
+
+        private static IReadOnlyList<SummonedEntitySnapshotEntry> GetSummonedStates(WorldState worldState)
+        {
+            var entries = new List<SummonedEntitySnapshotEntry>();
+            worldState.CreateSnapshot().EnumerateSummonedEntityStatesOrdered(entries);
+            return entries;
+        }
+
+        private static void AssertSummonedMetadata(WorldState worldState, int childEntityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetSummonedEntityState(childEntityId, out var summonedState), Is.True);
+            Assert.That(summonedState.SourceEntityId, Is.EqualTo(EnemyId));
+            Assert.That(summonedState.SourceEffectIndex, Is.EqualTo(0));
+        }
+
+        private static void AssertNoGhostSummonState(WorldState worldState)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            var entries = new List<SummonedEntitySnapshotEntry>();
+            snapshot.EnumerateSummonedEntityStatesOrdered(entries);
+            foreach (var entry in entries)
+            {
+                Assert.That(snapshot.TryGetEntity(entry.EntityId, out _), Is.True, $"Summoned metadata for {entry.EntityId} must not outlive its entity.");
+            }
+        }
+
+        private static void AssertNoSummonCandidateGhostOccupancy(WorldState worldState)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            foreach (var cell in GetSummonCandidateCells())
+            {
+                var units = CountUnitsAt(snapshot, cell);
+                Assert.That(units, Is.Zero, $"Blocked summon must not leave Unit occupancy at {cell}.");
+            }
+        }
+
+        private static WorldState CreateWindupWorldForCandidateMutation()
+        {
+            var worldState = CreateWorldState(CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10));
+            SeedWindupUtilityState(worldState, windupEndTick: 2);
+            return worldState;
+        }
+
+        private static WorldState CreateFullyBlockedSummonWorld()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10),
+                    CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0)),
+                    CreateWall(91, new SurfaceCell(FaceId.Floor, 0, -1)),
+                    CreateWall(92, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(93, new SurfaceCell(FaceId.Floor, -1, 0)),
+                });
+            SeedWindupUtilityState(worldState, windupEndTick: 1);
+            return worldState;
+        }
+
+        private static IReadOnlyList<SurfaceCell> GetSummonCandidateCells()
+        {
+            return new[]
+            {
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new SurfaceCell(FaceId.Floor, 0, -1),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                new SurfaceCell(FaceId.Floor, -1, 0),
+            };
         }
 
         private static int CountUnitsAt(WorldSnapshot snapshot, SurfaceCell cell)
