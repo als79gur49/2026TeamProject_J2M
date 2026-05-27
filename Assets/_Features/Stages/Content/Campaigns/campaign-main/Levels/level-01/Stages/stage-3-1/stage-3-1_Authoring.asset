@@ -3075,9 +3075,9 @@ MonoBehaviour:
     Kind: 4
     ActivationRule: 3
     Direction: 0
-    BoxSelector: 3
+    BoxSelector: 4
     BoundEntityId: 0
-    PresentationKey: button.default
+    PresentationKey: button.moon-only
   - TileId: 51
     Cell:
       face: 2
@@ -3218,9 +3218,9 @@ MonoBehaviour:
     Kind: 4
     ActivationRule: 3
     Direction: 0
-    BoxSelector: 4
+    BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.moon-only
+    PresentationKey: button.default
   - TileId: 64
     Cell:
       face: 3
@@ -3288,42 +3288,42 @@ MonoBehaviour:
       StableConditionId: button-8
       DisplayText: Place the MoonBlock on the button
       SortOrder: 20
-    - Condition: {fileID: 11400000, guid: 761df246942aa5949b7d41d238020ce6, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-36
-      DisplayText: Place a push box on the button
-      SortOrder: 40
     - Condition: {fileID: 11400000, guid: 098650b18ee275648b7d685832a254ec, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-37
       DisplayText: Place the MoonBlock on the button
       SortOrder: 50
-    - Condition: {fileID: 11400000, guid: 318361734f4d1f346ac8c47b102e0e86, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-50
-      DisplayText: Place a push box on the button
-      SortOrder: 60
     - Condition: {fileID: 11400000, guid: a31091e71003c0a448ba6ca4f9f7d99b, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-51
       DisplayText: Place a push box on the button
       SortOrder: 70
-    - Condition: {fileID: 11400000, guid: bc97c44e95aa72140a579d12606cbd1e, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-63
-      DisplayText: Place the MoonBlock on the button
-      SortOrder: 80
     - Condition: {fileID: 11400000, guid: 15a79e549a4c48841ba68e489ee7ac95, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-64
       DisplayText: Place a push box on the button
       SortOrder: 90
+    - Condition: {fileID: 11400000, guid: bc97c44e95aa72140a579d12606cbd1e, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-63
+      DisplayText: Place a push box on the button
+      SortOrder: 110
+    - Condition: {fileID: 11400000, guid: 761df246942aa5949b7d41d238020ce6, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-36
+      DisplayText: Place a push box on the button
+      SortOrder: 120
+    - Condition: {fileID: 11400000, guid: 318361734f4d1f346ac8c47b102e0e86, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-50
+      DisplayText: Place the MoonBlock on the button
+      SortOrder: 130
   entityIdMappings:
   - StableGuid: stage-3-1:Player:10
     EntityId: 10
