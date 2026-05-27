@@ -1308,6 +1308,135 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void PlayerInvincible_WhenOff_PlayerDamageAppliesNormally()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), DemoGameplayOverrideSnapshot.None);
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(GetEntityHp(snapshot, 10), Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_PlayerDamageIsIgnored()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var snapshot = CreateSnapshot(worldState);
+
+            var resolution = result.AttackPhaseResult.DamageResolutions.Single();
+            Assert.That(resolution.Accepted, Is.False);
+            Assert.That(resolution.RejectReason, Is.EqualTo(DamageRejectReason.PlayerInvincible));
+            Assert.That(GetEntityHp(snapshot, 10), Is.EqualTo(5));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_LethalDamageDoesNotMarkPlayerForDeath()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
+            Assert.That(IsMarkedForDeath(snapshot, 10), Is.False);
+            Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_PlayerHpDoesNotChange()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 3);
+
+            pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(5));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_EnemyDamageStillApplies()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubAttackLogic(
+                        controlledEntityId: 10,
+                        attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 10, 40, 2)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(GetEntityHp(snapshot, 40), Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOffAgain_DamageAppliesAgain()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            pipeline.RunTick(new TickInput(2), new DemoGameplayOverrideSnapshot(playerInvincible: false));
+
+            Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_DoesNotCreateCleanupRemovalForPlayer()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.PresentationData.EntityExitSignals.Select(signal => signal.ExitedEntityId), Has.No.EqualTo(10));
+            Assert.That(result.FinalEntities.Select(entity => entity.entityId), Has.Some.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_DoesNotTriggerPlayerDeathSignal()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.PresentationData.PlayerDamageSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerDeathSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_FlagIncludedInTraceOrDebugSnapshot()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.Trace.Text, Does.Contain("RejectReason=PlayerInvincible"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted()
         {
             var worldState = CreateWorldState(new[]
@@ -1462,6 +1591,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 commitEvents,
                 commitEvents,
                 rejectedReasons);
+        }
+
+        private static WorldState CreatePlayerContactDamageWorld(int playerHp, int enemyHp)
+        {
+            return CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: playerHp, unitRole: UnitRole.Player),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: enemyHp),
+            });
+        }
+
+        private static TickPipeline CreatePassiveContactDamagePipeline(WorldState worldState, int damage)
+        {
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubAttackLogic(
+                        controlledEntityId: 40,
+                        attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, damage)),
+                });
         }
 
         private static void AssignSpawnIdsForSelectedGroups(

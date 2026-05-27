@@ -31,6 +31,7 @@ namespace Game.Feature.UI.Tests
             using var runtime = new DemoStageControlPanelRuntime(
                 view,
                 commandPort,
+                commandPort,
                 CreatePayload(commandPort),
                 () => { });
 
@@ -47,6 +48,7 @@ namespace Game.Feature.UI.Tests
             var view = CreateView();
             using var runtime = new DemoStageControlPanelRuntime(
                 view,
+                commandPort,
                 commandPort,
                 CreatePayload(commandPort),
                 () => { });
@@ -66,6 +68,94 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Not.Contain("StageCompletionCommitter"));
             Assert.That(source, Does.Not.Contain("SaveSlotStore"));
             Assert.That(source, Does.Not.Contain("ObjectiveTracker"));
+            Assert.That(source, Does.Not.Contain("WorldState"));
+            Assert.That(source, Does.Not.Contain("EntityState"));
+            Assert.That(source, Does.Not.Contain("TickPipeline"));
+            Assert.That(source, Does.Not.Contain("SaveService"));
+        }
+
+        [Test]
+        public void DemoStageControlPanel_ShowsPlayerInvincibleToggleButton()
+        {
+            var commandPort = new RecordingCommandPort();
+            var view = CreateView();
+            using var runtime = new DemoStageControlPanelRuntime(
+                view,
+                commandPort,
+                commandPort,
+                CreatePayload(commandPort),
+                () => { });
+
+            Assert.That(CollectText(view.transform), Does.Contain("Player Invincible"));
+            Assert.That(FindButton(view.transform, "Player Invincible"), Is.Not.Null);
+            Assert.That(view.GetComponentsInChildren<Toggle>(true), Is.Empty);
+        }
+
+        [Test]
+        public void DemoStageControlPanel_PlayerInvincibleToggleButtonCallsCommandPort()
+        {
+            var commandPort = new RecordingCommandPort();
+            var view = CreateView();
+            using var runtime = new DemoStageControlPanelRuntime(
+                view,
+                commandPort,
+                commandPort,
+                CreatePayload(commandPort),
+                () => { });
+
+            FindButton(view.transform, "Player Invincible").onClick.Invoke();
+
+            Assert.That(commandPort.SetPlayerInvincibleCalls, Is.EqualTo(1));
+            Assert.That(commandPort.PlayerInvincible, Is.True);
+            Assert.That(CollectText(view.transform), Does.Contain("Player Invincible ON"));
+        }
+
+        [Test]
+        public void DemoStageControlPanel_PlayerInvincibleToggleButtonEmitsEventOnly()
+        {
+            var commandPort = new RecordingCommandPort();
+            var view = CreateView();
+            using var runtime = new DemoStageControlPanelRuntime(
+                view,
+                commandPort,
+                null,
+                CreatePayload(commandPort),
+                () => { });
+            var observed = false;
+            view.PlayerInvincibleToggled += enabled => observed = enabled;
+
+            FindButton(view.transform, "Player Invincible").onClick.Invoke();
+
+            Assert.That(observed, Is.True);
+            Assert.That(commandPort.SetPlayerInvincibleCalls, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void DemoStageControlPanel_DisplaysPlayerInvincibleState()
+        {
+            var commandPort = new RecordingCommandPort();
+            commandPort.SetPlayerInvincible(true);
+            var view = CreateView();
+            using var runtime = new DemoStageControlPanelRuntime(
+                view,
+                commandPort,
+                commandPort,
+                CreatePayload(commandPort),
+                () => { });
+
+            Assert.That(CollectText(view.transform), Does.Contain("Player Invincible: ON"));
+            Assert.That(FindButton(view.transform, "Player Invincible").interactable, Is.True);
+        }
+
+        [Test]
+        public void DemoGameplayOverride_ViewDoesNotReferenceWorldState()
+        {
+            var source = File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelView.cs");
+
+            Assert.That(source, Does.Not.Contain("WorldState"));
+            Assert.That(source, Does.Not.Contain("EntityState"));
+            Assert.That(source, Does.Not.Contain("TickPipeline"));
+            Assert.That(source, Does.Not.Contain("SaveSlotStore"));
         }
 
         [Test]
@@ -91,7 +181,8 @@ namespace Game.Feature.UI.Tests
         {
             return new DemoStageControlPanelPayload(
                 commandPort.GetStages(),
-                commandPort.GetStatus());
+                commandPort.GetStatus(),
+                commandPort.GetOverrideStatus());
         }
 
         private static Button FindButton(Transform root, string name)
@@ -115,9 +206,10 @@ namespace Game.Feature.UI.Tests
             return string.Join("\n", lines);
         }
 
-        private sealed class RecordingCommandPort : IDemoStageControlCommandPort
+        private sealed class RecordingCommandPort : IDemoStageControlCommandPort, IDemoGameplayOverrideCommandPort
         {
             public readonly StageId StageId = StageId.CreateOrThrow("stage-0-1");
+            private string _overrideMessage = string.Empty;
             private string _message = string.Empty;
 
             public int ForceClearCalls { get; private set; }
@@ -125,6 +217,10 @@ namespace Game.Feature.UI.Tests
             public StageId LastStartedStageId { get; private set; } = StageId.None;
 
             public int StartStageCalls { get; private set; }
+
+            public bool PlayerInvincible { get; private set; }
+
+            public int SetPlayerInvincibleCalls { get; private set; }
 
             public IReadOnlyList<DemoStageControlStageItem> GetStages()
             {
@@ -157,6 +253,29 @@ namespace Game.Feature.UI.Tests
                 ForceClearCalls++;
                 _message = "forced clear";
                 return DemoStageControlResult.Ok(_message);
+            }
+
+            public DemoStageControlResult SetPlayerInvincible(bool enabled)
+            {
+                SetPlayerInvincibleCalls++;
+                PlayerInvincible = enabled;
+                _overrideMessage = enabled ? "Player Invincible ON" : "Player Invincible OFF";
+                return DemoStageControlResult.Ok(_overrideMessage);
+            }
+
+            public DemoStageControlResult TogglePlayerInvincible()
+            {
+                return SetPlayerInvincible(!PlayerInvincible);
+            }
+
+            public Game.Feature.Gameplay.Loop.DemoGameplayOverrideSnapshot GetSnapshot()
+            {
+                return new Game.Feature.Gameplay.Loop.DemoGameplayOverrideSnapshot(PlayerInvincible);
+            }
+
+            public DemoGameplayOverrideStatus GetOverrideStatus()
+            {
+                return new DemoGameplayOverrideStatus(PlayerInvincible, _overrideMessage);
             }
         }
     }
