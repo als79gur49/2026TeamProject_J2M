@@ -237,6 +237,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(combat.WindupForwardCellProjectileSettings.Damage, Is.GreaterThan(0));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void CombinedGameplay_AstretonBinding_UsesJumpChaserMovementSkillProfile()
+        {
+            var binding = GetSingleStageBinding(CombinedGameplayStagePath, "astreton");
+
+            Assert.That(binding.EntityId, Is.EqualTo(61));
+            Assert.That(binding.ProfilePath, Is.EqualTo(JumpChaserProfilePath));
+            AssertJumpChaserProfile(binding.ProfilePath);
+            AssertCatalogEntryUsesPrefab("astreton", "EnemyView_Astreton.prefab");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CombinedGameplay_JPeterBinding_UsesArchetypeSummonerUtilityProfile()
+        {
+            var binding = GetSingleStageBinding(CombinedGameplayStagePath, "j_peter");
+
+            Assert.That(binding.EntityId, Is.EqualTo(59));
+            Assert.That(binding.ProfilePath, Is.EqualTo(ArchetypeSummonerProfilePath));
+            AssertArchetypeSummonerProfile(binding.ProfilePath);
+            AssertCatalogEntryUsesPrefab("j_peter", "EnemyView_JPeter.prefab");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignStages_AstretonBindings_AllUseExpectedJumpChaserProfile()
+        {
+            var bindings = FindCampaignEnemyPresentationProfileBindings("astreton");
+
+            Assert.That(bindings, Is.Not.Empty, "No campaign stage binds presentation id 'astreton'.");
+            Assert.That(
+                bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
+                Is.EquivalentTo(new[] { JumpChaserProfilePath }),
+                "Astreton is a presentation id; every campaign spawn using it must bind the JumpChaser gameplay profile.");
+            Assert.That(bindings.Select(binding => binding.EntityId), Has.Member(61));
+            AssertJumpChaserProfile(JumpChaserProfilePath);
+            AssertCatalogEntryUsesPrefab("astreton", "EnemyView_Astreton.prefab");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignStages_JPeterBindings_AllUseExpectedArchetypeSummonerProfile()
+        {
+            var bindings = FindCampaignEnemyPresentationProfileBindings("j_peter");
+
+            Assert.That(bindings, Is.Not.Empty, "No campaign stage binds presentation id 'j_peter'.");
+            Assert.That(
+                bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
+                Is.EquivalentTo(new[] { ArchetypeSummonerProfilePath }),
+                "Jpeter is a presentation id; every campaign spawn using it must bind the ArchetypeSummoner gameplay profile.");
+            Assert.That(bindings.Select(binding => binding.EntityId), Has.Member(59));
+            AssertArchetypeSummonerProfile(ArchetypeSummonerProfilePath);
+            AssertCatalogEntryUsesPrefab("j_peter", "EnemyView_JPeter.prefab");
+        }
+
         private static string[] GetVisibleSerializedFieldNames(EnemyAiProfile profile)
         {
             var serializedObject = new SerializedObject(profile);
@@ -285,6 +341,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string WindupProjectileProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset";
+
+        private const string JumpChaserProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset";
+
+        private const string ArchetypeSummonerProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
+
+        private const string CombinedGameplayStagePath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase.asset";
 
         private const string CampaignEnemyPresentationCatalogPath =
             StageContentPaths.CampaignRoot + "/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationCatalog_CampaignMain.asset";
@@ -349,6 +414,91 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return result;
+        }
+
+        private static PresentationProfileBinding GetSingleStageBinding(string stagePath, string presentationId)
+        {
+            var bindings = FindStageEnemyPresentationProfileBindings(stagePath, presentationId);
+
+            Assert.That(
+                bindings,
+                Has.Count.EqualTo(1),
+                $"{stagePath} should bind exactly one enemy spawn to presentation id '{presentationId}'.");
+
+            return bindings[0];
+        }
+
+        private static IReadOnlyList<PresentationProfileBinding> FindStageEnemyPresentationProfileBindings(
+            string stagePath,
+            string presentationId)
+        {
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(stagePath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{stagePath}'.");
+
+            var presentationPath = Path.ChangeExtension(stagePath, null) + "_Presentation.asset";
+            var presentation = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(presentationPath);
+            Assert.That(presentation, Is.Not.Null, $"Missing stage presentation asset at '{presentationPath}'.");
+
+            var normalizedPresentationId = EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId);
+            var bindingsByEntityId = StagePresentationAssembler.Resolve(stage, presentation)
+                .EnemyPresentationBindings
+                .ToDictionary(binding => binding.EntityId);
+            var result = new List<PresentationProfileBinding>();
+
+            foreach (var spawn in stage.EnemySpawns)
+            {
+                if (!bindingsByEntityId.TryGetValue(spawn.EntityId, out var binding) ||
+                    !string.Equals(
+                        EnemyPresentationCatalogResolver.NormalizePresentationId(binding.PresentationId),
+                        normalizedPresentationId,
+                        System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Assert.That(
+                    spawn.EnemyAiProfile,
+                    Is.Not.Null,
+                    $"{stagePath} enemy EntityId={spawn.EntityId} uses presentation '{presentationId}' without an EnemyAiProfile override.");
+
+                result.Add(
+                    new PresentationProfileBinding(
+                        stagePath,
+                        spawn.EntityId,
+                        AssetDatabase.GetAssetPath(spawn.EnemyAiProfile)));
+            }
+
+            return result;
+        }
+
+        private static void AssertJumpChaserProfile(string profilePath)
+        {
+            var profile = LoadRequiredProfile(profilePath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond);
+
+            Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.False, $"Astreton must not bind Combat={combat?.Kind.ToString() ?? "<null>"}.");
+            Assert.That(definition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
+            Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+            Assert.That(movementSkill.JumpTimingSettings.WindupTicks, Is.GreaterThan(0));
+            Assert.That(movementSkill.JumpTimingSettings.AirborneTicks, Is.GreaterThan(0));
+            Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+            Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+        }
+
+        private static void AssertArchetypeSummonerProfile(string profilePath)
+        {
+            var profile = LoadRequiredProfile(profilePath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond);
+
+            Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.False, $"Jpeter must not be inferred as Combat={combat?.Kind.ToString() ?? "<null>"}.");
+            Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
+            Assert.That(utility.Effects, Has.Count.EqualTo(1));
+            Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
+            Assert.That(
+                utility.Effects[0].Summon.SummonedArchetypeId,
+                Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+            Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+            Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
         }
 
         private static void AssertCatalogEntryUsesPrefab(string presentationId, string expectedPrefabFileName)

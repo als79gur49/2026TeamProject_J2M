@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-04-30
-- Last updated: 2026-05-10
+- Last updated: 2026-05-28
 
 ## Decision
 
@@ -13,6 +13,8 @@ TileFeature is not Unit/Solid/Projectile occupancy. It must not be modeled as `E
 TileFeature is not a `TerrainFlags` effect semantic. Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`; non-blocker overlay behavior belongs to TileFeature or a future ADR-approved layer.
 
 TileFeature may coexist with Unit, Box, and Projectile occupants on the same `SurfaceCell`. Wall-like solid + TileFeature requires explicit policy. TileFeature + TileFeature same-cell support is a storage capability; gameplay policy for each pair remains explicit.
+
+TileFeature overlay names are not interpreted uniformly as blockers. Activated DestroyTile is a non-hard-blocking risk tile: movement, summon candidate selection, and jump landing fallback selection should avoid it when a legal neutral alternative exists, but it does not fail legality like Solid. Activated Barricade is a hard TileFeature blocker: it blocks Unit placement and settlement without creating Solid occupancy. MoonBlockGenerator remains non-blocking as a feature; the generated MoonBlock Solid is the authoritative blocker. All checks are `SurfaceCell(face,x,y)`-aware and must not flatten same-planar coordinates across faces.
 
 `StageRuntimeBuildResult` is a gameplay-only seed. Presentation prefab and binding data are owned by `StagePresentationDefinition` or a presentation companion. VFX, audio, and UI consume facts derived from `TilePresentationEvent` or `TilePresentationRequest`; they must not call `WorldState.CreateSnapshot` to infer TileFeature state. `TickPipeline` transports presentation facts where necessary but must not execute prefab, audio, or UI work.
 
@@ -88,6 +90,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - A logical TileFeature activation transition may produce an occupant effect for a valid Box or lethal Ground Unit on the same `SurfaceCell`; Air Unit hazard exceptions remain preserved.
 - Player-authored ordinary Move into an active DestroyTile is rejected during movement expansion using the topology-resolved destination cell.
 - DestroyTile is not a global traversal blocker; do not model it as runtime traversal, placement, or settlement blockage.
+- Active DestroyTile is a non-hard-blocking risk/avoidance candidate for Jpeter summon placement and Astreton jump landing settlement: avoid it when a legal neutral alternative exists, but do not fail legality only because the candidate has active DestroyTile.
 - The player DestroyTile access guard applies only to voluntary player movement and does not apply to enemy, box, projectile, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.
 - Free2D same-face voluntary player movement injects a scoped active DestroyTile predicate into the existing CollisionRadius-based continuous locomotion blocker/clamp structure.
 - Free2D same-face DestroyTile access must not use DestroyTile-specific approach helpers or manual local-offset clamps.
@@ -131,17 +134,17 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 ## Barricade Policy
 
-Barricade is a TileFeature movement blocker. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.
+Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.
 
 - Barricade activation rule is `FrontFaceOnly`.
 - Barricade direction must be `None`.
 - Barricade selector must be `None`.
 - Active Barricade blocks box movement paths that query TileFeature box blockers.
-- Active Barricade blocks Unit ground traversal, including player, enemy, and future NPC/friendly units.
+- Active Barricade blocks Unit ground traversal, placement, and settlement, including player, enemy, and future NPC/friendly units.
+- Active Barricade blocks Jpeter summon placement and Astreton jump landing settlement through TileFeature legality blockers such as `LegalityBlockerKind.TileFeature`.
 - Barricade does not occupy Unit, Solid, or Projectile layer.
 - Barricade does not invalidate existing Unit occupancy.
 - Projectile movement is not blocked.
-- Airborne landing and jump settlement are not blocked unless a separate landing policy is added later.
 - Impact follow-through and topology relocation are not blocked by Barricade unless a separate policy is added later.
 - EnemyParticipationPolicy is unchanged; current enemy bottom-face participation remains unchanged.
 - Active Barricade blocks box push first step, sliding continuation entry, and flip landing entry.
@@ -213,6 +216,7 @@ Exit presentation is presentation-only.
 ## MoonBlockGenerator Policy
 
 - MoonBlockGenerator is a TileFeature overlay.
+- MoonBlockGenerator feature itself is not a placement or settlement blocker; generated MoonBlock Solid is the authoritative blocker.
 - MoonBlockGenerator activation rule is `BottomFaceOnly`.
 - Direction must be `None`.
 - BoxSelector must be `None`.

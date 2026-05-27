@@ -2,6 +2,26 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.SunWheelRocketFaceBindingContractTests.EnemyBinding_CampaignMain_SunWheelPresentationUsesWallFollowerProfile",
+      "category": "Core",
+      "contracts": [
+        "sunwheel_profile_binding",
+        "campaign_enemy_presentation_binding"
+      ],
+      "reason": "Core representative coverage that the campaign SunWheel presentation binding resolves by entityId to the WallFollow gameplay profile instead of relying on prefab naming.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.SunWheelRocketFaceBindingContractTests.EnemyBinding_CampaignMain_RocketFacePresentationUsesChargeProfile",
+      "category": "Core",
+      "contracts": [
+        "rocketface_profile_binding",
+        "campaign_enemy_presentation_binding"
+      ],
+      "reason": "Core representative coverage that the campaign RocketFace presentation binding resolves by entityId to the Charge gameplay profile instead of relying on prefab naming.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.CampaignEnemyPrefabs_AllRendererMaterialsSatisfyInactiveContract",
       "category": "Core",
       "contracts": [
@@ -3282,6 +3302,28 @@
         "enemy_audio_death_cue_suppression"
       ],
       "reason": "Locked Core coverage that lethal enemy damage suppresses only the matching core EnemyDamage request when a playable enemy-local Death cue is planned.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyProfileContractReplayTests.Replay_AstretonJumpProfile_StateAndLandingRemainDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_jump",
+        "enemy_profile_asset_contract"
+      ],
+      "reason": "Locked Core replay coverage that the Astreton-bound JumpChaser profile keeps jump state and landing placement deterministic without presentation-only drift.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyProfileContractReplayTests.Replay_JPeterUtilitySummonProfile_SummonedMetadataAndPlacementRemainDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "summon_minion",
+        "enemy_profile_asset_contract"
+      ],
+      "reason": "Locked Core replay coverage that the JPeter-bound ArchetypeSummoner profile keeps summoned metadata, source binding, and placement deterministic.",
       "locked": true
     }
   ]

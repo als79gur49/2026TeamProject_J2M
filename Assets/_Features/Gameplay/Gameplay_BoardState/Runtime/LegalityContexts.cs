@@ -80,7 +80,8 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell terminalCell,
             CubeTopologyState terminalTopology,
             SpatialState requestedTerminalState,
-            ReservationStatus reservationStatus = ReservationStatus.None)
+            ReservationStatus reservationStatus = ReservationStatus.None,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             OccupancySnapshot = occupancySnapshot ?? throw new ArgumentNullException(nameof(occupancySnapshot));
             Actor = actor;
@@ -88,6 +89,7 @@ namespace Game.Feature.Gameplay.BoardState
             TerminalTopology = terminalTopology;
             RequestedTerminalState = requestedTerminalState;
             ReservationStatus = reservationStatus;
+            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
         }
 
         public WorldSnapshot OccupancySnapshot { get; }
@@ -101,6 +103,8 @@ namespace Game.Feature.Gameplay.BoardState
         public SpatialState RequestedTerminalState { get; }
 
         public ReservationStatus ReservationStatus { get; }
+
+        public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
     }
 
     internal readonly struct JumpLandingEvidence
