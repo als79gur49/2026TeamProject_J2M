@@ -1,5 +1,7 @@
 # Flip B-1 Sprint 5 Hardening Report
 
+Continuation note: Sprint 6 merge readiness is tracked in [Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md](./Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md). Sprint 5 remains the hardening evidence note; Sprint 6 separates hostile B-1 merge readiness from full-lane baseline red and ordinary Flip pure B-1 follow-up scope.
+
 ## 1. Summary
 - Validated hostile Flip B-1 due contact behavior through automated PlayMode visual smoke using in-flight scheduled-contact fixtures that exercise the real `GameplaySceneHost`, presenter, view registry, due resolver, objective result, and presentation carriers.
 - Added targeted barrier regressions for due-contact stage clear publication.

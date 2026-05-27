@@ -28,6 +28,15 @@
   - landing cell이 wall, solid box, terrain, board edge면 `blocked`다.
   - `blocked`에서는 impact가 생기지 않는다.
 
+### Hostile Impact Flip B-1 Scope
+- B-1 applies only to hostile impact Flip.
+- Ordinary Flip success remains same-tick materialization in the current scope.
+- Hostile impact execute tick does not reserve a target, suppress enemy movement, apply damage, mark death, or remove the hostile.
+- The source box becomes `BoxInFlight` and the action records a `ScheduledFlipContact`.
+- The due resolver requeries the current `WorldSnapshot` at due tick, so a moved-away original hostile is not hit and a different hostile currently occupying the contact cell can be hit.
+- Due contact presentation uses `DueContactImmediate`; legacy `AtContactTime` remains for non-B1 paths.
+- StageResult B-1 barrier delays only UI publication for a due-contact stage clear. It does not delay objective, reward, or stage authoritative commit.
+
 ## Push / Flip Impact Disposition Table
 - `ImpactDisposition`은 narrow internal Push/Flip-only contract, not a generalized impact framework다.
 - 허용 family는 current `Push`, `Sliding Push`, `Flip` hostile `BoxImpact` path뿐이다.
