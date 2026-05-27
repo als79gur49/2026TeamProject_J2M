@@ -1,4 +1,5 @@
 using Game.Feature.Flow.Audio;
+using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Stages;
 using UnityEngine;
@@ -6,7 +7,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
-    public abstract class StageBackedGameplayShowcaseInstallerBase : GameplayShowcaseSceneInstallerBase
+    public abstract class StageBackedGameplayShowcaseInstallerBase : GameplayShowcaseSceneInstallerBase, IDemoStageControlGameplayContextProvider
     {
         private const string StageBackgroundRootObjectName = "StageBackgroundRoot";
 
@@ -40,6 +41,27 @@ namespace Game.Feature.Gameplay.Host
         internal bool CampaignRuntimeActive => _campaignRuntimeActive;
 
         internal bool HasCampaignFlowController => _campaignFlowController != null;
+
+        public bool TryCreateDemoStageControlContext(out DemoStageControlGameplayContext context)
+        {
+            EnsureCampaignStores();
+            if (stageCatalogProvider == null || _saveSlotStore == null || _activeSlotProvider == null)
+            {
+                context = default;
+                return false;
+            }
+
+            var sequenceDefinition = campaignStageSequenceDefinition != null
+                ? campaignStageSequenceDefinition
+                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+            context = new DemoStageControlGameplayContext(
+                stageCatalogProvider,
+                new DemoStageControlCampaignBridge(
+                    _saveSlotStore,
+                    _activeSlotProvider,
+                    new CampaignStageSequenceResolver(sequenceDefinition)));
+            return true;
+        }
 
         protected sealed override InitialGameplayState BuildInitialGameplayState()
         {

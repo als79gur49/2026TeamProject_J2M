@@ -18,6 +18,7 @@
     "Game.Feature.Gameplay.TopologyAudio",
     "Game.Feature.Gameplay.GravityFieldAudio",
     "Game.Feature.Flow.Audio",
+    "Game.Feature.DemoStageControl.Runtime",
     "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.Gameplay.Host",
     "Game.Shared.Audio",

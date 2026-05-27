@@ -259,6 +259,7 @@ namespace Game.Feature.Gameplay.Host
                     new GameplayHostObjectiveQuery(tickRunner, presentationBarrierTracker)),
                 presentationFeed,
                 pauseService,
+                new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
                 CreateDebugCommandAccess(
                     configuration.StageContentEntry,
                     presentationFeed,
