@@ -138,6 +138,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.hp <= 0 ||
                 source.markedForDeath ||
+                source.boardPresence != EntityBoardPresence.Occupying ||
                 source.aiMode == EnemyAiMode.Dead)
             {
                 return EnemyActionQueries.Clear(workingAction);
@@ -615,7 +616,7 @@ namespace Game.Feature.Gameplay.Entities
             target = default;
 
             if (!snapshot.TryGetEntity(actionState.lockedTargetEntityId, out target) ||
-                !IsValidLockedTarget(snapshot, source, target, detectionSettings) ||
+                !IsValidLockedTargetForCurrentAction(snapshot, source, target, detectionSettings) ||
                 !attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings))
             {
                 target = default;
@@ -668,7 +669,17 @@ namespace Game.Feature.Gameplay.Entities
             return source.facing;
         }
 
-        private static bool IsValidLockedTarget(
+        public static bool IsLockedTargetValidForCurrentAction(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyActionRuntimeState actionState,
+            in DetectionSettings detectionSettings)
+        {
+            return snapshot.TryGetEntity(actionState.lockedTargetEntityId, out var target) &&
+                   IsValidLockedTargetForCurrentAction(snapshot, source, target, detectionSettings);
+        }
+
+        private static bool IsValidLockedTargetForCurrentAction(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
