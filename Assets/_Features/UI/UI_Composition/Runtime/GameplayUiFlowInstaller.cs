@@ -1,5 +1,7 @@
 using System;
 using System.Reflection;
+using Game.Feature.DemoStageControl;
+using Game.Feature.DemoStageControl.UI;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Stages;
@@ -41,6 +43,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
+        [SerializeField] private DemoStageControlSettings _demoStageControlSettings = DemoStageControlSettings.EnabledByDefault();
         [SerializeField] private bool _installOnStart = true;
 
         private CinematicFlowCoordinator _cinematicFlowCoordinator;
@@ -55,6 +58,7 @@ namespace Game.Feature.UI.Composition
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
         private DebugCommandAccess _debugCommandAccess = DebugCommandAccess.Disabled;
+        private IDemoStageControlCommandPort _demoStageControlCommandPort;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -119,7 +123,7 @@ namespace Game.Feature.UI.Composition
                 _stageResultAutoNextDriver?.Tick(Time.unscaledDeltaTime);
             }
 
-            if (!_isInstalled || _rootView == null || _rootView.DiagnosticsOverlayView == null)
+            if (!_isInstalled || _rootView == null)
             {
                 return;
             }
@@ -129,14 +133,19 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            if (KeyboardBridge.WasF3PressedThisFrame())
+            if (_rootView.DiagnosticsOverlayView != null && KeyboardBridge.WasF3PressedThisFrame())
             {
                 _rootView.DiagnosticsOverlayView.ToggleVisibility();
             }
 
-            if (KeyboardBridge.WasF4PressedThisFrame())
+            if (_rootView.DiagnosticsOverlayView != null && KeyboardBridge.WasF4PressedThisFrame())
             {
                 _rootView.DiagnosticsOverlayView.ToggleExpanded();
+            }
+
+            if (WasDemoStageControlOpenKeyPressed() && TryToggleDemoStageControlPanel())
+            {
+                return;
             }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -160,6 +169,7 @@ namespace Game.Feature.UI.Composition
             }
 
             _debugCommandAccess = sceneHost.UiAccess.DebugCommandAccess ?? DebugCommandAccess.Disabled;
+            _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
             Install(new GameplayUiFlowPorts(
                 sceneHost.UiAccess.CommandGateway,
                 sceneHost.UiAccess.QueryFacade,
@@ -202,7 +212,8 @@ namespace Game.Feature.UI.Composition
                 _rootView.PopupLayerView,
                 _popupPrefabCatalog,
                 _debugCommandAccess,
-                HandleDebugStageResultRequested));
+                HandleDebugStageResultRequested,
+                _demoStageControlCommandPort));
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay);
@@ -641,6 +652,95 @@ namespace Game.Feature.UI.Composition
         }
 #endif
 
+        private bool TryToggleDemoStageControlPanel()
+        {
+            if (_demoStageControlSettings == null ||
+                !_demoStageControlSettings.Enabled ||
+                _demoStageControlCommandPort == null ||
+                PopupController == null ||
+                Coordinator == null)
+            {
+                return false;
+            }
+
+            if (PopupController.TopPopup.HasValue)
+            {
+                if (PopupController.TopPopup.Value.PopupId == PopupId.DemoStageControl)
+                {
+                    Coordinator.HandleBackRequested();
+                }
+
+                return true;
+            }
+
+            Coordinator.RequestDemoStageControlPopup(new DemoStageControlPanelPayload(
+                _demoStageControlCommandPort.GetStages(),
+                _demoStageControlCommandPort.GetStatus()));
+            return true;
+        }
+
+        private bool WasDemoStageControlOpenKeyPressed()
+        {
+            var settings = _demoStageControlSettings ?? DemoStageControlSettings.EnabledByDefault();
+            return settings.OpenKey == DemoStageControlOpenKey.BackQuote
+                ? KeyboardBridge.WasBackQuotePressedThisFrame()
+                : KeyboardBridge.WasF10PressedThisFrame();
+        }
+
+        private IDemoStageControlCommandPort CreateDemoStageControlCommandPort(GameplaySceneHost sceneHost)
+        {
+            if (sceneHost == null ||
+                sceneHost.UiAccess == null ||
+                sceneHost.UiAccess.DemoStageControlCompletionBridge == null)
+            {
+                return null;
+            }
+
+            var provider = FindDemoStageControlContextProvider(sceneHost.gameObject);
+            if (provider == null ||
+                !provider.TryCreateDemoStageControlContext(out var context) ||
+                !context.IsValid)
+            {
+                return null;
+            }
+
+            var launchRouter = new CurrentSceneStageLaunchRouter(gameObject.scene.name);
+            return new DemoStageControlService(
+                _demoStageControlSettings ?? DemoStageControlSettings.EnabledByDefault(),
+                context.StageCatalogProvider,
+                context.CampaignBridge,
+                new DemoStageControlLaunchBridge(launchRouter, () => launchRouter.IsLaunchInProgress),
+                sceneHost.UiAccess.DemoStageControlCompletionBridge);
+        }
+
+        private static IDemoStageControlGameplayContextProvider FindDemoStageControlContextProvider(GameObject root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            var parents = root.GetComponentsInParent<MonoBehaviour>(true);
+            for (var i = 0; i < parents.Length; i++)
+            {
+                if (parents[i] is IDemoStageControlGameplayContextProvider provider)
+                {
+                    return provider;
+                }
+            }
+
+            var children = root.GetComponentsInChildren<MonoBehaviour>(true);
+            for (var i = 0; i < children.Length; i++)
+            {
+                if (children[i] is IDemoStageControlGameplayContextProvider provider)
+                {
+                    return provider;
+                }
+            }
+
+            return null;
+        }
+
         private void HandleDebugStageResultRequested(DebugCommandResult result)
         {
             if (result.StageResultReadModel == null || Coordinator == null)
@@ -684,6 +784,7 @@ namespace Game.Feature.UI.Composition
             private static readonly PropertyInfo F3KeyProperty = KeyboardType?.GetProperty("f3Key", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo F4KeyProperty = KeyboardType?.GetProperty("f4Key", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo F10KeyProperty = KeyboardType?.GetProperty("f10Key", BindingFlags.Public | BindingFlags.Instance);
+            private static readonly PropertyInfo BackQuoteKeyProperty = KeyboardType?.GetProperty("backquoteKey", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo WasPressedThisFrameProperty =
                 EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
 
@@ -705,6 +806,11 @@ namespace Game.Feature.UI.Composition
             public bool WasF10PressedThisFrame()
             {
                 return WasPressedThisFrame(F10KeyProperty);
+            }
+
+            public bool WasBackQuotePressedThisFrame()
+            {
+                return WasPressedThisFrame(BackQuoteKeyProperty);
             }
 
             private static bool WasPressedThisFrame(PropertyInfo keyProperty)

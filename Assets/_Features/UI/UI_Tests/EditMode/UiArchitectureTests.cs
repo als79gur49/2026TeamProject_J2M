@@ -797,6 +797,7 @@ namespace Game.Feature.UI.Tests
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
                     "RequestDebugCommandsPopup(DebugCommandsPopupPayload)",
                     "RequestDebugStageResultOnly(StageCompletionReadModel, StageNavigationRequest)",
+                    "RequestDemoStageControlPopup(IPopupPayload)",
                     "RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload)",
                     "RequestPausePopup()",
                     "RequestRewardPopup(RewardPopupPayload, Action<PopupCompletion>)",

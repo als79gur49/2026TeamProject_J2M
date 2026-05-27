@@ -126,6 +126,13 @@ namespace Game.Feature.UI.Flow
                 () => TryPushPopupRequestCore(new PopupRequest(PopupId.DebugCommands, payload)));
         }
 
+        public bool RequestDemoStageControlPopup(IPopupPayload payload)
+        {
+            return ExecuteIntent(
+                UiFlowAudioIntentKind.OpenForward,
+                () => TryPushPopupRequestCore(new PopupRequest(PopupId.DemoStageControl, payload)));
+        }
+
         public bool RequestDebugStageResultOnly(
             StageCompletionReadModel readModel,
             StageNavigationRequest nextStageRequest)
@@ -794,6 +801,11 @@ namespace Game.Feature.UI.Flow
                         : UiFlowAudioIntentKind.None;
 
                 case PopupId.DebugCommands:
+                    return completion.CompletionKind == PopupCompletionKind.Closed
+                        ? UiFlowAudioIntentKind.Back
+                        : UiFlowAudioIntentKind.None;
+
+                case PopupId.DemoStageControl:
                     return completion.CompletionKind == PopupCompletionKind.Closed
                         ? UiFlowAudioIntentKind.Back
                         : UiFlowAudioIntentKind.None;
