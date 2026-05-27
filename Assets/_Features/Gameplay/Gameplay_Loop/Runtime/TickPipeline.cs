@@ -1402,7 +1402,8 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.PreMovementStatePhaseResult.UtilityTriggerIntents,
                 tickIndex,
                 _entityIdAllocator,
-                _enemySpawnDefaultsByArchetypeId);
+                _enemySpawnDefaultsByArchetypeId,
+                _tileFeatureDefinitions);
             finalizationBatch.MergeFrom(utilityResolveResult.Batch);
             projectedWorld.ApplyBatch(utilityResolveResult.Batch);
             var postAttackSnapshot = projectedWorld.CreateSnapshot();
@@ -6872,7 +6873,8 @@ namespace Game.Feature.Gameplay.Loop
                         BuildLegalityActorRef(snapshot, jumpEntry.EntityId, EntityType.Unit),
                         jumpState.lockedTargetCell,
                         snapshot.Topology,
-                        SpatialState.Anchored),
+                        SpatialState.Anchored,
+                        tileFeatureDefinitions: _tileFeatureDefinitions),
                     new JumpLandingEvidence(
                         snapshot,
                         jumpState.lockedTargetCell));
@@ -6909,7 +6911,13 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                if (!EnemyJumpQueries.TryResolveLandingCell(snapshot, source, jumpState, out var landingCell, out var landingRule))
+                if (!EnemyJumpQueries.TryResolveLandingCell(
+                        snapshot,
+                        source,
+                        jumpState,
+                        out var landingCell,
+                        out var landingRule,
+                        _tileFeatureDefinitions))
                 {
                     var retryState = EnemyJumpQueries.ScheduleRetry(jumpState, tickIndex + 1);
                     var actionPlanId = _idAllocator.AllocateGroupId();
@@ -7084,7 +7092,8 @@ namespace Game.Feature.Gameplay.Loop
                     payload.DestinationCell,
                     movementSnapshot.Topology,
                     SpatialState.Anchored,
-                    reservationStatus);
+                    reservationStatus,
+                    _tileFeatureDefinitions);
                 var jumpLandingEvidence = new JumpLandingEvidence(
                     damageProjectionSnapshot,
                     payload.SuccessJumpState.lockedTargetCell);

@@ -199,11 +199,15 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in EnemyJumpRuntimeState jumpState,
             out SurfaceCell landingCell,
-            out string landingRule)
+            out string landingRule,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             landingCell = default;
             landingRule = string.Empty;
             var actorRef = BuildActorRef(snapshot, source);
+            var hasRiskLanding = false;
+            var riskLandingCell = default(SurfaceCell);
+            var riskLandingRule = string.Empty;
 
             if (RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
                     new SettlementContext(
@@ -211,11 +215,19 @@ namespace Game.Feature.Gameplay.Entities
                         actorRef,
                         jumpState.lockedTargetCell,
                         snapshot.Topology,
-                        SpatialState.Anchored)).Verdict == LegalityVerdict.Allowed)
+                        SpatialState.Anchored,
+                        tileFeatureDefinitions: tileFeatureDefinitions)).Verdict == LegalityVerdict.Allowed)
             {
-                landingCell = jumpState.lockedTargetCell;
-                landingRule = "TargetExact";
-                return true;
+                if (EvaluateLandingRisk(snapshot, tileFeatureDefinitions, source, jumpState.lockedTargetCell) == TileApproachRisk.Neutral)
+                {
+                    landingCell = jumpState.lockedTargetCell;
+                    landingRule = "TargetExact";
+                    return true;
+                }
+
+                hasRiskLanding = true;
+                riskLandingCell = jumpState.lockedTargetCell;
+                riskLandingRule = "TargetExact";
             }
 
             var basisFacing = ResolveJumpBasisFacing(
@@ -231,8 +243,13 @@ namespace Game.Feature.Gameplay.Entities
                     actorRef,
                     orderedOffsets,
                     "Target",
+                    tileFeatureDefinitions,
+                    source,
                     out landingCell,
-                    out landingRule))
+                    out landingRule,
+                    ref hasRiskLanding,
+                    ref riskLandingCell,
+                    ref riskLandingRule))
             {
                 return true;
             }
@@ -243,21 +260,49 @@ namespace Game.Feature.Gameplay.Entities
                         actorRef,
                         jumpState.sourceCell,
                         snapshot.Topology,
-                        SpatialState.Anchored)).Verdict == LegalityVerdict.Allowed)
+                        SpatialState.Anchored,
+                        tileFeatureDefinitions: tileFeatureDefinitions)).Verdict == LegalityVerdict.Allowed)
             {
-                landingCell = jumpState.sourceCell;
-                landingRule = "SourceExact";
-                return true;
+                if (EvaluateLandingRisk(snapshot, tileFeatureDefinitions, source, jumpState.sourceCell) == TileApproachRisk.Neutral)
+                {
+                    landingCell = jumpState.sourceCell;
+                    landingRule = "SourceExact";
+                    return true;
+                }
+
+                if (!hasRiskLanding)
+                {
+                    hasRiskLanding = true;
+                    riskLandingCell = jumpState.sourceCell;
+                    riskLandingRule = "SourceExact";
+                }
             }
 
-            return TryFindLandingInFallbackOffsets(
+            if (TryFindLandingInFallbackOffsets(
                 snapshot,
                 jumpState.sourceCell,
                 actorRef,
                 orderedOffsets,
                 "Source",
+                tileFeatureDefinitions,
+                source,
                 out landingCell,
-                out landingRule);
+                out landingRule,
+                ref hasRiskLanding,
+                ref riskLandingCell,
+                ref riskLandingRule))
+            {
+                return true;
+            }
+
+            if (hasRiskLanding)
+            {
+                landingCell = riskLandingCell;
+                landingRule = riskLandingRule;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryFindLandingInFallbackOffsets(
@@ -266,8 +311,13 @@ namespace Game.Feature.Gameplay.Entities
             LegalityActorRef actorRef,
             IReadOnlyList<(Vector2Int Offset, string Rule)> orderedOffsets,
             string prefix,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            in EntityState source,
             out SurfaceCell landingCell,
-            out string landingRule)
+            out string landingRule,
+            ref bool hasRiskLanding,
+            ref SurfaceCell riskLandingCell,
+            ref string riskLandingRule)
         {
             for (var i = 0; i < orderedOffsets.Count; i++)
             {
@@ -278,8 +328,21 @@ namespace Game.Feature.Gameplay.Entities
                             actorRef,
                             candidate,
                             snapshot.Topology,
-                            SpatialState.Anchored)).Verdict != LegalityVerdict.Allowed)
+                            SpatialState.Anchored,
+                            tileFeatureDefinitions: tileFeatureDefinitions)).Verdict != LegalityVerdict.Allowed)
                 {
+                    continue;
+                }
+
+                if (EvaluateLandingRisk(snapshot, tileFeatureDefinitions, source, candidate) != TileApproachRisk.Neutral)
+                {
+                    if (!hasRiskLanding)
+                    {
+                        hasRiskLanding = true;
+                        riskLandingCell = candidate;
+                        riskLandingRule = $"{prefix}{orderedOffsets[i].Rule}";
+                    }
+
                     continue;
                 }
 
@@ -291,6 +354,19 @@ namespace Game.Feature.Gameplay.Entities
             landingCell = default;
             landingRule = string.Empty;
             return false;
+        }
+
+        private static TileApproachRisk EvaluateLandingRisk(
+            WorldSnapshot snapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            in EntityState source,
+            SurfaceCell candidate)
+        {
+            return TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                snapshot,
+                tileFeatureDefinitions,
+                source,
+                candidate);
         }
 
         private static LegalityActorRef BuildActorRef(WorldSnapshot snapshot, in EntityState actor)

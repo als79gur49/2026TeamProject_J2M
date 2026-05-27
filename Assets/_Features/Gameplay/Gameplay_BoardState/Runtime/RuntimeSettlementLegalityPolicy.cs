@@ -21,6 +21,16 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
+            if (TryGetUnitTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                    context.ReservationStatus);
+            }
+
             if (!SpatialStateSemantics.UsesAuthoritativeSettlementOccupancy(context.RequestedTerminalState))
             {
                 if (!context.OccupancySnapshot.TryGetPlacementBlocker(
@@ -120,6 +130,16 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
+            if (TryGetUnitTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                    context.ReservationStatus);
+            }
+
             if (context.OccupancySnapshot.TryGetAuthoritativePlacementBlocker(
                     context.Actor.EntityType,
                     context.TerminalCell,
@@ -178,6 +198,18 @@ namespace Game.Feature.Gameplay.BoardState
                         context.TerminalCell,
                         context.TerminalTopology,
                         RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                        context.ReservationStatus),
+                    crushedBoxEntityId: 0);
+            }
+
+            if (TryGetUnitTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            {
+                return new JumpCrushLandingEvaluation(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
                         context.ReservationStatus),
                     crushedBoxEntityId: 0);
             }
@@ -416,6 +448,25 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool ShouldIgnoreUnitSettlementOccupants(SettlementContext context)
         {
             return context.Actor.EntityType == EntityType.Unit;
+        }
+
+        private static bool TryGetUnitTileFeatureSettlementBlocker(
+            SettlementContext context,
+            out TileFeatureState tileFeatureBlocker)
+        {
+            if (context.Actor.EntityType != EntityType.Unit)
+            {
+                tileFeatureBlocker = default;
+                return false;
+            }
+
+            return TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                context.OccupancySnapshot,
+                context.TileFeatureDefinitions,
+                context.TerminalCell,
+                TileFeatureBlockerSubject.Unit,
+                TileFeatureMovementKind.UnitSettlement,
+                out tileFeatureBlocker);
         }
 
         private static bool TryGetSettlementBlockingOccupant(

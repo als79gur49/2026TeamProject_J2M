@@ -150,38 +150,52 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_DestroyTilePlacementBlockerBehaviorIsObserved()
+        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileDoesNotHardBlockSummonPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destroyTile = CreateTileFeature(100, forwardCell, TileFeatureKind.Destroy);
             var worldState = CreateWorldState(
-                new[] { CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10) },
-                initialTileFeatures: new[] { CreateTileFeature(100, forwardCell, TileFeatureKind.Destroy) });
+                new[]
+                {
+                    CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10),
+                    CreateWall(90, new SurfaceCell(FaceId.Floor, 0, -1)),
+                    CreateWall(91, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(92, new SurfaceCell(FaceId.Floor, -1, 0)),
+                },
+                initialTileFeatures: new[] { destroyTile });
             SeedWindupUtilityState(worldState, windupEndTick: 1);
             Assert.That(worldState.CreateSnapshot().TryGetPlacementBlocker(EntityType.Unit, forwardCell, ignoredEntityId: 0, out _), Is.False);
 
-            CreatePipeline(worldState).RunTick(new TickInput(1));
+            CreatePipeline(worldState, CreateActiveDefinitions(destroyTile)).RunTick(new TickInput(1));
             var child = GetSingleSummonedChild(worldState);
 
-            Assert.That(child.position, Is.EqualTo(forwardCell), "CurrentContract: Destroy tile features alone do not block Jpeter summon placement.");
+            Assert.That(child.position, Is.EqualTo(forwardCell), "DestroyTile is an avoidance/risk tile, not a hard summon placement blocker when it is the only legal candidate.");
             Assert.That(CountUnitsAt(worldState.CreateSnapshot(), forwardCell), Is.EqualTo(1));
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BarricadePlacementBlockerBehaviorIsObserved()
+        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSummonCellBlocksPlacementWithoutGhost()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var barricade = CreateTileFeature(101, forwardCell, TileFeatureKind.Barricade);
             var worldState = CreateWorldState(
-                new[] { CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10) },
-                initialTileFeatures: new[] { CreateTileFeature(101, forwardCell, TileFeatureKind.Barricade) });
+                new[]
+                {
+                    CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10),
+                    CreateWall(90, new SurfaceCell(FaceId.Floor, 0, -1)),
+                    CreateWall(91, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(92, new SurfaceCell(FaceId.Floor, -1, 0)),
+                },
+                initialTileFeatures: new[] { barricade });
             SeedWindupUtilityState(worldState, windupEndTick: 1);
-            Assert.That(worldState.CreateSnapshot().TryGetPlacementBlocker(EntityType.Unit, forwardCell, ignoredEntityId: 0, out _), Is.False);
 
-            CreatePipeline(worldState).RunTick(new TickInput(1));
-            var child = GetSingleSummonedChild(worldState);
+            var tick = CreatePipeline(worldState, CreateActiveDefinitions(barricade)).RunTick(new TickInput(1));
 
-            Assert.That(child.position, Is.EqualTo(forwardCell), "CurrentContract: Barricade tile features alone do not block Jpeter summon placement.");
-            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), forwardCell), Is.EqualTo(1));
+            Assert.That(GetSummonedChildren(worldState), Is.Empty);
+            Assert.That(tick.EventLog, Has.Some.Contains("SummonSkipped|Source=40").And.Contains("Reason=NoCandidateCell"));
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(forwardCell, out _), Is.False);
+            AssertNoSummonCandidateGhostOccupancy(worldState);
         }
 
         [Test]
@@ -233,33 +247,39 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void EnemyUtility_JPeterProfile_DestroyTileAppearsDuringWindup_RevalidatesCandidateAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
+            var destroyTile = CreateTileFeature(110, forwardCell, TileFeatureKind.Destroy);
             var worldState = CreateWindupWorldForCandidateMutation();
             var pipeline = CreatePipeline(worldState);
 
             pipeline.RunTick(new TickInput(1));
-            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(110, forwardCell, TileFeatureKind.Destroy));
+            worldState.CreateWriteContext().AddTileFeature(destroyTile);
+            pipeline = CreatePipeline(worldState, CreateActiveDefinitions(destroyTile));
             pipeline.RunTick(new TickInput(2));
             var child = GetSingleSummonedChild(worldState);
 
-            Assert.That(child.position, Is.EqualTo(forwardCell), "CurrentContract: Destroy tile feature alone remains legal for summon placement at resolve.");
+            Assert.That(child.position, Is.EqualTo(rightCell), "DestroyTile remains legal but is avoided when a non-risk summon candidate exists at resolve.");
             AssertSummonedMetadata(worldState, child.entityId);
             AssertNoGhostSummonState(worldState);
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BarricadeAppearsDuringWindup_RevalidatesCandidateAtResolve()
+        public void EnemyUtility_JPeterProfile_ActivatedBarricadeAppearsDuringWindup_RevalidatesCandidateAndBlocksAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
+            var barricade = CreateTileFeature(111, forwardCell, TileFeatureKind.Barricade);
             var worldState = CreateWindupWorldForCandidateMutation();
             var pipeline = CreatePipeline(worldState);
 
             pipeline.RunTick(new TickInput(1));
-            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(111, forwardCell, TileFeatureKind.Barricade));
+            worldState.CreateWriteContext().AddTileFeature(barricade);
+            pipeline = CreatePipeline(worldState, CreateActiveDefinitions(barricade));
             pipeline.RunTick(new TickInput(2));
             var child = GetSingleSummonedChild(worldState);
 
-            Assert.That(child.position, Is.EqualTo(forwardCell), "CurrentContract: Barricade feature alone remains legal for summon placement at resolve.");
+            Assert.That(child.position, Is.EqualTo(rightCell), "Active Barricade blocks the original summon candidate and Jpeter selects the next legal candidate.");
             AssertSummonedMetadata(worldState, child.entityId);
             AssertNoGhostSummonState(worldState);
         }
@@ -288,15 +308,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_DestroyTileOnSamePlanarOtherFace_DoesNotAffectSummonCandidate()
+        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectSummonCandidate()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var destroyTile = CreateTileFeature(113, otherFaceCell, TileFeatureKind.Destroy);
             var worldState = CreateWorldState(CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10));
-            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(113, otherFaceCell, TileFeatureKind.Destroy));
+            worldState.CreateWriteContext().AddTileFeature(destroyTile);
             SeedWindupUtilityState(worldState, windupEndTick: 1);
 
-            CreatePipeline(worldState).RunTick(new TickInput(1));
+            CreatePipeline(worldState, CreateActiveDefinitions(destroyTile)).RunTick(new TickInput(1));
             var child = GetSingleSummonedChild(worldState);
 
             Assert.That(child.position, Is.EqualTo(forwardCell));
@@ -306,20 +327,63 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BarricadeOnSamePlanarOtherFace_DoesNotAffectSummonCandidate()
+        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockSummonCandidate()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var barricade = CreateTileFeature(114, otherFaceCell, TileFeatureKind.Barricade);
             var worldState = CreateWorldState(CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10));
-            worldState.CreateWriteContext().AddTileFeature(CreateTileFeature(114, otherFaceCell, TileFeatureKind.Barricade));
+            worldState.CreateWriteContext().AddTileFeature(barricade);
             SeedWindupUtilityState(worldState, windupEndTick: 1);
 
-            CreatePipeline(worldState).RunTick(new TickInput(1));
+            CreatePipeline(worldState, CreateActiveDefinitions(barricade)).RunTick(new TickInput(1));
             var child = GetSingleSummonedChild(worldState);
 
             Assert.That(child.position, Is.EqualTo(forwardCell));
             Assert.That(child.position, Is.Not.EqualTo(otherFaceCell));
             AssertSummonedMetadata(worldState, child.entityId);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileSummonCandidateIsAvoidedWhenLegalAlternativeExists()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
+            var destroyTile = CreateTileFeature(116, forwardCell, TileFeatureKind.Destroy);
+            var worldState = CreateWorldState(
+                new[] { CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10) },
+                initialTileFeatures: new[] { destroyTile });
+            SeedWindupUtilityState(worldState, windupEndTick: 1);
+
+            CreatePipeline(worldState, CreateActiveDefinitions(destroyTile)).RunTick(new TickInput(1));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(rightCell));
+            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), forwardCell), Is.Zero);
+            AssertSummonedMetadata(worldState, child.entityId);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_BlockedByActivatedBarricadeConsumesRecoverWithoutSummoned()
+        {
+            var candidates = GetSummonCandidateCells();
+            var barricades = candidates
+                .Select((cell, index) => CreateTileFeature(120 + index, cell, TileFeatureKind.Barricade))
+                .ToArray();
+            var worldState = CreateWorldState(
+                new[] { CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10) },
+                initialTileFeatures: barricades);
+            SeedWindupUtilityState(worldState, windupEndTick: 1);
+
+            CreatePipeline(worldState, CreateActiveDefinitions(barricades)).RunTick(new TickInput(1));
+            var state = GetUtilityEffectState(worldState);
+
+            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+            Assert.That(state.recoverEndTickExclusive, Is.GreaterThan(1));
+            Assert.That(GetSummonedChildren(worldState), Is.Empty);
+            AssertNoSummonCandidateGhostOccupancy(worldState);
         }
 
         [Test]
@@ -407,7 +471,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        private static TickPipeline CreatePipeline(WorldState worldState)
+        private static TickPipeline CreatePipeline(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             var profile = LoadJpeterProfile();
             var catalog = AssetDatabase.LoadAssetAtPath<EnemyUnitArchetypeCatalog>(CombinedArchetypeCatalogPath);
@@ -442,7 +508,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                    playerKinematicLocomotionTiming: CreateOneTickKinematicTiming());
+                    playerKinematicLocomotionTiming: CreateOneTickKinematicTiming(),
+                    tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static EnemyAiProfile LoadJpeterProfile()
@@ -702,6 +769,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 teamId: 0,
                 lifetimeTicks: 0,
                 charges: boundEntityId);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateActiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.Always, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateDefinitions(
+            TileFeatureActivationRule activationRule,
+            params TileFeatureState[] tileFeatures)
+        {
+            return tileFeatures
+                .Select(tileFeature => new TileFeatureRuntimeDefinition(
+                    tileFeature.TileId,
+                    activationRule,
+                    Direction2D.None,
+                    TileFeatureBoxSelector.None,
+                    boundEntityId: tileFeature.Charges,
+                    presentationKey: string.Empty))
+                .ToArray();
         }
     }
 }

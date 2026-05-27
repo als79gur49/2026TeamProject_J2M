@@ -16,6 +16,8 @@ namespace Game.Feature.Gameplay.BoardState
         PushStart = 2,
         SlidingContinuation = 3,
         FlipLanding = 4,
+        UnitPlacement = 5,
+        UnitSettlement = 6,
     }
 
     internal static class TileFeatureMovementBlockerQuery
@@ -83,7 +85,9 @@ namespace Game.Feature.Gameplay.BoardState
                                                  movementKind == TileFeatureMovementKind.SlidingContinuation ||
                                                  movementKind == TileFeatureMovementKind.FlipLanding,
                 TileFeatureBlockerSubject.Unit => movementKind == TileFeatureMovementKind.GroundStep ||
-                                                  movementKind == TileFeatureMovementKind.Free2DTopologyTransition,
+                                                  movementKind == TileFeatureMovementKind.Free2DTopologyTransition ||
+                                                  movementKind == TileFeatureMovementKind.UnitPlacement ||
+                                                  movementKind == TileFeatureMovementKind.UnitSettlement,
                 _ => false,
             };
         }
