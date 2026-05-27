@@ -1073,6 +1073,98 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplaySfxArbiter_DoesNotDropProjectileImpactBecauseOfActiveOrPlayerDamage()
+        {
+            var arbiter = new GameplaySfxArbiter();
+            var activePolicy = GameplaySfxPolicyCatalog.Resolve("Active");
+            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ProjectileImpact");
+            var damagePolicy = GameplaySfxPolicyCatalog.Resolve("PlayerDamage");
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            try
+            {
+                var accepted = arbiter.Filter(
+                    new[]
+                    {
+                        CreateSfxRequest(definition, activePolicy, "Active", 1, ownerEntityId: 20),
+                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 2, ownerEntityId: 20),
+                        CreateSfxRequest(definition, damagePolicy, "PlayerDamage", 3, ownerEntityId: 10),
+                    },
+                    tickIndex: 1,
+                    simulationTicksPerSecond: 20);
+
+                Assert.That(
+                    accepted.Select(request => request.Context.DebugTag).ToArray(),
+                    Is.EquivalentTo(new[] { "Active", "ProjectileImpact", "PlayerDamage" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplaySfxArbiter_AllowsSameOwnerActiveAndProjectileImpactInSameTick()
+        {
+            var arbiter = new GameplaySfxArbiter();
+            var activePolicy = GameplaySfxPolicyCatalog.Resolve("Active");
+            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ProjectileImpact");
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            try
+            {
+                var accepted = arbiter.Filter(
+                    new[]
+                    {
+                        CreateSfxRequest(definition, activePolicy, "Active", 1, ownerEntityId: 20),
+                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 2, ownerEntityId: 20),
+                    },
+                    tickIndex: 1,
+                    simulationTicksPerSecond: 20);
+
+                Assert.That(
+                    accepted.Select(request => request.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Active", "ProjectileImpact" }));
+                Assert.That(activePolicy.Group, Is.Not.EqualTo(impactPolicy.Group));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectileImpact_GroupCapStillBoundsMultipleImpacts()
+        {
+            var arbiter = new GameplaySfxArbiter();
+            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ProjectileImpact");
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            try
+            {
+                var accepted = arbiter.Filter(
+                    new[]
+                    {
+                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 1, ownerEntityId: 20),
+                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 2, ownerEntityId: 21),
+                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 3, ownerEntityId: 22),
+                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 4, ownerEntityId: 23),
+                    },
+                    tickIndex: 1,
+                    simulationTicksPerSecond: 20);
+
+                Assert.That(impactPolicy.Group, Is.EqualTo(AudioVoiceGroupId.ProjectileImpact));
+                Assert.That(impactPolicy.MaxVoicesGlobal, Is.EqualTo(3));
+                Assert.That(accepted, Has.Count.EqualTo(3));
+                Assert.That(accepted.All(request => request.Policy.Group == AudioVoiceGroupId.ProjectileImpact), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplaySfxArbiter_HighPriorityCriticalFeedback_WinsAdmissionOverLowPrioritySpam()
         {
             var arbiter = new GameplaySfxArbiter();
