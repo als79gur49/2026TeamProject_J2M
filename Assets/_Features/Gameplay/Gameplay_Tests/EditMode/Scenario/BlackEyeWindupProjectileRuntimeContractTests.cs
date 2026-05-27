@@ -151,20 +151,64 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [TestCase("HpZero")]
         [TestCase("MarkedForDeath")]
         [TestCase("Detached")]
-        public void BlackEye_TargetInvalidatedDuringWindup_DoesNotCreateStalePendingImpact(string invalidationKind)
+        [TestCase("Removed")]
+        public void BlackEye_TargetInvalidatedDuringWindup_StillReleasesLockedCell_StrongContract(string invalidationKind)
         {
-            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(lockedCell);
             var pipeline = CreatePipeline(worldState);
 
             pipeline.RunTick(new TickInput(1));
             var startedAction = GetEnemyActionState(worldState);
+            Assert.That(startedAction.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            Assert.That(startedAction.lockedTargetEntityId, Is.EqualTo(PlayerId));
+            Assert.That(startedAction.lockedTargetCell, Is.EqualTo(lockedCell));
+
             InvalidatePlayerDuringWindup(worldState, invalidationKind);
+            var projectileCountAfterInvalidation = CountProjectiles(worldState.CreateSnapshot());
+
+            var executeTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
+            var impact = GetSinglePendingImpact(worldState);
+
+            Assert.That(impact.TargetCell, Is.EqualTo(lockedCell));
+            Assert.That(impact.TargetCell, Is.EqualTo(startedAction.lockedTargetCell));
+            Assert.That(impact.ReleaseTick, Is.EqualTo(startedAction.executeTick));
+            Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(executeTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
+            Assert.That(executeTick.PresentationData.ForwardCellProjectileReleaseSignals, Has.Count.EqualTo(1));
+            Assert.That(executeTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(lockedCell));
+            Assert.That(CountProjectiles(worldState.CreateSnapshot()), Is.EqualTo(projectileCountAfterInvalidation));
+
+            var actionAfterRelease = GetEnemyActionState(worldState);
+            Assert.That(actionAfterRelease.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            Assert.That(actionAfterRelease.executionAttempted, Is.True);
+            Assert.That(GetEntityAfterTick(executeTick, EnemyId).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+        }
+
+        [Test]
+        [Category("Extended")]
+        [TestCase("HpZero")]
+        [TestCase("MarkedForDeath")]
+        [TestCase("Detached")]
+        [TestCase("Removed")]
+        [TestCase("OffBottomTopology")]
+        public void BlackEye_ForwardCellProjectile_OwnerInvalid_CancelsWithoutPendingImpact_StrongContract(string invalidationKind)
+        {
+            var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(lockedCell);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var startedAction = GetEnemyActionState(worldState);
+            Assert.That(startedAction.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            Assert.That(startedAction.lockedTargetCell, Is.EqualTo(lockedCell));
+
+            InvalidateOwnerDuringWindup(worldState, invalidationKind);
 
             var executeTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
 
             Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
             Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(executeTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
             Assert.That(executeTick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
             AssertActionInactiveOrMissing(worldState);
         }
@@ -483,18 +527,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(observation.TargetAfterMove.position, Is.EqualTo(movedCell));
             Assert.That(observation.TargetAfterMove.position.PlanarPosition, Is.EqualTo(lockedCell.PlanarPosition));
             Assert.That(observation.TargetAfterMove.position.face, Is.Not.EqualTo(lockedCell.face));
-
-            if (expectFaceActive)
-            {
-                AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
-                return;
-            }
-
-            Assert.That(observation.HasImpact, Is.False);
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileClearSignals, Is.Empty);
-            Assert.That(observation.AfterReleaseOccupancy, Is.EqualTo(observation.AfterMoveOccupancy));
-            AssertActionInactiveOrMissing(observation);
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
         }
 
         [Test]
@@ -585,7 +618,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_TargetMovesInactiveFace_CancelsWithoutPendingImpact_StrongContract()
+        public void BlackEye_TargetMovesInactiveFaceDuringWindup_StillReleasesLockedCell_StrongContract()
         {
             var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
             var movedCell = new SurfaceCell(FaceId.Ceiling, 4, 0);
@@ -596,11 +629,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 expectMovedFaceActive: false);
 
             Assert.That(observation.TargetAfterMove.position.face, Is.EqualTo(FaceId.Ceiling));
-            Assert.That(observation.HasImpact, Is.False);
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileClearSignals, Is.Empty);
-            Assert.That(observation.AfterReleaseOccupancy, Is.EqualTo(observation.AfterMoveOccupancy));
-            AssertActionInactiveOrMissing(observation);
+            Assert.That(observation.TargetAfterMove.position.face, Is.Not.EqualTo(lockedCell.face));
+            Assert.That(observation.TargetAfterMove.position.PlanarPosition, Is.EqualTo(lockedCell.PlanarPosition));
+            AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
         }
 
         [Test]
@@ -659,6 +690,41 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 case "Detached":
                     writeContext.SetBoardPresence(PlayerId, EntityBoardPresence.Detached);
+                    break;
+
+                case "Removed":
+                    writeContext.RemoveEntity(PlayerId);
+                    break;
+
+                default:
+                    Assert.Fail($"Unsupported invalidation kind '{invalidationKind}'.");
+                    break;
+            }
+        }
+
+        private static void InvalidateOwnerDuringWindup(WorldState worldState, string invalidationKind)
+        {
+            var writeContext = worldState.CreateWriteContext();
+            switch (invalidationKind)
+            {
+                case "HpZero":
+                    writeContext.ApplyDamage(EnemyId, amount: 99);
+                    break;
+
+                case "MarkedForDeath":
+                    ((IAttackCommitContext)writeContext).MarkDestroy(EnemyId);
+                    break;
+
+                case "Detached":
+                    writeContext.SetBoardPresence(EnemyId, EntityBoardPresence.Detached);
+                    break;
+
+                case "Removed":
+                    writeContext.RemoveEntity(EnemyId);
+                    break;
+
+                case "OffBottomTopology":
+                    writeContext.SetTopology(new CubeTopologyState(FaceId.Front));
                     break;
 
                 default:
