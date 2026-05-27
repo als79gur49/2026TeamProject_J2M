@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Loop
             var eventLogEntries = new List<string>();
             var damageResolutions = new List<DamageResolutionRecord>();
             var contactResolutions = new List<FlipContactResolution>();
+            var contactPresentationSignals = new List<FlipDueContactPresentationSignal>();
             for (var i = 0; i < _dueContacts.Count; i++)
             {
                 ResolveSingleScheduledFlipContact(
@@ -46,7 +47,8 @@ namespace Game.Feature.Gameplay.Loop
                     postCleanupBatch,
                     eventLogEntries,
                     damageResolutions,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
             }
 
             return new FlipScheduledContactDueResult(
@@ -54,7 +56,8 @@ namespace Game.Feature.Gameplay.Loop
                 postCleanupBatch,
                 eventLogEntries,
                 damageResolutions,
-                contactResolutions);
+                contactResolutions,
+                contactPresentationSignals);
         }
 
         private void ResolveSingleScheduledFlipContact(
@@ -66,7 +69,8 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch postCleanupBatch,
             List<string> eventLogEntries,
             List<DamageResolutionRecord> damageResolutions,
-            List<FlipContactResolution> contactResolutions)
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             if (stageAlreadyTerminal)
             {
@@ -78,7 +82,8 @@ namespace Game.Feature.Gameplay.Loop
                     "StageTerminal",
                     batch,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -90,7 +95,8 @@ namespace Game.Feature.Gameplay.Loop
                     "BoxGone",
                     batch,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -102,7 +108,8 @@ namespace Game.Feature.Gameplay.Loop
                     "BoxNotInFlight",
                     batch,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -118,7 +125,8 @@ namespace Game.Feature.Gameplay.Loop
                     "ActorGone",
                     batch,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -132,7 +140,8 @@ namespace Game.Feature.Gameplay.Loop
                     "TopologyChanged",
                     batch,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -146,7 +155,8 @@ namespace Game.Feature.Gameplay.Loop
                     "BlockedByBoardEdge",
                     batch,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -160,7 +170,8 @@ namespace Game.Feature.Gameplay.Loop
                     "BlockedByTerrain",
                     batch,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -177,7 +188,8 @@ namespace Game.Feature.Gameplay.Loop
                         postCleanupBatch,
                         eventLogEntries,
                         damageResolutions,
-                        contactResolutions);
+                        contactResolutions,
+                        contactPresentationSignals);
                     return;
 
                 case FlipContactOccupantKind.Solid:
@@ -190,6 +202,7 @@ namespace Game.Feature.Gameplay.Loop
                         batch,
                         eventLogEntries,
                         contactResolutions,
+                        contactPresentationSignals,
                         occupant.Entity.entityId);
                     return;
 
@@ -201,7 +214,8 @@ namespace Game.Feature.Gameplay.Loop
                         currentTick,
                         batch,
                         eventLogEntries,
-                        contactResolutions);
+                        contactResolutions,
+                        contactPresentationSignals);
                     return;
 
                 default:
@@ -218,7 +232,8 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch postCleanupBatch,
             List<string> eventLogEntries,
             List<DamageResolutionRecord> damageResolutions,
-            List<FlipContactResolution> contactResolutions)
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             var isPlayer = EntityRolePolicy.IsPlayerUnit(occupant);
             var isFriendly = occupant.teamId == contact.KineticInstigatorTeamId;
@@ -233,6 +248,7 @@ namespace Game.Feature.Gameplay.Loop
                     batch,
                     eventLogEntries,
                     contactResolutions,
+                    contactPresentationSignals,
                     occupant.entityId);
                 return;
             }
@@ -264,8 +280,10 @@ namespace Game.Feature.Gameplay.Loop
                     null,
                     FlipBoxDisposition.DestroySelf,
                     "HitHostileSurvived",
+                    snapshot.Topology,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -303,8 +321,10 @@ namespace Game.Feature.Gameplay.Loop
                     contact.LandingCell,
                     FlipBoxDisposition.MaterializeAtLanding,
                     "HitHostileDiedSettlementAllowed",
+                    snapshot.Topology,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -318,8 +338,10 @@ namespace Game.Feature.Gameplay.Loop
                 materializeCell,
                 fallbackDisposition,
                 "HitHostileDiedSettlementDenied",
+                snapshot.Topology,
                 eventLogEntries,
-                contactResolutions);
+                contactResolutions,
+                contactPresentationSignals);
         }
 
         private void ResolveEmptyOrProjectileContact(
@@ -328,7 +350,8 @@ namespace Game.Feature.Gameplay.Loop
             int currentTick,
             FinalizationBatch batch,
             List<string> eventLogEntries,
-            List<FlipContactResolution> contactResolutions)
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             var metadata = CreateDueMetadata(contact);
             var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
@@ -349,8 +372,10 @@ namespace Game.Feature.Gameplay.Loop
                     contact.LandingCell,
                     FlipBoxDisposition.MaterializeAtLanding,
                     "EmptyLand",
+                    snapshot.Topology,
                     eventLogEntries,
-                    contactResolutions);
+                    contactResolutions,
+                    contactPresentationSignals);
                 return;
             }
 
@@ -364,8 +389,10 @@ namespace Game.Feature.Gameplay.Loop
                 materializeCell,
                 disposition,
                 "WhiffSettlementDenied",
+                snapshot.Topology,
                 eventLogEntries,
-                contactResolutions);
+                contactResolutions,
+                contactPresentationSignals);
         }
 
         private void ResolveBlocked(
@@ -377,6 +404,7 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch batch,
             List<string> eventLogEntries,
             List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals,
             int hitEntityId = 0)
         {
             var metadata = CreateDueMetadata(contact, hitEntityId);
@@ -390,8 +418,10 @@ namespace Game.Feature.Gameplay.Loop
                 materializeCell,
                 disposition,
                 result,
+                snapshot.Topology,
                 eventLogEntries,
-                contactResolutions);
+                contactResolutions,
+                contactPresentationSignals);
         }
 
         private void CancelWithSafeReturn(
@@ -402,7 +432,8 @@ namespace Game.Feature.Gameplay.Loop
             string reason,
             FinalizationBatch batch,
             List<string> eventLogEntries,
-            List<FlipContactResolution> contactResolutions)
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             var metadata = CreateDueMetadata(contact);
             var disposition = SafeReturnOrDestroyInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
@@ -415,8 +446,10 @@ namespace Game.Feature.Gameplay.Loop
                 materializeCell,
                 disposition,
                 reason,
+                snapshot.Topology,
                 eventLogEntries,
-                contactResolutions);
+                contactResolutions,
+                contactPresentationSignals);
             eventLogEntries.Add(
                 $"FlipB1Cancelled|Tick={currentTick}|Action={contact.ActionId}|Box={contact.SourceBoxEntityId}|Reason={reason}");
         }
@@ -427,7 +460,8 @@ namespace Game.Feature.Gameplay.Loop
             string reason,
             FinalizationBatch batch,
             List<string> eventLogEntries,
-            List<FlipContactResolution> contactResolutions)
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             var metadata = CreateDueMetadata(contact);
             batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
@@ -439,8 +473,10 @@ namespace Game.Feature.Gameplay.Loop
                 null,
                 FlipBoxDisposition.Cancelled,
                 reason,
+                default,
                 eventLogEntries,
-                contactResolutions);
+                contactResolutions,
+                contactPresentationSignals);
             eventLogEntries.Add(
                 $"FlipB1Cancelled|Tick={currentTick}|Action={contact.ActionId}|Box={contact.SourceBoxEntityId}|Reason={reason}");
         }
@@ -541,8 +577,10 @@ namespace Game.Feature.Gameplay.Loop
             SurfaceCell? materializeCell,
             FlipBoxDisposition disposition,
             string result,
+            CubeTopologyState topology,
             List<string> eventLogEntries,
-            List<FlipContactResolution> contactResolutions)
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             contactResolutions.Add(
                 new FlipContactResolution(
@@ -552,6 +590,23 @@ namespace Game.Feature.Gameplay.Loop
                     contact.ContactCell,
                     materializeCell,
                     disposition));
+            contactPresentationSignals.Add(
+                new FlipDueContactPresentationSignal(
+                    contact.ActionId,
+                    contact.SourceBoxEntityId,
+                    contact.ActorEntityId,
+                    hitEntityId.GetValueOrDefault(),
+                    contact.SourceCell,
+                    contact.ContactCell,
+                    contact.LandingCell,
+                    topology,
+                    contact.FlipDirection,
+                    contact.FlipDirection,
+                    kind,
+                    disposition,
+                    materializeCell.HasValue,
+                    materializeCell.GetValueOrDefault(),
+                    BuildStableDuePresentationSeed(currentTick, contact)));
             eventLogEntries.Add(
                 $"FlipB1Due|Tick={currentTick}|Action={contact.ActionId}|Box={contact.SourceBoxEntityId}|Contact={FormatCell(contact.ContactCell)}|Occupant={(hitEntityId.HasValue ? hitEntityId.Value.ToString() : "None")}|Result={result}");
             eventLogEntries.Add(
@@ -563,6 +618,19 @@ namespace Game.Feature.Gameplay.Loop
         private static string FormatCell(SurfaceCell cell)
         {
             return $"({cell.face},{cell.x},{cell.y})";
+        }
+
+        private static int BuildStableDuePresentationSeed(int currentTick, in ScheduledFlipContact contact)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 31) + currentTick;
+                hash = (hash * 31) + contact.ActionId;
+                hash = (hash * 31) + contact.SourceBoxEntityId;
+                hash = (hash * 31) + contact.ContactCell.GetHashCode();
+                return hash == 0 ? 1 : hash;
+            }
         }
 
         private readonly struct FlipContactOccupant
@@ -594,20 +662,24 @@ namespace Game.Feature.Gameplay.Loop
             new FinalizationBatch(),
             Array.Empty<string>(),
             Array.Empty<DamageResolutionRecord>(),
-            Array.Empty<FlipContactResolution>());
+            Array.Empty<FlipContactResolution>(),
+            Array.Empty<FlipDueContactPresentationSignal>());
 
         public FlipScheduledContactDueResult(
             FinalizationBatch batch,
             FinalizationBatch postCleanupBatch,
             IReadOnlyList<string> eventLogEntries,
             IReadOnlyList<DamageResolutionRecord> damageResolutions,
-            IReadOnlyList<FlipContactResolution> contactResolutions)
+            IReadOnlyList<FlipContactResolution> contactResolutions,
+            IReadOnlyList<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             Batch = batch ?? throw new ArgumentNullException(nameof(batch));
             PostCleanupBatch = postCleanupBatch ?? throw new ArgumentNullException(nameof(postCleanupBatch));
             EventLogEntries = eventLogEntries ?? throw new ArgumentNullException(nameof(eventLogEntries));
             DamageResolutions = damageResolutions ?? throw new ArgumentNullException(nameof(damageResolutions));
             ContactResolutions = contactResolutions ?? throw new ArgumentNullException(nameof(contactResolutions));
+            ContactPresentationSignals = contactPresentationSignals ??
+                                         throw new ArgumentNullException(nameof(contactPresentationSignals));
         }
 
         public FinalizationBatch Batch { get; }
@@ -619,6 +691,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<DamageResolutionRecord> DamageResolutions { get; }
 
         public IReadOnlyList<FlipContactResolution> ContactResolutions { get; }
+
+        public IReadOnlyList<FlipDueContactPresentationSignal> ContactPresentationSignals { get; }
 
         public bool HasWork =>
             Batch.Operations.Count > 0 ||

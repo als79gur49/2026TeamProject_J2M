@@ -2346,6 +2346,13 @@ namespace Game.Feature.Gameplay.Loop
         AfterAnimationTail = 3,
     }
 
+    public enum GameplayPresentationTimingMode
+    {
+        LegacyActionTimeline = 0,
+        AtContactTime = 1,
+        DueContactImmediate = 2,
+    }
+
     internal readonly struct EntityExitPresentationFact
     {
         public EntityExitPresentationFact(
@@ -2423,7 +2430,8 @@ namespace Game.Feature.Gameplay.Loop
             int? anchorEntityId = null,
             int presentationSeed = 0,
             EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate,
-            float visualContactNormalizedTime = 0f)
+            float visualContactNormalizedTime = 0f,
+            GameplayPresentationTimingMode timingMode = GameplayPresentationTimingMode.LegacyActionTimeline)
         {
             ExitedEntityId = exitedEntityId;
             ExitCause = exitCause;
@@ -2436,6 +2444,10 @@ namespace Game.Feature.Gameplay.Loop
             PresentationSeed = presentationSeed;
             Timing = timing;
             VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+            TimingMode = timingMode == GameplayPresentationTimingMode.LegacyActionTimeline &&
+                         timing == EntityExitPresentationTiming.AtContactTime
+                ? GameplayPresentationTimingMode.AtContactTime
+                : timingMode;
         }
 
         public int ExitedEntityId { get; }
@@ -2459,6 +2471,8 @@ namespace Game.Feature.Gameplay.Loop
         public EntityExitPresentationTiming Timing { get; }
 
         public float VisualContactNormalizedTime { get; }
+
+        public GameplayPresentationTimingMode TimingMode { get; }
 
         private static float ClampNormalized(float value)
         {
@@ -2534,7 +2548,8 @@ namespace Game.Feature.Gameplay.Loop
             Direction sourceFacing,
             Direction contactFacing,
             FlipFloorImpactPresentationKind kind,
-            float visualContactNormalizedTime = GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime)
+            float visualContactNormalizedTime = GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+            GameplayPresentationTimingMode timingMode = GameplayPresentationTimingMode.AtContactTime)
         {
             SourceActionPlanId = sourceActionPlanId;
             BoxEntityId = boxEntityId;
@@ -2546,6 +2561,7 @@ namespace Game.Feature.Gameplay.Loop
             ContactFacing = contactFacing;
             Kind = kind;
             VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+            TimingMode = timingMode;
         }
 
         public int SourceActionPlanId { get; }
@@ -2567,6 +2583,8 @@ namespace Game.Feature.Gameplay.Loop
         public FlipFloorImpactPresentationKind Kind { get; }
 
         public float VisualContactNormalizedTime { get; }
+
+        public GameplayPresentationTimingMode TimingMode { get; }
 
         private static float ClampNormalized(float value)
         {
@@ -2632,6 +2650,79 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell LandingCell { get; }
 
         public FlipImpactPresentationDisposition Disposition { get; }
+    }
+
+    public readonly struct FlipDueContactPresentationSignal
+    {
+        public FlipDueContactPresentationSignal(
+            int sourceActionPlanId,
+            int boxEntityId,
+            int actorEntityId,
+            int hitEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell contactCell,
+            SurfaceCell landingCell,
+            CubeTopologyState topology,
+            Direction sourceFacing,
+            Direction contactFacing,
+            FlipContactResolutionKind resolutionKind,
+            FlipBoxDisposition boxDisposition,
+            bool hasMaterializeCell,
+            SurfaceCell materializeCell,
+            int presentationSeed = 0)
+        {
+            SourceActionPlanId = sourceActionPlanId;
+            BoxEntityId = boxEntityId;
+            ActorEntityId = actorEntityId;
+            HitEntityId = hitEntityId;
+            SourceCell = sourceCell;
+            ContactCell = contactCell;
+            LandingCell = landingCell;
+            Topology = topology;
+            SourceFacing = sourceFacing;
+            ContactFacing = contactFacing;
+            ResolutionKind = resolutionKind;
+            BoxDisposition = boxDisposition;
+            HasMaterializeCell = hasMaterializeCell;
+            MaterializeCell = materializeCell;
+            PresentationSeed = presentationSeed;
+            TimingMode = GameplayPresentationTimingMode.DueContactImmediate;
+            VisualContactNormalizedTime = 0f;
+        }
+
+        public int SourceActionPlanId { get; }
+
+        public int BoxEntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public int HitEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell ContactCell { get; }
+
+        public SurfaceCell LandingCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction SourceFacing { get; }
+
+        public Direction ContactFacing { get; }
+
+        public FlipContactResolutionKind ResolutionKind { get; }
+
+        public FlipBoxDisposition BoxDisposition { get; }
+
+        public bool HasMaterializeCell { get; }
+
+        public SurfaceCell MaterializeCell { get; }
+
+        public int PresentationSeed { get; }
+
+        public GameplayPresentationTimingMode TimingMode { get; }
+
+        public float VisualContactNormalizedTime { get; }
     }
 
     public readonly struct BoxSlideStopPresentationSignal
@@ -2767,6 +2858,7 @@ namespace Game.Feature.Gameplay.Loop
         private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
         private readonly ReadOnlyCollection<FlipFloorImpactPresentationSignal> _flipFloorImpactSignals;
         private readonly ReadOnlyCollection<FlipImpactPresentationSignal> _flipImpactSignals;
+        private readonly ReadOnlyCollection<FlipDueContactPresentationSignal> _flipDueContactSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
         private readonly ReadOnlyCollection<TickEnemyDamagePresentationSignal> _enemyDamageSignals;
         private readonly ReadOnlyCollection<TickEnemyJumpPresentationSignal> _enemyJumpSignals;
@@ -3160,7 +3252,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
         {
             if (entityMotions == null)
             {
@@ -3333,6 +3426,9 @@ namespace Game.Feature.Gameplay.Loop
             _flipFloorImpactSignals = new ReadOnlyCollection<FlipFloorImpactPresentationSignal>(
                 new List<FlipFloorImpactPresentationSignal>(
                     flipFloorImpactSignals ?? Array.Empty<FlipFloorImpactPresentationSignal>()));
+            _flipDueContactSignals = new ReadOnlyCollection<FlipDueContactPresentationSignal>(
+                new List<FlipDueContactPresentationSignal>(
+                    flipDueContactSignals ?? Array.Empty<FlipDueContactPresentationSignal>()));
             _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
                 new List<TickImpactTransientPresentationSignal>());
             _summonedEnemyPresentationBindings = new ReadOnlyCollection<TickSummonedEnemyPresentationBinding>(
@@ -3385,7 +3481,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3421,7 +3518,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
-                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                flipDueContactSignals: flipDueContactSignals)
         {
         }
 
@@ -3499,7 +3597,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3539,7 +3638,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
-                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                flipDueContactSignals: flipDueContactSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -3595,7 +3695,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
             : this(
                 entityMotions: entityMotions,
                 topologyMotion: topologyMotion,
@@ -3636,7 +3737,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
-                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                flipDueContactSignals: flipDueContactSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -3746,6 +3848,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<FlipImpactPresentationSignal> FlipImpactSignals => _flipImpactSignals;
 
         public IReadOnlyList<FlipFloorImpactPresentationSignal> FlipFloorImpactSignals => _flipFloorImpactSignals;
+
+        public IReadOnlyList<FlipDueContactPresentationSignal> FlipDueContactSignals => _flipDueContactSignals;
 
         internal IReadOnlyList<TickImpactTransientPresentationSignal> ImpactTransientSignals => _impactTransientSignals;
 

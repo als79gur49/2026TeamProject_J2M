@@ -753,6 +753,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 var signal = signals[i];
                 if (signal.Timing != EntityExitPresentationTiming.AtContactTime ||
+                    signal.TimingMode == GameplayPresentationTimingMode.DueContactImmediate ||
                     signal.EntityType != EntityType.Unit ||
                     (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
                      signal.ExitCause != TickEntityExitCause.Killed))

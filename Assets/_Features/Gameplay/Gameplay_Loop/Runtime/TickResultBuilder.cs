@@ -586,7 +586,9 @@ namespace Game.Feature.Gameplay.Loop
             int gravityFieldActiveDurationTicks = 0,
             IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
             FinalizationBatch finalizationBatch = null,
-            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null)
+            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null,
+            IReadOnlyList<FlipDueContactPresentationSignal> dueFlipContactSignals = null,
+            IReadOnlyList<DamageResolutionRecord> dueDamageResolutions = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -610,6 +612,8 @@ namespace Game.Feature.Gameplay.Loop
             GravityFieldEvents = gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>();
             GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
             PlayerActionAttemptResolutions = playerActionAttemptResolutions ?? Array.Empty<PlayerActionAttemptResolution>();
+            DueFlipContactSignals = dueFlipContactSignals ?? Array.Empty<FlipDueContactPresentationSignal>();
+            DueDamageResolutions = dueDamageResolutions ?? Array.Empty<DamageResolutionRecord>();
             GravityFieldChargeDurationTicks = gravityFieldChargeDurationTicks > 0
                 ? gravityFieldChargeDurationTicks
                 : GameplayTimingProfile.SecondsToCeilTicks(
@@ -660,6 +664,10 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
 
         public IReadOnlyList<PlayerActionAttemptResolution> PlayerActionAttemptResolutions { get; }
+
+        public IReadOnlyList<FlipDueContactPresentationSignal> DueFlipContactSignals { get; }
+
+        public IReadOnlyList<DamageResolutionRecord> DueDamageResolutions { get; }
 
         public int GravityFieldChargeDurationTicks { get; }
 
@@ -717,6 +725,7 @@ namespace Game.Feature.Gameplay.Loop
             var impactTransientSignals = new List<TickImpactTransientPresentationSignal>();
             var flipImpactSignals = new List<FlipImpactPresentationSignal>();
             var flipFloorImpactSignals = new List<FlipFloorImpactPresentationSignal>();
+            var flipDueContactSignals = new List<FlipDueContactPresentationSignal>();
             var boxSlideStopSignals = new List<BoxSlideStopPresentationSignal>();
             var boxSlideStartSignals = new List<BoxSlideStartPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
@@ -768,6 +777,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildGravityFieldPresentationEvents(context, gravityFieldEvents);
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
             BuildTileFeatureActiveVisualStates(context, topologyFact, tileFeatureActiveVisualStates);
+            BuildFlipDueContactPresentation(context, flipDueContactSignals);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildFlipFloorImpactPresentation(context, flipFloorImpactSignals);
@@ -835,6 +845,7 @@ namespace Game.Feature.Gameplay.Loop
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
                    flipFloorImpactSignals.Count == 0 &&
+                   flipDueContactSignals.Count == 0 &&
                    boxSlideStopSignals.Count == 0 &&
                    boxSlideStartSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
@@ -904,7 +915,19 @@ namespace Game.Feature.Gameplay.Loop
                     forwardCellProjectileClearSignals,
                     entitySpawnSignals,
                     playerOutcomeSignals,
-                    enemyUtilityPhaseStates);
+                    enemyUtilityPhaseStates,
+                    flipDueContactSignals: flipDueContactSignals);
+        }
+
+        private static void BuildFlipDueContactPresentation(
+            in TickPresentationBuildContext context,
+            List<FlipDueContactPresentationSignal> flipDueContactSignals)
+        {
+            var signals = context.DueFlipContactSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                flipDueContactSignals.Add(signals[i]);
+            }
         }
 
         private static void BuildForwardCellProjectilePresentation(
@@ -3044,8 +3067,72 @@ namespace Game.Feature.Gameplay.Loop
             List<FlipFloorImpactPresentationSignal> flipFloorImpactSignals)
         {
             var signaledKeys = new HashSet<long>();
+            BuildFlipFloorImpactPresentationFromDueContact(context, flipFloorImpactSignals, signaledKeys);
             BuildFlipFloorImpactPresentationFromDisposition(context, flipFloorImpactSignals, signaledKeys);
             BuildFlipFloorImpactPresentationFromMovement(context, flipFloorImpactSignals, signaledKeys);
+        }
+
+        private static void BuildFlipFloorImpactPresentationFromDueContact(
+            in TickPresentationBuildContext context,
+            List<FlipFloorImpactPresentationSignal> flipFloorImpactSignals,
+            HashSet<long> signaledKeys)
+        {
+            var signals = context.DueFlipContactSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.BoxEntityId <= 0 ||
+                    signal.BoxDisposition == FlipBoxDisposition.Cancelled ||
+                    !TryResolveFlipDueFloorImpactKind(signal.BoxDisposition, out var kind))
+                {
+                    continue;
+                }
+
+                var key = BuildFlipImpactSignalKey(signal.SourceActionPlanId, signal.BoxEntityId);
+                if (!signaledKeys.Add(key))
+                {
+                    continue;
+                }
+
+                flipFloorImpactSignals.Add(
+                    new FlipFloorImpactPresentationSignal(
+                        signal.SourceActionPlanId,
+                        signal.BoxEntityId,
+                        signal.ActorEntityId,
+                        signal.SourceCell,
+                        signal.ContactCell,
+                        signal.Topology,
+                        signal.SourceFacing,
+                        signal.ContactFacing,
+                        kind,
+                        visualContactNormalizedTime: 0f,
+                        timingMode: GameplayPresentationTimingMode.DueContactImmediate));
+            }
+        }
+
+        private static bool TryResolveFlipDueFloorImpactKind(
+            FlipBoxDisposition disposition,
+            out FlipFloorImpactPresentationKind kind)
+        {
+            switch (disposition)
+            {
+                case FlipBoxDisposition.MaterializeAtLanding:
+                    kind = FlipFloorImpactPresentationKind.FollowThrough;
+                    return true;
+
+                case FlipBoxDisposition.MaterializeAtSource:
+                case FlipBoxDisposition.StayAtContact:
+                    kind = FlipFloorImpactPresentationKind.Stay;
+                    return true;
+
+                case FlipBoxDisposition.DestroySelf:
+                    kind = FlipFloorImpactPresentationKind.DestroySelf;
+                    return true;
+
+                default:
+                    kind = default;
+                    return false;
+            }
         }
 
         private static void BuildFlipFloorImpactPresentationFromDisposition(
@@ -3163,10 +3250,16 @@ namespace Game.Feature.Gameplay.Loop
             List<TickEntityExitPresentationSignal> entityExitSignals,
             ISet<int> exitOwnedEntityIds)
         {
+            BuildDueContactEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             var facts = BuildEntityExitPresentationFacts(context);
             for (var i = 0; i < facts.Count; i++)
             {
                 var fact = facts[i];
+                if (exitOwnedEntityIds.Contains(fact.EntityId))
+                {
+                    continue;
+                }
+
                 entityExitSignals.Add(
                     new TickEntityExitPresentationSignal(
                         fact.EntityId,
@@ -3184,6 +3277,62 @@ namespace Game.Feature.Gameplay.Loop
                         timing: fact.Timing,
                         visualContactNormalizedTime: fact.VisualContactNormalizedTime));
                 exitOwnedEntityIds.Add(fact.EntityId);
+            }
+        }
+
+        private static void BuildDueContactEntityExitPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEntityExitPresentationSignal> entityExitSignals,
+            ISet<int> exitOwnedEntityIds)
+        {
+            var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
+            if (removedEntityIds.Count == 0)
+            {
+                return;
+            }
+
+            var dueSignals = context.DueFlipContactSignals;
+            for (var i = 0; i < dueSignals.Count; i++)
+            {
+                var dueSignal = dueSignals[i];
+                if (dueSignal.HitEntityId > 0 &&
+                    removedEntityIds.Contains(dueSignal.HitEntityId) &&
+                    exitOwnedEntityIds.Add(dueSignal.HitEntityId))
+                {
+                    entityExitSignals.Add(
+                        new TickEntityExitPresentationSignal(
+                            dueSignal.HitEntityId,
+                            TickEntityExitCause.EnemyDeath,
+                            dueSignal.ContactCell,
+                            dueSignal.Topology,
+                            dueSignal.ContactFacing,
+                            EntityType.Unit,
+                            sourceActorEntityId: dueSignal.ActorEntityId,
+                            presentationSeed: dueSignal.PresentationSeed,
+                            timing: EntityExitPresentationTiming.Immediate,
+                            visualContactNormalizedTime: 0f,
+                            timingMode: GameplayPresentationTimingMode.DueContactImmediate));
+                }
+
+                if (dueSignal.BoxEntityId > 0 &&
+                    dueSignal.BoxDisposition == FlipBoxDisposition.DestroySelf &&
+                    removedEntityIds.Contains(dueSignal.BoxEntityId) &&
+                    exitOwnedEntityIds.Add(dueSignal.BoxEntityId))
+                {
+                    entityExitSignals.Add(
+                        new TickEntityExitPresentationSignal(
+                            dueSignal.BoxEntityId,
+                            TickEntityExitCause.BoxDestroy,
+                            dueSignal.ContactCell,
+                            dueSignal.Topology,
+                            dueSignal.ContactFacing,
+                            EntityType.Box,
+                            sourceActorEntityId: dueSignal.ActorEntityId,
+                            presentationSeed: dueSignal.PresentationSeed,
+                            timing: EntityExitPresentationTiming.Immediate,
+                            visualContactNormalizedTime: 0f,
+                            timingMode: GameplayPresentationTimingMode.DueContactImmediate));
+                }
             }
         }
 
@@ -4182,6 +4331,7 @@ namespace Game.Feature.Gameplay.Loop
             List<TickEnemyDamagePresentationSignal> enemyDamageSignals)
         {
             var acceptedDamageByEntityId = new Dictionary<int, int>();
+            AddDueEnemyDamagePresentation(context, acceptedDamageByEntityId);
             var damageResolutions = context.AttackPhaseResult.DamageResolutions;
 
             for (var i = 0; i < damageResolutions.Count; i++)
@@ -4205,6 +4355,41 @@ namespace Game.Feature.Gameplay.Loop
                         pair.Key,
                         tookDamageThisTick: true,
                         pair.Value));
+            }
+        }
+
+        private static void AddDueEnemyDamagePresentation(
+            in TickPresentationBuildContext context,
+            IDictionary<int, int> acceptedDamageByEntityId)
+        {
+            if (context.DueDamageResolutions.Count == 0 ||
+                context.DueFlipContactSignals.Count == 0)
+            {
+                return;
+            }
+
+            var dueHitEntityIds = new HashSet<int>();
+            var dueSignals = context.DueFlipContactSignals;
+            for (var i = 0; i < dueSignals.Count; i++)
+            {
+                if (dueSignals[i].HitEntityId > 0)
+                {
+                    dueHitEntityIds.Add(dueSignals[i].HitEntityId);
+                }
+            }
+
+            var damageResolutions = context.DueDamageResolutions;
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                var resolution = damageResolutions[i];
+                if (!resolution.Accepted ||
+                    !dueHitEntityIds.Contains(resolution.TargetId))
+                {
+                    continue;
+                }
+
+                acceptedDamageByEntityId.TryGetValue(resolution.TargetId, out var accumulatedDamage);
+                acceptedDamageByEntityId[resolution.TargetId] = accumulatedDamage + resolution.Amount;
             }
         }
 

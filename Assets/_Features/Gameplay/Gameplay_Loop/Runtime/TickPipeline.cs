@@ -300,7 +300,7 @@ namespace Game.Feature.Gameplay.Loop
                 preMovementStateResult,
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult,
+                combinedCleanupPhaseResult,
                 respawnPhaseResult,
                 input.TickIndex,
                 snapshotAfterEnemyAi,
@@ -316,7 +316,9 @@ namespace Game.Feature.Gameplay.Loop
                 _gravityFieldActiveTicks,
                 resolvePhaseResult.GravityFieldLockedTargetFacts,
                 resolvePhaseResult.FinalizationBatch,
-                planPhaseResult.PlayerActionAttemptResolutions);
+                planPhaseResult.PlayerActionAttemptResolutions,
+                dueContactResult.ContactPresentationSignals,
+                dueContactResult.DamageResolutions);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
