@@ -23,7 +23,8 @@ namespace Game.Feature.Gameplay.Loop
             CleanupPhaseResult cleanupPhaseResult,
             RespawnPhaseResult respawnPhaseResult,
             StageObjectiveTickResult objectiveResult,
-            in TickPresentationBuildContext presentationBuildContext)
+            in TickPresentationBuildContext presentationBuildContext,
+            IReadOnlyList<string> prePlanEventLogEntries = null)
         {
             if (finalSnapshot == null)
             {
@@ -64,6 +65,7 @@ namespace Game.Feature.Gameplay.Loop
             finalSnapshot.EnumerateEntitiesOrdered(finalEntities);
 
             var eventLog = new List<string>(
+                (prePlanEventLogEntries?.Count ?? 0) +
                 movementPhaseResult.CommitEvents.Count +
                 attackPhaseResult.EventLogEntries.Count +
                 cleanupPhaseResult.RemovedEntityIds.Count +
@@ -71,6 +73,11 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.StateTransitions.Count +
                 cleanupPhaseResult.EventLogEntries.Count +
                 respawnPhaseResult.EventLogEntries.Count);
+
+            if (prePlanEventLogEntries != null)
+            {
+                AddRange(eventLog, prePlanEventLogEntries);
+            }
 
             AddRange(eventLog, movementPhaseResult.CommitEvents);
             AddRange(eventLog, attackPhaseResult.EventLogEntries);

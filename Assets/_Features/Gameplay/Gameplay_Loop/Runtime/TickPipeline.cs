@@ -39,6 +39,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackInputNormalizer _attackInputNormalizer = new();
         private readonly AttackExpander _attackExpander;
         private readonly CleanupProcessor _cleanupProcessor = new();
+        private readonly FlipScheduledContactResolver _flipScheduledContactResolver = new();
         private readonly RespawnProcessor _respawnProcessor = new();
         private readonly MoonBlockGeneratorRespawnProcessor _moonBlockGeneratorRespawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
@@ -216,7 +217,32 @@ namespace Game.Feature.Gameplay.Loop
             var phaseTrace = new List<string>(10);
             var drainedDelayedAttackEffects = _delayedAttackEffectQueue.Drain(input.TickIndex);
 
-            var initialSnapshot = SnapshotBuilder.Create(_worldState);
+            var tickStartSnapshot = SnapshotBuilder.Create(_worldState);
+            var writeContext = _worldState.CreateWriteContext();
+            var dueContactResult = _flipScheduledContactResolver.ResolveDueScheduledFlipContacts(
+                tickStartSnapshot,
+                input.TickIndex,
+                _objectiveTracker.CurrentResult.IsCleared);
+            CleanupPhaseResult dueCleanupPhaseResult = CleanupPhaseResult.Empty;
+            WorldSnapshot initialSnapshot = tickStartSnapshot;
+            if (dueContactResult.HasWork)
+            {
+                dueContactResult.Batch.ApplyTo(writeContext, _delayedAttackEffectQueue);
+                var postDueFinalizeSnapshot = SnapshotBuilder.Create(_worldState);
+                var dueCleanupCandidates = CollectDueCleanupCandidateEntityIds(dueContactResult.Batch);
+                dueCleanupPhaseResult = _cleanupProcessor.ProcessRemovalsOnly(
+                    postDueFinalizeSnapshot,
+                    writeContext,
+                    dueCleanupCandidates);
+                if (dueContactResult.PostCleanupBatch.Operations.Count > 0 ||
+                    dueContactResult.PostCleanupBatch.TileFeatureOperations.Count > 0)
+                {
+                    dueContactResult.PostCleanupBatch.ApplyTo(writeContext, _delayedAttackEffectQueue);
+                }
+
+                initialSnapshot = SnapshotBuilder.Create(_worldState);
+            }
+
             var entityLogicsForTick = _entityLogicProvider.Build(initialSnapshot, _staticEntityLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick);
             var planPhaseResult = RunPlanPhase(
@@ -239,7 +265,6 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 completedPhases,
                 phaseTrace);
-            var writeContext = _worldState.CreateWriteContext();
             RunFinalizePhase(resolvePhaseResult.FinalizationBatch, writeContext, completedPhases, phaseTrace);
             var postFinalizeSnapshot = SnapshotBuilder.Create(_worldState);
             var cleanupPhaseResult = RunCleanupPhase(
@@ -249,10 +274,11 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
             var postCleanupSnapshot = SnapshotBuilder.Create(_worldState);
+            var combinedCleanupPhaseResult = MergeCleanupPhaseResults(dueCleanupPhaseResult, cleanupPhaseResult);
             var respawnPhaseResult = RunRespawnPhase(
                 initialSnapshot,
                 postCleanupSnapshot,
-                cleanupPhaseResult,
+                combinedCleanupPhaseResult,
                 input.TickIndex,
                 writeContext,
                 completedPhases,
@@ -263,8 +289,8 @@ namespace Game.Feature.Gameplay.Loop
             var objectiveTickFacts = new StageObjectiveTickFacts(
                 input.TickIndex,
                 input.PlayerCommand,
-                cleanupPhaseResult.RemovedEntityIds,
-                BuildObjectiveDamageFacts(attackPhaseResult.DamageResolutions));
+                combinedCleanupPhaseResult.RemovedEntityIds,
+                BuildObjectiveDamageFacts(dueContactResult.DamageResolutions, attackPhaseResult.DamageResolutions));
             var objectiveResult = _objectiveTracker.Advance(finalAuthoritativeSnapshot, in objectiveTickFacts);
             var presentationBuildContext = new TickPresentationBuildContext(
                 preMovementSnapshot,
@@ -297,10 +323,11 @@ namespace Game.Feature.Gameplay.Loop
                 pendingDelayedAttackEffects,
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult,
+                combinedCleanupPhaseResult,
                 respawnPhaseResult,
                 objectiveResult,
-                presentationBuildContext);
+                presentationBuildContext,
+                dueContactResult.EventLogEntries);
             var determinismHash = ShouldEmitDeterminismHash()
                 ? _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData)
                 : string.Empty;
@@ -362,6 +389,73 @@ namespace Game.Feature.Gameplay.Loop
                     receiver.BindTileFeatureDefinitions(_tileFeatureDefinitions);
                 }
             }
+        }
+
+        private static HashSet<int> CollectDueCleanupCandidateEntityIds(FinalizationBatch batch)
+        {
+            var candidateIds = new HashSet<int>();
+            if (batch == null)
+            {
+                return candidateIds;
+            }
+
+            var operations = batch.Operations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.ApplyDamage ||
+                    operation.Kind == FinalizationOperationKind.MarkDestroy)
+                {
+                    candidateIds.Add(operation.EntityId);
+                }
+            }
+
+            return candidateIds;
+        }
+
+        private static CleanupPhaseResult MergeCleanupPhaseResults(
+            CleanupPhaseResult first,
+            CleanupPhaseResult second)
+        {
+            if (first == null || first == CleanupPhaseResult.Empty)
+            {
+                return second ?? CleanupPhaseResult.Empty;
+            }
+
+            if (second == null || second == CleanupPhaseResult.Empty)
+            {
+                return first;
+            }
+
+            return new CleanupPhaseResult(
+                Merge(first.RemovedEntityIds, second.RemovedEntityIds),
+                Merge(first.TimerChanges, second.TimerChanges),
+                Merge(first.StateTransitions, second.StateTransitions),
+                Merge(first.EventLogEntries, second.EventLogEntries),
+                Merge(first.RemovedUnitKinematicPoses, second.RemovedUnitKinematicPoses),
+                Merge(first.RemovedUnitContinuousLocomotionPoses, second.RemovedUnitContinuousLocomotionPoses));
+        }
+
+        private static List<T> Merge<T>(IReadOnlyList<T> first, IReadOnlyList<T> second)
+        {
+            var merged = new List<T>((first?.Count ?? 0) + (second?.Count ?? 0));
+            if (first != null)
+            {
+                for (var i = 0; i < first.Count; i++)
+                {
+                    merged.Add(first[i]);
+                }
+            }
+
+            if (second != null)
+            {
+                for (var i = 0; i < second.Count; i++)
+                {
+                    merged.Add(second[i]);
+                }
+            }
+
+            return merged;
         }
 
         private EnemyAiPhaseResult RunEnemyAiPhase(
@@ -9951,6 +10045,36 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return facts;
+        }
+
+        private static IReadOnlyList<StageObjectiveDamageFact> BuildObjectiveDamageFacts(
+            IReadOnlyList<DamageResolutionRecord> first,
+            IReadOnlyList<DamageResolutionRecord> second)
+        {
+            if ((first == null || first.Count == 0) &&
+                (second == null || second.Count == 0))
+            {
+                return Array.Empty<StageObjectiveDamageFact>();
+            }
+
+            var merged = new List<DamageResolutionRecord>((first?.Count ?? 0) + (second?.Count ?? 0));
+            if (first != null)
+            {
+                for (var i = 0; i < first.Count; i++)
+                {
+                    merged.Add(first[i]);
+                }
+            }
+
+            if (second != null)
+            {
+                for (var i = 0; i < second.Count; i++)
+                {
+                    merged.Add(second[i]);
+                }
+            }
+
+            return BuildObjectiveDamageFacts(merged);
         }
 
         private static DestroyResolutionRecord FindDestroyResolution(
