@@ -138,6 +138,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.hp <= 0 ||
                 source.markedForDeath ||
+                source.boardPresence != EntityBoardPresence.Occupying ||
                 source.aiMode == EnemyAiMode.Dead)
             {
                 return EnemyActionQueries.Clear(workingAction);
@@ -160,17 +161,6 @@ namespace Game.Feature.Gameplay.Entities
             {
                 if (workingAction.kind == EnemyActionKind.ForwardCellProjectile)
                 {
-                    if (!EnemyActionStateTargeting.IsLockedTargetValidForCurrentAction(
-                            snapshot,
-                            source,
-                            workingAction,
-                            _detectionSettings))
-                    {
-                        ApplyCancelFallback(snapshot, source, writeContext);
-                        ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
-                        return EnemyActionQueries.Clear(workingAction);
-                    }
-
                     if (!workingAction.executionAttempted &&
                         workingAction.executeTick <= tickIndex)
                     {
