@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
@@ -455,6 +456,173 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 buffer);
 
             Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_SameState_DoesNotWritePlayerControlState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var snapshot = worldState.CreateSnapshot();
+            var batch = new FinalizationBatch();
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                logic.CommitPreMovementState(
+                    snapshot,
+                    new TickInput(1),
+                    new RecordingFinalizationContext(batch, snapshot, TickPhase.Plan),
+                    updates,
+                    transitions);
+                counts = capture.Counts;
+            }
+
+            Assert.That(
+                batch.Operations.Any(operation => operation.Kind == FinalizationOperationKind.SetPlayerControlState),
+                Is.False);
+            Assert.That(counts.PlayerControlStateSameStateSkippedCount, Is.EqualTo(1));
+            Assert.That(counts.PlayerControlStateWrittenCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_StateChanged_WritesPlayerControlState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    moveCooldownTicks = 2,
+                    nextMoveAllowedTick = 5,
+                });
+            var snapshot = worldState.CreateSnapshot();
+            var batch = new FinalizationBatch();
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                logic.CommitPreMovementState(
+                    snapshot,
+                    new TickInput(3),
+                    new RecordingFinalizationContext(batch, snapshot, TickPhase.Plan),
+                    updates,
+                    transitions);
+                counts = capture.Counts;
+            }
+
+            var operation = batch.Operations.Single(operation => operation.Kind == FinalizationOperationKind.SetPlayerControlState);
+            Assert.That(operation.PlayerControlState.moveCooldownTicks, Is.EqualTo(1));
+            Assert.That(operation.PlayerControlState.nextMoveAllowedTick, Is.EqualTo(5));
+            Assert.That(counts.PlayerControlStateWrittenCount, Is.EqualTo(1));
+            Assert.That(counts.PlayerControlStateSameStateSkippedCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_PushActionTransition_IsPreserved()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var batch = new FinalizationBatch();
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                snapshot,
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                new RecordingFinalizationContext(batch, snapshot, TickPhase.Plan),
+                updates,
+                transitions);
+
+            var operation = batch.Operations.Single(operation => operation.Kind == FinalizationOperationKind.SetPlayerControlState);
+            Assert.That(operation.PlayerControlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(operation.PlayerControlState.activeAction.targetEntityId, Is.EqualTo(20));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Push), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_FlipActionTransition_IsPreserved()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var batch = new FinalizationBatch();
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                snapshot,
+                new TickInput(1, PlayerTickCommand.Flip(Direction.Right)),
+                new RecordingFinalizationContext(batch, snapshot, TickPhase.Plan),
+                updates,
+                transitions);
+
+            var operation = batch.Operations.Single(operation => operation.Kind == FinalizationOperationKind.SetPlayerControlState);
+            Assert.That(operation.PlayerControlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(operation.PlayerControlState.activeAction.targetEntityId, Is.EqualTo(20));
+            Assert.That(transitions.Any(transition =>
+                transition.EntityId == 10 &&
+                transition.StartedThisTick &&
+                transition.CurrentKind == PlayerActionKind.Flip &&
+                transition.FlipResultTurnTransition.HasFlipResultTurn), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_SameState_SnapshotEquivalence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var expectedState = new PlayerControlState
+            {
+                actionSequenceCounter = 3,
+            };
+            worldState.CreateWriteContext().SetPlayerControlState(10, expectedState);
+            var beforeSnapshot = worldState.CreateSnapshot();
+            var batch = new FinalizationBatch();
+            var logic = new PlayerControlStateLogic(entityId: 10);
+
+            logic.CommitPreMovementState(
+                beforeSnapshot,
+                new TickInput(1),
+                new RecordingFinalizationContext(batch, beforeSnapshot, TickPhase.Plan),
+                new List<string>(),
+                new List<PlayerActionTransition>());
+            batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
+
+            var afterSnapshot = worldState.CreateSnapshot();
+            Assert.That(afterSnapshot.TryGetPlayerControlState(10, out var actualState), Is.True);
+            AssertPlayerControlStateEqual(expectedState, actualState);
+            Assert.That(
+                batch.Operations.Any(operation => operation.Kind == FinalizationOperationKind.SetPlayerControlState),
+                Is.False);
         }
 
         [Test]
@@ -1366,6 +1534,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 initialEntities,
                 boardBounds,
                 Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+        }
+
+        private static void AssertPlayerControlStateEqual(PlayerControlState expected, PlayerControlState actual)
+        {
+            Assert.That(actual.moveCooldownTicks, Is.EqualTo(expected.moveCooldownTicks));
+            Assert.That(actual.nextMoveAllowedTick, Is.EqualTo(expected.nextMoveAllowedTick));
+            Assert.That(actual.actionSequenceCounter, Is.EqualTo(expected.actionSequenceCounter));
+            Assert.That(actual.queuedKinematicTurnDirection, Is.EqualTo(expected.queuedKinematicTurnDirection));
+            Assert.That(actual.activeAction.kind, Is.EqualTo(expected.activeAction.kind));
+            Assert.That(actual.activeAction.sequence, Is.EqualTo(expected.activeAction.sequence));
+            Assert.That(actual.activeAction.direction, Is.EqualTo(expected.activeAction.direction));
+            Assert.That(actual.activeAction.targetEntityId, Is.EqualTo(expected.activeAction.targetEntityId));
+            Assert.That(actual.activeAction.startTick, Is.EqualTo(expected.activeAction.startTick));
+            Assert.That(actual.activeAction.executeTick, Is.EqualTo(expected.activeAction.executeTick));
+            Assert.That(actual.activeAction.recoveryEndTick, Is.EqualTo(expected.activeAction.recoveryEndTick));
+            Assert.That(actual.activeAction.executionAttempted, Is.EqualTo(expected.activeAction.executionAttempted));
+            Assert.That(actual.queuedFree2DAction.kind, Is.EqualTo(expected.queuedFree2DAction.kind));
+            Assert.That(actual.queuedFree2DAction.direction, Is.EqualTo(expected.queuedFree2DAction.direction));
+            Assert.That(actual.queuedFree2DAction.requestedTick, Is.EqualTo(expected.queuedFree2DAction.requestedTick));
         }
 
         private static EntityState CreateUnit(
