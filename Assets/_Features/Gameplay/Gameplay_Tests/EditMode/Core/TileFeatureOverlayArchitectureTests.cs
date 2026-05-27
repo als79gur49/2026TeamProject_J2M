@@ -259,6 +259,20 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void BarricadePlacementAndSettlementPolicy_UsesTileFeatureBlockerWithoutOccupancy()
+        {
+            Assert.That(Enum.GetNames(typeof(TileFeatureMovementKind)), Does.Contain("UnitPlacement"));
+            Assert.That(Enum.GetNames(typeof(TileFeatureMovementKind)), Does.Contain("UnitSettlement"));
+            Assert.That(Enum.GetNames(typeof(LegalityBlockerKind)), Does.Contain("TileFeature"));
+
+            var settlementPolicy = File.ReadAllText(GetAbsolutePath(
+                "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/RuntimeSettlementLegalityPolicy.cs"));
+            Assert.That(settlementPolicy, Does.Contain("RuntimeLegalityBlockerFactory.CreateTileFeature"));
+            Assert.That(settlementPolicy, Does.Not.Contain("SolidKind.Barricade"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void EntityType_DoesNotContainTileFeatureKinds()
         {
             Assert.That(Enum.GetNames(typeof(EntityType)), Does.Not.Contain("TileFeature"));

@@ -503,7 +503,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<EnemyUtilityTriggerIntent> triggerIntents,
             int tickIndex,
             EntityIdAllocator entityIdAllocator,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (postAttackSnapshot == null)
             {
@@ -549,6 +550,7 @@ namespace Game.Feature.Gameplay.Loop
                     summonedEntries,
                     plannedChildrenBySource,
                     reservedSpawnCells,
+                    tileFeatureDefinitions,
                     batch,
                     eventLogEntries);
             }
@@ -761,6 +763,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
             IDictionary<SourceEffectKey, int> plannedChildrenBySource,
             ISet<SurfaceCell> reservedSpawnCells,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             FinalizationBatch batch,
             List<string> eventLogEntries)
         {
@@ -801,6 +804,7 @@ namespace Game.Feature.Gameplay.Loop
                         source,
                         summonRuntime,
                         reservedSpawnCells,
+                        tileFeatureDefinitions,
                         out var spawnCell))
                 {
                     AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.NoCandidateCell);
@@ -860,9 +864,12 @@ namespace Game.Feature.Gameplay.Loop
             in EntityState source,
             in SummonMinionRuntime summonRuntime,
             ISet<SurfaceCell> reservedSpawnCells,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out SurfaceCell spawnCell)
         {
             var candidateOffsets = BuildCandidateOffsets(source.facing);
+            var hasRiskCandidate = false;
+            var riskCandidate = default(SurfaceCell);
             for (var i = 0; i < candidateOffsets.Count; i++)
             {
                 var candidateCell = source.position + candidateOffsets[i];
@@ -874,6 +881,17 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (summonRuntime.RequireNoSolidAtSpawnCell &&
                     snapshot.TryGetSolidSemanticAt(candidateCell, out _))
+                {
+                    continue;
+                }
+
+                if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                        snapshot,
+                        tileFeatureDefinitions,
+                        candidateCell,
+                        TileFeatureBlockerSubject.Unit,
+                        TileFeatureMovementKind.UnitPlacement,
+                        out _))
                 {
                     continue;
                 }
@@ -894,7 +912,28 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                if (TileFeatureHazardQueries.EvaluateTileApproachRisk(
+                        snapshot,
+                        tileFeatureDefinitions,
+                        source,
+                        candidateCell) != TileApproachRisk.Neutral)
+                {
+                    if (!hasRiskCandidate)
+                    {
+                        riskCandidate = candidateCell;
+                        hasRiskCandidate = true;
+                    }
+
+                    continue;
+                }
+
                 spawnCell = candidateCell;
+                return true;
+            }
+
+            if (hasRiskCandidate)
+            {
+                spawnCell = riskCandidate;
                 return true;
             }
 
