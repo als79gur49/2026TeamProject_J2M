@@ -303,6 +303,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void HardCleanupAll()
             {
             }
+
+            public void HardCleanupFamily(GameplayVfxFamily family)
+            {
+            }
         }
 
         private sealed class FakeVfxPlaybackHandle : IVfxPlaybackHandle
@@ -365,6 +369,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Reanchor(in VfxResolvedAnchor anchor)
             {
+            }
+
+            public void SuspendPresentation()
+            {
+                State = VfxLifetimeState.PresentationSuspended;
+            }
+
+            public void ResumePresentation()
+            {
+                State = VfxLifetimeState.Active;
             }
 
             public void ReleaseToPool()

@@ -315,13 +315,7 @@ MonoBehaviour:
     PresentationId: box_metal
   - EntityId: 346
     PresentationId: box_metal
-  - EntityId: 347
-    PresentationId: wall_tutorial
-  - EntityId: 348
-    PresentationId: wall_tutorial
   - EntityId: 350
-    PresentationId: wall_tutorial
-  - EntityId: 351
     PresentationId: wall_tutorial
   - EntityId: 352
     PresentationId: wall_tutorial
@@ -333,6 +327,12 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 356
     PresentationId: wall_tutorial
+  - EntityId: 357
+    PresentationId: box_tutorial
+  - EntityId: 358
+    PresentationId: box_tutorial
+  - EntityId: 359
+    PresentationId: box_tutorial
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []

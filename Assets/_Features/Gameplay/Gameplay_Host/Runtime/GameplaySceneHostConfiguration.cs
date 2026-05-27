@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
@@ -133,10 +134,12 @@ namespace Game.Feature.Gameplay.Host
         public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
         public StageContentEntry StageContentEntry;
         public IStageCompletionProfileStore StageCompletionProfileStore;
+        public IDebugStageLaunchConstraint DebugStageLaunchConstraint;
         public bool DisablePlayerRespawn;
         public EnemyPresentationArchetypeCatalog EnemyPresentationArchetypeCatalog;
         public EnemyPresentationCatalog EnemyPresentationCatalog;
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
+        public EnemyInactiveVisualSettings EnemyInactiveVisualSettings;
         public StaticEntityPresentationCatalog StaticEntityPresentationCatalog;
         public StaticEntityPresentationBinding[] StaticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
         public BoardPresentationProfile BoardPresentationProfile;
@@ -151,6 +154,9 @@ namespace Game.Feature.Gameplay.Host
             Array.Empty<BoardTileOverlayOverride>();
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings =
             Array.Empty<TileFeaturePresentationResolvedBinding>();
+        public StageWorldGuideCatalog WorldGuideCatalog;
+        public IReadOnlyList<StageWorldGuideInstructionResolved> WorldGuideInstructions =
+            Array.Empty<StageWorldGuideInstructionResolved>();
         public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells =
             Array.Empty<SurfaceCell>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;

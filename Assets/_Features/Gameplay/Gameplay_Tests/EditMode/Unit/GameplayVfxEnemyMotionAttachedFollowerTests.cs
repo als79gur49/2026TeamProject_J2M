@@ -291,22 +291,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideLandingPendingOrCooldown_DoesNotAttachWindTrail()
+        public void GlideCanonicalPhases_MapWindTrailRecoverAndCooldown()
         {
             var planner = new EnemyMotionAttachedVfxFollowerPlanner();
             planner.Build(
                 tickIndex: 12,
                 presentationData: CreatePresentationData(glideSignals: new[]
                 {
-                    CreateGlideSignal(EnemyGlidePhase.LandingPending),
-                    CreateGlideSignal(EnemyGlidePhase.Cooldown, entityId: 42),
+                    CreateGlideSignal(EnemyGlidePhase.Active, entityId: 41),
+                    CreateGlideSignal(EnemyGlidePhase.Active, entityId: 42, wantsRecover: true),
+                    CreateGlideSignal(EnemyGlidePhase.Recovery, entityId: 43),
+                    CreateGlideSignal(EnemyGlidePhase.Cooldown, entityId: 44),
                 }),
                 enableGlideWindTrail: true,
                 enableChargeBoosterTrail: true,
                 enableBoxSlideFollowLoop: true,
                 enableEnemyJumpWindupLoop: true);
 
-            Assert.That(planner.DesiredFollowers, Is.Empty);
+            Assert.That(planner.DesiredFollowers, Has.Count.EqualTo(3));
+            Assert.That(planner.DesiredFollowers[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
+            Assert.That(planner.DesiredFollowers[0].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideActive));
+            Assert.That(planner.DesiredFollowers[1].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)));
+            Assert.That(planner.DesiredFollowers[1].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideActive));
+            Assert.That(planner.DesiredFollowers[2].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop)));
+            Assert.That(planner.DesiredFollowers[2].StateKind, Is.EqualTo(AttachedVfxFollowerStateKind.EnemyGlideRecover));
         }
 
         [Test]
@@ -1479,7 +1487,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickEnemyGlidePresentationSignal CreateGlideSignal(
             EnemyGlidePhase phase,
             int entityId = 41,
-            int sequence = 9)
+            int sequence = 9,
+            bool wantsRecover = false)
         {
             return new TickEnemyGlidePresentationSignal(
                 entityId,
@@ -1493,7 +1502,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 recoveryDipHeightUnits: 0,
                 currentHeightUnits: phase == EnemyGlidePhase.Active ? 1 : 0,
                 isAirborneVisual: phase == EnemyGlidePhase.Active,
-                isLandingPending: phase == EnemyGlidePhase.LandingPending,
+                wantsRecover: wantsRecover,
                 isTerminalZero: false);
         }
 

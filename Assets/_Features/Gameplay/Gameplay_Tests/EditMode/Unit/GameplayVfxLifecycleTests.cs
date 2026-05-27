@@ -226,6 +226,136 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxHidesWhenOwnerTopologySuspended()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(
+                pool,
+                registry,
+                policy: CreateJumperLandingTargetPolicy());
+            var request = CreateJumperLandingTargetRequest();
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext(isJumpTopologySuspended: true));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(handle.SuspendPresentationCount, Is.EqualTo(1));
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.PresentationSuspended));
+            Assert.That(handle.StopEmittingCount, Is.Zero);
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxDoesNotAdvanceWhileSuspended()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(
+                pool,
+                registry,
+                policy: CreateJumperLandingTargetPolicy());
+            var request = CreateJumperLandingTargetRequest();
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+            handle.AdvancePresentationProgress(0.25f);
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext(isJumpTopologySuspended: true));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            handle.AdvancePresentationProgress(1f);
+
+            Assert.That(handle.PresentationProgressSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxRestoresOnResumeWithoutDuplicate()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(
+                pool,
+                registry,
+                policy: CreateJumperLandingTargetPolicy());
+            var request = CreateJumperLandingTargetRequest();
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext(isJumpTopologySuspended: true));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(handle.ResumePresentationCount, Is.EqualTo(1));
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.Active));
+            Assert.That(registry.TryGet(request.PersistentKey, out var currentHandle), Is.True);
+            Assert.That(currentHandle, Is.SameAs(handle));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxInitialSpawnNotBlockedByMissingSemanticState()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(
+                pool,
+                registry,
+                policy: CreateJumperLandingTargetPolicy());
+            var request = CreateJumperLandingTargetRequest();
+
+            controller.SetVisibilityContext(new GameplayVfxVisibilityContext(
+                new Dictionary<int, GameplayVfxEntityVisibilityState>()));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.TryGet(request.PersistentKey, out var firstHandle), Is.True);
+            Assert.That(firstHandle.State, Is.EqualTo(VfxLifetimeState.Active));
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext(isViewActiveInHierarchy: false));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            var handle = pool.CreatedHandles[0];
+            Assert.That(handle.SuspendPresentationCount, Is.EqualTo(1));
+            Assert.That(controller.LastVisibilityBlockReason, Is.EqualTo(GameplayVfxVisibilityBlockReason.EntityViewInactive));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupDangerVfxNotShownAsActiveDangerWhenPaused()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(
+                pool,
+                registry,
+                policy: CreateJumperLandingTargetPolicy());
+            var request = CreateJumperLandingTargetRequest();
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext(isJumpTopologySuspended: true));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(handle.IsPresentationSuspended, Is.True);
+            Assert.That(handle.ActiveDangerVisualEnabled, Is.False);
+        }
+
+        [Test]
         [Category("Core")]
         public void PersistentVfx_StopIfActive_IsIdempotent()
         {
@@ -963,6 +1093,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityId: 7);
         }
 
+        private static GameplayVfxRequest CreateJumperLandingTargetRequest()
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            return new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: 1,
+                presentationSeed: 7,
+                sourceEntityId: 7,
+                cueId: cueId,
+                anchor: VfxAnchor.ForCell(
+                    cell,
+                    new CubeTopologyState(FaceId.Floor),
+                    VfxAnchorSlot.CellFloor),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey: new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Cell,
+                    entityId: 7,
+                    cell: cell,
+                    hasCell: true,
+                    activationSequence: 1),
+                topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt);
+        }
+
+        private static VfxBindingRuntimePolicy CreateJumperLandingTargetPolicy()
+        {
+            return CreatePolicy(
+                GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget),
+                VfxPlaybackMode.Loop,
+                VfxStopPolicy.StopEmittingThenRelease,
+                visibilityMode: GameplayVfxVisibilityMode.DefaultGameplay);
+        }
+
+        private static GameplayVfxVisibilityContext CreateOwnerVisibilityContext(
+            bool isViewActiveInHierarchy = true,
+            bool isJumpTopologySuspended = false)
+        {
+            return new GameplayVfxVisibilityContext(
+                new Dictionary<int, GameplayVfxEntityVisibilityState>
+                {
+                    {
+                        7,
+                        new GameplayVfxEntityVisibilityState(
+                            hasView: true,
+                            isViewActiveInHierarchy: isViewActiveInHierarchy,
+                            hasSemanticState: true,
+                            isJumpTopologySuspended: isJumpTopologySuspended)
+                    },
+                });
+        }
+
         private static GameplayVfxRequest CreatePersistentRequest(
             GameplayVfxCueId cueId,
             VfxAnchorKind anchorKind,
@@ -1137,12 +1320,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     if (handle.State == VfxLifetimeState.Active ||
                         handle.State == VfxLifetimeState.Spawned ||
                         handle.State == VfxLifetimeState.StopEmitting ||
-                        handle.State == VfxLifetimeState.TailPlaying)
+                        handle.State == VfxLifetimeState.TailPlaying ||
+                        handle.State == VfxLifetimeState.PresentationSuspended)
                     {
                         if (GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(
                                 handle.CueId,
                                 handle.TopologyStopMode))
                         {
+                            if (GameplayVfxTopologyHelperExemptionPolicy.AllowsPresentationSuspendPreserve(
+                                    handle.CueId,
+                                    handle.TopologyStopMode))
+                            {
+                                handle.SuspendPresentation();
+                            }
+
                             continue;
                         }
 
@@ -1158,6 +1349,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 foreach (var handle in CreatedHandles)
                 {
                     if (handle.State != VfxLifetimeState.HardCleanup)
+                    {
+                        handle.HardCleanup();
+                    }
+                }
+            }
+
+            public void HardCleanupFamily(GameplayVfxFamily family)
+            {
+                foreach (var handle in CreatedHandles)
+                {
+                    if (handle.CueId.Family == family &&
+                        handle.State != VfxLifetimeState.HardCleanup)
                     {
                         handle.HardCleanup();
                     }
@@ -1214,6 +1417,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public GameplayVfxStopMode LastStopMode { get; private set; }
 
+            public int SuspendPresentationCount { get; private set; }
+
+            public int ResumePresentationCount { get; private set; }
+
+            public float PresentationProgressSeconds { get; private set; }
+
+            public bool IsPresentationSuspended => State == VfxLifetimeState.PresentationSuspended;
+
+            public bool ActiveDangerVisualEnabled => !IsPresentationSuspended &&
+                                                     State != VfxLifetimeState.ReleasedToPool &&
+                                                     State != VfxLifetimeState.HardCleanup;
+
             public void MarkSpawned()
             {
                 State = VfxLifetimeState.Spawned;
@@ -1265,6 +1480,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void Reanchor(in VfxResolvedAnchor anchor)
             {
                 ReanchorCount++;
+            }
+
+            public void SuspendPresentation()
+            {
+                if (IsPresentationSuspended)
+                {
+                    return;
+                }
+
+                SuspendPresentationCount++;
+                State = VfxLifetimeState.PresentationSuspended;
+            }
+
+            public void ResumePresentation()
+            {
+                if (!IsPresentationSuspended)
+                {
+                    return;
+                }
+
+                ResumePresentationCount++;
+                State = VfxLifetimeState.Active;
+            }
+
+            public void AdvancePresentationProgress(float deltaSeconds)
+            {
+                if (IsPresentationSuspended)
+                {
+                    return;
+                }
+
+                PresentationProgressSeconds += deltaSeconds > 0f ? deltaSeconds : 0f;
             }
 
             public void ReleaseToPool()

@@ -52,9 +52,27 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public StageCompletionReadModel CurrentStageCompletion => _stageCompletionRuntime.CurrentStageCompletion;
 
+        public bool IsStageCompletionInProgress => _stageCompletionRuntime.IsCompletionInProgress;
+
         public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }
 
         public bool HasPendingStageClearPresentation => _pendingStageClearPresentation.HasValue;
+
+        internal StageCompletionReadModel ForceClearResultOnly()
+        {
+            return _stageCompletionRuntime.ForceClearResultOnly();
+        }
+
+        internal StageCompletionReadModel ForceClearCurrentStage()
+        {
+            var readModel = _stageCompletionRuntime.ForceClearCurrentStage();
+            StageClearCommitted?.Invoke(null, readModel);
+            FramePublished?.Invoke(new GameplayPresentationFrame(
+                Math.Max(1, readModel.ClearResult.FinalTickIndex),
+                CurrentState.CurrentTopology,
+                stageEvent: new GameplayStageEventPresentationSlice(GameplayStageEventKind.Cleared)));
+            return readModel;
+        }
 
         internal void PublishLevelFailed(GameplayLevelFailedReadModel readModel)
         {
@@ -79,14 +97,18 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _lastTickResult = result;
             var stageCompletion = _stageCompletionRuntime.ProcessTick(result);
             var maxBarrierDelaySeconds = _barrierTracker.RegisterFromTick(result, _timingProfile);
+            var stageClearVictoryDelaySeconds = Math.Max(
+                0f,
+                _presenter.LastStageClearPlayerPresentationDelaySeconds);
             if (result.ObjectiveResult != null && result.ObjectiveResult.ClearedThisTick)
             {
                 StageClearCommitted?.Invoke(result, stageCompletion);
-                if (maxBarrierDelaySeconds > 0f)
+                var clearDelaySeconds = Math.Max(maxBarrierDelaySeconds, stageClearVictoryDelaySeconds);
+                if (clearDelaySeconds > 0f)
                 {
                     _pendingStageClearPresentation = new PendingStageClearPresentation(
                         result,
-                        maxBarrierDelaySeconds);
+                        clearDelaySeconds);
                     FramePublished?.Invoke(CreateFrame(result, includeStageEvent: false));
                     return;
                 }

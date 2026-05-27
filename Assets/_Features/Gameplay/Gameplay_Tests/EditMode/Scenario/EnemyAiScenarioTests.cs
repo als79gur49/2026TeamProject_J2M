@@ -208,8 +208,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract()
         {
             EnemyPatrol_KinematicMovement();
-            EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit();
-            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+            EnemyMovesIntoPlayer_Kinematic_NoPassiveContactWithoutFinalizedSameCellMove();
+            EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove();
             EnemyAi_WindupProfile_TelegraphsBeforeExecuteAndThenEntersRecover();
         }
 
@@ -227,8 +227,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void EnemyAi_MoveOccupancy_BlocksAttackUntilKinematicCommitUnlocksRange()
         {
-            EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit();
-            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+            EnemyMovesIntoPlayer_Kinematic_NoPassiveContactWithoutFinalizedSameCellMove();
+            EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove();
         }
 
         [Test]
@@ -1058,9 +1058,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtilitySummon_IneligibleDuringWindup_CancelsAndRestartsFullWindup()
+        public void EnemyUtilityWindup_TopologyParticipationRestored_ResumesFromSuspendedPhase()
         {
-            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 1);
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 2);
             EnemyAiProfile defaultProfile = null;
             EnemyUnitArchetypeCatalog archetypeCatalog = null;
             var worldState = CreateWorldState(
@@ -1075,38 +1075,95 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
 
                 var firstWarning = pipeline.RunTick(new TickInput(1));
+                var firstState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
                 Assert.That(firstWarning.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(firstState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(firstState.windupStartTick, Is.EqualTo(1));
+                Assert.That(firstState.windupEndTick, Is.EqualTo(3));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var canceledTick = pipeline.RunTick(new TickInput(2));
-                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var firstSuspendedTick = pipeline.RunTick(new TickInput(2));
+                var firstSuspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(canceledTick.PresentationData.SummonWindupWarnings, Is.Empty);
-                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(canceledState.cooldownTicksRemaining, Is.EqualTo(2));
+                Assert.That(firstSuspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(firstSuspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(firstSuspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(firstSuspendedState.cooldownTicksRemaining, Is.Zero);
+                Assert.That(firstSuspendedTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+
+                var secondSuspendedTick = pipeline.RunTick(new TickInput(3));
+                var secondSuspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(secondSuspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(secondSuspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(secondSuspendedState.windupEndTick, Is.EqualTo(5));
+                Assert.That(secondSuspendedState.cooldownTicksRemaining, Is.Zero);
+                Assert.That(secondSuspendedTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
-                var cooldownTick = pipeline.RunTick(new TickInput(3));
-                var cooldownState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var resumedTick = pipeline.RunTick(new TickInput(4));
+                var resumedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(cooldownTick.PresentationData.SummonWindupWarnings, Is.Empty);
-                Assert.That(cooldownState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(cooldownState.cooldownTicksRemaining, Is.EqualTo(1));
-                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
-
-                var restartedWarning = pipeline.RunTick(new TickInput(4));
-
-                Assert.That(restartedWarning.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(restartedWarning.PresentationData.SummonWindupWarnings[0].ActivationSequence, Is.EqualTo(2));
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(resumedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(resumedState.windupEndTick, Is.EqualTo(5));
+                Assert.That(resumedState.activationSequence, Is.EqualTo(1));
+                Assert.That(resumedTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
 
                 var committedTick = pipeline.RunTick(new TickInput(5));
+                var committedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
                 Assert.That(committedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(committedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(committedState.cooldownTicksRemaining, Is.EqualTo(2));
                 Assert.That(committedTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41"));
                 Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilityWindup_HardInvalidState_CancelsAndAppliesCooldown()
+        {
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+
+                pipeline.RunTick(new TickInput(1));
+                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+
+                worldState.CreateWriteContext().SetBoardPresence(40, EntityBoardPresence.Detached);
+                var canceledTick = pipeline.RunTick(new TickInput(2));
+                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(canceledState.cooldownTicksRemaining, Is.EqualTo(2));
+                Assert.That(canceledState.windupStartTick, Is.Zero);
+                Assert.That(canceledState.windupEndTick, Is.Zero);
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals[0].Phase, Is.EqualTo(EnemyUtilityPresentationPhase.Canceled));
+                Assert.That(canceledTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
             }
             finally
             {
@@ -2115,7 +2172,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_CancelClearsMovementSuppression()
+        public void EnemyAi_LockNearbyBoxesWindup_TopologySuspendExtendsMovementSuppression()
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
@@ -2140,13 +2197,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].movementSuppressionUntilTickInclusive, Is.EqualTo(3));
 
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var canceledTick = pipeline.RunTick(new TickInput(2));
-                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var suspendedTick = pipeline.RunTick(new TickInput(2));
+                var suspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(canceledState.movementSuppressionUntilTickInclusive, Is.Zero);
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(suspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(suspendedState.cooldownTicksRemaining, Is.Zero);
+                Assert.That(suspendedState.movementSuppressionUntilTickInclusive, Is.EqualTo(4));
                 Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(canceledTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
+                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
             }
             finally
             {
@@ -2185,7 +2245,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
                 Assert.That(recoverState.movementSuppressionUntilTickInclusive, Is.EqualTo(3));
 
-                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
+                worldState.CreateWriteContext().SetBoardPresence(40, EntityBoardPresence.Detached);
                 var canceledTick = pipeline.RunTick(new TickInput(3));
                 var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
@@ -2193,6 +2253,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(canceledState.recoverStartTick, Is.Zero);
                 Assert.That(canceledState.recoverEndTickExclusive, Is.Zero);
                 Assert.That(canceledState.movementSuppressionUntilTickInclusive, Is.Zero);
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
+                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals[0].Phase, Is.EqualTo(EnemyUtilityPresentationPhase.Canceled));
                 Assert.That(canceledTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=3"));
             }
             finally
@@ -2203,7 +2265,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_DelayedWindup_CancelsWhenSourceLeavesBottomFace()
+        public void EnemyUtilityLockNearbyBoxes_DelayedWindup_TopologySuspendResumesBeforeExecute()
         {
             var profile = CreateUtilityLockNearbyBoxesProfile(
                 initialDelayTicks: 0,
@@ -2223,13 +2285,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 pipeline.RunTick(new TickInput(1));
                 worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var executeTick = pipeline.RunTick(new TickInput(2));
-                var state = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+                var suspendedTick = pipeline.RunTick(new TickInput(2));
+                var suspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
 
-                Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(state.cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+                Assert.That(suspendedState.windupStartTick, Is.EqualTo(1));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(3));
+                Assert.That(suspendedState.cooldownTicksRemaining, Is.Zero);
                 Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(executeTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
+                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
+                var executeTick = pipeline.RunTick(new TickInput(3));
+                var executeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
+
+                Assert.That(executeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(executeState.cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.True);
             }
             finally
             {
@@ -2972,8 +3044,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
                 Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
-                Assert.That(jumpState.windupEndTick, Is.EqualTo(2));
-                Assert.That(jumpState.landingTick, Is.EqualTo(3));
+                Assert.That(jumpState.windupEndTick, Is.EqualTo(3));
+                Assert.That(jumpState.landingTick, Is.EqualTo(4));
+                Assert.That(jumpState.topologySuspendLastTick, Is.EqualTo(2));
                 Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             }
             finally
@@ -4594,7 +4667,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyMovesIntoPlayer_Kinematic_NoContactBeforeCommit()
+        public void EnemyMovesIntoPlayer_Kinematic_NoPassiveContactWithoutFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4638,7 +4711,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyMovesIntoPlayer_Kinematic_ContactAtCommit()
+        public void EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4699,20 +4772,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void Phase5_EnemyKinematicAnchorCommit_UsesMoveEntityButNoLegacyMove()
         {
-            EnemyMovesIntoPlayer_Kinematic_ContactAtCommit();
+            EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove();
         }
 
         [Test]
         [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_NoContactBeforeCommit()
+        public void GlideActive_NoPassiveContactWithoutFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                CreateUnit(
+                    entityId: 40,
+                    teamId: 2,
+                    position: enemySourceCell,
+                    hp: 3,
+                    aiMode: EnemyAiMode.Chase,
+                    facing: Direction.Left,
+                    enemyLocomotionCooldownTicks: 3),
             });
             var profile = CreateGlideContactDamageProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
@@ -4726,24 +4806,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
 
-                for (var tick = 1; tick <= 9; tick++)
-                {
-                    var result = pipeline.RunTick(new TickInput(tick));
-                    var snapshot = worldState.CreateSnapshot();
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
 
-                    Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-                    Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                    Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(tick, "EnemyGlide", 40, 10, snapshot, result));
-                    Assert.That(player.position, Is.EqualTo(playerCell));
-                    Assert.That(snapshot.TryGetUnitKinematicState(40, out var enemyKinematic), Is.True);
-                    Assert.That(enemyKinematic.mode, Is.EqualTo(MotionMode.Voluntary));
-                    Assert.That(
-                        HasAcceptedPassiveContact(result, 40, 10),
-                        Is.False,
-                        BuildContactTimingDebug(tick, "EnemyGlide", 40, 10, snapshot, result));
-                    Assert.That(player.hp, Is.EqualTo(3));
-                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
-                }
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(enemySourceCell), BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(HasMoveEntityTo(result, 40, playerCell), Is.False);
+                Assert.That(
+                    HasAcceptedPassiveContact(result, 40, 10),
+                    Is.False,
+                    BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(player.hp, Is.EqualTo(3));
+                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
             }
             finally
             {
@@ -4754,7 +4830,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Core")]
         [Category("GlideKinematicV11")]
-        public void GlideActive_Kinematic_ContactAtCommit()
+        public void GlideActive_PassiveContactFiresOnFinalizedSameCellMove()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4775,21 +4851,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
 
-                TickResult result = null;
-                for (var tick = 1; tick <= 10; tick++)
-                {
-                    result = pipeline.RunTick(new TickInput(tick));
-                }
+                var result = pipeline.RunTick(new TickInput(1));
 
                 var snapshot = worldState.CreateSnapshot();
                 Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(10, "EnemyGlide", 40, 10, snapshot, result));
+                Assert.That(enemy.position, Is.EqualTo(playerCell), BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
                 Assert.That(player.position, Is.EqualTo(playerCell));
+                Assert.That(HasMoveEntityTo(result, 40, playerCell), Is.True);
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out var state), Is.True);
                 Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
-                Assert.That(state.elapsedTicks, Is.EqualTo(10));
-                Assert.That(state.commitTick, Is.EqualTo(10));
                 Assert.That(
                     result.MovementPhaseResult.CommitEvents.Any(entry =>
                         entry.Contains("KinematicAnchorCommitted", StringComparison.Ordinal) &&
@@ -4804,7 +4875,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(
                     HasAcceptedPassiveContact(result, 40, 10),
                     Is.True,
-                    BuildContactTimingDebug(10, "EnemyGlide", 40, 10, snapshot, result));
+                    BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
                 Assert.That(player.hp, Is.EqualTo(2));
                 LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
             }
@@ -6064,6 +6135,168 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
                 Assert.That(snapshot.TryGetEnemyJumpState(40, out var jumpState), Is.True);
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpWindupTopologySuspendDoesNotConsumeRemainingTicks()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Front));
+            var profile = CreateJumpChaserProfile(windupTicks: 2, airborneTicks: 2, cooldownTicks: 1);
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Windup,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = lockedTargetCell,
+                    windupEndTick = 2,
+                    landingTick = 4,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+
+                var suspendedState = GetEnemyJumpState(worldState, 40);
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(5));
+                Assert.That(suspendedState.landingTick, Is.EqualTo(7));
+
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+                var resumedTick = pipeline.RunTick(new TickInput(4));
+                var resumedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyJumpPhase.Windup), resumedTick.Trace.Text);
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(resumedTick.PresentationData.EnemyJumpSignals.Single().StartedAirborneThisTick, Is.False);
+
+                var takeoffTick = pipeline.RunTick(new TickInput(5));
+                var takeoffState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(takeoffState.phase, Is.EqualTo(EnemyJumpPhase.Airborne), takeoffTick.Trace.Text);
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpAirborneTopologySuspendDoesNotReachLandingTick()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Front));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+            writeContext.SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = lockedTargetCell,
+                    windupEndTick = 1,
+                    landingTick = 2,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var stillSuspendedTick = pipeline.RunTick(new TickInput(3));
+                var suspendedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyJumpPhase.Airborne), stillSuspendedTick.Trace.Text);
+                Assert.That(suspendedState.landingTick, Is.EqualTo(5));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(stillSuspendedTick.PresentationData.EnemyJumpSignals.Single().LandedThisTick, Is.False);
+
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+                var resumedTick = pipeline.RunTick(new TickInput(4));
+                var resumedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyJumpPhase.Airborne), resumedTick.Trace.Text);
+                Assert.That(resumedTick.PresentationData.EnemyJumpSignals.Single().LandedThisTick, Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpOffBottomHiddenStillDoesNotConsumePhaseTime()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            var profile = CreateJumpChaserProfile(windupTicks: 2, airborneTicks: 2, cooldownTicks: 1);
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Windup,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = lockedTargetCell,
+                    windupEndTick = 2,
+                    landingTick = 4,
+                });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var suspendedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(suspendedState.landingTick, Is.EqualTo(6));
+
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+                var resumedTick = pipeline.RunTick(new TickInput(3));
+                var resumedState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(resumedState.phase, Is.EqualTo(EnemyJumpPhase.Windup), resumedTick.Trace.Text);
+                Assert.That(resumedTick.PresentationData.EnemyJumpSignals.Single().StartedAirborneThisTick, Is.False);
             }
             finally
             {
@@ -7477,7 +7710,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 recoveryTicks,
                 cooldownTicks,
                 lastExitedTick: 0,
-                landingPendingCell: default,
                 hasLockedStep: true,
                 lockedStepX: -1,
                 lockedStepY: 0);
@@ -7500,8 +7732,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 durationTicks,
                 recoveryTicks,
                 cooldownTicks,
-                lastExitedTick: 0,
-                landingPendingCell: default);
+                lastExitedTick: 0);
         }
 
         private static bool HasAcceptedPassiveContact(TickResult result, int sourceId, int targetId)
@@ -7511,6 +7742,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                           record.SourceId == sourceId &&
                           record.TargetId == targetId &&
                           record.SourceKind == AttackSourceKind.PassiveContact);
+        }
+
+        private static bool HasMoveEntityTo(TickResult result, int entityId, SurfaceCell destination)
+        {
+            return result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.MoveEntity &&
+                operation.EntityId == entityId &&
+                operation.Destination == destination);
         }
 
         private static string BuildContactTimingDebug(

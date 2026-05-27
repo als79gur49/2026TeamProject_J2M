@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Block_Crash_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.RandomAudioDefinition
   category: 2
-  defaultVolumeTrim: 0.85
+  defaultVolumeTrim: 1
   pitchRange: {x: 1, y: 1}
   loop: 0
   clips:

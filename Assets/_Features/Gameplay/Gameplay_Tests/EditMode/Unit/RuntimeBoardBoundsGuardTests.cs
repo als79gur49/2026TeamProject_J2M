@@ -565,6 +565,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.4f);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.5f);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.75f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 1.25f);
 
                 var snapshot = authoring.CreateSnapshot();
 
@@ -572,6 +573,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.PushRecoveryAnimatorDurationSeconds, Is.EqualTo(0.4f));
                 Assert.That(snapshot.FlipWindupAnimatorDurationSeconds, Is.EqualTo(0.5f));
                 Assert.That(snapshot.FlipRecoveryAnimatorDurationSeconds, Is.EqualTo(0.75f));
+                Assert.That(snapshot.StageClearVictoryAnimatorDurationSeconds, Is.EqualTo(1.25f));
             }
             finally
             {
@@ -4098,6 +4100,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "flipWindupStateName",
                     "flipRecoveryStateName",
                     "deathStateName",
+                    "stageClearVictoryStateName",
                     "hitTriggerName",
                     "walkExitStateName",
                     "stateTransitionCrossFadeDurationSeconds",

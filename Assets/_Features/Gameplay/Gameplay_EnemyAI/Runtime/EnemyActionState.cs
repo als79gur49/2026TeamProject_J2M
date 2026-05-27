@@ -293,6 +293,18 @@ namespace Game.Feature.Gameplay.Entities
             return state;
         }
 
+        public static Direction ResolveAuthoritativeFacing(in EnemyActionRuntimeState state)
+        {
+            if (state.kind == EnemyActionKind.ForwardCellProjectile &&
+                state.hasLockedForwardCellImpact &&
+                state.lockedAttackDirection != Direction.None)
+            {
+                return state.lockedAttackDirection;
+            }
+
+            return state.direction;
+        }
+
         public static EnemyActionRuntimeState Clear(in EnemyActionRuntimeState state)
         {
             return new EnemyActionRuntimeState

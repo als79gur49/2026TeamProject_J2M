@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx.Authoring;
@@ -10,7 +11,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -42,6 +43,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxGravityFieldLockedTarget = true;
         [SerializeField] private bool enableGameplayVfxForwardCellProjectile = true;
         [SerializeField] private VfxProfileAsset[] familyProfiles = Array.Empty<VfxProfileAsset>();
+        [SerializeField] private GameObject commonEmptyHostPrefab;
 
         private readonly PlayerVfxRequestPlanner playerPlanner = new();
         private readonly BoxVfxRequestPlanner boxPlanner = new();
@@ -75,6 +77,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private EnemyPresentationCatalog configuredEnemyPresentationCatalog;
         private EnemyPresentationBinding[] configuredEnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         private EnemyPresentationVfxProfileProvider enemyPresentationVfxProfileProvider;
+        private bool hasConfiguredEnemyPresentationProfiles;
         private VfxCueMapAsset hostDefaultCueMap;
         private int flipDestroySelfMotionMissingBindingCount;
         private int flipImpactStayTrailMissingBindingCount;
@@ -91,6 +94,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int outOfBoundsExitMissingAnchorCount;
         private int enemyDeathMotionMissingBindingCount;
         private int enemyDeathMotionMissingAnchorCount;
+        private int mapNotConfiguredCount;
+        private int initialRequestSkippedBecauseMapNotConfiguredCount;
+        private int lastInitialPlannedRequestCount;
+        private int lastInitialEntranceSpawnRequestCount;
+        private int lastInitialActiveEntranceSpawnInstanceCount;
+        private string lastMapNotConfiguredContext = string.Empty;
         private Camera outputCamera;
         private Transform localSpaceRoot;
         private bool isTopologyTransitionVfxSuppressed;
@@ -600,7 +609,40 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int MissingPrefabCount => pool?.MissingPrefabCount ?? 0;
 
+        public int MissingSourceViewCount => pool?.MissingSourceViewCount ?? 0;
+
+        public int CommonHostUnavailableCount => pool?.CommonHostUnavailableCount ?? 0;
+
+        public int InvalidPlaybackModePolicyCount => pool?.InvalidPlaybackModePolicyCount ?? 0;
+
         public bool IsRuntimeInitialized => controller != null;
+
+        public bool IsHostDefaultMapConfigured => hostDefaultCueMap != null;
+
+        public int MapNotConfiguredCount => mapNotConfiguredCount;
+
+        public int InitialRequestSkippedBecauseMapNotConfiguredCount =>
+            initialRequestSkippedBecauseMapNotConfiguredCount;
+
+        public int LastInitialPlannedRequestCount => lastInitialPlannedRequestCount;
+
+        public int LastInitialEntranceSpawnRequestCount => lastInitialEntranceSpawnRequestCount;
+
+        public int LastInitialActiveEntranceSpawnInstanceCount => lastInitialActiveEntranceSpawnInstanceCount;
+
+        public string LastMapNotConfiguredContext => lastMapNotConfiguredContext;
+
+        public GameplayVfxCleanupReason LastCleanupReason { get; private set; }
+
+        public GameplayVfxCleanupScope LastCleanupScope { get; private set; }
+
+        public int HardCleanupAllCount { get; private set; }
+
+        public int EnemyProfileFirstConfigureCount { get; private set; }
+
+        public int EnemyProfileChangedCleanupCount { get; private set; }
+
+        public int TileFeatureHardCleanupCount { get; private set; }
 
         public void ConfigureHostDefaultMap(VfxCueMapAsset cueMap)
         {
@@ -611,14 +653,26 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             hostDefaultCueMap = cueMap;
             RebuildBindingRuntime();
-            ResetRuntimeComposition();
+            ResetRuntimeComposition(GameplayVfxCleanupReason.HostDefaultMapReconfigured);
+        }
+
+        public void ConfigureCommonEmptyHostPrefab(GameObject prefab)
+        {
+            if (commonEmptyHostPrefab == prefab)
+            {
+                return;
+            }
+
+            commonEmptyHostPrefab = prefab;
+            RebuildBindingRuntime();
+            ApplyBindingRuntimeToExistingComposition();
         }
 
         public void ConfigureFamilyProfiles(VfxProfileAsset[] profiles)
         {
             familyProfiles = profiles ?? Array.Empty<VfxProfileAsset>();
             RebuildBindingRuntime();
-            ResetRuntimeComposition();
+            ResetRuntimeComposition(GameplayVfxCleanupReason.FamilyProfilesReconfigured);
         }
 
         public bool EnableGameplayVfxForwardCellProjectile
@@ -659,6 +713,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
             outOfBoundsExitMissingAnchorCount = 0;
             enemyDeathMotionMissingBindingCount = 0;
             enemyDeathMotionMissingAnchorCount = 0;
+            mapNotConfiguredCount = 0;
+            initialRequestSkippedBecauseMapNotConfiguredCount = 0;
+            lastInitialPlannedRequestCount = 0;
+            lastInitialEntranceSpawnRequestCount = 0;
+            lastInitialActiveEntranceSpawnInstanceCount = 0;
+            lastMapNotConfiguredContext = string.Empty;
             playedFlipDestroySelfMotionKeys.Clear();
             playedBoxSlideSolidStopKeys.Clear();
             playedImpactTransientBreakKeys.Clear();
@@ -672,6 +732,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enemyMotionAttachedFollowerPlanner.Clear();
             motionFollowingVfxController.ResetSession();
             forwardCellProjectileVfxController.ResetSession(pool);
+            RecordCleanup(GameplayVfxCleanupReason.SessionReset, GameplayVfxCleanupScope.AllFamilies);
             controller?.HardCleanupAll();
             planBuilder.Clear();
         }
@@ -682,6 +743,99 @@ namespace Game.Feature.Gameplay.Vfx.Host
             this.localSpaceRoot = localSpaceRoot;
         }
 
+        public void PresentInitial(in GameplayInitialPresentationExtensionContext context)
+        {
+            LastPlannedRequestCount = 0;
+            lastInitialPlannedRequestCount = 0;
+            lastInitialEntranceSpawnRequestCount = 0;
+            lastInitialActiveEntranceSpawnInstanceCount = 0;
+            if (!AnyGameplayVfxEnabled ||
+                context.PresentationData == null)
+            {
+                return;
+            }
+
+            var visibilityContext = BuildVisibilityContext(context.StateStore);
+            planBuilder.Clear();
+            var planningContext = GameplayVfxPlanningContext.ForInitial(
+                context.PresentationData,
+                context.Topology,
+                context.TimingProfile,
+                context.TileFeatureVfxStyleBindings,
+                visibilityContext);
+            if (enableGameplayVfxTileFeatureLane)
+            {
+                tileFeaturePlanner.Plan(planningContext, planBuilder);
+            }
+
+            var enabledPlan = FilterByEnabledCues(planBuilder.Build());
+            lastInitialPlannedRequestCount = enabledPlan.Requests.Count;
+            lastInitialEntranceSpawnRequestCount = CountEntranceSpawnRequests(enabledPlan);
+            if (enabledPlan.Requests.Count == 0)
+            {
+                controller?.Refresh(GameplayVfxRequestPlan.Empty);
+                return;
+            }
+
+            if (!IsHostDefaultMapConfigured)
+            {
+                RecordMapNotConfigured(
+                    "PresentInitial",
+                    enabledPlan.Requests.Count,
+                    lastInitialEntranceSpawnRequestCount);
+                LastPlannedRequestCount = enabledPlan.Requests.Count;
+                return;
+            }
+
+            var plan = FilterByPlanningVisibility(
+                enabledPlan,
+                bindingResolver,
+                visibilityContext);
+            if (plan.Requests.Count == 0)
+            {
+                controller?.Refresh(GameplayVfxRequestPlan.Empty);
+                return;
+            }
+
+            EnsureRuntime(context.Projector, context.StateStore);
+            controller.SetVisibilityContext(visibilityContext);
+            controller.Refresh(plan);
+            LastPlannedRequestCount = plan.Requests.Count;
+            lastInitialActiveEntranceSpawnInstanceCount =
+                GetActiveVfxInstanceCount(GameplayVfxCueIds.EntranceSpawn);
+        }
+
+        private void RecordMapNotConfigured(
+            string context,
+            int requestCount,
+            int entranceSpawnRequestCount)
+        {
+            mapNotConfiguredCount++;
+            initialRequestSkippedBecauseMapNotConfiguredCount += requestCount;
+            lastMapNotConfiguredContext = context ?? string.Empty;
+            UnityEngine.Debug.LogWarning(
+                $"{nameof(GameplayVfxProductionRuntime)} skipped {requestCount} initial VFX request(s) because the host default cue map is not configured. Context='{lastMapNotConfiguredContext}', EntranceSpawnRequests={entranceSpawnRequestCount}.",
+                this);
+        }
+
+        private static int CountEntranceSpawnRequests(GameplayVfxRequestPlan plan)
+        {
+            if (plan == null || plan.Requests.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < plan.Requests.Count; i++)
+            {
+                if (plan.Requests[i].CueId == GameplayVfxCueIds.EntranceSpawn)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
         public void Present(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
@@ -705,7 +859,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ConfigureEnemyPresentationProfiles(
                 context.EnemyPresentationCatalog,
                 context.EnemyPresentationBindings);
-            var visibilityContext = BuildVisibilityContext(context.StateStore);
+            var visibilityContext = BuildVisibilityContext(
+                context.StateStore,
+                context.Result?.PresentationData,
+                context.Topology);
             enemyMotionAttachedFollowerPlanner.Build(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
@@ -718,7 +875,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enableGameplayVfxEnemyUtilityCooldownAura,
                 enableGameplayVfxEnemyAttackCooldownFollow);
             planBuilder.Clear();
-            var planningContext = new GameplayVfxPlanningContext(
+            var planningContext = GameplayVfxPlanningContext.ForTick(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
                 context.Topology,
@@ -840,9 +997,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            var visibilityContext = BuildVisibilityContext(context.StateStore);
+            var visibilityContext = BuildVisibilityContext(
+                context.StateStore,
+                context.Result?.PresentationData,
+                context.Topology);
             planBuilder.Clear();
-            var planningContext = new GameplayVfxPlanningContext(
+            var planningContext = GameplayVfxPlanningContext.ForTick(
                 context.Result.TickIndex,
                 context.Result.PresentationData,
                 context.Topology,
@@ -943,6 +1103,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             topologyTransitionSuppressEpoch = 0;
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
+            RecordCleanup(GameplayVfxCleanupReason.ManualHardCleanup, GameplayVfxCleanupScope.AllFamilies);
             controller?.HardCleanupAll();
             LastPlannedRequestCount = 0;
             playedFlipDestroySelfMotionKeys.Clear();
@@ -984,6 +1145,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             motionFollowingVfxController.HardCleanup();
+            RecordCleanup(GameplayVfxCleanupReason.ProjectorOrStateStoreChanged, GameplayVfxCleanupScope.AllFamilies);
             controller?.HardCleanupAll();
             configuredProjector = projector;
             configuredStateStore = stateStore;
@@ -1023,18 +1185,41 @@ namespace Game.Feature.Gameplay.Vfx.Host
             prefabProvider = new AuthoringPrefabProvider(
                 profileProvider,
                 hostDefaultCueMap,
-                familyProfiles);
+                familyProfiles,
+                commonEmptyHostPrefab);
         }
 
-        private void ConfigureEnemyPresentationProfiles(
+        private void ApplyBindingRuntimeToExistingComposition()
+        {
+            controller?.ConfigureBindingResolver(bindingResolver);
+            pool?.ConfigurePrefabProvider(prefabProvider);
+        }
+
+        private bool ConfigureEnemyPresentationProfiles(
             EnemyPresentationCatalog catalog,
             EnemyPresentationBinding[] bindings)
         {
             var resolvedBindings = bindings ?? Array.Empty<EnemyPresentationBinding>();
-            if (ReferenceEquals(configuredEnemyPresentationCatalog, catalog) &&
-                ReferenceEquals(configuredEnemyPresentationBindings, resolvedBindings))
+            var catalogMatches = ReferenceEquals(configuredEnemyPresentationCatalog, catalog);
+            var bindingsMatch = ReferenceEquals(configuredEnemyPresentationBindings, resolvedBindings);
+            if (!hasConfiguredEnemyPresentationProfiles)
             {
-                return;
+                configuredEnemyPresentationCatalog = catalog;
+                configuredEnemyPresentationBindings = resolvedBindings;
+                hasConfiguredEnemyPresentationProfiles = true;
+                enemyPresentationVfxProfileProvider = EnemyPresentationVfxProfileMapBuilder.Build(
+                    configuredEnemyPresentationCatalog,
+                    configuredEnemyPresentationBindings,
+                    nameof(GameplayVfxProductionRuntime));
+                RebuildBindingRuntime();
+                ApplyBindingRuntimeToExistingComposition();
+                EnemyProfileFirstConfigureCount++;
+                return false;
+            }
+
+            if (catalogMatches && bindingsMatch)
+            {
+                return false;
             }
 
             configuredEnemyPresentationCatalog = catalog;
@@ -1044,11 +1229,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 configuredEnemyPresentationBindings,
                 nameof(GameplayVfxProductionRuntime));
             RebuildBindingRuntime();
-            ResetRuntimeComposition();
+            ApplyBindingRuntimeToExistingComposition();
+            ResetEnemyPresentationRuntimeComposition(GameplayVfxCleanupReason.EnemyProfileChanged);
+            return true;
         }
 
-        private void ResetRuntimeComposition()
+        private void ResetEnemyPresentationRuntimeComposition(GameplayVfxCleanupReason reason)
         {
+            RecordCleanup(reason, GameplayVfxCleanupScope.EnemyFamily);
+            motionFollowingVfxController.HardCleanupFamily(GameplayVfxFamily.Enemy);
+            enemyMotionAttachedFollowerPlanner.Clear();
+            controller?.HardCleanupFamily(GameplayVfxFamily.Enemy, reason);
+        }
+
+        private void ResetRuntimeComposition(GameplayVfxCleanupReason reason)
+        {
+            RecordCleanup(reason, GameplayVfxCleanupScope.AllFamilies);
             isTopologyTransitionVfxSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
             motionFollowingVfxController.HardCleanup();
@@ -1104,10 +1300,41 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             LastPlannedRequestCount = 0;
-            ResetRuntimeComposition();
+            ResetRuntimeComposition(GameplayVfxCleanupReason.AllGameplayVfxDisabled);
         }
 
-        private GameplayVfxVisibilityContext BuildVisibilityContext(GameplayPresentationStateStore stateStore)
+        private void RecordCleanup(GameplayVfxCleanupReason reason, GameplayVfxCleanupScope scope)
+        {
+            if (scope == GameplayVfxCleanupScope.AllFamilies &&
+                controller == null &&
+                pool == null)
+            {
+                return;
+            }
+
+            var activeTileFeaturesBefore = pool?.GetActiveCount(GameplayVfxCueIds.EntranceSpawn) ?? 0;
+            LastCleanupReason = reason;
+            LastCleanupScope = scope;
+            if (scope == GameplayVfxCleanupScope.AllFamilies)
+            {
+                HardCleanupAllCount++;
+                if (activeTileFeaturesBefore > 0)
+                {
+                    TileFeatureHardCleanupCount++;
+                }
+            }
+
+            if (scope == GameplayVfxCleanupScope.EnemyFamily &&
+                reason == GameplayVfxCleanupReason.EnemyProfileChanged)
+            {
+                EnemyProfileChangedCleanupCount++;
+            }
+        }
+
+        private GameplayVfxVisibilityContext BuildVisibilityContext(
+            GameplayPresentationStateStore stateStore,
+            TickPresentationData presentationData = null,
+            CubeTopologyState topology = default)
         {
             visibilityEntityStates.Clear();
             if (stateStore == null)
@@ -1131,7 +1358,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     hasSemanticState: hasSemanticState,
                     isFrontFaceInactive: hasSemanticState &&
                                          semanticState.ActivityState == EnemyVisualActivityState.FrontFaceInactive,
-                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed);
+                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed,
+                    isJumpTopologySuspended: IsJumpTopologySuspendedOwner(entityId, presentationData, topology));
             }
 
             foreach (var pair in stateStore.EnemyVisualSemanticStatesByEntityId)
@@ -1148,10 +1376,37 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     isViewActiveInHierarchy: false,
                     hasSemanticState: true,
                     isFrontFaceInactive: pair.Value.ActivityState == EnemyVisualActivityState.FrontFaceInactive,
-                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed);
+                    isGameplayAutonomySuppressed: hasFacts && facts.IsGameplayAutonomySuppressed,
+                    isJumpTopologySuspended: IsJumpTopologySuspendedOwner(entityId, presentationData, topology));
             }
 
             return new GameplayVfxVisibilityContext(visibilityEntityStates);
+        }
+
+        private static bool IsJumpTopologySuspendedOwner(
+            int entityId,
+            TickPresentationData presentationData,
+            CubeTopologyState topology)
+        {
+            if (entityId <= 0 || presentationData == null)
+            {
+                return false;
+            }
+
+            var signals = presentationData.EnemyJumpSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId != entityId ||
+                    signal.Phase != EnemyJumpPhase.Airborne)
+                {
+                    continue;
+                }
+
+                return signal.SourceCell.face != topology.BottomFace;
+            }
+
+            return false;
         }
 
         private static GameplayVfxTopologyTransitionContext BuildTopologyTransitionContext(
@@ -1198,6 +1453,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             isTopologyTransitionVfxSuppressed = true;
             topologyTransitionSuppressEpoch = epoch;
+            RecordCleanup(GameplayVfxCleanupReason.TopologyTransitionStarted, GameplayVfxCleanupScope.AllFamilies);
             controller?.ClearForTopologyTransitionStart(epoch);
             controller?.SetTopologyTransitionStartSuppression(true, epoch);
             motionFollowingVfxController.ClearForTopologyTransitionStart(pool);
@@ -1318,7 +1574,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         request,
                         GameplayVfxVisibilityMode.DefaultGameplay,
                         visibilityContext);
-                if (decision.IsVisible)
+                if (decision.IsVisible ||
+                    ShouldForwardVisibilityBlockedRequestToController(request, decision.BlockReason))
                 {
                     filteredRequests.Add(request);
                 }
@@ -1327,6 +1584,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return filteredRequests.Count == 0
                 ? GameplayVfxRequestPlan.Empty
                 : new GameplayVfxRequestPlan(filteredRequests);
+        }
+
+        private static bool ShouldForwardVisibilityBlockedRequestToController(
+            in GameplayVfxRequest request,
+            GameplayVfxVisibilityBlockReason blockReason)
+        {
+            return request.IsPersistent &&
+                   request.CueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) &&
+                   (blockReason == GameplayVfxVisibilityBlockReason.JumpTopologySuspended ||
+                    blockReason == GameplayVfxVisibilityBlockReason.InactiveFace ||
+                    blockReason == GameplayVfxVisibilityBlockReason.FrontFaceInactive ||
+                    blockReason == GameplayVfxVisibilityBlockReason.EntityViewInactive ||
+                    blockReason == GameplayVfxVisibilityBlockReason.MissingSemanticState);
         }
 
         private bool IsCueEnabled(GameplayVfxCueId cueId)
@@ -2687,6 +2957,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private sealed class AuthoringPrefabProvider : IVfxPrefabProvider
         {
+            private readonly GameObject commonEmptyHostPrefab;
             private readonly EnemyPresentationVfxProfileProvider enemyProfileProvider;
             private readonly VfxCueMapAsset hostDefaultMap;
             private readonly VfxProfileAsset[] profiles;
@@ -2694,11 +2965,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             public AuthoringPrefabProvider(
                 EnemyPresentationVfxProfileProvider enemyProfileProvider,
                 VfxCueMapAsset hostDefaultMap,
-                VfxProfileAsset[] profiles)
+                VfxProfileAsset[] profiles,
+                GameObject commonEmptyHostPrefab)
             {
                 this.enemyProfileProvider = enemyProfileProvider;
                 this.hostDefaultMap = hostDefaultMap;
                 this.profiles = profiles ?? Array.Empty<VfxProfileAsset>();
+                this.commonEmptyHostPrefab = commonEmptyHostPrefab;
             }
 
             public bool TryResolvePrefab(in ResolvedVfxPlaybackCommand command, out GameObject prefab)
@@ -2707,7 +2980,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     enemyProfileProvider.TryResolveProfileAssetForSourceEntity(
                         command.Request.SourceEntityId,
                         out var sourceProfile) &&
-                    sourceProfile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
+                    TryResolvePrefabFromBinding(
+                        sourceProfile,
+                        command.CueId,
+                        command.Request.StyleKey,
+                        out prefab))
                 {
                     return true;
                 }
@@ -2716,19 +2993,69 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 {
                     var profile = profiles[i];
                     if (profile != null &&
-                        profile.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
+                        TryResolvePrefabFromBinding(
+                            profile,
+                            command.CueId,
+                            command.Request.StyleKey,
+                            out prefab))
                     {
                         return true;
                     }
                 }
 
                 if (hostDefaultMap != null &&
-                    hostDefaultMap.TryResolvePrefab(command.CueId, command.Request.StyleKey, out prefab))
+                    TryResolvePrefabFromBinding(
+                        hostDefaultMap,
+                        command.CueId,
+                        command.Request.StyleKey,
+                        out prefab))
                 {
                     return true;
                 }
 
                 prefab = null;
+                return false;
+            }
+
+            private bool TryResolvePrefabFromBinding(
+                VfxProfileAsset profile,
+                GameplayVfxCueId cueId,
+                VfxStyleKey styleKey,
+                out GameObject prefab)
+            {
+                prefab = null;
+                return profile.TryResolveBinding(cueId, styleKey, out var binding) &&
+                       TryResolvePrefabFromBinding(binding, out prefab);
+            }
+
+            private bool TryResolvePrefabFromBinding(
+                VfxCueMapAsset cueMap,
+                GameplayVfxCueId cueId,
+                VfxStyleKey styleKey,
+                out GameObject prefab)
+            {
+                prefab = null;
+                return cueMap.TryResolveBinding(cueId, styleKey, out var binding) &&
+                       TryResolvePrefabFromBinding(binding, out prefab);
+            }
+
+            private bool TryResolvePrefabFromBinding(
+                VfxBindingDefinitionAsset binding,
+                out GameObject prefab)
+            {
+                prefab = binding.Prefab;
+                if (prefab != null)
+                {
+                    return true;
+                }
+
+                if (binding.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                    binding.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed)
+                {
+                    prefab = commonEmptyHostPrefab;
+                    return prefab != null;
+                }
+
                 return false;
             }
         }

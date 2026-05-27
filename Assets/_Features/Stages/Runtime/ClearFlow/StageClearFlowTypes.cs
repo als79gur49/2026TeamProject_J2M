@@ -3,6 +3,12 @@ using System.Collections.Generic;
 
 namespace Game.Feature.Stages
 {
+    public enum StageClearSource
+    {
+        Objective = 0,
+        ForcedByDemoStageControl = 1,
+    }
+
     public sealed class StageClearResult
     {
         public StageClearResult(
@@ -13,7 +19,8 @@ namespace Game.Feature.Stages
             int finalTickIndex,
             StageObjectiveProgressSnapshot finalObjectiveProgress,
             StageSessionMetricValue[] sessionMetricsSnapshot,
-            StageChallengeRuntimeState[] challengeRuntimeStates)
+            StageChallengeRuntimeState[] challengeRuntimeStates,
+            StageClearSource clearSource = StageClearSource.Objective)
         {
             StageId = stageId;
             StageRunId = stageRunId;
@@ -23,6 +30,7 @@ namespace Game.Feature.Stages
             FinalObjectiveProgress = finalObjectiveProgress;
             SessionMetricsSnapshot = sessionMetricsSnapshot ?? Array.Empty<StageSessionMetricValue>();
             ChallengeRuntimeStates = challengeRuntimeStates ?? Array.Empty<StageChallengeRuntimeState>();
+            ClearSource = clearSource;
         }
 
         public StageId StageId { get; }
@@ -40,6 +48,8 @@ namespace Game.Feature.Stages
         public StageSessionMetricValue[] SessionMetricsSnapshot { get; }
 
         public StageChallengeRuntimeState[] ChallengeRuntimeStates { get; }
+
+        public StageClearSource ClearSource { get; }
     }
 
     public readonly struct StageChallengeEvaluationResult

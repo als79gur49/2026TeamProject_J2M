@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Extended")]
-        public void EnemyAi_JumpLanding_InactiveFaceSolidBlocker_ResolveRejectsBeforeMaterialization()
+        public void EnemyAi_JumpLanding_InactiveFaceSolidBlocker_TopologySuspendDefersResolve()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
@@ -48,18 +48,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.DoesNotThrow(() => landingTick = pipeline.RunTick(new TickInput(1)));
 
                 var jumpState = GetEnemyJumpState(worldState, 40);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        landingTick.MovementPhaseResult.CommitEvents,
-                        "EnemyJumpStateUpdated",
-                        "E=40",
-                        "Label=Retry",
-                        "Reason=ResolveRejected"),
-                    Is.True);
+                Assert.That(landingTick.Trace.Text, Does.Contain("EnemyJumpStateUpdated|E=40|Label=TopologySuspend"));
+                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Retry"));
+                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Landing"));
                 Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
                 Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
-                Assert.That(jumpState.retryCount, Is.EqualTo(1));
+                Assert.That(jumpState.retryCount, Is.EqualTo(0));
                 Assert.That(jumpState.landingTick, Is.EqualTo(2));
             }
             finally
@@ -70,7 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_JumpLanding_InactiveFaceTerrainBlocker_ResolveRejectsBeforeMaterialization()
+        public void EnemyAi_JumpLanding_InactiveFaceTerrainBlocker_TopologySuspendDefersResolve()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
@@ -104,18 +99,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.DoesNotThrow(() => landingTick = pipeline.RunTick(new TickInput(1)));
 
                 var jumpState = GetEnemyJumpState(worldState, 40);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        landingTick.MovementPhaseResult.CommitEvents,
-                        "EnemyJumpStateUpdated",
-                        "E=40",
-                        "Label=Retry",
-                        "Reason=ResolveRejected"),
-                    Is.True);
+                Assert.That(landingTick.Trace.Text, Does.Contain("EnemyJumpStateUpdated|E=40|Label=TopologySuspend"));
+                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Retry"));
+                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Landing"));
                 Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
                 Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
-                Assert.That(jumpState.retryCount, Is.EqualTo(1));
+                Assert.That(jumpState.retryCount, Is.EqualTo(0));
                 Assert.That(jumpState.landingTick, Is.EqualTo(2));
             }
             finally
@@ -126,7 +116,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_JumpLanding_InactiveFaceDetachedHiddenOccupant_LandsSuccessfully()
+        public void EnemyAi_JumpLanding_InactiveFaceDetachedHiddenOccupant_TopologySuspendDefersLanding()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
@@ -156,16 +146,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 TickResult landingTick = default;
                 Assert.DoesNotThrow(() => landingTick = pipeline.RunTick(new TickInput(1)));
 
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        landingTick.MovementPhaseResult.CommitEvents,
-                        "EnemyJumpStateUpdated",
-                        "E=40",
-                        "Label=Landing"),
-                    Is.True);
-                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
-                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(landingTick.Trace.Text, Does.Contain("EnemyJumpStateUpdated|E=40|Label=TopologySuspend"));
+                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Retry"));
+                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Landing"));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
                 Assert.That(GetEntity(worldState, 60).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpState.landingTick, Is.EqualTo(2));
             }
             finally
             {

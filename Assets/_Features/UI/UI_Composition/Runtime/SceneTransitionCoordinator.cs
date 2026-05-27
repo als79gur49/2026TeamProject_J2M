@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -19,6 +20,7 @@ namespace Game.Feature.UI.Composition
         private static Func<SceneTransitionOverlayContentCatalog> _contentCatalogResourceLoaderForTests;
         private static Func<string, SceneTransitionOverlayContentView> _contentResourceLoaderForTests;
         private static Func<SceneTransitionOverlayView> _overlayResourceLoaderForTests;
+        private static IUiAudioPort _pendingUiAudioPort;
 
         private readonly StageTransitionLaunchGuard _guard = new();
         private readonly StageTransitionProfileResolver _profileResolver = new();
@@ -27,6 +29,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private SceneTransitionOverlayContentCatalog _contentCatalog;
         [SerializeField] private SceneTransitionOverlayView _overlayPrefab;
         private ISceneTransitionOverlayShellView _overlayShell;
+        private IUiAudioPort _uiAudioPort;
         private bool _generatedFallbackWarningLogged;
         private bool _contentFallbackWarningLogged;
 
@@ -43,6 +46,7 @@ namespace Game.Feature.UI.Composition
                 if (existing != null)
                 {
                     _instance = existing;
+                    _instance.BindUiAudioPort(_pendingUiAudioPort);
                     return _instance;
                 }
 
@@ -99,6 +103,7 @@ namespace Game.Feature.UI.Composition
             }
 
             _instance = this;
+            _uiAudioPort = _pendingUiAudioPort;
             DontDestroyOnLoad(gameObject);
             EnsureOverlayShell();
         }
@@ -170,6 +175,7 @@ namespace Game.Feature.UI.Composition
                 var contentPrefab = ResolveContentPrefab(viewModel);
                 var content = overlay.MountContent(contentPrefab);
                 overlay.ShowContent(viewModel, content);
+                PlayTransitionAudio(viewModel);
                 var overlayShownAt = Time.unscaledTime;
 
                 if (operation == null)
@@ -313,6 +319,35 @@ namespace Game.Feature.UI.Composition
 
         internal bool IsUsingGeneratedOverlayForTests =>
             _overlayShell is LegacyOverlayShellAdapter { IsGenerated: true };
+
+        internal void BindUiAudioPort(IUiAudioPort uiAudioPort)
+        {
+            _uiAudioPort = uiAudioPort;
+        }
+
+        internal static void BindUiAudioPortForCurrentScene(IUiAudioPort uiAudioPort)
+        {
+            _pendingUiAudioPort = uiAudioPort;
+            _instance?.BindUiAudioPort(uiAudioPort);
+        }
+
+        internal void PlayTransitionAudio(SceneTransitionOverlayViewModel model)
+        {
+            var cueId = ResolveTransitionAudioCue(model.TransitionKind);
+            if (!cueId.HasValue)
+            {
+                return;
+            }
+
+            _uiAudioPort?.Play(cueId.Value);
+        }
+
+        internal static UiAudioCueId? ResolveTransitionAudioCue(StageTransitionKind transitionKind)
+        {
+            return transitionKind == StageTransitionKind.DeathRetryChanceLost
+                ? UiAudioCueId.ChanceLoss
+                : null;
+        }
 
         private static SceneTransitionOverlayShellView LoadShellPrefabFromResources()
         {

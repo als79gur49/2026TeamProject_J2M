@@ -3,7 +3,9 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
-    public sealed class EnemyFloatingPresentationDriver : MonoBehaviour
+    public sealed class EnemyFloatingPresentationDriver :
+        MonoBehaviour,
+        IEnemyVisualSemanticPresentationDriver
     {
         private const float MinimumAxisMagnitudeSquared = 0.000001f;
 
@@ -89,6 +91,11 @@ namespace Game.Feature.Gameplay.Host
         public void Apply(in EnemyVisualSemanticState state)
         {
             SetSuspended(state.ShouldPauseAutonomousPresentation);
+        }
+
+        public void ApplyEnemyVisualSemanticState(in EnemyVisualSemanticState state)
+        {
+            Apply(state);
         }
 
         public void SetSuspended(bool suspended)

@@ -9,13 +9,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         private readonly Dictionary<int, Stack<GameplayVfxPooledInstance>> availableByPrefabId = new();
         private readonly Dictionary<int, List<GameplayVfxPooledInstance>> allByPrefabId = new();
+        private readonly Dictionary<int, GameplayVfxFamily> familyByPrefabId = new();
         private readonly Dictionary<GameplayVfxPlaybackHandle, ParameterizedMotionVfxCommand> activeParameterizedMotions = new();
         private readonly HashSet<GameplayVfxPlaybackHandle> activeHandles = new();
         private readonly IGameplayVfxCloneSourceProvider cloneSourceProvider;
         private readonly GameplayVfxRuntimeRoot root;
-        private readonly IVfxPrefabProvider prefabProvider;
         private readonly IGameplayVfxTimeProvider timeProvider;
         private readonly Dictionary<GameplayVfxCueId, int> releaseToPoolCountByCue = new();
+        private IVfxPrefabProvider prefabProvider;
         private int nextHandleId;
 
         public GameplayVfxGameObjectPool(
@@ -35,9 +36,20 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int MissingPrefabCount { get; private set; }
 
+        public int MissingSourceViewCount { get; private set; }
+
+        public int CommonHostUnavailableCount { get; private set; }
+
+        public int InvalidPlaybackModePolicyCount { get; private set; }
+
         public int ActiveCount => activeHandles.Count(handle => handle != null && !handle.IsTerminal);
 
         public int PooledCount => availableByPrefabId.Values.Sum(stack => stack.Count);
+
+        public void ConfigurePrefabProvider(IVfxPrefabProvider provider)
+        {
+            prefabProvider = provider ?? throw new ArgumentNullException(nameof(provider));
+        }
 
         internal int GetActiveCount(GameplayVfxCueId cueId)
         {
@@ -87,9 +99,43 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 throw new InvalidOperationException("Parameterized VFX command cue does not match resolved playback command cue.");
             }
 
+            if (!ValidateParameterizedMotionPolicy(command.Policy, motionCommand))
+            {
+                InvalidPlaybackModePolicyCount++;
+                LogPoolDiagnostic(nameof(PlayParameterizedMotion), "InvalidPlaybackModePolicy", command);
+                return null;
+            }
+
+            var canResolveSourceClone = CanResolveSourceClone(motionCommand);
+            if (command.Policy.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                !canResolveSourceClone)
+            {
+                MissingSourceViewCount++;
+                LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingSourceView", command);
+                return null;
+            }
+
+            if (command.Policy.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone &&
+                !canResolveSourceClone)
+            {
+                MissingSourceViewCount++;
+                LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingSourceView", command);
+            }
+
             if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
             {
-                MissingPrefabCount++;
+                if (command.Policy.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion &&
+                    command.Policy.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed)
+                {
+                    CommonHostUnavailableCount++;
+                    LogPoolDiagnostic(nameof(PlayParameterizedMotion), "CommonHostUnavailable", command);
+                }
+                else
+                {
+                    MissingPrefabCount++;
+                    LogPoolDiagnostic(nameof(PlayParameterizedMotion), "MissingPrefab", command);
+                }
+
                 return null;
             }
 
@@ -100,6 +146,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             var prefabInstanceId = prefab.GetInstanceID();
+            familyByPrefabId[prefabInstanceId] = command.CueId.Family;
             var instance = Lease(prefab, prefabInstanceId);
             var now = timeProvider.TimeSeconds;
             var handle = new GameplayVfxPlaybackHandle(++nextHandleId, command, instance, now, timeProvider);
@@ -136,6 +183,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
                         handle.CueId,
                         handle.TopologyStopMode))
                 {
+                    if (handle != null &&
+                        !handle.IsTerminal &&
+                        GameplayVfxTopologyHelperExemptionPolicy.AllowsPresentationSuspendPreserve(
+                            handle.CueId,
+                            handle.TopologyStopMode))
+                    {
+                        handle.SuspendPresentation();
+                    }
+
                     continue;
                 }
 
@@ -165,6 +221,37 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             availableByPrefabId.Clear();
             allByPrefabId.Clear();
+            familyByPrefabId.Clear();
+        }
+
+        public void HardCleanupFamily(GameplayVfxFamily family)
+        {
+            if (family == GameplayVfxFamily.None)
+            {
+                return;
+            }
+
+            foreach (var handle in activeHandles.ToArray())
+            {
+                if (handle == null || handle.CueId.Family != family)
+                {
+                    continue;
+                }
+
+                handle.HardCleanup();
+                activeHandles.Remove(handle);
+                activeParameterizedMotions.Remove(handle);
+            }
+
+            foreach (var cue in releaseToPoolCountByCue.Keys.ToArray())
+            {
+                if (cue.Family == family)
+                {
+                    releaseToPoolCountByCue.Remove(cue);
+                }
+            }
+
+            CleanupStoredInstancesForFamily(family);
         }
 
         public void Advance(float deltaSeconds)
@@ -191,6 +278,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (!prefabProvider.TryResolvePrefab(command, out var prefab) || prefab == null)
             {
                 MissingPrefabCount++;
+                LogPoolDiagnostic(nameof(Play), "MissingPrefab", command);
                 return null;
             }
 
@@ -201,6 +289,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             var prefabInstanceId = prefab.GetInstanceID();
+            familyByPrefabId[prefabInstanceId] = command.CueId.Family;
             var instance = Lease(prefab, prefabInstanceId);
             var now = timeProvider.TimeSeconds;
             var handle = new GameplayVfxPlaybackHandle(
@@ -231,6 +320,54 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return activeForCue >= policy.MaxConcurrentInstances;
         }
 
+        private bool ValidateParameterizedMotionPolicy(
+            VfxBindingRuntimePolicy policy,
+            in ParameterizedMotionVfxCommand motionCommand)
+        {
+            if (policy.VisualSourceMode == VfxVisualSourceMode.SourceCloneMotion)
+            {
+                return policy.HostRequirement == GameplayVfxHostRequirement.CommonHostAllowed &&
+                       motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion;
+            }
+
+            if (policy.VisualSourceMode == VfxVisualSourceMode.PrefabWithSourceClone)
+            {
+                return policy.HostRequirement == GameplayVfxHostRequirement.ExplicitPrefabRequired &&
+                       motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.PrefabWithSourceClone;
+            }
+
+            if (motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion ||
+                motionCommand.CloneMode == ParameterizedMotionVfxCloneMode.PrefabWithSourceClone)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool CanResolveSourceClone(in ParameterizedMotionVfxCommand motionCommand)
+        {
+            if (cloneSourceProvider == null ||
+                !cloneSourceProvider.TryResolveCloneSource(motionCommand.SourceEntityId, out var source) ||
+                source.ModelRoot == null)
+            {
+                return false;
+            }
+
+            return source.ModelRoot.GetComponentsInChildren<Renderer>(includeInactive: true).Length > 0;
+        }
+
+        private static void LogPoolDiagnostic(
+            string method,
+            string reason,
+            in ResolvedVfxPlaybackCommand command)
+        {
+            UnityEngine.Debug.LogWarning(
+                $"{nameof(GameplayVfxGameObjectPool)}.{method} skipped VFX playback. " +
+                $"reason={reason} cueFamily={command.CueId.Family} cueCode={command.CueId.Code} " +
+                $"visualSourceMode={command.Policy.VisualSourceMode} hostRequirement={command.Policy.HostRequirement}");
+        }
+
         private GameplayVfxPooledInstance Lease(GameObject prefab, int prefabInstanceId)
         {
             if (availableByPrefabId.TryGetValue(prefabInstanceId, out var available))
@@ -256,6 +393,33 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             all.Add(created);
             return created;
+        }
+
+        private void CleanupStoredInstancesForFamily(GameplayVfxFamily family)
+        {
+            foreach (var pair in familyByPrefabId.ToArray())
+            {
+                if (pair.Value != family)
+                {
+                    continue;
+                }
+
+                var prefabInstanceId = pair.Key;
+                if (allByPrefabId.TryGetValue(prefabInstanceId, out var all))
+                {
+                    foreach (var instance in all.ToArray())
+                    {
+                        if (instance?.GameObject != null)
+                        {
+                            instance.HardCleanup();
+                        }
+                    }
+                }
+
+                allByPrefabId.Remove(prefabInstanceId);
+                availableByPrefabId.Remove(prefabInstanceId);
+                familyByPrefabId.Remove(prefabInstanceId);
+            }
         }
 
         private void AdvanceHandle(GameplayVfxPlaybackHandle handle, float now)

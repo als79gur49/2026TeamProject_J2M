@@ -1118,6 +1118,7 @@ namespace Game.Feature.Gameplay.Host
                 var signal = jumpSignals[i];
                 if (signal.LandedThisTick)
                 {
+                    _trackState.JumpTopologySuspendedEntityIds.Remove(signal.EntityId);
                     if (TryStartJumpLandingCompletionTrack(
                             signal,
                             previousCommittedLocalTargetPoses,
@@ -1140,6 +1141,14 @@ namespace Game.Feature.Gameplay.Host
 
                 activeAirborneEntityIds.Add(signal.EntityId);
                 _trackState.VisibilityTracks.Remove(signal.EntityId);
+                if (IsJumpTopologySuspended(signal, result.FinalTopology))
+                {
+                    _trackState.JumpTopologySuspendedEntityIds.Add(signal.EntityId);
+                }
+                else
+                {
+                    _trackState.JumpTopologySuspendedEntityIds.Remove(signal.EntityId);
+                }
 
                 if (TryResolveJumpTrack(
                         signal,
@@ -1152,14 +1161,14 @@ namespace Game.Feature.Gameplay.Host
                 {
                     _trackState.JumpTracks[signal.EntityId] = jumpTrack;
                     _stateStore.JumpDetachedVisibilityStates[signal.EntityId] =
-                        new JumpDetachedVisibilityState(signal.Phase, localPose);
+                        new JumpDetachedVisibilityState(signal.Phase, localPose, signal.SourceCell);
                     continue;
                 }
 
                 if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(signal.EntityId, out var existingState))
                 {
                     _stateStore.JumpDetachedVisibilityStates[signal.EntityId] =
-                        new JumpDetachedVisibilityState(signal.Phase, existingState.LocalPose);
+                        new JumpDetachedVisibilityState(signal.Phase, existingState.LocalPose, signal.SourceCell);
                 }
             }
 
@@ -1195,6 +1204,14 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private static bool IsJumpTopologySuspended(
+            TickEnemyJumpPresentationSignal signal,
+            CubeTopologyState topology)
+        {
+            return signal.Phase == EnemyJumpPhase.Airborne &&
+                   signal.SourceCell.face != topology.BottomFace;
+        }
+
         private bool TryStartJumpLandingCompletionTrack(
             TickEnemyJumpPresentationSignal signal,
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
@@ -1224,7 +1241,7 @@ namespace Game.Feature.Gameplay.Host
                 JumpClip.Create(
                     startPose,
                     endPose,
-                    ResolveJumpLandingCompletionDurationSeconds(timingProfile, result.PresentationData.TopologyMotion),
+                    ResolveJumpLandingCompletionDurationSeconds(timingProfile),
                     arcHeightWorld: 0f));
 
             _trackState.JumpTracks[signal.EntityId] = jumpTrack;
@@ -1246,22 +1263,11 @@ namespace Game.Feature.Gameplay.Host
             return IsTopologyTransitionPresentation(topologyMotion);
         }
 
-        private float ResolveJumpLandingCompletionDurationSeconds(
-            GameplayTimingProfile timingProfile,
-            TickTopologyMotion? topologyMotion)
+        private static float ResolveJumpLandingCompletionDurationSeconds(GameplayTimingProfile timingProfile)
         {
-            var landingDuration = Mathf.Max(
+            return Mathf.Max(
                 0.0001f,
                 Mathf.Min(DefaultJumpLandingCompletionDurationSeconds, timingProfile.SimulationTickIntervalSeconds));
-
-            if (!IsTopologyTransitionPresentation(topologyMotion))
-            {
-                return landingDuration;
-            }
-
-            return Mathf.Max(
-                landingDuration,
-                _motionTimingResolver.ResolveTopologyMotionDurationSeconds(timingProfile));
         }
 
         private GameplayEntityPose ResolveMotionEndPose(
@@ -1442,6 +1448,13 @@ namespace Game.Feature.Gameplay.Host
                 jumpTrack = existingTrack;
                 localPose = existingState.LocalPose;
                 return true;
+            }
+
+            if (!signal.StartedAirborneThisTick &&
+                !signal.RetryThisTick &&
+                IsJumpTopologySuspended(signal, result.FinalTopology))
+            {
+                return false;
             }
 
             if (!TryResolveJumpTrackStartPose(

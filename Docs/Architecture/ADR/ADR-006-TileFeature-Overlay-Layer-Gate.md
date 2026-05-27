@@ -83,9 +83,9 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 ## DestroyTile Policy
 
-- DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, and valid same-cell Box occupants through explicit `FeatureActivatedUnderOccupant` activation-transition facts, not final snapshot scanning.
-- Persistent overlap with an already-active DestroyTile does not destroy stationary boxes.
-- A logical TileFeature activation transition may produce an occupant effect for a valid Box on the same `SurfaceCell`.
+- DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, and valid same-cell Box or lethal Ground Unit occupants through explicit `FeatureActivatedUnderOccupant` activation-transition facts, not final snapshot scanning.
+- Persistent overlap with an already-active DestroyTile does not destroy stationary occupants.
+- A logical TileFeature activation transition may produce an occupant effect for a valid Box or lethal Ground Unit on the same `SurfaceCell`; Air Unit hazard exceptions remain preserved.
 - Player-authored ordinary Move into an active DestroyTile is rejected during movement expansion using the topology-resolved destination cell.
 - DestroyTile is not a global traversal blocker; do not model it as runtime traversal, placement, or settlement blockage.
 - The player DestroyTile access guard applies only to voluntary player movement and does not apply to enemy, box, projectile, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.
@@ -95,7 +95,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - Topology relocation is not movement-derived entity contact.
 - A topology-caused logical feature activation may emit a separate activation-transition occupant fact.
 - Air units may have DestroyTile hazard lethal exceptions, but player voluntary access guards still block active DestroyTile destination or Free2D scoped blocker entry.
-- Unit targets are destroyed only when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection.
+- Unit targets are destroyed when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection, and lethal Ground Units are also destroyed when a topology-caused DestroyTile activation occurs under them.
 - Player and Enemy are both Unit targets; Player death presentation/audio is transported through `TickResult` presentation facts, not direct gameplay UI/audio calls.
 - Projectile and non-box solid occupants are not destroyed in v1.
 - MoonBlock is a Box, so a moving MoonBlock contact is destroyed.

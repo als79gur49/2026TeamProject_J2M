@@ -70,6 +70,10 @@ namespace Game.Feature.Gameplay.Host
             bool isGameplayAutonomySuppressed,
             EnemyAiMode aiMode,
             bool hasActiveMotion,
+            bool hasJumpAirborneVisualState,
+            bool isTopologyTransitionActive,
+            bool isJumpTopologySuspended,
+            bool isOnVisualFrontFace,
             Vector3 localPosition,
             Quaternion localRotation,
             EnemyVisualSemanticState enemyVisualState)
@@ -90,6 +94,10 @@ namespace Game.Feature.Gameplay.Host
             IsGameplayAutonomySuppressed = isGameplayAutonomySuppressed;
             AiMode = aiMode;
             HasActiveMotion = hasActiveMotion;
+            HasJumpAirborneVisualState = hasJumpAirborneVisualState;
+            IsTopologyTransitionActive = isTopologyTransitionActive;
+            IsJumpTopologySuspended = isJumpTopologySuspended;
+            IsOnVisualFrontFace = isOnVisualFrontFace;
             LocalPosition = localPosition;
             LocalRotation = localRotation;
             EnemyVisualState = enemyVisualState;
@@ -127,6 +135,14 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasActiveMotion { get; }
 
+        public bool HasJumpAirborneVisualState { get; }
+
+        public bool IsTopologyTransitionActive { get; }
+
+        public bool IsJumpTopologySuspended { get; }
+
+        public bool IsOnVisualFrontFace { get; }
+
         public Vector3 LocalPosition { get; }
 
         public Quaternion LocalRotation { get; }
@@ -151,6 +167,10 @@ namespace Game.Feature.Gameplay.Host
                    IsGameplayAutonomySuppressed == other.IsGameplayAutonomySuppressed &&
                    AiMode == other.AiMode &&
                    HasActiveMotion == other.HasActiveMotion &&
+                   HasJumpAirborneVisualState == other.HasJumpAirborneVisualState &&
+                   IsTopologyTransitionActive == other.IsTopologyTransitionActive &&
+                   IsJumpTopologySuspended == other.IsJumpTopologySuspended &&
+                   IsOnVisualFrontFace == other.IsOnVisualFrontFace &&
                    LocalPosition == other.LocalPosition &&
                    LocalRotation == other.LocalRotation &&
                    EnemyVisualState.ActivityState == other.EnemyVisualState.ActivityState &&
@@ -184,6 +204,10 @@ namespace Game.Feature.Gameplay.Host
                 hash = (hash * 397) ^ IsGameplayAutonomySuppressed.GetHashCode();
                 hash = (hash * 397) ^ (int)AiMode;
                 hash = (hash * 397) ^ HasActiveMotion.GetHashCode();
+                hash = (hash * 397) ^ HasJumpAirborneVisualState.GetHashCode();
+                hash = (hash * 397) ^ IsTopologyTransitionActive.GetHashCode();
+                hash = (hash * 397) ^ IsJumpTopologySuspended.GetHashCode();
+                hash = (hash * 397) ^ IsOnVisualFrontFace.GetHashCode();
                 hash = (hash * 397) ^ LocalPosition.GetHashCode();
                 hash = (hash * 397) ^ LocalRotation.GetHashCode();
                 hash = (hash * 397) ^ (int)EnemyVisualState.ActivityState;
@@ -205,6 +229,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationTrackState _trackState;
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
+        private readonly Dictionary<int, EnemySemanticDriverCacheEntry> _enemySemanticDriversByEntityId = new();
 
         public GameplayEntityPresentationApplier(
             GameplayPresentationStateStore stateStore,
@@ -241,7 +266,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(timingProfile));
             }
 
-            _animationSync.AdvancePlayerPresentation(deltaTime);
+            _animationSync.AdvancePresentationBeforeEnemySemantic(deltaTime);
             CleanupCompletedTopologyTransitionState(hasActiveBoardRotationTween);
 
             _trackState.CompletedMotionTrackIds.Clear();
@@ -334,14 +359,22 @@ namespace Game.Feature.Gameplay.Host
                 if (_trackState.JumpTracks.TryGetValue(entityId, out var jumpTrack) &&
                     jumpTrack.HasClip)
                 {
-                    localPose = jumpTrack.SampleAndAdvance(deltaTime, localPose);
+                    var freezeJumpTrack =
+                        hasActiveBoardRotationTween ||
+                        _trackState.JumpTopologySuspendedEntityIds.Contains(entityId);
+                    localPose = freezeJumpTrack
+                        ? jumpTrack.CurrentPose
+                        : jumpTrack.SampleAndAdvance(deltaTime, localPose);
                     if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
                     {
                         _stateStore.JumpDetachedVisibilityStates[entityId] =
-                            new JumpDetachedVisibilityState(jumpDetachedState.JumpPhase, localPose);
+                            new JumpDetachedVisibilityState(
+                                jumpDetachedState.JumpPhase,
+                                localPose,
+                                jumpDetachedState.AuthoritativeCell);
                     }
 
-                    if (!jumpTrack.HasClip)
+                    if (!freezeJumpTrack && !jumpTrack.HasClip)
                     {
                         _trackState.CompletedJumpTrackIds.Add(entityId);
                     }
@@ -396,7 +429,7 @@ namespace Game.Feature.Gameplay.Host
                                 isDeferredExitRetained ||
                                 isContactDelayedRetained ||
                                 isDeathPresentationPlaying ||
-                                _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
+                                IsJumpDetachedVisibleForTopology(entityId, _stateStore.CommittedTopology) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
                 if (!hasPlayerDeathHoldPose &&
                     _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
@@ -410,7 +443,11 @@ namespace Game.Feature.Gameplay.Host
 
                 var hasActiveMotion = hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
                                       hasActiveLocalMotion;
-                var enemyVisualFacts = BuildEnemyVisualPresentationFacts(entityId, isVisible, hasActiveMotion);
+                var enemyVisualFacts = BuildEnemyVisualPresentationFacts(
+                    entityId,
+                    isVisible,
+                    hasActiveMotion,
+                    hasActiveBoardRotationTween);
                 _stateStore.EnemyVisualFactsByEntityId[entityId] = enemyVisualFacts;
                 var enemySemanticState = _enemyVisualSemanticResolver.Resolve(enemyVisualFacts);
                 _stateStore.EnemyVisualSemanticStatesByEntityId[entityId] = enemySemanticState;
@@ -486,7 +523,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var wasViewActiveInHierarchy = view.gameObject.activeInHierarchy;
-                ApplyEnemyVisualPresentationState(view, enemySemanticState);
+                ApplyEnemyVisualSemanticPresentationDrivers(entityId, view, enemySemanticState);
                 _animationSync.SyncEnemyRuntimeState(
                     entityId,
                     isVisible,
@@ -538,6 +575,12 @@ namespace Game.Feature.Gameplay.Host
                 ApplyMotionVisualScale(entityId, view, motionVisualScaleMultiplier);
                 _stateStore.PresentedLocalPosesByEntityId[entityId] = localPose;
                 ApplyPlayerDeathDisplacement(entityId, view);
+                if (HasJumpAirborneVisualState(entityId) &&
+                    !enemySemanticState.ShouldPauseAnimatorPlayback)
+                {
+                    _animationSync.EnsureEnemyJumpAirborneBaseAnimation(entityId, _stateStore.ViewsByEntityId);
+                }
+
                 _trackState.VisibleEntityIds.Add(entityId);
                 StoreEnemyApplySignatureIfStable(
                     entityId,
@@ -546,6 +589,7 @@ namespace Game.Feature.Gameplay.Host
                     enemyApplySignature);
             }
 
+            _animationSync.AdvanceEnemyAutonomousPresentationAfterSemantic(deltaTime);
             CleanupCompletedMotionTracks();
             CleanupCompletedOriginalViewMotionTracks();
             CleanupCompletedJumpTracks();
@@ -593,6 +637,11 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.PresentedLocalPosesByEntityId.Clear();
         }
 
+        public void ResetEnemySemanticPresentationDriverCache()
+        {
+            _enemySemanticDriversByEntityId.Clear();
+        }
+
         private IReadOnlyList<int> BuildProcessingEntityIds()
         {
             _processingEntityIds.Clear();
@@ -631,10 +680,36 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private bool HasJumpAirborneVisualState(int entityId)
+        {
+            if (_trackState.JumpTracks.ContainsKey(entityId))
+            {
+                return true;
+            }
+
+            return _stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var detachedState) &&
+                   detachedState.JumpPhase == EnemyJumpPhase.Airborne;
+        }
+
+        private bool IsJumpDetachedVisibleForTopology(int entityId, CubeTopologyState topology)
+        {
+            return _stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var detachedState) &&
+                   IsJumpDetachedVisibleForTopology(detachedState, topology);
+        }
+
+        private static bool IsJumpDetachedVisibleForTopology(
+            in JumpDetachedVisibilityState detachedState,
+            CubeTopologyState topology)
+        {
+            return detachedState.JumpPhase == EnemyJumpPhase.Airborne &&
+                   topology.IsFaceActive(detachedState.AuthoritativeFace);
+        }
+
         public void ClearJumpPresentationState(int entityId)
         {
             _trackState.JumpTracks.Remove(entityId);
             _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
+            _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
             _stateStore.LastEnemyApplySignaturesByEntityId.Remove(entityId);
         }
@@ -690,6 +765,7 @@ namespace Game.Feature.Gameplay.Host
                 var entityId = _trackState.CompletedJumpTrackIds[i];
                 var wasLandingCompletionHeld = _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
                 _trackState.JumpTracks.Remove(entityId);
+                _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
                 _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
                 if (wasLandingCompletionHeld)
                 {
@@ -982,9 +1058,25 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.EnemyAiModesByEntityId.Remove(entityId);
             _stateStore.EnemyVisualFactsByEntityId.Remove(entityId);
             _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(entityId);
+            _enemySemanticDriversByEntityId.Remove(entityId);
             _stateStore.EntityTypesByEntityId.Remove(entityId);
             _stateStore.LastEnemyApplySignaturesByEntityId.Remove(entityId);
             _stateStore.UnitRolesByEntityId.Remove(entityId);
+        }
+
+        private readonly struct EnemySemanticDriverCacheEntry
+        {
+            public EnemySemanticDriverCacheEntry(
+                int viewInstanceId,
+                IEnemyVisualSemanticPresentationDriver[] drivers)
+            {
+                ViewInstanceId = viewInstanceId;
+                Drivers = drivers;
+            }
+
+            public int ViewInstanceId { get; }
+
+            public IEnemyVisualSemanticPresentationDriver[] Drivers { get; }
         }
 
         private void ResetFlipInteraction(int playerEntityId, int boxEntityId)
@@ -1126,6 +1218,11 @@ namespace Game.Feature.Gameplay.Host
                 hasAuthoritativeFace = true;
                 authoritativeFace = transitionVisibilityState.SurfaceFace.Value;
             }
+            else if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
+            {
+                hasAuthoritativeFace = true;
+                authoritativeFace = jumpDetachedState.AuthoritativeFace;
+            }
 
             var hasProjectedSlot = facts.ProjectedSlot.HasValue;
             signature = new EntityPresentationApplySignature(
@@ -1145,42 +1242,83 @@ namespace Game.Feature.Gameplay.Host
                 facts.IsGameplayAutonomySuppressed,
                 facts.AiMode,
                 hasActiveMotion,
+                facts.HasJumpAirborneVisualState,
+                facts.IsTopologyTransitionActive,
+                facts.IsJumpTopologySuspended,
+                facts.IsOnVisualFrontFace,
                 localPose.Position,
                 localPose.Rotation,
                 semanticState);
             return true;
         }
 
-        private static void ApplyEnemyVisualPresentationState(
+        private void ApplyEnemyVisualSemanticPresentationDrivers(
+            int entityId,
             GameplayEntityView view,
-            in EnemyVisualSemanticState semanticState)
+            in EnemyVisualSemanticState state)
         {
-            if (view != null &&
-                view.TryGetComponent<EnemyInactiveVisualController>(out var controller) &&
-                controller != null)
+            var drivers = ResolveEnemySemanticPresentationDrivers(entityId, view);
+            for (var i = 0; i < drivers.Length; i++)
             {
-                controller.Apply(semanticState);
+                drivers[i]?.ApplyEnemyVisualSemanticState(state);
+            }
+        }
+
+        private IEnemyVisualSemanticPresentationDriver[] ResolveEnemySemanticPresentationDrivers(
+            int entityId,
+            GameplayEntityView view)
+        {
+            if (view == null)
+            {
+                _enemySemanticDriversByEntityId.Remove(entityId);
+                return Array.Empty<IEnemyVisualSemanticPresentationDriver>();
             }
 
-            if (view != null &&
-                view.TryGetComponent<EnemyFloatingPresentationDriver>(out var floatingDriver) &&
-                floatingDriver != null)
+            var viewInstanceId = view.GetInstanceID();
+            if (_enemySemanticDriversByEntityId.TryGetValue(entityId, out var cached) &&
+                cached.ViewInstanceId == viewInstanceId &&
+                cached.Drivers != null)
             {
-                floatingDriver.Apply(semanticState);
+                return cached.Drivers;
             }
+
+            var behaviours = view.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            var drivers = new List<IEnemyVisualSemanticPresentationDriver>(behaviours.Length);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is IEnemyVisualSemanticPresentationDriver driver)
+                {
+                    drivers.Add(driver);
+                }
+            }
+
+            var resolvedDrivers = drivers.Count == 0
+                ? Array.Empty<IEnemyVisualSemanticPresentationDriver>()
+                : drivers.ToArray();
+            _enemySemanticDriversByEntityId[entityId] =
+                new EnemySemanticDriverCacheEntry(viewInstanceId, resolvedDrivers);
+            return resolvedDrivers;
         }
 
         private EnemyVisualPresentationFacts BuildEnemyVisualPresentationFacts(
             int entityId,
             bool isVisible,
-            bool hasActiveMotion)
+            bool hasActiveMotion,
+            bool hasActiveBoardRotationTween)
         {
             var isCommittedVisible = _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId);
             var isTransitionVisible = _stateStore.TransitionVisibilityStates.TryGetValue(
                 entityId,
                 out var transitionVisibilityState);
-            var isJumpDetachedVisible = _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId);
+            var hasJumpDetachedState = _stateStore.JumpDetachedVisibilityStates.TryGetValue(
+                entityId,
+                out var jumpDetachedState);
+            var isJumpDetachedVisible = hasJumpDetachedState &&
+                                        IsJumpDetachedVisibleForTopology(
+                                            jumpDetachedState,
+                                            _stateStore.CommittedTopology);
             var isJumpLandingCompletionHeld = _trackState.JumpLandingCompletionHoldEntityIds.Contains(entityId);
+            var isJumpTopologySuspended = _trackState.JumpTopologySuspendedEntityIds.Contains(entityId);
             var isTransitionOnlyVisible = isTransitionVisible && !isCommittedVisible;
             var hasEntityType = _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType);
             var hasUnitRole = _stateStore.UnitRolesByEntityId.TryGetValue(entityId, out var unitRole);
@@ -1198,10 +1336,17 @@ namespace Game.Feature.Gameplay.Host
             {
                 authoritativeFace = transitionVisibilityState.SurfaceFace;
             }
+            else if (hasJumpDetachedState)
+            {
+                authoritativeFace = jumpDetachedState.AuthoritativeFace;
+            }
 
             var isGameplayAutonomySuppressed = isEnemy &&
                                                authoritativeFace.HasValue &&
                                                authoritativeFace.Value != _stateStore.CommittedTopology.BottomFace;
+            var isOnVisualFrontFace = isEnemy &&
+                                      authoritativeFace.HasValue &&
+                                      authoritativeFace.Value == _stateStore.CommittedTopology.FrontFace;
 
             return new EnemyVisualPresentationFacts(
                 entityId,
@@ -1219,7 +1364,11 @@ namespace Game.Feature.Gameplay.Host
                     transitionVisibilityState),
                 isGameplayAutonomySuppressed,
                 isEnemy ? aiMode : EnemyAiMode.None,
-                hasActiveMotion);
+                hasActiveMotion,
+                HasJumpAirborneVisualState(entityId),
+                hasActiveBoardRotationTween,
+                isJumpTopologySuspended,
+                isOnVisualFrontFace);
         }
     }
 }

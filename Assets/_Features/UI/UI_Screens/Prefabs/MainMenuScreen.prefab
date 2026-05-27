@@ -75,10 +75,13 @@ MonoBehaviour:
     _slots:
     - Button: {fileID: 510004}
       SelectionFrame: {fileID: 930103}
+      SelectionFeedback: {fileID: 0}
     - Button: {fileID: 210004}
       SelectionFrame: {fileID: 930203}
+      SelectionFeedback: {fileID: 0}
     - Button: {fileID: 410004}
       SelectionFrame: {fileID: 930303}
+      SelectionFeedback: {fileID: 0}
     _wrap: 0
     _skipNonInteractable: 1
     _selectedIndex: 0
@@ -798,6 +801,10 @@ MonoBehaviour:
   _target: {fileID: 210001}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 6
   _useUnscaledTime: 1
@@ -1039,7 +1046,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -71.1709, y: -8.8137}
+  m_AnchoredPosition: {x: -71.1709, y: -8.813721}
   m_SizeDelta: {x: 2230.0215, y: 1254.0225}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &320002
@@ -1161,7 +1168,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
   m_IgnoreLayout: 1
   m_MinWidth: -1
@@ -1181,7 +1188,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 59f8146938fff824cb5fd77236b75775, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.VerticalLayoutGroup
   m_Padding:
     m_Left: 64
@@ -1416,6 +1423,10 @@ MonoBehaviour:
   _target: {fileID: 410001}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 6
   _useUnscaledTime: 1
@@ -1695,6 +1706,10 @@ MonoBehaviour:
   _target: {fileID: 510001}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 6
   _useUnscaledTime: 1
@@ -2623,6 +2638,10 @@ MonoBehaviour:
   _target: {fileID: 5566422619878914239}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 26
   _useUnscaledTime: 1
@@ -9894,6 +9913,10 @@ MonoBehaviour:
   _target: {fileID: 8947455150242783327}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 26
   _useUnscaledTime: 1
@@ -11298,7 +11321,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 67d0ef399095aac4195a5d7d5a67a9c7, type: 3}
+  m_Sprite: {fileID: 21300000, guid: b8f9a55136e82a74290592029b00804d, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -11482,6 +11505,10 @@ MonoBehaviour:
   _target: {fileID: 8230621520286971791}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 26
   _useUnscaledTime: 1
@@ -13208,6 +13235,10 @@ MonoBehaviour:
   _target: {fileID: 6621059115911202979}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 26
   _useUnscaledTime: 1
@@ -14059,6 +14090,10 @@ MonoBehaviour:
   _target: {fileID: 2188287468435750341}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 26
   _useUnscaledTime: 1
@@ -14322,6 +14357,10 @@ MonoBehaviour:
   _target: {fileID: 9148108515387084186}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 26
   _useUnscaledTime: 1

@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -14,12 +16,20 @@ using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxTileFeatureGravityFieldMigrationTests
     {
+        private const string HostDefaultCueMapPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string EntranceSpawnBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_EntranceSpawn_Binding.asset";
+        private const string EntranceSpawnPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_EntranceSpawn_Vfx.prefab";
+
         [Test]
         [Category("Extended")]
         public void ProductionRuntime_TileFeatureAndGravityFieldRequests_ArePlannedByVfxRuntime()
@@ -112,6 +122,332 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             1f,
                             lockedTargetEntityIds: new[] { 10 }),
                     })));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProductionRuntime_InitialEntranceSpawn_MissingBindingPolicySkipsWithoutCrash()
+        {
+            var owner = new GameObject("InitialEntranceSpawnRuntime");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    new Regex("host default cue map is not configured"));
+                runtime.PresentInitial(CreateInitialExtensionContext(CreateInitialPresentationData()));
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialEntranceSpawnRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialActiveEntranceSpawnInstanceCount, Is.Zero);
+                Assert.That(runtime.IsHostDefaultMapConfigured, Is.False);
+                Assert.That(runtime.MapNotConfiguredCount, Is.EqualTo(1));
+                Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.EqualTo(1));
+                Assert.That(runtime.LastMapNotConfiguredContext, Is.EqualTo("PresentInitial"));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProductionRuntime_InitialEntranceSpawn_ConfiguredEmptyMap_ReportsMissingBindingOnly()
+        {
+            var owner = new GameObject("InitialEntranceSpawnRuntimeWithEmptyCueMap");
+            var emptyCueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(emptyCueMap);
+
+                runtime.PresentInitial(CreateInitialExtensionContext(CreateInitialPresentationData()));
+
+                Assert.That(runtime.IsHostDefaultMapConfigured, Is.True);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialEntranceSpawnRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialActiveEntranceSpawnInstanceCount, Is.Zero);
+                Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(emptyCueMap);
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_InitialEntranceSpawn_WithDefaultCueMap_ResolvesAndPlays()
+        {
+            var owner = new GameObject("InitialEntranceSpawnRuntimeWithCueMap");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(LoadHostDefaultCueMap());
+                CreatePresentationRuntimeInputs(
+                    out var topology,
+                    out var stateStore,
+                    out var projector);
+
+                runtime.PresentInitial(CreateInitialExtensionContext(
+                    CreateInitialPresentationData(),
+                    topology,
+                    stateStore,
+                    projector));
+
+                var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn);
+                Assert.That(runtime.IsHostDefaultMapConfigured, Is.True);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialEntranceSpawnRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastInitialActiveEntranceSpawnInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.GetActiveVfxInstanceCount(cueId), Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxProductionRuntime_FirstEnemyProfileConfigure_DoesNotHardCleanupExistingTileFeatureOneShot()
+        {
+            var owner = new GameObject("FirstEnemyProfileConfigureEntranceRuntime");
+            var catalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(LoadHostDefaultCueMap());
+                CreatePresentationRuntimeInputs(
+                    out var topology,
+                    out var stateStore,
+                    out var projector);
+
+                runtime.PresentInitial(CreateInitialExtensionContext(
+                    CreateInitialPresentationData(),
+                    topology,
+                    stateStore,
+                    projector));
+
+                var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn);
+                Assert.That(runtime.GetActiveVfxInstanceCount(cueId), Is.EqualTo(1));
+
+                runtime.Present(CreateExtensionContext(
+                    CreatePresentationData(),
+                    topology,
+                    stateStore,
+                    projector,
+                    enemyPresentationCatalog: catalog));
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(cueId), Is.EqualTo(1));
+                Assert.That(runtime.EnemyProfileFirstConfigureCount, Is.EqualTo(1));
+                Assert.That(runtime.TileFeatureHardCleanupCount, Is.Zero);
+                Assert.That(runtime.LastCleanupReason, Is.Not.EqualTo(GameplayVfxCleanupReason.EnemyProfileFirstConfigure));
+                Assert.That(runtime.LastCleanupReason, Is.Not.EqualTo(GameplayVfxCleanupReason.EnemyProfileChanged));
+            }
+            finally
+            {
+                Object.DestroyImmediate(catalog);
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxProductionRuntime_InitialEntranceSpawn_SurvivesFirstPresentBeforeLifetimeExpiry()
+        {
+            var owner = new GameObject("EntranceSpawnLifetimeFirstPresentRuntime");
+            var catalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(LoadHostDefaultCueMap());
+                CreatePresentationRuntimeInputs(
+                    out var topology,
+                    out var stateStore,
+                    out var projector);
+                var entranceSpawnBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                    EntranceSpawnBindingPath);
+                Assert.That(entranceSpawnBinding, Is.Not.Null);
+                Assert.That(entranceSpawnBinding.DefaultLifetimeSeconds, Is.GreaterThan(0.2f));
+
+                runtime.PresentInitial(CreateInitialExtensionContext(
+                    CreateInitialPresentationData(),
+                    topology,
+                    stateStore,
+                    projector));
+                runtime.Present(CreateExtensionContext(
+                    CreatePresentationData(),
+                    topology,
+                    stateStore,
+                    projector,
+                    enemyPresentationCatalog: catalog));
+                runtime.UpdatePresentation(0.2f);
+
+                Assert.That(
+                    runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn)),
+                    Is.EqualTo(1));
+                Assert.That(runtime.GetReleaseToPoolCount(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn)), Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(catalog);
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxProductionRuntime_ActualEnemyProfileChange_CleansEnemyFamilyWithoutTileFeatureCollateral()
+        {
+            var owner = new GameObject("EnemyProfileChangeRuntime");
+            var firstCatalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+            var secondCatalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+            var enemyPrefab = new GameObject("EnemyDamageRuntimeTestPrefab");
+            var enemyBinding = CreateEnemyDamageBinding(enemyPrefab);
+            var cueMap = CreateCueMap(LoadEntranceSpawnBinding(), enemyBinding);
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                CreatePresentationRuntimeInputs(
+                    out var topology,
+                    out var stateStore,
+                    out var projector);
+                runtime.PresentInitial(CreateInitialExtensionContext(
+                    CreateInitialPresentationData(),
+                    topology,
+                    stateStore,
+                    projector));
+
+                var entranceCue = GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn);
+                var enemyDamageCue = GameplayVfxCueId.From(EnemyVfxCue.Damage);
+                runtime.Present(CreateExtensionContext(
+                    CreatePresentationData(enemyDamageSignals: new[] { CreateEnemyDamageSignal() }),
+                    topology,
+                    stateStore,
+                    projector,
+                    enemyPresentationCatalog: firstCatalog));
+                Assert.That(runtime.GetActiveVfxInstanceCount(entranceCue), Is.EqualTo(1));
+                Assert.That(runtime.GetActiveVfxInstanceCount(enemyDamageCue), Is.EqualTo(1));
+
+                runtime.Present(CreateExtensionContext(
+                    CreatePresentationData(),
+                    topology,
+                    stateStore,
+                    projector,
+                    enemyPresentationCatalog: secondCatalog));
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(enemyDamageCue), Is.Zero);
+                Assert.That(runtime.GetActiveVfxInstanceCount(entranceCue), Is.EqualTo(1));
+                Assert.That(runtime.EnemyProfileChangedCleanupCount, Is.EqualTo(1));
+                Assert.That(runtime.LastCleanupReason, Is.EqualTo(GameplayVfxCleanupReason.EnemyProfileChanged));
+                Assert.That(runtime.LastCleanupScope, Is.EqualTo(GameplayVfxCleanupScope.EnemyFamily));
+                Assert.That(runtime.TileFeatureHardCleanupCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(firstCatalog);
+                Object.DestroyImmediate(secondCatalog);
+                Object.DestroyImmediate(cueMap);
+                Object.DestroyImmediate(enemyBinding);
+                Object.DestroyImmediate(enemyPrefab);
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayVfxProductionRuntime_SessionReset_StillHardCleansTileFeatureOneShots()
+        {
+            var owner = new GameObject("SessionResetEntranceSpawnRuntime");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(LoadHostDefaultCueMap());
+                CreatePresentationRuntimeInputs(
+                    out var topology,
+                    out var stateStore,
+                    out var projector);
+                runtime.PresentInitial(CreateInitialExtensionContext(
+                    CreateInitialPresentationData(),
+                    topology,
+                    stateStore,
+                    projector));
+
+                var entranceCue = GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn);
+                Assert.That(runtime.GetActiveVfxInstanceCount(entranceCue), Is.EqualTo(1));
+
+                runtime.ResetSession();
+
+                Assert.That(runtime.GetActiveVfxInstanceCount(entranceCue), Is.Zero);
+                Assert.That(runtime.LastCleanupReason, Is.EqualTo(GameplayVfxCleanupReason.SessionReset));
+                Assert.That(runtime.LastCleanupScope, Is.EqualTo(GameplayVfxCleanupScope.AllFamilies));
+                Assert.That(runtime.TileFeatureHardCleanupCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_PlayerRespawnEntranceSpawn_WithDefaultCueMap_ResolvesAndPlays()
+        {
+            var owner = new GameObject("RespawnEntranceSpawnRuntimeWithCueMap");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(LoadHostDefaultCueMap());
+
+                runtime.Present(CreateExtensionContext(CreatePresentationData(
+                    entitySpawnSignals: new[] { CreateRespawnSpawnSignal() })));
+
+                var cueId = GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.GetActiveVfxInstanceCount(cueId), Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProductionRuntime_InitialEntranceSpawn_TileFeatureLaneDisabled_DoesNotPlan()
+        {
+            var owner = new GameObject("InitialEntranceSpawnRuntimeTileLaneDisabled");
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxTileFeatureLane = false;
+
+                runtime.PresentInitial(CreateInitialExtensionContext(CreateInitialPresentationData()));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
@@ -764,44 +1100,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings()
+        public void GameplayVfxTileFeatureGravityField_DefaultCueMap_ContainsExitSliderAndRemainingGravityBindings()
         {
-            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset");
-            var slideUpBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedUp_Binding.asset");
-            var slideRightBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedRight_Binding.asset");
-            var slideDownBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedDown_Binding.asset");
-            var slideLeftBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_SlideTileRedirectedLeft_Binding.asset");
-            var exitOpenedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitOpened_Binding.asset");
-            var exitObjectiveClearedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ExitObjectiveCleared_Binding.asset");
-            var gravityChargeStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ChargeStarted_Binding.asset");
-            var gravityActiveStartedBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ActiveStarted_Binding.asset");
-            var gravityChargingAreaBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ChargingArea_Binding.asset");
-            var gravityActiveAreaBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
-                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/GravityField_ActiveArea_Binding.asset");
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
 
             Assert.That(cueMap, Is.Not.Null);
-            AssertOneShotBinding(slideUpBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), 16);
-            AssertOneShotBinding(slideRightBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), 16);
-            AssertOneShotBinding(slideDownBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), 16);
-            AssertOneShotBinding(slideLeftBinding, GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedLeft), 16);
-            AssertOneShotBinding(exitOpenedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpened), 8);
-            AssertOneShotBinding(exitObjectiveClearedBinding, GameplayVfxCueId.From(TileFeatureVfxCue.ExitObjectiveCleared), 8);
-            Assert.That(gravityChargeStartedBinding, Is.Null);
-            Assert.That(gravityActiveStartedBinding, Is.Null);
-            Assert.That(gravityChargingAreaBinding, Is.Null);
-            AssertPersistentLoopBinding(gravityActiveAreaBinding, GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), 8);
-
             var runtimeMap = cueMap.BuildRuntimeMap();
+
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedUp), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedRight), out _), Is.True);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.SlideTileRedirectedDown), out _), Is.True);
@@ -812,6 +1117,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveStarted), out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ChargingArea), out _), Is.False);
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(GravityFieldVfxCue.ActiveArea), out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), out _), Is.True);
+            Assert.That(
+                runtimeMap.TryResolve(new GameplayVfxCueId(GameplayVfxFamily.Player, (int)TileFeatureVfxCue.EntranceSpawn), out _),
+                Is.False);
+            Assert.That(
+                runtimeMap.TryResolve(new GameplayVfxCueId(GameplayVfxFamily.Enemy, (int)TileFeatureVfxCue.EntranceSpawn), out _),
+                Is.False);
+            Assert.That(
+                runtimeMap.TryResolve(new GameplayVfxCueId(GameplayVfxFamily.Projectile, (int)TileFeatureVfxCue.EntranceSpawn), out _),
+                Is.False);
+            Assert.That(
+                cueMap.TryResolvePrefab(GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), out var resolvedPrefab),
+                Is.True);
+            Assert.That(resolvedPrefab, Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureEntranceSpawn_BindingPolicy_UsesFiveSecondAuthoredDuration()
+        {
+            var binding = LoadEntranceSpawnBinding();
+            var policy = binding.BuildRuntimePolicy();
+
+            AssertOneShotBinding(binding, GameplayVfxCueId.From(TileFeatureVfxCue.EntranceSpawn), 16);
+            Assert.That(policy.Requirement, Is.EqualTo(VfxBindingRequirement.DiagnosticIfMissing));
+            Assert.That(policy.MissingAnchorPolicy, Is.EqualTo(VfxMissingAnchorPolicy.ReportDiagnostic));
+            Assert.That(policy.VisualSourceMode, Is.EqualTo(VfxVisualSourceMode.PrefabOnly));
+            Assert.That(policy.HostRequirement, Is.EqualTo(GameplayVfxHostRequirement.ExplicitPrefabRequired));
+            Assert.That(policy.DefaultLifetimeSeconds, Is.EqualTo(5f));
+            Assert.That(policy.TailSeconds, Is.EqualTo(5f));
+            Assert.That(policy.MaxConcurrentInstances, Is.EqualTo(16));
+            Assert.That(binding.InitialPoolSize, Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureEntranceSpawn_PrefabPolicy_IsActualVisualPrefab()
+        {
+            var binding = LoadEntranceSpawnBinding();
+            var entranceSpawnPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EntranceSpawnPrefabPath);
+
+            Assert.That(entranceSpawnPrefab, Is.Not.Null, EntranceSpawnPrefabPath);
+            Assert.That(binding.Prefab, Is.EqualTo(entranceSpawnPrefab));
+            Assert.That(
+                VfxPrefabValidationDiagnostics.ValidatePrefab(entranceSpawnPrefab).HasErrors,
+                Is.False);
+            Assert.That(
+                VfxPrefabValidationDiagnostics.ValidateModelRootContract(entranceSpawnPrefab).HasErrors,
+                Is.False);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<Rigidbody>(true), Is.Empty);
+            Assert.That(entranceSpawnPrefab.GetComponentsInChildren<ParticleSystem>(true), Is.Not.Empty);
+            Assert.That(
+                entranceSpawnPrefab.GetComponentsInChildren<ParticleSystem>(true)
+                    .Any(particleSystem => Mathf.Approximately(particleSystem.main.duration, 5f)),
+                Is.True);
         }
 
         [Test]
@@ -905,9 +1267,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             TickPresentationData presentationData,
-            CubeTopologyState? topologyOverride = null,
+            CubeTopologyState topology,
+            GameplayPresentationStateStore stateStore,
+            GameplayCubeProjector projector,
+            EnemyPresentationCatalog enemyPresentationCatalog = null,
+            EnemyPresentationBinding[] enemyPresentationBindings = null,
             int topologyTransitionEpoch = 0,
             bool isTopologyTransitionCompletionReconcile = false)
+        {
+            return new GameplayTickPresentationExtensionContext(
+                CreateResult(presentationData, topology),
+                topology,
+                stateStore,
+                projector,
+                enemyPresentationCatalog,
+                enemyPresentationBindings,
+                topologyTransitionEpoch: topologyTransitionEpoch,
+                isTopologyTransitionCompletionReconcile: isTopologyTransitionCompletionReconcile);
+        }
+
+        private static GameplayTickPresentationExtensionContext CreateExtensionContext(
+            TickPresentationData presentationData,
+            CubeTopologyState? topologyOverride = null,
+            int topologyTransitionEpoch = 0,
+            bool isTopologyTransitionCompletionReconcile = false,
+            EnemyPresentationCatalog enemyPresentationCatalog = null,
+            EnemyPresentationBinding[] enemyPresentationBindings = null)
         {
             var topology = topologyOverride ?? new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
@@ -923,8 +1308,88 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 topology,
                 stateStore,
                 projector,
+                enemyPresentationCatalog,
+                enemyPresentationBindings,
                 topologyTransitionEpoch: topologyTransitionEpoch,
                 isTopologyTransitionCompletionReconcile: isTopologyTransitionCompletionReconcile);
+        }
+
+        private static GameplayInitialPresentationExtensionContext CreateInitialExtensionContext(
+            InitialPresentationData presentationData,
+            CubeTopologyState topology,
+            GameplayPresentationStateStore stateStore,
+            GameplayCubeProjector projector)
+        {
+            return new GameplayInitialPresentationExtensionContext(
+                presentationData,
+                topology,
+                stateStore,
+                projector);
+        }
+
+        private static GameplayInitialPresentationExtensionContext CreateInitialExtensionContext(
+            InitialPresentationData presentationData)
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var stateStore = new GameplayPresentationStateStore();
+            stateStore.ResetSession(topology);
+            stateStore.CommittedLocalTargetPoses[10] = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f);
+
+            return new GameplayInitialPresentationExtensionContext(
+                presentationData,
+                topology,
+                stateStore,
+                projector);
+        }
+
+        private static void CreatePresentationRuntimeInputs(
+            out CubeTopologyState topology,
+            out GameplayPresentationStateStore stateStore,
+            out GameplayCubeProjector projector)
+        {
+            topology = new CubeTopologyState(FaceId.Floor);
+            stateStore = new GameplayPresentationStateStore();
+            stateStore.ResetSession(topology);
+            stateStore.CommittedLocalTargetPoses[10] = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+            stateStore.CommittedLocalTargetPoses[40] = new GameplayEntityPose(Vector3.right, Quaternion.identity);
+            projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f);
+        }
+
+        private static InitialPresentationData CreateInitialPresentationData()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            return new InitialPresentationData(
+                new[]
+                {
+                    new EntitySpawnPresentationSignal(
+                        10,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.InitialStageStart,
+                        cell,
+                        topology,
+                        Direction.Right,
+                        new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, cell)),
+                });
+        }
+
+        private static EntitySpawnPresentationSignal CreateRespawnSpawnSignal()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            return new EntitySpawnPresentationSignal(
+                10,
+                EntityPresentationKind.Player,
+                EntitySpawnPresentationReason.PlayerRespawn,
+                cell,
+                topology,
+                Direction.Right,
+                new TileFeaturePresentationSource(100, TileFeatureKind.Entrance, cell));
         }
 
         private static TickResult CreateResult(TickPresentationData presentationData, CubeTopologyState topology)
@@ -950,7 +1415,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TileFeatureVisualState[] tileFeatureVisualStates = null,
             TileFeatureVisualState[] tileFeatureVisibleVisualStates = null,
             TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null,
-            TickTopologyMotion? topologyMotion = null)
+            TickTopologyMotion? topologyMotion = null,
+            EntitySpawnPresentationSignal[] entitySpawnSignals = null,
+            TickEnemyDamagePresentationSignal[] enemyDamageSignals = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -961,7 +1428,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                 Array.Empty<TickPlayerDamagePresentationSignal>(),
                 Array.Empty<TickPlayerDeathPresentationSignal>(),
-                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyDamageSignals ?? Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
                 Array.Empty<TickEntityExitPresentationSignal>(),
@@ -971,7 +1438,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 gravityFieldVisualStates: gravityFieldVisualStates,
                 tileFeatureVisualStates: tileFeatureVisualStates,
                 tileFeatureVisibleVisualStates: tileFeatureVisibleVisualStates,
-                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates);
+                tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
+                entitySpawnSignals: entitySpawnSignals);
+        }
+
+        private static TickEnemyDamagePresentationSignal CreateEnemyDamageSignal()
+        {
+            return new TickEnemyDamagePresentationSignal(40, tookDamageThisTick: true, damageAmount: 1);
+        }
+
+        private static VfxCueMapAsset LoadHostDefaultCueMap()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+            Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+            return cueMap;
+        }
+
+        private static VfxBindingDefinitionAsset LoadEntranceSpawnBinding()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(EntranceSpawnBindingPath);
+            Assert.That(binding, Is.Not.Null, EntranceSpawnBindingPath);
+            return binding;
+        }
+
+        private static VfxBindingDefinitionAsset CreateEnemyDamageBinding(GameObject prefab)
+        {
+            GameplayVfxTestPrefabFactory.EnsureModelRoot(prefab);
+
+            var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            binding.name = "EnemyDamagePresentationOnly_Binding";
+            SetField(binding, "family", GameplayVfxFamily.Enemy);
+            SetField(binding, "cueCode", (int)EnemyVfxCue.Damage);
+            SetField(binding, "prefab", prefab);
+            SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
+            SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
+            SetField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
+            SetField(binding, "visibilityMode", GameplayVfxVisibilityMode.PresentationOnly);
+            SetField(binding, "defaultLifetimeSeconds", 5f);
+            SetField(binding, "tailSeconds", 0.5f);
+            SetField(binding, "initialPoolSize", 1);
+            SetField(binding, "maxConcurrentInstances", 8);
+            return binding;
+        }
+
+        private static VfxCueMapAsset CreateCueMap(params VfxBindingDefinitionAsset[] bindings)
+        {
+            var cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
+            SetField(cueMap, "bindings", bindings);
+            return cueMap;
+        }
+
+        private static void SetField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            field.SetValue(target, value);
         }
 
         private static EntityState CreateUnit(int entityId)

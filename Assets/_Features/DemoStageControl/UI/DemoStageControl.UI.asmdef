@@ -1,0 +1,12 @@
+{
+  "name": "Game.Feature.DemoStageControl.UI",
+  "rootNamespace": "Game.Feature.DemoStageControl.UI",
+  "references": [
+    "Game.Feature.DemoStageControl.Runtime",
+    "Game.Feature.Stages",
+    "Game.Feature.UI.Flow",
+    "Game.Feature.UI.Popups",
+    "Game.Feature.UI.ViewShared",
+    "Unity.TextMeshPro"
+  ]
+}

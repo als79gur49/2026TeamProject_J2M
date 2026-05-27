@@ -232,8 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     durationTicks: 2,
                     recoveryTicks: 3,
                     cooldownTicks: 4,
-                    lastExitedTick: 16,
-                    landingPendingCell: stackedCell));
+                    lastExitedTick: 16));
             writeContext.SetEntityExecutionLockState(
                 20,
                 new EntityExecutionLockState

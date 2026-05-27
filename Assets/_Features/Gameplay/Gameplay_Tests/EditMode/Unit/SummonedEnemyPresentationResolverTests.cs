@@ -19,6 +19,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject("SummonedEnemyPresentationResolverTests_Presenter");
             var enemyPrefabObject = new GameObject("SummonedEnemyPrefab");
+            var settings = CreateEnemyInactiveVisualSettings(
+                new Color(0.12f, 0.34f, 0.56f, 1f),
+                desaturateStrength: 0.44f,
+                emissionSuppression: 0.55f);
 
             try
             {
@@ -27,6 +31,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
                 var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
                 enemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(enemyPrefabObject.transform, worldPositionStays: false);
                 new GameObject("SummonedMarker").transform.SetParent(enemyPrefabObject.transform, worldPositionStays: false);
                 var presentationRegistry = CreatePresentationRegistry(
                     new EnemyUnitArchetypeId("BasicMinion"),
@@ -43,7 +49,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology,
                     1f,
                     GameplayTimingProfile.CreateDefault(),
-                    enemyPresentationArchetypeRegistry: presentationRegistry);
+                    enemyPresentationArchetypeRegistry: presentationRegistry,
+                    enemyInactiveVisualSettings: settings);
                 presenter.PresentInitial(initialEntities, topology);
 
                 presenter.Present(
@@ -65,10 +72,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(registry.TryGetView(41, out var summonedView), Is.True);
                 Assert.That(summonedView.transform.Find("SummonedMarker"), Is.Not.Null);
                 Assert.That(summonedView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
-                Assert.That(summonedView.GetComponent<EnemyInactiveVisualController>(), Is.Not.Null);
+                Assert.That(summonedView.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
+                var renderer = summonedView.GetComponentInChildren<Renderer>();
+                Assert.That(renderer, Is.Not.Null);
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                AssertColorApproximately(
+                    new Color(0.12f, 0.34f, 0.56f, 1f),
+                    GetRendererColor(renderer, "_InactiveTint"));
+                Assert.That(GetRendererFloat(renderer, "_DesaturateStrength"), Is.EqualTo(0.44f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, "_EmissionSuppression"), Is.EqualTo(0.55f).Within(0.0001f));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(settings);
                 UnityEngine.Object.DestroyImmediate(enemyPrefabObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
@@ -239,6 +255,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     { archetypeId, new EnemyPresentationArchetypeRuntime(archetypeId, prefab) },
                 });
+        }
+
+        private static EnemyInactiveVisualSettings CreateEnemyInactiveVisualSettings(
+            Color inactiveTint,
+            float desaturateStrength,
+            float emissionSuppression)
+        {
+            var settings = ScriptableObject.CreateInstance<EnemyInactiveVisualSettings>();
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveTint", inactiveTint);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "desaturateStrength", desaturateStrength);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "emissionSuppression", emissionSuppression);
+            return settings;
+        }
+
+        private static float GetRendererFloat(Renderer targetRenderer, string propertyName)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock);
+            return propertyBlock.GetFloat(propertyName);
+        }
+
+        private static Color GetRendererColor(Renderer targetRenderer, string propertyName)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock);
+            return propertyBlock.GetColor(propertyName);
+        }
+
+        private static void AssertColorApproximately(Color expected, Color actual, float tolerance = 0.0001f)
+        {
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(tolerance));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(tolerance));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(tolerance));
+            Assert.That(actual.a, Is.EqualTo(expected.a).Within(tolerance));
         }
 
         private static EntityState CreatePlayerEntity(int entityId, Vector2Int position)

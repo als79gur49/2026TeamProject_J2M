@@ -1143,6 +1143,7 @@ namespace Game.Feature.Stages
                 ValidateBoardTileOverlayOverrides(entry, options, report);
                 ValidateTileFeaturePresentationCatalog(entry, options, report);
                 ValidateTileFeaturePresentationBindings(entry, options, report);
+                ValidateWorldGuideInstructions(entry, options, report);
             }
         }
 
@@ -2356,6 +2357,166 @@ namespace Game.Feature.Stages
                         $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} prefab '{binding.VisualPrefab.name}' must provide a configurable TileFeature visual target.",
                         binding.VisualPrefab,
                         GetAssetPath(binding.VisualPrefab, options),
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateWorldGuideInstructions(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var presentation = entry.PresentationDefinition;
+            if (presentation == null)
+            {
+                return;
+            }
+
+            var instructions = presentation.WorldGuideInstructions;
+            if (instructions.Count == 0)
+            {
+                return;
+            }
+
+            var presentationPath = GetAssetPath(presentation, options);
+            var boardBoundsValid = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
+            var catalog = presentation.WorldGuideCatalog;
+            if (catalog == null)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "presentation.world-guide.catalog-missing",
+                    $"StagePresentationDefinition '{presentation.name}' has world guide instructions but no StageWorldGuideCatalog.",
+                    presentation,
+                    presentationPath,
+                    options.Timing);
+            }
+            else
+            {
+                ValidateWorldGuideCatalog(catalog, options, report);
+            }
+
+            for (var i = 0; i < instructions.Count; i++)
+            {
+                var instruction = instructions[i];
+                var fieldPrefix = $"WorldGuideInstructions[{i}]";
+                if (instruction == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.instruction-null",
+                        $"StagePresentationDefinition '{presentation.name}' world guide instruction[{i}] is null.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!instruction.Enabled)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(instruction.GuideKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.guide-key-empty",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must use a non-empty GuideKey.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+                else if (catalog != null && !catalog.TryResolve(instruction.GuideKey, out _))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.catalog-key-missing",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} references missing guide key '{instruction.GuideKey}'.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                var cell = instruction.Cell;
+                if (!Enum.IsDefined(typeof(FaceId), cell.face))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.cell-face-invalid",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} has invalid SurfaceCell face value {(int)cell.face}.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+
+                if (boardBoundsValid && !boardBounds.Contains(cell.PlanarPosition))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.cell-outside-bounds",
+                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} cell {cell} is outside board bounds.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                }
+            }
+        }
+
+        private static void ValidateWorldGuideCatalog(
+            StageWorldGuideCatalog catalog,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var catalogPath = GetAssetPath(catalog, options);
+            var guideKeys = new HashSet<string>(StringComparer.Ordinal);
+            var entries = catalog.Entries;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                var fieldPrefix = $"Entries[{i}]";
+                if (entry == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.catalog-entry-null",
+                        $"StageWorldGuideCatalog '{catalog.name}' entry[{i}] is null.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(entry.GuideKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.catalog-guide-key-empty",
+                        $"StageWorldGuideCatalog '{catalog.name}' {fieldPrefix} must use a non-empty GuideKey.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+                else if (!guideKeys.Add(entry.GuideKey))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.catalog-guide-key-duplicate",
+                        $"StageWorldGuideCatalog '{catalog.name}' contains duplicate GuideKey '{entry.GuideKey}'.",
+                        catalog,
+                        catalogPath,
+                        options.Timing);
+                }
+
+                if (entry.Prefab == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.world-guide.catalog-prefab-null",
+                        $"StageWorldGuideCatalog '{catalog.name}' {fieldPrefix} must assign a guide prefab.",
+                        catalog,
+                        catalogPath,
                         options.Timing);
                 }
             }

@@ -38,7 +38,7 @@ namespace Game.Feature.Gameplay.Host
         {
             var activityState = facts.IsEnemy &&
                                 facts.IsVisible &&
-                                facts.ProjectedSlot == GameplayProjectedFaceSlot.Front &&
+                                facts.IsOnVisualFrontFace &&
                                 facts.IsGameplayAutonomySuppressed
                 ? EnemyVisualActivityState.FrontFaceInactive
                 : EnemyVisualActivityState.Normal;
@@ -46,9 +46,15 @@ namespace Game.Feature.Gameplay.Host
                                                    facts.IsVisible &&
                                                    (facts.IsGameplayAutonomySuppressed ||
                                                     facts.IsJumpLandingCompletionHeld);
+            var shouldPauseAirborneAnimator = facts.IsEnemy &&
+                                              facts.HasJumpAirborneVisualState &&
+                                              (!facts.IsVisible ||
+                                               facts.IsGameplayAutonomySuppressed ||
+                                               facts.IsTopologyTransitionActive ||
+                                               facts.IsJumpTopologySuspended);
             return new EnemyVisualSemanticState(
                 activityState,
-                shouldPauseAnimatorPlayback: shouldPauseAutonomousPresentation,
+                shouldPauseAnimatorPlayback: shouldPauseAutonomousPresentation || shouldPauseAirborneAnimator,
                 shouldPauseAutonomousPresentation: shouldPauseAutonomousPresentation);
         }
     }

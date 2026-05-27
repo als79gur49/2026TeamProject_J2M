@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private GameObject sourceCloneObject;
         private GameplayVfxPlaybackHandle handle;
         private VfxRendererMaterialInstanceSet activeMaterialInstances;
+        private bool[] suspendedRendererEnabled;
+        private bool isPresentationSuspended;
         private bool usingSourceClone;
 
         public GameplayVfxPooledInstance(GameObject gameObject, Transform tailRoot)
@@ -47,6 +49,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
+            isPresentationSuspended = false;
             RestorePrefabVisuals();
             Transform.SetParent(parent, worldPositionStays: false);
             Transform.localPosition = anchor.HasLocalPose ? anchor.LocalPosition : Vector3.zero;
@@ -71,6 +74,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
+            isPresentationSuspended = false;
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
             Transform.SetParent(parent, worldPositionStays: false);
@@ -146,6 +150,63 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.SetParent(tailRoot, worldPositionStays: true);
         }
 
+        public void SuspendPresentation()
+        {
+            if (isPresentationSuspended)
+            {
+                return;
+            }
+
+            if (suspendedRendererEnabled == null ||
+                suspendedRendererEnabled.Length != prefabRenderers.Length)
+            {
+                suspendedRendererEnabled = new bool[prefabRenderers.Length];
+            }
+
+            for (var i = 0; i < prefabRenderers.Length; i++)
+            {
+                var renderer = prefabRenderers[i];
+                suspendedRendererEnabled[i] = renderer != null && renderer.enabled;
+                if (renderer != null)
+                {
+                    renderer.enabled = false;
+                }
+            }
+
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                particleSystems[i]?.Pause(true);
+            }
+
+            isPresentationSuspended = true;
+        }
+
+        public void ResumePresentation()
+        {
+            if (!isPresentationSuspended)
+            {
+                return;
+            }
+
+            for (var i = 0; i < prefabRenderers.Length; i++)
+            {
+                var renderer = prefabRenderers[i];
+                if (renderer != null)
+                {
+                    renderer.enabled = suspendedRendererEnabled != null &&
+                                       i < suspendedRendererEnabled.Length &&
+                                       suspendedRendererEnabled[i];
+                }
+            }
+
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                particleSystems[i]?.Play(true);
+            }
+
+            isPresentationSuspended = false;
+        }
+
         public bool IsTailComplete(float nowSeconds)
         {
             if (handle == null || !handle.HasTailStarted)
@@ -163,6 +224,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ClearTrails();
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
+            isPresentationSuspended = false;
             GameObject.SetActive(false);
             Transform.SetParent(poolRoot, worldPositionStays: false);
             Transform.localPosition = Vector3.zero;
@@ -190,6 +252,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 HidePrefabVisuals();
                 activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(cloneRenderers);
+                usingSourceClone = true;
+                return;
+            }
+
+            if (command.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion)
+            {
+                HidePrefabVisuals();
+                activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(Array.Empty<Renderer>());
                 usingSourceClone = true;
                 return;
             }

@@ -5,6 +5,8 @@
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.DemoStageControl.Runtime",
+    "Game.Feature.DemoStageControl.UI",
     "Game.Feature.Stages",
     "Game.Feature.Flow.Audio",
     "Game.Shared.Audio",
@@ -19,6 +21,7 @@
     "Game.Shared.Input",
     "Unity.Cinemachine",
     "Unity.InputSystem",
+    "UnityEngine.VideoModule",
     "Unity.Splines",
     "Unity.TextMeshPro",
     "DOTween.Modules"

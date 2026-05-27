@@ -45,6 +45,8 @@ namespace Game.Feature.Gameplay.Host
                 BoardTileStyleCatalog boardTileStyleCatalog,
                 BoardTileOverlayCatalog boardTileOverlayCatalog,
                 IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
+                StageWorldGuideCatalog worldGuideCatalog = null,
+                IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions = null,
                 IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
                 IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
                 IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides = null,
@@ -79,6 +81,8 @@ namespace Game.Feature.Gameplay.Host
                     boardTileOverlayOverrides ?? Array.Empty<BoardTileOverlayOverride>();
                 TileFeaturePresentationBindings =
                     tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
+                WorldGuideCatalog = worldGuideCatalog;
+                WorldGuideInstructions = worldGuideInstructions ?? Array.Empty<StageWorldGuideInstructionResolved>();
                 SuppressedBaseTileCells = suppressedBaseTileCells ?? Array.Empty<SurfaceCell>();
             }
 
@@ -132,6 +136,10 @@ namespace Game.Feature.Gameplay.Host
 
             public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
 
+            public StageWorldGuideCatalog WorldGuideCatalog { get; }
+
+            public IReadOnlyList<StageWorldGuideInstructionResolved> WorldGuideInstructions { get; }
+
             public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
         }
 
@@ -155,11 +163,14 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GravityFieldAudioMap gravityFieldAudioMap;
         [SerializeField] private BlockAudioMap blockAudioMap;
         [SerializeField] private PlayerLocomotionAudioMap playerLocomotionAudioMap;
+        [SerializeField] private EnemyInactiveVisualSettings enemyInactiveVisualSettings;
         [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
 
         protected float CellSize => cellSize;
+
+        protected EnemyInactiveVisualSettings EnemyInactiveVisualSettings => enemyInactiveVisualSettings;
 
         protected float FaceSeamGap => ResolveFaceSeamGap();
 
@@ -170,6 +181,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException($"{GetType().Name} requires an InputActionAsset reference.");
             }
 
+            InstallBootstrapServices(gameObject);
+            ValidateBootstrapReadiness(gameObject);
             var initialState = BuildInitialGameplayState();
             var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
             var sharedTuning = cameraTopologyAuthoring.SharedTuning;
@@ -184,6 +197,47 @@ namespace Game.Feature.Gameplay.Host
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
             host.Initialize(CreateConfiguration(initialState, baseCameraSettings));
             OnHostInitialized(host, initialState);
+        }
+
+        private static void InstallBootstrapServices(GameObject bootstrapRoot)
+        {
+            var behaviours = bootstrapRoot.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var behaviour = behaviours[i];
+                if (IsActiveEnabledBehaviour(behaviour) &&
+                    behaviour is IGameplayBootstrapInstaller installer)
+                {
+                    installer.Install();
+                }
+            }
+        }
+
+        private static void ValidateBootstrapReadiness(GameObject bootstrapRoot)
+        {
+            var behaviours = bootstrapRoot.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var behaviour = behaviours[i];
+                if (!IsActiveEnabledBehaviour(behaviour) ||
+                    behaviour is not IGameplayBootstrapReadiness readiness ||
+                    readiness.IsReady)
+                {
+                    continue;
+                }
+
+                var description = readiness.DescribeReadiness();
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(description)
+                    ? $"{behaviour.GetType().Name} is not ready for gameplay host initialization."
+                    : description);
+            }
+        }
+
+        private static bool IsActiveEnabledBehaviour(MonoBehaviour behaviour)
+        {
+            return behaviour != null &&
+                   behaviour.enabled &&
+                   behaviour.gameObject.activeInHierarchy;
         }
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
@@ -215,7 +269,8 @@ namespace Game.Feature.Gameplay.Host
                     initialState.EnemyPresentationBindings),
                 ResolveStaticEntityViewPrefabs(
                     ResolveConfiguredStaticEntityPresentationCatalog(initialState),
-                    initialState.StaticEntityPresentationBindings));
+                    initialState.StaticEntityPresentationBindings),
+                enemyInactiveVisualSettings);
         }
 
         protected virtual EnemyAiProfile ResolveDefaultEnemyAiProfile()
@@ -363,6 +418,7 @@ namespace Game.Feature.Gameplay.Host
                 StageContentEntry = initialState.StageContentEntry,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
                 EnemyPresentationCatalog = ResolveConfiguredEnemyPresentationCatalog(initialState),
+                EnemyInactiveVisualSettings = enemyInactiveVisualSettings,
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
                 StaticEntityPresentationCatalog = ResolveConfiguredStaticEntityPresentationCatalog(initialState),
                 BoardPresentationProfile = initialState.BoardPresentationProfile,
@@ -373,6 +429,8 @@ namespace Game.Feature.Gameplay.Host
                 BoardTilePaintOverrides = initialState.BoardTilePaintOverrides,
                 BoardTileOverlayOverrides = initialState.BoardTileOverlayOverrides,
                 TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
+                WorldGuideCatalog = initialState.WorldGuideCatalog,
+                WorldGuideInstructions = initialState.WorldGuideInstructions,
                 SuppressedBaseTileCells = initialState.SuppressedBaseTileCells,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,

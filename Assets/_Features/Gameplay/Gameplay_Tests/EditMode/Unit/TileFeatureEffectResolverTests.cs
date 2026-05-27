@@ -1208,6 +1208,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DestroyTileActivationFact_InactiveToActiveTransition_DestroysSameCellGroundUnit()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var previousSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+            var currentSnapshot = CreateWorldState(
+                    new[] { CreateUnit(20, cell) },
+                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) },
+                    topology: new CubeTopologyState(FaceId.Front))
+                .CreateSnapshot();
+            var topologyBatch = new FinalizationBatch();
+            topologyBatch.SetTopology(currentSnapshot.Topology);
+
+            var facts = TickPipeline.BuildDestroyTileActivationOccupantFacts(
+                previousSnapshot,
+                currentSnapshot,
+                new[] { CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly) },
+                TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
+                topologyBatch);
+            var result = ResolveWithActivationFacts(
+                currentSnapshot,
+                facts,
+                CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly));
+
+            Assert.That(facts, Has.Count.EqualTo(1));
+            Assert.That(facts[0].FeatureCell, Is.EqualTo(cell));
+            Assert.That(facts[0].OccupantEntityId, Is.EqualTo(20));
+            Assert.That(facts[0].OccupantType, Is.EqualTo(EntityType.Unit));
+            Assert.That(result.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(result.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(result.EntityOperations.Operations[1].Metadata.BoundaryReason, Is.EqualTo("DestroyTile"));
+            Assert.That(result.TileEvents.Single().EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.TileEvents.Single().TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.TileEvents.Single().TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.Immediate));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DestroyTileActivationFact_NonActivationTransitions_DoNotCreateFacts()
         {
             var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
@@ -1272,7 +1314,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             topologyBatch.SetTopology(new CubeTopologyState(FaceId.Front));
             var cases = new[]
             {
-                new object[] { "Unit", new[] { CreateUnit(20, destroyCell) } },
+                new object[] { "AirUnit", new[] { CreateUnit(20, destroyCell, UnitMobilityKind.Air) } },
                 new object[] { "Projectile", new[] { CreateProjectile(21, destroyCell) } },
                 new object[] { "DeadBox", new[] { CreateBox(22, destroyCell, hp: 0) } },
                 new object[] { "DetachedBox", new[] { CreateBox(23, destroyCell, boardPresence: EntityBoardPresence.Detached) } },
@@ -1825,6 +1867,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.PresentationData.EntityExitSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(30));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.Killed));
+            Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.Not.EqualTo(TickEntityExitCause.OutOfBounds));
+            Assert.That(result.PresentationData.EntityExitSignals[0].EntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(result.PresentationData.EntityExitSignals[0].SourceCell, Is.EqualTo(destroyCell));
+            Assert.That(
+                result.PresentationData.EntityExitSignals[0].Timing,
+                Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
             Assert.That(worldState.CreateSnapshot().TryGetEntity(30, out _), Is.False);
         }
@@ -2512,6 +2560,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshotAfter = worldState.CreateSnapshot();
 
             Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=PushStart"));
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Is.Empty);
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             var tileEvent = result.PresentationData.TileEvents[0];
             Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
@@ -2583,6 +2632,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=SlidingContinuation"));
             Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+            var stopSignal = result.PresentationData.BoxSlideStopSignals[0];
+            Assert.That(stopSignal.BoxEntityId, Is.EqualTo(20));
+            Assert.That(stopSignal.StopperKind, Is.EqualTo(BoxSlideStopperKind.Barricade));
+            Assert.That(stopSignal.StopperTileId, Is.EqualTo(100));
+            Assert.That(stopSignal.StopperEntityId, Is.Zero);
+            Assert.That(stopSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(stopSignal.StopperCell, Is.EqualTo(barricadeCell));
+            Assert.That(stopSignal.SlideDirection, Is.EqualTo(Direction.Up));
+            Assert.That(stopSignal.Cause, Is.EqualTo(BoxSlideStopCause.SlidingContinuationBlocked));
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
             Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));

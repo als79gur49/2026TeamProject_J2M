@@ -71,7 +71,7 @@ MonoBehaviour:
         rid: -2
   - cueId: 8
     binding:
-      definition: {fileID: 11400000, guid: 5558d6ac1b5a4d8082272ee7bb032762, type: 2}
+      definition: {fileID: 11400000, guid: 615591c294564ea0820a3d70d1a9ffda, type: 2}
       attachmentSlot:
         id:
       policy:
@@ -114,6 +114,27 @@ MonoBehaviour:
   - cueId: 14
     binding:
       definition: {fileID: 11400000, guid: 7c33a1f4b58b4c8fa9e2d771d4a6c901, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 15
+    binding:
+      definition: {fileID: 11400000, guid: d1c80fff498f4ddca486d2aea59973cb, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 16
+    binding:
+      definition: {fileID: 11400000, guid: e2c159f0de9c4a7790855b21778ddba9, type: 2}
+      attachmentSlot:
+        id:
+      policy:
+        rid: -2
+  - cueId: 17
+    binding:
+      definition: {fileID: 11400000, guid: ec9025f5f969435e8164e6cb90576866, type: 2}
       attachmentSlot:
         id:
       policy:

@@ -2,6 +2,76 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.CampaignEnemyPrefabs_AllRendererMaterialsSatisfyInactiveContract",
+      "category": "Core",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "campaign_enemy_prefab_material_contract"
+      ],
+      "reason": "Locked Core asset coverage that every campaign enemy renderer material satisfies the inactive shader contract and avoids Unity default material fallback.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_CommittedVisualFrontEnemy_StoresInactiveSemantic",
+      "category": "Core",
+      "contracts": [
+        "enemy_front_face_inactive_visual_semantic",
+        "visual_front_face_topology_mapping"
+      ],
+      "reason": "Locked Core coverage that FrontFaceInactive follows the current topology visual front face instead of the fixed physical Front slot.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.DefaultEnemyVisualSemanticResolver_PhysicalFrontSuppressedNonVisualFront_ResolvesNormal",
+      "category": "Core",
+      "contracts": [
+        "enemy_front_face_inactive_visual_semantic",
+        "physical_slot_regression_guard"
+      ],
+      "reason": "Locked Core coverage that a suppressed enemy on the physical Front slot is not inactive unless it is also on the visual front face.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.InactiveCompatibleDuplicates_RecordSourceAndPreserveMaterialValues",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "source_material_fidelity"
+      ],
+      "reason": "Extended asset fidelity coverage for campaign enemy inactive-compatible duplicate materials and explicit source manifests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.BlackEyeBridge_PreservesShaderGraphColorProperties",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "blackeye_shadergraph_bridge"
+      ],
+      "reason": "Extended bridge-specific coverage that BlackEye BE_LS1 color and border properties are preserved by the inactive-compatible bridge.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.BlackEyeLegLitDuplicate_PreservesPackageLitSource",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "blackeye_package_lit_leg_material"
+      ],
+      "reason": "Extended asset fidelity coverage that BlackEye leg renderers use a campaign duplicate copied from the URP package Lit material instead of the BE_LS1 bridge.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.SecBotAdditiveBridge_PreservesGlowRenderStateAndEmissionSource",
+      "category": "Extended",
+      "contracts": [
+        "enemy_front_face_inactive_material_authoring",
+        "secbot_additive_bridge"
+      ],
+      "reason": "Extended bridge-specific coverage that SecBot additive glow source texture and render state are preserved by the inactive-compatible bridge.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockWeight",
       "category": "Core",
       "contracts": [
@@ -82,23 +152,93 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitAuthoring_RemovesNonParticleObjectPrefabs",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_AuthoringKeepsCommonHostAndNoCuePrefab",
       "category": "Core",
       "contracts": [
         "box_exit_vfx_authoring",
         "vfx_authoring_removal_contract"
       ],
-      "reason": "Locked Core coverage that removed non-particle box exit prefabs stay absent after PR69.",
+      "reason": "Locked Core coverage that the old DestroyShrink prefab stays absent while the common VFX host exists.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitMigrationTests.BoxExitBindings_KeepSmokeAndRemoveNonParticleObjectBindings",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_BindingPolicy_IsSourceCloneMotionWithCommonHost",
       "category": "Core",
       "contracts": [
         "box_exit_vfx_authoring",
-        "vfx_authoring_removal_contract"
+        "destroy_shrink_source_clone_motion"
       ],
-      "reason": "Locked Core coverage that the host keeps smoke authoring while removed shrink/item bindings stay absent.",
+      "reason": "Locked Core coverage that DestroyShrink keeps a binding policy while the cue prefab remains null.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxAuthoringBindingTests.BindingAsset_AllowsNullPrefab_ForSourceCloneMotion_WhenCommonHostAllowed",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_authoring_null_prefab_policy"
+      ],
+      "reason": "Locked Core coverage that SourceCloneMotion bindings may omit cue-specific prefabs when a common host is allowed.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.DestroyShrink_Plays_WithSourceClone_WhenPrefabIsMissing",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_common_host"
+      ],
+      "reason": "Locked Core coverage that DestroyShrink can play from a source clone using the common host path.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.DestroyShrink_ReportsMissingSourceView_WhenSourceViewIsUnavailable",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_missing_source_diagnostic"
+      ],
+      "reason": "Locked Core coverage that missing source view is diagnosed separately from missing prefab.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.PrefabOnlyCue_ReportsMissingPrefab_WhenPrefabIsNull",
+      "category": "Core",
+      "contracts": [
+        "vfx_prefab_only_policy",
+        "vfx_missing_prefab_diagnostic"
+      ],
+      "reason": "Locked Core coverage that PrefabOnly cues still require an explicit prefab.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxParameterizedMotionRuntimeTests.SourceCloneMotion_DoesNotMutateOriginalView",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_clone_ownership"
+      ],
+      "reason": "Locked Core coverage that SourceCloneMotion mutates the clone host, not the original view.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.DestroyShrink_ReportsMissingSourceView_WhenSourceViewIsUnavailable",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_missing_source_diagnostic"
+      ],
+      "reason": "Locked Core production-runtime coverage for missing source view diagnostic separation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayVfxBoxExitRuntimePolicyTests.Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect",
+      "category": "Core",
+      "contracts": [
+        "destroy_shrink_source_clone_motion",
+        "vfx_common_host"
+      ],
+      "reason": "Locked Core presenter/runtime coverage that DestroyShrink plays through the common host without smoke.",
       "locked": true
     },
     {
@@ -1068,7 +1208,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerMovesIntoEnemy_KinematicMidpoint_ContactAtCommit",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerMovesIntoEnemy_KinematicMidpoint_PassiveContactFiresOnFinalizedSameCellMove",
       "category": "Core",
       "contracts": [
         "damage_affects_movement",
@@ -2913,13 +3053,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_GlideChaserAsset_DefaultGameplay_ActiveGlideKinematicMovesOverSolid",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_GlideChaserAsset_DefaultGameplay_AllowsActiveGliderSolidOverlap",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core asset-backed coverage that the authored GlideChaser profile moves over a solid blocker under default gameplay.",
+      "reason": "Locked Core asset-backed coverage that the authored GlideChaser profile allows active glider Unit+Solid overlap under default gameplay.",
       "locked": true
     },
     {
@@ -3102,6 +3242,46 @@
         "gravity_field_presentation_request_planner_contract"
       ],
       "reason": "Locked Core coverage for gravity field presentation request planning and planner responsibility separation.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyJumpAirborneTopologySuspendDoesNotReplaceJumpTrack",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage that topology suspend preserves the active enemy jump track instead of replacing presentation ownership.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyJumpAirborneTopologySuspendDoesNotAdvanceFrozenPose",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage that topology suspend freezes the airborne enemy jump pose instead of advancing while hidden.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.EnemyJumpLandingCompletionTopologySuspendDoesNotAdvanceCompletion",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage that topology suspend does not advance enemy jump landing completion while presentation is frozen.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.GameplayTickViewPresenter_Present_LethalEnemyDamageWithEnemyDeathCueSuppressesCoreEnemyDamage",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_death_cue_suppression"
+      ],
+      "reason": "Locked Core coverage that lethal enemy damage suppresses only the matching core EnemyDamage request when a playable enemy-local Death cue is planned.",
       "locked": true
     }
   ]

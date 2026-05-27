@@ -396,6 +396,57 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
     PresentationId: black_eye
+  - StableGuid: 87b34a4898c64438a9dcdc2403b39856
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 6
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 7f66314460524d2dbfb400002447d22a
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: ade555da492241fd9f856a67775d5eed
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 8
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
   tileFeatures:
   - TileId: 1
     Cell:
@@ -518,6 +569,50 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: exit.default
+  - TileId: 12
+    Cell:
+      face: 0
+      x: 12
+      y: 1
+    Kind: 5
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 202
+    PresentationKey: moon-generator.default
+  - TileId: 13
+    Cell:
+      face: 1
+      x: 6
+      y: 1
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
+  - TileId: 14
+    Cell:
+      face: 1
+      x: 7
+      y: 1
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
+  - TileId: 15
+    Cell:
+      face: 1
+      x: 8
+      y: 0
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
   zones:
   - ZoneId: zone
     FaceId: 0
@@ -769,6 +864,18 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: d09640642cba4d07b7cd754cc3fa241d
     EntityId: 232
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 87b34a4898c64438a9dcdc2403b39856
+    EntityId: 233
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7f66314460524d2dbfb400002447d22a
+    EntityId: 234
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: ade555da492241fd9f856a67775d5eed
+    EntityId: 235
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

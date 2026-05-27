@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -20,6 +21,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Bootstrap/GameplayHostTopologyVisualRuntimeBootstrap.cs";
         private const string SceneHostRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs";
+        private const string ShowcaseInstallerRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs";
+        private const string VfxRuntimeInstallerRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxRuntimeInstaller.cs";
+        private const string PresentationExtensionRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationExtension.cs";
 
         private static readonly string[] ForbiddenFactoryFragments =
         {
@@ -167,6 +174,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 helperType?.GetMethod("Attach", BindingFlags.Static | BindingFlags.NonPublic),
                 Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ShowcaseInstaller_InstallsBootstrapServices_BeforeHostInitialize()
+        {
+            var installerSource = ReadRepoFile(ShowcaseInstallerRelativePath);
+            var contractsSource = ReadRepoFile(PresentationExtensionRelativePath);
+            var vfxInstallerSource = ReadRepoFile(VfxRuntimeInstallerRelativePath);
+
+            Assert.That(contractsSource, Does.Contain("interface IGameplayBootstrapInstaller"));
+            Assert.That(contractsSource, Does.Contain("interface IGameplayBootstrapReadiness"));
+            Assert.That(vfxInstallerSource, Does.Contain("IGameplayBootstrapInstaller"));
+            Assert.That(vfxInstallerSource, Does.Contain("IGameplayBootstrapReadiness"));
+            Assert.That(vfxInstallerSource, Does.Contain("productionRuntime.ConfigureHostDefaultMap(hostDefaultCueMap);"));
+
+            Assert.That(
+                installerSource.IndexOf("InstallBootstrapServices(gameObject)", StringComparison.Ordinal),
+                Is.LessThan(installerSource.IndexOf("BuildInitialGameplayState()", StringComparison.Ordinal)));
+            Assert.That(
+                installerSource.IndexOf("ValidateBootstrapReadiness(gameObject)", StringComparison.Ordinal),
+                Is.LessThan(installerSource.IndexOf("BuildInitialGameplayState()", StringComparison.Ordinal)));
+            Assert.That(
+                installerSource.IndexOf("InstallBootstrapServices(gameObject)", StringComparison.Ordinal),
+                Is.LessThan(installerSource.IndexOf("host.Initialize(", StringComparison.Ordinal)));
         }
 
         private static int CountMatches(string source, string pattern)

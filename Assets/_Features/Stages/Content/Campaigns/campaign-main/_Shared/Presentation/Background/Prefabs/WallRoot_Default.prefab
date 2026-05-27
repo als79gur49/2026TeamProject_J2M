@@ -343,7 +343,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -550,7 +550,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -662,7 +662,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -897,6 +897,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4089051982120444221}
   - component: {fileID: 5900951536149448424}
+  - component: {fileID: -736510001000000004}
   m_Layer: 0
   m_Name: WallRoot_Default
   m_TagString: Untagged
@@ -951,6 +952,49 @@ MonoBehaviour:
   - TargetObject: {fileID: 1668498378810605569}
     FirstFace: 3
     SecondFace: 0
+--- !u!114 &-736510001000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6146672969793721054}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 736b5fb467ae49dabb4a91b9d5a42a45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  profile: {fileID: 11400000, guid: 7a8645923b8243f8bcc692d78e994d3c, type: 2}
+  noiseProfile: {fileID: 11400000, guid: c2c7e6b48e814b4fb556b9d81be1edab, type: 2}
+  targets:
+  - renderer: {fileID: 5487125072324663031}
+    materialIndex: 0
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 0
+  - renderer: {fileID: 5487125072324663031}
+    materialIndex: 2
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 0
+  - renderer: {fileID: 1946001052496133540}
+    materialIndex: 0
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 0
+  - renderer: {fileID: 1946001052496133540}
+    materialIndex: 2
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 0
 --- !u!1 &7490749879711572411
 GameObject:
   m_ObjectHideFlags: 0
@@ -1018,7 +1062,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

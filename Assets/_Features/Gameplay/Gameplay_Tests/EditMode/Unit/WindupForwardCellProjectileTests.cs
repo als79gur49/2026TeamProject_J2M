@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -199,6 +200,87 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 EnemyAiProfileTestFactory.Destroy(profile);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WindupForwardCellProjectile_ReleaseAndRecover_PreservesLockedFacing()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(
+                windupTicks: 3,
+                attackRange: 4);
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 4, 0));
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                var startedAction = GetEnemyActionState(worldState);
+                Assert.That(startedAction.lockedAttackDirection, Is.EqualTo(Direction.Right));
+
+                worldState.CreateWriteContext().MoveEntity(PlayerId, new SurfaceCell(FaceId.Floor, 0, 1));
+                DriftProjectileActionFacing(worldState, actionDirection: Direction.Up, entityFacing: Direction.Up);
+
+                var activeTick = pipeline.RunTick(new TickInput(2));
+                Assert.That(GetEntityAfterTick(activeTick, EnemyId).facing, Is.EqualTo(Direction.Right));
+                Assert.That(activeTick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+
+                DriftProjectileActionFacing(worldState, actionDirection: Direction.Up, entityFacing: Direction.Up);
+                var releaseTickIndex = startedAction.executeTick;
+                var releaseTick = pipeline.RunTick(new TickInput(releaseTickIndex));
+                var releasedEnemy = GetEntityAfterTick(releaseTick, EnemyId);
+                var releaseSignal = releaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single();
+                var pendingImpacts = new System.Collections.Generic.List<PendingCellImpactSnapshotEntry>();
+                worldState.CreateSnapshot().EnumeratePendingCellImpactsOrdered(pendingImpacts);
+                var pendingImpact = pendingImpacts.Single().Impact;
+
+                Assert.That(releasedEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(releasedEnemy.facing, Is.EqualTo(Direction.Right));
+                Assert.That(GetEntity(worldState, EnemyId).facing, Is.EqualTo(Direction.Right));
+                Assert.That(releaseSignal.Direction, Is.EqualTo(Direction.Right));
+                Assert.That(pendingImpact.Direction, Is.EqualTo(Direction.Right));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_WindupProjectile_SuppressedMovement_DoesNotRefaceDuringRecover()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(BlackEyeWindupProjectileProfilePath);
+            Assert.That(profile, Is.Not.Null, BlackEyeWindupProjectileProfilePath);
+
+            var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 4, 0));
+            var pipeline = CreateEnemyPipeline(worldState, profile);
+
+            pipeline.RunTick(new TickInput(1));
+            var startedAction = GetEnemyActionState(worldState);
+            Assert.That(startedAction.lockedAttackDirection, Is.EqualTo(Direction.Right));
+
+            worldState.CreateWriteContext().MoveEntity(PlayerId, new SurfaceCell(FaceId.Floor, 0, 1));
+            DriftProjectileActionFacing(worldState, actionDirection: Direction.Up, entityFacing: Direction.Up);
+
+            var activeTick = pipeline.RunTick(new TickInput(2));
+            Assert.That(activeTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == EnemyId), Is.Empty);
+            Assert.That(GetEntityAfterTick(activeTick, EnemyId).facing, Is.EqualTo(Direction.Right));
+
+            DriftProjectileActionFacing(worldState, actionDirection: Direction.Up, entityFacing: Direction.Up);
+            var releaseTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
+            var releasedEnemy = GetEntityAfterTick(releaseTick, EnemyId);
+            var releaseSignal = releaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single();
+
+            Assert.That(releaseTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == EnemyId), Is.Empty);
+            Assert.That(releasedEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(releasedEnemy.facing, Is.EqualTo(Direction.Right));
+            Assert.That(releaseSignal.Direction, Is.EqualTo(Direction.Right));
+
+            var recoverTick = pipeline.RunTick(new TickInput(startedAction.executeTick + 1));
+            Assert.That(recoverTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == EnemyId), Is.Empty);
+            Assert.That(GetEntityAfterTick(recoverTick, EnemyId).facing, Is.EqualTo(Direction.Right));
+            Assert.That(GetEntity(worldState, EnemyId).facing, Is.EqualTo(Direction.Right));
         }
 
         [Test]
@@ -491,6 +573,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const int PlayerId = 10;
         private const int EnemyId = 40;
+        private const string BlackEyeWindupProjectileProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset";
 
         private static (TickResult Result, WorldState WorldState) RunReleasedImpact(SurfaceCell playerCellBeforeImpact)
         {
@@ -576,10 +660,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entity;
         }
 
+        private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
+        {
+            return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
+        }
+
         private static EnemyActionRuntimeState GetEnemyActionState(WorldState worldState)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(EnemyId, out var action), Is.True);
             return action;
+        }
+
+        private static void DriftProjectileActionFacing(
+            WorldState worldState,
+            Direction actionDirection,
+            Direction entityFacing)
+        {
+            var action = GetEnemyActionState(worldState);
+            action.direction = actionDirection;
+
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyActionState(EnemyId, action);
+            ((IPreMovementStateCommitContext)writeContext).SetFacing(EnemyId, entityFacing);
         }
 
         private static PendingCellImpact CreatePendingImpact(int impactTick)

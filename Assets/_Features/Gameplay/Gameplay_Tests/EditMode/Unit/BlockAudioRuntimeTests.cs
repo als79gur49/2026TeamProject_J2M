@@ -71,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests
         }
 
         [Test]
-        public void Planner_BuildsCrashCue_ForSlidingContinuationStoppedBySolidEntityOnly()
+        public void Planner_BuildsCrashCue_ForSlidingContinuationStoppedBySolidEntityOrBarricade()
         {
             var planner = new BlockAudioRequestPlanner();
             var solidStop = new BoxSlideStopPresentationSignal(
@@ -94,15 +94,29 @@ namespace Game.Feature.Gameplay.Tests
                 SolidKind.Wall,
                 new CubeTopologyState(FaceId.Floor),
                 BoxSlideStopCause.SlidingContinuationBlocked);
+            var barricadeStop = new BoxSlideStopPresentationSignal(
+                boxEntityId: 22,
+                sourceCell: Cell(2, 2),
+                stopperCell: Cell(3, 2),
+                Direction.Right,
+                BoxSlideStopperKind.Barricade,
+                stopperEntityId: 0,
+                SolidKind.Wall,
+                new CubeTopologyState(FaceId.Floor),
+                BoxSlideStopCause.SlidingContinuationBlocked,
+                stopperTileId: 100);
 
             var requests = planner.BuildRequests(
-                CreateTickResult(CreatePresentationData(boxSlideStopSignals: new[] { solidStop, terrainStop })),
+                CreateTickResult(CreatePresentationData(boxSlideStopSignals: new[] { solidStop, terrainStop, barricadeStop })),
                 CreateTimingProfile(flipMotionDurationSeconds: 0.5f));
 
-            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests, Has.Count.EqualTo(2));
             Assert.That(requests[0].Cue, Is.EqualTo(BlockAudioCue.BoxSlideSolidStop));
             Assert.That(requests[0].OwnerEntityId, Is.EqualTo(20));
             Assert.That(requests[0].DelaySeconds, Is.Zero);
+            Assert.That(requests[1].Cue, Is.EqualTo(BlockAudioCue.BoxSlideSolidStop));
+            Assert.That(requests[1].OwnerEntityId, Is.EqualTo(22));
+            Assert.That(requests[1].DelaySeconds, Is.Zero);
         }
 
         [Test]

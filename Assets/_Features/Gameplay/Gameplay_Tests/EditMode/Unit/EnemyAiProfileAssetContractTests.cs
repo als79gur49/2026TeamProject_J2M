@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -172,6 +174,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(asset.Settings.PreventImmediateBacktrack, Is.True);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void Startis_ProfileBinding_UsesNonAttackingGameplayProfile()
+        {
+            var bindings = FindCampaignEnemyPresentationProfileBindings("startis");
+
+            Assert.That(bindings, Is.Not.Empty, "No campaign stage binds presentation id 'startis'.");
+            Assert.That(
+                bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
+                Is.EquivalentTo(new[] { NonAttackingProfilePath }),
+                "Startis is a presentation/prefab id. Every campaign spawn using it must bind the NonAttacking gameplay profile.");
+            AssertCatalogEntryUsesPrefab("startis", "EnemyView_Startis.prefab");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Startis_ProfileCompiles_WithGroundMovementAndPassiveContact()
+        {
+            var profile = LoadRequiredProfile(NonAttackingProfilePath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond);
+
+            Assert.That(definition.Brain.Patrol.Strategy, Is.Not.Null, "NonAttacking runtime must keep a ground movement patrol strategy.");
+            Assert.That(definition.Core.LocomotionTimingSettings.MoveCooldownTicks, Is.GreaterThanOrEqualTo(0));
+            Assert.That(
+                definition.Capabilities.TryGetCombat(out var combat),
+                Is.False,
+                $"EnemyAi_NonAttacking.asset compiled Combat={combat?.Kind.ToString() ?? "<null>"}; ContactSameCell must live in PassiveContact, not Combat.");
+            Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+            Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ProfileBinding_DoesNotAssumeSingleGameplayProfile()
+        {
+            var bindings = FindCampaignEnemyPresentationProfileBindings("black_eye");
+            var profilePaths = bindings.Select(binding => binding.ProfilePath).Distinct().OrderBy(path => path).ToArray();
+
+            Assert.That(bindings, Is.Not.Empty, "No campaign stage binds presentation id 'black_eye'.");
+            Assert.That(
+                profilePaths,
+                Has.Length.GreaterThan(1),
+                "BlackEye is a presentation/prefab id and must not be globally asserted as a single gameplay profile.");
+            Assert.That(profilePaths, Does.Contain(WindupMeleeProfilePath));
+            Assert.That(profilePaths, Does.Contain(WindupProjectileProfilePath));
+            AssertCatalogEntryUsesPrefab("black_eye", "EnemyView_BlackEye.prefab");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_WindupProjectileProfileCompiles_WithForwardCellProjectileCapability()
+        {
+            var profile = LoadRequiredProfile(WindupProjectileProfilePath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond);
+
+            Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.True);
+            Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.WindupForwardCellProjectile));
+            Assert.That(combat.AttackTimingSettings.WindupTicks, Is.GreaterThan(0));
+            Assert.That(definition.Core.CommonSettings.RecoverTicks, Is.GreaterThan(0));
+            Assert.That(combat.WindupForwardCellProjectileSettings.ImpactDelayTicks, Is.GreaterThanOrEqualTo(0));
+            Assert.That(combat.WindupForwardCellProjectileSettings.Damage, Is.GreaterThan(0));
+        }
+
         private static string[] GetVisibleSerializedFieldNames(EnemyAiProfile profile)
         {
             var serializedObject = new SerializedObject(profile);
@@ -210,6 +275,114 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(projectRoot, Is.Not.Null.And.Not.Empty, "Unable to resolve Unity project root from Application.dataPath.");
 
             return Path.Combine(projectRoot, assetPath);
+        }
+
+        private const string NonAttackingProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset";
+
+        private const string WindupMeleeProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset";
+
+        private const string WindupProjectileProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset";
+
+        private const string CampaignEnemyPresentationCatalogPath =
+            StageContentPaths.CampaignRoot + "/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationCatalog_CampaignMain.asset";
+
+        private static EnemyAiProfile LoadRequiredProfile(string assetPath)
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(assetPath);
+            Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{assetPath}'.");
+            return profile;
+        }
+
+        private static IReadOnlyList<PresentationProfileBinding> FindCampaignEnemyPresentationProfileBindings(
+            string presentationId)
+        {
+            var normalizedPresentationId = EnemyPresentationCatalogResolver.NormalizePresentationId(presentationId);
+            var result = new List<PresentationProfileBinding>();
+            var stagePaths = AssetDatabase.FindAssets("t:StageDefinition", new[] { StageContentPaths.CampaignRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(path => path, System.StringComparer.Ordinal);
+
+            foreach (var stagePath in stagePaths)
+            {
+                var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(stagePath);
+                if (stage == null)
+                {
+                    continue;
+                }
+
+                var presentation = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(
+                    Path.ChangeExtension(stagePath, null) + "_Presentation.asset");
+                if (presentation == null)
+                {
+                    continue;
+                }
+
+                var bindingsByEntityId = StagePresentationAssembler.Resolve(stage, presentation)
+                    .EnemyPresentationBindings
+                    .ToDictionary(binding => binding.EntityId);
+
+                foreach (var spawn in stage.EnemySpawns)
+                {
+                    if (!bindingsByEntityId.TryGetValue(spawn.EntityId, out var binding) ||
+                        !string.Equals(
+                            EnemyPresentationCatalogResolver.NormalizePresentationId(binding.PresentationId),
+                            normalizedPresentationId,
+                            System.StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    Assert.That(
+                        spawn.EnemyAiProfile,
+                        Is.Not.Null,
+                        $"{stagePath} enemy EntityId={spawn.EntityId} uses presentation '{presentationId}' without an EnemyAiProfile override.");
+
+                    result.Add(
+                        new PresentationProfileBinding(
+                            stagePath,
+                            spawn.EntityId,
+                            AssetDatabase.GetAssetPath(spawn.EnemyAiProfile)));
+                }
+            }
+
+            return result;
+        }
+
+        private static void AssertCatalogEntryUsesPrefab(string presentationId, string expectedPrefabFileName)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationCatalog>(CampaignEnemyPresentationCatalogPath);
+            Assert.That(catalog, Is.Not.Null, $"Missing campaign enemy presentation catalog at '{CampaignEnemyPresentationCatalogPath}'.");
+
+            var entry = catalog.Entries.SingleOrDefault(candidate =>
+                string.Equals(
+                    EnemyPresentationCatalogResolver.NormalizePresentationId(candidate.PresentationId),
+                    presentationId,
+                    System.StringComparison.Ordinal));
+
+            Assert.That(entry.ViewPrefab, Is.Not.Null, $"Missing catalog entry or prefab for presentation id '{presentationId}'.");
+            Assert.That(
+                Path.GetFileName(AssetDatabase.GetAssetPath(entry.ViewPrefab)),
+                Is.EqualTo(expectedPrefabFileName),
+                $"Presentation id '{presentationId}' must remain bound to its expected prefab.");
+        }
+
+        private readonly struct PresentationProfileBinding
+        {
+            public PresentationProfileBinding(string stagePath, int entityId, string profilePath)
+            {
+                StagePath = stagePath;
+                EntityId = entityId;
+                ProfilePath = profilePath;
+            }
+
+            public string StagePath { get; }
+
+            public int EntityId { get; }
+
+            public string ProfilePath { get; }
         }
     }
 }

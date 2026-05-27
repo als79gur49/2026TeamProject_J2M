@@ -8,9 +8,9 @@ namespace Game.Feature.Gameplay.Vfx
         private readonly List<ScheduledGameplayVfxRequest> delayedRequests = new();
         private readonly IVfxPool pool;
         private readonly IVfxAnchorResolver anchorResolver;
-        private readonly IVfxBindingResolver bindingResolver;
         private readonly VfxPersistentHandleRegistry persistentRegistry;
         private readonly VfxLifetimeRunner lifetimeRunner;
+        private IVfxBindingResolver bindingResolver;
         private GameplayVfxVisibilityContext visibilityContext;
         private bool topologyTransitionStartsSuppressed;
         private int topologyTransitionSuppressEpoch;
@@ -38,6 +38,11 @@ namespace Game.Feature.Gameplay.Vfx
         public int VisibilityBlockedCount { get; private set; }
 
         public GameplayVfxVisibilityBlockReason LastVisibilityBlockReason { get; private set; }
+
+        public void ConfigureBindingResolver(IVfxBindingResolver resolver)
+        {
+            bindingResolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+        }
 
         public void SetVisibilityContext(GameplayVfxVisibilityContext context)
         {
@@ -93,6 +98,18 @@ namespace Game.Feature.Gameplay.Vfx
             pool.HardCleanupAll();
         }
 
+        public void HardCleanupFamily(GameplayVfxFamily family, GameplayVfxCleanupReason reason)
+        {
+            if (family == GameplayVfxFamily.None)
+            {
+                return;
+            }
+
+            RemoveDelayedRequestsForFamily(family);
+            persistentRegistry.HardCleanupFamily(pool, family);
+            pool.HardCleanupFamily(family);
+        }
+
         public void Update(float deltaTime)
         {
             if (deltaTime < 0f)
@@ -125,6 +142,14 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 if (request.IsPersistent && !request.PersistentKey.IsNone)
                 {
+                    if (options.PreserveLiveDelayedPersistent &&
+                        persistentRegistry.TryGet(request.PersistentKey, out var existingHandle) &&
+                        IsLivePersistentHandle(existingHandle))
+                    {
+                        persistentRegistry.MarkDesired(request.PersistentKey);
+                        return;
+                    }
+
                     persistentRegistry.StopIfActive(
                         request.PersistentKey,
                         VfxStopPolicy.StopEmittingThenRelease,
@@ -252,6 +277,14 @@ namespace Game.Feature.Gameplay.Vfx
             return false;
         }
 
+        private static bool IsLivePersistentHandle(IVfxPlaybackHandle handle)
+        {
+            return handle != null &&
+                   (handle.State == VfxLifetimeState.Spawned ||
+                    handle.State == VfxLifetimeState.Active ||
+                    handle.State == VfxLifetimeState.PresentationSuspended);
+        }
+
         private void UpsertDelayedRequest(in GameplayVfxRequest request)
         {
             for (var i = 0; i < delayedRequests.Count; i++)
@@ -301,6 +334,17 @@ namespace Game.Feature.Gameplay.Vfx
             }
         }
 
+        private void RemoveDelayedRequestsForFamily(GameplayVfxFamily family)
+        {
+            for (var i = delayedRequests.Count - 1; i >= 0; i--)
+            {
+                if (delayedRequests[i].Request.CueId.Family == family)
+                {
+                    delayedRequests.RemoveAt(i);
+                }
+            }
+        }
+
         private static HashSet<VfxPersistentKey> CollectPersistentDesiredKeys(GameplayVfxRequestPlan plan)
         {
             var keys = new HashSet<VfxPersistentKey>();
@@ -331,11 +375,58 @@ namespace Game.Feature.Gameplay.Vfx
             LastVisibilityBlockReason = reason;
             if (request.IsPersistent && !request.PersistentKey.IsNone)
             {
+                if (ShouldSuspendWhenVisibilityBlocked(request, reason))
+                {
+                    EnsurePersistentHandleForSuspendedVisibility(request, policy);
+                    persistentRegistry.SuspendIfActive(request.PersistentKey);
+                    persistentRegistry.MarkDesired(request.PersistentKey);
+                    return;
+                }
+
                 persistentRegistry.StopIfActive(
                     request.PersistentKey,
                     policy.StopPolicy,
                     lifetimeRunner);
             }
+        }
+
+        private void EnsurePersistentHandleForSuspendedVisibility(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy)
+        {
+            if (!request.IsPersistent ||
+                request.PersistentKey.IsNone ||
+                (persistentRegistry.TryGet(request.PersistentKey, out var existingHandle) &&
+                 IsLivePersistentHandle(existingHandle)))
+            {
+                return;
+            }
+
+            if (!anchorResolver.TryResolve(request, policy, out var anchor) || !anchor.IsResolved)
+            {
+                if (!TryHandleMissingAnchor(request, policy, out anchor))
+                {
+                    return;
+                }
+            }
+
+            var command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            persistentRegistry.GetOrStart(
+                command,
+                pool,
+                lifetimeRunner,
+                suppressTopologyTransitionStarts: false);
+        }
+
+        private static bool ShouldSuspendWhenVisibilityBlocked(
+            in GameplayVfxRequest request,
+            GameplayVfxVisibilityBlockReason reason)
+        {
+            return request.CueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) &&
+                   (reason == GameplayVfxVisibilityBlockReason.JumpTopologySuspended ||
+                    reason == GameplayVfxVisibilityBlockReason.InactiveFace ||
+                    reason == GameplayVfxVisibilityBlockReason.FrontFaceInactive ||
+                    reason == GameplayVfxVisibilityBlockReason.EntityViewInactive);
         }
 
         private void ValidateCompatibility(
@@ -453,15 +544,19 @@ namespace Game.Feature.Gameplay.Vfx
     {
         public GameplayVfxRefreshOptions(
             bool deferNewTopologyTransitionStarts,
-            bool preserveTopologyHelperExempt = false)
+            bool preserveTopologyHelperExempt = false,
+            bool preserveLiveDelayedPersistent = false)
         {
             DeferNewTopologyTransitionStarts = deferNewTopologyTransitionStarts;
             PreserveTopologyHelperExempt = preserveTopologyHelperExempt;
+            PreserveLiveDelayedPersistent = preserveLiveDelayedPersistent;
         }
 
         public bool DeferNewTopologyTransitionStarts { get; }
 
         public bool PreserveTopologyHelperExempt { get; }
+
+        public bool PreserveLiveDelayedPersistent { get; }
 
         public static GameplayVfxRefreshOptions TopologyTransitionStart()
         {
@@ -472,7 +567,8 @@ namespace Game.Feature.Gameplay.Vfx
         {
             return new GameplayVfxRefreshOptions(
                 deferNewTopologyTransitionStarts: false,
-                preserveTopologyHelperExempt: true);
+                preserveTopologyHelperExempt: true,
+                preserveLiveDelayedPersistent: true);
         }
     }
 }

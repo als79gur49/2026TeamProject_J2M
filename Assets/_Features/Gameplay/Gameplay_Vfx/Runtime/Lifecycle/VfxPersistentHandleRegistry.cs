@@ -43,6 +43,11 @@ namespace Game.Feature.Gameplay.Vfx
                 }
                 else if (IsSameBinding(command.PersistentKey, command.Policy))
                 {
+                    if (existing.State == VfxLifetimeState.PresentationSuspended)
+                    {
+                        existing.ResumePresentation();
+                    }
+
                     stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
                     topologyStopModes[command.PersistentKey] = command.Request.TopologyStopMode;
                     return existing;
@@ -132,6 +137,19 @@ namespace Game.Feature.Gameplay.Vfx
             return true;
         }
 
+        public bool SuspendIfActive(VfxPersistentKey key)
+        {
+            if (!activeHandles.TryGetValue(key, out var handle) ||
+                !CanSuspend(handle))
+            {
+                return false;
+            }
+
+            handle.SuspendPresentation();
+            LastStopReason = "PresentationSuspend";
+            return true;
+        }
+
         public void BeginReconcile()
         {
             desiredKeys.Clear();
@@ -197,6 +215,15 @@ namespace Game.Feature.Gameplay.Vfx
                 var stopMode = topologyStopModes.TryGetValue(key, out var storedStopMode)
                     ? storedStopMode
                     : handle.TopologyStopMode;
+                if (GameplayVfxTopologyHelperExemptionPolicy.AllowsPresentationSuspendPreserve(
+                        handle.CueId,
+                        stopMode))
+                {
+                    handle.SuspendPresentation();
+                    LastStopReason = "TopologyTransitionPresentationSuspend";
+                    continue;
+                }
+
                 if (GameplayVfxTopologyHelperExemptionPolicy.AllowsStopExemption(handle.CueId, stopMode))
                 {
                     continue;
@@ -247,6 +274,36 @@ namespace Game.Feature.Gameplay.Vfx
             desiredKeys.Clear();
         }
 
+        public void HardCleanupFamily(IVfxPool pool, GameplayVfxFamily family)
+        {
+            if (pool == null)
+            {
+                throw new ArgumentNullException(nameof(pool));
+            }
+
+            if (family == GameplayVfxFamily.None)
+            {
+                return;
+            }
+
+            foreach (var pair in activeHandles.ToArray())
+            {
+                var handle = pair.Value;
+                if (handle == null || handle.CueId.Family != family)
+                {
+                    continue;
+                }
+
+                if (handle.State != VfxLifetimeState.HardCleanup)
+                {
+                    handle.HardCleanup();
+                    pool.Release(handle);
+                }
+
+                RemoveActiveEntry(pair.Key);
+            }
+        }
+
         private bool IsSameBinding(VfxPersistentKey key, VfxBindingRuntimePolicy policy)
         {
             return activePolicies.TryGetValue(key, out var existingPolicy) &&
@@ -266,12 +323,21 @@ namespace Game.Feature.Gameplay.Vfx
         {
             return handle != null &&
                    (handle.State == VfxLifetimeState.Spawned ||
-                    handle.State == VfxLifetimeState.Active);
+                    handle.State == VfxLifetimeState.Active ||
+                    handle.State == VfxLifetimeState.PresentationSuspended);
         }
 
         private static bool CanStop(IVfxPlaybackHandle handle)
         {
             return IsReusable(handle);
+        }
+
+        private static bool CanSuspend(IVfxPlaybackHandle handle)
+        {
+            return handle != null &&
+                   (handle.State == VfxLifetimeState.Spawned ||
+                    handle.State == VfxLifetimeState.Active ||
+                    handle.State == VfxLifetimeState.PresentationSuspended);
         }
     }
 }

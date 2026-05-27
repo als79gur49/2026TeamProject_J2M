@@ -190,8 +190,28 @@ namespace Game.Feature.UI.Tests
             Assert.That(filledIcon.color, Is.EqualTo(authoredFilledIconColor));
             Assert.That(filledIcon.material, Is.SameAs(authoredFilledIconMaterial));
             Assert.That(CountCrackLines(lostTweenRoot), Is.EqualTo(5));
+            Assert.That(CountCrackShards(lostTweenRoot), Is.EqualTo(9));
+            AssertCrackShardsRestored(lostTweenRoot);
             Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(lostSlot.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContent_CrackShardColor_DecaysBySpawnTiming()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
+            var view = (ChanceLostOverlayContentView)content.View;
+
+            var firstShardColor = view.CrackShardVisibleColorForTests(0f);
+            var middleShardColor = view.CrackShardVisibleColorForTests(0.55f);
+            var lateShardColor = view.CrackShardVisibleColorForTests(1.1f);
+
+            Assert.That(firstShardColor.r, Is.GreaterThan(middleShardColor.r));
+            Assert.That(middleShardColor.r, Is.GreaterThan(lateShardColor.r));
+            Assert.That(firstShardColor.g, Is.GreaterThan(middleShardColor.g));
+            Assert.That(middleShardColor.g, Is.GreaterThan(lateShardColor.g));
+            Assert.That(firstShardColor.b, Is.GreaterThan(middleShardColor.b));
+            Assert.That(middleShardColor.b, Is.GreaterThan(lateShardColor.b));
         }
 
         [Test]
@@ -281,17 +301,71 @@ namespace Game.Feature.UI.Tests
 
         private static int CountCrackLines(RectTransform root)
         {
+            return CountImagesByPrefix(root, "CrackLine");
+        }
+
+        private static int CountCrackShards(RectTransform root)
+        {
+            return CountImagesByPrefix(root, "CrackShard");
+        }
+
+        private static int CountImagesByPrefix(RectTransform root, string prefix)
+        {
             var images = root.GetComponentsInChildren<Image>(true);
             var count = 0;
             for (var i = 0; i < images.Length; i++)
             {
-                if (images[i].name.StartsWith("CrackLine", StringComparison.OrdinalIgnoreCase))
+                if (images[i].name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 {
                     count++;
                 }
             }
 
             return count;
+        }
+
+        private static void AssertCrackShardsRestored(RectTransform root)
+        {
+            var images = root.GetComponentsInChildren<Image>(true);
+            var shardCount = 0;
+            var bottomShardCount = 0;
+            var sideShardCount = 0;
+            for (var i = 0; i < images.Length; i++)
+            {
+                if (!images[i].name.StartsWith("CrackShard", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                shardCount++;
+                Assert.That(images[i].color.a, Is.EqualTo(0f));
+                Assert.That(images[i].raycastTarget, Is.False);
+                Assert.That(images[i].rectTransform.sizeDelta.x, Is.GreaterThanOrEqualTo(8f));
+                Assert.That(images[i].rectTransform.sizeDelta.y, Is.GreaterThanOrEqualTo(8f));
+                Assert.That(images[i].rectTransform.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(images[i].GetComponent<CanvasGroup>(), Is.Not.Null);
+                Assert.That(images[i].GetComponent<CanvasGroup>().ignoreParentGroups, Is.True);
+
+                var anchoredPosition = images[i].rectTransform.anchoredPosition;
+                if (anchoredPosition.y <= -78f)
+                {
+                    bottomShardCount++;
+                }
+
+                if (Mathf.Abs(anchoredPosition.x) >= 56f)
+                {
+                    sideShardCount++;
+                }
+
+                Assert.That(
+                    anchoredPosition.y <= -78f || Mathf.Abs(anchoredPosition.x) >= 56f,
+                    Is.True,
+                    "Crack shards should start near the bottom or lower side area of the chance icon.");
+            }
+
+            Assert.That(shardCount, Is.EqualTo(9));
+            Assert.That(bottomShardCount, Is.GreaterThanOrEqualTo(3));
+            Assert.That(sideShardCount, Is.GreaterThanOrEqualTo(5));
         }
 
         private sealed class ShellHandle : IDisposable

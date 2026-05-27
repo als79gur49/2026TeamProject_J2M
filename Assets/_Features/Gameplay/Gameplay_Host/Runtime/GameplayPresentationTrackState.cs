@@ -46,6 +46,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _deathPresentationPlayingEntityIds = new();
         private readonly HashSet<int> _deferredExitRetainedEntityIds = new();
         private readonly HashSet<int> _jumpLandingCompletionHoldEntityIds = new();
+        private readonly HashSet<int> _jumpTopologySuspendedEntityIds = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
@@ -98,6 +99,8 @@ namespace Game.Feature.Gameplay.Host
 
         public HashSet<int> JumpLandingCompletionHoldEntityIds => _jumpLandingCompletionHoldEntityIds;
 
+        public HashSet<int> JumpTopologySuspendedEntityIds => _jumpTopologySuspendedEntityIds;
+
         public Dictionary<int, JumpTrack> JumpTracks => _jumpTracks;
 
         public Dictionary<int, RotationTrack> JumpWindupRotationTracks => _jumpWindupRotationTracks;
@@ -146,6 +149,7 @@ namespace Game.Feature.Gameplay.Host
             _deathPresentationPlayingEntityIds.Clear();
             _deferredExitRetainedEntityIds.Clear();
             _jumpLandingCompletionHoldEntityIds.Clear();
+            _jumpTopologySuspendedEntityIds.Clear();
             _completedTransitionVisibilityStateIds.Clear();
             _completedVisibilityTrackIds.Clear();
             _jumpTracks.Clear();

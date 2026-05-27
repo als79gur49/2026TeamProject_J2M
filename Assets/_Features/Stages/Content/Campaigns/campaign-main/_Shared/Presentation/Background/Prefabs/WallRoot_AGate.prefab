@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5509433207148969473}
   - component: {fileID: 2922924718046502168}
+  - component: {fileID: -736510001000000001}
   m_Layer: 0
   m_Name: WallRoot_AGate
   m_TagString: Untagged
@@ -64,6 +65,63 @@ MonoBehaviour:
   - TargetObject: {fileID: 7192312171616420704}
     FirstFace: 3
     SecondFace: 0
+--- !u!114 &-736510001000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3930222102342455819}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 736b5fb467ae49dabb4a91b9d5a42a45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  profile: {fileID: 11400000, guid: 7a8645923b8243f8bcc692d78e994d3c, type: 2}
+  noiseProfile: {fileID: 11400000, guid: c2c7e6b48e814b4fb556b9d81be1edab, type: 2}
+  targets:
+  - renderer: {fileID: 7758401871302360272}
+    materialIndex: 1
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 7758401871302360272}
+    materialIndex: 2
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 7758401871302360272}
+    materialIndex: 5
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 3186139426480839408}
+    materialIndex: 1
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 3186139426480839408}
+    materialIndex: 2
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 3186139426480839408}
+    materialIndex: 5
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
 --- !u!1 &4744455154862383997
 GameObject:
   m_ObjectHideFlags: 0
@@ -131,7 +189,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -243,7 +301,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -355,7 +413,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -467,7 +525,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -581,6 +639,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cf14872def3ad6b44be2dfcfc0987a68, type: 3}
+--- !u!23 &3186139426480839408 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: cf14872def3ad6b44be2dfcfc0987a68, type: 3}
+  m_PrefabInstance: {fileID: 4320893009821648500}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &4358459908608106911 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: cf14872def3ad6b44be2dfcfc0987a68, type: 3}
@@ -655,6 +718,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cf14872def3ad6b44be2dfcfc0987a68, type: 3}
+--- !u!23 &7758401871302360272 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: cf14872def3ad6b44be2dfcfc0987a68, type: 3}
+  m_PrefabInstance: {fileID: 8965247133990084692}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &8926219921762551743 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: cf14872def3ad6b44be2dfcfc0987a68, type: 3}

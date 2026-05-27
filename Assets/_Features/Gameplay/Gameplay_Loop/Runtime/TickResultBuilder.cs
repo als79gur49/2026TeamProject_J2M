@@ -718,6 +718,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
             var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
+            var enemyUtilityPhaseStates = new List<TickEnemyUtilityPhasePresentationState>();
             var enemyUtilityCooldownSignals = new List<TickEnemyUtilityCooldownPresentationSignal>();
             var enemyGravityFieldAuraVisualStates = new List<TickEnemyGravityFieldAuraVisualState>();
             var forwardCellProjectileWindupSignals =
@@ -738,11 +739,13 @@ namespace Game.Feature.Gameplay.Loop
             var playerDeathHoldSignals = new List<TickPlayerDeathHoldPresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
+            var playerOutcomeSignals = new List<TickPlayerOutcomePresentationSignal>();
             var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var kinematicMotionTracks = new List<TickKinematicMotionTrack>();
             var continuousLocomotionTracks = new List<TickContinuousLocomotionTrack>();
+            var entitySpawnSignals = new List<EntitySpawnPresentationSignal>();
             var tileEvents = new List<TilePresentationEvent>();
             var tileFeatureVisualStates = new List<TileFeatureVisualState>();
             var tileFeatureVisibleVisualStates = new List<TileFeatureVisualState>();
@@ -769,7 +772,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildContinuousLocomotionPresentation(context, continuousLocomotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
-            BuildRespawnPresentation(context, visibilityChanges);
+            BuildRespawnPresentation(context, visibilityChanges, entitySpawnSignals);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerFlipResultTurnPresentation(context, playerFlipResultTurnSignals);
             BuildPlayerActionAttemptPresentation(context, playerActionAttemptSignals);
@@ -777,6 +780,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerDeathPresentation(context, playerDeathSignals);
             BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
+            BuildPlayerOutcomePresentation(context, playerOutcomeSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildForwardCellProjectilePresentation(
@@ -794,6 +798,7 @@ namespace Game.Feature.Gameplay.Loop
                 summonWindupWarnings,
                 frontFaceShieldWindupWarnings,
                 enemyUtilitySignals,
+                enemyUtilityPhaseStates,
                 enemyUtilityCooldownSignals,
                 enemyGravityFieldAuraVisualStates);
             BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
@@ -808,6 +813,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyChargeSignals.Count == 0 &&
                    enemyGlideSignals.Count == 0 &&
                    enemyUtilitySignals.Count == 0 &&
+                   enemyUtilityPhaseStates.Count == 0 &&
                    enemyUtilityCooldownSignals.Count == 0 &&
                    enemyGravityFieldAuraVisualStates.Count == 0 &&
                    forwardCellProjectileWindupSignals.Count == 0 &&
@@ -831,11 +837,13 @@ namespace Game.Feature.Gameplay.Loop
                    playerDeathHoldSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
+                   playerOutcomeSignals.Count == 0 &&
                    summonedEnemyPresentationBindings.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
                    kinematicMotionTracks.Count == 0 &&
                    continuousLocomotionTracks.Count == 0 &&
+                   entitySpawnSignals.Count == 0 &&
                    tileEvents.Count == 0 &&
                    tileFeatureVisualStates.Count == 0 &&
                    tileFeatureVisibleVisualStates.Count == 0 &&
@@ -886,7 +894,10 @@ namespace Game.Feature.Gameplay.Loop
                     forwardCellImpactSignals,
                     forwardCellProjectileWindupSignals,
                     forwardCellProjectileReleaseSignals,
-                    forwardCellProjectileClearSignals);
+                    forwardCellProjectileClearSignals,
+                    entitySpawnSignals,
+                    playerOutcomeSignals,
+                    enemyUtilityPhaseStates);
         }
 
         private static void BuildForwardCellProjectilePresentation(
@@ -1075,7 +1086,8 @@ namespace Game.Feature.Gameplay.Loop
                         stop.StopperEntityId,
                         stop.SolidKind,
                         stop.Topology,
-                        stop.Cause));
+                        stop.Cause,
+                        stop.StopperTileId));
             }
         }
 
@@ -1735,31 +1747,46 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TileFeatureState> finalTileFeatures,
             List<TilePresentationEvent> tileEvents)
         {
-            var playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
-            if (!context.ObjectiveResult.HasObjective ||
-                !context.ObjectiveResult.ClearedThisTick ||
-                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
-                playerEntityId <= 0 ||
-                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
-                player.boardPresence != EntityBoardPresence.Occupying)
+            if (!TryResolveExitClearPlayerOnActiveExit(
+                    context,
+                    finalTileFeatures,
+                    out var playerEntityId,
+                    out var exit))
             {
                 return;
             }
 
-            for (var i = 0; i < finalTileFeatures.Count; i++)
-            {
-                var exit = finalTileFeatures[i];
-                if (!IsActiveExit(context, exit) ||
-                    !exit.Cell.Equals(player.position))
-                {
-                    continue;
-                }
+            tileEvents.Add(CreateExitTilePresentationEvent(
+                TilePresentationEventKind.ExitEntered,
+                exit,
+                playerEntityId));
+        }
 
-                tileEvents.Add(CreateExitTilePresentationEvent(
-                    TilePresentationEventKind.ExitEntered,
-                    exit,
-                    playerEntityId));
+        private static void BuildPlayerOutcomePresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerOutcomePresentationSignal> playerOutcomeSignals)
+        {
+            if (playerOutcomeSignals == null)
+            {
+                throw new ArgumentNullException(nameof(playerOutcomeSignals));
             }
+
+            var finalTileFeatures = new List<TileFeatureState>();
+            context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
+            if (!TryResolveExitClearPlayerOnActiveExit(
+                    context,
+                    finalTileFeatures,
+                    out var playerEntityId,
+                    out var exit))
+            {
+                return;
+            }
+
+            playerOutcomeSignals.Add(new TickPlayerOutcomePresentationSignal(
+                playerEntityId,
+                TickPlayerOutcomePresentationKind.StageClearVictory,
+                exit.TileId,
+                exit.Cell));
         }
 
         private static void AddExitObjectiveClearedEvents(
@@ -1821,6 +1848,42 @@ namespace Game.Feature.Gameplay.Loop
                        tileFeature,
                        definition,
                        context.FinalAuthoritativeSnapshot.Topology);
+        }
+
+        private static bool TryResolveExitClearPlayerOnActiveExit(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TileFeatureState> finalTileFeatures,
+            out int playerEntityId,
+            out TileFeatureState activeExit)
+        {
+            playerEntityId = context.ObjectiveDefinition.PlayerEntityId;
+            activeExit = default;
+            if (!context.ObjectiveResult.HasObjective ||
+                !context.ObjectiveResult.ClearedThisTick ||
+                !context.ObjectiveResult.RequiredNonPrimaryConditionsSatisfied ||
+                playerEntityId <= 0 ||
+                !context.FinalAuthoritativeSnapshot.TryGetEntity(playerEntityId, out var player) ||
+                player.boardPresence != EntityBoardPresence.Occupying ||
+                player.hp <= 0 ||
+                player.markedForDeath)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < finalTileFeatures.Count; i++)
+            {
+                var exit = finalTileFeatures[i];
+                if (!IsActiveExit(context, exit) ||
+                    !exit.Cell.Equals(player.position))
+                {
+                    continue;
+                }
+
+                activeExit = exit;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryGetTileFeatureDefinition(
@@ -1992,6 +2055,7 @@ namespace Game.Feature.Gameplay.Loop
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
             List<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings,
             List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals,
+            List<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates,
             List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals,
             List<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates)
         {
@@ -2009,11 +2073,23 @@ namespace Game.Feature.Gameplay.Loop
                 for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
                 {
                     var effectState = entry.State.EffectStates[effectIndex];
+                    AddEnemyUtilityCanceledPresentationSignal(
+                        context,
+                        entry.EntityId,
+                        effectIndex,
+                        effectState,
+                        enemyUtilitySignals);
                     AddEnemyUtilityCooldownPresentationSignal(
                         entry.EntityId,
                         effectIndex,
                         effectState,
                         enemyUtilityCooldownSignals);
+                    AddEnemyUtilityPhasePresentationState(
+                        entry.EntityId,
+                        effectIndex,
+                        effectState,
+                        context.CurrentTickIndex,
+                        enemyUtilityPhaseStates);
 
                     if (effectState.phase == EnemyUtilityEffectPhase.Recover)
                     {
@@ -2185,6 +2261,50 @@ namespace Game.Feature.Gameplay.Loop
             AddEnemyGravityFieldAuraFieldPresentation(context, enemyGravityFieldAuraVisualStates);
         }
 
+        private static void AddEnemyUtilityCanceledPresentationSignal(
+            in TickPresentationBuildContext context,
+            int entityId,
+            int effectIndex,
+            in EnemyUtilityEffectState effectState,
+            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals)
+        {
+            if (effectState.phase != EnemyUtilityEffectPhase.None ||
+                !WasEnemyUtilityCanceledThisTick(context, entityId, effectIndex) ||
+                !TryResolveEnemyUtilityPresentationKind(effectState.effectKind, out var presentationKind))
+            {
+                return;
+            }
+
+            enemyUtilitySignals.Add(
+                new TickEnemyUtilityPresentationSignal(
+                    entityId,
+                    presentationKind,
+                    EnemyUtilityPresentationPhase.Canceled,
+                    context.CurrentTickIndex,
+                    context.CurrentTickIndex,
+                    durationTicks: 0,
+                    effectIndex,
+                    effectState.activationSequence));
+        }
+
+        private static bool WasEnemyUtilityCanceledThisTick(
+            in TickPresentationBuildContext context,
+            int entityId,
+            int effectIndex)
+        {
+            var prefix = $"EnemyUtilityWindupCanceled|E={entityId}|Effect={effectIndex}|";
+            var updates = context.PreMovementStatePhaseResult.Updates;
+            for (var i = 0; i < updates.Count; i++)
+            {
+                if (updates[i].StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void AddEnemyUtilityCooldownPresentationSignal(
             int entityId,
             int effectIndex,
@@ -2210,6 +2330,57 @@ namespace Game.Feature.Gameplay.Loop
                     presentationKind,
                     effectState.cooldownTicksRemaining,
                     effectState.cooldownTicksRemaining,
+                    effectIndex,
+                    effectState.activationSequence));
+        }
+
+        private static void AddEnemyUtilityPhasePresentationState(
+            int entityId,
+            int effectIndex,
+            in EnemyUtilityEffectState effectState,
+            int tickIndex,
+            List<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates)
+        {
+            if (effectState.phase == EnemyUtilityEffectPhase.None ||
+                !TryResolveEnemyUtilityPresentationKind(effectState.effectKind, out var presentationKind))
+            {
+                return;
+            }
+
+            var phaseStartTick = 0;
+            var phaseEndTickExclusive = 0;
+            switch (effectState.phase)
+            {
+                case EnemyUtilityEffectPhase.Windup:
+                    phaseStartTick = effectState.windupStartTick;
+                    phaseEndTickExclusive = effectState.windupEndTick;
+                    break;
+
+                case EnemyUtilityEffectPhase.Active:
+                    phaseStartTick = effectState.activeStartTick;
+                    phaseEndTickExclusive = effectState.activeEndTickExclusive;
+                    break;
+
+                case EnemyUtilityEffectPhase.Recover:
+                    phaseStartTick = effectState.recoverStartTick;
+                    phaseEndTickExclusive = effectState.recoverEndTickExclusive;
+                    break;
+
+                default:
+                    return;
+            }
+
+            var durationTicks = Math.Max(0, phaseEndTickExclusive - phaseStartTick);
+            var elapsedTicks = durationTicks > 0
+                ? Math.Min(durationTicks, Math.Max(0, tickIndex - phaseStartTick))
+                : 0;
+            enemyUtilityPhaseStates.Add(
+                new TickEnemyUtilityPhasePresentationState(
+                    entityId,
+                    presentationKind,
+                    effectState.phase,
+                    elapsedTicks,
+                    durationTicks,
                     effectIndex,
                     effectState.activationSequence));
         }
@@ -3096,7 +3267,7 @@ namespace Game.Feature.Gameplay.Loop
         private static bool IsExitPresentationSupportedEntity(EntityState entity)
         {
             return entity.type == EntityType.Box ||
-                   (entity.type == EntityType.Unit && entity.aiMode != EnemyAiMode.None);
+                   EntityRolePolicy.IsEnemyUnit(entity);
         }
 
         private static EntityExitPresentationTiming ResolveEntityExitPresentationTiming(
@@ -3261,9 +3432,12 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildRespawnPresentation(
             in TickPresentationBuildContext context,
-            List<TickVisibilityChange> visibilityChanges)
+            List<TickVisibilityChange> visibilityChanges,
+            List<EntitySpawnPresentationSignal> entitySpawnSignals)
         {
             var respawnedEntities = context.RespawnPhaseResult.RespawnedEntities;
+            var finalTopology = context.FinalAuthoritativeSnapshot.Topology;
+            var tileFeaturesAtCell = new List<TileFeatureState>();
 
             for (var i = 0; i < respawnedEntities.Count; i++)
             {
@@ -3273,9 +3447,41 @@ namespace Game.Feature.Gameplay.Loop
                         entity.entityId,
                         TickVisibilityChangeKind.Spawn,
                         entity.position,
-                        context.FinalAuthoritativeSnapshot.Topology,
+                        finalTopology,
                         entity.facing));
+
+                if (!EntityRolePolicy.IsPlayerUnit(entity))
+                {
+                    continue;
+                }
+
+                entitySpawnSignals.Add(
+                    new EntitySpawnPresentationSignal(
+                        entity.entityId,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.PlayerRespawn,
+                        entity.position,
+                        finalTopology,
+                        entity.facing,
+                        TryResolveEntranceSource(
+                            context.FinalAuthoritativeSnapshot,
+                            entity.position,
+                            tileFeaturesAtCell)));
             }
+        }
+
+        private static TileFeaturePresentationSource? TryResolveEntranceSource(
+            WorldSnapshot snapshot,
+            SurfaceCell cell,
+            List<TileFeatureState> tileFeaturesAtCell)
+        {
+            if (snapshot == null || tileFeaturesAtCell == null)
+            {
+                return null;
+            }
+
+            snapshot.EnumerateTileFeaturesAt(cell, tileFeaturesAtCell);
+            return EntitySpawnPresentationSourceResolver.TryResolveEntranceSource(cell, tileFeaturesAtCell);
         }
 
         private static void BuildSummonedEnemyPresentationBindings(
@@ -4284,7 +4490,7 @@ namespace Game.Feature.Gameplay.Loop
                         presentationSettings.RecoveryDipHeightUnits,
                         currentHeightUnits,
                         IsGlideVisualPhase(resolvedState.Phase) && currentHeightUnits != 0,
-                        resolvedState.Phase == EnemyGlidePhase.LandingPending,
+                        resolvedState.WantsRecover,
                         isTerminalZero));
             }
         }
@@ -4347,7 +4553,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             return phase == EnemyGlidePhase.Windup ||
                    phase == EnemyGlidePhase.Active ||
-                   phase == EnemyGlidePhase.LandingPending ||
                    phase == EnemyGlidePhase.Recovery;
         }
 
@@ -4390,7 +4595,6 @@ namespace Game.Feature.Gameplay.Loop
                     return LerpUnits(0, liftHeightUnits, progress);
 
                 case EnemyGlidePhase.Active:
-                case EnemyGlidePhase.LandingPending:
                     return liftHeightUnits;
 
                 case EnemyGlidePhase.Recovery:

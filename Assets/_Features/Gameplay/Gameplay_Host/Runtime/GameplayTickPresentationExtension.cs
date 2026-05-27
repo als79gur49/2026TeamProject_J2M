@@ -6,6 +6,18 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public interface IGameplayBootstrapInstaller
+    {
+        void Install();
+    }
+
+    public interface IGameplayBootstrapReadiness
+    {
+        bool IsReady { get; }
+
+        string DescribeReadiness();
+    }
+
     public readonly struct GameplayTickPresentationExtensionContext
     {
         public GameplayTickPresentationExtensionContext(
@@ -62,6 +74,50 @@ namespace Game.Feature.Gameplay.Host
         void UpdatePresentation(float deltaTime);
 
         void HardCleanup();
+    }
+
+    public readonly struct GameplayInitialPresentationExtensionContext
+    {
+        public GameplayInitialPresentationExtensionContext(
+            InitialPresentationData presentationData,
+            CubeTopologyState topology,
+            GameplayPresentationStateStore stateStore,
+            GameplayCubeProjector projector,
+            EnemyPresentationCatalog enemyPresentationCatalog = null,
+            EnemyPresentationBinding[] enemyPresentationBindings = null,
+            GameplayTimingProfile timingProfile = null,
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
+        {
+            PresentationData = presentationData ?? InitialPresentationData.Empty;
+            Topology = topology;
+            StateStore = stateStore;
+            Projector = projector;
+            EnemyPresentationCatalog = enemyPresentationCatalog;
+            EnemyPresentationBindings = enemyPresentationBindings ?? System.Array.Empty<EnemyPresentationBinding>();
+            TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? System.Array.Empty<TileFeatureVfxStyleBinding>();
+        }
+
+        public InitialPresentationData PresentationData { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public GameplayPresentationStateStore StateStore { get; }
+
+        public GameplayCubeProjector Projector { get; }
+
+        public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
+
+        public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
+
+        public GameplayTimingProfile TimingProfile { get; }
+
+        public IReadOnlyList<TileFeatureVfxStyleBinding> TileFeatureVfxStyleBindings { get; }
+    }
+
+    public interface IGameplayInitialPresentationExtension
+    {
+        void PresentInitial(in GameplayInitialPresentationExtensionContext context);
     }
 
     public interface IGameplayOutputCameraPresentationExtension

@@ -1,6 +1,9 @@
 using System;
 using System.Reflection;
+using Game.Feature.DemoStageControl;
+using Game.Feature.DemoStageControl.UI;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -39,8 +42,11 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
+        [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
+        [SerializeField] private DemoStageControlSettings _demoStageControlSettings = DemoStageControlSettings.EnabledByDefault();
         [SerializeField] private bool _installOnStart = true;
 
+        private CinematicFlowCoordinator _cinematicFlowCoordinator;
         private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
@@ -51,6 +57,8 @@ namespace Game.Feature.UI.Composition
         private IUiAudioPort _uiAudioPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
+        private DebugCommandAccess _debugCommandAccess = DebugCommandAccess.Disabled;
+        private IDemoStageControlCommandPort _demoStageControlCommandPort;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -115,7 +123,7 @@ namespace Game.Feature.UI.Composition
                 _stageResultAutoNextDriver?.Tick(Time.unscaledDeltaTime);
             }
 
-            if (!_isInstalled || _rootView == null || _rootView.DiagnosticsOverlayView == null)
+            if (!_isInstalled || _rootView == null)
             {
                 return;
             }
@@ -125,15 +133,27 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            if (KeyboardBridge.WasF3PressedThisFrame())
+            if (_rootView.DiagnosticsOverlayView != null && KeyboardBridge.WasF3PressedThisFrame())
             {
                 _rootView.DiagnosticsOverlayView.ToggleVisibility();
             }
 
-            if (KeyboardBridge.WasF4PressedThisFrame())
+            if (_rootView.DiagnosticsOverlayView != null && KeyboardBridge.WasF4PressedThisFrame())
             {
                 _rootView.DiagnosticsOverlayView.ToggleExpanded();
             }
+
+            if (WasDemoStageControlOpenKeyPressed() && TryToggleDemoStageControlPanel())
+            {
+                return;
+            }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (KeyboardBridge.WasF10PressedThisFrame())
+            {
+                TryToggleDebugCommandsPopup();
+            }
+#endif
         }
 
         public void Install(GameplaySceneHost sceneHost)
@@ -148,6 +168,8 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
+            _debugCommandAccess = sceneHost.UiAccess.DebugCommandAccess ?? DebugCommandAccess.Disabled;
+            _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
             Install(new GameplayUiFlowPorts(
                 sceneHost.UiAccess.CommandGateway,
                 sceneHost.UiAccess.QueryFacade,
@@ -177,13 +199,21 @@ namespace Game.Feature.UI.Composition
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             _uiAudioPort = CreateUiAudioPort();
             var uiAudioPort = _uiAudioPort;
+            if (UnityEngine.Application.isPlaying)
+            {
+                SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(uiAudioPort);
+            }
+
             EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
 
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
-                _popupPrefabCatalog));
+                _popupPrefabCatalog,
+                _debugCommandAccess,
+                HandleDebugStageResultRequested,
+                _demoStageControlCommandPort));
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay);
@@ -235,6 +265,7 @@ namespace Game.Feature.UI.Composition
                 uiAudioPort,
                 new CurrentSceneStageLaunchRouter(gameObject.scene.name),
                 CreateMainMenuReturnRouter());
+            _debugCommandAccess.BindStageLaunchGateway(new CurrentSceneStageLaunchRouter(gameObject.scene.name));
             _stageResultAutoNextDriver = new StageResultAutoNextDriver(
                 ScreenController,
                 PopupController,
@@ -408,9 +439,48 @@ namespace Game.Feature.UI.Composition
 
         private IMainMenuReturnRouter CreateMainMenuReturnRouter()
         {
-            return _routeConfig != null
+            IMainMenuReturnRouter inner = _routeConfig != null
                 ? new ConfiguredMainMenuReturnRouter(_routeConfig)
                 : NoOpMainMenuReturnRouter.Instance;
+            return new CinematicMainMenuReturnRouter(
+                inner,
+                new SaveSlotStore(),
+                new ActiveSlotProvider(),
+                EnsureCinematicFlowCoordinator(),
+                () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);
+        }
+
+        private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()
+        {
+            if (_cinematicFlowCoordinator != null)
+            {
+                return _cinematicFlowCoordinator;
+            }
+
+            var overlay = _rootView != null
+                ? _rootView.GetComponentInChildren<CinematicVideoOverlayView>(includeInactive: true)
+                : null;
+            if (overlay == null)
+            {
+                var parent = _rootView != null ? _rootView.transform : transform;
+                var overlayObject = new GameObject("CinematicVideoOverlay", typeof(RectTransform));
+                overlayObject.transform.SetParent(parent, false);
+                overlay = overlayObject.AddComponent<CinematicVideoOverlayView>();
+                overlayObject.SetActive(false);
+            }
+
+            overlay.Initialize(ResolveUiInputActions());
+            var audioFocus = GetComponent<CinematicAudioFocusController>();
+            if (audioFocus == null)
+            {
+                audioFocus = gameObject.AddComponent<CinematicAudioFocusController>();
+            }
+
+            _cinematicFlowCoordinator = new CinematicFlowCoordinator(
+                _slotCinematicDefinition,
+                overlay,
+                audioFocus);
+            return _cinematicFlowCoordinator;
         }
 
         private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)
@@ -462,7 +532,7 @@ namespace Game.Feature.UI.Composition
                 ResolveUiInputActions(),
                 resolver,
                 () => Coordinator != null && Coordinator.HandleBackRequested(),
-                () => false,
+                () => _cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying,
                 _uiAudioPort);
         }
 
@@ -549,6 +619,140 @@ namespace Game.Feature.UI.Composition
             Coordinator.HandlePopupBackdropClicked();
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private void TryToggleDebugCommandsPopup()
+        {
+            if (!DebugCommandBuildGate.IsRuntimeEnabled(UnityEngine.Application.isEditor, UnityEngine.Debug.isDebugBuild) ||
+                _debugCommandAccess == null ||
+                !_debugCommandAccess.IsEnabled ||
+                PopupController == null ||
+                Coordinator == null)
+            {
+                return;
+            }
+
+            if (PopupController.TopPopup.HasValue)
+            {
+                if (PopupController.TopPopup.Value.PopupId == PopupId.DebugCommands)
+                {
+                    Coordinator.HandleBackRequested();
+                }
+
+                return;
+            }
+
+            var availability = _debugCommandAccess.StageCommandPort.GetAvailability();
+            if (!availability.CanOpenPanel)
+            {
+                return;
+            }
+
+            Coordinator.RequestDebugCommandsPopup(
+                GameplayPopupRuntimeFactory.BuildDebugCommandsPayload(availability, string.Empty));
+        }
+#endif
+
+        private bool TryToggleDemoStageControlPanel()
+        {
+            if (_demoStageControlSettings == null ||
+                !_demoStageControlSettings.Enabled ||
+                _demoStageControlCommandPort == null ||
+                PopupController == null ||
+                Coordinator == null)
+            {
+                return false;
+            }
+
+            if (PopupController.TopPopup.HasValue)
+            {
+                if (PopupController.TopPopup.Value.PopupId == PopupId.DemoStageControl)
+                {
+                    Coordinator.HandleBackRequested();
+                }
+
+                return true;
+            }
+
+            Coordinator.RequestDemoStageControlPopup(new DemoStageControlPanelPayload(
+                _demoStageControlCommandPort.GetStages(),
+                _demoStageControlCommandPort.GetStatus()));
+            return true;
+        }
+
+        private bool WasDemoStageControlOpenKeyPressed()
+        {
+            var settings = _demoStageControlSettings ?? DemoStageControlSettings.EnabledByDefault();
+            return settings.OpenKey == DemoStageControlOpenKey.BackQuote
+                ? KeyboardBridge.WasBackQuotePressedThisFrame()
+                : KeyboardBridge.WasF10PressedThisFrame();
+        }
+
+        private IDemoStageControlCommandPort CreateDemoStageControlCommandPort(GameplaySceneHost sceneHost)
+        {
+            if (sceneHost == null ||
+                sceneHost.UiAccess == null ||
+                sceneHost.UiAccess.DemoStageControlCompletionBridge == null)
+            {
+                return null;
+            }
+
+            var provider = FindDemoStageControlContextProvider(sceneHost.gameObject);
+            if (provider == null ||
+                !provider.TryCreateDemoStageControlContext(out var context) ||
+                !context.IsValid)
+            {
+                return null;
+            }
+
+            var launchRouter = new CurrentSceneStageLaunchRouter(gameObject.scene.name);
+            return new DemoStageControlService(
+                _demoStageControlSettings ?? DemoStageControlSettings.EnabledByDefault(),
+                context.StageCatalogProvider,
+                context.CampaignBridge,
+                new DemoStageControlLaunchBridge(launchRouter, () => launchRouter.IsLaunchInProgress),
+                sceneHost.UiAccess.DemoStageControlCompletionBridge);
+        }
+
+        private static IDemoStageControlGameplayContextProvider FindDemoStageControlContextProvider(GameObject root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            var parents = root.GetComponentsInParent<MonoBehaviour>(true);
+            for (var i = 0; i < parents.Length; i++)
+            {
+                if (parents[i] is IDemoStageControlGameplayContextProvider provider)
+                {
+                    return provider;
+                }
+            }
+
+            var children = root.GetComponentsInChildren<MonoBehaviour>(true);
+            for (var i = 0; i < children.Length; i++)
+            {
+                if (children[i] is IDemoStageControlGameplayContextProvider provider)
+                {
+                    return provider;
+                }
+            }
+
+            return null;
+        }
+
+        private void HandleDebugStageResultRequested(DebugCommandResult result)
+        {
+            if (result.StageResultReadModel == null || Coordinator == null)
+            {
+                return;
+            }
+
+            Coordinator.RequestDebugStageResultOnly(
+                result.StageResultReadModel,
+                result.StageNavigationRequest);
+        }
+
         private void SyncViews()
         {
             if (_rootView == null ||
@@ -579,6 +783,8 @@ namespace Game.Feature.UI.Composition
             private static readonly PropertyInfo EscapeKeyProperty = KeyboardType?.GetProperty("escapeKey", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo F3KeyProperty = KeyboardType?.GetProperty("f3Key", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo F4KeyProperty = KeyboardType?.GetProperty("f4Key", BindingFlags.Public | BindingFlags.Instance);
+            private static readonly PropertyInfo F10KeyProperty = KeyboardType?.GetProperty("f10Key", BindingFlags.Public | BindingFlags.Instance);
+            private static readonly PropertyInfo BackQuoteKeyProperty = KeyboardType?.GetProperty("backquoteKey", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo WasPressedThisFrameProperty =
                 EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
 
@@ -595,6 +801,16 @@ namespace Game.Feature.UI.Composition
             public bool WasF4PressedThisFrame()
             {
                 return WasPressedThisFrame(F4KeyProperty);
+            }
+
+            public bool WasF10PressedThisFrame()
+            {
+                return WasPressedThisFrame(F10KeyProperty);
+            }
+
+            public bool WasBackQuotePressedThisFrame()
+            {
+                return WasPressedThisFrame(BackQuoteKeyProperty);
             }
 
             private static bool WasPressedThisFrame(PropertyInfo keyProperty)

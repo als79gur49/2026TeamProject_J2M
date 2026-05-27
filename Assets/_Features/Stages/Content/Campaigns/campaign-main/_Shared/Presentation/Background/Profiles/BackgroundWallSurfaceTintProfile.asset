@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82eaa88201644f518eaa20393607f623, type: 3}
+  m_Name: BackgroundWallSurfaceTintProfile
+  m_EditorClassIdentifier: 
+  floorBaseColor: {r: 0.8091912, g: 0.9056604, b: 0.80740476, a: 1}
+  frontBaseColor: {r: 0.75734246, g: 0.79130924, b: 0.8773585, a: 1}
+  ceilingBaseColor: {r: 0.8396226, g: 0.803987, b: 0.7247686, a: 1}
+  backBaseColor: {r: 0.8396226, g: 0.73268956, b: 0.81768763, a: 1}
+  floorEmissionColor: {r: 0.6337374, g: 0.7075472, b: 0.630785, a: 1}
+  frontEmissionColor: {r: 0.43609828, g: 0.46092233, b: 0.5283019, a: 1}
+  ceilingEmissionColor: {r: 0.6886792, g: 0.6297733, b: 0.5230064, a: 1}
+  backEmissionColor: {r: 0.5566038, g: 0.49096656, b: 0.5427854, a: 1}
+  preserveMaterialAlpha: 1

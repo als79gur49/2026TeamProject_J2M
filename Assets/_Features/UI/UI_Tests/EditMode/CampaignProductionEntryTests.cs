@@ -242,14 +242,14 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CompletedSlot_Continue_IsRejectedAtControllerLevel()
         {
-            var harness = CreateControllerHarness("stage-5-1");
+            var harness = CreateControllerHarness("stage-4-2");
             try
             {
                 harness.SaveStore.SaveSlot(new SaveSlotData
                 {
                     SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-5-1"),
-                    CurrentLevelGroupId = "level-5",
+                    CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
+                    CurrentLevelGroupId = "level-4",
                     CampaignCompleted = true,
                 });
 
@@ -267,14 +267,14 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CompletedSlot_RestartRequiresConfirm_AndOverwritesOnlyAfterConfirmed()
         {
-            var harness = CreateControllerHarness("stage-0-1", "stage-5-1");
+            var harness = CreateControllerHarness("stage-0-1", "stage-4-2");
             try
             {
                 harness.SaveStore.SaveSlot(new SaveSlotData
                 {
                     SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-5-1"),
-                    CurrentLevelGroupId = "level-5",
+                    CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
+                    CurrentLevelGroupId = "level-4",
                     CampaignCompleted = true,
                 });
 

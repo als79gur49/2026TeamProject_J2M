@@ -35,6 +35,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs";
         private const string StagePresentationDefinitionPath =
             "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs";
+        private const string StageWorldGuideInstructionPath =
+            "Assets/_Features/Stages/Runtime/Presentation/StageWorldGuideInstruction.cs";
         private const string TileFeatureAudioTypesPath =
             "Assets/_Features/Gameplay/Gameplay_TileFeatureAudio/Runtime/TileFeatureAudioTypes.cs";
         private const string GravityFieldPresentationRequestPlannerPath =
@@ -178,9 +180,9 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Projectile is not a blocker and is not destroyed.",
                 "Normal/non-Moon Box at the generator cell is detached/marked destroy before MoonBlock spawn.",
                 "`TickPipeline` does not execute visual/audio/UI.",
-                "DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, and valid same-cell Box occupants through explicit `FeatureActivatedUnderOccupant` activation-transition facts, not final snapshot scanning.",
-                "Persistent overlap with an already-active DestroyTile does not destroy stationary boxes.",
-                "A logical TileFeature activation transition may produce an occupant effect for a valid Box on the same `SurfaceCell`.",
+                "DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, and valid same-cell Box or lethal Ground Unit occupants through explicit `FeatureActivatedUnderOccupant` activation-transition facts, not final snapshot scanning.",
+                "Persistent overlap with an already-active DestroyTile does not destroy stationary occupants.",
+                "A logical TileFeature activation transition may produce an occupant effect for a valid Box or lethal Ground Unit on the same `SurfaceCell`; Air Unit hazard exceptions remain preserved.",
                 "Player-authored ordinary Move into an active DestroyTile is rejected during movement expansion using the topology-resolved destination cell.",
                 "DestroyTile is not a global traversal blocker; do not model it as runtime traversal, placement, or settlement blockage.",
                 "The player DestroyTile access guard applies only to voluntary player movement and does not apply to enemy, box, projectile, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.",
@@ -190,7 +192,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Topology relocation is not movement-derived entity contact.",
                 "A topology-caused logical feature activation may emit a separate activation-transition occupant fact.",
                 "Air units may have DestroyTile hazard lethal exceptions, but player voluntary access guards still block active DestroyTile destination or Free2D scoped blocker entry.",
-                "Unit targets are destroyed only when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection.",
+                "Unit targets are destroyed when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection, and lethal Ground Units are also destroyed when a topology-caused DestroyTile activation occurs under them.",
                 "Player and Enemy are both Unit targets; Player death presentation/audio is transported through `TickResult` presentation facts, not direct gameplay UI/audio calls.",
                 "DestroyTile v1 consumes movement-derived contacts and `FeatureActivatedUnderOccupant` facts; spawn, respawn, scripted relocation, projectile movement, and persistent overlap remain excluded.",
                 "Phase relocation, spawn/respawn, topology relocation, and projectile movement are not movement-derived DestroyTile contact sources in v1.",
@@ -734,6 +736,32 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(stagePresentationDefinitionSource, Does.Contain("VisualPrefab"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("SurfaceCellPresentationPose"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("TileFeatureAudio"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldGuideInstruction_RemainsPresentationOnly()
+        {
+            var stageDefinitionSource = File.ReadAllText(GetAbsolutePath(StageDefinitionPath));
+            var buildResultSource = File.ReadAllText(GetAbsolutePath(StageRuntimeBuildResultPath));
+            var stagePresentationDefinitionSource = File.ReadAllText(GetAbsolutePath(StagePresentationDefinitionPath));
+            var worldGuideSource = File.ReadAllText(GetAbsolutePath(StageWorldGuideInstructionPath));
+            var uiSources = Directory.GetFiles(GetAbsolutePath(UiRuntimePath), "*.cs", SearchOption.AllDirectories);
+
+            Assert.That(stageDefinitionSource, Does.Not.Contain("StageWorldGuide"));
+            Assert.That(buildResultSource, Does.Not.Contain("StageWorldGuide"));
+            Assert.That(stagePresentationDefinitionSource, Does.Contain("StageWorldGuideInstruction"));
+            Assert.That(worldGuideSource, Does.Contain("SurfaceCell"));
+            Assert.That(worldGuideSource, Does.Not.Contain("Vector2Int"));
+            Assert.That(worldGuideSource, Does.Not.Contain("WorldState"));
+            Assert.That(worldGuideSource, Does.Not.Contain("TickPipeline"));
+
+            for (var i = 0; i < uiSources.Length; i++)
+            {
+                var source = File.ReadAllText(uiSources[i]);
+                Assert.That(source, Does.Not.Contain("StageWorldGuide"), uiSources[i]);
+                Assert.That(source, Does.Not.Contain("WorldGuideInstructionView"), uiSources[i]);
+            }
         }
 
         [Test]

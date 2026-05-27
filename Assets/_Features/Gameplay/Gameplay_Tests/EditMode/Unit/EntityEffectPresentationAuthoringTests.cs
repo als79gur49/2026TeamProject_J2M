@@ -277,6 +277,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(driver, "amplitude", 0.5f);
                 PlayerViewPrefabTestUtility.SetSerializedField(driver, "frequencyHz", 1f);
 
+                Assert.That(driver, Is.InstanceOf<IEnemyVisualSemanticPresentationDriver>());
+
                 driver.CaptureBaseLocalPosition();
                 driver.Advance(0.25f);
                 AssertVector(targetObject.transform.localPosition, new Vector3(1f, 2f, 3.5f));

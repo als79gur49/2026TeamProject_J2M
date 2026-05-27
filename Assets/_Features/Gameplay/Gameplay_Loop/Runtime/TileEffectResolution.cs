@@ -615,7 +615,7 @@ namespace Game.Feature.Gameplay.Loop
                     var fact = orderedFacts[i];
                     if (fact.SourceKind != TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant ||
                         fact.FeatureKind != TileFeatureKind.Destroy ||
-                        fact.OccupantType != EntityType.Box ||
+                        !IsDestroyTileActivationOccupantType(fact.OccupantType) ||
                         fact.OccupantEntityId <= 0 ||
                         destroyedEntityIds.Contains(fact.OccupantEntityId) ||
                         !context.Snapshot.TryGetTileFeature(fact.FeatureTileId, out var tileFeature) ||
@@ -623,10 +623,9 @@ namespace Game.Feature.Gameplay.Loop
                         tileFeature.Cell != fact.FeatureCell ||
                         !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
                         !TileFeatureActivationQueries.IsActive(tileFeature, definition, context.Snapshot.Topology) ||
-                        !TryGetValidDestroyBoxTarget(
+                        !TryGetValidDestroyActivationOccupantTarget(
                             context.Snapshot,
-                            fact.OccupantEntityId,
-                            fact.FeatureCell,
+                            fact,
                             out var target))
                     {
                         continue;
@@ -647,6 +646,31 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static bool IsDestroyTileActivationOccupantType(EntityType type)
+        {
+            return type == EntityType.Box ||
+                   type == EntityType.Unit;
+        }
+
+        private static bool TryGetValidDestroyActivationOccupantTarget(
+            WorldSnapshot snapshot,
+            TileFeatureActivationOccupantFact fact,
+            out EntityState entity)
+        {
+            if (fact.OccupantType == EntityType.Box)
+            {
+                return TryGetValidDestroyBoxTarget(snapshot, fact.OccupantEntityId, fact.FeatureCell, out entity);
+            }
+
+            if (fact.OccupantType == EntityType.Unit)
+            {
+                return TryGetValidDestroyUnitTarget(snapshot, fact.OccupantEntityId, fact.FeatureCell, out entity);
+            }
+
+            entity = default;
+            return false;
         }
 
         private static void AddDestroyTileDestroy(
@@ -945,6 +969,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (snapshot.TryGetEntity(unitEntityId, out unit) &&
                 unit.type == EntityType.Unit &&
+                !IsActiveGlider(snapshot, unitEntityId) &&
                 TileFeatureHazardQueries.IsDestroyTileLethalForUnit(unit) &&
                 unit.position == contactCell &&
                 unit.boardPresence == EntityBoardPresence.Occupying &&
@@ -956,6 +981,12 @@ namespace Game.Feature.Gameplay.Loop
 
             unit = default;
             return false;
+        }
+
+        private static bool IsActiveGlider(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetEnemyGlideState(entityId, out var glideState) &&
+                   glideState.IsActive;
         }
 
         private static bool TryGetValidSlideTarget(

@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Shared.Audio;
 using NUnit.Framework;
@@ -62,6 +65,143 @@ namespace Game.Feature.Gameplay.Tests
         }
 
         [Test]
+        [Category("Core")]
+        public void Controller_StageClearVictory_StopsActiveWalkSteps_AndSuppressesHoldRefresh()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(map, (PlayerLocomotionAudioCue.WalkStep, scope.CreateBinding(definition)));
+            var playbackPort = new FakeGameplayAudioPlaybackPort();
+            var controller = new PlayerLocomotionAudioPresentationController(new GameplayPresentationStateStore());
+            controller.AttachRuntime(playbackPort, map);
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    1,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            Assert.That(playbackPort.Play2DCalls, Is.EqualTo(1));
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    2,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) },
+                    playerOutcomeSignals: new[]
+                    {
+                        new TickPlayerOutcomePresentationSignal(
+                            10,
+                            TickPlayerOutcomePresentationKind.StageClearVictory,
+                            sourceTileId: 30,
+                            sourceCell: new SurfaceCell(FaceId.Floor, 1, 0)),
+                    }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            controller.Update(0.2f);
+            Assert.That(playbackPort.Play2DCalls, Is.EqualTo(1));
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    3,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            controller.Update(0.2f);
+            Assert.That(playbackPort.Play2DCalls, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Controller_TerminalDeathAndRemovalSignals_DoNotRegisterWalkSteps()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(map, (PlayerLocomotionAudioCue.WalkStep, scope.CreateBinding(definition)));
+            var playbackPort = new FakeGameplayAudioPlaybackPort();
+            var controller = new PlayerLocomotionAudioPresentationController(new GameplayPresentationStateStore());
+            controller.AttachRuntime(playbackPort, map);
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    1,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) },
+                    playerDeathSignals: new[]
+                    {
+                        new TickPlayerDeathPresentationSignal(
+                            10,
+                            didDieThisTick: true,
+                            sourceEntityId: 20,
+                            fallbackFacing: Direction.Right,
+                            resolvedDamageSourceAvailable: true,
+                            damageAmountAtFatalHit: 1,
+                            deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse),
+                    }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    2,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) },
+                    playerDeathHoldSignals: new[]
+                    {
+                        new TickPlayerDeathHoldPresentationSignal(
+                            10,
+                            startTick: 1,
+                            eligibleTick: 3,
+                            remainingTicks: 1,
+                            startedThisTick: false),
+                    }),
+                stepIntervalSeconds: 0.2f);
+            controller.Update(0.2f);
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    3,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) },
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(
+                            10,
+                            TickVisibilityChangeKind.Remove,
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            new CubeTopologyState(FaceId.Floor),
+                            Direction.Right),
+                    }),
+                stepIntervalSeconds: 0.2f);
+            controller.Update(0.2f);
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    4,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) },
+                    entityExitSignals: new[]
+                    {
+                        new TickEntityExitPresentationSignal(
+                            10,
+                            TickEntityExitCause.Killed,
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            new CubeTopologyState(FaceId.Floor),
+                            Direction.Right,
+                            EntityType.Unit),
+                    }),
+                stepIntervalSeconds: 0.2f);
+            controller.Update(0.2f);
+
+            controller.RefreshSignals(
+                CreateTickResult(
+                    5,
+                    playerLocomotionSignals: new[] { CreateWalkLoopSignal(10) },
+                    finalEntities: new[] { CreatePlayerEntity(hp: 0) }),
+                stepIntervalSeconds: 0.2f);
+            controller.Update(0.2f);
+
+            Assert.That(playbackPort.Play2DCalls, Is.Zero);
+        }
+
+        [Test]
         public void Map_RejectsLoopingWalkDefinition()
         {
             using var scope = new TestAssetScope();
@@ -75,6 +215,78 @@ namespace Game.Feature.Gameplay.Tests
                 () => map.ValidateRequiredCuesOrThrow(PlayerLocomotionAudioCueCatalog.RequiredOneShotV1));
 
             Assert.That(exception.Message, Does.Contain("only allows one-shot definitions"));
+        }
+
+        private static TickPlayerLocomotionPresentationSignal CreateWalkLoopSignal(int entityId)
+        {
+            return new TickPlayerLocomotionPresentationSignal(
+                entityId,
+                shouldPlayWalkLoop: true,
+                moveMotionGeneratedThisTick: true,
+                waitingForNextMoveCadence: false,
+                Direction.Right);
+        }
+
+        private static EntityState CreatePlayerEntity(int hp = 3)
+        {
+            return new EntityState
+            {
+                entityId = 10,
+                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                hp = hp,
+                maxHp = 3,
+                teamId = 1,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Player,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                aiMode = EnemyAiMode.None,
+            };
+        }
+
+        private static TickResult CreateTickResult(
+            int tickIndex,
+            IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals = null,
+            IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
+            IEnumerable<TickPlayerDeathPresentationSignal> playerDeathSignals = null,
+            IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
+            IEnumerable<TickVisibilityChange> visibilityChanges = null,
+            IEnumerable<TickEntityExitPresentationSignal> entityExitSignals = null,
+            IEnumerable<EntityState> finalEntities = null)
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges ?? Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals ?? Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals ?? Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                playerDeathHoldSignals: playerDeathHoldSignals,
+                playerOutcomeSignals: playerOutcomeSignals);
+
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                finalEntities ?? Array.Empty<EntityState>(),
+                Array.Empty<string>(),
+                topology,
+                presentationData,
+                string.Empty,
+                TickTrace.Empty);
         }
 
         private static void SetEntries(

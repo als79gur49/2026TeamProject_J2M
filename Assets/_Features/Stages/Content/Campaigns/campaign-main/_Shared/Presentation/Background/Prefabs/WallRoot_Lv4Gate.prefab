@@ -67,7 +67,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -179,7 +179,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -291,7 +291,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -346,6 +346,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5509931155321288988}
   - component: {fileID: 8901890922811478456}
+  - component: {fileID: -736510001000000003}
   m_Layer: 0
   m_Name: WallRoot_Lv4Gate
   m_TagString: Untagged
@@ -400,6 +401,35 @@ MonoBehaviour:
   - TargetObject: {fileID: 4392502199624262760}
     FirstFace: 3
     SecondFace: 0
+--- !u!114 &-736510001000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8961267106798357042}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 736b5fb467ae49dabb4a91b9d5a42a45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  profile: {fileID: 11400000, guid: 7a8645923b8243f8bcc692d78e994d3c, type: 2}
+  noiseProfile: {fileID: 11400000, guid: c2c7e6b48e814b4fb556b9d81be1edab, type: 2}
+  targets:
+  - renderer: {fileID: 885211508276521787}
+    materialIndex: 0
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
+  - renderer: {fileID: 1893803993461863937}
+    materialIndex: 0
+    applyBaseColor: 1
+    baseColorPropertyName: _BaseColor
+    applyEmission: 1
+    emissionColorPropertyName: _EmissionColor
+    preserveAlpha: 1
 --- !u!1 &8987402735332919299
 GameObject:
   m_ObjectHideFlags: 0
@@ -467,7 +497,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 0f74a4d235cd7b945a7498859348d2b1, type: 2}
+  - {fileID: 2100000, guid: b7ed6462393d3c343b2e7100274567fa, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -590,6 +620,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 3deb1446557085d4e8505517450b2ed1, type: 3}
   m_PrefabInstance: {fileID: 975505489769015941}
   m_PrefabAsset: {fileID: 0}
+--- !u!23 &1893803993461863937 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: 3deb1446557085d4e8505517450b2ed1, type: 3}
+  m_PrefabInstance: {fileID: 975505489769015941}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1984243060469036991
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -663,6 +698,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3deb1446557085d4e8505517450b2ed1, type: 3}
+--- !u!23 &885211508276521787 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: 3deb1446557085d4e8505517450b2ed1, type: 3}
+  m_PrefabInstance: {fileID: 1984243060469036991}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2018681296388558932 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 3deb1446557085d4e8505517450b2ed1, type: 3}

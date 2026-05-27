@@ -1335,6 +1335,14 @@ MonoBehaviour:
   _crackLineColor: {r: 0.08, g: 0.02, b: 0.015, a: 0.78}
   _crackLineRevealDelaySeconds: 0.04
   _crackLineRevealDurationSeconds: 0.27
+  _crackShardFreshColor: {r: 1, g: 0.96, b: 0.84, a: 0.95}
+  _crackShardDecayColor: {r: 0.34, g: 0.21, b: 0.18, a: 0.92}
+  _crackShardDelaySeconds: 0.02
+  _crackShardDurationSeconds: 0.46
+  _crackShardFallDistance: 118
+  _crackShardInitialRise: 0
+  _crackShardFadeDelaySeconds: 0.2
+  _crackShardRotationDegrees: 120
   _useUnscaledTime: 1
 --- !u!114 &9177025413810036314
 MonoBehaviour:
@@ -2362,6 +2370,18 @@ PrefabInstance:
     - target: {fileID: 628964020994239588, guid: 245761631d578524998f497ddc213d24, type: 3}
       propertyPath: m_IsActive
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1167208488842706068, guid: 245761631d578524998f497ddc213d24, type: 3}
+      propertyPath: m_Color.b
+      value: 0.08495018
+      objectReference: {fileID: 0}
+    - target: {fileID: 1167208488842706068, guid: 245761631d578524998f497ddc213d24, type: 3}
+      propertyPath: m_Color.g
+      value: 0.103320405
+      objectReference: {fileID: 0}
+    - target: {fileID: 1167208488842706068, guid: 245761631d578524998f497ddc213d24, type: 3}
+      propertyPath: m_Color.r
+      value: 0.7830189
       objectReference: {fileID: 0}
     - target: {fileID: 1722165923144489846, guid: 245761631d578524998f497ddc213d24, type: 3}
       propertyPath: m_Name

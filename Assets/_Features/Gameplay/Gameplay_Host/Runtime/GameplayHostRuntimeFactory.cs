@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Host.UIAccess;
+using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
@@ -25,6 +26,7 @@ namespace Game.Feature.Gameplay.Host
     public static class GameplayHostRuntimeFactory
     {
         private const string BoardRootObjectName = "GameplayBoardRoot";
+        private const string WorldGuideRootObjectName = "WorldGuideRoot";
         private const string MissingGameplayAudioRuntimeInstallerMessage =
             "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
         private const string MissingTileFeatureAudioRuntimeInstallerMessage =
@@ -101,6 +103,10 @@ namespace Game.Feature.Gameplay.Host
             var initialSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
+            var initialPresentationData = BuildInitialPresentationData(
+                presentedInitialEntities,
+                configuration.InitialTopology,
+                initialTileFeatures);
 
             var inputBuffer = new TickInputBuffer();
             var bootstrapper = new GameplayBootstrapper(
@@ -139,7 +145,8 @@ namespace Game.Feature.Gameplay.Host
                         configuration.PlayerEntityId,
                         playerViewPrefab,
                         BuildEnemyViewPrefabs(configuration),
-                        BuildStaticViewPrefabs(configuration))
+                        BuildStaticViewPrefabs(configuration),
+                        configuration.EnemyInactiveVisualSettings)
                     : null);
             var viewBinder = new GameplayEntityViewBinder(viewRegistry, viewFactory);
             var tileFeaturePoseResolver = new BoardSurfaceCellPresentationPoseResolver(
@@ -174,7 +181,8 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationArchetypeRegistry,
                 configuration.EnemyPresentationCatalog,
                 configuration.EnemyPresentationBindings,
-                BuildTileFeatureVfxStyleBindings(configuration.TileFeaturePresentationBindings));
+                BuildTileFeatureVfxStyleBindings(configuration.TileFeaturePresentationBindings),
+                configuration.EnemyInactiveVisualSettings);
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             presenter.AttachTileFeatureVisualPoseSynchronizer(tileFeatureVisualPoseSynchronizer);
             AttachPresentationExtensions(hostObject, presenter);
@@ -208,9 +216,16 @@ namespace Game.Feature.Gameplay.Host
                 presenter.VisibleCubeBounds);
             var viewCamera = visualRuntime.ViewCamera;
             var viewCameraRig = visualRuntime.ViewCameraRig;
-
-            presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
             KeyboardBindingSettingsService.ApplySavedSettings(configuration.Actions);
+            AttachWorldGuidePresenter(
+                hostObject,
+                configuration,
+                boardSurfaceRenderer,
+                tileFeaturePoseResolver,
+                viewCamera,
+                boardRoot.transform);
+
+            presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology, initialPresentationData);
             inputHost.Initialize(
                 inputBuffer,
                 tickRunner,
@@ -224,6 +239,13 @@ namespace Game.Feature.Gameplay.Host
             var pauseService = new GameplayHostPauseService(inputHost);
             var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, tickRunner, inputHost, presenter, pauseService);
             var presentationBarrierTracker = new GameplayPresentationBarrierTracker();
+            var presentationFeed = new GameplayHostPresentationFeed(
+                inputHost,
+                presenter,
+                configuration.StageContentEntry,
+                configuration.StageCompletionProfileStore,
+                generalTimingProfile,
+                presentationBarrierTracker);
             var uiAccess = new GameplayHostUiAccessContext(
                 new GameplayHostCommandGateway(inputHost, admissionPolicy),
                 new GameplayQueryFacade(
@@ -235,14 +257,13 @@ namespace Game.Feature.Gameplay.Host
                         admissionPolicy,
                         configuration.CampaignChancesReadSource),
                     new GameplayHostObjectiveQuery(tickRunner, presentationBarrierTracker)),
-                new GameplayHostPresentationFeed(
-                    inputHost,
-                    presenter,
+                presentationFeed,
+                pauseService,
+                new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
+                CreateDebugCommandAccess(
                     configuration.StageContentEntry,
-                    configuration.StageCompletionProfileStore,
-                    generalTimingProfile,
-                    presentationBarrierTracker),
-                pauseService);
+                    presentationFeed,
+                    configuration.DebugStageLaunchConstraint));
 
             return new GameplayHostRuntimeContext(
                 boardRoot,
@@ -264,6 +285,26 @@ namespace Game.Feature.Gameplay.Host
                 playerRespawnTiming.RespawnDelayTicks);
         }
 
+        private static DebugCommandAccess CreateDebugCommandAccess(
+            StageContentEntry stageContentEntry,
+            GameplayHostPresentationFeed presentationFeed,
+            IDebugStageLaunchConstraint launchConstraint)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!DebugCommandBuildGate.IsRuntimeEnabled(UnityEngine.Application.isEditor, UnityEngine.Debug.isDebugBuild))
+            {
+                return DebugCommandAccess.Disabled;
+            }
+
+            var resolver = new CampaignDebugStageNavigationResolver(
+                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
+            return DebugCommandAccess.Enabled(
+                new GameplayHostDebugStageCommandPort(stageContentEntry, presentationFeed, resolver, launchConstraint));
+#else
+            return DebugCommandAccess.Disabled;
+#endif
+        }
+
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(
             GameplaySceneHostConfiguration configuration)
         {
@@ -271,6 +312,42 @@ namespace Game.Feature.Gameplay.Host
                 configuration?.EnemyPresentationCatalog,
                 configuration?.EnemyPresentationBindings,
                 nameof(GameplaySceneHostConfiguration));
+        }
+
+        private static void AttachWorldGuidePresenter(
+            GameObject hostObject,
+            GameplaySceneHostConfiguration configuration,
+            GameplayBoardSurfaceRenderer boardSurfaceRenderer,
+            ISurfaceCellPresentationPoseResolver poseResolver,
+            Camera viewCamera,
+            Transform boardRoot)
+        {
+            if (configuration.WorldGuideCatalog == null ||
+                configuration.WorldGuideInstructions == null ||
+                configuration.WorldGuideInstructions.Count == 0 ||
+                boardRoot == null)
+            {
+                return;
+            }
+
+            var root = boardRoot.Find(WorldGuideRootObjectName);
+            if (root == null)
+            {
+                var rootObject = new GameObject(WorldGuideRootObjectName);
+                root = rootObject.transform;
+                root.SetParent(boardRoot, worldPositionStays: false);
+            }
+
+            var presenter = hostObject.GetComponent<GameplayWorldGuidePresenter>() ??
+                            hostObject.AddComponent<GameplayWorldGuidePresenter>();
+            presenter.Initialize(
+                configuration.WorldGuideCatalog,
+                configuration.WorldGuideInstructions,
+                boardSurfaceRenderer,
+                poseResolver,
+                viewCamera,
+                root,
+                configuration.Actions);
         }
 
         private static void AttachPresentationExtensions(GameObject hostObject, GameplayTickViewPresenter presenter)
@@ -314,6 +391,43 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return result;
+        }
+
+        internal static InitialPresentationData BuildInitialPresentationData(
+            IReadOnlyList<EntityState> initialEntities,
+            CubeTopologyState initialTopology,
+            IReadOnlyList<TileFeatureState> initialTileFeatures)
+        {
+            if (initialEntities == null || initialEntities.Count == 0)
+            {
+                return InitialPresentationData.Empty;
+            }
+
+            var signals = new List<EntitySpawnPresentationSignal>();
+            for (var i = 0; i < initialEntities.Count; i++)
+            {
+                var entity = initialEntities[i];
+                if (!EntityRolePolicy.IsPlayerUnit(entity))
+                {
+                    continue;
+                }
+
+                signals.Add(
+                    new EntitySpawnPresentationSignal(
+                        entity.entityId,
+                        EntityPresentationKind.Player,
+                        EntitySpawnPresentationReason.InitialStageStart,
+                        entity.position,
+                        initialTopology,
+                        entity.facing,
+                        EntitySpawnPresentationSourceResolver.TryResolveEntranceSource(
+                            entity.position,
+                            initialTileFeatures)));
+            }
+
+            return signals.Count == 0
+                ? InitialPresentationData.Empty
+                : new InitialPresentationData(signals);
         }
 
         private static void InstantiateStageTileFeatureVisuals(

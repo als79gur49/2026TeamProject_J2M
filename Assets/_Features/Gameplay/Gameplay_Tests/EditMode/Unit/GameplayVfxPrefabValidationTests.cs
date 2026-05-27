@@ -14,6 +14,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab";
         private const string FrontFaceShieldWindupPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldWindupVfx.prefab";
+        private const string CommonEmptyHostPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Common/GameplayVfxCommonEmptyHost.prefab";
+        private const string EnemyDeathMotionPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyDeathMotionVfx.prefab";
+        private const string BoxDestroySmokePrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab";
+        private const string FlipImpactBurstPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FlipImpactBurstVfx.prefab";
+        private const string BoxSlideSolidStopPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxSlideSolidStopVfx.prefab";
+        private const string TileFeatureSliderActivatedPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab";
         private static readonly string[] ReservedHookPrefabPaths =
         {
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ImpactTransientBreakVfx.prefab",
@@ -88,6 +100,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(modelRootValidation.HasErrors, Is.False, $"{path}\n{string.Join("\n", modelRootValidation.Messages)}");
                 Assert.That(prefab.transform.Find(VfxPrefabValidationDiagnostics.ModelRootName), Is.Not.Null, path);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxPrefabInventory_ClassifiesCommonHostActualVisualAndPlaceholder()
+        {
+            var commonHost = AssetDatabase.LoadAssetAtPath<GameObject>(CommonEmptyHostPrefabPath);
+
+            Assert.That(commonHost, Is.Not.Null, CommonEmptyHostPrefabPath);
+            Assert.That(VfxPrefabValidationDiagnostics.HasPresentationVisualContent(commonHost), Is.False);
+
+            var guids = AssetDatabase.FindAssets("t:Prefab", new[] { GameplayVfxPrefabRoot });
+            Assert.That(guids, Is.Not.Empty);
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                Assert.That(prefab, Is.Not.Null, path);
+                Assert.That(
+                    VfxPrefabValidationDiagnostics.HasPresentationVisualContent(prefab),
+                    Is.True,
+                    $"{path} should classify as ActualVisualPrefab, not a host-only placeholder.");
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxPrefabInventory_DoesNotClassifyParticlePrefabAsPlaceholder()
+        {
+            var particlePrefabPaths = new[]
+            {
+                BoxDestroySmokePrefabPath,
+                FlipImpactBurstPrefabPath,
+                BoxSlideSolidStopPrefabPath,
+                TileFeatureSliderActivatedPrefabPath,
+            };
+
+            foreach (var path in particlePrefabPaths)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                Assert.That(prefab, Is.Not.Null, path);
+                Assert.That(prefab.GetComponentsInChildren<ParticleSystem>(true), Is.Not.Empty, path);
+                Assert.That(VfxPrefabValidationDiagnostics.HasPresentationVisualContent(prefab), Is.True, path);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxPrefabInventory_DoesNotClassifyEnemyDeathMotionAsPlaceholder()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyDeathMotionPrefabPath);
+
+            Assert.That(prefab, Is.Not.Null, EnemyDeathMotionPrefabPath);
+            Assert.That(prefab.GetComponentsInChildren<Renderer>(true), Is.Not.Empty);
+            Assert.That(VfxPrefabValidationDiagnostics.HasPresentationVisualContent(prefab), Is.True);
         }
 
         [Test]

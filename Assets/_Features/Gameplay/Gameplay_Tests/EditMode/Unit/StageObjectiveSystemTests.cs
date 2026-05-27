@@ -1355,8 +1355,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(objectiveCleared.TileFeatureKind, Is.EqualTo(TileFeatureKind.Exit));
             Assert.That(objectiveCleared.TargetEntityId, Is.Zero);
             Assert.That(clearedResult.ObjectiveResult.ClearedThisTick, Is.True);
+            var outcome = clearedResult.PresentationData.PlayerOutcomeSignals.Single();
+            Assert.That(outcome.EntityId, Is.EqualTo(10));
+            Assert.That(outcome.OutcomeKind, Is.EqualTo(TickPlayerOutcomePresentationKind.StageClearVictory));
+            Assert.That(outcome.SourceTileId, Is.EqualTo(100));
+            Assert.That(outcome.SourceCell, Is.EqualTo(exitCell));
             Assert.That(laterResult.PresentationData.TileEvents.Any(tileEvent =>
                 tileEvent.EventKind == TilePresentationEventKind.ExitObjectiveCleared), Is.False);
+            Assert.That(laterResult.PresentationData.PlayerOutcomeSignals, Is.Empty);
         }
 
         [Test]
@@ -1445,6 +1451,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(exitEntered.TileFeatureKind, Is.EqualTo(TileFeatureKind.Exit));
                 Assert.That(exitEntered.TargetEntityId, Is.EqualTo(10));
                 Assert.That(exitEntered.Direction, Is.EqualTo(Direction.None));
+                Assert.That(firstResult.PresentationData.PlayerOutcomeSignals.Single().OutcomeKind, Is.EqualTo(TickPlayerOutcomePresentationKind.StageClearVictory));
                 Assert.That(secondResult.PresentationData.TileEvents.Any(tileEvent =>
                     tileEvent.EventKind == TilePresentationEventKind.ExitEntered), Is.False);
             }
@@ -1847,10 +1854,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(tileEvent.SourceEntityId, Is.Zero);
                 Assert.That(tileEvent.OwnerEntityId, Is.Zero);
                 Assert.That(tileEvent.TeamId, Is.Zero);
+                Assert.That(result.PresentationData.PlayerOutcomeSignals, Is.Empty);
 
                 var nextResult = pipeline.RunTick(new TickInput(8));
 
                 Assert.That(nextResult.PresentationData.TileEvents, Is.Empty);
+                Assert.That(nextResult.PresentationData.PlayerOutcomeSignals, Is.Empty);
             }
             finally
             {

@@ -85,6 +85,8 @@ namespace Game.Feature.Stages
             IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides,
             TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
+            StageWorldGuideCatalog worldGuideCatalog,
+            IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions,
             string resultTitle,
             string resultSummaryText,
             string resultDetailText,
@@ -110,6 +112,8 @@ namespace Game.Feature.Stages
             BoardTileOverlayOverrides = CloneReadOnlyBoardTileOverlayOverrides(boardTileOverlayOverrides);
             TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
             TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
+            WorldGuideCatalog = worldGuideCatalog;
+            WorldGuideInstructions = CloneReadOnlyWorldGuideInstructions(worldGuideInstructions);
             SuppressedBaseTileCells = CloneReadOnlySurfaceCells(suppressedBaseTileCells);
             ResultTitle = resultTitle ?? string.Empty;
             ResultSummaryText = resultSummaryText ?? string.Empty;
@@ -155,6 +159,10 @@ namespace Game.Feature.Stages
 
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeatureBindings { get; }
 
+        public StageWorldGuideCatalog WorldGuideCatalog { get; }
+
+        public IReadOnlyList<StageWorldGuideInstructionResolved> WorldGuideInstructions { get; }
+
         public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
 
         public string ResultTitle { get; }
@@ -180,6 +188,23 @@ namespace Game.Feature.Stages
             }
 
             return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
+        }
+
+        private static IReadOnlyList<StageWorldGuideInstructionResolved> CloneReadOnlyWorldGuideInstructions(
+            IReadOnlyList<StageWorldGuideInstructionResolved> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<StageWorldGuideInstructionResolved>();
+            }
+
+            var instructions = new StageWorldGuideInstructionResolved[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                instructions[i] = source[i];
+            }
+
+            return new ReadOnlyCollection<StageWorldGuideInstructionResolved>(instructions);
         }
 
         private static IReadOnlyList<BoardTilePresentationOverride> CloneReadOnlyBoardTileOverrides(
@@ -302,6 +327,8 @@ namespace Game.Feature.Stages
             Array.Empty<BoardTileOverlayOverride>(),
             null,
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
+            null,
+            Array.Empty<StageWorldGuideInstructionResolved>(),
             string.Empty,
             string.Empty,
             string.Empty,
@@ -335,6 +362,8 @@ namespace Game.Feature.Stages
                 definition.BoardTileOverlayOverrides,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
+                definition.WorldGuideCatalog,
+                ResolveWorldGuideInstructions(definition.WorldGuideInstructions, definition),
                 definition.ResultTitle,
                 definition.ResultSummaryText,
                 definition.ResultDetailText,
@@ -376,6 +405,8 @@ namespace Game.Feature.Stages
                 definition.BoardTileOverlayOverrides,
                 definition.TileFeaturePresentationCatalog,
                 tileFeatureBindings,
+                definition.WorldGuideCatalog,
+                ResolveWorldGuideInstructions(definition.WorldGuideInstructions, definition),
                 definition.ResultTitle,
                 definition.ResultSummaryText,
                 definition.ResultDetailText,
@@ -464,6 +495,31 @@ namespace Game.Feature.Stages
             return overrides;
         }
 
+        public static StageWorldGuideInstruction[] ToAuthoringWorldGuideInstructions(
+            IReadOnlyList<StageWorldGuideInstructionResolved> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<StageWorldGuideInstruction>();
+            }
+
+            var instructions = new StageWorldGuideInstruction[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                instructions[i] = new StageWorldGuideInstruction(
+                    true,
+                    entry.GuideKey,
+                    entry.Cell,
+                    entry.LocalOffset,
+                    entry.HeightOffset,
+                    entry.FacingMode,
+                    entry.HideWhenFaceInactive);
+            }
+
+            return instructions;
+        }
+
         internal static EnemyPresentationBinding[] BuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)
         {
             var bindings = new List<EnemyPresentationBinding>();
@@ -540,6 +596,47 @@ namespace Game.Feature.Stages
             }
 
             return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
+        }
+
+        private static IReadOnlyList<StageWorldGuideInstructionResolved> ResolveWorldGuideInstructions(
+            IReadOnlyList<StageWorldGuideInstruction> source,
+            UnityEngine.Object context)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<StageWorldGuideInstructionResolved>();
+            }
+
+            var resolved = new List<StageWorldGuideInstructionResolved>();
+            for (var i = 0; i < source.Count; i++)
+            {
+                var instruction = source[i];
+                if (instruction == null || !instruction.Enabled)
+                {
+                    continue;
+                }
+
+                var guideKey = instruction.GuideKey;
+                if (string.IsNullOrEmpty(guideKey))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"Skipping StageWorldGuideInstruction[{i}] with an empty GuideKey.",
+                        context);
+                    continue;
+                }
+
+                resolved.Add(new StageWorldGuideInstructionResolved(
+                    guideKey,
+                    instruction.Cell,
+                    instruction.LocalOffset,
+                    instruction.HeightOffset,
+                    instruction.FacingMode,
+                    instruction.HideWhenFaceInactive));
+            }
+
+            return resolved.Count == 0
+                ? Array.Empty<StageWorldGuideInstructionResolved>()
+                : new ReadOnlyCollection<StageWorldGuideInstructionResolved>(resolved);
         }
 
         private static IReadOnlyList<TileFeaturePresentationResolvedBinding> ResolveTileFeatureBindings(

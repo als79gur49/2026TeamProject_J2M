@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
+        private static readonly int EmissionColorPropertyId = Shader.PropertyToID("_EmissionColor");
         private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
 
         [Test]
@@ -294,6 +295,107 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(target.DebugPlayBarricadeDeactivatedCount, Is.EqualTo(1));
                 Assert.That(target.DebugPlayBarricadeBlockedCount, Is.Zero);
                 Assert.That(target.DebugPlayBarricadeCrushedCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState()
+        {
+            var targetObject = new GameObject(nameof(BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState));
+
+            try
+            {
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, new SurfaceCell(FaceId.Front, 1, 1));
+
+                target.SetBarricadeActiveImmediate(true);
+                target.SetBarricadeActiveImmediate(true);
+                target.SetBarricadeActiveImmediate(false);
+                target.SetBarricadeActiveImmediate(false);
+
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle()
+        {
+            var rootObject = new GameObject(nameof(BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                var activeState = new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0);
+
+                target.SetBarricadeActiveImmediate(true);
+                controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
+                controller.RefreshContinuousStates(new[] { activeState });
+
+                Assert.That(target.DebugPlayBarricadeBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeActivatedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle()
+        {
+            var rootObject = new GameObject(nameof(BarricadeActivatedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                var activeState = new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0);
+
+                controller.PlayRequests(new[] { CreateBarricadeActivatedRequest(100, cell) });
+                controller.RefreshContinuousStates(new[] { activeState });
+
+                Assert.That(target.DebugPlayBarricadeActivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.Zero);
             }
             finally
             {
@@ -1493,6 +1595,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.EqualTo(Color.white));
             Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.EqualTo(Color.white));
             Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.EqualTo(1f));
         }
 
@@ -1503,6 +1606,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.Not.EqualTo(Color.white));
             Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.Not.EqualTo(Color.white));
+            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.Not.EqualTo(Color.white));
             Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.Not.EqualTo(1f));
         }
 

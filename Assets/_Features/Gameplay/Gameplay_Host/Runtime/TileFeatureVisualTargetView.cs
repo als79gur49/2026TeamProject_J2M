@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
+        private static readonly int EmissionColorPropertyId = Shader.PropertyToID("_EmissionColor");
         private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
 
         [SerializeField] private int tileId;
@@ -101,6 +102,7 @@ namespace Game.Feature.Gameplay.Host
         private int _debugPlayBarricadeCrushedCount;
         private int _debugPlayBarricadeActivatedCount;
         private int _debugPlayBarricadeDeactivatedCount;
+        private int _debugBarricadeActiveImmediateStatePlayCount;
         private int _debugPlayExitOpenedCount;
         private int _debugPlayExitEnteredCount;
         private bool _debugExitOpen;
@@ -118,6 +120,8 @@ namespace Game.Feature.Gameplay.Host
         private int _debugLastMoonBlockGeneratedEntityId;
         private MoonBlockGeneratorBlockedPayload _debugLastMoonBlockGeneratorBlockedPayload;
         private MaterialPropertyBlock _destroyTileMaterialPropertyBlock;
+        private bool _hasBarricadeActiveImmediateState;
+        private bool _lastBarricadeActiveImmediateState;
 
         public int TileId => tileId;
 
@@ -144,6 +148,8 @@ namespace Game.Feature.Gameplay.Host
         public int DebugPlayBarricadeActivatedCount => _debugPlayBarricadeActivatedCount;
 
         public int DebugPlayBarricadeDeactivatedCount => _debugPlayBarricadeDeactivatedCount;
+
+        internal int DebugBarricadeActiveImmediateStatePlayCount => _debugBarricadeActiveImmediateStatePlayCount;
 
         public int DebugPlayExitOpenedCount => _debugPlayExitOpenedCount;
 
@@ -195,6 +201,7 @@ namespace Game.Feature.Gameplay.Host
         {
             tileId = newTileId;
             cell = newCell;
+            ResetBarricadeActiveImmediateState();
         }
 
         internal void ConfigurePresentationRoot(Transform newPresentationRoot)
@@ -290,6 +297,7 @@ namespace Game.Feature.Gameplay.Host
             _debugPlayBarricadeBlockedCount++;
             _debugLastBarricadeBlockedDirection = direction;
             _debugLastBarricadeBlockedTargetEntityId = targetEntityId;
+            MarkBarricadeActiveImmediateState(active: true);
 
             if (animator != null &&
                 animator.runtimeAnimatorController != null &&
@@ -330,6 +338,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _debugPlayBarricadeActivatedCount++;
             SetAnimatorBool(barricadeActiveBoolName, true);
+            MarkBarricadeActiveImmediateState(active: true);
             SetAnimatorTrigger(barricadeActivatedTriggerName);
             barricadeActivatedPlayed?.Invoke();
         }
@@ -338,6 +347,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _debugPlayBarricadeDeactivatedCount++;
             SetAnimatorBool(barricadeActiveBoolName, false);
+            MarkBarricadeActiveImmediateState(active: false);
             SetAnimatorTrigger(barricadeDeactivatedTriggerName);
             barricadeDeactivatedPlayed?.Invoke();
         }
@@ -345,6 +355,14 @@ namespace Game.Feature.Gameplay.Host
         public void SetBarricadeActiveImmediate(bool active)
         {
             SetAnimatorBool(barricadeActiveBoolName, active);
+            if (_hasBarricadeActiveImmediateState &&
+                _lastBarricadeActiveImmediateState == active)
+            {
+                return;
+            }
+
+            MarkBarricadeActiveImmediateState(active);
+            _debugBarricadeActiveImmediateStatePlayCount++;
             PlayAnimatorStateIfPresent(active ? barricadeRaisedStateName : barricadeLoweredStateName);
         }
 
@@ -504,6 +522,7 @@ namespace Game.Feature.Gameplay.Host
                 targetRenderer.GetPropertyBlock(_destroyTileMaterialPropertyBlock);
                 _destroyTileMaterialPropertyBlock.SetColor(BaseColorPropertyId, destroyTileInactiveColor);
                 _destroyTileMaterialPropertyBlock.SetColor(ColorPropertyId, destroyTileInactiveColor);
+                _destroyTileMaterialPropertyBlock.SetColor(EmissionColorPropertyId, destroyTileInactiveColor);
                 _destroyTileMaterialPropertyBlock.SetFloat(MetallicPropertyId, destroyTileInactiveMetallic);
                 targetRenderer.SetPropertyBlock(_destroyTileMaterialPropertyBlock);
                 _destroyTileMaterialPropertyBlock.Clear();
@@ -587,6 +606,19 @@ namespace Game.Feature.Gameplay.Host
         {
             _debugExitOpen = open;
             SetAnimatorBool(exitOpenBoolName, open);
+        }
+
+        private void ResetBarricadeActiveImmediateState()
+        {
+            _hasBarricadeActiveImmediateState = false;
+            _lastBarricadeActiveImmediateState = false;
+            _debugBarricadeActiveImmediateStatePlayCount = 0;
+        }
+
+        private void MarkBarricadeActiveImmediateState(bool active)
+        {
+            _hasBarricadeActiveImmediateState = true;
+            _lastBarricadeActiveImmediateState = active;
         }
 
         private void PlayAnimatorStateIfPresent(string stateName)

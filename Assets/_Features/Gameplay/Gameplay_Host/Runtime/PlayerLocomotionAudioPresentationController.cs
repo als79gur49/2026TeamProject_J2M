@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Shared.Audio;
@@ -12,6 +14,8 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly Dictionary<int, ActiveWalkLoopState> _activeWalkLoopsByEntityId = new();
         private readonly HashSet<int> _refreshedActiveEntityIds = new();
+        private readonly HashSet<int> _stageClearSuppressedEntityIds = new();
+        private readonly HashSet<int> _terminalEntityIdsThisTick = new();
         private readonly GameplayPresentationStateStore _stateStore;
 
         private PlayerLocomotionAudioMap _audioMap;
@@ -31,11 +35,13 @@ namespace Game.Feature.Gameplay.Host
             _audioMap = audioMap ?? throw new ArgumentNullException(nameof(audioMap));
             _audioMap.ValidateRequiredCuesOrThrow(PlayerLocomotionAudioCueCatalog.RequiredOneShotV1);
             ClearActiveLoops();
+            ClearTerminalSuppression();
         }
 
         public void DetachRuntime()
         {
             ClearActiveLoops();
+            ClearTerminalSuppression();
             _audioMap = null;
             _playbackPort = null;
         }
@@ -43,6 +49,20 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             ClearActiveLoops();
+            ClearTerminalSuppression();
+        }
+
+        public void RefreshSignals(
+            TickResult result,
+            float stepIntervalSeconds)
+        {
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            RefreshTerminalSuppression(result);
+            RefreshSignals(result.PresentationData.PlayerLocomotionSignals, stepIntervalSeconds);
         }
 
         public void RefreshSignals(
@@ -61,7 +81,8 @@ namespace Game.Feature.Gameplay.Host
             {
                 var signal = signals[i];
                 if (signal.EntityId <= 0 ||
-                    !signal.ShouldPlayWalkLoop)
+                    !signal.ShouldPlayWalkLoop ||
+                    IsLocomotionSuppressed(signal.EntityId))
                 {
                     continue;
                 }
@@ -162,6 +183,91 @@ namespace Game.Feature.Gameplay.Host
         {
             _activeWalkLoopsByEntityId.Clear();
             _refreshedActiveEntityIds.Clear();
+        }
+
+        private void RefreshTerminalSuppression(TickResult result)
+        {
+            _terminalEntityIdsThisTick.Clear();
+
+            var presentationData = result.PresentationData;
+            var playerOutcomeSignals = presentationData.PlayerOutcomeSignals;
+            for (var i = 0; i < playerOutcomeSignals.Count; i++)
+            {
+                var signal = playerOutcomeSignals[i];
+                if (signal.EntityId <= 0 ||
+                    signal.OutcomeKind != TickPlayerOutcomePresentationKind.StageClearVictory)
+                {
+                    continue;
+                }
+
+                _stageClearSuppressedEntityIds.Add(signal.EntityId);
+                _terminalEntityIdsThisTick.Add(signal.EntityId);
+            }
+
+            var playerDeathSignals = presentationData.PlayerDeathSignals;
+            for (var i = 0; i < playerDeathSignals.Count; i++)
+            {
+                AddTerminalEntityThisTick(playerDeathSignals[i].EntityId);
+            }
+
+            var playerDeathHoldSignals = presentationData.PlayerDeathHoldSignals;
+            for (var i = 0; i < playerDeathHoldSignals.Count; i++)
+            {
+                AddTerminalEntityThisTick(playerDeathHoldSignals[i].EntityId);
+            }
+
+            var entityExitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < entityExitSignals.Count; i++)
+            {
+                AddTerminalEntityThisTick(entityExitSignals[i].ExitedEntityId);
+            }
+
+            var visibilityChanges = presentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (change.ChangeKind == TickVisibilityChangeKind.Remove)
+                {
+                    AddTerminalEntityThisTick(change.EntityId);
+                }
+            }
+
+            var finalEntities = result.FinalEntities;
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                if (entity.unitRole == UnitRole.Player &&
+                    (entity.hp <= 0 || entity.markedForDeath))
+                {
+                    AddTerminalEntityThisTick(entity.entityId);
+                }
+            }
+
+            foreach (var entityId in _terminalEntityIdsThisTick)
+            {
+                _activeWalkLoopsByEntityId.Remove(entityId);
+                _refreshedActiveEntityIds.Remove(entityId);
+            }
+        }
+
+        private void AddTerminalEntityThisTick(int entityId)
+        {
+            if (entityId > 0)
+            {
+                _terminalEntityIdsThisTick.Add(entityId);
+            }
+        }
+
+        private bool IsLocomotionSuppressed(int entityId)
+        {
+            return _stageClearSuppressedEntityIds.Contains(entityId) ||
+                   _terminalEntityIdsThisTick.Contains(entityId);
+        }
+
+        private void ClearTerminalSuppression()
+        {
+            _stageClearSuppressedEntityIds.Clear();
+            _terminalEntityIdsThisTick.Clear();
         }
 
         private struct ActiveWalkLoopState

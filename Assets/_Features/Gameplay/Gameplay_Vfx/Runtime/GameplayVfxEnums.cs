@@ -13,6 +13,28 @@ namespace Game.Feature.Gameplay.Vfx
         GravityField = 8,
     }
 
+    public enum GameplayVfxCleanupReason
+    {
+        Unknown = 0,
+        HostDefaultMapReconfigured = 1,
+        EnemyProfileFirstConfigure = 2,
+        EnemyProfileChanged = 3,
+        TopologyTransitionStarted = 4,
+        SessionReset = 5,
+        RuntimeDispose = 6,
+        ManualHardCleanup = 7,
+        FamilyProfilesReconfigured = 8,
+        AllGameplayVfxDisabled = 9,
+        ProjectorOrStateStoreChanged = 10,
+    }
+
+    public enum GameplayVfxCleanupScope
+    {
+        None = 0,
+        AllFamilies = 1,
+        EnemyFamily = 2,
+    }
+
     public enum PlayerVfxCue
     {
         Damage = 1,
@@ -102,6 +124,7 @@ namespace Game.Feature.Gameplay.Vfx
         ExitObjectiveCleared = 24,
         ExitOpenLoop = 25,
         ButtonVisibleLoop = 26,
+        EntranceSpawn = 27,
     }
 
     public enum GravityFieldVfxCue
@@ -192,6 +215,23 @@ namespace Game.Feature.Gameplay.Vfx
         Follow = 2,
         MotionTrack = 3,
         Decal = 4,
+    }
+
+    public enum VfxVisualSourceMode
+    {
+        // The authored prefab is the visual body. A null prefab is invalid and source view lookup is not required.
+        PrefabOnly = 0,
+        // A source view clone may be the primary visual path, while the authored prefab is a real fallback visual.
+        // ExplicitPrefabRequired keeps source-view and prefab diagnostics separate.
+        PrefabWithSourceClone = 1,
+        // The source view clone is the visual body. The cue prefab is optional when a common empty host is available.
+        SourceCloneMotion = 2,
+    }
+
+    public enum GameplayVfxHostRequirement
+    {
+        ExplicitPrefabRequired = 0,
+        CommonHostAllowed = 1,
     }
 
     public enum VfxStopPolicy

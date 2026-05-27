@@ -109,7 +109,7 @@ namespace Game.Feature.UI.Tests
         public void StageResultPayloadMapper_MapsCanonicalCampaignNextStageRequest()
         {
             var payload = StageResultPayloadMapper.Map(CreateReadModel("stage-1-1"));
-            var finalPayload = StageResultPayloadMapper.Map(CreateReadModel("stage-5-1"));
+            var finalPayload = StageResultPayloadMapper.Map(CreateReadModel("stage-4-2"));
 
             Assert.That(payload.NextStageRequest.IsValid, Is.True);
             Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));

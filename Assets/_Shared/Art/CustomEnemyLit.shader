@@ -35,9 +35,15 @@ Shader "Game/Enemy/CustomEnemyLit"
         _EmissionMap("Emission", 2D) = "white" {}
 
         _InactiveBlend("Inactive Blend", Range(0.0, 1.0)) = 0.0
+        _InactiveNoiseReveal("Inactive Noise Reveal", Range(0.0, 1.0)) = 0.0
         _DesaturateStrength("Desaturate Strength", Range(0.0, 1.0)) = 0.85
         _InactiveTint("Inactive Tint", Color) = (0.62, 0.64, 0.68, 1.0)
         _EmissionSuppression("Emission Suppression", Range(0.0, 1.0)) = 0.85
+        _InactiveNoiseMap("Inactive Noise Map", 2D) = "white" {}
+        _InactiveNoiseStrength("Inactive Noise Strength", Range(0.0, 1.0)) = 0.0
+        _InactiveNoiseScale("Inactive Noise Scale", Float) = 1.0
+        _InactiveNoiseEdgeWidth("Inactive Noise Edge Width", Range(0.0001, 1.0)) = 0.08
+        _InactiveNoiseThreshold("Inactive Noise Threshold", Range(0.0, 1.0)) = 0.5
 
         _DetailMask("Detail Mask", 2D) = "white" {}
         _DetailAlbedoMapScale("Scale", Range(0.0, 2.0)) = 1.0

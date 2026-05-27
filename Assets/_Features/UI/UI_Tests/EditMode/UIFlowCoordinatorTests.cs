@@ -714,7 +714,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_StageClearSystemPresentation_RemainsSilent_AndRecordsSingleSystemTrace()
+        public void UIFlowCoordinator_StageClearSystemPresentation_EmitsStageClear_AndRecordsSingleSystemTrace()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
@@ -738,10 +738,11 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
             Assert.That(popupController.Contains(PopupId.Reward), Is.True);
-            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageClear }));
             Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.SystemPresentation));
-            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
-            Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.SystemPresentationPolicy));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.StageClear));
+            Assert.That(coordinator.LastFlowAudioTrace.EmittedCueId, Is.EqualTo(UiAudioCueId.StageClear));
+            Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.None));
             Assert.That(
                 coordinator.LastFlowAudioTrace.Deltas,
                 Has.Some.Matches<UiFlowAudioDelta>(delta =>
@@ -813,6 +814,70 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void DebugForceClearResultOnly_WhenCanGoNextStageFalse_DisablesContinue()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinatorWithStageLaunchRouter(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out _,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            var readModel = WithDebugDisabledContinue(
+                CreateStageCompletionReadModel(tickIndex: 9, includeReward: false),
+                "Campaign active slot stage 'stage-0-1' does not match launch stage 'stage-0-2'.");
+
+            Assert.That(coordinator.RequestDebugStageResultOnly(readModel, StageNavigationRequest.None), Is.True);
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+            var payload = screenController.CurrentEntry.Value.Payload as StageResultScreenPayload;
+            Assert.That(payload, Is.Not.Null);
+            Assert.That(payload.IsContinueEnabled, Is.False);
+            Assert.That(payload.ContinueLabel, Is.EqualTo("Next stage unavailable"));
+            Assert.That(payload.ContinueStageRequest.IsValid, Is.False);
+            Assert.That(payload.NextStageRequest.IsValid, Is.False);
+            Assert.That(payload.DetailText, Does.Contain("Campaign active slot stage"));
+            Assert.That(stageLaunchRouter.Requests, Is.Empty);
+        }
+
+        [Test]
+        public void DebugForceClearResultOnly_ContinueDoesNotBypassDebugConstraint()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinatorWithStageLaunchRouter(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out _,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            var readModel = WithDebugDisabledContinue(
+                CreateStageCompletionReadModel(tickIndex: 9, includeReward: false),
+                "Debug next stage launch is unavailable.");
+
+            Assert.That(coordinator.RequestDebugStageResultOnly(readModel, StageNavigationRequest.None), Is.True);
+
+            var payload = screenController.CurrentEntry.Value.Payload as StageResultScreenPayload;
+            Assert.That(payload, Is.Not.Null);
+            Assert.That(payload.ContinueStageRequest.IsValid, Is.False);
+            Assert.That(payload.IsContinueEnabled, Is.False);
+            Assert.That(stageLaunchRouter.Requests, Is.Empty);
+        }
+
+        [Test]
         public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_WithoutRewardPopup()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -828,18 +893,22 @@ namespace Game.Feature.UI.Tests
                 mainMenuReturnRouter,
                 out var screenController,
                 out var popupController,
-                out _,
+                out var uiAudioPort,
                 out var stageLaunchRouter);
 
             coordinator.Initialize();
+            uiAudioPort.Clear();
 
             presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(
                 tickIndex: 9,
                 includeReward: true,
-                stageIdValue: "stage-5-1"));
+                stageIdValue: "stage-4-2"));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.GameClear }));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.GameClear));
+            Assert.That(coordinator.LastFlowAudioTrace.EmittedCueId, Is.EqualTo(UiAudioCueId.GameClear));
             Assert.That(screenController.CurrentEntry.HasValue, Is.True);
             Assert.That(screenController.CurrentEntry.Value.Payload, Is.TypeOf<GameClearScreenPayload>());
             var gameClearPayload = screenController.CurrentEntry.Value.Payload as GameClearScreenPayload;
@@ -870,11 +939,13 @@ namespace Game.Feature.UI.Tests
                 screenRuntimeFactory,
                 presentationSource,
                 out var screenController,
-                out var popupController);
+                out var popupController,
+                out var uiAudioPort);
 
             coordinator.Initialize();
             Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
             Assert.That(coordinator.RequestPausePopup(), Is.True);
+            uiAudioPort.Clear();
 
             var restartRequest = new StageNavigationRequest(
                 StageId.CreateOrThrow("stage-1-1"),
@@ -891,6 +962,9 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishLevelFailed(payload);
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.LevelFailed));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.LevelFailed }));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.LevelFailed));
+            Assert.That(coordinator.LastFlowAudioTrace.EmittedCueId, Is.EqualTo(UiAudioCueId.LevelFailed));
             Assert.That(screenController.BackStackCount, Is.EqualTo(0));
             Assert.That(popupController.PopupCount, Is.EqualTo(0));
             var records = screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.LevelFailed);
@@ -1253,6 +1327,23 @@ namespace Game.Feature.UI.Tests
                 evaluationResult,
                 rewardResult,
                 PlayerStageProgress.CreateEmpty(stageId));
+        }
+
+        private static StageCompletionReadModel WithDebugDisabledContinue(
+            StageCompletionReadModel readModel,
+            string unavailableReason)
+        {
+            return new StageCompletionReadModel(
+                readModel.StageId,
+                readModel.DisplayName,
+                readModel.ResultTitle,
+                readModel.ResultSummaryText,
+                $"DEBUG FORCED CLEAR{System.Environment.NewLine}NO SAVE / NO REWARD{System.Environment.NewLine}Next stage unavailable: {unavailableReason}",
+                "Next stage unavailable",
+                readModel.ClearResult,
+                readModel.ClearEvaluationResult,
+                readModel.RewardGrantResult,
+                readModel.UpdatedProgress);
         }
 
         private static string ReadPauseReturnModeName(UIFlowCoordinator coordinator)

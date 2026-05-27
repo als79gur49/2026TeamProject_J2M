@@ -17,7 +17,8 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            if (!IsDestroyTileLethalForUnit(actor))
+            if (!IsDestroyTileLethalForUnit(actor) ||
+                IsActiveGlider(snapshot, actor.entityId))
             {
                 return TileApproachRisk.Neutral;
             }
@@ -64,6 +65,12 @@ namespace Game.Feature.Gameplay.BoardState
 
             definition = default;
             return false;
+        }
+
+        private static bool IsActiveGlider(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetEnemyGlideState(entityId, out var glideState) &&
+                   glideState.IsActive;
         }
     }
 }

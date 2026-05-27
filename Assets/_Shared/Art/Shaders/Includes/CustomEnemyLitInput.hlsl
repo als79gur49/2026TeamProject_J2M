@@ -33,8 +33,13 @@ half _DetailAlbedoMapScale;
 half _DetailNormalMapScale;
 half _Surface;
 half _InactiveBlend;
+half _InactiveNoiseReveal;
 half _DesaturateStrength;
 half _EmissionSuppression;
+half _InactiveNoiseStrength;
+half _InactiveNoiseScale;
+half _InactiveNoiseEdgeWidth;
+half _InactiveNoiseThreshold;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
@@ -60,8 +65,13 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _DetailNormalMapScale)
     UNITY_DOTS_INSTANCED_PROP(float , _Surface)
     UNITY_DOTS_INSTANCED_PROP(float , _InactiveBlend)
+    UNITY_DOTS_INSTANCED_PROP(float , _InactiveNoiseReveal)
     UNITY_DOTS_INSTANCED_PROP(float , _DesaturateStrength)
     UNITY_DOTS_INSTANCED_PROP(float , _EmissionSuppression)
+    UNITY_DOTS_INSTANCED_PROP(float , _InactiveNoiseStrength)
+    UNITY_DOTS_INSTANCED_PROP(float , _InactiveNoiseScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _InactiveNoiseEdgeWidth)
+    UNITY_DOTS_INSTANCED_PROP(float , _InactiveNoiseThreshold)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 // Here, we want to avoid overriding a property like e.g. _BaseColor with something like this:
@@ -90,8 +100,13 @@ static float  unity_DOTS_Sampled_DetailAlbedoMapScale;
 static float  unity_DOTS_Sampled_DetailNormalMapScale;
 static float  unity_DOTS_Sampled_Surface;
 static float  unity_DOTS_Sampled_InactiveBlend;
+static float  unity_DOTS_Sampled_InactiveNoiseReveal;
 static float  unity_DOTS_Sampled_DesaturateStrength;
 static float  unity_DOTS_Sampled_EmissionSuppression;
+static float  unity_DOTS_Sampled_InactiveNoiseStrength;
+static float  unity_DOTS_Sampled_InactiveNoiseScale;
+static float  unity_DOTS_Sampled_InactiveNoiseEdgeWidth;
+static float  unity_DOTS_Sampled_InactiveNoiseThreshold;
 
 void SetupDOTSLitMaterialPropertyCaches()
 {
@@ -111,8 +126,13 @@ void SetupDOTSLitMaterialPropertyCaches()
     unity_DOTS_Sampled_DetailNormalMapScale = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DetailNormalMapScale);
     unity_DOTS_Sampled_Surface              = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _Surface);
     unity_DOTS_Sampled_InactiveBlend        = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _InactiveBlend);
+    unity_DOTS_Sampled_InactiveNoiseReveal  = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _InactiveNoiseReveal);
     unity_DOTS_Sampled_DesaturateStrength   = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DesaturateStrength);
     unity_DOTS_Sampled_EmissionSuppression  = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _EmissionSuppression);
+    unity_DOTS_Sampled_InactiveNoiseStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _InactiveNoiseStrength);
+    unity_DOTS_Sampled_InactiveNoiseScale    = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _InactiveNoiseScale);
+    unity_DOTS_Sampled_InactiveNoiseEdgeWidth = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _InactiveNoiseEdgeWidth);
+    unity_DOTS_Sampled_InactiveNoiseThreshold = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _InactiveNoiseThreshold);
 }
 
 #undef UNITY_SETUP_DOTS_MATERIAL_PROPERTY_CACHES
@@ -134,29 +154,60 @@ void SetupDOTSLitMaterialPropertyCaches()
 #define _DetailNormalMapScale   unity_DOTS_Sampled_DetailNormalMapScale
 #define _Surface                unity_DOTS_Sampled_Surface
 #define _InactiveBlend          unity_DOTS_Sampled_InactiveBlend
+#define _InactiveNoiseReveal    unity_DOTS_Sampled_InactiveNoiseReveal
 #define _DesaturateStrength     unity_DOTS_Sampled_DesaturateStrength
 #define _EmissionSuppression    unity_DOTS_Sampled_EmissionSuppression
+#define _InactiveNoiseStrength  unity_DOTS_Sampled_InactiveNoiseStrength
+#define _InactiveNoiseScale     unity_DOTS_Sampled_InactiveNoiseScale
+#define _InactiveNoiseEdgeWidth unity_DOTS_Sampled_InactiveNoiseEdgeWidth
+#define _InactiveNoiseThreshold unity_DOTS_Sampled_InactiveNoiseThreshold
 
 #endif
 
-void ApplyEnemyInactiveSurfaceData(inout SurfaceData surfaceData)
+TEXTURE2D(_InactiveNoiseMap);   SAMPLER(sampler_InactiveNoiseMap);
+
+half EnemyInactiveNoiseCoverage(float2 uv)
+{
+    half reveal = saturate(_InactiveNoiseReveal);
+    if (reveal <= half(0.0001))
+    {
+        return half(0.0);
+    }
+
+    half noise = SAMPLE_TEXTURE2D(
+        _InactiveNoiseMap,
+        sampler_InactiveNoiseMap,
+        uv * max(_InactiveNoiseScale, half(0.0001))).r;
+    half edge = max(_InactiveNoiseEdgeWidth, half(0.0001));
+    half progress = lerp(-edge, half(1.0) + edge, reveal);
+    half revealMask = smoothstep(noise - edge, noise + edge, progress);
+    half strength = saturate(_InactiveNoiseStrength);
+    half noiseMask = max(reveal * half(0.65), revealMask);
+    return lerp(reveal, noiseMask, strength);
+}
+
+void ApplyEnemyInactiveSurfaceData(inout SurfaceData surfaceData, float2 uv)
 {
     half inactiveBlend = saturate(_InactiveBlend);
-    if (inactiveBlend <= half(0.0001))
+    half noiseCoverage = EnemyInactiveNoiseCoverage(uv);
+    if (inactiveBlend <= half(0.0001) || noiseCoverage <= half(0.0001))
     {
         return;
     }
 
+    half inactiveMask = inactiveBlend * noiseCoverage;
+    half3 sourceAlbedo = surfaceData.albedo;
+    half3 sourceEmission = surfaceData.emission;
     half luminance = dot(surfaceData.albedo, half3(0.2126h, 0.7152h, 0.0722h));
     half3 grayscale = luminance.xxx;
     half3 inactiveTinted = lerp(grayscale, _InactiveTint.rgb, inactiveBlend * half(0.35));
-    half inactiveT = saturate(inactiveBlend * _DesaturateStrength);
+    half inactiveT = saturate(inactiveMask * _DesaturateStrength);
 
-    surfaceData.albedo = lerp(surfaceData.albedo, inactiveTinted, inactiveT);
+    surfaceData.albedo = lerp(sourceAlbedo, inactiveTinted, inactiveT);
     surfaceData.emission = lerp(
-        surfaceData.emission,
-        surfaceData.emission * (half(1.0) - _EmissionSuppression),
-        inactiveBlend);
+        sourceEmission,
+        sourceEmission * (half(1.0) - _EmissionSuppression),
+        inactiveMask);
 }
 
 TEXTURE2D(_ParallaxMap);        SAMPLER(sampler_ParallaxMap);
@@ -327,7 +378,7 @@ inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfa
     outSurfaceData.normalTS = ApplyDetailNormal(detailUv, outSurfaceData.normalTS, detailMask);
 #endif
 
-    ApplyEnemyInactiveSurfaceData(outSurfaceData);
+    ApplyEnemyInactiveSurfaceData(outSurfaceData, uv);
 }
 
 #endif // UNIVERSAL_INPUT_SURFACE_PBR_INCLUDED

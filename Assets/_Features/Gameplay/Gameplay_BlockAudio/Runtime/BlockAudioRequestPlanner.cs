@@ -87,10 +87,7 @@ namespace Game.Feature.Gameplay.BlockAudio
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                if (signal.StopperKind != BoxSlideStopperKind.SolidEntity ||
-                    signal.Cause != BoxSlideStopCause.SlidingContinuationBlocked ||
-                    signal.BoxEntityId <= 0 ||
-                    signal.StopperEntityId <= 0)
+                if (!IsBoxSlideCrashStopCandidate(signal))
                 {
                     continue;
                 }
@@ -104,6 +101,18 @@ namespace Game.Feature.Gameplay.BlockAudio
                         ownerEntityId: signal.BoxEntityId,
                         debugTag: BlockAudioCueCatalog.Format(BlockAudioCue.BoxSlideSolidStop))));
             }
+        }
+
+        private static bool IsBoxSlideCrashStopCandidate(in BoxSlideStopPresentationSignal signal)
+        {
+            if (signal.Cause != BoxSlideStopCause.SlidingContinuationBlocked ||
+                signal.BoxEntityId <= 0)
+            {
+                return false;
+            }
+
+            return (signal.StopperKind == BoxSlideStopperKind.SolidEntity && signal.StopperEntityId > 0) ||
+                   (signal.StopperKind == BoxSlideStopperKind.Barricade && signal.StopperTileId > 0);
         }
 
         private static void BuildBoxSlideStartedRequests(
@@ -170,6 +179,7 @@ namespace Game.Feature.Gameplay.BlockAudio
                 hash = (hash * 31) + tickIndex;
                 hash = (hash * 31) + signal.BoxEntityId;
                 hash = (hash * 31) + signal.StopperEntityId;
+                hash = (hash * 31) + signal.StopperTileId;
                 hash = (hash * 31) + (int)BlockAudioCue.BoxSlideSolidStop;
                 hash = (hash * 31) + signal.SourceCell.GetHashCode();
                 hash = (hash * 31) + signal.StopperCell.GetHashCode();

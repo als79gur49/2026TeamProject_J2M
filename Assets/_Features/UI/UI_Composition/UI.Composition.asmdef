@@ -4,6 +4,8 @@
   "references": [
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.DemoStageControl.Runtime",
+    "Game.Feature.DemoStageControl.UI",
     "Game.Feature.Stages",
     "Game.Shared.Audio",
     "Game.Shared.Display",
@@ -14,8 +16,10 @@
     "Game.Feature.UI.Screens",
     "Game.Feature.UI.Popups",
     "Game.Shared.Input",
+    "Game.Feature.Flow.Audio",
     "Unity.Cinemachine",
     "Unity.InputSystem",
+    "UnityEngine.VideoModule",
     "Unity.Splines",
     "Unity.TextMeshPro",
     "DOTween.Modules"

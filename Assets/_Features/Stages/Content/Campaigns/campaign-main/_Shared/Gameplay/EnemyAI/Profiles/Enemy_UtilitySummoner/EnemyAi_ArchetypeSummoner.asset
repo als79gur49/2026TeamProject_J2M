@@ -16,3 +16,4 @@ MonoBehaviour:
   brainAuthoring: {fileID: 11400000, guid: f0a1b2c3d4e54f678901abcdef123456, type: 2}
   capabilityAssets:
   - {fileID: 11400000, guid: 44788e5c202648d0bae1e8b5be647816, type: 2}
+  - {fileID: 11400000, guid: bf094ca1fd8f4a378e18159ddaf0d4f0, type: 2}

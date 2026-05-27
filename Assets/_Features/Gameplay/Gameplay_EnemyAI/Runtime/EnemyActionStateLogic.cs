@@ -138,6 +138,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.hp <= 0 ||
                 source.markedForDeath ||
+                source.boardPresence != EntityBoardPresence.Occupying ||
                 source.aiMode == EnemyAiMode.Dead)
             {
                 return EnemyActionQueries.Clear(workingAction);
@@ -164,6 +165,7 @@ namespace Game.Feature.Gameplay.Entities
                         workingAction.executeTick <= tickIndex)
                     {
                         var releasedAction = CommitForwardCellProjectileRelease(
+                            source,
                             workingAction,
                             writeContext,
                             tickIndex);
@@ -171,9 +173,10 @@ namespace Game.Feature.Gameplay.Entities
                         return releasedAction;
                     }
 
-                    if (source.facing != workingAction.direction)
+                    var authoritativeFacing = EnemyActionQueries.ResolveAuthoritativeFacing(workingAction);
+                    if (source.facing != authoritativeFacing)
                     {
-                        writeContext.SetFacing(_entityId, workingAction.direction);
+                        writeContext.SetFacing(_entityId, authoritativeFacing);
                     }
 
                     return workingAction;
@@ -287,10 +290,17 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         private EnemyActionRuntimeState CommitForwardCellProjectileRelease(
+            in EntityState source,
             in EnemyActionRuntimeState action,
             IEnemyActionCommitContext writeContext,
             int tickIndex)
         {
+            var authoritativeFacing = EnemyActionQueries.ResolveAuthoritativeFacing(action);
+            if (source.facing != authoritativeFacing)
+            {
+                writeContext.SetFacing(_entityId, authoritativeFacing);
+            }
+
             if (!action.hasLockedForwardCellImpact)
             {
                 return EnemyActionQueries.MarkExecutionAttempted(action, tickIndex);
@@ -606,7 +616,7 @@ namespace Game.Feature.Gameplay.Entities
             target = default;
 
             if (!snapshot.TryGetEntity(actionState.lockedTargetEntityId, out target) ||
-                !IsValidLockedTarget(snapshot, source, target, detectionSettings) ||
+                !IsValidLockedTargetForCurrentAction(snapshot, source, target, detectionSettings) ||
                 !attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings))
             {
                 target = default;
@@ -659,7 +669,17 @@ namespace Game.Feature.Gameplay.Entities
             return source.facing;
         }
 
-        private static bool IsValidLockedTarget(
+        public static bool IsLockedTargetValidForCurrentAction(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyActionRuntimeState actionState,
+            in DetectionSettings detectionSettings)
+        {
+            return snapshot.TryGetEntity(actionState.lockedTargetEntityId, out var target) &&
+                   IsValidLockedTargetForCurrentAction(snapshot, source, target, detectionSettings);
+        }
+
+        private static bool IsValidLockedTargetForCurrentAction(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,

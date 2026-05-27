@@ -183,6 +183,7 @@ MonoBehaviour:
   _routeConfig: {fileID: 11400000, guid: 610a3d54d20a4aad80ceecaee720675b, type: 2}
   _stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   _campaignStageSequenceDefinition: {fileID: 11400000, guid: bdeaa9a608b8dde4b6d0192853f857b0, type: 2}
+  _slotCinematicDefinition: {fileID: 11400000, guid: 8729fd4ab5964d5695e76381ad9fd3cf, type: 2}
   _settingsPreviewTimeoutSeconds: 15
   _installOnStart: 1
 --- !u!114 &1003
@@ -771,6 +772,63 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!1001 &567304427
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1319328288112166709, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_Name
+      value: _Post
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 2.569
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -13.30868
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399367079631802510, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 458b6f1ea31f0344ab41d14e65b11998, type: 3}
 --- !u!1 &1372915015
 GameObject:
   m_ObjectHideFlags: 0
@@ -968,8 +1026,8 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
-  m_Antialiasing: 0
+  m_RenderPostProcessing: 1
+  m_Antialiasing: 2
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -1109,3 +1167,4 @@ SceneRoots:
   - {fileID: 1532497998}
   - {fileID: 1654321001}
   - {fileID: 458389034}
+  - {fileID: 567304427}

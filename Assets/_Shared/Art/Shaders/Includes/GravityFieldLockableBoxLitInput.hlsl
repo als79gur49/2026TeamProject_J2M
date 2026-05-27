@@ -41,6 +41,7 @@ half _GravityFieldLockReveal;
 half _GravityFieldLockEdgeWidth;
 half _GravityFieldDimFactor;
 half _GravityFieldTintStrength;
+half _GravityFieldEmissionSuppression;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
@@ -74,6 +75,7 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldLockEdgeWidth)
     UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldDimFactor)
     UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldTintStrength)
+    UNITY_DOTS_INSTANCED_PROP(float , _GravityFieldEmissionSuppression)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 // Here, we want to avoid overriding a property like e.g. _BaseColor with something like this:
@@ -110,6 +112,7 @@ static float  unity_DOTS_Sampled_GravityFieldLockReveal;
 static float  unity_DOTS_Sampled_GravityFieldLockEdgeWidth;
 static float  unity_DOTS_Sampled_GravityFieldDimFactor;
 static float  unity_DOTS_Sampled_GravityFieldTintStrength;
+static float  unity_DOTS_Sampled_GravityFieldEmissionSuppression;
 
 void SetupDOTSLitMaterialPropertyCaches()
 {
@@ -137,6 +140,7 @@ void SetupDOTSLitMaterialPropertyCaches()
     unity_DOTS_Sampled_GravityFieldLockEdgeWidth = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldLockEdgeWidth);
     unity_DOTS_Sampled_GravityFieldDimFactor = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldDimFactor);
     unity_DOTS_Sampled_GravityFieldTintStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldTintStrength);
+    unity_DOTS_Sampled_GravityFieldEmissionSuppression = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _GravityFieldEmissionSuppression);
 }
 
 #undef UNITY_SETUP_DOTS_MATERIAL_PROPERTY_CACHES
@@ -166,6 +170,7 @@ void SetupDOTSLitMaterialPropertyCaches()
 #define _GravityFieldLockEdgeWidth unity_DOTS_Sampled_GravityFieldLockEdgeWidth
 #define _GravityFieldDimFactor  unity_DOTS_Sampled_GravityFieldDimFactor
 #define _GravityFieldTintStrength unity_DOTS_Sampled_GravityFieldTintStrength
+#define _GravityFieldEmissionSuppression unity_DOTS_Sampled_GravityFieldEmissionSuppression
 
 #endif
 
@@ -194,6 +199,10 @@ void ApplyGravityFieldLockedSurfaceData(inout SurfaceData surfaceData, float2 uv
     half mask = lockedWeight * reveal;
 
     surfaceData.albedo = lerp(surfaceData.albedo, tintedColor, mask);
+    surfaceData.emission = lerp(
+        surfaceData.emission,
+        surfaceData.emission * (half(1.0) - saturate(_GravityFieldEmissionSuppression)),
+        mask);
 }
 
 void ApplyEnemyInactiveSurfaceData(inout SurfaceData surfaceData)

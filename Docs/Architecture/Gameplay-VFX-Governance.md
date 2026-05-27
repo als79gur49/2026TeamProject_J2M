@@ -34,6 +34,16 @@ Family-specific planners are:
 
 The family planners preserve domain-specific presentation facts and translate them into common request values. They must not collapse gameplay domains into a generic string dispatcher.
 
+## Runtime Diagnostics Boundary
+
+`Gameplay_Vfx/Runtime` owns Unity-object-free VFX request, planning, binding, and lifecycle contracts. Core source guards scan this folder for authority/runtime boundary tokens, including `WorldState`, `WorldSnapshot`, `TickPipeline`, `GameObject`, `Renderer`, `MonoBehaviour`, and `ParticleSystem`.
+
+Dedicated Gameplay VFX lifetime trace adapters are removed. Cue identity should stay explicit in request, binding, policy, and runtime diagnostic values instead of flowing through a trace formatter.
+
+`Gameplay_VfxHost/Runtime` may still report bounded runtime diagnostics such as missing binding, missing source view, missing prefab, unavailable common host, and invalid playback policy. Those diagnostics must remain presentation-only and must not mutate authoritative simulation state.
+
+This keeps the core source guard focused on core VFX contracts while avoiding a separate lifetime trace path.
+
 ## Non-Goals For This Phase
 
 - No production playback connection.
@@ -61,9 +71,241 @@ Guard phrase: existing presenter migration is a future slice.
 
 The non-particle Gameplay VFX prefab authoring was removed for mesh-only or empty default host bindings. Cue ids, planners, feature flags, and runtime diagnostic/no-op behavior remain in place. The removed default authoring must not be treated as a cue sunset.
 
-Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, BoxDestroyShrink, ItemConsume, FlipDestroySelfMotion, FlipImpactStayTrail, reserved OutOfBounds/ImpactTransientBreak, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
+Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, ItemConsume, FlipImpactStayTrail, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
+
+`BoxDestroyShrink`, `FlipDestroySelfMotion`, `ImpactTransientBreak`, and OutOfBounds exit now keep host-default bindings as `SourceCloneMotion` cues with null cue prefabs and common empty host fallback.
 
 `EnemyDeathMotionVfx`, `EnemyDeathMotion_Binding.asset`, `TileFeatureDestroyLaserActiveRedVfx`, and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
+
+## Visual Source Modes
+
+### PrefabOnly
+
+- the authored prefab is the visual body.
+- prefab is required; a null prefab is invalid and reports `MissingPrefab`.
+- source view lookup is not required.
+- examples include particle/contact prefab cues.
+
+### SourceCloneMotion
+
+- the source view clone is the visual body.
+- the cue prefab is optional when the binding allows a common empty host.
+- null cue prefab plus `CommonHostAllowed` uses the common empty host and must not report `MissingPrefab`.
+- missing source view reports `MissingSourceView` and no-ops.
+- missing common empty host reports `CommonHostUnavailable`.
+- examples: `BoxVfxCue.DestroyShrink`, `BoxVfxCue.FlipDestroySelfMotion`, `BoxVfxCue.ImpactTransientBreak`, `BoxVfxCue.OutOfBoundsExit`, and `EnemyVfxCue.OutOfBoundsExit`.
+
+### PrefabWithSourceClone
+
+- the source view clone may be the primary visual path.
+- the authored prefab is a real fallback visual, not only an empty host.
+- fallback prefab required policy means a null prefab is invalid and reports `MissingPrefab`.
+- missing source view reports `MissingSourceView`; if the fallback prefab is present, playback can degrade to the fallback prefab path.
+- source view missing and prefab missing diagnostics must remain separate.
+- example: `EnemyVfxCue.DeathMotion`.
+
+## Placeholder Prefab Policy
+
+### SourceCloneMotion
+
+- source view clone is the visual body.
+- cue-specific placeholder prefabs must not be created for `SourceCloneMotion`.
+- the prefab field may be null; null prefab is normal and must not warn or fail.
+- host resolution uses `GameplayVfxCommonEmptyHost.prefab` when `CommonHostAllowed` is set.
+- cue-specific empty prefabs left from older authoring are legacy residue and removal candidates only after reference scan.
+- if a `SourceCloneMotion` binding references a host-only prefab, authoring reports a governance warning.
+- if a `SourceCloneMotion` binding references an actual visual prefab, authoring reports a governance warning because `PrefabWithSourceClone` or `PrefabOnly` may be the correct mode.
+
+### Common Host
+
+- `GameplayVfxCommonEmptyHost.prefab` is deletion-protected.
+- the prefab intentionally has no renderer or particle content.
+- it is still required as the runtime pool/host owner for common-host SourceCloneMotion playback.
+- cue identity stays in binding, policy, and diagnostics, not in a cue-specific host prefab.
+
+### PrefabWithSourceClone
+
+- authored prefab is retained when it is a real fallback visual.
+- `EnemyDeathMotionVfx.prefab` is a fallback visual and must not be deleted.
+- `EnemyVfxCue.DeathMotion` keeps `PrefabWithSourceClone` plus `ExplicitPrefabRequired`.
+
+### PrefabOnly
+
+- authored prefab is the visual body.
+- null prefab is invalid and reports `MissingPrefab`.
+- particle/contact visual prefabs are actual visual prefabs, not placeholders.
+- `BoxDestroySmokeVfx.prefab`, `FlipImpactBurstVfx.prefab`, and `BoxSlideSolidStopVfx.prefab` are deletion-protected actual visual examples.
+
+### Cleanup Rules
+
+- host-only cue-specific placeholders are removal candidates.
+- actual visual prefabs are not removed in placeholder cleanup.
+- do not delete an asset without binding, default cue map, runtime, test, scene, and GUID reference scans.
+- do not revive old transient or particle fallback paths during placeholder cleanup.
+
+### P2-1 Prefab Inventory Snapshot
+
+Default cue map references are through binding assets, not direct prefab GUIDs.
+
+| prefab path | classification | referenced by binding | referenced by default cue map | visual content | action | risk |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Gameplay_VfxHost/Runtime/Common/GameplayVfxCommonEmptyHost.prefab` | CommonHostPrefab | no | no | no | keep; common SourceCloneMotion host | scene/runtime installer dependency |
+| `Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | PrefabOnly contact visual |
+| `Gameplay_Vfx/Prefabs/FlipImpactBurstVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | PrefabOnly contact visual |
+| `Gameplay_Vfx/Prefabs/BoxSlideSolidStopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | PrefabOnly contact visual |
+| `Gameplay_Vfx/Prefabs/EnemyDeathMotionVfx.prefab` | ActualVisualPrefab | yes | via binding | mesh renderer shards | keep | PrefabWithSourceClone fallback visual |
+| `Gameplay_Vfx/Prefabs/BoxSlideSparkFollowVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | attached follower visual |
+| `Gameplay_Vfx/Prefabs/ChargeBoosterTrailVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | attached follower visual |
+| `Gameplay_Vfx/Prefabs/EnemyGravityFieldAuraActiveAreaVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | aura visual |
+| `Gameplay_Vfx/Prefabs/EnemyUtilityCooldownAuraVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | aura visual |
+| `Gameplay_Vfx/Prefabs/EnemyUtilitySummonSpawnVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | spawn visual |
+| `Gameplay_Vfx/Prefabs/ForwardCellAttackCooldownFollowVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | projectile cooldown visual |
+| `Gameplay_Vfx/Prefabs/ForwardCellImpactVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | projectile impact visual |
+| `Gameplay_Vfx/Prefabs/ForwardCellProjectileFlightVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | projectile flight visual |
+| `Gameplay_Vfx/Prefabs/GlideRecoverLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy follower visual |
+| `Gameplay_Vfx/Prefabs/GlideWindTrailVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy follower visual |
+| `Gameplay_Vfx/Prefabs/GlideWindupLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | enemy windup visual |
+| `Gameplay_Vfx/Prefabs/GravityField_ActiveAreaVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | gravity field visual |
+| `Gameplay_Vfx/Prefabs/JumperJumpStartVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | jumper visual |
+| `Gameplay_Vfx/Prefabs/JumperLandingDustVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | jumper contact visual |
+| `Gameplay_Vfx/Prefabs/JumperLandingTargetVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | target marker visual |
+| `Gameplay_Vfx/Prefabs/TileFeatureDestroyLaserActiveBlueVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | laser visual |
+| `Gameplay_Vfx/Prefabs/TileFeatureDestroyLaserActiveRedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | laser visual |
+| `Gameplay_Vfx/Prefabs/TileFeatureDestroySparkVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | destroy visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ButtonActivatedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ButtonVisibleLoop_GreenVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button loop visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ButtonVisibleLoop_YellowVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button loop visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_EntranceSpawn_Vfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | entrance visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ExitObjectiveClearedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | objective visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ExitOpenLoopVfx.prefab` | ActualVisualPrefab | yes | via binding | particle and mesh renderer | keep | exit loop visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_ExitOpenedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | exit visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_MoonBlockButtonActivatedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_SlideTileRedirectedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | slide-tile redirect visual |
+| `Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab` | ActualVisualPrefab | no | no | particle | document; do not delete in P2-1 | unreferenced visual asset needs separate owner review |
+
+### TileFeature EntranceSpawn Lifetime Policy
+
+`TileFeatureVfxCue.EntranceSpawn` is a `PrefabOnly` one-shot cue. The authored prefab is the visual body, so it keeps `ExplicitPrefabRequired` and must not depend on SourceCloneMotion, a source view clone, or the common empty host path.
+
+`TileFeature_EntranceSpawn_Binding.asset` keeps `VfxStopPolicy.AuthoredDuration`, `defaultLifetimeSeconds = 5`, and `tailSeconds = 5`. The five-second active lifetime is intentional for the current authored prefab because `TileFeature_EntranceSpawn_Vfx.prefab` contains a five-second particle system (`HolyMuzzle`). Shorter child particle systems, including the 0.6 second spark trail, are sub-effects and are not the cue-level release policy.
+
+## ADR: SourceCloneMotion Host Strategy
+
+### Context
+
+`SourceCloneMotion` cues use a cloned source view as the visual body. Cue-specific placeholder prefabs were removed or documented as legacy residue, and the five current host-default `SourceCloneMotion` bindings keep null cue prefabs with `CommonHostAllowed`.
+
+Current playback path:
+
+```text
+binding prefab null
+  -> SourceCloneMotion + CommonHostAllowed
+  -> commonEmptyHostPrefab resolve
+  -> GameplayVfxGameObjectPool lease
+  -> source view clone child
+  -> parameterized motion playback
+  -> lifetime/tail cleanup
+  -> source clone cleanup + host release
+```
+
+### Decision
+
+Keep `GameplayVfxCommonEmptyHost.prefab` as the default and required common host for `SourceCloneMotion`. Do not implement a runtime-created host path in P2-2.
+
+Runtime-created hosts remain a documented future extension only. They must not be used as an implicit fallback when the common host prefab is missing, because that would weaken `CommonHostUnavailable` and hide installer/setup defects.
+
+### Current Responsibility Matrix
+
+| responsibility | current owner | common host path behavior | runtime-created host impact | risk |
+| --- | --- | --- | --- | --- |
+| pool key | `GameplayVfxGameObjectPool` | prefab instance id keys pooled host storage | needs cue, policy, or host-type key without a prefab id | high |
+| initial pool size | binding authoring | stored on binding; no broad runtime prewarm path depends on a new host kind | needs new prewarm semantics for prefab-less hosts | medium |
+| max concurrency | `VfxBindingRuntimePolicy` / pool | enforced per cue id, so shared common prefab does not merge cue limits | must preserve cue-level limits separate from any global host pool | medium |
+| lifetime/tail | playback handle and pooled instance | command duration plus binding tail releases host after cleanup | factory objects need identical tail and release state | high |
+| scene parent | runtime root | active hosts use `OneShotRoot`, pooled hosts use `PoolRoot`, detached tails use `TailRoot` | factory must define parent, active, pooled, tail, and unload ownership | high |
+| transform reset | pooled instance | reset on activate and deactivate | factory path must duplicate reset guarantees | medium |
+| diagnostics | pool/runtime | `MissingSourceView`, `CommonHostUnavailable`, `MissingPrefab`, and `InvalidPlaybackModePolicy` stay distinct | needs new runtime-host diagnostics without changing `MissingPrefab` meaning | high |
+| host release | pool | `ReleaseInternal` returns host to prefab-keyed stack | release mismatch handling needed for prefab-less hosts | high |
+| source clone cleanup | pooled instance | clone child is destroyed before host returns to pool | ownership boundary must remain clone VFX cleanup, not original view cleanup | high |
+| editor/authoring validation | binding diagnostics | null prefab is valid only for `SourceCloneMotion + CommonHostAllowed` | `RuntimeHostAllowed` would add another policy branch | medium |
+| asset governance | governance doc and tests | one deletion-protected common host asset replaces cue-specific placeholders | removes one asset but adds factory/pool governance | low benefit |
+
+### Model Comparison
+
+| model | advantage | disadvantage | pool impact | diagnostics impact | test cost | final judgment |
+| --- | --- | --- | --- | --- | --- | --- |
+| A. common empty host prefab | compatible with current prefab-keyed pool, stable hierarchy, Unity-serializable setup, one governed host asset | keeps one empty prefab asset | no pool-key issue for current requirements | current diagnostics stay clear | low | keep |
+| B. runtime-created host factory | can theoretically remove the common host asset | new object creation, parent, reset, release, and setup-defect rules | prefab key disappears; cue/policy/host key needed | needs runtime-host failure codes and must not blur `MissingPrefab` | high | defer |
+| C. runtime-created host pool | avoids per-play new/destroy | adds parallel host pool and key scheme | requires broader pool redesign or a prefab-less key layer | needs pool exhaustion and release mismatch diagnostics | high | defer |
+
+### Rationale
+
+- The current common host path satisfies the present `SourceCloneMotion` requirements with one governed asset instead of cue-specific placeholders.
+- The pool stores available/all instances by prefab instance id, while max concurrency is enforced by cue id. Sharing one common host prefab therefore has no current pool-key issue.
+- `CommonHostUnavailable` is a precise setup diagnostic. A runtime-created fallback would make missing common host setup less visible.
+- Runtime-created hosts would require new ownership rules for scene parenting, cleanup, transform reset, release mismatch, and scene unload behavior.
+- The reduced asset cost is only one common prefab, while the implementation and regression surface would touch pool contracts, diagnostics, validation, installer readiness, and lifecycle tests.
+
+### Consequences
+
+- `GameplayVfxCommonEmptyHost.prefab` remains deletion-protected and required for common-host `SourceCloneMotion` playback.
+- `SourceCloneMotion` binding prefab null is normal and must not report `MissingPrefab`.
+- Missing common host setup reports `CommonHostUnavailable`.
+- `SourceCloneMotion` keeps `CommonHostAllowed`; no `RuntimeHostAllowed` policy is introduced in P2-2.
+- `EnemyDeathMotionVfx.prefab` remains a real fallback visual for `PrefabWithSourceClone + ExplicitPrefabRequired`.
+- Original entity view cleanup remains separate from source clone VFX cleanup, and entity removal or board detach remains separate from host release.
+
+### Future Entry Criteria
+
+Reconsider runtime-created hosts only when at least one concrete need exists:
+
+- repeated production setup defects prove the single common host prefab is an operational problem;
+- scene-less VFX, headless runtime, or editor fixtures need asset-free host creation;
+- a cue-based or policy-based prefab-less pool key design is approved;
+- diagnostics are specified for runtime host factory unavailable, creation failed, parent unavailable, pool exhausted, and release mismatch;
+- lifecycle tests cover parent selection, transform reset, clone cleanup, host release, scene unload cleanup, max concurrency, and diagnostic separation.
+
+## Test Naming Policy
+
+VFX tests should describe the runtime contract they guard, not the migration step that introduced the behavior.
+
+Preferred runtime vocabulary:
+
+- `SourceCloneMotion`
+- `PrefabWithSourceClone`
+- `PrefabOnly`
+- `CommonHost`
+- `MissingSourceView`
+- `MissingPrefab`
+- `FallbackPrefab`
+- `OriginalViewImmutability`
+- `HostRelease`
+
+Avoid for new tests:
+
+- `Migration`
+- `ReservedHookMigration`
+- `Parity`
+- `DeletedPrefab`
+- `OldTransient`
+
+Allowed exceptions:
+
+- tests that explicitly verify obsolete compatibility aliases;
+- tests that verify historical cleanup rules;
+- tests that document intentional non-regression against a past bug.
+
+## Legacy Name
+
+`SourceViewCloneWithPrefabFallback` is a legacy clone-mode name. Its current meaning is `PrefabWithSourceClone`, and it is kept only as a compatibility alias until serialized compatibility is fully audited.
+
+Rules:
+
+- do not use `SourceViewCloneWithPrefabFallback` for `SourceCloneMotion` cues.
+- do not add cue-specific placeholder prefabs to `SourceCloneMotion` cues.
+- do not force cues with real fallback art, such as `EnemyVfxCue.DeathMotion`, into `SourceCloneMotion`.
+- do not combine source view missing and prefab missing into one failure.
+- do not mix `EnemyDeathMotion_Binding.asset` with `EnemyOutOfBoundsExit_Binding.asset`.
 
 ## FlipImpact MotionTrack Anchor Gate
 
@@ -202,9 +444,9 @@ Enemy motion-attached followers are Gameplay VFX lane instances parented under t
 
 First users:
 
-- `EnemyVfxCue.GlideWindTrail` follows `TickEnemyGlidePresentationSignal` while `EnemyGlidePhase.Active`.
+- `EnemyVfxCue.GlideWindTrail` follows `TickEnemyGlidePresentationSignal` while `EnemyGlidePhase.Active`, including Active + WantsRecover.
 - `EnemyVfxCue.ChargeBoosterTrail` follows `TickEnemyChargePresentationSignal` while `EnemyChargePhase.Active`.
-- `EnemyGlidePhase.Windup`, `LandingPending`, `Recovery`, `Cooldown`, ordinary jump airborne, charge windup, and charge recover are excluded unless a future visual policy changes that.
+- `EnemyGlidePhase.Windup`, `Recovery`, `Cooldown`, ordinary jump airborne, charge windup, and charge recover are excluded from GlideWindTrail unless a future visual policy changes that.
 
 Ownership and lifecycle:
 
@@ -279,13 +521,13 @@ Feature flag:
 - flag off means no `BoxVfxCue.FlipDestroySelfMotion` playback and no old clone/arc/fade fallback
 - suppress compatibility gates were removed in Legacy Surface Simplification; no old fallback switch remains
 - `ApplyEntityExitOwnership()` remains active and still hides/cleans the authoritative view
-- missing `FlipDestroySelfMotion` binding or prefab is diagnostic/no-op with no old fallback
+- missing `FlipDestroySelfMotion` binding, source view, or common host is diagnostic/no-op with no old fallback
 
 Visual parity:
 
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FlipDestroySelfMotion_Impact.mat`
-- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
-- exact source-view mesh clone/material parity remains future work
+- default host binding uses `SourceCloneMotion`; cue prefab is null and the common empty host provides the pooled host.
+- source-view mesh clone/material parity is the primary runtime path
 
 Boundaries:
 
@@ -397,20 +639,21 @@ Binding precedence remains source presentation-local profile, then family profil
 Windup visual assets:
 
 - material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldWindup_Telegraph.mat`
-- default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- no cue-specific placeholder prefab or old transient fallback prefab is used for `FlipDestroySelfMotion`.
 - `telegraphPrefab`, `VFX_FrontFaceShield_Telegraph`, and `M_FrontFaceShield_Telegraph.mat` are retained for deferred serialized reference and asset cleanup, not as fallback playback.
 
 ## FlipDestroySelf Source-View Clone Parity
 
-FlipDestroySelf v1 used a stylized clone-like prefab. The generalized playback keeps that prefab as fallback but can now clone the current source presentation `ModelRoot` through `IGameplayVfxCloneSourceProvider`.
+FlipDestroySelf v1 used a stylized clone-like prefab. Current playback clones the source presentation `ModelRoot` through `IGameplayVfxCloneSourceProvider` and uses the shared common empty host when the cue prefab is null.
 
 Clone policy:
 
-- `FlipDestroySelfMotion` uses `SourceViewCloneWithPrefabFallback`
+- `FlipDestroySelfMotion` uses `SourceCloneMotion`
 - source clone lookup is by `GameplayVfxRequest.SourceEntityId`
 - lookup reads the host presentation state store, not scene-global searches
-- missing source clone falls back to the authored prefab
-- missing binding or prefab remains diagnostic/no-op with no old fallback
+- missing source clone reports `MissingSourceView` and no-ops
+- null cue prefab is allowed and must not report `MissingPrefab`
+- missing common empty host reports `CommonHostUnavailable`
 
 Material ownership:
 
@@ -756,7 +999,7 @@ Runtime policy:
   - burst off / motion on: `EnemyVfxCue.DeathMotion` only.
   - burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
 - missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback.
-- missing source clone uses the fallback prefab through `SourceViewCloneWithPrefabFallback`.
+- missing source clone uses the fallback prefab through `PrefabWithSourceClone`.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; source view cleanup is not bypassed.
 
 Default binding:
@@ -1105,7 +1348,7 @@ Cue and playback:
 - trigger: valid `TickImpactTransientPresentationSignal` with `EntityType.Box`
 - lifecycle: transient one-shot, no persistent key
 - command: `ParameterizedMotionVfxCommand`
-- playback: source-view clone with prefab fallback
+- playback: source-view clone motion with common empty host
 - motion: source pose to impact pose using `ParameterizedMotionVfxSamplerMode.FlipArc`
 - fade: `ScaleAndAlpha`, break start at normalized `0.62`, duration `max(BoxDestroyEffectDurationSeconds, FlipMotionDurationSeconds)`
 
@@ -1120,7 +1363,8 @@ Flag and fallback:
 - default true
 - flag off means no ImpactTransient break VFX and no old presenter fallback
 - old `GameplayTransientEffectPresenter.PlayImpactBreakEffect` playback surface is removed
-- missing binding, prefab, anchor, source pose, or impact pose is diagnostic/no-op
+- missing binding, source view, common host, anchor, source pose, or impact pose is diagnostic/no-op
+- null cue prefab is allowed for `SourceCloneMotion` and must not report `MissingPrefab`
 - missing binding no fallback applies to this reserved hook
 
 ## OutOfBounds Exit VFX Migration
@@ -1146,7 +1390,7 @@ Playback:
 
 - lifecycle: transient one-shot, no persistent key
 - command: `ParameterizedMotionVfxCommand`
-- playback: source-view clone with prefab fallback
+- playback: source-view clone motion with common empty host
 - motion: source pose to source pose using `ParameterizedMotionVfxSamplerMode.Linear`
 - fade: `DestroyShrinkEase` over `ItemConsumeEffectDurationSeconds`
 - anchor: source cell center
@@ -1157,7 +1401,8 @@ Flag and fallback:
 - default true
 - flag off means no OutOfBounds VFX and no old presenter fallback
 - old `GameplayExitPresentationController.PlayExitEffect` playback surface is removed for OutOfBounds
-- missing binding, prefab, anchor, or source pose is diagnostic/no-op
+- missing binding, source view, common host, anchor, or source pose is diagnostic/no-op
+- null cue prefab is allowed for `SourceCloneMotion` and must not report `MissingPrefab`
 - missing binding no fallback applies to this reserved hook
 - if no normal producer exists, tests use synthetic presentation facts
 
@@ -1179,7 +1424,7 @@ Cleaned legacy direct playback:
 | enemy killed old entity exit transient track | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away track removed; `ApplyEntityExitOwnership()` retained; `EnemyDeathExitEffectPlanBuilder` retained for DeathMotion target math | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
 | old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf entity membership bookkeeping retained | no flip destroy-self motion VFX | `PresentationMotionTrack` Stay branch remains unchanged |
 | old impact break transient track | `BoxVfxCue.ImpactTransientBreak` | old impact break playback removed; duplicate ownership retained | no ImpactTransient break VFX | no normal producer added |
-| OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | dormant/reserved hook only; no producer added |
+| OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | reserved SourceCloneMotion hook; no normal producer added |
 
 No stale old transient playback fallback remains: `GameplayTransientEffectPresenter`, `ImpactBreakEffectTrack`, `EntityExitEffectTrack`, `PlayImpactBreakEffect`, and `PlayExitEffect` playback APIs are removed.
 

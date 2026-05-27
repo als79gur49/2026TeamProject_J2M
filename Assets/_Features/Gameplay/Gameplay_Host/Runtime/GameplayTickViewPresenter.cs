@@ -45,6 +45,9 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
+        public float LastStageClearPlayerPresentationDelaySeconds =>
+            _presentationCoordinator.LastStageClearPlayerPresentationDelaySeconds;
+
         public bool IsPlayerActionAttemptPlaybackActive(int entityId) =>
             _presentationCoordinator.IsPlayerActionAttemptPlaybackActive(entityId);
 
@@ -80,7 +83,8 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null,
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
-            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null)
+            IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,
@@ -96,7 +100,8 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationArchetypeRegistry,
                 enemyPresentationCatalog,
                 enemyPresentationBindings,
-                tileFeatureVfxStyleBindings);
+                tileFeatureVfxStyleBindings,
+                enemyInactiveVisualSettings);
             CapturePresentationState();
         }
 
@@ -106,9 +111,12 @@ namespace Game.Feature.Gameplay.Host
             NotifyPresentationStateChangedIfNeeded();
         }
 
-        public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
+        public void PresentInitial(
+            IReadOnlyList<EntityState> entities,
+            CubeTopologyState topology,
+            InitialPresentationData presentationData = null)
         {
-            _presentationCoordinator.PresentInitial(entities, topology);
+            _presentationCoordinator.PresentInitial(entities, topology, presentationData);
             CapturePresentationState();
         }
 

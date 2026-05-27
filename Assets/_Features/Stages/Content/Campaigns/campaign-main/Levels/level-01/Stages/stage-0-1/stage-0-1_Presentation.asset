@@ -425,6 +425,14 @@ MonoBehaviour:
     PresentationId: box_metal
   - EntityId: 210
     PresentationId: box_metal
+  - EntityId: 211
+    PresentationId: box_tutorial
+  - EntityId: 212
+    PresentationId: box_tutorial
+  - EntityId: 213
+    PresentationId: box_tutorial
+  - EntityId: 214
+    PresentationId: box_tutorial
   boardPresentationProfile: {fileID: 0}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []
@@ -432,6 +440,38 @@ MonoBehaviour:
   boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
+  worldGuideCatalog: {fileID: 11400000, guid: 08d8c68580657b245b4ce44c983c7650, type: 2}
+  worldGuideInstructions:
+  - enabled: 1
+    guideKey: movement
+    cell:
+      face: 0
+      x: 6
+      y: 4
+    localOffset: {x: 0.3, y: 0.4, z: -1.25}
+    heightOffset: 0.08
+    facingMode: 0
+    hideWhenFaceInactive: 1
+  - enabled: 1
+    guideKey: push
+    cell:
+      face: 0
+      x: 9
+      y: 4
+    localOffset: {x: 0.2, y: 0.5, z: -1.25}
+    heightOffset: 0.08
+    facingMode: 0
+    hideWhenFaceInactive: 1
+  - enabled: 1
+    guideKey: flip
+    cell:
+      face: 1
+      x: 5
+      y: 3
+    localOffset: {x: 0.3, y: 0.4, z: -1.25}
+    heightOffset: 0.08
+    facingMode: 0
+    hideWhenFaceInactive: 1
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 

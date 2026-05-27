@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Vfx
         CuePolicyDisallowsVisibleSurface = 7,
         CuePolicyDisallowsInactiveFace = 8,
         MissingSemanticState = 9,
+        JumpTopologySuspended = 10,
     }
 
     public enum GameplayVfxVisibilityAllowReason
@@ -43,13 +44,15 @@ namespace Game.Feature.Gameplay.Vfx
             bool isViewActiveInHierarchy,
             bool hasSemanticState = false,
             bool isFrontFaceInactive = false,
-            bool isGameplayAutonomySuppressed = false)
+            bool isGameplayAutonomySuppressed = false,
+            bool isJumpTopologySuspended = false)
         {
             HasView = hasView;
             IsViewActiveInHierarchy = isViewActiveInHierarchy;
             HasSemanticState = hasSemanticState;
             IsFrontFaceInactive = isFrontFaceInactive;
             IsGameplayAutonomySuppressed = isGameplayAutonomySuppressed;
+            IsJumpTopologySuspended = isJumpTopologySuspended;
         }
 
         public bool HasView { get; }
@@ -61,17 +64,23 @@ namespace Game.Feature.Gameplay.Vfx
         public bool IsFrontFaceInactive { get; }
 
         public bool IsGameplayAutonomySuppressed { get; }
+
+        public bool IsJumpTopologySuspended { get; }
     }
 
     public readonly struct GameplayVfxVisibilityContext
     {
         public GameplayVfxVisibilityContext(
-            IReadOnlyDictionary<int, GameplayVfxEntityVisibilityState> entityStatesByEntityId)
+            IReadOnlyDictionary<int, GameplayVfxEntityVisibilityState> entityStatesByEntityId,
+            bool requireSourceSemanticState = false)
         {
             EntityStatesByEntityId = entityStatesByEntityId;
+            RequireSourceSemanticState = requireSourceSemanticState;
         }
 
         public IReadOnlyDictionary<int, GameplayVfxEntityVisibilityState> EntityStatesByEntityId { get; }
+
+        public bool RequireSourceSemanticState { get; }
 
         public bool TryGetEntityState(int entityId, out GameplayVfxEntityVisibilityState state)
         {
@@ -259,6 +268,12 @@ namespace Game.Feature.Gameplay.Vfx
             if (entityId <= 0 ||
                 !context.TryGetEntityState(entityId, out var state))
             {
+                if (RequiresSourceSemanticState(query, context))
+                {
+                    return GameplayVfxVisibilityDecision.Block(
+                        GameplayVfxVisibilityBlockReason.MissingSemanticState);
+                }
+
                 return GameplayVfxVisibilityDecision.Allow();
             }
 
@@ -274,6 +289,12 @@ namespace Game.Feature.Gameplay.Vfx
                     GameplayVfxVisibilityBlockReason.EntityViewInactive);
             }
 
+            if (RequiresSourceSemanticState(query, context) && !state.HasSemanticState)
+            {
+                return GameplayVfxVisibilityDecision.Block(
+                    GameplayVfxVisibilityBlockReason.MissingSemanticState);
+            }
+
             if (state.HasSemanticState && state.IsFrontFaceInactive)
             {
                 return GameplayVfxVisibilityDecision.Block(
@@ -286,7 +307,22 @@ namespace Game.Feature.Gameplay.Vfx
                     GameplayVfxVisibilityBlockReason.GameplayAutonomySuppressed);
             }
 
+            if (state.IsJumpTopologySuspended)
+            {
+                return GameplayVfxVisibilityDecision.Block(
+                    GameplayVfxVisibilityBlockReason.JumpTopologySuspended);
+            }
+
             return GameplayVfxVisibilityDecision.Allow();
+        }
+
+        private static bool RequiresSourceSemanticState(
+            in GameplayVfxVisibilityQuery query,
+            in GameplayVfxVisibilityContext context)
+        {
+            return context.RequireSourceSemanticState &&
+                   query.Request.CueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) &&
+                   ResolvePrimaryEntityId(query) > 0;
         }
 
         private static int ResolvePrimaryEntityId(in GameplayVfxVisibilityQuery query)

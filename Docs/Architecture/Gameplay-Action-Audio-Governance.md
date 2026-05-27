@@ -93,6 +93,9 @@ rules:
 - core `EnemyDamage`, `EnemyDeath`, and entity exit sounds remain on the existing core one-shot path
 - action profile does not own enemy damage/death governance
 - if both play on the same tick, that is intentional layering in v1
+- lethal enemy hit is the explicit v1 exception: when an enemy-local `EnemyAudioCue.Death` is actually planned and playable for the same enemy/entity, core `EnemyDamage` is suppressed for that entity only
+- generic `EntityExitEnemyDeath` suppression and lethal `EnemyDamage` suppression are separate policies
+- lethal `EnemyDamage` suppression is common enemy-local Death cue policy, not SecBot-specific authoring policy
 - future suppression, if needed, must be added explicitly and must not silently replace the core reaction lane
 
 ## 5. Shared Diagnostics Boundary
