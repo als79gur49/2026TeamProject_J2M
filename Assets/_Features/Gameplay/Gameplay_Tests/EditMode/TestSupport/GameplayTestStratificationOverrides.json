@@ -3283,6 +3283,28 @@
       ],
       "reason": "Locked Core coverage that lethal enemy damage suppresses only the matching core EnemyDamage request when a playable enemy-local Death cue is planned.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyProfileContractReplayTests.Replay_AstretonJumpProfile_StateAndLandingRemainDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_jump",
+        "enemy_profile_asset_contract"
+      ],
+      "reason": "Locked Core replay coverage that the Astreton-bound JumpChaser profile keeps jump state and landing placement deterministic without presentation-only drift.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyProfileContractReplayTests.Replay_JPeterUtilitySummonProfile_SummonedMetadataAndPlacementRemainDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "summon_minion",
+        "enemy_profile_asset_contract"
+      ],
+      "reason": "Locked Core replay coverage that the JPeter-bound ArchetypeSummoner profile keeps summoned metadata, source binding, and placement deterministic.",
+      "locked": true
     }
   ]
 }
