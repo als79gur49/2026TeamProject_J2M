@@ -119,6 +119,34 @@ namespace Game.Feature.UI.Flow
                 () => RequestRewardPopupCore(payload, completionCallback));
         }
 
+        public bool RequestDebugCommandsPopup(DebugCommandsPopupPayload payload)
+        {
+            return ExecuteIntent(
+                UiFlowAudioIntentKind.OpenForward,
+                () => TryPushPopupRequestCore(new PopupRequest(PopupId.DebugCommands, payload)));
+        }
+
+        public bool RequestDemoStageControlPopup(IPopupPayload payload)
+        {
+            return ExecuteIntent(
+                UiFlowAudioIntentKind.OpenForward,
+                () => TryPushPopupRequestCore(new PopupRequest(PopupId.DemoStageControl, payload)));
+        }
+
+        public bool RequestDebugStageResultOnly(
+            StageCompletionReadModel readModel,
+            StageNavigationRequest nextStageRequest)
+        {
+            if (readModel == null)
+            {
+                throw new ArgumentNullException(nameof(readModel));
+            }
+
+            return ExecuteIntent(
+                UiFlowAudioIntentKind.SystemPresentation,
+                () => RequestDebugStageResultOnlyCore(readModel, nextStageRequest));
+        }
+
         public bool HandleBackRequested()
         {
             return ExecuteIntent(ResolveBackIntent(), HandleBackRequestedCore);
@@ -499,6 +527,42 @@ namespace Game.Feature.UI.Flow
                 out _);
         }
 
+        private bool RequestDebugStageResultOnlyCore(
+            StageCompletionReadModel readModel,
+            StageNavigationRequest nextStageRequest)
+        {
+            ClearPauseReturnMode();
+            ClosePopupsForScreenTransition();
+            _screenController.Clear();
+            var continueRequest = nextStageRequest.IsValid
+                ? nextStageRequest
+                : StageNavigationRequest.None;
+            var payload = new StageResultScreenPayload(
+                string.IsNullOrWhiteSpace(readModel.ResultTitle) ? "DEBUG FORCED CLEAR" : readModel.ResultTitle,
+                string.IsNullOrWhiteSpace(readModel.ResultSummaryText) ? "Result Only mode" : readModel.ResultSummaryText,
+                readModel.ResultDetailText,
+                continueRequest.IsValid
+                    ? readModel.ResultContinueLabel
+                    : ResolveDisabledDebugStageResultContinueLabel(readModel.ResultContinueLabel),
+                continueRequest,
+                StageNavigationRequest.None,
+                continueRequest.IsValid ? nextStageRequest : StageNavigationRequest.None,
+                isContinueEnabled: continueRequest.IsValid);
+            _screenController.SetRoot(new ScreenRequest(
+                ScreenId.StageResult,
+                payload,
+                ScreenId.StageResult.ToString()));
+            RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.StageResult));
+            return true;
+        }
+
+        private static string ResolveDisabledDebugStageResultContinueLabel(string continueLabel)
+        {
+            return string.Equals(continueLabel, "Next stage unavailable", StringComparison.Ordinal)
+                ? continueLabel
+                : "No next stage";
+        }
+
         private bool TryPushPopupRequestCore(PopupRequest request)
         {
             if (request.PopupId == PopupId.Tooltip &&
@@ -734,6 +798,16 @@ namespace Game.Feature.UI.Flow
                 case PopupId.Reward:
                     return completion.CompletionKind == PopupCompletionKind.Acknowledged
                         ? UiFlowAudioIntentKind.Confirm
+                        : UiFlowAudioIntentKind.None;
+
+                case PopupId.DebugCommands:
+                    return completion.CompletionKind == PopupCompletionKind.Closed
+                        ? UiFlowAudioIntentKind.Back
+                        : UiFlowAudioIntentKind.None;
+
+                case PopupId.DemoStageControl:
+                    return completion.CompletionKind == PopupCompletionKind.Closed
+                        ? UiFlowAudioIntentKind.Back
                         : UiFlowAudioIntentKind.None;
 
                 default:

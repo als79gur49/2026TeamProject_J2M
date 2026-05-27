@@ -1,5 +1,7 @@
 using System;
+using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.UIAccess.Contracts;
+using Game.Feature.Gameplay.UIAccess.DebugCommands;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -9,12 +11,16 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             IGameplayCommandGateway commandGateway,
             IGameplayQueryFacade queryFacade,
             IGameplayPresentationFeed presentationFeed,
-            IGameplayPauseService pauseService)
+            IGameplayPauseService pauseService,
+            IDemoStageControlCompletionBridge demoStageControlCompletionBridge = null,
+            DebugCommandAccess debugCommandAccess = null)
         {
             CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             PresentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
             PauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
+            DemoStageControlCompletionBridge = demoStageControlCompletionBridge;
+            DebugCommandAccess = debugCommandAccess ?? DebugCommandAccess.Disabled;
         }
 
         public IGameplayCommandGateway CommandGateway { get; }
@@ -24,6 +30,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         public IGameplayPresentationFeed PresentationFeed { get; }
 
         public IGameplayPauseService PauseService { get; }
+
+        public IDemoStageControlCompletionBridge DemoStageControlCompletionBridge { get; }
+
+        public DebugCommandAccess DebugCommandAccess { get; }
 
         public void Dispose()
         {

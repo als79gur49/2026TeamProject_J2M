@@ -126,4 +126,19 @@ namespace Game.Feature.UI.Application
                 payload.CloseLabel);
         }
     }
+
+    public sealed class DebugCommandsPopupPresenter
+    {
+        public DebugCommandsPopupPresenter()
+        {
+            ViewModel = new DebugCommandsPopupViewModel();
+        }
+
+        public DebugCommandsPopupViewModel ViewModel { get; }
+
+        public void Apply(DebugCommandsPopupPayload payload)
+        {
+            ViewModel.SetContent(payload);
+        }
+    }
 }

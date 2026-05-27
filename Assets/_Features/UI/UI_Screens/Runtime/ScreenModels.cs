@@ -191,7 +191,8 @@ namespace Game.Feature.UI.Screens
             string continueLabel,
             StageNavigationRequest continueStageRequest,
             StageNavigationRequest retryStageRequest,
-            StageNavigationRequest nextStageRequest)
+            StageNavigationRequest nextStageRequest,
+            bool isContinueEnabled = true)
         {
             TitleText = titleText ?? string.Empty;
             SummaryText = summaryText ?? string.Empty;
@@ -200,6 +201,7 @@ namespace Game.Feature.UI.Screens
             ContinueStageRequest = continueStageRequest;
             RetryStageRequest = retryStageRequest;
             NextStageRequest = nextStageRequest;
+            IsContinueEnabled = isContinueEnabled && continueStageRequest.IsValid;
         }
 
         public string TitleText { get; }
@@ -215,6 +217,8 @@ namespace Game.Feature.UI.Screens
         public StageNavigationRequest RetryStageRequest { get; }
 
         public StageNavigationRequest NextStageRequest { get; }
+
+        public bool IsContinueEnabled { get; }
     }
 
     public sealed class LevelFailedScreenPayload : IScreenPayload
@@ -463,16 +467,20 @@ namespace Game.Feature.UI.Screens
 
         public string ContinueLabel { get; private set; } = string.Empty;
 
+        public bool IsContinueEnabled { get; private set; } = true;
+
         public void SetContent(
             string titleText,
             string summaryText,
             string detailText,
-            string continueLabel)
+            string continueLabel,
+            bool isContinueEnabled = true)
         {
             TitleText = titleText ?? string.Empty;
             SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
+            IsContinueEnabled = isContinueEnabled;
             Changed?.Invoke();
         }
     }

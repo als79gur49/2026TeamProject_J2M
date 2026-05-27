@@ -52,9 +52,27 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public StageCompletionReadModel CurrentStageCompletion => _stageCompletionRuntime.CurrentStageCompletion;
 
+        public bool IsStageCompletionInProgress => _stageCompletionRuntime.IsCompletionInProgress;
+
         public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }
 
         public bool HasPendingStageClearPresentation => _pendingStageClearPresentation.HasValue;
+
+        internal StageCompletionReadModel ForceClearResultOnly()
+        {
+            return _stageCompletionRuntime.ForceClearResultOnly();
+        }
+
+        internal StageCompletionReadModel ForceClearCurrentStage()
+        {
+            var readModel = _stageCompletionRuntime.ForceClearCurrentStage();
+            StageClearCommitted?.Invoke(null, readModel);
+            FramePublished?.Invoke(new GameplayPresentationFrame(
+                Math.Max(1, readModel.ClearResult.FinalTickIndex),
+                CurrentState.CurrentTopology,
+                stageEvent: new GameplayStageEventPresentationSlice(GameplayStageEventKind.Cleared)));
+            return readModel;
+        }
 
         internal void PublishLevelFailed(GameplayLevelFailedReadModel readModel)
         {
