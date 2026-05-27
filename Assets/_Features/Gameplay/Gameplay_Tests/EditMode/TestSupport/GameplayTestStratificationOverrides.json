@@ -2,6 +2,26 @@
   "version": 1,
   "overrides": [
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.SunWheelRocketFaceBindingContractTests.EnemyBinding_CampaignMain_SunWheelPresentationUsesWallFollowerProfile",
+      "category": "Core",
+      "contracts": [
+        "sunwheel_profile_binding",
+        "campaign_enemy_presentation_binding"
+      ],
+      "reason": "Core representative coverage that the campaign SunWheel presentation binding resolves by entityId to the WallFollow gameplay profile instead of relying on prefab naming.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.SunWheelRocketFaceBindingContractTests.EnemyBinding_CampaignMain_RocketFacePresentationUsesChargeProfile",
+      "category": "Core",
+      "contracts": [
+        "rocketface_profile_binding",
+        "campaign_enemy_presentation_binding"
+      ],
+      "reason": "Core representative coverage that the campaign RocketFace presentation binding resolves by entityId to the Charge gameplay profile instead of relying on prefab naming.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyInactiveMaterialAuthoringTests.CampaignEnemyPrefabs_AllRendererMaterialsSatisfyInactiveContract",
       "category": "Core",
       "contracts": [
