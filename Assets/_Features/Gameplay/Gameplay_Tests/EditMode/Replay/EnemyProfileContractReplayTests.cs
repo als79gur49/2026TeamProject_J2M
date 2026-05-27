@@ -4,6 +4,7 @@ using System.Text;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
@@ -19,6 +20,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private const int EnemyId = 40;
         private const string WindupProjectileProfilePath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset";
+        private const string JumpChaserProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset";
+        private const string ArchetypeSummonerProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
+        private const string CombinedArchetypeCatalogPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Catalogs/EnemyUnitArchetypeCatalog_CombinedGameplayShowcase.asset";
 
         [Test]
         [Category("Extended")]
@@ -42,6 +49,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => frame.PendingImpactDump.Contains("Target=Floor:4,0")), Is.True);
             Assert.That(firstReplay.Any(frame => frame.ActionDump.Contains("Kind=ForwardCellProjectile")), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_AstretonJumpProfile_StateAndLandingRemainDeterministic()
+        {
+            var firstReplay = RunAstretonJumpReplaySequence();
+            var secondReplay = RunAstretonJumpReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.JumpDump.Contains("Phase=Airborne")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.JumpDump.Contains("Phase=Cooldown")), Is.True);
+            Assert.That(firstReplay.Last().FinalEntitiesDump, Does.Contain("E=40|Cell=Floor:3,0"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_JPeterUtilitySummonProfile_SummonedMetadataAndPlacementRemainDeterministic()
+        {
+            var firstReplay = RunJpeterUtilitySummonReplaySequence();
+            var secondReplay = RunJpeterUtilitySummonReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay.Any(frame => frame.UtilityDump.Contains("Kind=SummonMinion")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.SummonedDump.Contains("Source=40|Effect=0")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.DefinitionBindingDump.Contains("Archetype=PassiveContactMinion")), Is.True);
+            Assert.That(firstReplay.Last().FinalEntitiesDump, Does.Contain("E=41|Cell=Floor:-1,0"));
         }
 
         private static IReadOnlyList<ReplayCaptureFrame> RunStartisReplaySequence()
@@ -108,6 +142,72 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return frames;
         }
 
+        private static IReadOnlyList<ReplayCaptureFrame> RunAstretonJumpReplaySequence()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(PlayerId, 1, targetCell, UnitRole.Player),
+                    CreateUnit(EnemyId, 2, sourceCell, UnitRole.Enemy, EnemyAiMode.Chase),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                EnemyId,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Windup,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = targetCell,
+                    windupEndTick = 2,
+                    landingTick = 3,
+                });
+
+            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(LoadJumpChaserProfile()).CreateTickPipeline(worldState);
+            var frames = new List<ReplayCaptureFrame>();
+
+            frames.Add(Capture(pipeline.RunTick(new TickInput(1)), worldState));
+            frames.Add(Capture(pipeline.RunTick(new TickInput(2)), worldState));
+            frames.Add(Capture(pipeline.RunTick(new TickInput(3)), worldState));
+
+            return frames;
+        }
+
+        private static IReadOnlyList<ReplayCaptureFrame> RunJpeterUtilitySummonReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, EnemyAiMode.Patrol),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            worldState.CreateWriteContext().SetEnemyUtilityState(
+                EnemyId,
+                new EnemyUtilityRuntimeState(
+                    new[]
+                    {
+                        new EnemyUtilityEffectState
+                        {
+                            effectKind = EnemyUtilityEffectKind.SummonMinion,
+                            phase = EnemyUtilityEffectPhase.Windup,
+                            windupStartTick = 0,
+                            windupEndTick = 1,
+                            activationSequence = 1,
+                        },
+                    }));
+
+            var pipeline = CreateJpeterPipeline(worldState);
+            var frames = new List<ReplayCaptureFrame>
+            {
+                Capture(pipeline.RunTick(new TickInput(1)), worldState),
+                Capture(pipeline.RunTick(new TickInput(2)), worldState),
+            };
+
+            return frames;
+        }
+
         private static WorldState CreateWorldState(EntityState[] initialEntities, CubeTopologyState topology)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
@@ -165,6 +265,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 BuildDamageDump(result.AttackPhaseResult.DamageResolutions),
                 BuildActionDump(worldState.CreateSnapshot()),
                 BuildPendingImpactDump(worldState.CreateSnapshot()),
+                BuildJumpDump(worldState.CreateSnapshot()),
+                BuildUtilityDump(worldState.CreateSnapshot()),
+                BuildSummonedDump(worldState.CreateSnapshot()),
+                BuildDefinitionBindingDump(worldState.CreateSnapshot()),
                 result.Trace.Text);
         }
 
@@ -182,6 +286,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Assert.That(secondReplay[i].DamageDump, Is.EqualTo(firstReplay[i].DamageDump), $"Damage mismatch at frame {i}.");
                 Assert.That(secondReplay[i].ActionDump, Is.EqualTo(firstReplay[i].ActionDump), $"Action state mismatch at frame {i}.");
                 Assert.That(secondReplay[i].PendingImpactDump, Is.EqualTo(firstReplay[i].PendingImpactDump), $"Pending impact mismatch at frame {i}.");
+                Assert.That(secondReplay[i].JumpDump, Is.EqualTo(firstReplay[i].JumpDump), $"Jump state mismatch at frame {i}.");
+                Assert.That(secondReplay[i].UtilityDump, Is.EqualTo(firstReplay[i].UtilityDump), $"Utility state mismatch at frame {i}.");
+                Assert.That(secondReplay[i].SummonedDump, Is.EqualTo(firstReplay[i].SummonedDump), $"Summoned metadata mismatch at frame {i}.");
+                Assert.That(secondReplay[i].DefinitionBindingDump, Is.EqualTo(firstReplay[i].DefinitionBindingDump), $"Definition binding mismatch at frame {i}.");
                 Assert.That(secondReplay[i].Trace, Is.EqualTo(firstReplay[i].Trace), $"Trace mismatch at frame {i}.");
             }
         }
@@ -248,9 +356,136 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return builder.ToString();
         }
 
+        private static string BuildJumpDump(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyJumpSnapshotEntry>();
+            snapshot.EnumerateEnemyJumpStatesOrdered(entries);
+            if (entries.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            return string.Join(
+                "\n",
+                entries.Select(entry =>
+                    $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Source={FormatCell(entry.State.sourceCell)}|Target={FormatCell(entry.State.lockedTargetCell)}|WindupEnd={entry.State.windupEndTick}|Landing={entry.State.landingTick}|Cooldown={entry.State.cooldownRemainingTicks}|Retry={entry.State.retryCount}"));
+        }
+
+        private static string BuildUtilityDump(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyUtilitySnapshotEntry>();
+            snapshot.EnumerateEnemyUtilityStatesOrdered(entries);
+            if (entries.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            var builder = new StringBuilder();
+            for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+            {
+                var entry = entries[entryIndex];
+                for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
+                {
+                    if (builder.Length > 0)
+                    {
+                        builder.Append('\n');
+                    }
+
+                    var effect = entry.State.EffectStates[effectIndex];
+                    builder
+                        .Append("E=").Append(entry.EntityId)
+                        .Append("|Effect=").Append(effectIndex)
+                        .Append("|Kind=").Append(effect.effectKind)
+                        .Append("|Cooldown=").Append(effect.cooldownTicksRemaining)
+                        .Append("|Phase=").Append(effect.phase)
+                        .Append("|WindupStart=").Append(effect.windupStartTick)
+                        .Append("|WindupEnd=").Append(effect.windupEndTick)
+                        .Append("|RecoverStart=").Append(effect.recoverStartTick)
+                        .Append("|RecoverEnd=").Append(effect.recoverEndTickExclusive)
+                        .Append("|Seq=").Append(effect.activationSequence);
+                }
+            }
+
+            return builder.Length == 0 ? "<empty>" : builder.ToString();
+        }
+
+        private static string BuildSummonedDump(WorldSnapshot snapshot)
+        {
+            var entries = new List<SummonedEntitySnapshotEntry>();
+            snapshot.EnumerateSummonedEntityStatesOrdered(entries);
+            if (entries.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            return string.Join(
+                "\n",
+                entries.Select(entry =>
+                    $"E={entry.EntityId}|Source={entry.State.SourceEntityId}|Effect={entry.State.SourceEffectIndex}"));
+        }
+
+        private static string BuildDefinitionBindingDump(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyDefinitionBindingSnapshotEntry>();
+            snapshot.EnumerateEnemyDefinitionBindingStatesOrdered(entries);
+            if (entries.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            return string.Join(
+                "\n",
+                entries.Select(entry =>
+                    $"E={entry.EntityId}|Archetype={entry.State.ArchetypeId}"));
+        }
+
         private static string FormatCell(SurfaceCell cell)
         {
             return $"{cell.face}:{cell.x},{cell.y}";
+        }
+
+        private static EnemyAiProfile LoadJumpChaserProfile()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(JumpChaserProfilePath);
+            Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{JumpChaserProfilePath}'.");
+            return profile;
+        }
+
+        private static EnemyAiProfile LoadArchetypeSummonerProfile()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(ArchetypeSummonerProfilePath);
+            Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{ArchetypeSummonerProfilePath}'.");
+            return profile;
+        }
+
+        private static TickPipeline CreateJpeterPipeline(WorldState worldState)
+        {
+            var profile = LoadArchetypeSummonerProfile();
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyUnitArchetypeCatalog>(CombinedArchetypeCatalogPath);
+            Assert.That(catalog, Is.Not.Null, $"Missing enemy archetype catalog at '{CombinedArchetypeCatalogPath}'.");
+
+            var runtimeSnapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                DefaultEnemyAiProfile = profile,
+                EnemyAiProfileOverrides = new[]
+                {
+                    new EnemyAiProfileOverride
+                    {
+                        EntityId = EnemyId,
+                        Profile = profile,
+                    },
+                },
+                EnemyUnitArchetypeCatalog = catalog,
+            }.CreateEnemyAiRuntimeSnapshot();
+
+            return new GameplayBootstrapper(
+                GameplayEntityLogicProviderFactory.CreateDefault(
+                    runtimeSnapshot.DefaultDefinition,
+                    runtimeSnapshot.DefinitionsByEntityId,
+                    runtimeSnapshot.DefinitionsByArchetypeId),
+                runtimeSnapshot.SpawnDefaultsByArchetypeId)
+                .CreateTickPipeline(worldState);
         }
 
         private readonly struct ReplayCaptureFrame
@@ -263,6 +498,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 string damageDump,
                 string actionDump,
                 string pendingImpactDump,
+                string jumpDump,
+                string utilityDump,
+                string summonedDump,
+                string definitionBindingDump,
                 string trace)
             {
                 TickIndex = tickIndex;
@@ -272,6 +511,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 DamageDump = damageDump;
                 ActionDump = actionDump;
                 PendingImpactDump = pendingImpactDump;
+                JumpDump = jumpDump;
+                UtilityDump = utilityDump;
+                SummonedDump = summonedDump;
+                DefinitionBindingDump = definitionBindingDump;
                 Trace = trace;
             }
 
@@ -288,6 +531,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
             public string ActionDump { get; }
 
             public string PendingImpactDump { get; }
+
+            public string JumpDump { get; }
+
+            public string UtilityDump { get; }
+
+            public string SummonedDump { get; }
+
+            public string DefinitionBindingDump { get; }
 
             public string Trace { get; }
         }
