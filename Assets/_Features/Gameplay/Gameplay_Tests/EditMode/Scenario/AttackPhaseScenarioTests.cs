@@ -1489,6 +1489,40 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void PlayerInvincible_PassiveContactReject_DoesNotProduceCombatPresentationSource()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var executedSignals = result.PresentationData.EnemyActionSignals
+                .Where(signal => signal.ExecutedThisTick)
+                .ToArray();
+
+            Assert.That(
+                executedSignals.Any(signal => signal.PresentationSource == EnemyActionPresentationSource.Combat),
+                Is.False);
+            Assert.That(
+                executedSignals.Any(signal => signal.PresentationOutcome == EnemyActionPresentationOutcome.Executed),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ReceiverCooldownReject_DoesNotProduceEnemyActionExecutionSignal()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var result = pipeline.RunTick(new TickInput(2), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+            Assert.That(result.PresentationData.EnemyActionSignals.Count(signal => signal.ExecutedThisTick), Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerInvincible_FlagIncludedInTraceOrDebugSnapshot()
         {
             var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);

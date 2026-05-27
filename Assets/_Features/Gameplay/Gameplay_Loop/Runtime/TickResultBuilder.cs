@@ -4100,6 +4100,62 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
+        private readonly struct EnemyActionPresentationMetadata
+        {
+            private EnemyActionPresentationMetadata(
+                bool executedThisTick,
+                EnemyActionPresentationSource presentationSource,
+                EnemyActionPresentationOutcome presentationOutcome)
+            {
+                ExecutedThisTick = executedThisTick;
+                PresentationSource = presentationSource;
+                PresentationOutcome = presentationOutcome;
+            }
+
+            public static EnemyActionPresentationMetadata ExecutedCombat { get; } = Executed(
+                EnemyActionPresentationSource.Combat);
+
+            public static EnemyActionPresentationMetadata NoEffect { get; } = new(
+                executedThisTick: false,
+                EnemyActionPresentationSource.Unknown,
+                EnemyActionPresentationOutcome.NoEffect);
+
+            public static EnemyActionPresentationMetadata ReceiverCooldown { get; } = new(
+                executedThisTick: false,
+                EnemyActionPresentationSource.Unknown,
+                EnemyActionPresentationOutcome.RejectedByReceiverCooldown);
+
+            public bool ExecutedThisTick { get; }
+
+            public EnemyActionPresentationSource PresentationSource { get; }
+
+            public EnemyActionPresentationOutcome PresentationOutcome { get; }
+
+            public static EnemyActionPresentationMetadata Executed(EnemyActionPresentationSource source)
+            {
+                return new EnemyActionPresentationMetadata(
+                    executedThisTick: true,
+                    source,
+                    EnemyActionPresentationOutcome.Executed);
+            }
+
+            public static EnemyActionPresentationMetadata PlayerInvincible(EnemyActionPresentationSource source)
+            {
+                return new EnemyActionPresentationMetadata(
+                    executedThisTick: true,
+                    source,
+                    EnemyActionPresentationOutcome.RejectedByPlayerInvincible);
+            }
+
+            public static EnemyActionPresentationMetadata NoEffectWithSource(EnemyActionPresentationSource source)
+            {
+                return new EnemyActionPresentationMetadata(
+                    executedThisTick: true,
+                    source,
+                    EnemyActionPresentationOutcome.NoEffect);
+            }
+        }
+
         private static void BuildEnemyPresentation(
             in TickPresentationBuildContext context,
             List<TickEnemyActionPresentationSignal> enemyActionSignals)
@@ -4107,6 +4163,7 @@ namespace Game.Feature.Gameplay.Loop
             var candidateEntityIds = new List<int>();
             var seenEntityIds = new HashSet<int>();
             var executedEntityIds = new HashSet<int>();
+            var executionMetadataByEntityId = new Dictionary<int, EnemyActionPresentationMetadata>();
             var preMovementEntries = new List<EnemyActionSnapshotEntry>();
             var postAttackEntries = new List<EnemyActionSnapshotEntry>();
             var finalEntries = new List<EnemyActionSnapshotEntry>();
@@ -4129,9 +4186,16 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                if (HasEnemyActionExecutionPresentation(context.AttackPhaseResult, resolutionRecord.ActionPlanId))
+                var presentationMetadata = ResolveEnemyActionExecutionPresentation(
+                    context.AttackPhaseResult,
+                    resolutionRecord.ActionPlanId);
+                if (presentationMetadata.ExecutedThisTick)
                 {
                     executedEntityIds.Add(resolutionRecord.SourceId);
+                    MergeEnemyActionPresentationMetadata(
+                        executionMetadataByEntityId,
+                        resolutionRecord.SourceId,
+                        presentationMetadata);
                 }
 
                 if (seenEntityIds.Add(resolutionRecord.SourceId))
@@ -4150,6 +4214,10 @@ namespace Game.Feature.Gameplay.Loop
                     !previousAction.executionAttempted)
                 {
                     executedEntityIds.Add(entityId);
+                    MergeEnemyActionPresentationMetadata(
+                        executionMetadataByEntityId,
+                        entityId,
+                        EnemyActionPresentationMetadata.ExecutedCombat);
                 }
 
                 var transition = new EnemyActionTransition(entityId, previousAction, currentAction);
@@ -4170,13 +4238,19 @@ namespace Game.Feature.Gameplay.Loop
                         transition.StartedThisTick,
                         transition.CanceledThisTick,
                         executedEntityIds.Contains(entityId),
-                        DidStartEnemyRecovery(context.PostMovementSnapshot, context.PostAttackSnapshot, entityId)));
+                        DidStartEnemyRecovery(context.PostMovementSnapshot, context.PostAttackSnapshot, entityId),
+                        ResolveEnemyActionPresentationSource(executionMetadataByEntityId, entityId),
+                        ResolveEnemyActionPresentationOutcome(executionMetadataByEntityId, entityId)));
             }
         }
 
-        private static bool HasEnemyActionExecutionPresentation(AttackPhaseResult attackPhaseResult, int actionPlanId)
+        private static EnemyActionPresentationMetadata ResolveEnemyActionExecutionPresentation(
+            AttackPhaseResult attackPhaseResult,
+            int actionPlanId)
         {
             var sawDamageResolution = false;
+            var sawReceiverCooldown = false;
+            var metadata = EnemyActionPresentationMetadata.NoEffect;
             var damageResolutions = attackPhaseResult.DamageResolutions;
             for (var i = 0; i < damageResolutions.Count; i++)
             {
@@ -4187,14 +4261,90 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 sawDamageResolution = true;
-                if (damageResolution.Accepted ||
-                    damageResolution.RejectReason != DamageRejectReason.ReceiverCooldown)
+                var source = damageResolution.SourceKind == AttackSourceKind.PassiveContact
+                    ? EnemyActionPresentationSource.PassiveContact
+                    : EnemyActionPresentationSource.Combat;
+
+                if (damageResolution.Accepted)
                 {
-                    return true;
+                    metadata = EnemyActionPresentationMetadata.Executed(source);
+                    continue;
                 }
+
+                if (metadata.PresentationOutcome == EnemyActionPresentationOutcome.Executed)
+                {
+                    continue;
+                }
+
+                if (damageResolution.RejectReason == DamageRejectReason.ReceiverCooldown)
+                {
+                    sawReceiverCooldown = true;
+                    continue;
+                }
+
+                if (damageResolution.RejectReason == DamageRejectReason.PlayerInvincible)
+                {
+                    metadata = EnemyActionPresentationMetadata.PlayerInvincible(source);
+                    continue;
+                }
+
+                metadata = EnemyActionPresentationMetadata.NoEffectWithSource(source);
             }
 
-            return !sawDamageResolution;
+            if (!sawDamageResolution)
+            {
+                return EnemyActionPresentationMetadata.ExecutedCombat;
+            }
+
+            return metadata.ExecutedThisTick
+                ? metadata
+                : sawReceiverCooldown
+                    ? EnemyActionPresentationMetadata.ReceiverCooldown
+                    : EnemyActionPresentationMetadata.NoEffect;
+        }
+
+        private static void MergeEnemyActionPresentationMetadata(
+            IDictionary<int, EnemyActionPresentationMetadata> metadataByEntityId,
+            int entityId,
+            in EnemyActionPresentationMetadata metadata)
+        {
+            if (!metadataByEntityId.TryGetValue(entityId, out var existing) ||
+                ShouldReplaceEnemyActionPresentationMetadata(existing, metadata))
+            {
+                metadataByEntityId[entityId] = metadata;
+            }
+        }
+
+        private static bool ShouldReplaceEnemyActionPresentationMetadata(
+            in EnemyActionPresentationMetadata existing,
+            in EnemyActionPresentationMetadata candidate)
+        {
+            if (existing.PresentationSource == EnemyActionPresentationSource.PassiveContact &&
+                candidate.PresentationSource == EnemyActionPresentationSource.Combat)
+            {
+                return true;
+            }
+
+            return existing.PresentationOutcome != EnemyActionPresentationOutcome.Executed &&
+                   candidate.PresentationOutcome == EnemyActionPresentationOutcome.Executed;
+        }
+
+        private static EnemyActionPresentationSource ResolveEnemyActionPresentationSource(
+            IReadOnlyDictionary<int, EnemyActionPresentationMetadata> metadataByEntityId,
+            int entityId)
+        {
+            return metadataByEntityId.TryGetValue(entityId, out var metadata)
+                ? metadata.PresentationSource
+                : EnemyActionPresentationSource.Unknown;
+        }
+
+        private static EnemyActionPresentationOutcome ResolveEnemyActionPresentationOutcome(
+            IReadOnlyDictionary<int, EnemyActionPresentationMetadata> metadataByEntityId,
+            int entityId)
+        {
+            return metadataByEntityId.TryGetValue(entityId, out var metadata)
+                ? metadata.PresentationOutcome
+                : EnemyActionPresentationOutcome.None;
         }
 
         private static void BuildEnemyDamagePresentation(

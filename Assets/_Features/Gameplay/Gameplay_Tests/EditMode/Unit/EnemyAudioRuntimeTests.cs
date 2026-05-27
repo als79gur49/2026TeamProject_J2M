@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Audio;
@@ -142,6 +143,280 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That((int)EnemyAudioCue.ProjectileImpact, Is.EqualTo(7));
             Assert.That((int)EnemyAudioCue.ChargeActiveLoop, Is.EqualTo(8));
             Assert.That((int)EnemyAudioCue.StationaryActive, Is.EqualTo(9));
+            Assert.That((int)EnemyAudioCue.PassiveContact, Is.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PassiveContact_DoesNotEmitEnemyActiveCueWhenNoContactCueAuthored()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.PassiveContact,
+                        EnemyActionPresentationOutcome.Executed),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests.Select(request => request.Cue), Has.No.EqualTo(EnemyAudioCue.Active));
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.PassiveContact) }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PassiveContact_DoesNotEmitEnemySummonCueWhenNoContactCueAuthored()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.PassiveContact,
+                        EnemyActionPresentationOutcome.Executed),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests.Select(request => request.Cue), Has.No.EqualTo(EnemyAudioCue.Active));
+            Assert.That(requests.Select(request => request.Context.DebugTag), Has.No.EqualTo("Active"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PassiveContact_EmitsContactCueOnlyWhenAuthored()
+        {
+            var rootObject = new GameObject(nameof(PassiveContact_EmitsContactCueOnlyWhenAuthored));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()),
+                new EnemyAudioEntrySpec(EnemyAudioCue.PassiveContact, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    enemyActionSignals: new[]
+                    {
+                        CreateEnemyActionExecutedSignal(
+                            20,
+                            EnemyActionPresentationSource.PassiveContact,
+                            EnemyActionPresentationOutcome.Executed),
+                    }),
+                    new[] { enemy },
+                    tickIndex: 1));
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "PassiveContact" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PassiveContact_WithoutContactCueAuthored_DoesNotPlayActiveBinding()
+        {
+            var rootObject = new GameObject(nameof(PassiveContact_WithoutContactCueAuthored_DoesNotPlayActiveBinding));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(20, UnitRole.Enemy);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    enemyActionSignals: new[]
+                    {
+                        CreateEnemyActionExecutedSignal(
+                            20,
+                            EnemyActionPresentationSource.PassiveContact,
+                            EnemyActionPresentationOutcome.Executed),
+                    }),
+                    new[] { enemy },
+                    tickIndex: 1));
+
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_PassiveContactReject_DoesNotEmitEnemyActiveAudio()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.PassiveContact,
+                        EnemyActionPresentationOutcome.RejectedByPlayerInvincible),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests.Select(request => request.Cue), Has.No.EqualTo(EnemyAudioCue.Active));
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_PassiveContactReject_DoesNotEmitEnemySummonAudio()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.PassiveContact,
+                        EnemyActionPresentationOutcome.RejectedByPlayerInvincible),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests.Select(request => request.Cue), Has.No.EqualTo(EnemyAudioCue.Active));
+            Assert.That(requests.Select(request => request.Context.DebugTag), Has.No.EqualTo("Active"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_ActualEnemySummon_StillEmitsSummonAudio()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var spawnCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                visibilityChanges: new[]
+                {
+                    new TickVisibilityChange(
+                        entityId: 60,
+                        TickVisibilityChangeKind.Spawn,
+                        spawnCell,
+                        topology,
+                        Direction.Left),
+                },
+                summonedEnemyPresentationBindings: new[]
+                {
+                    new TickSummonedEnemyPresentationBinding(
+                        entityId: 60,
+                        hasEnemyDefinitionBinding: true,
+                        archetypeId: default,
+                        sourceEntityId: 22),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (22, EnemyAudioCue.Active) }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_ActualEnemyActive_StillEmitsActiveAudio()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.Combat,
+                        EnemyActionPresentationOutcome.Executed),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.Active) }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_ActualEnemyActiveReject_StillEmitsActiveAudio()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.Combat,
+                        EnemyActionPresentationOutcome.RejectedByPlayerInvincible),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.Active) }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ReceiverCooldownReject_DoesNotEmitEnemyActiveAudio()
+        {
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    CreateEnemyActionExecutedSignal(
+                        20,
+                        EnemyActionPresentationSource.PassiveContact,
+                        EnemyActionPresentationOutcome.RejectedByReceiverCooldown),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAudioPlanner_DoesNotDependOnEnemyProfileNames()
+        {
+            var source = File.ReadAllText("Assets/_Features/Gameplay/Gameplay_EnemyAudio/Runtime/EnemyAudioRequestPlanner.cs");
+
+            Assert.That(source, Does.Not.Contain("JPeter"));
+            Assert.That(source, Does.Not.Contain("Nebulous"));
+            Assert.That(source, Does.Not.Contain("DrSaturn"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AudioRuntime_DoesNotAddGameplaySpecificSuppressRules()
+        {
+            var playbackService = File.ReadAllText("Assets/_Shared/Audio/Runtime/AudioPlaybackService.cs");
+            var audioManager = File.ReadAllText("Assets/_Shared/Audio/Runtime/AudioManager.cs");
+
+            Assert.That(playbackService, Does.Not.Contain("PassiveContact"));
+            Assert.That(audioManager, Does.Not.Contain("PassiveContact"));
+            Assert.That(playbackService, Does.Not.Contain("PlayerInvincible"));
+            Assert.That(audioManager, Does.Not.Contain("PlayerInvincible"));
         }
 
         [Test]
@@ -1484,6 +1759,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(stationaryBinding.Definition, Is.SameAs(definition));
         }
 
+        [Test]
+        [Category("Full")]
+        public void PassiveContactOverlapTargets_DoNotAuthorPassiveContactCueByDefault()
+        {
+            AssertEnemyPrefabProfileDoesNotHaveCue(
+                $"{EnemyPrefabRoot}/EnemyView_JPeter.prefab",
+                EnemyAudioCue.PassiveContact);
+            AssertEnemyPrefabProfileDoesNotHaveCue(
+                $"{EnemyPrefabRoot}/EnemyView_DrSaturn.prefab",
+                EnemyAudioCue.PassiveContact);
+            AssertEnemyPrefabProfileDoesNotHaveCue(
+                $"{EnemyPrefabRoot}/EnemyView_Nebulous.prefab",
+                EnemyAudioCue.PassiveContact);
+        }
+
+        private static void AssertEnemyPrefabProfileDoesNotHaveCue(string prefabPath, EnemyAudioCue cue)
+        {
+            var view = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(prefabPath);
+            Assert.That(view, Is.Not.Null, $"Missing enemy view prefab at '{prefabPath}'.");
+
+            var authoring = view.GetComponent<EnemyAudioAuthoring>();
+            Assert.That(authoring, Is.Not.Null, $"Missing {nameof(EnemyAudioAuthoring)} on '{prefabPath}'.");
+            Assert.That(authoring.Profile, Is.Not.Null, $"Missing profile on '{prefabPath}'.");
+            Assert.That(authoring.Profile.HasCue(cue), Is.False, $"'{prefabPath}' should not author '{cue}'.");
+        }
+
         private static IReadOnlyList<EnemyPrefabExpectation> PrefabExpectations()
         {
             return new[]
@@ -1721,6 +2022,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 canceledThisTick: false,
                 executedThisTick: false,
                 startedRecoveryThisTick: false);
+        }
+
+        private static TickEnemyActionPresentationSignal CreateEnemyActionExecutedSignal(
+            int entityId,
+            EnemyActionPresentationSource source,
+            EnemyActionPresentationOutcome outcome)
+        {
+            return new TickEnemyActionPresentationSignal(
+                entityId,
+                EnemyActionKind.Melee,
+                activeActionSequence: 1,
+                startedThisTick: false,
+                canceledThisTick: false,
+                executedThisTick: true,
+                startedRecoveryThisTick: false,
+                source,
+                outcome);
         }
 
         private static EntityState CreateUnit(int entityId, UnitRole unitRole, SurfaceCell? position = null)
