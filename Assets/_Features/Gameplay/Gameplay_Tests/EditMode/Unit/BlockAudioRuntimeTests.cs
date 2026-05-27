@@ -71,6 +71,36 @@ namespace Game.Feature.Gameplay.Tests
         }
 
         [Test]
+        public void Planner_BuildsImmediateFlipLandingCue_ForB1DueContact()
+        {
+            var planner = new BlockAudioRequestPlanner();
+            var dueContact = new FlipDueContactPresentationSignal(
+                sourceActionPlanId: 100,
+                boxEntityId: 11,
+                actorEntityId: 1,
+                hitEntityId: 21,
+                sourceCell: Cell(0, 0),
+                contactCell: Cell(1, 0),
+                landingCell: Cell(1, 0),
+                new CubeTopologyState(FaceId.Floor),
+                Direction.Right,
+                Direction.Right,
+                FlipContactResolutionKind.HitHostileSurvived,
+                FlipBoxDisposition.DestroySelf,
+                hasMaterializeCell: false,
+                materializeCell: default);
+
+            var requests = planner.BuildRequests(
+                CreateTickResult(CreatePresentationData(flipDueContactSignals: new[] { dueContact })),
+                CreateTimingProfile(flipMotionDurationSeconds: 0.5f));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].Cue, Is.EqualTo(BlockAudioCue.FlipLanding));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(11));
+            Assert.That(requests[0].DelaySeconds, Is.Zero);
+        }
+
+        [Test]
         public void Planner_BuildsCrashCue_ForSlidingContinuationStoppedBySolidEntityOrBarricade()
         {
             var planner = new BlockAudioRequestPlanner();
@@ -143,6 +173,7 @@ namespace Game.Feature.Gameplay.Tests
         private static TickPresentationData CreatePresentationData(
             IReadOnlyList<TickEntityMotion> entityMotions = null,
             IReadOnlyList<FlipImpactPresentationSignal> flipImpactSignals = null,
+            IReadOnlyList<FlipDueContactPresentationSignal> flipDueContactSignals = null,
             IReadOnlyList<BoxSlideStopPresentationSignal> boxSlideStopSignals = null,
             IReadOnlyList<BoxSlideStartPresentationSignal> boxSlideStartSignals = null)
         {
@@ -160,6 +191,7 @@ namespace Game.Feature.Gameplay.Tests
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
                 Array.Empty<TickEntityExitPresentationSignal>(),
                 flipImpactSignals ?? Array.Empty<FlipImpactPresentationSignal>(),
+                flipDueContactSignals: flipDueContactSignals ?? Array.Empty<FlipDueContactPresentationSignal>(),
                 boxSlideStopSignals: boxSlideStopSignals ?? Array.Empty<BoxSlideStopPresentationSignal>(),
                 boxSlideStartSignals: boxSlideStartSignals ?? Array.Empty<BoxSlideStartPresentationSignal>());
         }

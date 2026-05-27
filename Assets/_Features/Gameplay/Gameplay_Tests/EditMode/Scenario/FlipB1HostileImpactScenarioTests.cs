@@ -254,12 +254,82 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void FlipB1Presentation_BeforeDue_NoEnemyDeathCloneOrRetainedDeadFacts()
+        {
+            var executeTick = RunPlayerFlipImpact(hp: 1, out _, out _);
+
+            Assert.That(executeTick.PresentationData.FlipDueContactSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 30), Is.False);
+            Assert.That(executeTick.PresentationData.FlipFloorImpactSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FlipB1HostileImpact_DueTick_RemovesScheduledContact()
         {
             RunPlayerFlipImpactToDue(hp: 3, out var worldState, out _, out var dueTick);
 
             Assert.That(GetScheduledContacts(worldState), Is.Empty);
             Assert.That(dueTick.EventLog.Any(entry => entry.StartsWith("FlipB1Removed|")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationData_ContainsB1DueContactFactWithImmediateTiming()
+        {
+            RunPlayerFlipImpactToDue(hp: 3, out _, out _, out var dueTick);
+
+            var signal = dueTick.PresentationData.FlipDueContactSignals.Single();
+
+            Assert.That(signal.SourceActionPlanId, Is.GreaterThan(0));
+            Assert.That(signal.BoxEntityId, Is.EqualTo(20));
+            Assert.That(signal.HitEntityId, Is.EqualTo(30));
+            Assert.That(signal.ContactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(signal.BoxDisposition, Is.EqualTo(FlipBoxDisposition.DestroySelf));
+            Assert.That(signal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(signal.VisualContactNormalizedTime, Is.EqualTo(0f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1Presentation_DueDamageAndDeathUseImmediateExitOwnedTail()
+        {
+            RunPlayerFlipImpactToDue(hp: 1, out _, out _, out var dueTick);
+
+            Assert.That(dueTick.PresentationData.EnemyDamageSignals.Single().EntityId, Is.EqualTo(30));
+            var exitSignal = dueTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 30);
+            Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.Immediate));
+            Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(exitSignal.VisualContactNormalizedTime, Is.EqualTo(0f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1Vfx_DueTick_ContactVfxUsesContactCellWithoutLegacyDelay()
+        {
+            RunPlayerFlipImpactToDue(hp: 1, out _, out _, out var dueTick);
+
+            var signal = dueTick.PresentationData.FlipFloorImpactSignals.Single();
+
+            Assert.That(signal.ContactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(signal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(signal.VisualContactNormalizedTime, Is.EqualTo(0f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1Presentation_DueDestroySelf_BoxExitUsesImmediateDueFact()
+        {
+            RunPlayerFlipImpactToDue(hp: 3, out _, out _, out var dueTick);
+
+            var boxExit = dueTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 20);
+
+            Assert.That(boxExit.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(boxExit.Timing, Is.EqualTo(EntityExitPresentationTiming.Immediate));
+            Assert.That(boxExit.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(boxExit.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
         }
 
         [Test]
