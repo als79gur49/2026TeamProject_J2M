@@ -210,6 +210,13 @@ namespace Game.Feature.Gameplay.Loop
 
         public TickResult RunTick(in TickInput input)
         {
+            return RunTick(input, DemoGameplayOverrideSnapshot.None);
+        }
+
+        public TickResult RunTick(
+            in TickInput input,
+            DemoGameplayOverrideSnapshot demoGameplayOverrideSnapshot)
+        {
             _idAllocator.ResetForTick(input.TickIndex);
 
             var completedPhases = new List<TickPhase>(5);
@@ -232,6 +239,7 @@ namespace Game.Feature.Gameplay.Loop
             var resolvePhaseResult = RunResolvePhase(
                 preMovementSnapshot,
                 in input,
+                demoGameplayOverrideSnapshot,
                 entityLogicsForTick,
                 aiPhaseResult,
                 planPhaseResult,
@@ -881,6 +889,7 @@ namespace Game.Feature.Gameplay.Loop
         private ResolvePhaseResult RunResolvePhase(
             WorldSnapshot planSnapshot,
             in TickInput input,
+            DemoGameplayOverrideSnapshot demoGameplayOverrideSnapshot,
             EntityLogicSet entityLogicsForTick,
             EnemyAiPhaseResult aiPhaseResult,
             PlanPhaseResult planPhaseResult,
@@ -1024,7 +1033,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackPlanResult.OrderedActionPlanIds,
                 attackPlanResult.ActionPlanPayloads,
                 attackResolutionRecords,
-                tickIndex);
+                tickIndex,
+                demoGameplayOverrideSnapshot);
             RecordDamageResolutionRecords(
                 damageContests,
                 damageResolutions,
@@ -1311,7 +1321,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackPlanResult.OrderedActionPlanIds,
                 attackPlanResult.ActionPlanPayloads,
                 attackResolutionRecords,
-                tickIndex);
+                tickIndex,
+                demoGameplayOverrideSnapshot);
             RecordDamageResolutionRecords(
                 finalDamageContests,
                 damageResolutions,
@@ -9392,7 +9403,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<int> orderedActionPlanIds,
             IReadOnlyDictionary<int, AttackActionPlanPayload> payloads,
             IReadOnlyList<ResolutionRecord> resolutionRecords,
-            int tickIndex)
+            int tickIndex,
+            DemoGameplayOverrideSnapshot demoGameplayOverrideSnapshot)
         {
             var damageResolutions = new List<DamageResolutionRecord>();
             var playerDamageStatesByEntityId = new Dictionary<int, PlayerDamageState>();
@@ -9433,6 +9445,23 @@ namespace Game.Feature.Gameplay.Loop
                         damageState = snapshot.TryGetPlayerDamageState(damageWrite.TargetEntityId, out var storedState)
                             ? storedState
                             : default;
+                    }
+
+                    if (demoGameplayOverrideSnapshot.PlayerInvincible)
+                    {
+                        playerDamageStatesByEntityId[damageWrite.TargetEntityId] = damageState;
+                        damageResolutions.Add(
+                            new DamageResolutionRecord(
+                                payload.ActionPlanId,
+                                payload.IntentId,
+                                payload.SourceActorEntityId,
+                                damageWrite.AttackSourceKind,
+                                damageWrite.TargetEntityId,
+                                damageWrite.Amount,
+                                accepted: false,
+                                DamageRejectReason.PlayerInvincible,
+                                localActionIndex: damageIndex));
+                        continue;
                     }
 
                     if (!PlayerDamageQueries.CanAcceptDamage(damageState, tickIndex))

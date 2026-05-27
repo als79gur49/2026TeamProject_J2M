@@ -90,7 +90,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             TickInputBuffer inputBuffer,
-            int startTickIndex = 1)
+            int startTickIndex = 1,
+            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
         {
             var generalTimingProfile = GameplayTimingProfile.CreateDefault();
             var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
@@ -105,7 +106,8 @@ namespace Game.Feature.Gameplay.Loop
                 playerRespawnDelayTicks,
                 objectiveDefinition: null,
                 startTickIndex: startTickIndex,
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
+                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
+                demoGameplayOverrideSnapshotSource: demoGameplayOverrideSnapshotSource);
         }
 
         public TickRunner CreateTickRunner(
@@ -122,7 +124,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
-            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
+            IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
+            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
         {
             if (inputBuffer == null)
             {
@@ -141,10 +144,11 @@ namespace Game.Feature.Gameplay.Loop
                     runtimeFeatureFlags,
                     playerKinematicLocomotionTiming,
                     playerContinuousLocomotion,
-                    tileFeatureDefinitions,
-                    moonBlockRespawnDefinitions),
+                tileFeatureDefinitions,
+                moonBlockRespawnDefinitions),
                 inputBuffer,
-                startTickIndex);
+                startTickIndex,
+                demoGameplayOverrideSnapshotSource);
         }
 
         private static PlayerControlTimingAuthoritativeSnapshot CreateDefaultPlayerControlTimingSnapshot(

@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             IGameplayQueryFacade queryFacade,
             IGameplayPresentationFeed presentationFeed,
             IGameplayPauseService pauseService,
+            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null,
             IDemoStageControlCompletionBridge demoStageControlCompletionBridge = null,
             DebugCommandAccess debugCommandAccess = null)
         {
@@ -19,6 +20,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             PresentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
             PauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
+            DemoGameplayOverrideCommandPort = demoGameplayOverrideCommandPort;
             DemoStageControlCompletionBridge = demoStageControlCompletionBridge;
             DebugCommandAccess = debugCommandAccess ?? DebugCommandAccess.Disabled;
         }
@@ -30,6 +32,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         public IGameplayPresentationFeed PresentationFeed { get; }
 
         public IGameplayPauseService PauseService { get; }
+
+        public IDemoGameplayOverrideCommandPort DemoGameplayOverrideCommandPort { get; }
 
         public IDemoStageControlCompletionBridge DemoStageControlCompletionBridge { get; }
 

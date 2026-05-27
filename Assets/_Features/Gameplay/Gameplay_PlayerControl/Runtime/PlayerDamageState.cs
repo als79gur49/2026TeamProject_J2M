@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.PlayerControl
     {
         None = 0,
         ReceiverCooldown = 1,
+        PlayerInvincible = 2,
     }
 
     public struct PlayerDamageState
