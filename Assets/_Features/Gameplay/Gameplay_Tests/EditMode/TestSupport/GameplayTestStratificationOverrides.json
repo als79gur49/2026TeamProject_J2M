@@ -3523,6 +3523,36 @@
       ],
       "reason": "Locked Core PlayMode coverage that stopped, owner-invalidated, and naturally completed gameplay playbacks are not revived by group resume.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.StartisEnemyRuntimeContractTests.Startis_ForwardMovement_ActivatedBarricadeBlocksOwnCell",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "startis_forward_movement_runtime_contract"
+      ],
+      "reason": "Locked Core representative coverage that Startis ordinary movement treats only active Barricade as a hard TileFeature blocker without creating Solid occupancy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BlackEyeWindupProjectileRuntimeContractTests.BlackEye_ForwardCellProjectile_BlockerPolicy_ActivatedBarricadeBlocksWindupStart",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "forward_cell_projectile_runtime_contract"
+      ],
+      "reason": "Locked Core representative coverage that BlackEye forward-cell projectile windup uses active Barricade blocker policy on its runtime acquisition path.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.RocketFaceChargeRuntimeContractTests.EnemyCharge_RocketFaceProfile_ActivatedBarricadeStopsActiveChargeAndThenRecovers",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "rocketface_charge_runtime_contract"
+      ],
+      "reason": "Locked Core representative coverage that RocketFace active charge stops on active Barricade as a hard TileFeature blocker while preserving charge recovery.",
+      "locked": true
     }
   ]
 }

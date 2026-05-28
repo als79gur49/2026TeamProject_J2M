@@ -354,6 +354,7 @@ namespace Game.Feature.Gameplay.Loop
             BindTileFeatureDefinitionContext(entityLogicsForTick.AiStateLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick.PreMovementStateLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick.MovementLogics);
+            BindTileFeatureDefinitionContext(entityLogicsForTick.EnemyActionStateLogics);
         }
 
         private void BindTileFeatureDefinitionContext<TLogic>(IReadOnlyList<TLogic> logics)
@@ -4031,7 +4032,11 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             handledByKinematic = true;
-            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, entity, delta))
+            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(
+                    snapshot,
+                    entity,
+                    delta,
+                    _tileFeatureDefinitions))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyChargeKinematicTraversalBlocked|Anchor={FormatCell(entity.position)}");

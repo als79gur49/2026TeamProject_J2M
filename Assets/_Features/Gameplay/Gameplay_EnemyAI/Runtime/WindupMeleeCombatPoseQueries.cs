@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -15,6 +16,7 @@ namespace Game.Feature.Gameplay.Entities
         SevereTransition = 6,
         InvalidForwardTargetCell = 7,
         ActivePendingImpactLimitReached = 8,
+        ForwardPathBlockedByTileFeature = 9,
     }
 
     internal readonly struct WindupMeleeStartQueryResult
@@ -155,6 +157,27 @@ namespace Game.Feature.Gameplay.Entities
             in WindupForwardCellProjectileSettings settings,
             out SurfaceCell targetCell)
         {
+            return QueryStartWindupForwardCellProjectile(
+                snapshot,
+                enemy,
+                player,
+                attackDecisionStrategy,
+                attackDecisionSettings,
+                settings,
+                tileFeatureDefinitions: null,
+                out targetCell);
+        }
+
+        public static WindupMeleeStartQueryResult QueryStartWindupForwardCellProjectile(
+            WorldSnapshot snapshot,
+            in EntityState enemy,
+            in EntityState player,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in AttackDecisionSettings attackDecisionSettings,
+            in WindupForwardCellProjectileSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out SurfaceCell targetCell)
+        {
             targetCell = default;
             settings.Validate(nameof(settings));
 
@@ -183,9 +206,20 @@ namespace Game.Feature.Gameplay.Entities
                     attackDirection,
                     player.position,
                     attackDecisionSettings.AttackRange,
+                    tileFeatureDefinitions,
                     out targetCell))
             {
                 return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.InvalidForwardTargetCell);
+            }
+
+            if (settings.RequireValidForwardCell &&
+                IsForwardProjectilePathBlockedByActiveBarricade(
+                    snapshot,
+                    startQuery.EnemyOrigin.AnchorCell,
+                    targetCell,
+                    tileFeatureDefinitions))
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.ForwardPathBlockedByTileFeature);
             }
 
             if (!settings.RequireValidForwardCell)
@@ -196,6 +230,7 @@ namespace Game.Feature.Gameplay.Entities
                     attackDirection,
                     player.position,
                     attackDecisionSettings.AttackRange,
+                    tileFeatureDefinitions,
                     out targetCell);
             }
 
@@ -207,6 +242,23 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState enemy,
             in EntityState player,
             EnemyCombatCapabilityRuntime combatCapability,
+            out SurfaceCell? lockedTargetCell)
+        {
+            return QueryShortRangeWindupStart(
+                snapshot,
+                enemy,
+                player,
+                combatCapability,
+                tileFeatureDefinitions: null,
+                out lockedTargetCell);
+        }
+
+        public static WindupMeleeStartQueryResult QueryShortRangeWindupStart(
+            WorldSnapshot snapshot,
+            in EntityState enemy,
+            in EntityState player,
+            EnemyCombatCapabilityRuntime combatCapability,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out SurfaceCell? lockedTargetCell)
         {
             if (combatCapability == null)
@@ -224,6 +276,7 @@ namespace Game.Feature.Gameplay.Entities
                     combatCapability.AttackDecisionStrategy,
                     combatCapability.AttackDecisionSettings,
                     combatCapability.WindupForwardCellProjectileSettings,
+                    tileFeatureDefinitions,
                     out var targetCell);
                 if (result.CanStart)
                 {
@@ -266,6 +319,25 @@ namespace Game.Feature.Gameplay.Entities
             int maxRangeCells,
             out SurfaceCell targetCell)
         {
+            return TryResolveForwardTargetCell(
+                snapshot,
+                baseCell,
+                direction,
+                desiredTargetCell,
+                maxRangeCells,
+                tileFeatureDefinitions: null,
+                out targetCell);
+        }
+
+        public static bool TryResolveForwardTargetCell(
+            WorldSnapshot snapshot,
+            SurfaceCell baseCell,
+            Direction direction,
+            SurfaceCell desiredTargetCell,
+            int maxRangeCells,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out SurfaceCell targetCell)
+        {
             targetCell = default;
             if (snapshot == null ||
                 maxRangeCells <= 0 ||
@@ -291,10 +363,65 @@ namespace Game.Feature.Gameplay.Entities
                 {
                     return false;
                 }
+
+                if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                        snapshot,
+                        tileFeatureDefinitions,
+                        current,
+                        TileFeatureBlockerSubject.Unit,
+                        TileFeatureMovementKind.GroundStep,
+                        out _))
+                {
+                    return false;
+                }
             }
 
             targetCell = current;
             return targetCell == desiredTargetCell;
+        }
+
+        private static bool IsForwardProjectilePathBlockedByActiveBarricade(
+            WorldSnapshot snapshot,
+            SurfaceCell baseCell,
+            SurfaceCell targetCell,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            if (snapshot == null ||
+                baseCell.face != targetCell.face ||
+                tileFeatureDefinitions == null ||
+                tileFeatureDefinitions.Count == 0)
+            {
+                return false;
+            }
+
+            var dx = targetCell.x - baseCell.x;
+            var dy = targetCell.y - baseCell.y;
+            var distance = Math.Abs(dx) + Math.Abs(dy);
+            if (distance <= 0 || (dx != 0 && dy != 0))
+            {
+                return false;
+            }
+
+            var stepX = Math.Sign(dx);
+            var stepY = Math.Sign(dy);
+            var current = new SurfaceCell(baseCell.face, baseCell.x + stepX, baseCell.y + stepY);
+            for (var step = 0; step < distance; step++)
+            {
+                if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                        snapshot,
+                        tileFeatureDefinitions,
+                        current,
+                        TileFeatureBlockerSubject.Unit,
+                        TileFeatureMovementKind.GroundStep,
+                        out _))
+                {
+                    return true;
+                }
+
+                current = new SurfaceCell(current.face, current.x + stepX, current.y + stepY);
+            }
+
+            return false;
         }
 
         private static bool TryResolveForwardStep(

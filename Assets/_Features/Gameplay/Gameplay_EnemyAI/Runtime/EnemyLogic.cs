@@ -23,10 +23,11 @@ namespace Game.Feature.Gameplay.Entities
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
-            in DetectionSettings detectionSettings);
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions);
     }
 
-    public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
+    public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding, ITileFeatureDefinitionContextReceiver
     {
         private readonly struct GroundLocomotionResolution
         {
@@ -116,7 +117,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public int ControlledEntityId => _entityId;
 
-        internal void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        public void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             _tileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
         }
@@ -170,7 +171,8 @@ namespace Game.Feature.Gameplay.Entities
                 _movementSkillCapability,
                 _commonSettings,
                 _chargeTimingSettings,
-                _detectionSettings);
+                _detectionSettings,
+                _tileFeatureDefinitions);
 
             if (ShouldDeferChargeStartForOrdinaryKinematic(snapshot, source, decision, out var deferredPose))
             {
@@ -2190,7 +2192,11 @@ namespace Game.Feature.Gameplay.Entities
                     if (previousState.phase == EnemyChargePhase.Windup)
                     {
                         if (input.TickIndex >= previousState.windupEndTick &&
-                            EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source, previousState.lockedDirection))
+                            EnemyChargeStrategyShared.CanAdvanceChargeStep(
+                                snapshot,
+                                source,
+                                previousState.lockedDirection,
+                                _tileFeatureDefinitions))
                         {
                             nextState = EnemyChargeQueries.BeginActive(previousState);
                             AppendChargeUpdate(updates, _entityId, "BeginActive", nextState);
@@ -2243,7 +2249,13 @@ namespace Game.Feature.Gameplay.Entities
         {
             nextState = default;
             if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target) ||
-                !EnemyChargeStrategyShared.TryResolveChargeStart(snapshot, source, target, out var lockedDirection, out var reachableSteps))
+                !EnemyChargeStrategyShared.TryResolveChargeStart(
+                    snapshot,
+                    source,
+                    target,
+                    _tileFeatureDefinitions,
+                    out var lockedDirection,
+                    out var reachableSteps))
             {
                 return false;
             }
@@ -2499,6 +2511,7 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             _commonSettings,
                             chargeDelta,
+                            _tileFeatureDefinitions,
                             out var chargeIntent))
                     {
                         return new GroundLocomotionResolution(
@@ -2527,7 +2540,7 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability);
+            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability, _tileFeatureDefinitions);
             if (!startQuery.ShouldApproach)
             {
                 return false;
@@ -2585,7 +2598,7 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability);
+            var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability, _tileFeatureDefinitions);
             return startQuery.BlockReason == WindupMeleeStartBlockReason.SevereTransition &&
                    WindupMeleeCombatPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
         }
@@ -2594,7 +2607,8 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
-            EnemyCombatCapabilityRuntime combatCapability)
+            EnemyCombatCapabilityRuntime combatCapability,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
             {
@@ -2605,6 +2619,7 @@ namespace Game.Feature.Gameplay.Entities
                     combatCapability.AttackDecisionStrategy,
                     combatCapability.AttackDecisionSettings,
                     combatCapability.WindupForwardCellProjectileSettings,
+                    tileFeatureDefinitions,
                     out _);
             }
 
@@ -3067,7 +3082,8 @@ namespace Game.Feature.Gameplay.Entities
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (snapshot == null)
             {
@@ -3087,10 +3103,10 @@ namespace Game.Feature.Gameplay.Entities
             switch (stage)
             {
                 case EnemyAiTransitionStage.BeforeMovement:
-                    return ResolveBeforeMovement(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
+                    return ResolveBeforeMovement(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiTransitionStage.BeforeAttack:
-                    return ResolveBeforeAttack(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings);
+                    return ResolveBeforeAttack(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiTransitionStage.AfterAttack:
                     return ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings);
@@ -3108,7 +3124,8 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             switch (source.aiMode)
             {
@@ -3127,6 +3144,7 @@ namespace Game.Feature.Gameplay.Entities
                         combatCapability,
                         movementSkillCapability,
                         detectionSettings,
+                        tileFeatureDefinitions,
                         EnemyAiMode.Patrol);
 
                 case EnemyAiMode.Recover:
@@ -3163,7 +3181,8 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             switch (source.aiMode)
             {
@@ -3177,6 +3196,7 @@ namespace Game.Feature.Gameplay.Entities
                         combatCapability,
                         movementSkillCapability,
                         detectionSettings,
+                        tileFeatureDefinitions,
                         EnemyAiMode.Patrol);
 
                 default:
@@ -3217,6 +3237,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             EnemyAiMode patrolFallback)
         {
             if (source.aiMode == EnemyAiMode.Attack &&
@@ -3270,6 +3291,7 @@ namespace Game.Feature.Gameplay.Entities
                     source,
                     target,
                     combatCapability,
+                    tileFeatureDefinitions,
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
@@ -3330,7 +3352,8 @@ namespace Game.Feature.Gameplay.Entities
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (snapshot == null)
             {
@@ -3357,7 +3380,8 @@ namespace Game.Feature.Gameplay.Entities
                     combatCapability,
                     movementSkillCapability,
                     chargeTimingSettings,
-                    detectionSettings),
+                    detectionSettings,
+                    tileFeatureDefinitions),
                 EnemyAiTransitionStage.BeforeAttack => ResolveBeforeAttack(
                     snapshot,
                     source,
@@ -3365,7 +3389,8 @@ namespace Game.Feature.Gameplay.Entities
                     detectionStrategy,
                     combatCapability,
                     movementSkillCapability,
-                    detectionSettings),
+                    detectionSettings,
+                    tileFeatureDefinitions),
                 EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage."),
             };
@@ -3417,7 +3442,8 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyChargeTimingSettings chargeTimingSettings,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             switch (source.aiMode)
             {
@@ -3439,7 +3465,7 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
 
                 case EnemyAiMode.Chase:
-                    return ResolveChase(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
+                    return ResolveChase(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiMode.Charge:
                     return ResolveChargeBeforeMovement(
@@ -3449,10 +3475,11 @@ namespace Game.Feature.Gameplay.Entities
                         detectionStrategy,
                         combatCapability,
                         chargeTimingSettings,
-                        detectionSettings);
+                        detectionSettings,
+                        tileFeatureDefinitions);
 
                 case EnemyAiMode.Attack:
-                    return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
+                    return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiMode.Recover:
                     if (IsChargeOwnedRecover(snapshot, source.entityId, out var chargeRecoverState))
@@ -3492,7 +3519,8 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (source.aiMode == EnemyAiMode.Charge)
             {
@@ -3518,7 +3546,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.aiMode == EnemyAiMode.Chase || source.aiMode == EnemyAiMode.Attack)
             {
-                return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings);
+                return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
             }
 
             return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoBeforeAttackTransition");
@@ -3531,7 +3559,8 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (!detectionStrategy.TryFindTarget(
                     snapshot,
@@ -3551,6 +3580,7 @@ namespace Game.Feature.Gameplay.Entities
                     source,
                     target,
                     combatCapability,
+                    tileFeatureDefinitions,
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
@@ -3572,7 +3602,13 @@ namespace Game.Feature.Gameplay.Entities
                             : "TargetInRangeButCombatPoseNotReady");
             }
 
-            if (EnemyChargeStrategyShared.TryResolveChargeStart(snapshot, source, target, out var chargeFacing, out _))
+            if (EnemyChargeStrategyShared.TryResolveChargeStart(
+                    snapshot,
+                    source,
+                    target,
+                    tileFeatureDefinitions,
+                    out var chargeFacing,
+                    out _))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeStart", chargeFacing);
             }
@@ -3587,7 +3623,8 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (source.aiMode == EnemyAiMode.Attack &&
                 snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
@@ -3640,6 +3677,7 @@ namespace Game.Feature.Gameplay.Entities
                     source,
                     target,
                     combatCapability,
+                    tileFeatureDefinitions,
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
@@ -3690,7 +3728,8 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyChargeTimingSettings chargeTimingSettings,
-            in DetectionSettings detectionSettings)
+            in DetectionSettings detectionSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             if (!snapshot.TryGetEnemyChargeState(source.entityId, out var chargeState) ||
                 chargeState.phase == EnemyChargePhase.None)
@@ -3706,7 +3745,11 @@ namespace Game.Feature.Gameplay.Entities
                         return new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeWindup");
                     }
 
-                    if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source, chargeState.lockedDirection))
+                    if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(
+                            snapshot,
+                            source,
+                            chargeState.lockedDirection,
+                            tileFeatureDefinitions))
                     {
                         return ResolveChargeRecoveryOrImmediate(
                             snapshot,
@@ -3756,7 +3799,11 @@ namespace Game.Feature.Gameplay.Entities
                         return new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeWaitingForLocomotionCooldown");
                     }
 
-                    if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source, chargeState.lockedDirection))
+                    if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(
+                            snapshot,
+                            source,
+                            chargeState.lockedDirection,
+                            tileFeatureDefinitions))
                     {
                         return ResolveChargeRecoveryOrImmediate(
                             snapshot,

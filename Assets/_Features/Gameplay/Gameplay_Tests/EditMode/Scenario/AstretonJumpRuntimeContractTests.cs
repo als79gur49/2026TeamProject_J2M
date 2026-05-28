@@ -450,6 +450,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyJump_AstretonProfile_InactiveBarricadeOnExactLandingCellDoesNotBlockSettlement()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var barricade = CreateTileFeature(106, targetCell, TileFeatureKind.Barricade);
+            var definitions = CreateInactiveDefinitions(barricade);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            worldState.CreateWriteContext().AddTileFeature(barricade);
+
+            var landingTick = CreatePipeline(worldState, definitions).RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(targetCell), landingTick.Trace.Text);
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(targetCell, out _), Is.False);
+            AssertLandingResolvedWithoutIllegalOverlap(worldState, targetCell, landingTick);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_ActivatedDestroyTileOnlyCandidateDoesNotRetryAsHardBlocked()
+        {
+            EnemyJump_AstretonProfile_ActivatedDestroyTileDoesNotHardBlockJumpLandingSettlement();
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyJump_AstretonProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockLandingSettlementSurfaceCell()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
@@ -482,6 +506,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(fallbackCell), landingTick.Trace.Text);
             AssertNoIllegalUnitSolidOverlap(worldState.CreateSnapshot());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJump_AstretonProfile_InactiveBarricadeAppearsDuringAirborne_DoesNotChangeLanding()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var barricade = CreateTileFeature(107, targetCell, TileFeatureKind.Barricade);
+            var definitions = CreateInactiveDefinitions(barricade);
+            var worldState = CreateAirborneLandingWorld(targetCell);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().AddTileFeature(barricade);
+            pipeline = CreatePipeline(worldState, definitions);
+            var landingTick = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(targetCell), landingTick.Trace.Text);
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(targetCell, out _), Is.False);
+            AssertLandingResolvedWithoutIllegalOverlap(worldState, targetCell, landingTick);
         }
 
         [Test]
@@ -978,10 +1022,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TileFeatureRuntimeDefinition[] CreateActiveDefinitions(params TileFeatureState[] tileFeatures)
         {
+            return CreateDefinitions(TileFeatureActivationRule.Always, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateInactiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.InactiveFaceOnly, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateDefinitions(
+            TileFeatureActivationRule activationRule,
+            params TileFeatureState[] tileFeatures)
+        {
             return tileFeatures
                 .Select(tileFeature => new TileFeatureRuntimeDefinition(
                     tileFeature.TileId,
-                    TileFeatureActivationRule.Always,
+                    activationRule,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
                     boundEntityId: tileFeature.Charges,
