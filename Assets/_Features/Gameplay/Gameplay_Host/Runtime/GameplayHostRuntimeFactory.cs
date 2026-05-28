@@ -203,7 +203,10 @@ namespace Game.Feature.Gameplay.Host
                 configuration.BoardTilePaintOverrides,
                 configuration.BoardTileOverlayCatalog,
                 configuration.BoardTileOverlayOverrides,
-                configuration.SuppressedBaseTileCells);
+                configuration.SuppressedBaseTileCells,
+                configuration.BoardPresentationProfile != null
+                    ? configuration.BoardPresentationProfile.ActiveFaceCoverPrefab
+                    : null);
 
             var viewCameraTarget = boardRoot.CameraTargetRoot;
             var startupPlan = GameplayCameraStartupPlanComposer.Compose(
