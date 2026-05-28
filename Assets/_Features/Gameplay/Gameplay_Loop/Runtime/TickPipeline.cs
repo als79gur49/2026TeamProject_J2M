@@ -224,14 +224,50 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 _objectiveTracker.CurrentResult.IsCleared);
             CleanupPhaseResult dueCleanupPhaseResult = CleanupPhaseResult.Empty;
+            IReadOnlyList<TilePresentationEvent> dueTilePresentationEvents = Array.Empty<TilePresentationEvent>();
+            IReadOnlyList<TickEntityExitPresentationSignal> dueTileEntityExitSignals =
+                Array.Empty<TickEntityExitPresentationSignal>();
             WorldSnapshot initialSnapshot = tickStartSnapshot;
             if (dueResolutionResult.HasWork)
             {
                 dueResolutionResult.Batch.ApplyTo(writeContext, _delayedAttackEffectQueue);
                 var postDueFinalizeSnapshot = SnapshotBuilder.Create(_worldState);
-                var dueCleanupCandidates = CollectDueCleanupCandidateEntityIds(dueResolutionResult.Batch);
-                dueCleanupPhaseResult = _cleanupProcessor.ProcessRemovalsOnly(
+                var dueTileEffectContacts = BuildDueTileEffectEntityContacts(
                     postDueFinalizeSnapshot,
+                    dueResolutionResult.ContactPresentationSignals);
+                var dueTileEffectResult = dueTileEffectContacts.Count > 0
+                    ? _tileEffectResolver.Resolve(
+                        new TileEffectResolutionContext(
+                            input.TickIndex,
+                            postDueFinalizeSnapshot,
+                            _tileFeatureDefinitions,
+                            dueTileEffectContacts,
+                            tickStartSnapshot))
+                    : TileEffectResolutionResult.Empty;
+                dueTilePresentationEvents = dueTileEffectResult.TileEvents;
+                dueTileEntityExitSignals = BuildDueTileEffectEntityExitSignals(
+                    postDueFinalizeSnapshot,
+                    dueTileEffectResult.EntityOperations);
+                if (!dueTileEffectResult.Operations.IsEmpty)
+                {
+                    var dueTileFeatureBatch = new FinalizationBatch();
+                    dueTileFeatureBatch.ApplyTileFeatureOperations(dueTileEffectResult.Operations);
+                    dueTileFeatureBatch.ApplyTo(writeContext, _delayedAttackEffectQueue);
+                }
+
+                if (dueTileEffectResult.EntityOperations.Operations.Count > 0)
+                {
+                    dueTileEffectResult.EntityOperations.ApplyTo(writeContext, _delayedAttackEffectQueue);
+                }
+
+                var dueCleanupCandidates = CollectDueCleanupCandidateEntityIds(
+                    dueResolutionResult.Batch,
+                    dueTileEffectResult.EntityOperations);
+                var postDueTileEffectSnapshot = dueTileEffectResult.IsEmpty
+                    ? postDueFinalizeSnapshot
+                    : SnapshotBuilder.Create(_worldState);
+                dueCleanupPhaseResult = _cleanupProcessor.ProcessRemovalsOnly(
+                    postDueTileEffectSnapshot,
                     writeContext,
                     dueCleanupCandidates);
                 if (dueResolutionResult.PostCleanupBatch.Operations.Count > 0 ||
@@ -307,7 +343,7 @@ namespace Game.Feature.Gameplay.Loop
                 input.PlayerCommand,
                 resolvePhaseResult.ResolutionRecords,
                 _enemyGlidePresentationSettingsResolver,
-                resolvePhaseResult.TilePresentationEvents,
+                MergeTilePresentationEvents(dueTilePresentationEvents, resolvePhaseResult.TilePresentationEvents),
                 objectiveResult,
                 _objectiveTracker.ObjectiveDefinition,
                 _tileFeatureDefinitions,
@@ -318,7 +354,8 @@ namespace Game.Feature.Gameplay.Loop
                 resolvePhaseResult.FinalizationBatch,
                 planPhaseResult.PlayerActionAttemptResolutions,
                 dueResolutionResult.ContactPresentationSignals,
-                dueResolutionResult.DamageResolutions);
+                dueResolutionResult.DamageResolutions,
+                dueTileEntityExitSignals);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -393,26 +430,161 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static HashSet<int> CollectDueCleanupCandidateEntityIds(FinalizationBatch batch)
+        private static HashSet<int> CollectDueCleanupCandidateEntityIds(params FinalizationBatch[] batches)
         {
             var candidateIds = new HashSet<int>();
-            if (batch == null)
+            if (batches == null)
             {
                 return candidateIds;
             }
 
-            var operations = batch.Operations;
-            for (var i = 0; i < operations.Count; i++)
+            for (var batchIndex = 0; batchIndex < batches.Length; batchIndex++)
             {
-                var operation = operations[i];
-                if (operation.Kind == FinalizationOperationKind.ApplyDamage ||
-                    operation.Kind == FinalizationOperationKind.MarkDestroy)
+                var batch = batches[batchIndex];
+                if (batch == null)
                 {
-                    candidateIds.Add(operation.EntityId);
+                    continue;
+                }
+
+                var operations = batch.Operations;
+                for (var i = 0; i < operations.Count; i++)
+                {
+                    var operation = operations[i];
+                    if (operation.Kind == FinalizationOperationKind.ApplyDamage ||
+                        operation.Kind == FinalizationOperationKind.MarkDestroy)
+                    {
+                        candidateIds.Add(operation.EntityId);
+                    }
                 }
             }
 
             return candidateIds;
+        }
+
+        private static IReadOnlyList<TilePresentationEvent> MergeTilePresentationEvents(
+            IReadOnlyList<TilePresentationEvent> first,
+            IReadOnlyList<TilePresentationEvent> second)
+        {
+            if (first == null || first.Count == 0)
+            {
+                return second ?? Array.Empty<TilePresentationEvent>();
+            }
+
+            if (second == null || second.Count == 0)
+            {
+                return first;
+            }
+
+            var merged = new List<TilePresentationEvent>(first.Count + second.Count);
+            for (var i = 0; i < first.Count; i++)
+            {
+                merged.Add(first[i]);
+            }
+
+            for (var i = 0; i < second.Count; i++)
+            {
+                merged.Add(second[i]);
+            }
+
+            return merged;
+        }
+
+        private static List<TileEffectEntityContact> BuildDueTileEffectEntityContacts(
+            WorldSnapshot destinationSnapshot,
+            IReadOnlyList<FlipDueContactPresentationSignal> dueSignals)
+        {
+            var contacts = new List<TileEffectEntityContact>();
+            if (destinationSnapshot == null ||
+                dueSignals == null ||
+                dueSignals.Count == 0)
+            {
+                return contacts;
+            }
+
+            for (var i = 0; i < dueSignals.Count; i++)
+            {
+                var signal = dueSignals[i];
+                if (signal.BoxEntityId <= 0 ||
+                    signal.BoxDisposition != FlipBoxDisposition.MaterializeAtLanding ||
+                    !signal.HasMaterializeCell ||
+                    !destinationSnapshot.TryGetEntity(signal.BoxEntityId, out var box) ||
+                    box.type != EntityType.Box ||
+                    box.position != signal.MaterializeCell ||
+                    box.boardPresence != EntityBoardPresence.Occupying ||
+                    box.hp <= 0 ||
+                    box.markedForDeath)
+                {
+                    continue;
+                }
+
+                contacts.Add(new TileEffectEntityContact(
+                    signal.BoxEntityId,
+                    EntityType.Box,
+                    signal.SourceCell,
+                    signal.MaterializeCell,
+                    signal.MaterializeCell,
+                    TileEffectEntityContactKind.FlipLanding,
+                    MovementSemanticKind.None,
+                    operationOrder: i,
+                    actionPlanId: signal.SourceActionPlanId,
+                    localActionIndex: 0,
+                    intentId: signal.SourceActionPlanId,
+                    visualContactNormalizedTime: 0f));
+            }
+
+            contacts.Sort(CompareTileEffectEntityContacts);
+            return contacts;
+        }
+
+        private static IReadOnlyList<TickEntityExitPresentationSignal> BuildDueTileEffectEntityExitSignals(
+            WorldSnapshot sourceSnapshot,
+            FinalizationBatch entityOperations)
+        {
+            if (sourceSnapshot == null ||
+                entityOperations == null ||
+                entityOperations.Operations.Count == 0)
+            {
+                return Array.Empty<TickEntityExitPresentationSignal>();
+            }
+
+            var signals = new List<TickEntityExitPresentationSignal>();
+            var seenEntityIds = new HashSet<int>();
+            var operations = entityOperations.Operations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Metadata.ExitCauseHint == TickEntityExitCause.None ||
+                    operation.Kind != FinalizationOperationKind.MarkDestroy ||
+                    !seenEntityIds.Add(operation.EntityId) ||
+                    !sourceSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
+                    !IsDueTileEffectExitPresentationSupportedEntity(sourceEntity))
+                {
+                    continue;
+                }
+
+                signals.Add(new TickEntityExitPresentationSignal(
+                    operation.EntityId,
+                    operation.Metadata.ExitCauseHint,
+                    operation.Metadata.HasPresentationTargetCell
+                        ? operation.Metadata.PresentationTargetCell
+                        : sourceEntity.position,
+                    sourceSnapshot.Topology,
+                    sourceEntity.facing,
+                    sourceEntity.type,
+                    sourceActorEntityId: operation.Metadata.SourceActorEntityId,
+                    presentationSeed: 0,
+                    timing: EntityExitPresentationTiming.Immediate,
+                    visualContactNormalizedTime: 0f,
+                    timingMode: GameplayPresentationTimingMode.DueContactImmediate));
+            }
+
+            return signals;
+        }
+
+        private static bool IsDueTileEffectExitPresentationSupportedEntity(in EntityState entity)
+        {
+            return entity.type == EntityType.Box ||
+                   EntityRolePolicy.IsEnemyUnit(entity);
         }
 
         private static CleanupPhaseResult MergeCleanupPhaseResults(

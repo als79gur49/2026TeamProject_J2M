@@ -588,7 +588,8 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch finalizationBatch = null,
             IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null,
             IReadOnlyList<FlipDueContactPresentationSignal> dueFlipContactSignals = null,
-            IReadOnlyList<DamageResolutionRecord> dueDamageResolutions = null)
+            IReadOnlyList<DamageResolutionRecord> dueDamageResolutions = null,
+            IReadOnlyList<TickEntityExitPresentationSignal> prebuiltEntityExitSignals = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -614,6 +615,7 @@ namespace Game.Feature.Gameplay.Loop
             PlayerActionAttemptResolutions = playerActionAttemptResolutions ?? Array.Empty<PlayerActionAttemptResolution>();
             DueFlipContactSignals = dueFlipContactSignals ?? Array.Empty<FlipDueContactPresentationSignal>();
             DueDamageResolutions = dueDamageResolutions ?? Array.Empty<DamageResolutionRecord>();
+            PrebuiltEntityExitSignals = prebuiltEntityExitSignals ?? Array.Empty<TickEntityExitPresentationSignal>();
             GravityFieldChargeDurationTicks = gravityFieldChargeDurationTicks > 0
                 ? gravityFieldChargeDurationTicks
                 : GameplayTimingProfile.SecondsToCeilTicks(
@@ -668,6 +670,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<FlipDueContactPresentationSignal> DueFlipContactSignals { get; }
 
         public IReadOnlyList<DamageResolutionRecord> DueDamageResolutions { get; }
+
+        public IReadOnlyList<TickEntityExitPresentationSignal> PrebuiltEntityExitSignals { get; }
 
         public int GravityFieldChargeDurationTicks { get; }
 
@@ -3294,6 +3298,7 @@ namespace Game.Feature.Gameplay.Loop
             ISet<int> exitOwnedEntityIds)
         {
             BuildDueContactEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
+            BuildPrebuiltEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             var facts = BuildEntityExitPresentationFacts(context);
             for (var i = 0; i < facts.Count; i++)
             {
@@ -3320,6 +3325,23 @@ namespace Game.Feature.Gameplay.Loop
                         timing: fact.Timing,
                         visualContactNormalizedTime: fact.VisualContactNormalizedTime));
                 exitOwnedEntityIds.Add(fact.EntityId);
+            }
+        }
+
+        private static void BuildPrebuiltEntityExitPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEntityExitPresentationSignal> entityExitSignals,
+            ISet<int> exitOwnedEntityIds)
+        {
+            var signals = context.PrebuiltEntityExitSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.ExitedEntityId > 0 &&
+                    exitOwnedEntityIds.Add(signal.ExitedEntityId))
+                {
+                    entityExitSignals.Add(signal);
+                }
             }
         }
 

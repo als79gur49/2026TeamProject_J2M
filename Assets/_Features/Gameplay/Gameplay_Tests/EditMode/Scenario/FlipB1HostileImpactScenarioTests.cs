@@ -1056,6 +1056,81 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_ActivatedDestroyTileDestroysMaterializedBoxOnce()
+        {
+            var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var pipeline = CreateOrdinaryFlipPipelineWithTileFeatures(
+                out var worldState,
+                new[] { CreateTileFeature(100, landingCell, TileFeatureKind.Destroy) },
+                new[] { CreateTileDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().BoxDisposition, Is.EqualTo(FlipBoxDisposition.MaterializeAtLanding));
+            Assert.That(
+                dueTick.PresentationData.TileEvents.Count(tileEvent =>
+                    tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered &&
+                    tileEvent.TargetEntityId == 20),
+                Is.EqualTo(1));
+            Assert.That(
+                dueTick.PresentationData.EntityExitSignals.Count(signal =>
+                    signal.ExitedEntityId == 20 &&
+                    signal.ExitCause == TickEntityExitCause.BoxDestroy),
+                Is.EqualTo(1));
+            var exitSignal = dueTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 20);
+            Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(exitSignal.SourceCell, Is.EqualTo(landingCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_CompletedFlipSlidingIntoDestroyTile_MatchesUnflippedSlidingDestroy()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, -2, 0);
+            var flippedPipeline = CreateOrdinaryFlipPipelineWithTileFeatures(
+                out var flippedWorldState,
+                new[] { CreateTileFeature(100, destroyCell, TileFeatureKind.Destroy) },
+                new[] { CreateTileDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                BoxCapabilities.Push | BoxCapabilities.Flip);
+            flippedPipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(flippedPipeline);
+            var dueTick = RunUntilDue(flippedPipeline);
+            Assert.That(flippedWorldState.CreateSnapshot().TryGetEntity(20, out var flippedBox), Is.True);
+            Assert.That(flippedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(flippedBox.facing, Is.EqualTo(Direction.Left));
+
+            ((IMovementCommitContext)flippedWorldState.CreateWriteContext())
+                .ApplyStateChange(20, EntityPhaseState.Sliding, stateTimer: 0);
+            var flippedSlideTick = flippedPipeline.RunTick(new TickInput(dueTick.TickIndex + 1, PlayerTickCommand.None));
+
+            var unflippedBox = CreateBox(20, new Vector2Int(-1, 0), BoxCapabilities.Push | BoxCapabilities.Flip);
+            unflippedBox.facing = Direction.Left;
+            unflippedBox.state = EntityPhaseState.Sliding;
+            unflippedBox.stateTimer = 0;
+            var unflippedWorldState = CreateWorldState(
+                new[] { unflippedBox },
+                new[] { CreateTileFeature(100, destroyCell, TileFeatureKind.Destroy) });
+            var unflippedPipeline = CreatePipelineWithTileFeatures(
+                unflippedWorldState,
+                new[] { CreateTileDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                Array.Empty<IEntityLogic>());
+
+            var unflippedSlideTick = unflippedPipeline.RunTick(new TickInput(7, PlayerTickCommand.None));
+
+            AssertSlidingDestroyTileParity(flippedWorldState, flippedSlideTick, destroyCell);
+            AssertSlidingDestroyTileParity(unflippedWorldState, unflippedSlideTick, destroyCell);
+            Assert.That(
+                flippedSlideTick.PresentationData.EntityExitSignals.Count(signal => signal.ExitedEntityId == 20),
+                Is.EqualTo(unflippedSlideTick.PresentationData.EntityExitSignals.Count(signal => signal.ExitedEntityId == 20)));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_DueTick_HostileEnteredLanding_UsesCurrentHostile()
         {
             var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
@@ -1751,6 +1826,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 objectiveDefinition);
         }
 
+        private static TickPipeline CreateOrdinaryFlipPipelineWithTileFeatures(
+            out WorldState worldState,
+            IReadOnlyList<TileFeatureState> tileFeatures,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            BoxCapabilities boxCapabilities = BoxCapabilities.Flip)
+        {
+            worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: boxCapabilities),
+                },
+                tileFeatures);
+            return CreatePipelineWithTileFeatures(
+                worldState,
+                tileFeatureDefinitions,
+                new IEntityLogic[]
+                {
+                    CreatePlayerLogic(10),
+                });
+        }
+
         private static void RunPlayerFlipImpactToDue(
             int hp,
             out WorldState worldState,
@@ -1912,6 +2009,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 objectiveDefinition: objectiveDefinition);
         }
 
+        private static TickPipeline CreatePipelineWithTileFeatures(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            IEnumerable<IEntityLogic> entityLogics = null,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            GameplayTimingProfile timingProfile = null)
+        {
+            var timing = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timing.SimulationTicksPerSecond,
+                timing.RepeatedMoveIntervalSeconds);
+            return new TickPipeline(
+                worldState,
+                entityLogics ?? new IEntityLogic[] { CreatePlayerLogic(10, playerControlTiming) },
+                GameplayEntityLogicProviderFactory.CreateDefault(),
+                timing,
+                playerControlTiming,
+                playerRespawnDelayTicks: 1,
+                objectiveDefinition: objectiveDefinition,
+                enemySpawnDefaultsByArchetypeId: null,
+                allowPlayerRespawn: true,
+                runtimeFeatureFlags: default,
+                playerKinematicLocomotionTiming: default,
+                playerContinuousLocomotion: default,
+                tileFeatureDefinitions: tileFeatureDefinitions,
+                tileEffectResolver: null);
+        }
+
         private static PlayerLogic CreatePlayerLogic(
             int entityId,
             GameplayTimingProfile timingProfile = null)
@@ -1981,6 +2106,71 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            IReadOnlyList<TileFeatureState> initialTileFeatures)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                initialTileFeatures);
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.AnyPushableBox,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
+        }
+
+        private static void AssertSlidingDestroyTileParity(
+            WorldState worldState,
+            TickResult tick,
+            SurfaceCell destroyCell)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
+            Assert.That(
+                tick.PresentationData.TileEvents.Count(tileEvent =>
+                    tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered &&
+                    tileEvent.TargetEntityId == 20 &&
+                    tileEvent.Cell == destroyCell),
+                Is.EqualTo(1));
+            Assert.That(
+                tick.PresentationData.EntityExitSignals.Count(signal =>
+                    signal.ExitedEntityId == 20 &&
+                    signal.ExitCause == TickEntityExitCause.BoxDestroy),
+                Is.EqualTo(1));
+            Assert.That(
+                tick.EventLog.Count(entry => entry.Contains("CleanupRemoved|E=20")),
+                Is.EqualTo(1));
         }
 
         private static EntityState CreateUnit(
