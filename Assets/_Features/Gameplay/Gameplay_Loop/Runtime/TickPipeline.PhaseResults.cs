@@ -692,20 +692,6 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                if (!TryGetValidSource(snapshot, fieldEntry.State.SourceEntityId, out _))
-                {
-                    batch.RemoveEnemyGravityFieldAuraFieldState(
-                        fieldEntry.FieldId,
-                        new FinalizationOperationMetadata(
-                            TickPhase.Plan,
-                            ResolvedActionSemanticKind.None,
-                            fieldEntry.State.SourceEntityId,
-                            actionPlanId: 0));
-                    eventLogEntries.Add(
-                        $"EnemyGravityFieldAuraFieldSourceInvalid|Field={fieldEntry.FieldId}|Source={fieldEntry.State.SourceEntityId}|Effect={fieldEntry.State.SourceEffectIndex}|Tick={tickIndex}|Origin={fieldEntry.State.OriginCell}");
-                    continue;
-                }
-
                 ResolveGravityFieldAuraField(
                     snapshot,
                     fieldEntry.FieldId,
