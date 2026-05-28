@@ -113,7 +113,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void MovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsBlocked()
+        public void MovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsAllowed()
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var player = CreateUnit(
@@ -151,8 +151,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Source=10",
                     "Reason=PlayerVoluntaryDestroyTileEntryBlocked",
                     "Cell=(1,0)"),
-                Is.True);
-            Assert.That(expandedCandidates, Is.Empty);
+                Is.False);
+            Assert.That(expandedCandidates, Is.Not.Empty);
             Assert.That(CreateSnapshot(worldState).TryGetEntity(10, out var finalPlayer), Is.True);
             Assert.That(finalPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(finalPlayer.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));

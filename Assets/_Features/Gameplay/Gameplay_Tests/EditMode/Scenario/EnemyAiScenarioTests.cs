@@ -1021,6 +1021,67 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyUtilitySummon_AirArchetype_ActivatedDestroyTileCandidateIsNeutral()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destroyTile = CreateTileFeature(100, forwardCell, TileFeatureKind.Destroy);
+            var airSummonedProfile = CreateUtilityProfile();
+            var airSummonedArchetype = CreateEnemyUnitArchetypeAsset(
+                "AirMinionDestroyTile",
+                airSummonedProfile,
+                hp: 1,
+                initialAiMode: EnemyAiMode.Patrol,
+                unitMobilityKind: UnitMobilityKind.Air);
+            var profile = CreateUtilitySummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                summonedArchetype: airSummonedArchetype,
+                windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = GameplayCompositionRoot.CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { destroyTile });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(
+                    profile,
+                    worldState,
+                    out defaultProfile,
+                    out archetypeCatalog,
+                    airSummonedArchetype,
+                    new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+                pipeline.RunTick(new TickInput(1));
+                var commitTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out var child), Is.True);
+                Assert.That(child.position, Is.EqualTo(forwardCell));
+                Assert.That(child.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+                Assert.That(child.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(child.markedForDeath, Is.False);
+                Assert.That(commitTick.PresentationData.TileEvents.Any(tileEvent =>
+                    tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered &&
+                    tileEvent.TargetEntityId == child.entityId), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                UnityEngine.Object.DestroyImmediate(airSummonedArchetype);
+                DestroyProfile(airSummonedProfile);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyUtilitySummon_SourceKilledAfterTrigger_DoesNotSpawn()
         {
@@ -9202,10 +9263,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldState worldState,
             out EnemyAiProfile defaultProfile,
             out EnemyUnitArchetypeCatalog archetypeCatalog,
-            EnemyUnitArchetypeAsset summonedArchetype = null)
+            EnemyUnitArchetypeAsset summonedArchetype = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return CreateSharedSummonBootstrapper(summonerProfile, out defaultProfile, out archetypeCatalog, summonedArchetype)
-                .CreateTickPipeline(worldState);
+            var bootstrapper = CreateSharedSummonBootstrapper(
+                summonerProfile,
+                out defaultProfile,
+                out archetypeCatalog,
+                summonedArchetype);
+            if (tileFeatureDefinitions == null)
+            {
+                return bootstrapper.CreateTickPipeline(worldState);
+            }
+
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return bootstrapper.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    timingProfile.SimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static EnemyUnitArchetypeAsset CreateEnemyUnitArchetypeAsset(
@@ -9229,6 +9308,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             catalog.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(catalog, "entries", entries ?? Array.Empty<EnemyUnitArchetypeAsset>());
             return catalog;
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static EnemyUnitArchetypeAsset GetSharedSummonedArchetype()
