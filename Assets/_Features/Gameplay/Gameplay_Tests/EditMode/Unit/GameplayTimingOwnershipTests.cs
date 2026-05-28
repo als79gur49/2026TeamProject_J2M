@@ -1296,6 +1296,87 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_StageResultUi_WaitsForPresentationBarrier()
+        {
+            var rootObject = new GameObject(nameof(OrdinaryFlipB1_DueTick_StageResultUi_WaitsForPresentationBarrier));
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("OrdinaryFlipB1_StageResultUi_PlayerPrefab");
+            StageContentEntry stageContentEntry = null;
+            StageRewardDefinition rewardDefinition = null;
+
+            try
+            {
+                stageContentEntry = CreateRewardStageContentEntry("ordinary-flip-b1-stage-clear", out rewardDefinition);
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var inputHost = rootObject.AddComponent<GameplayInputHost>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(new[] { CreatePlayerEntity() }, topology);
+
+                var feed = new GameplayHostPresentationFeed(
+                    inputHost,
+                    presenter,
+                    stageContentEntry,
+                    timingProfile: GameplayTimingProfile.CreateDefault());
+                var frames = new List<GameplayPresentationFrame>();
+                var committedResults = new List<StageCompletionReadModel>();
+                feed.FramePublished += frames.Add;
+                feed.StageClearCommitted += (_, readModel) => committedResults.Add(readModel);
+                var result = CreateStageClearDueContactTickResult(includeDueContact: true);
+
+                presenter.Present(result);
+                InvokePresentationFeedTickCompleted(feed, result);
+
+                Assert.That(committedResults, Has.Count.EqualTo(1));
+                Assert.That(committedResults[0].ClearResult.WasCleared, Is.True);
+                Assert.That(committedResults[0].RewardGrantResult.AnyGranted, Is.True);
+                Assert.That(feed.CurrentStageCompletion, Is.SameAs(committedResults[0]));
+                Assert.That(feed.HasPendingStageClearPresentation, Is.True);
+                Assert.That(frames, Has.Count.EqualTo(1));
+                Assert.That(frames[0].StageEvent.HasValue, Is.False);
+
+                presenter.UpdatePresentation(GameplayPresentationTimingConstants.FlipB1DueContactStageClearBarrierSeconds * 0.5f);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.True);
+                Assert.That(frames, Has.Count.EqualTo(1));
+
+                presenter.UpdatePresentation(GameplayPresentationTimingConstants.FlipB1DueContactStageClearBarrierSeconds * 0.6f);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.False);
+                Assert.That(frames, Has.Count.EqualTo(2));
+                Assert.That(frames[1].StageEvent.HasValue, Is.True);
+                Assert.That(frames[1].StageEvent.Value.EventKind, Is.EqualTo(GameplayStageEventKind.Cleared));
+                feed.Dispose();
+            }
+            finally
+            {
+                if (rewardDefinition != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(rewardDefinition);
+                }
+
+                if (stageContentEntry != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(stageContentEntry);
+                }
+
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayPresentationBarrierTracker_B1DueContactStageClear_UsesMinimumVisibilityWindow()
         {
             var tracker = new GameplayPresentationBarrierTracker();
@@ -4657,6 +4738,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();
             entry.AssignStageId(StageId.CreateOrThrow(stageId));
+            return entry;
+        }
+
+        private static StageContentEntry CreateRewardStageContentEntry(
+            string stageId,
+            out StageRewardDefinition rewardDefinition)
+        {
+            var entry = CreateStageContentEntry(stageId);
+            rewardDefinition = ScriptableObject.CreateInstance<StageRewardDefinition>();
+            var rewardRule = new StageRewardRuleDefinition
+            {
+                TriggerKind = StageRewardTriggerKind.Clear,
+                GrantOnce = true,
+                Rewards = new[]
+                {
+                    new RewardEntry
+                    {
+                        RewardId = "Crystal",
+                        Amount = 1,
+                    },
+                },
+            };
+            rewardRule.SetRuleId("ordinary-flip-b1-first-clear");
+            rewardRule.SetDeprecatedRuleIds(Array.Empty<string>());
+            SetPrivateField(rewardDefinition, "rules", new[] { rewardRule });
+            entry.AssignRewardDefinition(rewardDefinition);
             return entry;
         }
 
