@@ -76,6 +76,15 @@ namespace Game.Feature.Gameplay.Loop
             switch (contact.Kind)
             {
                 case ScheduledFlipContactKind.OrdinaryLanding:
+                    ResolveOrdinaryLandingDue(
+                        snapshot,
+                        contact,
+                        currentTick,
+                        stageAlreadyTerminal,
+                        batch,
+                        eventLogEntries,
+                        contactResolutions,
+                        contactPresentationSignals);
                     return;
                 case ScheduledFlipContactKind.HostileImpact:
                     break;
@@ -232,6 +241,177 @@ namespace Game.Feature.Gameplay.Loop
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        private void ResolveOrdinaryLandingDue(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            int currentTick,
+            bool stageAlreadyTerminal,
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+        {
+            if (stageAlreadyTerminal)
+            {
+                CancelWithSafeReturn(
+                    snapshot,
+                    contact,
+                    currentTick,
+                    FlipContactResolutionKind.CancelledStageTerminal,
+                    "OrdinaryLandingStageTerminal",
+                    batch,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals);
+                return;
+            }
+
+            if (!snapshot.TryGetEntity(contact.SourceBoxEntityId, out var sourceBox))
+            {
+                CancelNoSourceBox(
+                    contact,
+                    currentTick,
+                    "OrdinaryLandingBoxGone",
+                    batch,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals);
+                return;
+            }
+
+            if (sourceBox.boardPresence != EntityBoardPresence.InFlight)
+            {
+                CancelNoSourceBox(
+                    contact,
+                    currentTick,
+                    "OrdinaryLandingBoxNotInFlight",
+                    batch,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals);
+                return;
+            }
+
+            if (!IsTopologyValid(snapshot, contact) ||
+                !snapshot.IsInsideBoard(contact.LandingCell) ||
+                snapshot.IsTerrainBlockedForUnit(contact.LandingCell))
+            {
+                ResolveOrdinaryLandingUnsupportedOrCancel(
+                    snapshot,
+                    contact,
+                    currentTick,
+                    FlipContactResolutionKind.OrdinaryLandingInvalidNotImplemented,
+                    "OrdinaryLandingInvalidNotImplemented",
+                    batch,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals);
+                return;
+            }
+
+            var landingOccupant = ResolveFlipContactOccupant(snapshot, contact.LandingCell);
+            if (landingOccupant.Kind != FlipContactOccupantKind.Empty)
+            {
+                ResolveOrdinaryLandingUnsupportedOrCancel(
+                    snapshot,
+                    contact,
+                    currentTick,
+                    FlipContactResolutionKind.OrdinaryLandingBlockedNotImplemented,
+                    "OrdinaryLandingBlockedNotImplemented",
+                    batch,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals,
+                    landingOccupant.Entity.entityId);
+                return;
+            }
+
+            ResolveOrdinaryEmptyLandingDue(
+                snapshot,
+                contact,
+                currentTick,
+                batch,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals);
+        }
+
+        private void ResolveOrdinaryEmptyLandingDue(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            int currentTick,
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+        {
+            var metadata = CreateDueMetadata(contact);
+            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                snapshot,
+                EntityType.Box,
+                contact.LandingCell,
+                contact.SourceBoxEntityId);
+
+            if (landingLegality.Verdict != LegalityVerdict.Allowed)
+            {
+                ResolveOrdinaryLandingUnsupportedOrCancel(
+                    snapshot,
+                    contact,
+                    currentTick,
+                    FlipContactResolutionKind.OrdinaryLandingSettlementDeniedNotImplemented,
+                    "OrdinaryLandingSettlementDeniedNotImplemented",
+                    batch,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals);
+                return;
+            }
+
+            MaterializeOrdinarySourceBox(contact, contact.LandingCell, batch, metadata);
+            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            AddResolution(
+                contact,
+                currentTick,
+                FlipContactResolutionKind.EmptyLand,
+                null,
+                contact.LandingCell,
+                FlipBoxDisposition.MaterializeAtLanding,
+                "OrdinaryLandingEmptyLand",
+                snapshot.Topology,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals);
+        }
+
+        private void ResolveOrdinaryLandingUnsupportedOrCancel(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            int currentTick,
+            FlipContactResolutionKind kind,
+            string result,
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals,
+            int hitEntityId = 0)
+        {
+            var metadata = CreateDueMetadata(contact, hitEntityId);
+            var disposition = SafeReturnOrDestroyInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
+            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            AddResolution(
+                contact,
+                currentTick,
+                kind,
+                hitEntityId > 0 ? hitEntityId : null,
+                materializeCell,
+                disposition,
+                result,
+                snapshot.Topology,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals);
         }
 
         private void ResolveUnitContact(
@@ -558,6 +738,17 @@ namespace Game.Feature.Gameplay.Loop
             in FinalizationOperationMetadata metadata)
         {
             batch.MoveEntity(contact.SourceBoxEntityId, destination, metadata);
+            batch.SetBoardPresence(contact.SourceBoxEntityId, EntityBoardPresence.Occupying, metadata);
+        }
+
+        private static void MaterializeOrdinarySourceBox(
+            in ScheduledFlipContact contact,
+            SurfaceCell destination,
+            FinalizationBatch batch,
+            in FinalizationOperationMetadata metadata)
+        {
+            batch.MoveEntity(contact.SourceBoxEntityId, destination, metadata);
+            batch.SetFacing(contact.SourceBoxEntityId, DirectionUtility.Opposite(contact.FlipDirection), metadata);
             batch.SetBoardPresence(contact.SourceBoxEntityId, EntityBoardPresence.Occupying, metadata);
         }
 

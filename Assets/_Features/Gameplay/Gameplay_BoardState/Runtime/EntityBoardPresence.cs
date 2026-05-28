@@ -102,6 +102,9 @@ namespace Game.Feature.Gameplay.BoardState
         CancelledBoxGone = 10,
         CancelledTopologyChanged = 11,
         CancelledStageTerminal = 12,
+        OrdinaryLandingBlockedNotImplemented = 13,
+        OrdinaryLandingInvalidNotImplemented = 14,
+        OrdinaryLandingSettlementDeniedNotImplemented = 15,
     }
 
     public enum FlipBoxDisposition
