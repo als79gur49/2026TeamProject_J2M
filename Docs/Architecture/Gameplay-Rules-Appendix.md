@@ -32,10 +32,16 @@
 - B-1 applies only to hostile impact Flip.
 - Ordinary Flip success remains same-tick materialization in the current scope.
 - Hostile impact execute tick does not reserve a target, suppress enemy movement, apply damage, mark death, or remove the hostile.
-- The source box becomes `BoxInFlight` and the action records a `ScheduledFlipContact`.
-- Actual input B-1 timing is anchored to the flip action start, not the execute tick. The due tick is `ActionStartTick + RoundToInt(FlipInputLockDurationTicks * 0.936)`, so the default `23/57` production profile resolves to due tick `S + 53`.
+- Hostile impact B-1 does not use `ImpactReservation` or `AttackInputNormalizer` synthetic hit handoff.
+- Execute tick schedules only: the source box becomes `BoxInFlight` and the action records a `ScheduledFlipContact`.
+- Actual input B-1 timing is anchored to the flip action start, not the execute tick. The due tick is `ActionStartTick + RoundToInt(FlipInputLockDurationTicks * 0.936)`.
+- The incorrect execute-based formula `DueTick = ExecuteTick + 12` produced the old broken point because `ExecuteTick` was already `ActionStartTick + 23`; therefore `ExecuteTick + 12 = ActionStartTick + 35`, and `35 / 57 = 0.614`.
+- The final production trace is `ActionStartTick = 1`, `ExecuteTick = 24`, `DueTick = 54`, and `ActionNormAtDue = 53 / 57 = 0.930`, matching the configured normalized visual impact target `0.936` after tick rounding.
+- The old `0.614` action-normalized point is no-hit: HP unchanged, no death mark, target not removed, source box still `InFlight`, scheduled contact still pending, and no due contact, damage, or enemy exit signal emitted.
 - The due resolver requeries the current `WorldSnapshot` at due tick, so a moved-away original hostile is not hit and a different hostile currently occupying the contact cell can be hit.
-- Seeded `ScheduledFlipContact` tests cover due resolver behavior only. Actual-input timing tests are the evidence for the action-normalized B-1 timing contract.
+- At due tick, hostile survives means HP `3 -> 2` and source box `DestroySelf`; hostile dies means the target is removed and the source box materializes at landing if settlement is allowed.
+- Due resolution removes the scheduled contact, emits `DueContactImmediate`, and records `DamagePath = B1ScheduledContactDue`.
+- Seeded `ScheduledFlipContact` tests cover due resolver behavior only. Actual-input timing tests are the evidence for the action-normalized B-1 timing contract because seeded tests bypass `MovementExpander` schedule creation.
 - Due contact presentation uses `DueContactImmediate`; legacy `AtContactTime` remains for non-B1 paths.
 - StageResult B-1 barrier delays only UI publication for a due-contact stage clear. It does not delay objective, reward, or stage authoritative commit.
 
