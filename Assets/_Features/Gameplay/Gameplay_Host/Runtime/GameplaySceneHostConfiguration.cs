@@ -8,7 +8,6 @@ using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
-using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
@@ -134,7 +133,6 @@ namespace Game.Feature.Gameplay.Host
         public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
         public StageContentEntry StageContentEntry;
         public IStageCompletionProfileStore StageCompletionProfileStore;
-        public IDebugStageLaunchConstraint DebugStageLaunchConstraint;
         public bool DisablePlayerRespawn;
         public EnemyPresentationArchetypeCatalog EnemyPresentationArchetypeCatalog;
         public EnemyPresentationCatalog EnemyPresentationCatalog;

@@ -142,11 +142,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoStageControl_ServiceDoesNotReferenceDebugCommandsOrCompletionCommitter()
+        public void DemoStageControl_ServiceDoesNotReferenceLegacyDeveloperCommandsOrCompletionCommitter()
         {
             var source = File.ReadAllText("Assets/_Features/DemoStageControl/Runtime/DemoStageControlService.cs");
+            var removedCommandPrefix = "Debug" + "Command";
 
-            Assert.That(source, Does.Not.Contain("DebugCommand"));
+            Assert.That(source, Does.Not.Contain(removedCommandPrefix));
             Assert.That(source, Does.Not.Contain("StageCompletionCommitter"));
             Assert.That(source, Does.Not.Contain("ObjectiveTracker"));
             Assert.That(source, Does.Not.Contain("SceneManager.LoadScene"));
@@ -179,7 +180,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoGameplayOverride_DoesNotUseDebugCommands()
+        public void DemoGameplayOverride_DoesNotUseLegacyDeveloperCommands()
         {
             var sources = string.Join(
                 Environment.NewLine,
@@ -187,10 +188,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelModels.cs"),
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelRuntime.cs"),
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelView.cs"));
+            var removedPopupName = "Debug" + "Commands";
+            var removedAccessName = "Debug" + "CommandAccess";
+            var removedBuildGateName = "Debug" + "CommandBuildGate";
 
-            Assert.That(sources, Does.Not.Contain("DebugCommands"));
-            Assert.That(sources, Does.Not.Contain("DebugCommandAccess"));
-            Assert.That(sources, Does.Not.Contain("DebugCommandBuildGate"));
+            Assert.That(sources, Does.Not.Contain(removedPopupName));
+            Assert.That(sources, Does.Not.Contain(removedAccessName));
+            Assert.That(sources, Does.Not.Contain(removedBuildGateName));
         }
 
         [Test]

@@ -157,9 +157,6 @@ namespace Game.Feature.Gameplay.Host
             configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
                 _saveSlotStore,
                 _activeSlotProvider);
-            configuration.DebugStageLaunchConstraint = new CampaignActiveSlotDebugStageLaunchConstraint(
-                _saveSlotStore,
-                _activeSlotProvider);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)
             {
                 SceneName = gameObject.scene.name,

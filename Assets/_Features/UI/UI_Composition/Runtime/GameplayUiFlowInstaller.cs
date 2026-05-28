@@ -3,7 +3,6 @@ using System.Reflection;
 using Game.Feature.DemoStageControl;
 using Game.Feature.DemoStageControl.UI;
 using Game.Feature.Gameplay.Host;
-using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -57,7 +56,6 @@ namespace Game.Feature.UI.Composition
         private IUiAudioPort _uiAudioPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
-        private DebugCommandAccess _debugCommandAccess = DebugCommandAccess.Disabled;
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
 
@@ -148,13 +146,6 @@ namespace Game.Feature.UI.Composition
             {
                 return;
             }
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (KeyboardBridge.WasF10PressedThisFrame())
-            {
-                TryToggleDebugCommandsPopup();
-            }
-#endif
         }
 
         public void Install(GameplaySceneHost sceneHost)
@@ -169,7 +160,6 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
-            _debugCommandAccess = sceneHost.UiAccess.DebugCommandAccess ?? DebugCommandAccess.Disabled;
             _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
             _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
             Install(new GameplayUiFlowPorts(
@@ -213,8 +203,6 @@ namespace Game.Feature.UI.Composition
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
                 _popupPrefabCatalog,
-                _debugCommandAccess,
-                HandleDebugStageResultRequested,
                 _demoStageControlCommandPort,
                 _demoGameplayOverrideCommandPort));
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
@@ -268,7 +256,6 @@ namespace Game.Feature.UI.Composition
                 uiAudioPort,
                 new CurrentSceneStageLaunchRouter(gameObject.scene.name),
                 CreateMainMenuReturnRouter());
-            _debugCommandAccess.BindStageLaunchGateway(new CurrentSceneStageLaunchRouter(gameObject.scene.name));
             _stageResultAutoNextDriver = new StageResultAutoNextDriver(
                 ScreenController,
                 PopupController,
@@ -622,39 +609,6 @@ namespace Game.Feature.UI.Composition
             Coordinator.HandlePopupBackdropClicked();
         }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        private void TryToggleDebugCommandsPopup()
-        {
-            if (!DebugCommandBuildGate.IsRuntimeEnabled(UnityEngine.Application.isEditor, UnityEngine.Debug.isDebugBuild) ||
-                _debugCommandAccess == null ||
-                !_debugCommandAccess.IsEnabled ||
-                PopupController == null ||
-                Coordinator == null)
-            {
-                return;
-            }
-
-            if (PopupController.TopPopup.HasValue)
-            {
-                if (PopupController.TopPopup.Value.PopupId == PopupId.DebugCommands)
-                {
-                    Coordinator.HandleBackRequested();
-                }
-
-                return;
-            }
-
-            var availability = _debugCommandAccess.StageCommandPort.GetAvailability();
-            if (!availability.CanOpenPanel)
-            {
-                return;
-            }
-
-            Coordinator.RequestDebugCommandsPopup(
-                GameplayPopupRuntimeFactory.BuildDebugCommandsPayload(availability, string.Empty));
-        }
-#endif
-
         private bool TryToggleDemoStageControlPanel()
         {
             if (_demoStageControlSettings == null ||
@@ -743,18 +697,6 @@ namespace Game.Feature.UI.Composition
             }
 
             return null;
-        }
-
-        private void HandleDebugStageResultRequested(DebugCommandResult result)
-        {
-            if (result.StageResultReadModel == null || Coordinator == null)
-            {
-                return;
-            }
-
-            Coordinator.RequestDebugStageResultOnly(
-                result.StageResultReadModel,
-                result.StageNavigationRequest);
         }
 
         private void SyncViews()

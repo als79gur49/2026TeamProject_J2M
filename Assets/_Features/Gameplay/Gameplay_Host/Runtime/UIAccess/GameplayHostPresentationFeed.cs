@@ -58,11 +58,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public bool HasPendingStageClearPresentation => _pendingStageClearPresentation.HasValue;
 
-        internal StageCompletionReadModel ForceClearResultOnly()
-        {
-            return _stageCompletionRuntime.ForceClearResultOnly();
-        }
-
         internal StageCompletionReadModel ForceClearCurrentStage()
         {
             var readModel = _stageCompletionRuntime.ForceClearCurrentStage();
