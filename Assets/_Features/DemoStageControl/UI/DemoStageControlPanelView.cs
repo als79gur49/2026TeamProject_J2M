@@ -17,6 +17,8 @@ namespace Game.Feature.DemoStageControl.UI
         private Button _forceClearButton;
         private TextMeshProUGUI _lastResultText;
         private Button _nextButton;
+        private Button _playerInvincibleButton;
+        private TextMeshProUGUI _playerInvincibleButtonLabel;
         private Button _previousButton;
         private RectTransform _root;
         private TextMeshProUGUI _selectedStageText;
@@ -30,6 +32,8 @@ namespace Game.Feature.DemoStageControl.UI
         public event Action<StageId> StartStageClicked;
 
         public event Action ForceClearClicked;
+
+        public event Action<bool> PlayerInvincibleToggled;
 
         public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
@@ -143,6 +147,10 @@ namespace Game.Feature.DemoStageControl.UI
 
             _startButton = AddButton(transform, "Start Selected Stage");
             _forceClearButton = AddButton(transform, "Force Clear Current Stage");
+            _playerInvincibleButton = AddToggleButton(
+                transform,
+                "Player Invincible: OFF",
+                out _playerInvincibleButtonLabel);
             _lastResultText = AddText(string.Empty, 16, FontStyles.Normal, TextAlignmentOptions.Left);
             _closeButton = AddButton(transform, "Close");
 
@@ -150,6 +158,7 @@ namespace Game.Feature.DemoStageControl.UI
             _nextButton.onClick.AddListener(HandleNextClicked);
             _startButton.onClick.AddListener(HandleStartClicked);
             _forceClearButton.onClick.AddListener(() => ForceClearClicked?.Invoke());
+            _playerInvincibleButton.onClick.AddListener(HandlePlayerInvincibleButtonClicked);
             _closeButton.onClick.AddListener(() => CompletionRequested?.Invoke(PopupCompletionKind.Closed));
         }
 
@@ -230,6 +239,43 @@ namespace Game.Feature.DemoStageControl.UI
             return button;
         }
 
+        private Button AddToggleButton(
+            Transform parent,
+            string label,
+            out TextMeshProUGUI labelText)
+        {
+            var buttonObject = new GameObject("Player Invincible", typeof(RectTransform), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+            var image = buttonObject.GetComponent<Image>();
+            image.color = new Color(0.18f, 0.22f, 0.25f, 1f);
+            var button = buttonObject.GetComponent<Button>();
+            var colors = button.colors;
+            colors.normalColor = image.color;
+            colors.highlightedColor = new Color(0.26f, 0.31f, 0.35f, 1f);
+            colors.pressedColor = new Color(0.12f, 0.15f, 0.18f, 1f);
+            colors.disabledColor = new Color(0.10f, 0.11f, 0.12f, 0.6f);
+            button.colors = colors;
+
+            var labelObject = new GameObject("Label", typeof(RectTransform));
+            labelObject.transform.SetParent(buttonObject.transform, false);
+            var labelRect = (RectTransform)labelObject.transform;
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = new Vector2(12f, 4f);
+            labelRect.offsetMax = new Vector2(-12f, -4f);
+            labelText = labelObject.AddComponent<TextMeshProUGUI>();
+            labelText.text = label;
+            labelText.fontSize = 17f;
+            labelText.alignment = TextAlignmentOptions.Center;
+            labelText.color = Color.white;
+            labelText.enableWordWrapping = false;
+
+            var layoutElement = buttonObject.AddComponent<LayoutElement>();
+            layoutElement.preferredHeight = 44f;
+            layoutElement.minHeight = 38f;
+            return button;
+        }
+
         private void Refresh()
         {
             if (_viewModel == null || _currentText == null)
@@ -243,6 +289,13 @@ namespace Game.Feature.DemoStageControl.UI
             _lastResultText.text = string.IsNullOrWhiteSpace(_viewModel.LastResultText)
                 ? "Last result: none"
                 : $"Last result: {_viewModel.LastResultText}";
+            if (_playerInvincibleButton != null)
+            {
+                _playerInvincibleButtonLabel.text = _viewModel.PlayerInvincibleText;
+                _playerInvincibleButton.interactable = true;
+                RefreshPlayerInvincibleButtonColors();
+            }
+
             _startButton.interactable = _viewModel.CanStartSelectedStage;
             _forceClearButton.interactable = _viewModel.CanForceClearCurrentStage;
             _previousButton.interactable = _viewModel.Stages.Count > 1;
@@ -261,6 +314,36 @@ namespace Game.Feature.DemoStageControl.UI
                 : _viewModel.SelectedStageIndex - 1;
             _viewModel.SelectIndex(nextIndex);
             SelectedStageChanged?.Invoke(_viewModel.SelectedStageId);
+        }
+
+        private void HandlePlayerInvincibleButtonClicked()
+        {
+            if (_viewModel == null)
+            {
+                return;
+            }
+
+            PlayerInvincibleToggled?.Invoke(!_viewModel.PlayerInvincible);
+        }
+
+        private void RefreshPlayerInvincibleButtonColors()
+        {
+            var normalColor = _viewModel.PlayerInvincible
+                ? new Color(0.18f, 0.42f, 0.34f, 1f)
+                : new Color(0.18f, 0.22f, 0.25f, 1f);
+            var colors = _playerInvincibleButton.colors;
+            colors.normalColor = normalColor;
+            colors.highlightedColor = _viewModel.PlayerInvincible
+                ? new Color(0.23f, 0.50f, 0.41f, 1f)
+                : new Color(0.26f, 0.31f, 0.35f, 1f);
+            colors.pressedColor = _viewModel.PlayerInvincible
+                ? new Color(0.13f, 0.30f, 0.24f, 1f)
+                : new Color(0.12f, 0.15f, 0.18f, 1f);
+            _playerInvincibleButton.colors = colors;
+            if (_playerInvincibleButton.targetGraphic is Image image)
+            {
+                image.color = normalColor;
+            }
         }
 
         private void HandleNextClicked()

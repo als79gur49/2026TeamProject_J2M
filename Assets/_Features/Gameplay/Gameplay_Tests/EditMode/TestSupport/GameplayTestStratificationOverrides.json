@@ -985,6 +985,46 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_WhenOffAgain_DamageWaitsForReceiverCooldownThenAppliesAgain",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage that PlayerInvincible rejected contact consumes the receiver cooldown before normal damage can resume.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_PassiveContactOverlap_ConsumesReceiverCooldown",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage that invincible passive contact rejection writes only player damage cooldown state.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_PassiveContactOverlap_DoesNotRetryInvincibleEveryTick",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage that repeated invincible overlap is bounded by receiver cooldown cadence.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PlayerInvincible_RejectedDamage_DoesNotEmitCorePlayerDamageAudio",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_receiver_cooldown",
+        "gameplay_audio_request_contract"
+      ],
+      "reason": "Locked Core coverage that cooldown-only invincible rejection does not emit core PlayerDamage audio.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_DetachedEntityWithoutDestroyMark_RemainsDetachedAndSurvivesCleanup",
       "category": "Core",
       "contracts": [
@@ -3229,6 +3269,34 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.DemoStageControlTests.PlayerInvincible_DoesNotDependOnEnemyProfileNames",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_architecture_guard"
+      ],
+      "reason": "Locked Core architecture coverage that PlayerInvincible production code is not bound to representative enemy profile names.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.DemoStageControlTests.PlayerInvincible_DoesNotImplementEnemiesIgnorePlayer",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_architecture_guard"
+      ],
+      "reason": "Locked Core architecture coverage that PlayerInvincible does not hide the player from target eligibility or snapshot reads.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.DemoStageControlTests.AudioRuntime_DoesNotAddGameplaySpecificSuppressRules",
+      "category": "Core",
+      "contracts": [
+        "player_invincible_architecture_guard",
+        "gameplay_audio_runtime_boundary"
+      ],
+      "reason": "Locked Core architecture coverage that shared audio runtime stays free of PlayerInvincible and passive-contact suppression rules.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GravityFieldPresentationRequestPlannerTests.TickPresentationDataEmpty_HasEmptyGravityFieldEvents",
       "category": "Core",
       "contracts": [
@@ -3302,6 +3370,86 @@
         "enemy_audio_death_cue_suppression"
       ],
       "reason": "Locked Core coverage that lethal enemy damage suppresses only the matching core EnemyDamage request when a playable enemy-local Death cue is planned.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.ForwardCellImpact_DoesNotEmitEnemyActiveCue",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that projectile impact-derived enemy action execution does not emit the generic Active cue.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_PlayerHit_EmitsProjectileImpactRequest",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that BlackEye projectile player-hit impact ticks emit ProjectileImpact without impact-derived Active.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenProjectileImpactExists",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that actual combat Active remains allowed when a ProjectileImpact exists in the same tick.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_PlayerHit_FinalPlaybackContainsBlackEyePlasma",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that BlackEye projectile player-hit final playback keeps the plasma ProjectileImpact cue.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_PlayerHit_FinalPlaybackDoesNotContainBlackEyeActiveWhenActiveIsImpactDerived",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that BlackEye projectile player-hit final playback excludes the impact-derived Active cue.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_FireRelease_StillEmitsBlackEyeActive",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that actual BlackEye fire/release Active playback remains intact.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_Miss_FinalPlaybackStillContainsBlackEyePlasma",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that BlackEye projectile miss impact playback still resolves to the plasma cue.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_ForwardCellImpactDamage_UsesForwardCellImpactPresentationSource",
+      "category": "Core",
+      "contracts": [
+        "gameplay_audio_overlap_refactor",
+        "enemy_audio_projectile_impact_active_policy"
+      ],
+      "reason": "Locked Core coverage that ForwardCellImpact damage is exposed as a distinct enemy action presentation source.",
       "locked": true
     },
     {

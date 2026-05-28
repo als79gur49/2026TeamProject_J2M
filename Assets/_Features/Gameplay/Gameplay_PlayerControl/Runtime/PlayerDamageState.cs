@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.PlayerControl
     {
         None = 0,
         ReceiverCooldown = 1,
+        PlayerInvincible = 2,
     }
 
     public struct PlayerDamageState
@@ -34,6 +35,14 @@ namespace Game.Feature.Gameplay.PlayerControl
         }
 
         public static PlayerDamageState AcceptDamage(
+            in PlayerDamageState state,
+            int tickIndex,
+            int damageCooldownTicks)
+        {
+            return ConsumeReceiverCooldown(state, tickIndex, damageCooldownTicks);
+        }
+
+        public static PlayerDamageState ConsumeReceiverCooldown(
             in PlayerDamageState state,
             int tickIndex,
             int damageCooldownTicks)

@@ -59,6 +59,19 @@ namespace Game.Feature.Gameplay.Host
                     overflowMode: VoiceOverflowMode.DropNewest);
             }
 
+            if (debugTag == "ProjectileImpact")
+            {
+                return new AudioVoicePolicy(
+                    AudioVoiceGroupId.ProjectileImpact,
+                    priority: 60,
+                    maxVoicesGlobal: 3,
+                    maxVoicesPerOwner: 1,
+                    cooldownSecondsGlobal: 0f,
+                    cooldownSecondsPerOwner: 0f,
+                    duplicateWindowSeconds: 0f,
+                    overflowMode: VoiceOverflowMode.DropNewest);
+            }
+
             if (debugTag == "TileFeatureOnBurst" ||
                 debugTag == "TileFeatureOffBurst" ||
                 debugTag == "DestroyTileActivated" ||

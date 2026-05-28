@@ -1308,6 +1308,233 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void PlayerInvincible_WhenOff_PlayerDamageAppliesNormally()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), DemoGameplayOverrideSnapshot.None);
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(GetEntityHp(snapshot, 10), Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_PlayerDamageIsIgnored()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var snapshot = CreateSnapshot(worldState);
+
+            var resolution = result.AttackPhaseResult.DamageResolutions.Single();
+            Assert.That(resolution.Accepted, Is.False);
+            Assert.That(resolution.RejectReason, Is.EqualTo(DamageRejectReason.PlayerInvincible));
+            Assert.That(resolution.ConsumesReceiverCooldown, Is.True);
+            Assert.That(resolution.HasPlayerDamageState, Is.True);
+            Assert.That(GetEntityHp(snapshot, 10), Is.EqualTo(5));
+            Assert.That(snapshot.TryGetPlayerDamageState(10, out var playerDamageState), Is.True);
+            Assert.That(playerDamageState.nextDamageAllowedTick, Is.GreaterThan(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_LethalDamageDoesNotMarkPlayerForDeath()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
+            Assert.That(IsMarkedForDeath(snapshot, 10), Is.False);
+            Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_PlayerHpDoesNotChange()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 3);
+
+            pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(5));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOn_EnemyDamageStillApplies()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubAttackLogic(
+                        controlledEntityId: 10,
+                        attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 10, 40, 2)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(GetEntityHp(snapshot, 40), Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_WhenOffAgain_DamageWaitsForReceiverCooldownThenAppliesAgain()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var cooldownTick = pipeline.RunTick(new TickInput(2), new DemoGameplayOverrideSnapshot(playerInvincible: false));
+            var resumedTick = pipeline.RunTick(new TickInput(3), new DemoGameplayOverrideSnapshot(playerInvincible: false));
+
+            Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(4));
+            Assert.That(cooldownTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
+            Assert.That(cooldownTick.AttackPhaseResult.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+            Assert.That(resumedTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_DoesNotCreateCleanupRemovalForPlayer()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.PresentationData.EntityExitSignals.Select(signal => signal.ExitedEntityId), Has.No.EqualTo(10));
+            Assert.That(result.FinalEntities.Select(entity => entity.entityId), Has.Some.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_DoesNotTriggerPlayerDeathSignal()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.PresentationData.PlayerDamageSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerDeathSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_PassiveContactOverlap_ConsumesReceiverCooldown()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var snapshot = CreateSnapshot(worldState);
+            var resolution = result.AttackPhaseResult.DamageResolutions.Single();
+
+            Assert.That(resolution.Accepted, Is.False);
+            Assert.That(resolution.RejectReason, Is.EqualTo(DamageRejectReason.PlayerInvincible));
+            Assert.That(resolution.ConsumesReceiverCooldown, Is.True);
+            Assert.That(snapshot.TryGetPlayerDamageState(10, out var playerDamageState), Is.True);
+            Assert.That(playerDamageState.nextDamageAllowedTick, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_PassiveContactOverlap_DoesNotRetryInvincibleEveryTick()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var first = CaptureInvincibleContactDiagnostics(
+                pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true)));
+            var second = CaptureInvincibleContactDiagnostics(
+                pipeline.RunTick(new TickInput(2), new DemoGameplayOverrideSnapshot(playerInvincible: true)));
+            var third = CaptureInvincibleContactDiagnostics(
+                pipeline.RunTick(new TickInput(3), new DemoGameplayOverrideSnapshot(playerInvincible: true)));
+
+            Assert.That(first.PlayerInvincibleRejectCount, Is.EqualTo(1));
+            Assert.That(first.EnemyActionExecutedSignalCount, Is.EqualTo(1));
+            Assert.That(second.PlayerInvincibleRejectCount, Is.EqualTo(0));
+            Assert.That(second.ReceiverCooldownRejectCount, Is.EqualTo(1));
+            Assert.That(second.EnemyActionExecutedSignalCount, Is.EqualTo(0));
+            Assert.That(third.PlayerInvincibleRejectCount, Is.EqualTo(1));
+            Assert.That(third.EnemyActionExecutedSignalCount, Is.EqualTo(1));
+            Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(5));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_RejectedDamage_DoesNotEmitCorePlayerDamageAudio()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var diagnostics = CaptureInvincibleContactDiagnostics(
+                pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true)));
+
+            Assert.That(diagnostics.PlayerDamageSignalCount, Is.EqualTo(0));
+            Assert.That(diagnostics.PlayerDeathSignalCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_PassiveContactReject_DoesNotProduceCombatPresentationSource()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var executedSignals = result.PresentationData.EnemyActionSignals
+                .Where(signal => signal.ExecutedThisTick)
+                .ToArray();
+
+            Assert.That(
+                executedSignals.Any(signal => signal.PresentationSource == EnemyActionPresentationSource.Combat),
+                Is.False);
+            Assert.That(
+                executedSignals.Any(signal => signal.PresentationOutcome == EnemyActionPresentationOutcome.Executed),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ReceiverCooldownReject_DoesNotProduceEnemyActionExecutionSignal()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+            var result = pipeline.RunTick(new TickInput(2), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+            Assert.That(result.PresentationData.EnemyActionSignals.Count(signal => signal.ExecutedThisTick), Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerInvincible_FlagIncludedInTraceOrDebugSnapshot()
+        {
+            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+
+            var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
+
+            Assert.That(result.Trace.Text, Does.Contain("RejectReason=PlayerInvincible"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted()
         {
             var worldState = CreateWorldState(new[]
@@ -1462,6 +1689,78 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 commitEvents,
                 commitEvents,
                 rejectedReasons);
+        }
+
+        private static WorldState CreatePlayerContactDamageWorld(int playerHp, int enemyHp)
+        {
+            return CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: playerHp, unitRole: UnitRole.Player),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: enemyHp),
+            });
+        }
+
+        private static TickPipeline CreatePassiveContactDamagePipeline(WorldState worldState, int damage)
+        {
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubAttackLogic(
+                        controlledEntityId: 40,
+                        attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, damage)),
+                });
+        }
+
+        private static PlayerInvincibleContactDiagnostics CaptureInvincibleContactDiagnostics(TickResult result)
+        {
+            var playerTargetDamageActionCount = 0;
+            var acceptedDamageCount = 0;
+            var playerInvincibleRejectCount = 0;
+            var receiverCooldownRejectCount = 0;
+            var enemyActionExecutedSignalCount = 0;
+            for (var i = 0; i < result.AttackPhaseResult.DamageResolutions.Count; i++)
+            {
+                var resolution = result.AttackPhaseResult.DamageResolutions[i];
+                if (resolution.TargetId != 10)
+                {
+                    continue;
+                }
+
+                playerTargetDamageActionCount++;
+                if (resolution.Accepted)
+                {
+                    acceptedDamageCount++;
+                }
+
+                if (resolution.RejectReason == DamageRejectReason.PlayerInvincible)
+                {
+                    playerInvincibleRejectCount++;
+                }
+
+                if (resolution.RejectReason == DamageRejectReason.ReceiverCooldown)
+                {
+                    receiverCooldownRejectCount++;
+                }
+            }
+
+            for (var i = 0; i < result.PresentationData.EnemyActionSignals.Count; i++)
+            {
+                if (result.PresentationData.EnemyActionSignals[i].ExecutedThisTick)
+                {
+                    enemyActionExecutedSignalCount++;
+                }
+            }
+
+            return new PlayerInvincibleContactDiagnostics(
+                result.TickIndex,
+                playerTargetDamageActionCount,
+                acceptedDamageCount,
+                playerInvincibleRejectCount,
+                receiverCooldownRejectCount,
+                enemyActionExecutedSignalCount,
+                result.PresentationData.PlayerDamageSignals.Count,
+                result.PresentationData.PlayerDeathSignals.Count);
         }
 
         private static void AssignSpawnIdsForSelectedGroups(
@@ -1766,6 +2065,45 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             return results;
+        }
+
+        private readonly struct PlayerInvincibleContactDiagnostics
+        {
+            public PlayerInvincibleContactDiagnostics(
+                int tickIndex,
+                int playerTargetDamageActionCount,
+                int acceptedDamageCount,
+                int playerInvincibleRejectCount,
+                int receiverCooldownRejectCount,
+                int enemyActionExecutedSignalCount,
+                int playerDamageSignalCount,
+                int playerDeathSignalCount)
+            {
+                TickIndex = tickIndex;
+                PlayerTargetDamageActionCount = playerTargetDamageActionCount;
+                AcceptedDamageCount = acceptedDamageCount;
+                PlayerInvincibleRejectCount = playerInvincibleRejectCount;
+                ReceiverCooldownRejectCount = receiverCooldownRejectCount;
+                EnemyActionExecutedSignalCount = enemyActionExecutedSignalCount;
+                PlayerDamageSignalCount = playerDamageSignalCount;
+                PlayerDeathSignalCount = playerDeathSignalCount;
+            }
+
+            public int TickIndex { get; }
+
+            public int PlayerTargetDamageActionCount { get; }
+
+            public int AcceptedDamageCount { get; }
+
+            public int PlayerInvincibleRejectCount { get; }
+
+            public int ReceiverCooldownRejectCount { get; }
+
+            public int EnemyActionExecutedSignalCount { get; }
+
+            public int PlayerDamageSignalCount { get; }
+
+            public int PlayerDeathSignalCount { get; }
         }
 
         private sealed class StubAttackLogic : IAttackEntityLogic, IEntityLogicSourceBinding

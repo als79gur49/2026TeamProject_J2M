@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BlockAudio;
@@ -109,6 +110,7 @@ namespace Game.Feature.Gameplay.Host
                 initialTileFeatures);
 
             var inputBuffer = new TickInputBuffer();
+            var demoGameplayOverrideRuntime = new DemoGameplayOverrideRuntime(DemoStageControlSettings.EnabledByDefault());
             var bootstrapper = new GameplayBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     enemyAiRuntime.DefaultDefinition,
@@ -129,7 +131,8 @@ namespace Game.Feature.Gameplay.Host
                 playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
                 playerContinuousLocomotion: playerContinuousLocomotion,
                 tileFeatureDefinitions: tileFeatureDefinitions,
-                moonBlockRespawnDefinitions: moonBlockRespawnDefinitions);
+                moonBlockRespawnDefinitions: moonBlockRespawnDefinitions,
+                demoGameplayOverrideSnapshotSource: demoGameplayOverrideRuntime);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
             boardRoot.AttachBoardPresentationProfile(configuration.BoardPresentationProfile);
@@ -259,6 +262,7 @@ namespace Game.Feature.Gameplay.Host
                     new GameplayHostObjectiveQuery(tickRunner, presentationBarrierTracker)),
                 presentationFeed,
                 pauseService,
+                demoGameplayOverrideRuntime,
                 new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
                 CreateDebugCommandAccess(
                     configuration.StageContentEntry,

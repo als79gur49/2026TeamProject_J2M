@@ -1714,6 +1714,23 @@ namespace Game.Feature.Gameplay.Loop
         public int DamageAmount { get; }
     }
 
+    public enum EnemyActionPresentationSource
+    {
+        Unknown = 0,
+        Combat = 1,
+        PassiveContact = 2,
+        ForwardCellImpact = 3,
+    }
+
+    public enum EnemyActionPresentationOutcome
+    {
+        None = 0,
+        Executed = 1,
+        RejectedByReceiverCooldown = 2,
+        RejectedByPlayerInvincible = 3,
+        NoEffect = 4,
+    }
+
     public readonly struct TickEnemyActionPresentationSignal
     {
         public TickEnemyActionPresentationSignal(
@@ -1723,7 +1740,9 @@ namespace Game.Feature.Gameplay.Loop
             bool startedThisTick,
             bool canceledThisTick,
             bool executedThisTick,
-            bool startedRecoveryThisTick)
+            bool startedRecoveryThisTick,
+            EnemyActionPresentationSource presentationSource = EnemyActionPresentationSource.Unknown,
+            EnemyActionPresentationOutcome presentationOutcome = EnemyActionPresentationOutcome.None)
         {
             EntityId = entityId;
             ActiveActionKind = activeActionKind;
@@ -1732,6 +1751,8 @@ namespace Game.Feature.Gameplay.Loop
             CanceledThisTick = canceledThisTick;
             ExecutedThisTick = executedThisTick;
             StartedRecoveryThisTick = startedRecoveryThisTick;
+            PresentationSource = presentationSource;
+            PresentationOutcome = presentationOutcome;
         }
 
         public int EntityId { get; }
@@ -1747,6 +1768,10 @@ namespace Game.Feature.Gameplay.Loop
         public bool ExecutedThisTick { get; }
 
         public bool StartedRecoveryThisTick { get; }
+
+        public EnemyActionPresentationSource PresentationSource { get; }
+
+        public EnemyActionPresentationOutcome PresentationOutcome { get; }
     }
 
     public readonly struct TickForwardCellImpactPresentationSignal

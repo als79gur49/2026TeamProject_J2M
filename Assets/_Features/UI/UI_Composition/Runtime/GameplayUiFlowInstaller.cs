@@ -59,6 +59,7 @@ namespace Game.Feature.UI.Composition
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
         private DebugCommandAccess _debugCommandAccess = DebugCommandAccess.Disabled;
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
+        private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -169,6 +170,7 @@ namespace Game.Feature.UI.Composition
             }
 
             _debugCommandAccess = sceneHost.UiAccess.DebugCommandAccess ?? DebugCommandAccess.Disabled;
+            _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
             _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
             Install(new GameplayUiFlowPorts(
                 sceneHost.UiAccess.CommandGateway,
@@ -213,7 +215,8 @@ namespace Game.Feature.UI.Composition
                 _popupPrefabCatalog,
                 _debugCommandAccess,
                 HandleDebugStageResultRequested,
-                _demoStageControlCommandPort));
+                _demoStageControlCommandPort,
+                _demoGameplayOverrideCommandPort));
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay);
@@ -675,7 +678,8 @@ namespace Game.Feature.UI.Composition
 
             Coordinator.RequestDemoStageControlPopup(new DemoStageControlPanelPayload(
                 _demoStageControlCommandPort.GetStages(),
-                _demoStageControlCommandPort.GetStatus()));
+                _demoStageControlCommandPort.GetStatus(),
+                _demoGameplayOverrideCommandPort?.GetOverrideStatus() ?? default));
             return true;
         }
 

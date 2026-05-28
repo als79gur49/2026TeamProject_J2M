@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.AudioPolicy
         GravityField = 7,
         PlayerLocomotion = 8,
         GenericGameplay = 9,
+        ProjectileImpact = 10,
     }
 
     public enum VoiceOverflowMode
