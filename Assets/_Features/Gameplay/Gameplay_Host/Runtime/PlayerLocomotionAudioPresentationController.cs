@@ -11,8 +11,14 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class PlayerLocomotionAudioPresentationController
     {
         private const float MinimumStepIntervalSeconds = 0.01f;
+        private const double TopologyTransitionBlockedCooldownSeconds = 0.3d;
 
         private readonly Dictionary<int, ActiveWalkLoopState> _activeWalkLoopsByEntityId = new();
+        private readonly Dictionary<TopologyTransitionBlockedCooldownKey, double> _nextAllowedTimeByKey = new();
+        private readonly HashSet<int> _pendingSequenceIds = new();
+        private readonly List<ScheduledPlayerLocomotionAudioRequest> _pendingRequests = new();
+        private readonly HashSet<int> _playedSequenceIds = new();
+        private readonly PlayerLocomotionAudioRequestPlanner _requestPlanner = new();
         private readonly HashSet<int> _refreshedActiveEntityIds = new();
         private readonly HashSet<int> _stageClearSuppressedEntityIds = new();
         private readonly HashSet<int> _terminalEntityIdsThisTick = new();
@@ -21,10 +27,15 @@ namespace Game.Feature.Gameplay.Host
         private PlayerLocomotionAudioMap _audioMap;
         private IGameplayAudioPlaybackPort _playbackPort;
         private float _stepIntervalSeconds = MinimumStepIntervalSeconds;
+        private int _playedSequenceScopeTick = int.MinValue;
+        private readonly Func<double> _timeProvider;
 
-        public PlayerLocomotionAudioPresentationController(GameplayPresentationStateStore stateStore)
+        public PlayerLocomotionAudioPresentationController(
+            GameplayPresentationStateStore stateStore,
+            Func<double> timeProvider = null)
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
+            _timeProvider = timeProvider ?? (() => UnityEngine.Time.unscaledTimeAsDouble);
         }
 
         public void AttachRuntime(
@@ -35,12 +46,18 @@ namespace Game.Feature.Gameplay.Host
             _audioMap = audioMap ?? throw new ArgumentNullException(nameof(audioMap));
             _audioMap.ValidateRequiredCuesOrThrow(PlayerLocomotionAudioCueCatalog.RequiredOneShotV1);
             ClearActiveLoops();
+            ClearPendingPlan();
+            ClearOneShotPlaybackState();
+            ClearTopologyTransitionBlockedCooldowns();
             ClearTerminalSuppression();
         }
 
         public void DetachRuntime()
         {
             ClearActiveLoops();
+            ClearPendingPlan();
+            ClearOneShotPlaybackState();
+            ClearTopologyTransitionBlockedCooldowns();
             ClearTerminalSuppression();
             _audioMap = null;
             _playbackPort = null;
@@ -49,7 +66,10 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             ClearActiveLoops();
+            ClearPendingPlan();
             ClearTerminalSuppression();
+            ClearOneShotPlaybackState();
+            ClearTopologyTransitionBlockedCooldowns();
         }
 
         public void RefreshSignals(
@@ -62,7 +82,43 @@ namespace Game.Feature.Gameplay.Host
             }
 
             RefreshTerminalSuppression(result);
+            ReplacePendingPlan(_requestPlanner.BuildRequests(result), result.TickIndex);
             RefreshSignals(result.PresentationData.PlayerLocomotionSignals, stepIntervalSeconds);
+        }
+
+        public void ReplacePendingPlan(
+            IReadOnlyList<PlayerLocomotionAudioRequest> plannedRequests,
+            int tickIndex)
+        {
+            if (plannedRequests == null)
+            {
+                throw new ArgumentNullException(nameof(plannedRequests));
+            }
+
+            RefreshPlayedSequenceScope(tickIndex);
+            var now = _timeProvider();
+            PruneExpiredTopologyTransitionBlockedCooldowns(now);
+
+            for (var i = 0; i < plannedRequests.Count; i++)
+            {
+                var request = plannedRequests[i];
+                if (_playedSequenceIds.Contains(request.SequenceId) ||
+                    IsSuppressedByTopologyTransitionBlockedCooldown(request, now))
+                {
+                    continue;
+                }
+
+                if (!_pendingSequenceIds.Add(request.SequenceId))
+                {
+                    continue;
+                }
+
+                _pendingRequests.Add(
+                    new ScheduledPlayerLocomotionAudioRequest(
+                        request,
+                        request.DelaySeconds,
+                        tickIndex));
+            }
         }
 
         public void RefreshSignals(
@@ -126,7 +182,29 @@ namespace Game.Feature.Gameplay.Host
             if (_audioMap == null || _playbackPort == null)
             {
                 ClearActiveLoops();
+                ClearPendingPlan();
                 return;
+            }
+
+            for (var i = _pendingRequests.Count - 1; i >= 0; i--)
+            {
+                var scheduled = _pendingRequests[i];
+                scheduled.RemainingSeconds -= deltaTime;
+                if (scheduled.RemainingSeconds > 0f)
+                {
+                    _pendingRequests[i] = scheduled;
+                    continue;
+                }
+
+                _pendingSequenceIds.Remove(scheduled.Request.SequenceId);
+                RefreshPlayedSequenceScope(scheduled.TickIndex);
+                if (_playedSequenceIds.Add(scheduled.Request.SequenceId))
+                {
+                    PlayRequest(scheduled.Request);
+                    RegisterTopologyTransitionBlockedCooldown(scheduled.Request, _timeProvider());
+                }
+
+                _pendingRequests.RemoveAt(i);
             }
 
             var activeEntityIds = new List<int>(_activeWalkLoopsByEntityId.Keys);
@@ -164,6 +242,19 @@ namespace Game.Feature.Gameplay.Host
             _playbackPort.Play2D(binding.Definition, context);
         }
 
+        private void PlayRequest(in PlayerLocomotionAudioRequest request)
+        {
+            var binding = _audioMap.ResolveOrThrow(request.Cue);
+            if (binding.HasAttachmentSlot &&
+                TryResolveOwner(request.OwnerEntityId, out var owner))
+            {
+                _playbackPort.PlayAttached(binding.Definition, owner, binding.AttachmentSlot, request.Context);
+                return;
+            }
+
+            _playbackPort.Play2D(binding.Definition, request.Context);
+        }
+
         private bool TryResolveOwner(int ownerEntityId, out GameplayEntityView owner)
         {
             owner = null;
@@ -183,6 +274,100 @@ namespace Game.Feature.Gameplay.Host
         {
             _activeWalkLoopsByEntityId.Clear();
             _refreshedActiveEntityIds.Clear();
+        }
+
+        private void ClearPendingPlan()
+        {
+            _pendingRequests.Clear();
+            _pendingSequenceIds.Clear();
+        }
+
+        private void ClearOneShotPlaybackState()
+        {
+            _playedSequenceIds.Clear();
+            _playedSequenceScopeTick = int.MinValue;
+        }
+
+        private void RefreshPlayedSequenceScope(int tickIndex)
+        {
+            if (_playedSequenceScopeTick == tickIndex)
+            {
+                return;
+            }
+
+            _playedSequenceIds.Clear();
+            _playedSequenceScopeTick = tickIndex;
+        }
+
+        private void ClearTopologyTransitionBlockedCooldowns()
+        {
+            _nextAllowedTimeByKey.Clear();
+        }
+
+        private bool IsSuppressedByTopologyTransitionBlockedCooldown(
+            in PlayerLocomotionAudioRequest request,
+            double now)
+        {
+            if (request.Cue != PlayerLocomotionAudioCue.TopologyTransitionBlocked)
+            {
+                return false;
+            }
+
+            var key = new TopologyTransitionBlockedCooldownKey(request);
+            if (!_nextAllowedTimeByKey.TryGetValue(key, out var nextAllowedTime))
+            {
+                return false;
+            }
+
+            if (now < nextAllowedTime)
+            {
+                return true;
+            }
+
+            _nextAllowedTimeByKey.Remove(key);
+            return false;
+        }
+
+        private void RegisterTopologyTransitionBlockedCooldown(
+            in PlayerLocomotionAudioRequest request,
+            double now)
+        {
+            if (request.Cue == PlayerLocomotionAudioCue.TopologyTransitionBlocked)
+            {
+                _nextAllowedTimeByKey[new TopologyTransitionBlockedCooldownKey(request)] =
+                    now + TopologyTransitionBlockedCooldownSeconds;
+                PruneExpiredTopologyTransitionBlockedCooldowns(now);
+            }
+        }
+
+        private void PruneExpiredTopologyTransitionBlockedCooldowns(double now)
+        {
+            if (_nextAllowedTimeByKey.Count == 0)
+            {
+                return;
+            }
+
+            List<TopologyTransitionBlockedCooldownKey> expiredKeys = null;
+            foreach (var entry in _nextAllowedTimeByKey)
+            {
+                if (entry.Value > now)
+                {
+                    continue;
+                }
+
+                expiredKeys ??= new List<TopologyTransitionBlockedCooldownKey>();
+                expiredKeys.Add(entry.Key);
+            }
+
+            if (expiredKeys == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < expiredKeys.Count; i++)
+            {
+                _nextAllowedTimeByKey.Remove(expiredKeys[i]);
+            }
         }
 
         private void RefreshTerminalSuppression(TickResult result)
@@ -278,6 +463,65 @@ namespace Game.Feature.Gameplay.Host
             }
 
             public float RemainingSeconds;
+        }
+
+        private struct ScheduledPlayerLocomotionAudioRequest
+        {
+            public ScheduledPlayerLocomotionAudioRequest(
+                PlayerLocomotionAudioRequest request,
+                float remainingSeconds,
+                int tickIndex)
+            {
+                Request = request;
+                RemainingSeconds = remainingSeconds;
+                TickIndex = tickIndex;
+            }
+
+            public PlayerLocomotionAudioRequest Request { get; }
+
+            public int TickIndex { get; }
+
+            public float RemainingSeconds;
+        }
+
+        private readonly struct TopologyTransitionBlockedCooldownKey :
+            IEquatable<TopologyTransitionBlockedCooldownKey>
+        {
+            public TopologyTransitionBlockedCooldownKey(in PlayerLocomotionAudioRequest request)
+            {
+                EntityId = request.OwnerEntityId;
+                Direction = request.GateDirection;
+                CandidateCell = request.GateCandidateCell;
+            }
+
+            private int EntityId { get; }
+
+            private Direction Direction { get; }
+
+            private SurfaceCell CandidateCell { get; }
+
+            public bool Equals(TopologyTransitionBlockedCooldownKey other)
+            {
+                return EntityId == other.EntityId &&
+                       Direction == other.Direction &&
+                       CandidateCell.Equals(other.CandidateCell);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is TopologyTransitionBlockedCooldownKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = EntityId;
+                    hash = (hash * 397) ^ (int)Direction;
+                    hash = (hash * 397) ^ CandidateCell.GetHashCode();
+                    return hash;
+                }
+            }
         }
     }
 }

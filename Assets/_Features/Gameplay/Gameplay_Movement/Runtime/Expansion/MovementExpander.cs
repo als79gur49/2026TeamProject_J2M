@@ -80,7 +80,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<BarricadeBlockFact> barricadeBlockFacts = null,
             ISet<int> forbiddenLegacyUnitOrdinaryIntentIds = null,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
-            List<BoxSlideStopResult> boxSlideStops = null)
+            List<BoxSlideStopResult> boxSlideStops = null,
+            List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
         {
             if (snapshot == null)
             {
@@ -158,7 +159,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                             rejectedReasons,
                             frontFaceShieldBlockExports,
                             barricadeBlockFacts,
-                            boxSlideStops);
+                            boxSlideStops,
+                            playerTopologyTransitionBlockedSignals);
                         break;
 
                     case MovementCommandKind.Flip:
@@ -193,7 +195,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<string> rejectedReasons,
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
             List<BarricadeBlockFact> barricadeBlockFacts,
-            List<BoxSlideStopResult> boxSlideStops)
+            List<BoxSlideStopResult> boxSlideStops,
+            List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals)
         {
             if (IsSlidingPushBox(source))
             {
@@ -224,7 +227,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     usesPlayerTraversal,
                     out var destinationCell,
                     out var rotationKind,
-                    out var updatedTopology))
+                    out var updatedTopology,
+                    out var traversalStepResolved))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=TraversalRejected|Origin={FormatCell(source.position)}");
@@ -362,6 +366,17 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             var movementLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(movementContext);
             if (movementLegality.Verdict == LegalityVerdict.Blocked)
             {
+                AddPlayerTopologyTransitionBlockedSignalIfNeeded(
+                    playerTopologyTransitionBlockedSignals,
+                    snapshot,
+                    source,
+                    intent,
+                    stepFacing,
+                    destinationCell,
+                    rotationKind,
+                    updatedTopology,
+                    traversalStepResolved,
+                    movementLegality);
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(movementLegality.Cell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(movementLegality, movementContext.Actor.SpatialState)}");
                 return;
@@ -377,17 +392,19 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             bool usesPlayerTraversal,
             out SurfaceCell destinationCell,
             out CubeRotationKind rotationKind,
-            out CubeTopologyState updatedTopology)
+            out CubeTopologyState updatedTopology,
+            out bool traversalStepResolved)
         {
             if (!usesPlayerTraversal && !snapshot.Topology.IsFaceActive(source.position.face))
             {
                 destinationCell = default;
                 rotationKind = CubeRotationKind.None;
                 updatedTopology = snapshot.Topology;
+                traversalStepResolved = false;
                 return false;
             }
 
-            var hasResolvedStep = usesPlayerTraversal
+            traversalStepResolved = usesPlayerTraversal
                 ? snapshot.TryResolvePlayerStep(
                     source.position,
                     delta,
@@ -400,7 +417,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     out destinationCell,
                     out rotationKind,
                     out updatedTopology);
-            if (!hasResolvedStep)
+            if (!traversalStepResolved)
             {
                 destinationCell = source.position + delta;
                 rotationKind = CubeRotationKind.None;
@@ -408,6 +425,79 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             return usesPlayerTraversal || rotationKind == CubeRotationKind.None;
+        }
+
+        private static void AddPlayerTopologyTransitionBlockedSignalIfNeeded(
+            List<TickPlayerTopologyTransitionBlockedSignal> signals,
+            WorldSnapshot snapshot,
+            EntityState source,
+            MoveIntent intent,
+            Direction direction,
+            SurfaceCell destinationCell,
+            CubeRotationKind rotationKind,
+            CubeTopologyState updatedTopology,
+            bool traversalStepResolved,
+            in LegalityResult movementLegality)
+        {
+            if (signals == null ||
+                intent.CommandKind != MovementCommandKind.Move ||
+                !EntityRolePolicy.IsPlayerUnit(source) ||
+                !traversalStepResolved ||
+                rotationKind == CubeRotationKind.None ||
+                movementLegality.Verdict != LegalityVerdict.Blocked ||
+                movementLegality.TransitionRequirement.Kind != TransitionRequirementKind.TopologyUpdate ||
+                movementLegality.Blockers.Count == 0 ||
+                !TryResolvePrimaryNonBoardEdgeBlockerKind(
+                    movementLegality.Blockers,
+                    out var primaryBlockerKind))
+            {
+                return;
+            }
+
+            signals.Add(
+                new TickPlayerTopologyTransitionBlockedSignal(
+                    source.entityId,
+                    direction,
+                    source.position,
+                    destinationCell,
+                    snapshot.Topology,
+                    updatedTopology,
+                    rotationKind,
+                    primaryBlockerKind));
+        }
+
+        private static bool TryResolvePrimaryNonBoardEdgeBlockerKind(
+            IReadOnlyList<LegalityBlocker> blockers,
+            out TickTraversalBlockerKind primaryBlockerKind)
+        {
+            for (var i = 0; i < blockers.Count; i++)
+            {
+                var blockerKind = blockers[i].Kind;
+                if (blockerKind == LegalityBlockerKind.BoardEdge)
+                {
+                    continue;
+                }
+
+                primaryBlockerKind = ToTickTraversalBlockerKind(blockerKind);
+                return primaryBlockerKind != TickTraversalBlockerKind.None;
+            }
+
+            primaryBlockerKind = TickTraversalBlockerKind.None;
+            return false;
+        }
+
+        private static TickTraversalBlockerKind ToTickTraversalBlockerKind(LegalityBlockerKind blockerKind)
+        {
+            return blockerKind switch
+            {
+                LegalityBlockerKind.BoardEdge => TickTraversalBlockerKind.BoardEdge,
+                LegalityBlockerKind.Terrain => TickTraversalBlockerKind.Terrain,
+                LegalityBlockerKind.Solid => TickTraversalBlockerKind.Solid,
+                LegalityBlockerKind.Unit => TickTraversalBlockerKind.Unit,
+                LegalityBlockerKind.Reservation => TickTraversalBlockerKind.Reservation,
+                LegalityBlockerKind.TileFeature => TickTraversalBlockerKind.TileFeature,
+                _ => TickTraversalBlockerKind.None,
+            };
         }
 
         private static void ExpandFlip(

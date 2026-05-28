@@ -1181,6 +1181,56 @@ namespace Game.Feature.Gameplay.Loop
         public CubeRotationKind RotationKind { get; }
     }
 
+    public enum TickTraversalBlockerKind
+    {
+        None = 0,
+        BoardEdge = 1,
+        Terrain = 2,
+        Solid = 3,
+        Unit = 4,
+        Reservation = 5,
+        TileFeature = 6,
+    }
+
+    public readonly struct TickPlayerTopologyTransitionBlockedSignal
+    {
+        public TickPlayerTopologyTransitionBlockedSignal(
+            int entityId,
+            Direction direction,
+            SurfaceCell originCell,
+            SurfaceCell candidateCell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState requiredTopology,
+            CubeRotationKind rotationKind,
+            TickTraversalBlockerKind primaryBlockerKind)
+        {
+            EntityId = entityId;
+            Direction = direction;
+            OriginCell = originCell;
+            CandidateCell = candidateCell;
+            SourceTopology = sourceTopology;
+            RequiredTopology = requiredTopology;
+            RotationKind = rotationKind;
+            PrimaryBlockerKind = primaryBlockerKind;
+        }
+
+        public int EntityId { get; }
+
+        public Direction Direction { get; }
+
+        public SurfaceCell OriginCell { get; }
+
+        public SurfaceCell CandidateCell { get; }
+
+        public CubeTopologyState SourceTopology { get; }
+
+        public CubeTopologyState RequiredTopology { get; }
+
+        public CubeRotationKind RotationKind { get; }
+
+        public TickTraversalBlockerKind PrimaryBlockerKind { get; }
+    }
+
     public readonly struct TickVisibilityChange
     {
         public TickVisibilityChange(
@@ -2826,6 +2876,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickPlayerDeathPresentationSignal> _playerDeathSignals;
         private readonly ReadOnlyCollection<TickPlayerLocomotionPresentationSignal> _playerLocomotionSignals;
         private readonly ReadOnlyCollection<TickPlayerOutcomePresentationSignal> _playerOutcomeSignals;
+        private readonly ReadOnlyCollection<TickPlayerTopologyTransitionBlockedSignal> _playerTopologyTransitionBlockedSignals;
         private ReadOnlyCollection<TickSummonedEnemyPresentationBinding> _summonedEnemyPresentationBindings;
         private ReadOnlyCollection<TickSummonWindupWarningSignal> _summonWindupWarnings;
         private readonly TickTopologyMotion? _topologyMotion;
@@ -3185,7 +3236,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
         {
             if (entityMotions == null)
             {
@@ -3304,6 +3356,11 @@ namespace Game.Feature.Gameplay.Loop
             _playerOutcomeSignals = new ReadOnlyCollection<TickPlayerOutcomePresentationSignal>(
                 new List<TickPlayerOutcomePresentationSignal>(
                     playerOutcomeSignals ?? Array.Empty<TickPlayerOutcomePresentationSignal>()));
+            _playerTopologyTransitionBlockedSignals =
+                new ReadOnlyCollection<TickPlayerTopologyTransitionBlockedSignal>(
+                    new List<TickPlayerTopologyTransitionBlockedSignal>(
+                        playerTopologyTransitionBlockedSignals ??
+                        Array.Empty<TickPlayerTopologyTransitionBlockedSignal>()));
             _enemyDamageSignals = new ReadOnlyCollection<TickEnemyDamagePresentationSignal>(
                 new List<TickEnemyDamagePresentationSignal>(enemyDamageSignals));
             _enemyActionSignals = new ReadOnlyCollection<TickEnemyActionPresentationSignal>(
@@ -3410,7 +3467,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3446,7 +3504,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
-                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
         {
         }
 
@@ -3524,7 +3583,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3564,7 +3624,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
-                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -3620,7 +3681,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
-            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null)
+            IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
             : this(
                 entityMotions: entityMotions,
                 topologyMotion: topologyMotion,
@@ -3661,7 +3723,8 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
-                enemyUtilityPhaseStates: enemyUtilityPhaseStates)
+                enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -3728,6 +3791,9 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickPlayerDeathHoldPresentationSignal> PlayerDeathHoldSignals => _playerDeathHoldSignals;
 
         public IReadOnlyList<TickPlayerOutcomePresentationSignal> PlayerOutcomeSignals => _playerOutcomeSignals;
+
+        public IReadOnlyList<TickPlayerTopologyTransitionBlockedSignal> PlayerTopologyTransitionBlockedSignals =>
+            _playerTopologyTransitionBlockedSignals;
 
         public IReadOnlyList<TickEnemyDamagePresentationSignal> EnemyDamageSignals => _enemyDamageSignals;
 

@@ -76,6 +76,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_TopologyTransitionTerrainBlocked_PreservesRequirementAndBlocker()
+        {
+            var originCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Back, 0, 1);
+            var unit = CreateUnit(10, originCell);
+            var updatedTopology = new CubeTopologyState(FaceId.Back);
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    new GameplayTerrainData(new[]
+                    {
+                        new TerrainCellState(
+                            destinationCell,
+                            TerrainKind.Generic,
+                            TerrainFlags.BlocksGroundTraversal),
+                    }),
+                    new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destinationCell,
+                ignoredEntityId: unit.entityId,
+                evaluatedTopology: updatedTopology,
+                rotationKind: CubeRotationKind.Backward,
+                updatedTopology: updatedTopology);
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legality.TransitionRequirement.Kind, Is.EqualTo(TransitionRequirementKind.TopologyUpdate));
+            Assert.That(legality.TransitionRequirement.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
+            Assert.That(legality.TransitionRequirement.UpdatedTopology, Is.EqualTo(updatedTopology));
+            Assert.That(legality.Blockers.Count, Is.EqualTo(1));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Terrain));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void RuntimeTraversalLegalityPolicy_EvaluateDestination_UnitGroundTraversal_BlockedByActiveBarricade()
         {
             var originCell = new SurfaceCell(FaceId.Front, 0, 0);

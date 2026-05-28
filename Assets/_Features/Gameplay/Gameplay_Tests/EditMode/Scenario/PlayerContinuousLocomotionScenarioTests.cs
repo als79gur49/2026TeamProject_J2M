@@ -636,7 +636,74 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 Assert.Fail(string.Join(";", result.MovementPhaseResult.RejectedReasons));
             }
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Free2DTopology_BottomToBackTargetFaceBox_EmitsTopologyBlockedSignal()
+        {
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Back, 0, 1)),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
+            var pipeline = CreateNativeTopologyPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(entry =>
+                    entry.Contains("Free2DTopologyNativeRejected") &&
+                    entry.Contains("TargetFaceBlockedBySolid")),
+                Is.True,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
+            AssertBottomToBackBlockedSignal(
+                result,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Back, 0, 1),
+                TickTraversalBlockerKind.Solid);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Free2DTopology_BottomToBackTargetFaceTerrain_EmitsTopologyBlockedSignal()
+        {
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var targetCell = new SurfaceCell(FaceId.Back, 0, 1);
+            var terrain = new GameplayTerrainData(new[]
+            {
+                new TerrainCellState(
+                    targetCell,
+                    TerrainKind.Generic,
+                    TerrainFlags.BlocksGroundTraversal),
+            });
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                boardBounds,
+                terrain,
+                new CubeTopologyState(FaceId.Floor));
+            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
+            var pipeline = CreateNativeTopologyPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(entry =>
+                    entry.Contains("Free2DTopologyNativeRejected") &&
+                    entry.Contains("TargetFaceBlockedByTerrain")),
+                Is.True,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
+            AssertBottomToBackBlockedSignal(
+                result,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                targetCell,
+                TickTraversalBlockerKind.Terrain);
         }
 
         [Test]
@@ -1035,7 +1102,42 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 (track.SourceTopology.HasValue ||
                  track.DestinationTopology.HasValue ||
                  track.TopologyRotationKind != CubeRotationKind.None)), Is.False);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Player_Free2D_BottomToBackNativeTopologyTransitionTargetActiveDestroyTile_EmitsTopologyBlockedSignal()
+        {
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Back, 0, 1);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateDestroyTile(100, targetCell) });
+            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, speed);
+            var pipeline = CreateDefaultGameplayPipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.ActiveFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("Stage=Free2DTopology") &&
+                    reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked") &&
+                    reason.Contains("Cell=Back(0,1)")),
+                Is.True,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
+            AssertBottomToBackBlockedSignal(
+                result,
+                sourceCell,
+                targetCell,
+                TickTraversalBlockerKind.TileFeature);
         }
 
         [Test]
@@ -2507,6 +2609,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return PlayerContinuousLocomotionSettings.CreateDefault()
                 .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                 .SpeedUnitsPerTick;
+        }
+
+        private static void AssertBottomToBackBlockedSignal(
+            TickResult result,
+            SurfaceCell sourceCell,
+            SurfaceCell targetCell,
+            TickTraversalBlockerKind blockerKind)
+        {
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            var signal = result.PresentationData.PlayerTopologyTransitionBlockedSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(10));
+            Assert.That(signal.Direction, Is.EqualTo(Direction.Down));
+            Assert.That(signal.OriginCell, Is.EqualTo(sourceCell));
+            Assert.That(signal.CandidateCell, Is.EqualTo(targetCell));
+            Assert.That(signal.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(signal.RequiredTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
+            Assert.That(signal.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
+            Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(blockerKind));
         }
 
         private static void MoveRightToRadiusClamp(TickPipeline pipeline)

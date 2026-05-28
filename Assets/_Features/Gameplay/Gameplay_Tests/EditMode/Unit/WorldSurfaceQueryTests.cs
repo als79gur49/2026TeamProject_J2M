@@ -286,9 +286,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty));
 
+            Assert.That(snapshot.Topology.BottomFace, Is.EqualTo(FaceId.Floor));
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 1, 1),
                 Direction.Up,
@@ -310,9 +311,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty));
 
+            Assert.That(snapshot.Topology.BottomFace, Is.EqualTo(FaceId.Floor));
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 1, 0),
                 Direction.Down,
