@@ -18,6 +18,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -215,11 +216,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push, resolvedMotionDurationSeconds: 0.25f);
                 Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
-                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(4f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(8f).Within(0.0001f));
 
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip, resolvedMotionDurationSeconds: 0.5f);
                 Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
-                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(4f).Within(0.0001f));
             }
             finally
             {
@@ -328,6 +329,60 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
                 Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Windup"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerHiddenDriverSync_DoesNotCrossFadeInactiveAnimator()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject(
+                nameof(PlayerHiddenDriverSync_DoesNotCrossFadeInactiveAnimator));
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                AttachPlayerRuntimeAnimator(rootObject, driver);
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                coordinator.CacheDrivers(10, view);
+
+                driver.Apply(new PlayerViewPresentationState(
+                    10,
+                    1,
+                    PlayerActionKind.Push,
+                    1,
+                    startedThisTick: true,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false));
+                rootObject.SetActive(false);
+
+                coordinator.SyncHiddenDrivers(
+                    new HashSet<int>(),
+                    _ => PlayerViewAnimationState.Push,
+                    (_, _) => 0f,
+                    viewsByEntityId);
+
+                Assert.That(driver.LastCrossFadedStateName, Is.Empty);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+                LogAssert.NoUnexpectedReceived();
+
+                rootObject.SetActive(true);
+                driver.SyncRuntimeState(isVisible: true, PlayerViewAnimationState.Push);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Windup"));
+                LogAssert.NoUnexpectedReceived();
             }
             finally
             {
@@ -585,7 +640,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
                 var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
-                var animator = rootObject.AddComponent<Animator>();
+                var animator = AttachEnemyRuntimeAnimator(rootObject);
                 var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
 
                 Assert.That(authoring, Is.Not.Null);
@@ -673,7 +728,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
                 var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
-                var animator = rootObject.AddComponent<Animator>();
+                var animator = AttachEnemyRuntimeAnimator(rootObject);
                 var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
 
                 Assert.That(authoring, Is.Not.Null);
@@ -3000,7 +3055,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                rootObject.AddComponent<Animator>();
+                AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -3067,7 +3122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                rootObject.AddComponent<Animator>();
+                AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -3207,7 +3262,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                rootObject.AddComponent<Animator>();
+                AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -3411,6 +3466,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyHiddenDriverSync_DoesNotMutateInactiveAnimator()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyHiddenDriverSync_DoesNotMutateInactiveAnimator));
+
+            try
+            {
+                var view = fixture.Root.AddComponent<GameplayEntityView>();
+                view.Initialize(40);
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [40] = view,
+                };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(40, view);
+
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0.2f);
+                fixture.Root.SetActive(false);
+
+                coordinator.SyncHiddenDrivers(
+                    new HashSet<int>(),
+                    _ => PlayerViewAnimationState.Idle,
+                    (_, _) => 0f,
+                    viewsByEntityId);
+
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+                Assert.That(fixture.Driver.JumpAirborneRestoreCount, Is.Zero);
+                Assert.That(fixture.Driver.HasJumpAirborneTopologySuspendSnapshot, Is.True);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyApplyTickPresentation_InactiveLandingDoesNotCommitMoveCrossFade()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyApplyTickPresentation_InactiveLandingDoesNotCommitMoveCrossFade));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+
+                fixture.Root.SetActive(false);
+                fixture.Driver.Apply(CreateJumpLandingPresentationState());
+
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.Not.EqualTo("Move"));
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyApplyTickPresentation_WhenAnimatorBecomesActive_AppliesExpectedState()
+        {
+            var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyApplyTickPresentation_WhenAnimatorBecomesActive_AppliesExpectedState));
+
+            try
+            {
+                fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Root.SetActive(false);
+                fixture.Driver.Apply(CreateJumpLandingPresentationState());
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+
+                fixture.Root.SetActive(true);
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                fixture.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyJumpAirborneRestoreNotOverwrittenByIdleApply()
         {
             var fixture = CreateEnemyJumpAnimatorFixture(nameof(EnemyJumpAirborneRestoreNotOverwrittenByIdleApply));
@@ -3525,7 +3667,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                rootObject.AddComponent<Animator>();
+                AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -3699,9 +3841,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var animator = rootObject.AddComponent<Animator>();
+                var animator = AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
                 ConfigureEnemyAnimationTimingAuthoring(
                     authoring,
                     attackWindupAnimatorDurationSeconds: 1f,
@@ -3761,7 +3904,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var animator = rootObject.AddComponent<Animator>();
+                var animator = AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -3806,7 +3949,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var animator = rootObject.AddComponent<Animator>();
+                var animator = AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -3856,7 +3999,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var animator = rootObject.AddComponent<Animator>();
+                var animator = AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -3921,7 +4064,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var animator = rootObject.AddComponent<Animator>();
+                var animator = AttachEnemyRuntimeAnimator(rootObject);
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -4072,7 +4215,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
-                enemyPrefabObject.AddComponent<Animator>();
+                AttachEnemyRuntimeAnimator(enemyPrefabObject);
                 var timingAuthoring = enemyPrefabObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 enemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
                 ConfigureEnemyAnimationTimingAuthoring(
@@ -4790,6 +4933,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 startedChargeRecoverThisTick: false,
                 tookDamage: false,
                 didDie: false);
+        }
+
+        private static EnemyViewPresentationState CreateJumpLandingPresentationState(int tickIndex = 2)
+        {
+            return new EnemyViewPresentationState(
+                entityId: 40,
+                tickIndex: tickIndex,
+                aiMode: EnemyAiMode.Patrol,
+                activeActionKind: EnemyActionKind.None,
+                jumpPhase: EnemyJumpPhase.None,
+                chargePhase: EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: true,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: false);
+        }
+
+        private static Animator AttachPlayerRuntimeAnimator(GameObject rootObject, PlayerAnimatorDriver driver)
+        {
+            var animator = rootObject.AddComponent<Animator>();
+            animator.runtimeAnimatorController =
+                AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+            Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
+            PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
+            return animator;
+        }
+
+        private static Animator AttachEnemyRuntimeAnimator(GameObject rootObject)
+        {
+            return PlayerViewPrefabTestUtility.AttachTestAnimator(
+                rootObject,
+                $"{rootObject.name}_EnemyAnimator",
+                "Move",
+                "Windup",
+                "Recover",
+                "JumpWindup",
+                "JumpAirborne",
+                "Charge",
+                "Fly_Start",
+                "Fly_Loop",
+                "Fly_Done",
+                "Death");
         }
 
         private readonly struct EnemyJumpAnimatorFixture

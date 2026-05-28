@@ -21,6 +21,7 @@ using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.Animations;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -939,7 +940,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             prefabObject.AddComponent<UnitLocomotionPresentationAuthoring>();
             prefabObject.AddComponent<EntityMotionPresentationAuthoring>();
             prefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
-            prefabObject.AddComponent<PlayerAnimatorDriver>();
+            var driver = prefabObject.AddComponent<PlayerAnimatorDriver>();
+            var animator = AttachTestAnimator(
+                prefabObject,
+                $"{name}_Animator",
+                "Idle",
+                "Walk_Loop",
+                "Push_Windup",
+                "Push_Recovery",
+                "Flip_Windup",
+                "Flip_Recovery",
+                "Death",
+                "Item");
+            SetSerializedField(driver, "animator", animator);
             return prefabObject;
         }
 
@@ -948,6 +961,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
             field.SetValue(target, value);
+        }
+
+        public static Animator AttachTestAnimator(GameObject rootObject, string name, params string[] stateNames)
+        {
+            var animatorObject = new GameObject(name);
+            animatorObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var animator = animatorObject.AddComponent<Animator>();
+            animator.runtimeAnimatorController = CreateTestAnimatorController($"{name}_Controller", stateNames);
+            return animator;
+        }
+
+        public static AnimatorController CreateTestAnimatorController(string name, params string[] stateNames)
+        {
+            var stateMachine = new AnimatorStateMachine
+            {
+                name = $"{name}_StateMachine",
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+
+            AnimatorState defaultState = null;
+            for (var i = 0; i < stateNames.Length; i++)
+            {
+                var stateName = stateNames[i];
+                var state = stateMachine.AddState(stateName);
+                state.motion = CreateTestClip($"{name}_{stateName}_Clip");
+                if (defaultState == null)
+                {
+                    defaultState = state;
+                }
+            }
+
+            stateMachine.defaultState = defaultState;
+            var controller = new AnimatorController
+            {
+                name = name,
+                hideFlags = HideFlags.HideAndDontSave,
+                layers = new[]
+                {
+                    new AnimatorControllerLayer
+                    {
+                        name = "Base Layer",
+                        defaultWeight = 1f,
+                        stateMachine = stateMachine,
+                    },
+                },
+            };
+            controller.AddParameter("Hit", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("Windup", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("JumpWindup", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("JumpAirborne", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("Attack", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("Recover", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("Death", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("EnemyAiMode", AnimatorControllerParameterType.Int);
+            controller.AddParameter("EnemyActionKind", AnimatorControllerParameterType.Int);
+            controller.AddParameter("EnemyJumpPhase", AnimatorControllerParameterType.Int);
+            controller.AddParameter("EnemyChargePhase", AnimatorControllerParameterType.Int);
+            controller.AddParameter("IsMoving", AnimatorControllerParameterType.Bool);
+            controller.AddParameter("PlayerPresentationState", AnimatorControllerParameterType.Int);
+            controller.AddParameter("FlipOutcome", AnimatorControllerParameterType.Int);
+            return controller;
+        }
+
+        private static AnimationClip CreateTestClip(string name)
+        {
+            var clip = new AnimationClip
+            {
+                name = name,
+                frameRate = 60f,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            clip.SetCurve(
+                string.Empty,
+                typeof(Transform),
+                "m_LocalPosition.x",
+                AnimationCurve.Linear(0f, 0f, 1f, 1f));
+            return clip;
         }
     }
 

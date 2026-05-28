@@ -105,6 +105,8 @@ namespace Game.Feature.Gameplay.Host
         private int _recoveryTriggerDispatchCount;
         private AnimatorStateSnapshot _jumpAirborneTopologySuspendSnapshot;
         private float _lastJumpAirborneNormalizedTime;
+        private string _pendingCrossFadeStateName = string.Empty;
+        private bool _pendingCrossFadeRequiresOverride;
 
         public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
@@ -123,6 +125,7 @@ namespace Game.Feature.Gameplay.Host
             IsMoving = state.IsMoving;
 
             var targetAnimator = ResolveAnimator();
+            TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, state);
 
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(state));
@@ -253,6 +256,7 @@ namespace Game.Feature.Gameplay.Host
             IsMoving = settledState.IsMoving;
 
             var targetAnimator = ResolveAnimator();
+            TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, settledState);
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(settledState));
             TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
@@ -268,6 +272,7 @@ namespace Game.Feature.Gameplay.Host
             IsPlaybackSuppressed = effectivePlaybackSuppressed;
 
             var targetAnimator = ResolveAnimator();
+            TryConsumePendingNamedStateCrossFade(targetAnimator);
             if (isJumpAirborne)
             {
                 if (effectivePlaybackSuppressed)
@@ -291,6 +296,22 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void SyncHiddenRuntimeState(bool isMoving, bool playbackSuppressed = false)
+        {
+            var isJumpAirborne = LastPresentationState.JumpPhase == EnemyJumpPhase.Airborne;
+            IsVisible = false;
+            IsMoving = isMoving;
+            IsPlaybackSuppressed = playbackSuppressed || isJumpAirborne;
+
+            var targetAnimator = ResolveAnimator();
+            if (isJumpAirborne)
+            {
+                PreserveJumpAirborneAnimatorForTopologySuspend(targetAnimator);
+            }
+
+            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState), driveAnimator: false);
+        }
+
         public void ApplyPresentationPhaseTiming(EnemyPresentationPhase phase)
         {
             ApplyAnimatorTiming(ResolveAnimator(), phase);
@@ -309,6 +330,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var targetAnimator = ResolveAnimator();
+            TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, LastPresentationState);
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
 
@@ -426,7 +448,10 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        private void ApplyAnimatorTiming(Animator targetAnimator, EnemyPresentationPhase phase)
+        private void ApplyAnimatorTiming(
+            Animator targetAnimator,
+            EnemyPresentationPhase phase,
+            bool driveAnimator = true)
         {
             var resolvedSpeed = ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
             CurrentAnimatorSpeed = resolvedSpeed;
@@ -435,7 +460,7 @@ namespace Game.Feature.Gameplay.Host
                 ? 0f
                 : resolvedSpeed;
 
-            if (targetAnimator != null)
+            if (driveAnimator && CanDriveAnimator(targetAnimator))
             {
                 targetAnimator.speed = targetSpeed;
             }
@@ -650,6 +675,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void SyncOptionalParameters(Animator targetAnimator, in EnemyViewPresentationState state)
         {
+            if (!CanDriveAnimator(targetAnimator))
+            {
+                return;
+            }
+
             if (SupportsAiModeParameter(targetAnimator))
             {
                 targetAnimator.SetInteger(AiModeParameterHash, (int)state.AiMode);
@@ -675,6 +705,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void SyncOptionalMovingParameter(Animator targetAnimator, bool isMoving)
         {
+            if (!CanDriveAnimator(targetAnimator))
+            {
+                return;
+            }
+
             if (!SupportsMovingParameter(targetAnimator))
             {
                 return;
@@ -824,8 +859,7 @@ namespace Game.Feature.Gameplay.Host
 
         private static bool SetTrigger(Animator targetAnimator, string parameterName)
         {
-            if (targetAnimator == null ||
-                targetAnimator.runtimeAnimatorController == null ||
+            if (!CanDriveAnimator(targetAnimator) ||
                 string.IsNullOrWhiteSpace(parameterName))
             {
                 return false;
@@ -855,9 +889,11 @@ namespace Game.Feature.Gameplay.Host
             var fallbackStateHash = targetAnimator != null
                 ? ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName)
                 : Animator.StringToHash(jumpAirborneStateName);
-            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            if (!CanDriveAnimator(targetAnimator))
             {
-                _jumpAirborneTopologySuspendSnapshot = new AnimatorStateSnapshot(fallbackStateHash, 0f);
+                _jumpAirborneTopologySuspendSnapshot = new AnimatorStateSnapshot(
+                    fallbackStateHash,
+                    Mathf.Max(0f, _lastJumpAirborneNormalizedTime));
                 return true;
             }
 
@@ -901,19 +937,19 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            var snapshot = _jumpAirborneTopologySuspendSnapshot;
-            _jumpAirborneTopologySuspendSnapshot = default;
-            LastCrossFadedStateName = jumpAirborneStateName;
-            JumpAirborneRestoreCount++;
-            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            if (!CanDriveAnimator(targetAnimator))
             {
-                return true;
+                return false;
             }
 
+            var snapshot = _jumpAirborneTopologySuspendSnapshot;
+            _jumpAirborneTopologySuspendSnapshot = default;
             targetAnimator.Play(snapshot.StateHash, 0, snapshot.NormalizedTime);
             targetAnimator.Update(0f);
             ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
             _lastJumpAirborneNormalizedTime = snapshot.NormalizedTime;
+            LastCrossFadedStateName = jumpAirborneStateName;
+            JumpAirborneRestoreCount++;
             return true;
         }
 
@@ -929,10 +965,9 @@ namespace Game.Feature.Gameplay.Host
                 return true;
             }
 
-            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            if (!CanDriveAnimator(targetAnimator))
             {
-                LastCrossFadedStateName = jumpAirborneStateName;
-                return true;
+                return false;
             }
 
             var currentState = targetAnimator.GetCurrentAnimatorStateInfo(0);
@@ -986,21 +1021,73 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            LastCrossFadeDurationSeconds = hasOverride
+            var resolvedDurationSeconds = hasOverride
                 ? Mathf.Max(0f, crossFadeDurationSeconds)
                 : 0f;
-            LastCrossFadedStateName = stateName;
 
-            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            if (!CanDriveAnimator(targetAnimator))
             {
-                return true;
+                _pendingCrossFadeStateName = stateName;
+                _pendingCrossFadeRequiresOverride = requireOverride;
+                return false;
             }
 
             var stateHash = ResolveAnimatorStateHash(targetAnimator, stateName);
             targetAnimator.CrossFadeInFixedTime(
                 stateHash,
-                LastCrossFadeDurationSeconds);
+                resolvedDurationSeconds);
+            LastCrossFadeDurationSeconds = resolvedDurationSeconds;
+            LastCrossFadedStateName = stateName;
+            ClearPendingNamedStateCrossFade(stateName);
             return true;
+        }
+
+        private bool TryConsumePendingNamedStateCrossFade(Animator targetAnimator)
+        {
+            if (string.IsNullOrWhiteSpace(_pendingCrossFadeStateName) ||
+                !CanDriveAnimator(targetAnimator))
+            {
+                return false;
+            }
+
+            var stateName = _pendingCrossFadeStateName;
+            var requireOverride = _pendingCrossFadeRequiresOverride;
+            var hasOverride = TryResolveStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds);
+            if (requireOverride && !hasOverride)
+            {
+                return false;
+            }
+
+            var resolvedDurationSeconds = hasOverride
+                ? Mathf.Max(0f, crossFadeDurationSeconds)
+                : 0f;
+            var stateHash = ResolveAnimatorStateHash(targetAnimator, stateName);
+            targetAnimator.CrossFadeInFixedTime(stateHash, resolvedDurationSeconds);
+            LastCrossFadeDurationSeconds = resolvedDurationSeconds;
+            LastCrossFadedStateName = stateName;
+            _pendingCrossFadeStateName = string.Empty;
+            _pendingCrossFadeRequiresOverride = false;
+            return true;
+        }
+
+        private void ClearPendingNamedStateCrossFade(string appliedStateName)
+        {
+            if (!string.Equals(_pendingCrossFadeStateName, appliedStateName, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _pendingCrossFadeStateName = string.Empty;
+            _pendingCrossFadeRequiresOverride = false;
+        }
+
+        private static bool CanDriveAnimator(Animator targetAnimator)
+        {
+            return targetAnimator != null &&
+                   targetAnimator.runtimeAnimatorController != null &&
+                   targetAnimator.enabled &&
+                   targetAnimator.isActiveAndEnabled &&
+                   targetAnimator.gameObject.activeInHierarchy;
         }
 
         private static int ResolveAnimatorStateHash(Animator targetAnimator, string stateName)

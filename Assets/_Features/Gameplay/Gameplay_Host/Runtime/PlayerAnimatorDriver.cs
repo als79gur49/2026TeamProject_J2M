@@ -61,6 +61,7 @@ namespace Game.Feature.Gameplay.Host
 
         private bool _pendingRestart;
         private bool _pendingHitTrigger;
+        private bool _hasDrivenResolvedState;
         private PlayerActionKind _pendingExecuteActionKind;
         private readonly Dictionary<string, float> _clipLengthCache = new();
         private RuntimeAnimatorController _cachedClipLengthController;
@@ -151,22 +152,38 @@ namespace Game.Feature.Gameplay.Host
         {
             IsVisible = request.IsVisible;
 
+            var targetAnimator = ResolveAnimator();
+            if (!CanDriveAnimator(targetAnimator))
+            {
+                return;
+            }
+
             var restart = _pendingRestart || request.Restart;
-            _pendingRestart = false;
             var shouldTriggerHit = _pendingHitTrigger;
-            _pendingHitTrigger = false;
             var executeActionKind = _pendingExecuteActionKind;
-            _pendingExecuteActionKind = PlayerActionKind.None;
-            ApplyResolvedState(
+            if (!ApplyResolvedState(
+                targetAnimator,
                 request.State,
                 restart,
                 executeActionKind,
                 request.ResolvedMotionDurationSeconds,
-                request.PhaseOverride);
+                request.PhaseOverride))
+            {
+                return;
+            }
+
+            _pendingRestart = false;
+            _pendingHitTrigger = false;
+            _pendingExecuteActionKind = PlayerActionKind.None;
             if (shouldTriggerHit)
             {
-                FireHitTrigger(ResolveAnimator());
+                FireHitTrigger(targetAnimator);
             }
+        }
+
+        public void SyncHiddenRuntimeState()
+        {
+            IsVisible = false;
         }
 
         public float GetPresentationDurationSeconds(
@@ -214,14 +231,19 @@ namespace Game.Feature.Gameplay.Host
             return ResolveStageClearVictoryPresentationDurationSeconds(ResolveAnimator());
         }
 
-        private void ApplyResolvedState(
+        private bool ApplyResolvedState(
+            Animator targetAnimator,
             PlayerViewAnimationState resolvedState,
             bool restart,
             PlayerActionKind executeActionKind,
             float resolvedMotionDurationSeconds,
             PlayerPresentationPhase phaseOverride = PlayerPresentationPhase.None)
         {
-            var targetAnimator = ResolveAnimator();
+            if (!CanDriveAnimator(targetAnimator))
+            {
+                return false;
+            }
+
             var previousState = CurrentState;
             var previousPhase = CurrentPresentationPhase;
             var targetPhase = phaseOverride != PlayerPresentationPhase.None
@@ -240,17 +262,25 @@ namespace Game.Feature.Gameplay.Host
             var stateChanged = resolvedState != previousState;
             var phaseChanged = targetPhase != previousPhase;
 
-            CurrentState = resolvedState;
-            CurrentPresentationPhase = targetPhase;
-
             if (!stateChanged &&
                 !phaseChanged &&
-                !restart)
+                !restart &&
+                _hasDrivenResolvedState)
             {
-                return;
+                CurrentState = resolvedState;
+                CurrentPresentationPhase = targetPhase;
+                return true;
             }
 
-            TransitionToResolvedState(targetAnimator, resolvedState, targetPhase);
+            if (!TransitionToResolvedState(targetAnimator, resolvedState, targetPhase))
+            {
+                return false;
+            }
+
+            CurrentState = resolvedState;
+            CurrentPresentationPhase = targetPhase;
+            _hasDrivenResolvedState = true;
+            return true;
         }
 
         private string ResolveLocomotionStateName(PlayerViewAnimationState state)
@@ -359,7 +389,7 @@ namespace Game.Feature.Gameplay.Host
             return _animationTiming;
         }
 
-        private void TransitionToResolvedState(
+        private bool TransitionToResolvedState(
             Animator targetAnimator,
             PlayerViewAnimationState resolvedState,
             PlayerPresentationPhase targetPhase)
@@ -367,32 +397,38 @@ namespace Game.Feature.Gameplay.Host
             var stateName = targetPhase != PlayerPresentationPhase.None
                 ? ResolvePhaseStateName(targetPhase)
                 : ResolveLocomotionStateName(resolvedState);
-            CrossFadeState(
+            return CrossFadeState(
                 targetAnimator,
                 stateName,
                 stateTransitionCrossFadeDurationSeconds);
         }
 
-        private void CrossFadeState(Animator targetAnimator, string stateName, float durationSeconds)
+        private bool CrossFadeState(Animator targetAnimator, string stateName, float durationSeconds)
         {
             if (string.IsNullOrWhiteSpace(stateName))
             {
-                return;
+                return false;
             }
 
-            LastCrossFadedStateName = stateName;
-            LastCrossFadeDurationSeconds = Mathf.Max(0f, durationSeconds);
-
-            if (targetAnimator == null)
+            if (!CanDriveAnimator(targetAnimator))
             {
-                return;
+                return false;
             }
 
-            targetAnimator.CrossFadeInFixedTime(Animator.StringToHash(stateName), LastCrossFadeDurationSeconds);
+            var resolvedDurationSeconds = Mathf.Max(0f, durationSeconds);
+            targetAnimator.CrossFadeInFixedTime(Animator.StringToHash(stateName), resolvedDurationSeconds);
+            LastCrossFadedStateName = stateName;
+            LastCrossFadeDurationSeconds = resolvedDurationSeconds;
+            return true;
         }
 
         private void SyncOptionalStateParameter(Animator targetAnimator, PlayerViewAnimationState resolvedState)
         {
+            if (!CanDriveAnimator(targetAnimator))
+            {
+                return;
+            }
+
             if (!SupportsOptionalStateParameter(targetAnimator))
             {
                 return;
@@ -405,7 +441,7 @@ namespace Game.Feature.Gameplay.Host
             Animator targetAnimator,
             TickPlayerFlipOutcomeKind flipOutcome)
         {
-            if (targetAnimator == null ||
+            if (!CanDriveAnimator(targetAnimator) ||
                 !HasAnimatorParameter(targetAnimator, OptionalFlipOutcomeParameterName, AnimatorControllerParameterType.Int))
             {
                 return;
@@ -416,7 +452,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void FireHitTrigger(Animator targetAnimator)
         {
-            if (targetAnimator == null ||
+            if (!CanDriveAnimator(targetAnimator) ||
                 string.IsNullOrWhiteSpace(hitTriggerName) ||
                 !HasAnimatorParameter(targetAnimator, hitTriggerName, AnimatorControllerParameterType.Trigger))
             {
@@ -452,7 +488,7 @@ namespace Game.Feature.Gameplay.Host
 
         private bool SupportsOptionalStateParameter(Animator targetAnimator)
         {
-            if (targetAnimator == null)
+            if (!CanDriveAnimator(targetAnimator))
             {
                 return false;
             }
@@ -500,10 +536,19 @@ namespace Game.Feature.Gameplay.Host
             CurrentAnimatorSpeed = targetSpeed;
             CurrentPresentationDurationSeconds = presentationDurationSeconds;
 
-            if (targetAnimator != null)
+            if (CanDriveAnimator(targetAnimator))
             {
                 targetAnimator.speed = targetSpeed;
             }
+        }
+
+        private static bool CanDriveAnimator(Animator targetAnimator)
+        {
+            return targetAnimator != null &&
+                   targetAnimator.runtimeAnimatorController != null &&
+                   targetAnimator.enabled &&
+                   targetAnimator.isActiveAndEnabled &&
+                   targetAnimator.gameObject.activeInHierarchy;
         }
 
         private float ResolveAnimatorSpeed(
