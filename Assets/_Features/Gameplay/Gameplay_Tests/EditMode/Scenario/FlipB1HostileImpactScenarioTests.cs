@@ -1085,6 +1085,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var exitSignal = dueTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 20);
             Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
             Assert.That(exitSignal.SourceCell, Is.EqualTo(landingCell));
+            Assert.That(
+                dueTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 20),
+                Is.False);
         }
 
         [Test]
@@ -1127,6 +1130,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 flippedSlideTick.PresentationData.EntityExitSignals.Count(signal => signal.ExitedEntityId == 20),
                 Is.EqualTo(unflippedSlideTick.PresentationData.EntityExitSignals.Count(signal => signal.ExitedEntityId == 20)));
+            Assert.That(
+                flippedSlideTick.PresentationData.EntityMotions.Count(motion => motion.EntityId == 20),
+                Is.EqualTo(unflippedSlideTick.PresentationData.EntityMotions.Count(motion => motion.EntityId == 20)));
+            Assert.That(
+                BuildAudioRequestFacts(flippedSlideTick),
+                Is.EqualTo(BuildAudioRequestFacts(unflippedSlideTick)));
         }
 
         [Test]
@@ -2156,6 +2165,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             TickResult tick,
             SurfaceCell destroyCell)
         {
+            var slideSourceCell = new SurfaceCell(FaceId.Floor, -1, 0);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
             Assert.That(
                 tick.PresentationData.TileEvents.Count(tileEvent =>
@@ -2168,9 +2178,40 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     signal.ExitedEntityId == 20 &&
                     signal.ExitCause == TickEntityExitCause.BoxDestroy),
                 Is.EqualTo(1));
+            var motion = tick.PresentationData.EntityMotions.Single(motion => motion.EntityId == 20);
+            Assert.That(motion.MotionKind, Is.EqualTo(TickEntityMotionKind.BoxSlide));
+            Assert.That(motion.SourceCell, Is.EqualTo(slideSourceCell));
+            Assert.That(motion.DestinationCell, Is.EqualTo(destroyCell));
+            Assert.That(motion.SourceFacing, Is.EqualTo(Direction.Left));
+            Assert.That(motion.DestinationFacing, Is.EqualTo(Direction.Left));
+
+            var exitSignal = tick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 20);
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
+            Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.LegacyActionTimeline));
+            Assert.That(exitSignal.SourceCell, Is.EqualTo(destroyCell));
+            Assert.That(exitSignal.VisualContactNormalizedTime, Is.Zero);
+            Assert.That(tick.PresentationData.FlipDueContactSignals, Is.Empty);
+            Assert.That(tick.PresentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(tick.PresentationData.FlipFloorImpactSignals, Is.Empty);
+            Assert.That(tick.PresentationData.FlipB1InFlightMotionSignals, Is.Empty);
+
+            var audioRequests = new GameplayAudioRequestPlanner().BuildRequests(tick);
+            var audioRequest = audioRequests.Single(request => request.OwnerEntityId == 20);
+            Assert.That(audioRequest.SemanticId, Is.EqualTo(GameplayAudioSemanticId.EntityExitBoxDestroy));
+            Assert.That(
+                audioRequest.DelaySeconds,
+                Is.EqualTo(GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds).Within(0.0001f));
+
             Assert.That(
                 tick.EventLog.Count(entry => entry.Contains("CleanupRemoved|E=20")),
                 Is.EqualTo(1));
+        }
+
+        private static IReadOnlyList<string> BuildAudioRequestFacts(TickResult tick)
+        {
+            return new GameplayAudioRequestPlanner().BuildRequests(tick)
+                .Select(request => $"{request.OwnerEntityId}:{request.SemanticId}:{request.DelaySeconds:0.0000}")
+                .ToArray();
         }
 
         private static EntityState CreateUnit(

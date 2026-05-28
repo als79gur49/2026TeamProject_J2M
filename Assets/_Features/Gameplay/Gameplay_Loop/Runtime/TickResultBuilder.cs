@@ -5180,8 +5180,12 @@ namespace Game.Feature.Gameplay.Loop
                     operation.Metadata.MovementSemanticKind,
                     out var motionKind) ||
                 !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
-                !context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var destinationEntity) ||
-                destinationEntity.boardPresence != EntityBoardPresence.Occupying)
+                !TryResolveEntityMotionDestination(
+                    context,
+                    operation,
+                    sourceEntity,
+                    out var destinationTopology,
+                    out var destinationFacing))
             {
                 return;
             }
@@ -5193,9 +5197,106 @@ namespace Game.Feature.Gameplay.Loop
                     sourceEntity.position,
                     operation.Destination,
                     context.PreMovementSnapshot.Topology,
-                    context.PostMovementSnapshot.Topology,
+                    destinationTopology,
                     sourceEntity.facing,
-                    destinationEntity.facing));
+                    destinationFacing));
+        }
+
+        private static bool TryResolveEntityMotionDestination(
+            in TickPresentationBuildContext context,
+            FinalizationOperation operation,
+            EntityState sourceEntity,
+            out CubeTopologyState destinationTopology,
+            out Direction destinationFacing)
+        {
+            if (context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var destinationEntity) &&
+                destinationEntity.boardPresence == EntityBoardPresence.Occupying)
+            {
+                destinationTopology = context.PostMovementSnapshot.Topology;
+                destinationFacing = destinationEntity.facing;
+                return true;
+            }
+
+            return TryResolveMovementAttachedDestroyTileSlideDestination(
+                context,
+                operation,
+                sourceEntity,
+                out destinationTopology,
+                out destinationFacing);
+        }
+
+        private static bool TryResolveMovementAttachedDestroyTileSlideDestination(
+            in TickPresentationBuildContext context,
+            FinalizationOperation moveOperation,
+            EntityState sourceEntity,
+            out CubeTopologyState destinationTopology,
+            out Direction destinationFacing)
+        {
+            destinationTopology = default;
+            destinationFacing = default;
+            if (moveOperation.Metadata.MovementSemanticKind != MovementSemanticKind.Slide ||
+                sourceEntity.type != EntityType.Box ||
+                sourceEntity.boardPresence != EntityBoardPresence.Occupying)
+            {
+                return false;
+            }
+
+            var operations = BuildEntityExitCandidateOperations(context);
+            // DestroyTile removes the box before the post-movement presentation snapshot.
+            // Keep the already-accepted slide motion as the carrier for the delayed exit.
+            var resolvedFacing = ResolveFinalizedFacingBeforeExit(
+                operations,
+                moveOperation.EntityId,
+                sourceEntity.facing);
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.EntityId != moveOperation.EntityId ||
+                    !IsExitRelevantOperation(operation) ||
+                    operation.Metadata.BoundaryReason != "DestroyTile" ||
+                    operation.Metadata.ExitCauseHint != TickEntityExitCause.BoxDestroy ||
+                    operation.Metadata.ExitPresentationTiming != EntityExitPresentationTiming.AfterEntityMotion ||
+                    !operation.Metadata.HasPresentationTargetCell ||
+                    !operation.Metadata.PresentationTargetCell.Equals(moveOperation.Destination))
+                {
+                    continue;
+                }
+
+                destinationTopology = context.PostMovementSnapshot.Topology;
+                destinationFacing = resolvedFacing;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static Direction ResolveFinalizedFacingBeforeExit(
+            IReadOnlyList<FinalizationOperation> operations,
+            int entityId,
+            Direction fallback)
+        {
+            var facing = fallback;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.EntityId != entityId)
+                {
+                    continue;
+                }
+
+                if (operation.Kind == FinalizationOperationKind.SetFacing)
+                {
+                    facing = operation.Facing;
+                    continue;
+                }
+
+                if (IsExitRelevantOperation(operation))
+                {
+                    break;
+                }
+            }
+
+            return facing;
         }
 
         private static bool ShouldSuppressLegacyMotionForLocomotion(FinalizationOperation operation)
