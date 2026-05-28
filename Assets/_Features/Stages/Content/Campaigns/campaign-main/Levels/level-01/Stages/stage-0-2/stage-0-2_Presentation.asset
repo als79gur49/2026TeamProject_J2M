@@ -437,13 +437,15 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 372
     PresentationId: wall_tutorial
-  boardPresentationProfile: {fileID: 0}
+  boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []
   boardTilePaintOverrides: []
   boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
+  worldGuideCatalog: {fileID: 0}
+  worldGuideInstructions: []
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 
