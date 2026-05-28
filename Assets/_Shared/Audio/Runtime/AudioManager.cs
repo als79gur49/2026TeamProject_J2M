@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.Shared.Audio
 {
     [DisallowMultipleComponent]
-    public sealed class AudioManager : MonoBehaviour, IAudioService, IAudioSettingsService
+    public sealed class AudioManager : MonoBehaviour, IAudioService, IAudioSettingsService, IAudioPlaybackPauseService
     {
         [SerializeField] [Min(1)] private int initialPoolSize = 8;
         [SerializeField] [Min(1)] private int maxPoolSize = 24;
@@ -75,6 +75,24 @@ namespace Game.Shared.Audio
         {
             ThrowIfNotInitialized();
             playbackService.StopBgm(request, mixingService);
+        }
+
+        public void PauseGroup(AudioPlaybackPauseGroup group, AudioPauseReason reason)
+        {
+            ThrowIfNotInitialized();
+            playbackService.PauseGroup(group, reason);
+        }
+
+        public void ResumeGroup(AudioPlaybackPauseGroup group, AudioPauseReason reason)
+        {
+            ThrowIfNotInitialized();
+            playbackService.ResumeGroup(group, reason);
+        }
+
+        public bool IsGroupPaused(AudioPlaybackPauseGroup group, AudioPauseReason reason)
+        {
+            ThrowIfNotInitialized();
+            return playbackService.IsGroupPaused(group, reason);
         }
 
         public AudioSettingsSnapshot ReadSettings()

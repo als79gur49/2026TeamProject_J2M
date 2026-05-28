@@ -3483,6 +3483,46 @@
       ],
       "reason": "Locked Core replay coverage that the JPeter-bound ArchetypeSummoner profile keeps summoned metadata, source binding, and placement deterministic.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioPlaybackPauseService_GameplayPresentation_PausesAndResumesSfxWithoutDuplicatingPlayback",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pause_group",
+        "gameplay_presentation_audio_pause"
+      ],
+      "reason": "Locked Core PlayMode coverage that gameplay Sfx live playback pauses and resumes through the narrow pause-group service without duplicate sources.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioPlaybackPauseService_GameplayPresentation_ExcludesUiAndBgm",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pause_group",
+        "ui_bgm_pause_exclusion"
+      ],
+      "reason": "Locked Core PlayMode coverage that GameplayPresentation pause group excludes UI channel cues and BGM continuity.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioPlaybackPauseService_NewSfxCreatedDuringGameplayPause_IsRegisteredPaused",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pause_group",
+        "paused_playback_registration"
+      ],
+      "reason": "Locked Core PlayMode coverage that gameplay Sfx created while a pause reason is active registers immediately as paused instead of being dropped.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioPlaybackPauseService_StoppedOrNaturallyCompletedPlayback_DoesNotReviveOnResume",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pause_group",
+        "paused_playback_lifetime"
+      ],
+      "reason": "Locked Core PlayMode coverage that stopped, owner-invalidated, and naturally completed gameplay playbacks are not revived by group resume.",
+      "locked": true
     }
   ]
 }

@@ -110,6 +110,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void SharedAudioRuntime_ExposesGameplayPauseThroughNarrowServiceOnly()
+        {
+            var audioServiceMethodNames = typeof(IAudioService)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .Where(method => !method.IsSpecialName)
+                .Select(method => method.Name)
+                .OrderBy(name => name)
+                .ToArray();
+            var pauseServiceMethodNames = typeof(IAudioPlaybackPauseService)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .Where(method => !method.IsSpecialName)
+                .Select(method => method.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(audioServiceMethodNames, Does.Not.Contain("PauseGroup"));
+            Assert.That(audioServiceMethodNames, Does.Not.Contain("ResumeGroup"));
+            Assert.That(
+                pauseServiceMethodNames,
+                Is.EqualTo(new[]
+                {
+                    "IsGroupPaused",
+                    "PauseGroup",
+                    "ResumeGroup",
+                }));
+            Assert.That(typeof(IAudioPlaybackPauseService).Assembly, Is.EqualTo(typeof(IAudioService).Assembly));
+            Assert.That(typeof(AudioManager).GetInterfaces(), Does.Contain(typeof(IAudioPlaybackPauseService)));
+            Assert.That(typeof(AudioRuntimeRoot).GetProperty(nameof(AudioRuntimeRoot.AudioPlaybackPauseService)), Is.Not.Null);
+            Assert.That(typeof(AudioRuntimeInstaller).GetProperty(nameof(AudioRuntimeInstaller.AudioPlaybackPauseService)), Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SharedAudioAssembly_DoesNotReferenceGameplayOrUiMappedSeamAssemblies()
         {
             var references = typeof(IAudioService).Assembly
