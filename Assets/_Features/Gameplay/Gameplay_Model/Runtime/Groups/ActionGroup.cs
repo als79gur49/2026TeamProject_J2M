@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Model.Groups
     internal readonly struct ScheduledFlipContactDraft
     {
         public ScheduledFlipContactDraft(
+            ScheduledFlipContactKind kind,
             int actorEntityId,
             int sourceBoxEntityId,
             SurfaceCell sourceCell,
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.Model.Groups
             FlipContactCancellationPolicy cancellationPolicy,
             FlipContactDispositionPolicy dispositionPolicy)
         {
+            Kind = kind;
             ActorEntityId = actorEntityId;
             SourceBoxEntityId = sourceBoxEntityId;
             SourceCell = sourceCell;
@@ -51,6 +53,8 @@ namespace Game.Feature.Gameplay.Model.Groups
             CancellationPolicy = cancellationPolicy;
             DispositionPolicy = dispositionPolicy;
         }
+
+        public ScheduledFlipContactKind Kind { get; }
 
         public int ActorEntityId { get; }
 
@@ -95,6 +99,7 @@ namespace Game.Feature.Gameplay.Model.Groups
         public ScheduledFlipContact ToScheduledContact(int actionId)
         {
             return new ScheduledFlipContact(
+                Kind,
                 actionId,
                 ActorEntityId,
                 SourceBoxEntityId,

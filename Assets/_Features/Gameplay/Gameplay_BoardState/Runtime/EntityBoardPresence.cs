@@ -78,6 +78,13 @@ namespace Game.Feature.Gameplay.BoardState
     public enum FlipContactDispositionPolicy
     {
         DefaultB1HostileImpact = 0,
+        DefaultB1OrdinaryLanding = 1,
+    }
+
+    public enum ScheduledFlipContactKind
+    {
+        HostileImpact = 0,
+        OrdinaryLanding = 1,
     }
 
     public enum FlipContactResolutionKind
@@ -144,6 +151,7 @@ namespace Game.Feature.Gameplay.BoardState
     public readonly struct ScheduledFlipContact : IEquatable<ScheduledFlipContact>
     {
         public ScheduledFlipContact(
+            ScheduledFlipContactKind kind,
             int actionId,
             int actorEntityId,
             int sourceBoxEntityId,
@@ -206,6 +214,7 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentOutOfRangeException(nameof(flipInputLockDurationTicks), "Scheduled flip contact input lock duration ticks must be greater than zero.");
             }
 
+            Kind = kind;
             ActionId = actionId;
             ActorEntityId = actorEntityId;
             SourceBoxEntityId = sourceBoxEntityId;
@@ -228,6 +237,8 @@ namespace Game.Feature.Gameplay.BoardState
             CancellationPolicy = cancellationPolicy;
             DispositionPolicy = dispositionPolicy;
         }
+
+        public ScheduledFlipContactKind Kind { get; }
 
         public int ActionId { get; }
 
@@ -273,7 +284,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool Equals(ScheduledFlipContact other)
         {
-            return ActionId == other.ActionId &&
+            return Kind == other.Kind &&
+                   ActionId == other.ActionId &&
                    ActorEntityId == other.ActorEntityId &&
                    SourceBoxEntityId == other.SourceBoxEntityId &&
                    SourceCell.Equals(other.SourceCell) &&
@@ -305,7 +317,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             unchecked
             {
-                var hashCode = ActionId;
+                var hashCode = (int)Kind;
+                hashCode = (hashCode * 397) ^ ActionId;
                 hashCode = (hashCode * 397) ^ ActorEntityId;
                 hashCode = (hashCode * 397) ^ SourceBoxEntityId;
                 hashCode = (hashCode * 397) ^ SourceCell.GetHashCode();
@@ -378,6 +391,12 @@ namespace Game.Feature.Gameplay.BoardState
             if (sourceBoxComparison != 0)
             {
                 return sourceBoxComparison;
+            }
+
+            var kindComparison = x.Kind.CompareTo(y.Kind);
+            if (kindComparison != 0)
+            {
+                return kindComparison;
             }
 
             return x.OrderingKey.CompareTo(y.OrderingKey);

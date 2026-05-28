@@ -73,6 +73,16 @@ namespace Game.Feature.Gameplay.Loop
             List<FlipContactResolution> contactResolutions,
             List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
+            switch (contact.Kind)
+            {
+                case ScheduledFlipContactKind.OrdinaryLanding:
+                    return;
+                case ScheduledFlipContactKind.HostileImpact:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(contact), contact.Kind, "Unknown scheduled flip contact kind.");
+            }
+
             if (stageAlreadyTerminal)
             {
                 CancelWithSafeReturn(

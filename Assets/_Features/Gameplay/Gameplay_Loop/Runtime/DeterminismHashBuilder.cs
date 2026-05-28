@@ -857,6 +857,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var contact = scheduledFlipContacts[i].Contact;
                 builder
+                    .Append((int)contact.Kind).Append('|')
                     .Append(contact.ActionId).Append('|')
                     .Append(contact.ActorEntityId).Append('|')
                     .Append(contact.SourceBoxEntityId).Append('|')

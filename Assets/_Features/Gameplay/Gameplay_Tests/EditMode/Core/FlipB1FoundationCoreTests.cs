@@ -230,6 +230,19 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(BuildHash(first.CreateSnapshot()), Is.EqualTo(BuildHash(second.CreateSnapshot())));
         }
 
+        [Test]
+        [Category("Core")]
+        public void DeterminismHash_ChangesWhenScheduledFlipContactKindChanges()
+        {
+            var hostile = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
+            var ordinary = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
+
+            hostile.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 20, kind: ScheduledFlipContactKind.HostileImpact));
+            ordinary.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 20, kind: ScheduledFlipContactKind.OrdinaryLanding));
+
+            Assert.That(BuildHash(ordinary.CreateSnapshot()), Is.Not.EqualTo(BuildHash(hostile.CreateSnapshot())));
+        }
+
         private static WorldSnapshot CreateInFlightBoxSnapshot(out EntityState player, out SurfaceCell boxCell)
         {
             boxCell = Cell(1, 0);
@@ -261,9 +274,11 @@ namespace Game.Feature.Gameplay.Tests.Core
             int executeTick = 3,
             int orderingKey = 0,
             int kineticInstigatorEntityId = 10,
-            int kineticInstigatorTeamId = 1)
+            int kineticInstigatorTeamId = 1,
+            ScheduledFlipContactKind kind = ScheduledFlipContactKind.HostileImpact)
         {
             return new ScheduledFlipContact(
+                kind,
                 actionId,
                 actorEntityId: 10,
                 sourceBoxEntityId: sourceBoxEntityId,

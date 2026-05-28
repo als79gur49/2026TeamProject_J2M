@@ -591,6 +591,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             var resolvedFlipExecuteDelayTicks = Math.Max(0, executeTick - actionStartTick);
             actionGroup.AssignScheduledFlipContact(
                 new ScheduledFlipContactDraft(
+                    ScheduledFlipContactKind.HostileImpact,
                     actorSource.entityId,
                     sourceBox.entityId,
                     sourceBox.position,

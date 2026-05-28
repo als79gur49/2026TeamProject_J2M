@@ -770,6 +770,7 @@ namespace Game.Feature.Gameplay.Debug
 
                 case FinalizationOperationKind.AddScheduledFlipContact:
                     builder.Append("|ScheduledFlipAction=").Append(operation.ScheduledFlipContact.ActionId)
+                        .Append("|Kind=").Append(operation.ScheduledFlipContact.Kind)
                         .Append("|Actor=").Append(operation.ScheduledFlipContact.ActorEntityId)
                         .Append("|Box=").Append(operation.ScheduledFlipContact.SourceBoxEntityId)
                         .Append("|Contact=").Append(FormatCell(operation.ScheduledFlipContact.ContactCell))

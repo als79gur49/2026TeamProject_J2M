@@ -1894,6 +1894,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             AddScheduledFlipContact(
                 host.WorldState,
                 new ScheduledFlipContact(
+                    ScheduledFlipContactKind.HostileImpact,
                     actionId,
                     actorEntityId: 10,
                     sourceBoxEntityId: 30,
