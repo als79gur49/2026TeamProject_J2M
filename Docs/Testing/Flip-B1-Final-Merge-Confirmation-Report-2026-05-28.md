@@ -1,5 +1,7 @@
 # Flip B-1 Final Merge Confirmation Report
 
+Post-8B note: ordinary Flip B-1 and B-1-specific legacy timing cleanup are now tracked by [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](./Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md). This dated report remains historical evidence for the hostile-impact-only merge checkpoint; its ordinary-Flip deferral rows are superseded for current status.
+
 ## 1. Summary
 - Final readiness judgment: merge under hostile-impact-only scope.
 - Scope: hostile impact Flip only.
@@ -12,7 +14,7 @@
 
 ## 2. Final Scope
 - Hostile impact Flip only.
-- Ordinary Flip success unchanged.
+- At this hostile-impact-only checkpoint, ordinary Flip success was unchanged; this is superseded by the 8B cleanup note for current ordinary Flip status.
 - No target reservation.
 - No enemy suppression.
 - No `ImpactReservation` or `AttackInputNormalizer` synthetic hit.
@@ -100,7 +102,7 @@ B-1 relation judgment: none of the three watchlist failures directly targets Sta
 
 ## Scope
 - hostile impact Flip only
-- ordinary Flip success unchanged
+- ordinary Flip success unchanged at this hostile-impact-only checkpoint; superseded by the 8B cleanup note
 - push/other impact unchanged
 - no target reservation
 - no enemy suppression
@@ -139,7 +141,7 @@ B-1 relation judgment: none of the three watchlist failures directly targets Sta
 
 ## Not Included
 - ordinary Flip pure B-1
-- legacy AtContactTime removal
+- global legacy AtContactTime removal, which remains out of scope after 8B because Push/non-B1 paths still use it
 - full lane baseline fix
 - StageResult authoritative commit change
 
@@ -182,7 +184,7 @@ Merge under hostile-impact-only scope.
 - Manual visual smoke.
 - Full lane baseline red recovery.
 - Ordinary Flip pure B-1.
-- Legacy `AtContactTime` cleanup.
+- Global legacy `AtContactTime` cleanup; B-1-specific timing cleanup is tracked by the 8B cleanup note.
 
 ## 11. Tests Run
 

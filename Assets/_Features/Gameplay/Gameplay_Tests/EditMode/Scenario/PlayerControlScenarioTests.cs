@@ -490,56 +490,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        [Ignore("Legacy same-tick hostile Flip impact presentation characterization; B-1 execute tick no longer resolves impact disposition.")]
-        [Category("Core")]
-        public void FlipImpactFailure_DestroySelfStillEntersRecoveryWithoutCommittedMoveTrack()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1, facing: Direction.Up),
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
-                CreateUnit(entityId: 30, position: new Vector2Int(-1, 0), hp: 3, teamId: 2),
-            });
-            var pipeline = CreatePlayerControlPipeline(
-                worldState,
-                new IEntityLogic[]
-                {
-                    new PlayerLogic(10),
-                });
-
-            var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
-            var snapshotAfter = CreateSnapshot(worldState);
-            var signal = executeTick.PresentationData.PlayerActionSignals.Single();
-
-            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Floor, -1, 0), Damage: 1),
-                },
-                executeTick.AttackPhaseResult
-                    .DrainedImpactReservations
-                    .Select(reservation => (
-                        reservation.SourceId,
-                        reservation.TargetId,
-                        reservation.ImpactCell,
-                        reservation.Damage))
-                    .ToArray());
-            Assert.That(signal.ExecutedThisTick, Is.True);
-            Assert.That(signal.CanceledThisTick, Is.False);
-            Assert.That(signal.IsRecoveryPhase, Is.True);
-            Assert.That(signal.ActionPlanId, Is.GreaterThan(0));
-            Assert.That(signal.FlipOutcome, Is.EqualTo(TickPlayerFlipOutcomeKind.DestroySelf));
-            Assert.That(signal.HasFlipImpactContactTiming, Is.True);
-            Assert.That(signal.FlipTargetBoxEntityId, Is.EqualTo(20));
-            Assert.That(executeTick.PresentationData.EntityMotions, Is.Empty);
-            Assert.That(executeTick.PresentationData.ImpactTransientSignals, Is.Empty);
-            Assert.That(executeTick.PresentationData.FlipImpactSignals.Count, Is.EqualTo(1));
-            Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
-        }
-
-        [Test]
         [Category("Core")]
         public void FlipLandingBlocked_RejectsBeforeActionStart_AndEmitsAudioOnlyAttempt()
         {

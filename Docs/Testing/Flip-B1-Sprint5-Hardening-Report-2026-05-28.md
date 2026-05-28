@@ -1,12 +1,12 @@
 # Flip B-1 Sprint 5 Hardening Report
 
-Continuation note: Sprint 6 merge readiness is tracked in [Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md](./Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md). Sprint 5 remains the hardening evidence note; Sprint 6 separates hostile B-1 merge readiness from full-lane baseline red and ordinary Flip pure B-1 follow-up scope.
+Continuation note: Sprint 6 merge readiness is tracked in [Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md](./Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md). Sprint 5 remains the hardening evidence note; Sprint 6 separates hostile B-1 merge readiness from full-lane baseline red and ordinary Flip pure B-1 follow-up scope. Current ordinary Flip B-1 and B-1-specific legacy timing cleanup status is tracked in [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](./Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md), which supersedes the Sprint 5 deferral rows for current status.
 
 ## 1. Summary
 - Validated hostile Flip B-1 due contact behavior through automated PlayMode visual smoke using in-flight scheduled-contact fixtures that exercise the real `GameplaySceneHost`, presenter, view registry, due resolver, objective result, and presentation carriers.
 - Added targeted barrier regressions for due-contact stage clear publication.
 - Triaged the current full EditMode 34 failures from the pre-change full lane run. No failure is judged blocking for hostile Flip B-1.
-- Not changed: ordinary Flip success migration, due resolver gameplay policy, StageResult/reward commit timing, legacy AtContactTime removal, presentation-authoritative state boundaries, target reservation, or enemy suppression.
+- At this Sprint 5 checkpoint, ordinary Flip success migration, due resolver gameplay policy, StageResult/reward commit timing, legacy AtContactTime removal, presentation-authoritative state boundaries, target reservation, and enemy suppression were not changed.
 
 ## 2. PlayMode Visual Smoke
 | Scenario | Expected | Actual | Pass/fail | Notes/screenshots |
@@ -100,13 +100,13 @@ Safe cleanup sequence:
 ## 7. Ordinary Flip Pure B-1 Decision Memo
 - Current status: hostile Flip B-1 is isolated to hostile impact due resolution with scheduled contact, current snapshot requery, immediate presentation carriers, and StageResult barrier.
 - Migration risks: ordinary Flip success currently materializes through existing movement/contact presentation. Pure B-1 would change source cell occupancy, landing cell timing, cancellation behavior, view ownership, and legacy contact timing assumptions.
-- Required changes: materialize ordinary success as in-flight source box, define due-time landing settlement requery, define cancellation/fallback for blocked landing, ensure box view motion/tail ownership, and separate ordinary success from hostile impact damage policy.
+- At this Sprint 5 checkpoint, required future changes were: materialize ordinary success as in-flight source box, define due-time landing settlement requery, define cancellation/fallback for blocked landing, ensure box view motion/tail ownership, and separate ordinary success from hostile impact damage policy. Current status is superseded by the 8B cleanup note.
 - Source/landing occupancy policy: source box should be in-flight between execute and due; landing cell should be revalidated at due; blocked landing needs explicit SafeReturn/Destroy/Cancel semantics before implementation.
 - Tests needed: ordinary success in-flight materialization, landing cell becomes occupied only at due, original target movement does not corrupt landing, blocked landing fallback, non-B1 AtContactTime preservation, VFX/audio no double-play, StageResult unrelated clear no barrier.
 - Recommendation: defer. Proceed next only with a dedicated migration sprint and test-first policy.
 
 ## 8. Final Readiness Judgment
-Hostile Flip B-1 ready, but ordinary pure B-1 deferred.
+Historical Sprint 5 judgment: hostile Flip B-1 ready, with ordinary pure B-1 left for a later scope. Current ordinary Flip B-1 status is superseded by the 8B cleanup note.
 
 ## 9. Tests Run
 - `./run_tests.sh full`

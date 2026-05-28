@@ -1,9 +1,11 @@
 # Flip B-1 Sprint 6 Merge Readiness Report
 
+Post-8B note: ordinary Flip B-1 and B-1-specific legacy timing cleanup are now tracked by [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](./Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md). This Sprint 6 note remains historical evidence for the hostile-impact-only readiness checkpoint; its ordinary-Flip deferral rows are superseded for current status.
+
 ## 1. Summary
 - Readiness judgment: Hostile Flip B-1 is ready under the current hostile-impact-only scope, but still requires manual UX confirmation before making a final release-polish claim.
 - Scope: hostile impact Flip only. The B-1 path uses `BoxInFlight`, `ScheduledFlipContact`, due tick current snapshot requery, and `DueContactImmediate` presentation markers.
-- What was not changed: ordinary Flip success, non-hostile blocked Flip, Push/other impact policy, due resolver gameplay policy, StageResult/reward authoritative commit timing, legacy `AtContactTime` removal, target reservation, and enemy suppression.
+- At this Sprint 6 checkpoint, ordinary Flip success, non-hostile blocked Flip, Push/other impact policy, due resolver gameplay policy, StageResult/reward authoritative commit timing, legacy `AtContactTime` removal, target reservation, and enemy suppression were not changed.
 - Merge note: full lane remains known baseline red. Do not describe this sprint as full green or project-wide green.
 
 ## 2. Merge Readiness Checklist
@@ -18,7 +20,7 @@
 | pre-contact death clone absent | Pass | `FlipB1Presentation_BeforeDue_NoEnemyDeathCloneOrRetainedDeadFacts` |
 | DueContactImmediate no legacy AtContactTime delay | Pass | due contact, VFX, SFX, and death exit assertions use `DueContactImmediate` and normalized contact time `0` |
 | StageResult barrier applies only for B-1 due contact stage clear | Pass | `GameplayPresentationBarrierTracker_B1DueContactStageClear_UsesMinimumVisibilityWindow`, `UnrelatedStageClear_DoesNotAddB1DueContactBarrier` |
-| ordinary Flip success unchanged | Pass | `FlipB1HostileImpact_OrdinarySuccess_RemainsSameTickMaterialize_InPhase1` |
+| historical ordinary Flip checkpoint | Pass | `FlipB1HostileImpact_OrdinarySuccess_RemainsSameTickMaterialize_InPhase1`; superseded by the 8B cleanup note for current status |
 | non-hostile blocked Flip unchanged | Pass | `FlipB1HostileImpact_FriendlyBlockedFlip_DoesNotUseB1HostilePath` |
 | push/other impact unchanged | Pass | Sprint 6 docs-only pass adds no Push/other runtime changes; current changed files remain hostile B-1 scoped |
 | core green | Pass | Sprint 6 rerun `./run_tests.sh core`: Core EditMode `92/92`, Core PlayMode `10/10` |
@@ -99,8 +101,8 @@ Files changed for Sprint 6:
 - `Docs/Architecture/Gameplay-Rules-Appendix.md`
 
 Architecture notes:
-- B-1 applies only to hostile impact Flip.
-- Ordinary Flip success remains same-tick materialization.
+- At this Sprint 6 checkpoint, B-1 applied only to hostile impact Flip.
+- At this Sprint 6 checkpoint, ordinary Flip success used same-tick materialization; this is superseded by the 8B cleanup note for current status.
 - No target reservation and no enemy suppression are introduced.
 - Hostile impact uses `BoxInFlight + ScheduledFlipContact`, then due tick current snapshot requery.
 - `DueContactImmediate` is the B-1 due contact presentation timing marker.
