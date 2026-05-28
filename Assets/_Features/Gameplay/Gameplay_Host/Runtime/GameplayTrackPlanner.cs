@@ -1474,9 +1474,24 @@ namespace Game.Feature.Gameplay.Host
                     startPose,
                     endPose,
                     _motionTimingResolver.ResolveJumpDurationSeconds(signal, timingProfile),
-                    _motionTimingResolver.ResolveJumpArcHeightWorld(signal.EntityId, projector)));
+                    _motionTimingResolver.ResolveJumpArcHeightWorld(signal.EntityId, projector),
+                    ResolveJumpMotionPresentation(signal.EntityId)));
             localPose = startPose;
             return true;
+        }
+
+        private EnemyJumpMotionPresentationSnapshot? ResolveJumpMotionPresentation(int entityId)
+        {
+            if (!_stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) ||
+                view == null)
+            {
+                return null;
+            }
+
+            var authoring = EnemyJumpMotionPresentationAuthoring.GetOptionalValidatedAuthoring(view);
+            return authoring != null
+                ? authoring.CreateSnapshot()
+                : null;
         }
 
         private bool TryResolveJumpTrackStartPose(

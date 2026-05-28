@@ -3363,6 +3363,16 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.GameplayTickPresentationCoordinator_JumpAirborneDetachedEntity_UsesJumpMotionPresentationEase",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "gameplay_tick_presentation_coordinator_contract"
+      ],
+      "reason": "Locked Core coverage that enemy jump presentation authoring applies continuous ease to the airborne visual track without changing simulation airborne timing.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.GameplayTickViewPresenter_Present_LethalEnemyDamageWithEnemyDeathCueSuppressesCoreEnemyDamage",
       "category": "Core",
       "contracts": [
