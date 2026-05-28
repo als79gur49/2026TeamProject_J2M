@@ -62,6 +62,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void EnemyJumpMotionPresentationAuthoring_CreateSnapshot_PreservesEaseSettings()
+        {
+            var rootObject = new GameObject("EnemyJumpMotionPresentationAuthoring_CreateSnapshot");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyJumpMotionPresentationAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "horizontalHoldBias", 0.12f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "apexHoldPower", 4f);
+
+                var snapshot = authoring.CreateSnapshot();
+
+                Assert.That(snapshot.HorizontalHoldBias, Is.EqualTo(0.12f));
+                Assert.That(snapshot.ApexHoldPower, Is.EqualTo(4f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyJumpMotionPresentationAuthoring_InvalidEaseSettings_Throws()
+        {
+            var rootObject = new GameObject("EnemyJumpMotionPresentationAuthoring_InvalidEaseSettings");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyJumpMotionPresentationAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "horizontalHoldBias", 0.5f);
+
+                Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void JumpClip_WithoutPresentationSnapshot_UsesLegacyLinearParabolicSample()
+        {
+            var startPose = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+            var endPose = new GameplayEntityPose(new Vector3(10f, 0f, 0f), Quaternion.identity);
+            var clip = JumpClip.Create(startPose, endPose, durationSeconds: 1f, arcHeightWorld: 1f);
+
+            clip.Advance(0.5f);
+            var sample = clip.Sample();
+
+            Assert.That(sample.Position.x, Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(sample.Position.y, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(sample.Position.z, Is.EqualTo(-1f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void JumpClip_WithPresentationSnapshot_AppliesContinuousApexHoldEase()
+        {
+            var startPose = new GameplayEntityPose(Vector3.zero, Quaternion.identity);
+            var endPose = new GameplayEntityPose(new Vector3(10f, 0f, 0f), Quaternion.identity);
+            var snapshot = new EnemyJumpMotionPresentationSnapshot(
+                horizontalHoldBias: 0.08f,
+                apexHoldPower: 3.5f);
+
+            var hangClip = JumpClip.Create(
+                startPose,
+                endPose,
+                durationSeconds: 1f,
+                arcHeightWorld: 1f,
+                motionPresentation: snapshot);
+            hangClip.Advance(0.5f);
+            var hangSample = hangClip.Sample();
+
+            Assert.That(hangSample.Position.x, Is.EqualTo(4.2f).Within(0.001f));
+            Assert.That(hangSample.Position.z, Is.EqualTo(-1f).Within(0.0001f));
+
+            var landingClip = JumpClip.Create(
+                startPose,
+                endPose,
+                durationSeconds: 1f,
+                arcHeightWorld: 1f,
+                motionPresentation: snapshot);
+            landingClip.Advance(0.95f);
+            var landingSample = landingClip.Sample();
+
+            Assert.That(landingSample.Position.x, Is.GreaterThan(9.3f));
+            Assert.That(landingSample.Position.z, Is.EqualTo(-0.308f).Within(0.01f));
+        }
+
+        [Test]
         [Category("Full")]
         public void DefaultGameplayEntityViewFactory_PlayerPrefabValidation_AllowsMissingEntityMotionPresentationAuthoring()
         {

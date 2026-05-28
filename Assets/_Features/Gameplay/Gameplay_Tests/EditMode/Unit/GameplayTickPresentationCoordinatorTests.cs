@@ -3386,6 +3386,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayTickPresentationCoordinator_JumpAirborneDetachedEntity_UsesJumpMotionPresentationEase()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickPresentationCoordinator_JumpAirborneDetachedEntity_UsesJumpMotionPresentationEase));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var jumpMotionSnapshot = new EnemyJumpMotionPresentationSnapshot(
+                    horizontalHoldBias: 0.12f,
+                    apexHoldPower: 4f);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(
+                        registry.transform,
+                        jumpMotionOverridesByEntityId: new Dictionary<int, EnemyJumpMotionPresentationSnapshot>
+                        {
+                            { 20, jumpMotionSnapshot },
+                        }));
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(10, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var landingCell = new SurfaceCell(FaceId.Floor, 10, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
+                presenter.Present(CreateJumpAirborneTick(
+                    tickIndex: 1,
+                    finalTopology: topology,
+                    finalEntity: WithBoardPresence(CreateEnemyUnit(20, sourceCell), EntityBoardPresence.Detached),
+                    topologyMotion: null,
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, sourceCell, topology, Direction.Right),
+                    },
+                    sourceCell,
+                    landingCell,
+                    startedAirborneThisTick: true,
+                    remainingAirborneTicks: 60));
+
+                presenter.UpdatePresentation(0.5f);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var sourcePosition = GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit);
+                var landingPosition = GetProjectedEntityPosition(boardBounds, topology, landingCell, EntityType.Unit);
+                var defaultMidpointX = Mathf.Lerp(sourcePosition.x, landingPosition.x, 0.5f);
+                var easedHangX = Mathf.Lerp(sourcePosition.x, landingPosition.x, 0.38f);
+
+                Assert.That(view.transform.localPosition.x, Is.LessThan(defaultMidpointX - 0.001f));
+                Assert.That(view.transform.localPosition.x, Is.EqualTo(easedHangX).Within(0.05f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayTickPresentationCoordinator_JumpAirborneDetachedVisibility_LogicalBottomFaceVisible()
         {
             var rootObject = new GameObject(nameof(GameplayTickPresentationCoordinator_JumpAirborneDetachedVisibility_LogicalBottomFaceVisible));
@@ -10270,17 +10330,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class MotionOverrideViewFactory : IGameplayEntityViewFactory
         {
             private readonly IReadOnlyDictionary<int, EntityMotionPresentationSnapshot> _entityMotionOverridesByEntityId;
+            private readonly IReadOnlyDictionary<int, EnemyJumpMotionPresentationSnapshot> _jumpMotionOverridesByEntityId;
             private readonly Transform _parent;
             private readonly IReadOnlyDictionary<int, float> _unitMoveOverridesByEntityId;
 
             public MotionOverrideViewFactory(
                 Transform parent,
                 IReadOnlyDictionary<int, float> unitMoveOverridesByEntityId = null,
-                IReadOnlyDictionary<int, EntityMotionPresentationSnapshot> entityMotionOverridesByEntityId = null)
+                IReadOnlyDictionary<int, EntityMotionPresentationSnapshot> entityMotionOverridesByEntityId = null,
+                IReadOnlyDictionary<int, EnemyJumpMotionPresentationSnapshot> jumpMotionOverridesByEntityId = null)
             {
                 _parent = parent;
                 _unitMoveOverridesByEntityId = unitMoveOverridesByEntityId;
                 _entityMotionOverridesByEntityId = entityMotionOverridesByEntityId;
+                _jumpMotionOverridesByEntityId = jumpMotionOverridesByEntityId;
             }
 
             public GameplayEntityView CreateView(in EntityState entity)
@@ -10308,6 +10371,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PlayerViewPrefabTestUtility.SetSerializedField(authoring, "moveMotionDurationSeconds", entityMotionOverride.MoveMotionDurationSeconds);
                     PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushMotionDurationSeconds", entityMotionOverride.PushMotionDurationSeconds);
                     PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipMotionDurationSeconds", entityMotionOverride.FlipMotionDurationSeconds);
+                }
+
+                if (_jumpMotionOverridesByEntityId != null &&
+                    _jumpMotionOverridesByEntityId.TryGetValue(entity.entityId, out var jumpMotionOverride))
+                {
+                    var authoring = viewObject.AddComponent<EnemyJumpMotionPresentationAuthoring>();
+                    PlayerViewPrefabTestUtility.SetSerializedField(authoring, "horizontalHoldBias", jumpMotionOverride.HorizontalHoldBias);
+                    PlayerViewPrefabTestUtility.SetSerializedField(authoring, "apexHoldPower", jumpMotionOverride.ApexHoldPower);
                 }
 
                 return view;

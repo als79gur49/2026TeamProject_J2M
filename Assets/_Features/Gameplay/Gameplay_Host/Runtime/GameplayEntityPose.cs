@@ -122,18 +122,26 @@ namespace Game.Feature.Gameplay.Host
     public sealed class JumpClip
     {
         private readonly float _arcHeightWorld;
+        private readonly EnemyJumpMotionPresentationSnapshot? _motionPresentation;
 
         private JumpClip(
             GameplayEntityPose startPose,
             GameplayEntityPose endPose,
             float durationSeconds,
-            float arcHeightWorld)
+            float arcHeightWorld,
+            EnemyJumpMotionPresentationSnapshot? motionPresentation)
         {
             StartPose = startPose;
             EndPose = endPose;
             DurationSeconds = Mathf.Max(durationSeconds, 0.0001f);
             ElapsedSeconds = 0f;
             _arcHeightWorld = Mathf.Max(0f, arcHeightWorld);
+            if (motionPresentation.HasValue)
+            {
+                motionPresentation.Value.Validate();
+            }
+
+            _motionPresentation = motionPresentation;
         }
 
         public float DurationSeconds { get; }
@@ -152,9 +160,10 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose startPose,
             GameplayEntityPose endPose,
             float durationSeconds,
-            float arcHeightWorld)
+            float arcHeightWorld,
+            EnemyJumpMotionPresentationSnapshot? motionPresentation = null)
         {
-            return new JumpClip(startPose, endPose, durationSeconds, arcHeightWorld);
+            return new JumpClip(startPose, endPose, durationSeconds, arcHeightWorld, motionPresentation);
         }
 
         public void Advance(float deltaTime)
@@ -173,15 +182,39 @@ namespace Game.Feature.Gameplay.Host
                 ? 1f
                 : Mathf.Clamp01(ElapsedSeconds / DurationSeconds);
             var liftAxis = ResolveLiftAxis();
-            var position = Vector3.LerpUnclamped(StartPose.Position, EndPose.Position, t);
+            var pathT = t;
+            var heightMultiplier = 4f * t * (1f - t);
+            if (_motionPresentation.HasValue)
+            {
+                ResolveMotionProgress(
+                    t,
+                    _motionPresentation.Value,
+                    out pathT,
+                    out heightMultiplier);
+            }
+
+            var position = Vector3.LerpUnclamped(StartPose.Position, EndPose.Position, pathT);
             if (_arcHeightWorld > 0f)
             {
-                position += liftAxis * (4f * t * (1f - t) * _arcHeightWorld);
+                position += liftAxis * (heightMultiplier * _arcHeightWorld);
             }
 
             return new GameplayEntityPose(
                 position,
-                Quaternion.SlerpUnclamped(StartPose.Rotation, EndPose.Rotation, t));
+                Quaternion.SlerpUnclamped(StartPose.Rotation, EndPose.Rotation, pathT));
+        }
+
+        private static void ResolveMotionProgress(
+            float t,
+            EnemyJumpMotionPresentationSnapshot motionPresentation,
+            out float pathT,
+            out float heightMultiplier)
+        {
+            var clampedT = Mathf.Clamp01(t);
+            pathT = Mathf.Clamp01(clampedT - (motionPresentation.HorizontalHoldBias * Mathf.Sin(Mathf.PI * clampedT)));
+
+            var centeredTime = Mathf.Abs((2f * clampedT) - 1f);
+            heightMultiplier = Mathf.Clamp01(1f - Mathf.Pow(centeredTime, motionPresentation.ApexHoldPower));
         }
 
         private Vector3 ResolveLiftAxis()
