@@ -204,6 +204,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_InactiveBarricadeOnSummonCellDoesNotBlockPlacement()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var barricade = CreateTileFeature(121, forwardCell, TileFeatureKind.Barricade);
+            var definitions = CreateInactiveDefinitions(barricade);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10),
+                    CreateWall(90, new SurfaceCell(FaceId.Floor, 0, -1)),
+                    CreateWall(91, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(92, new SurfaceCell(FaceId.Floor, -1, 0)),
+                },
+                initialTileFeatures: new[] { barricade });
+            SeedWindupUtilityState(worldState, windupEndTick: 1);
+
+            CreatePipeline(worldState, definitions).RunTick(new TickInput(1));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(forwardCell));
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(forwardCell, out _), Is.False);
+            AssertSummonedMetadata(worldState, child.entityId);
+            AssertNoGhostSummonState(worldState);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidBlocksSummonPlacementAndUsesFallback()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -284,6 +311,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var child = GetSingleSummonedChild(worldState);
 
             Assert.That(child.position, Is.EqualTo(rightCell), "Active Barricade blocks the original summon candidate and Jpeter selects the next legal candidate.");
+            AssertSummonedMetadata(worldState, child.entityId);
+            AssertNoGhostSummonState(worldState);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtility_JPeterProfile_InactiveBarricadeAppearsDuringWindup_RevalidatesAsNonBlocking()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var barricade = CreateTileFeature(122, forwardCell, TileFeatureKind.Barricade);
+            var definitions = CreateInactiveDefinitions(barricade);
+            var worldState = CreateWindupWorldForCandidateMutation();
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().AddTileFeature(barricade);
+            pipeline = CreatePipeline(worldState, definitions);
+            pipeline.RunTick(new TickInput(2));
+            var child = GetSingleSummonedChild(worldState);
+
+            Assert.That(child.position, Is.EqualTo(forwardCell));
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(forwardCell, out _), Is.False);
             AssertSummonedMetadata(worldState, child.entityId);
             AssertNoGhostSummonState(worldState);
         }
@@ -778,6 +827,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static TileFeatureRuntimeDefinition[] CreateActiveDefinitions(params TileFeatureState[] tileFeatures)
         {
             return CreateDefinitions(TileFeatureActivationRule.Always, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateInactiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.InactiveFaceOnly, tileFeatures);
         }
 
         private static TileFeatureRuntimeDefinition[] CreateDefinitions(

@@ -721,9 +721,26 @@ namespace Game.Feature.Gameplay.Entities
             Vector2Int delta,
             out RawMovementIntent intent)
         {
+            return TryBuildChargeMoveIntentIgnoringUnits(
+                snapshot,
+                source,
+                commonSettings,
+                delta,
+                tileFeatureDefinitions: null,
+                out intent);
+        }
+
+        public static bool TryBuildChargeMoveIntentIgnoringUnits(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            Vector2Int delta,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out RawMovementIntent intent)
+        {
             intent = default;
 
-            if (!CanTraverseChargeStepIgnoringUnits(snapshot, source, delta))
+            if (!CanTraverseChargeStepIgnoringUnits(snapshot, source, delta, tileFeatureDefinitions))
             {
                 return false;
             }
@@ -807,6 +824,15 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             Vector2Int delta)
         {
+            return CanTraverseChargeStepIgnoringUnits(snapshot, source, delta, tileFeatureDefinitions: null);
+        }
+
+        public static bool CanTraverseChargeStepIgnoringUnits(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Vector2Int delta,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
             if (!TryResolveStep(snapshot, source.position, delta, out var destinationCell, out var rotationKind, out _))
             {
                 return false;
@@ -817,7 +843,10 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            return RuntimeTraversalLegalityPolicy.EvaluateChargeSolidOnlyStopCell(snapshot, destinationCell).Verdict ==
+            return RuntimeTraversalLegalityPolicy.EvaluateChargeSolidOnlyStopCell(
+                       snapshot,
+                       destinationCell,
+                       tileFeatureDefinitions: tileFeatureDefinitions).Verdict ==
                    LegalityVerdict.Allowed;
         }
 
@@ -1427,6 +1456,23 @@ namespace Game.Feature.Gameplay.Entities
             out Direction direction,
             out int reachableSteps)
         {
+            return TryResolveChargeStart(
+                snapshot,
+                source,
+                target,
+                tileFeatureDefinitions: null,
+                out direction,
+                out reachableSteps);
+        }
+
+        public static bool TryResolveChargeStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out Direction direction,
+            out int reachableSteps)
+        {
             reachableSteps = 0;
 
             if (!TryResolveChargeDirection(source, target, out direction, out var delta))
@@ -1434,12 +1480,12 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, source, delta))
+            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, source, delta, tileFeatureDefinitions))
             {
                 return false;
             }
 
-            return TryCountReachableChargeSteps(snapshot, source, delta, out reachableSteps) &&
+            return TryCountReachableChargeSteps(snapshot, source, delta, tileFeatureDefinitions, out reachableSteps) &&
                    reachableSteps > 0;
         }
 
@@ -1455,8 +1501,21 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             Direction direction)
         {
+            return CanAdvanceChargeStep(snapshot, source, direction, tileFeatureDefinitions: null);
+        }
+
+        public static bool CanAdvanceChargeStep(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Direction direction,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
             var delta = EnemyMovementStrategyShared.ResolveDelta(direction);
-            return delta.HasValue && EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, source, delta.Value);
+            return delta.HasValue && EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(
+                snapshot,
+                source,
+                delta.Value,
+                tileFeatureDefinitions);
         }
 
         private static bool TryResolveChargeDirection(
@@ -1500,6 +1559,7 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int delta,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out int reachableSteps)
         {
             reachableSteps = 0;
@@ -1514,7 +1574,8 @@ namespace Game.Feature.Gameplay.Entities
             {
                 if (RuntimeTraversalLegalityPolicy.EvaluateChargeSolidOnlyStopCell(
                         snapshot,
-                        nextCell).Verdict == LegalityVerdict.Blocked)
+                        nextCell,
+                        tileFeatureDefinitions: tileFeatureDefinitions).Verdict == LegalityVerdict.Blocked)
                 {
                     return reachableSteps > 0;
                 }

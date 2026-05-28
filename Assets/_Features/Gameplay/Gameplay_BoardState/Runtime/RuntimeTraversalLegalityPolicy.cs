@@ -134,7 +134,8 @@ namespace Game.Feature.Gameplay.BoardState
         public static LegalityResult EvaluateChargeSolidOnlyStopCell(
             WorldSnapshot snapshot,
             SurfaceCell cell,
-            ReservationStatus reservationStatus = ReservationStatus.None)
+            ReservationStatus reservationStatus = ReservationStatus.None,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (snapshot == null)
             {
@@ -168,6 +169,22 @@ namespace Game.Feature.Gameplay.BoardState
                     cell,
                     snapshot.Topology,
                     RuntimeLegalityBlockerFactory.Create(solidSemantic.Entity),
+                    reservationStatus);
+            }
+
+            if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                    snapshot,
+                    tileFeatureDefinitions,
+                    cell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.GroundStep,
+                    out var barricade))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Traversal,
+                    cell,
+                    snapshot.Topology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(barricade),
                     reservationStatus);
             }
 
