@@ -50,6 +50,7 @@ namespace Game.Feature.UI.Composition
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
+        private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private UiNavigationInputRouter _navigationInputRouter;
@@ -191,6 +192,7 @@ namespace Game.Feature.UI.Composition
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             _uiAudioPort = CreateUiAudioPort();
             var uiAudioPort = _uiAudioPort;
+            var audioPauseService = CreateAudioPlaybackPauseService();
             if (UnityEngine.Application.isPlaying)
             {
                 SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(uiAudioPort);
@@ -205,6 +207,10 @@ namespace Game.Feature.UI.Composition
                 _popupPrefabCatalog,
                 _demoStageControlCommandPort,
                 _demoGameplayOverrideCommandPort));
+            _gameplayPauseAudioBridge = new GameplayPauseAudioBridge(
+                Ports.GameplayPauseService,
+                audioPauseService,
+                PopupController);
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay);
@@ -281,6 +287,7 @@ namespace Game.Feature.UI.Composition
             _diagnosticsTracker?.Dispose();
             Coordinator?.Dispose();
             _stageResultAutoNextDriver?.Dispose();
+            _gameplayPauseAudioBridge?.Dispose();
             ScreenController?.Dispose();
             PopupController?.Dispose();
             HudController?.Dispose();
@@ -384,6 +391,18 @@ namespace Game.Feature.UI.Composition
             }
 
             return new UiAudioPortAdapter(audioRuntimeInstaller.AudioService, _uiAudioCueMap);
+        }
+
+        private IAudioPlaybackPauseService CreateAudioPlaybackPauseService()
+        {
+            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
+            audioRuntimeInstaller.Install();
+            if (audioRuntimeInstaller.AudioPlaybackPauseService == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            return audioRuntimeInstaller.AudioPlaybackPauseService;
         }
 
         private IDisplaySettingsPort CreateDisplaySettingsPort()

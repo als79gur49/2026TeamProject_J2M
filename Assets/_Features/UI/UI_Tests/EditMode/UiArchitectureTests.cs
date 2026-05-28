@@ -1320,6 +1320,49 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiApplicationFlowViewModelsAndViews_DoNotReferenceSharedAudioPauseService()
+        {
+            AssertRuntimeSourcesDoNotContain(
+                new[]
+                {
+                    "Assets/_Features/UI/UI_Application/Runtime",
+                    "Assets/_Features/UI/UI_Flow/Runtime",
+                    "Assets/_Features/UI/UI_HUD/Runtime",
+                    "Assets/_Features/UI/UI_Screens/Runtime",
+                    "Assets/_Features/UI/UI_Popups/Runtime",
+                },
+                new[]
+                {
+                    "IAudioPlaybackPauseService",
+                    "AudioPlaybackPauseGroup",
+                    "AudioPauseReason",
+                });
+        }
+
+        [Test]
+        public void UiComposition_GameplayPauseAudioBridge_IsOnlyUiRuntimeBridgeForAudioPauseGroup()
+        {
+            var compositionSources = ReadRuntimeSources(new[] { "Assets/_Features/UI/UI_Composition/Runtime" });
+            var bridgeSource = compositionSources.Single(source => source.RelativePath.EndsWith("GameplayPauseAudioBridge.cs", StringComparison.Ordinal));
+            var sourcesReferencingPauseService = compositionSources
+                .Where(source => source.Source.Contains("IAudioPlaybackPauseService"))
+                .Select(source => source.RelativePath)
+                .OrderBy(path => path)
+                .ToArray();
+
+            Assert.That(
+                sourcesReferencingPauseService,
+                Is.EqualTo(new[]
+                {
+                    "Assets/_Features/UI/UI_Composition/Runtime/GameplayPauseAudioBridge.cs",
+                    "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
+                }));
+            Assert.That(bridgeSource.Source, Does.Contain("PauseChanged"));
+            Assert.That(bridgeSource.Source, Does.Contain("AudioPlaybackPauseGroup.GameplayPresentation"));
+            Assert.That(bridgeSource.Source, Does.Contain("AudioPauseReason.GameplayPause"));
+        }
+
+        [Test]
         public void UiViewsAndViewModels_ConsumeOnlyUiReadModels()
         {
             var forbiddenTokens = new[]
