@@ -82,7 +82,9 @@ namespace Game.Feature.Gameplay.Loop
                         currentTick,
                         stageAlreadyTerminal,
                         batch,
+                        postCleanupBatch,
                         eventLogEntries,
+                        damageResolutions,
                         contactResolutions,
                         contactPresentationSignals);
                     return;
@@ -249,7 +251,9 @@ namespace Game.Feature.Gameplay.Loop
             int currentTick,
             bool stageAlreadyTerminal,
             FinalizationBatch batch,
+            FinalizationBatch postCleanupBatch,
             List<string> eventLogEntries,
+            List<DamageResolutionRecord> damageResolutions,
             List<FlipContactResolution> contactResolutions,
             List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
@@ -270,10 +274,10 @@ namespace Game.Feature.Gameplay.Loop
 
             if (!snapshot.TryGetEntity(contact.SourceBoxEntityId, out var sourceBox))
             {
-                CancelNoSourceBox(
+                RemoveOrdinaryLandingTokenNoOp(
+                    snapshot,
                     contact,
                     currentTick,
-                    "OrdinaryLandingBoxGone",
                     batch,
                     eventLogEntries,
                     contactResolutions,
@@ -283,10 +287,10 @@ namespace Game.Feature.Gameplay.Loop
 
             if (sourceBox.boardPresence != EntityBoardPresence.InFlight)
             {
-                CancelNoSourceBox(
+                RemoveOrdinaryLandingTokenNoOp(
+                    snapshot,
                     contact,
                     currentTick,
-                    "OrdinaryLandingBoxNotInFlight",
                     batch,
                     eventLogEntries,
                     contactResolutions,
@@ -294,48 +298,76 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
-            if (!IsTopologyValid(snapshot, contact) ||
-                !snapshot.IsInsideBoard(contact.LandingCell) ||
-                snapshot.IsTerrainBlockedForUnit(contact.LandingCell))
+            var landingCell = ClassifyOrdinaryLandingCell(snapshot, contact);
+            switch (landingCell.Kind)
             {
-                ResolveOrdinaryLandingUnsupportedOrCancel(
-                    snapshot,
-                    contact,
-                    currentTick,
-                    FlipContactResolutionKind.OrdinaryLandingInvalidNotImplemented,
-                    "OrdinaryLandingInvalidNotImplemented",
-                    batch,
-                    eventLogEntries,
-                    contactResolutions,
-                    contactPresentationSignals);
-                return;
-            }
+                case OrdinaryLandingCellKind.Empty:
+                case OrdinaryLandingCellKind.Projectile:
+                    ResolveOrdinaryEmptyLandingDue(
+                        snapshot,
+                        contact,
+                        currentTick,
+                        batch,
+                        eventLogEntries,
+                        contactResolutions,
+                        contactPresentationSignals);
+                    return;
 
-            var landingOccupant = ResolveFlipContactOccupant(snapshot, contact.LandingCell);
-            if (landingOccupant.Kind != FlipContactOccupantKind.Empty)
-            {
-                ResolveOrdinaryLandingUnsupportedOrCancel(
-                    snapshot,
-                    contact,
-                    currentTick,
-                    FlipContactResolutionKind.OrdinaryLandingBlockedNotImplemented,
-                    "OrdinaryLandingBlockedNotImplemented",
-                    batch,
-                    eventLogEntries,
-                    contactResolutions,
-                    contactPresentationSignals,
-                    landingOccupant.Entity.entityId);
-                return;
-            }
+                case OrdinaryLandingCellKind.HostileUnit:
+                    ResolveOrdinaryHostileAtLandingDue(
+                        snapshot,
+                        contact,
+                        landingCell.Entity,
+                        currentTick,
+                        batch,
+                        postCleanupBatch,
+                        eventLogEntries,
+                        damageResolutions,
+                        contactResolutions,
+                        contactPresentationSignals);
+                    return;
 
-            ResolveOrdinaryEmptyLandingDue(
-                snapshot,
-                contact,
-                currentTick,
-                batch,
-                eventLogEntries,
-                contactResolutions,
-                contactPresentationSignals);
+                case OrdinaryLandingCellKind.FriendlyUnit:
+                case OrdinaryLandingCellKind.PlayerUnit:
+                    ResolveOrdinaryNoDamageBlockDue(
+                        snapshot,
+                        contact,
+                        landingCell.Entity.entityId,
+                        currentTick,
+                        batch,
+                        eventLogEntries,
+                        contactResolutions,
+                        contactPresentationSignals);
+                    return;
+
+                case OrdinaryLandingCellKind.Solid:
+                    ResolveOrdinarySolidBlockDue(
+                        snapshot,
+                        contact,
+                        landingCell.Entity.entityId,
+                        currentTick,
+                        batch,
+                        eventLogEntries,
+                        contactResolutions,
+                        contactPresentationSignals);
+                    return;
+
+                case OrdinaryLandingCellKind.TopologyInvalid:
+                case OrdinaryLandingCellKind.BoardInvalid:
+                case OrdinaryLandingCellKind.TerrainInvalid:
+                    ResolveOrdinaryInvalidLandingDue(
+                        snapshot,
+                        contact,
+                        currentTick,
+                        batch,
+                        eventLogEntries,
+                        contactResolutions,
+                        contactPresentationSignals);
+                    return;
+
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         private void ResolveOrdinaryEmptyLandingDue(
@@ -356,12 +388,13 @@ namespace Game.Feature.Gameplay.Loop
 
             if (landingLegality.Verdict != LegalityVerdict.Allowed)
             {
-                ResolveOrdinaryLandingUnsupportedOrCancel(
+                ResolveOrdinarySourceFallbackOrDestroy(
                     snapshot,
                     contact,
                     currentTick,
-                    FlipContactResolutionKind.OrdinaryLandingSettlementDeniedNotImplemented,
-                    "OrdinaryLandingSettlementDeniedNotImplemented",
+                    FlipContactResolutionKind.OrdinaryLandingSettlementDeniedSourceFallback,
+                    FlipContactResolutionKind.OrdinaryLandingSettlementDeniedDestroySelf,
+                    "OrdinaryLandingSettlementDenied",
                     batch,
                     eventLogEntries,
                     contactResolutions,
@@ -382,23 +415,202 @@ namespace Game.Feature.Gameplay.Loop
                 snapshot.Topology,
                 eventLogEntries,
                 contactResolutions,
-                contactPresentationSignals);
+                contactPresentationSignals,
+                includeDamagePath: false);
         }
 
-        private void ResolveOrdinaryLandingUnsupportedOrCancel(
+        private void ResolveOrdinaryHostileAtLandingDue(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            in EntityState occupant,
+            int currentTick,
+            FinalizationBatch batch,
+            FinalizationBatch postCleanupBatch,
+            List<string> eventLogEntries,
+            List<DamageResolutionRecord> damageResolutions,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+        {
+            var projectedHp = occupant.hp - contact.DamageSpec.DamageAmount;
+            var targetDies = projectedHp <= 0 || occupant.markedForDeath;
+            var metadata = CreateDueMetadata(contact, occupant.entityId);
+            batch.ApplyDamage(occupant.entityId, contact.DamageSpec.DamageAmount, metadata);
+            damageResolutions.Add(
+                new DamageResolutionRecord(
+                    contact.ActionId,
+                    contact.ActionId,
+                    contact.KineticInstigatorEntityId,
+                    contact.DamageSpec.SourceKind,
+                    occupant.entityId,
+                    contact.DamageSpec.DamageAmount,
+                    accepted: true,
+                    DamageRejectReason.None));
+
+            if (!targetDies)
+            {
+                batch.MarkDestroy(contact.SourceBoxEntityId, metadata);
+                batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+                AddResolution(
+                    contact,
+                    currentTick,
+                    FlipContactResolutionKind.OrdinaryLandingHostileSurvivedDestroySelf,
+                    occupant.entityId,
+                    null,
+                    FlipBoxDisposition.DestroySelf,
+                    "OrdinaryLandingHostileSurvivedDestroySelf",
+                    snapshot.Topology,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals);
+                return;
+            }
+
+            batch.MarkDestroy(occupant.entityId, metadata);
+            var destroyResolution = new DestroyResolutionRecord(
+                contact.ActionId,
+                contact.ActionId,
+                contact.KineticInstigatorEntityId,
+                occupant.entityId,
+                DestroyCondition.WhenHpDepleted,
+                projectedHp,
+                accepted: true,
+                localActionIndex: 0);
+            var followThroughAllowed = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, contact.SourceBoxEntityId, EntityType.Box),
+                    contact.LandingCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored),
+                new ImpactFollowThroughEvidence(
+                    contact.KineticInstigatorEntityId,
+                    new[] { occupant.entityId },
+                    new[] { destroyResolution })).Verdict == LegalityVerdict.Allowed;
+
+            if (followThroughAllowed)
+            {
+                MaterializeOrdinarySourceBox(contact, contact.LandingCell, postCleanupBatch, metadata);
+                batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+                AddResolution(
+                    contact,
+                    currentTick,
+                    FlipContactResolutionKind.OrdinaryLandingHostileKilledFollowThrough,
+                    occupant.entityId,
+                    contact.LandingCell,
+                    FlipBoxDisposition.MaterializeAtLanding,
+                    "OrdinaryLandingHostileKilledFollowThrough",
+                    snapshot.Topology,
+                    eventLogEntries,
+                    contactResolutions,
+                    contactPresentationSignals);
+                return;
+            }
+
+            ResolveOrdinarySourceFallbackOrDestroy(
+                snapshot,
+                contact,
+                currentTick,
+                FlipContactResolutionKind.OrdinaryLandingHostileKilledSourceFallback,
+                FlipContactResolutionKind.OrdinaryLandingHostileKilledDestroySelf,
+                "OrdinaryLandingHostileKilledLandingDenied",
+                batch,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals,
+                occupant.entityId,
+                includeDamagePath: true);
+        }
+
+        private void ResolveOrdinaryNoDamageBlockDue(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            int blockerEntityId,
+            int currentTick,
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+        {
+            ResolveOrdinarySourceFallbackOrDestroy(
+                snapshot,
+                contact,
+                currentTick,
+                FlipContactResolutionKind.OrdinaryLandingNoDamageBlockSourceFallback,
+                FlipContactResolutionKind.OrdinaryLandingNoDamageBlockDestroySelf,
+                "OrdinaryLandingNoDamageBlock",
+                batch,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals,
+                blockerEntityId);
+        }
+
+        private void ResolveOrdinarySolidBlockDue(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            int blockerEntityId,
+            int currentTick,
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+        {
+            ResolveOrdinarySourceFallbackOrDestroy(
+                snapshot,
+                contact,
+                currentTick,
+                FlipContactResolutionKind.OrdinaryLandingSolidBlockSourceFallback,
+                FlipContactResolutionKind.OrdinaryLandingSolidBlockDestroySelf,
+                "OrdinaryLandingSolidBlock",
+                batch,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals,
+                blockerEntityId);
+        }
+
+        private void ResolveOrdinaryInvalidLandingDue(
             WorldSnapshot snapshot,
             in ScheduledFlipContact contact,
             int currentTick,
-            FlipContactResolutionKind kind,
-            string result,
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+        {
+            ResolveOrdinarySourceFallbackOrDestroy(
+                snapshot,
+                contact,
+                currentTick,
+                FlipContactResolutionKind.OrdinaryLandingInvalidSourceFallback,
+                FlipContactResolutionKind.OrdinaryLandingInvalidDestroySelf,
+                "OrdinaryLandingInvalid",
+                batch,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals);
+        }
+
+        private void ResolveOrdinarySourceFallbackOrDestroy(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            int currentTick,
+            FlipContactResolutionKind sourceFallbackKind,
+            FlipContactResolutionKind destroySelfKind,
+            string resultPrefix,
             FinalizationBatch batch,
             List<string> eventLogEntries,
             List<FlipContactResolution> contactResolutions,
             List<FlipDueContactPresentationSignal> contactPresentationSignals,
-            int hitEntityId = 0)
+            int hitEntityId = 0,
+            bool includeDamagePath = false)
         {
             var metadata = CreateDueMetadata(contact, hitEntityId);
-            var disposition = SafeReturnOrDestroyInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
+            var disposition = SafeReturnOrDestroyOrdinaryInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
+            var kind = disposition == FlipBoxDisposition.MaterializeAtSource ? sourceFallbackKind : destroySelfKind;
+            var result = disposition == FlipBoxDisposition.MaterializeAtSource
+                ? $"{resultPrefix}SourceFallback"
+                : $"{resultPrefix}DestroySelf";
             batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
             AddResolution(
                 contact,
@@ -408,6 +620,32 @@ namespace Game.Feature.Gameplay.Loop
                 materializeCell,
                 disposition,
                 result,
+                snapshot.Topology,
+                eventLogEntries,
+                contactResolutions,
+                contactPresentationSignals,
+                includeDamagePath);
+        }
+
+        private void RemoveOrdinaryLandingTokenNoOp(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            int currentTick,
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            List<FlipContactResolution> contactResolutions,
+            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+        {
+            var metadata = CreateDueMetadata(contact);
+            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            AddResolution(
+                contact,
+                currentTick,
+                FlipContactResolutionKind.OrdinaryLandingTokenNoOp,
+                null,
+                null,
+                FlipBoxDisposition.Cancelled,
+                "OrdinaryLandingTokenNoOp",
                 snapshot.Topology,
                 eventLogEntries,
                 contactResolutions,
@@ -702,6 +940,98 @@ namespace Game.Feature.Gameplay.Loop
             return FlipBoxDisposition.DestroySelf;
         }
 
+        private FlipBoxDisposition SafeReturnOrDestroyOrdinaryInFlightBox(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact,
+            FinalizationBatch batch,
+            in FinalizationOperationMetadata metadata,
+            out SurfaceCell? materializeCell)
+        {
+            materializeCell = null;
+            if (!snapshot.TryGetEntity(contact.SourceBoxEntityId, out var sourceBox) ||
+                sourceBox.boardPresence != EntityBoardPresence.InFlight)
+            {
+                return FlipBoxDisposition.Cancelled;
+            }
+
+            if (IsSourceFallbackCellValid(snapshot, contact))
+            {
+                var sourceLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                    snapshot,
+                    EntityType.Box,
+                    contact.SourceCell,
+                    contact.SourceBoxEntityId);
+                if (sourceLegality.Verdict == LegalityVerdict.Allowed)
+                {
+                    materializeCell = contact.SourceCell;
+                    MaterializeSourceBox(contact, contact.SourceCell, batch, metadata);
+                    return FlipBoxDisposition.MaterializeAtSource;
+                }
+            }
+
+            batch.MarkDestroy(contact.SourceBoxEntityId, metadata);
+            return FlipBoxDisposition.DestroySelf;
+        }
+
+        private OrdinaryLandingCell ClassifyOrdinaryLandingCell(
+            WorldSnapshot snapshot,
+            in ScheduledFlipContact contact)
+        {
+            if (!IsTopologyValid(snapshot, contact))
+            {
+                return new OrdinaryLandingCell(OrdinaryLandingCellKind.TopologyInvalid, default);
+            }
+
+            if (!snapshot.IsInsideBoard(contact.LandingCell))
+            {
+                return new OrdinaryLandingCell(OrdinaryLandingCellKind.BoardInvalid, default);
+            }
+
+            if (snapshot.IsTerrainBlockedForUnit(contact.LandingCell))
+            {
+                return new OrdinaryLandingCell(OrdinaryLandingCellKind.TerrainInvalid, default);
+            }
+
+            var occupant = ResolveFlipContactOccupant(snapshot, contact.LandingCell);
+            switch (occupant.Kind)
+            {
+                case FlipContactOccupantKind.Empty:
+                    return new OrdinaryLandingCell(OrdinaryLandingCellKind.Empty, default);
+
+                case FlipContactOccupantKind.Projectile:
+                    return new OrdinaryLandingCell(OrdinaryLandingCellKind.Projectile, occupant.Entity);
+
+                case FlipContactOccupantKind.Solid:
+                    return new OrdinaryLandingCell(OrdinaryLandingCellKind.Solid, occupant.Entity);
+
+                case FlipContactOccupantKind.Unit:
+                    if (EntityRolePolicy.IsPlayerUnit(occupant.Entity))
+                    {
+                        return new OrdinaryLandingCell(OrdinaryLandingCellKind.PlayerUnit, occupant.Entity);
+                    }
+
+                    if (occupant.Entity.teamId > 0 &&
+                        contact.KineticInstigatorTeamId > 0 &&
+                        occupant.Entity.teamId != contact.KineticInstigatorTeamId)
+                    {
+                        return new OrdinaryLandingCell(OrdinaryLandingCellKind.HostileUnit, occupant.Entity);
+                    }
+
+                    return new OrdinaryLandingCell(OrdinaryLandingCellKind.FriendlyUnit, occupant.Entity);
+
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private static bool IsSourceFallbackCellValid(WorldSnapshot snapshot, in ScheduledFlipContact contact)
+        {
+            return snapshot.Topology.IsFaceActive(contact.SourceFace) &&
+                   snapshot.Topology.IsFaceActive(contact.SourceCell.face) &&
+                   snapshot.IsInsideBoard(contact.SourceCell) &&
+                   !snapshot.IsTerrainBlockedForUnit(contact.SourceCell);
+        }
+
         private FlipContactOccupant ResolveFlipContactOccupant(WorldSnapshot snapshot, SurfaceCell contactCell)
         {
             snapshot.EnumerateUnitsAt(contactCell, _unitBuffer);
@@ -782,7 +1112,8 @@ namespace Game.Feature.Gameplay.Loop
             CubeTopologyState topology,
             List<string> eventLogEntries,
             List<FlipContactResolution> contactResolutions,
-            List<FlipDueContactPresentationSignal> contactPresentationSignals)
+            List<FlipDueContactPresentationSignal> contactPresentationSignals,
+            bool includeDamagePath = true)
         {
             contactResolutions.Add(
                 new FlipContactResolution(
@@ -810,7 +1141,7 @@ namespace Game.Feature.Gameplay.Loop
                     materializeCell.GetValueOrDefault(),
                     BuildStableDuePresentationSeed(currentTick, contact)));
             eventLogEntries.Add(
-                $"FlipB1Due|currentTick={currentTick}|Tick={currentTick}|Action={contact.ActionId}|Box={contact.SourceBoxEntityId}|Contact={FormatCell(contact.ContactCell)}|Occupant={(hitEntityId.HasValue ? hitEntityId.Value.ToString() : "None")}|ActionNormAtDue={FormatActionNormAtDue(contact)}|DamagePath={contact.DamageSpec.SourceKind}|Result={result}");
+                $"FlipB1Due|currentTick={currentTick}|Tick={currentTick}|Action={contact.ActionId}|Box={contact.SourceBoxEntityId}|Contact={FormatCell(contact.ContactCell)}|Occupant={(hitEntityId.HasValue ? hitEntityId.Value.ToString() : "None")}|ActionNormAtDue={FormatActionNormAtDue(contact)}|DamagePath={(includeDamagePath ? contact.DamageSpec.SourceKind.ToString() : "None")}|Result={result}");
             eventLogEntries.Add(
                 $"FlipB1Disposition|Tick={currentTick}|Box={contact.SourceBoxEntityId}|Disposition={disposition}");
             eventLogEntries.Add(
@@ -866,6 +1197,32 @@ namespace Game.Feature.Gameplay.Loop
             Unit = 1,
             Solid = 2,
             Projectile = 3,
+        }
+
+        private readonly struct OrdinaryLandingCell
+        {
+            public OrdinaryLandingCell(OrdinaryLandingCellKind kind, EntityState entity)
+            {
+                Kind = kind;
+                Entity = entity;
+            }
+
+            public OrdinaryLandingCellKind Kind { get; }
+
+            public EntityState Entity { get; }
+        }
+
+        private enum OrdinaryLandingCellKind
+        {
+            Empty = 0,
+            HostileUnit = 1,
+            FriendlyUnit = 2,
+            PlayerUnit = 3,
+            Solid = 4,
+            Projectile = 5,
+            TerrainInvalid = 6,
+            BoardInvalid = 7,
+            TopologyInvalid = 8,
         }
     }
 

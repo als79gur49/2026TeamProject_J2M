@@ -935,6 +935,251 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_HostileEnteredLanding_UsesCurrentHostile()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 3, teamId: 2));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out var hostile), Is.True);
+            Assert.That(hostile.hp, Is.EqualTo(2));
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(dueTick.EventLog.Any(entry => entry.Contains("DamagePath=B1ScheduledContactDue")), Is.True);
+            Assert.That(dueTick.EventLog.Any(entry => entry.Contains("Occupant=30")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_OriginalEnemyLeft_DoesNotHitOriginalEnemy()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 3, teamId: 2));
+            writeContext.MoveEntity(30, new SurfaceCell(FaceId.Floor, -2, 0));
+
+            RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out var original), Is.True);
+            Assert.That(original.hp, Is.EqualTo(3));
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_DifferentHostileEntered_HitsDifferentHostile()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 3, teamId: 2));
+            writeContext.MoveEntity(30, new SurfaceCell(FaceId.Floor, -2, 0));
+            writeContext.SpawnEntity(CreateUnit(31, new Vector2Int(-1, 0), hp: 3, teamId: 2));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out var original), Is.True);
+            Assert.That(original.hp, Is.EqualTo(3));
+            Assert.That(snapshot.TryGetEntity(31, out var current), Is.True);
+            Assert.That(current.hp, Is.EqualTo(2));
+            Assert.That(dueTick.EventLog.Any(entry => entry.Contains("Occupant=31")), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_HostileDies_SettlementAllowed_FollowThrough()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 1, teamId: 2));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(sourceBox.facing, Is.EqualTo(Direction.Left));
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingHostileKilledFollowThrough));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_HostileDies_SettlementDenied_SourceFree_StaysAtSource()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 1, teamId: 2));
+            writeContext.SpawnEntity(CreateUnit(31, new Vector2Int(-1, 0), hp: 3, teamId: 2));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(31, out var remainingHostile), Is.True);
+            Assert.That(remainingHostile.hp, Is.EqualTo(3));
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingHostileKilledSourceFallback));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_FriendlyEntered_BlocksNoDamage()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 3, teamId: 1));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out var friendly), Is.True);
+            Assert.That(friendly.hp, Is.EqualTo(3));
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(dueTick.EventLog.Any(entry => entry.Contains("DamagePath=B1ScheduledContactDue") && entry.Contains("Occupant=30")), Is.False);
+            Assert.That(dueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_PlayerEntered_BlocksNoDamage()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, -1, 0));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.hp, Is.EqualTo(3));
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(dueTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(dueTick.PresentationData.PlayerDamageSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_SolidEntered_Blocks()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(30, new Vector2Int(-1, 0), BoxCapabilities.Push));
+
+            RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out _), Is.True);
+            Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, -1, 0), out var landingOccupant), Is.True);
+            Assert.That(landingOccupant.entityId, Is.EqualTo(30));
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_BlockedLanding_SourceFree_StaysAtSource()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(30, new Vector2Int(-1, 0), BoxCapabilities.Push));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingSolidBlockSourceFallback));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_BlockedLanding_SourceBlocked_DestroySelf()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SpawnEntity(CreateBox(30, new Vector2Int(-1, 0), BoxCapabilities.Push));
+            writeContext.SpawnEntity(CreateBox(31, new Vector2Int(1, 0), BoxCapabilities.Push));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(30, out _), Is.True);
+            Assert.That(snapshot.TryGetEntity(31, out _), Is.True);
+            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingSolidBlockDestroySelf));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_InvalidLanding_SourceFree_CancelsToSource()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            ReplaceOrdinaryLandingCell(worldState, new SurfaceCell(FaceId.Floor, 99, 99));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingInvalidSourceFallback));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_InvalidLanding_SourceBlocked_DestroySelf()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            ReplaceOrdinaryLandingCell(worldState, new SurfaceCell(FaceId.Floor, 99, 99));
+            worldState.CreateWriteContext().SpawnEntity(CreateBox(30, new Vector2Int(1, 0), BoxCapabilities.Push));
+
+            var dueTick = RunUntilDue(pipeline);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(30, out _), Is.True);
+            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingInvalidDestroySelf));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FlipB1HostileImpact_FriendlyBlockedFlip_DoesNotUseB1HostilePath()
         {
             var worldState = CreateWorldState(new[]
@@ -1075,6 +1320,38 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var contacts = new List<ScheduledFlipContact>();
             worldState.CreateSnapshot().EnumerateDueScheduledFlipContactsOrdered(int.MaxValue, contacts);
             return contacts;
+        }
+
+        private static void ReplaceOrdinaryLandingCell(WorldState worldState, SurfaceCell landingCell)
+        {
+            var contact = GetScheduledContacts(worldState).Single();
+            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.RemoveScheduledFlipContact(contact.ActionId);
+            writeContext.AddScheduledFlipContact(
+                new ScheduledFlipContact(
+                    contact.Kind,
+                    contact.ActionId,
+                    contact.ActorEntityId,
+                    contact.SourceBoxEntityId,
+                    contact.SourceCell,
+                    contact.ContactCell,
+                    landingCell,
+                    contact.FlipDirection,
+                    contact.SourceFace,
+                    contact.SourceCapabilitiesSnapshot,
+                    contact.DamageSpec,
+                    contact.KineticInstigatorEntityId,
+                    contact.KineticInstigatorTeamId,
+                    contact.ActionStartTick,
+                    contact.ActionVisualImpactTick,
+                    contact.FlipExecuteDelayTicks,
+                    contact.FlipInputLockDurationTicks,
+                    contact.ExecuteTick,
+                    contact.DueTick,
+                    contact.OrderingKey,
+                    contact.CancellationPolicy,
+                    contact.DispositionPolicy));
         }
 
         private static TickPipeline CreatePipeline(

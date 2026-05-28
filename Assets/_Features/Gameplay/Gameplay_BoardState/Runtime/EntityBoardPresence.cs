@@ -102,9 +102,19 @@ namespace Game.Feature.Gameplay.BoardState
         CancelledBoxGone = 10,
         CancelledTopologyChanged = 11,
         CancelledStageTerminal = 12,
-        OrdinaryLandingBlockedNotImplemented = 13,
-        OrdinaryLandingInvalidNotImplemented = 14,
-        OrdinaryLandingSettlementDeniedNotImplemented = 15,
+        OrdinaryLandingHostileSurvivedDestroySelf = 13,
+        OrdinaryLandingHostileKilledFollowThrough = 14,
+        OrdinaryLandingHostileKilledSourceFallback = 15,
+        OrdinaryLandingHostileKilledDestroySelf = 16,
+        OrdinaryLandingNoDamageBlockSourceFallback = 17,
+        OrdinaryLandingNoDamageBlockDestroySelf = 18,
+        OrdinaryLandingSolidBlockSourceFallback = 19,
+        OrdinaryLandingSolidBlockDestroySelf = 20,
+        OrdinaryLandingInvalidSourceFallback = 21,
+        OrdinaryLandingInvalidDestroySelf = 22,
+        OrdinaryLandingSettlementDeniedSourceFallback = 23,
+        OrdinaryLandingSettlementDeniedDestroySelf = 24,
+        OrdinaryLandingTokenNoOp = 25,
     }
 
     public enum FlipBoxDisposition
