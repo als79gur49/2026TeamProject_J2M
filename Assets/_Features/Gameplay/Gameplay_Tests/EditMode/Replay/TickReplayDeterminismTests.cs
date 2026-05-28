@@ -21,8 +21,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
 {
     public sealed class TickReplayDeterminismTests
     {
+        private const int DefaultFlipActionStartTick = 1;
+        private static readonly int DefaultFlipDueTick =
+            DefaultFlipActionStartTick + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault());
+
         private static EnemyUnitArchetypeAsset SharedSummonedArchetype;
         private static EnemyAiProfile SharedSummonedProfile;
+
+        private enum OrdinaryDueReplayCase
+        {
+            EmptyLanding,
+            SourceFallback,
+            DestroySelf,
+        }
 
         [Test]
         [Category("Core")]
@@ -954,16 +965,113 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Flip|ActionSeq=1|ActionDirection=Left|ActionTarget=30"));
             Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("MoveCommitted|E=30"));
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[1].EventLogDump,
-                    "MoveCommitted",
-                    "E=30",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
-            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain($"E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities={BoxCapabilities.Flip}"));
+            var dueFrame = firstReplay.First(frame => frame.Trace.Contains("Result=OrdinaryLandingEmptyLand", StringComparison.Ordinal));
+            Assert.That(dueFrame.Trace, Does.Contain("FlipB1Due|currentTick="));
+            Assert.That(dueFrame.EventLogDump, Does.Contain("FlipB1Removed|"));
+            Assert.That(dueFrame.FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(dueFrame.FinalEntitiesDump, Does.Contain($"E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities={BoxCapabilities.Flip}"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeterminismHash_OrdinaryFlipB1PendingToken_ChangesHashAndTraceExportsKind()
+        {
+            var pendingReplay = RunSeededOrdinaryFlipB1PendingReplay(includeContact: true);
+            var noTokenReplay = RunSeededOrdinaryFlipB1PendingReplay(includeContact: false);
+
+            Assert.That(pendingReplay[0].DeterminismHash, Is.Not.EqualTo(noTokenReplay[0].DeterminismHash));
+            Assert.That(pendingReplay[0].Trace, Does.Contain("Final.ScheduledFlipContacts"));
+            Assert.That(pendingReplay[0].Trace, Does.Contain("Kind=OrdinaryLanding|Action=1"));
+            Assert.That(pendingReplay[0].Trace, Does.Contain("Disposition=DefaultB1OrdinaryLanding"));
+            Assert.That(pendingReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)"));
+            Assert.That(pendingReplay[0].FinalEntitiesDump, Does.Contain("Presence=InFlight"));
+            Assert.That(noTokenReplay[0].Trace, Does.Not.Contain("Kind=OrdinaryLanding|Action=1"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeterminismHash_OrdinaryFlipB1DueRemoval_ChangesHashAndTraceExportsOutcome()
+        {
+            var pendingReplay = RunSeededOrdinaryFlipB1PendingReplay(includeContact: true);
+            var dueReplay = RunSeededOrdinaryFlipB1DueReplay(OrdinaryDueReplayCase.EmptyLanding);
+
+            Assert.That(dueReplay[0].DeterminismHash, Is.Not.EqualTo(pendingReplay[0].DeterminismHash));
+            Assert.That(pendingReplay[0].Trace, Does.Contain("Kind=OrdinaryLanding|Action=1"));
+            Assert.That(dueReplay[0].Trace, Does.Contain("Final.ScheduledFlipContacts"));
+            Assert.That(dueReplay[0].Trace, Does.Not.Contain("Kind=OrdinaryLanding|Action=1"));
+            Assert.That(dueReplay[0].Trace, Does.Contain("FlipB1Due|currentTick=1"));
+            Assert.That(dueReplay[0].Trace, Does.Contain("Result=OrdinaryLandingEmptyLand"));
+            Assert.That(dueReplay[0].Trace, Does.Contain("FlipB1Removed|Tick=1|Action=1|Box=30"));
+            Assert.That(dueReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(-1,0)"));
+            Assert.That(dueReplay[0].FinalEntitiesDump, Does.Contain("Presence=Occupying"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_OrdinaryFlipB1EmptyLanding_ProducesStableHashTraceAndEventLog()
+        {
+            var firstReplay = RunOrdinaryFlipB1EmptyLandingReplaySequence();
+            var secondReplay = RunOrdinaryFlipB1EmptyLandingReplaySequence();
+            var executeFrame = firstReplay.First(frame => frame.Trace.Contains("Kind=OrdinaryLanding", StringComparison.Ordinal));
+            var dueFrame = firstReplay.First(frame => frame.Trace.Contains("Result=OrdinaryLandingEmptyLand", StringComparison.Ordinal));
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(executeFrame.DeterminismHash, Is.Not.EqualTo(dueFrame.DeterminismHash));
+            Assert.That(executeFrame.Trace, Does.Contain("Kind=OrdinaryLanding"));
+            Assert.That(executeFrame.FinalEntitiesDump, Does.Contain("E=30|Pos=(-1,0)"));
+            Assert.That(executeFrame.FinalEntitiesDump, Does.Contain("Presence=InFlight"));
+            Assert.That(dueFrame.Trace, Does.Contain("Result=OrdinaryLandingEmptyLand"));
+            Assert.That(dueFrame.Trace, Does.Contain("Final.ScheduledFlipContacts"));
+            Assert.That(dueFrame.EventLogDump, Does.Contain("FlipB1Removed|"));
+            Assert.That(dueFrame.FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)"));
+            Assert.That(dueFrame.FinalEntitiesDump, Does.Contain("Presence=Occupying"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_OrdinaryFlipB1SourceFallback_ProducesStableHashTraceAndEventLog()
+        {
+            var firstReplay = RunSeededOrdinaryFlipB1DueReplay(OrdinaryDueReplayCase.SourceFallback);
+            var secondReplay = RunSeededOrdinaryFlipB1DueReplay(OrdinaryDueReplayCase.SourceFallback);
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].Trace, Does.Contain("Result=OrdinaryLandingSolidBlockSourceFallback"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("FlipB1Disposition|Tick=1|Box=30|Disposition=MaterializeAtSource"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("FlipB1Removed|Tick=1|Action=1|Box=30"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("Presence=Occupying"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_OrdinaryFlipB1DestroySelf_ProducesStableHashTraceAndEventLog()
+        {
+            var firstReplay = RunSeededOrdinaryFlipB1DueReplay(OrdinaryDueReplayCase.DestroySelf);
+            var secondReplay = RunSeededOrdinaryFlipB1DueReplay(OrdinaryDueReplayCase.DestroySelf);
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].Trace, Does.Contain("Result=OrdinaryLandingSolidBlockDestroySelf"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("FlipB1Disposition|Tick=1|Box=30|Disposition=DestroySelf"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("FlipB1Removed|Tick=1|Action=1|Box=30"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=30|"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_OrdinaryFlipB1MultipleDueTokens_ResolvesInStableOrder()
+        {
+            var firstReplay = RunSeededOrdinaryFlipB1MultipleDueReplay();
+            var secondReplay = RunSeededOrdinaryFlipB1MultipleDueReplay();
+            var firstActionIndex = firstReplay[0].EventLogDump.IndexOf("Action=1|Box=31", StringComparison.Ordinal);
+            var secondActionIndex = firstReplay[0].EventLogDump.IndexOf("Action=2|Box=32", StringComparison.Ordinal);
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstActionIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(secondActionIndex, Is.GreaterThan(firstActionIndex));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("FlipB1Removed|Tick=1|Action=1|Box=31"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("FlipB1Removed|Tick=1|Action=2|Box=32"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=31|Pos=(-1,0)"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=32|Pos=(-2,0)"));
         }
 
         [Test]
@@ -3064,11 +3172,168 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     new PlayerLogic(10),
                 },
+                Enumerable.Range(1, DefaultFlipDueTick)
+                    .Select(tick => new TickInput(
+                        tick,
+                        tick == DefaultFlipActionStartTick ? PlayerTickCommand.Flip(Direction.Left) : PlayerTickCommand.None))
+                    .ToArray());
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunOrdinaryFlipB1EmptyLandingReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                Enumerable.Range(1, DefaultFlipDueTick)
+                    .Select(tick => new TickInput(
+                        tick,
+                        tick == DefaultFlipActionStartTick ? PlayerTickCommand.Flip(Direction.Left) : PlayerTickCommand.None))
+                    .ToArray());
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunSeededOrdinaryFlipB1PendingReplay(bool includeContact)
+        {
+            var worldState = CreateSeededOrdinaryFlipB1World(includeLandingBlocker: false);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetBoardPresence(30, EntityBoardPresence.InFlight);
+            if (includeContact)
+            {
+                writeContext.AddScheduledFlipContact(CreateOrdinaryLandingContact(actionId: 1, sourceBoxEntityId: 30, dueTick: 5));
+            }
+
+            return new TickReplayHarness().Run(
+                worldState,
+                Array.Empty<IEntityLogic>(),
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Flip(Direction.Left)),
-                    new TickInput(2, PlayerTickCommand.Move(Direction.Up)),
+                    new TickInput(1),
                 });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunSeededOrdinaryFlipB1DueReplay(OrdinaryDueReplayCase replayCase)
+        {
+            var worldState = CreateSeededOrdinaryFlipB1World(includeLandingBlocker: replayCase != OrdinaryDueReplayCase.EmptyLanding);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetBoardPresence(30, EntityBoardPresence.InFlight);
+            writeContext.AddScheduledFlipContact(
+                CreateOrdinaryLandingContact(
+                    actionId: 1,
+                    sourceBoxEntityId: 30,
+                    dueTick: 1,
+                    sourceCell: replayCase == OrdinaryDueReplayCase.DestroySelf
+                        ? new SurfaceCell(FaceId.Floor, 99, 99)
+                        : new SurfaceCell(FaceId.Floor, 1, 0)));
+
+            return new TickReplayHarness().Run(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                new[]
+                {
+                    new TickInput(1),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunSeededOrdinaryFlipB1MultipleDueReplay()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                    CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+                    CreateBox(entityId: 32, position: new SurfaceCell(FaceId.Floor, 2, 0), capabilities: BoxCapabilities.Flip),
+                },
+                new BoardBounds(new Vector2Int(-3, 0), new Vector2Int(3, 0)),
+                GameplayTerrainData.Empty);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetBoardPresence(31, EntityBoardPresence.InFlight);
+            writeContext.SetBoardPresence(32, EntityBoardPresence.InFlight);
+            writeContext.AddScheduledFlipContact(
+                CreateOrdinaryLandingContact(
+                    actionId: 2,
+                    sourceBoxEntityId: 32,
+                    dueTick: 1,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 2, 0),
+                    contactCell: new SurfaceCell(FaceId.Floor, -2, 0),
+                    landingCell: new SurfaceCell(FaceId.Floor, -2, 0)));
+            writeContext.AddScheduledFlipContact(
+                CreateOrdinaryLandingContact(
+                    actionId: 1,
+                    sourceBoxEntityId: 31,
+                    dueTick: 1,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    contactCell: new SurfaceCell(FaceId.Floor, -1, 0),
+                    landingCell: new SurfaceCell(FaceId.Floor, -1, 0)));
+
+            return new TickReplayHarness().Run(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                new[]
+                {
+                    new TickInput(1),
+                });
+        }
+
+        private static WorldState CreateSeededOrdinaryFlipB1World(bool includeLandingBlocker)
+        {
+            var entities = new List<EntityState>
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            };
+            if (includeLandingBlocker)
+            {
+                entities.Add(CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, -1, 0)));
+            }
+
+            return CreateWorldState(
+                entities,
+                new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 0)),
+                GameplayTerrainData.Empty);
+        }
+
+        private static ScheduledFlipContact CreateOrdinaryLandingContact(
+            int actionId,
+            int sourceBoxEntityId,
+            int dueTick,
+            SurfaceCell? sourceCell = null,
+            SurfaceCell? contactCell = null,
+            SurfaceCell? landingCell = null)
+        {
+            var resolvedSourceCell = sourceCell ?? new SurfaceCell(FaceId.Floor, 1, 0);
+            var resolvedContactCell = contactCell ?? new SurfaceCell(FaceId.Floor, -1, 0);
+            var resolvedLandingCell = landingCell ?? resolvedContactCell;
+            return new ScheduledFlipContact(
+                ScheduledFlipContactKind.OrdinaryLanding,
+                actionId,
+                actorEntityId: 10,
+                sourceBoxEntityId: sourceBoxEntityId,
+                sourceCell: resolvedSourceCell,
+                contactCell: resolvedContactCell,
+                landingCell: resolvedLandingCell,
+                flipDirection: Direction.Right,
+                sourceFace: FaceId.Floor,
+                sourceCapabilitiesSnapshot: BoxCapabilities.Flip,
+                damageSpec: new FlipImpactDamageSpec(1, FlipImpactDamageKind.Impact, AttackSourceKind.B1ScheduledContactDue, actionId),
+                kineticInstigatorEntityId: 10,
+                kineticInstigatorTeamId: 1,
+                actionStartTick: 1,
+                actionVisualImpactTick: dueTick,
+                flipExecuteDelayTicks: PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate,
+                flipInputLockDurationTicks: PlayerControlTimingSettings.DefaultFlipInputLockDurationTicksAtDefaultSimulationRate,
+                executeTick: 1,
+                dueTick: dueTick,
+                orderingKey: actionId,
+                cancellationPolicy: FlipContactCancellationPolicy.SafeReturnOrDestroy,
+                dispositionPolicy: FlipContactDispositionPolicy.DefaultB1OrdinaryLanding);
         }
 
         private static IReadOnlyList<TickReplayFrame> RunSpawnReplaySequence()
