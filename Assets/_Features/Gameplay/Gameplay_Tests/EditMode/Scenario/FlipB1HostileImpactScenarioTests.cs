@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -862,6 +863,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_ExecuteTick_PresentationAndAudioAreMotionOnly()
+        {
+            RunOrdinaryFlipToExecute(out _, out var executeTick);
+
+            Assert.That(executeTick.PresentationData.FlipB1InFlightMotionSignals, Has.Count.EqualTo(1));
+            Assert.That(executeTick.PresentationData.FlipDueContactSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.FlipFloorImpactSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.PlayerDamageSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.EntityExitSignals, Is.Empty);
+            AssertAudioChain(executeTick);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_DueTick_EmptyLanding_MaterializesBox()
         {
             var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
@@ -911,6 +928,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, -1, 0), out var occupant), Is.True);
             Assert.That(occupant.entityId, Is.EqualTo(20));
             Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_EmptyLanding_EmitsSingleImmediateTerminalMarkerWithoutAudio()
+        {
+            RunOrdinaryFlipToDue(out _, out _, out var dueTick);
+
+            AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.EmptyLand,
+                FlipBoxDisposition.MaterializeAtLanding,
+                expectedHitEntityId: 0,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, -1, 0),
+                FlipFloorImpactPresentationKind.FollowThrough);
+            AssertAudioChain(dueTick);
         }
 
         [Test]
@@ -1024,6 +1057,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_HostileSurvivesDestroySelf_EmitsSingleImmediateTerminalMarkerAndAudioChain()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 3, teamId: 2));
+
+            var dueTick = RunUntilDue(pipeline);
+
+            AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.OrdinaryLandingHostileSurvivedDestroySelf,
+                FlipBoxDisposition.DestroySelf,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: null,
+                FlipFloorImpactPresentationKind.DestroySelf);
+            AssertAudioChain(
+                dueTick,
+                (GameplayAudioSemanticId.EnemyDamage, 30),
+                (GameplayAudioSemanticId.EntityExitBoxDestroy, 20));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_DueTick_OriginalEnemyLeft_DoesNotHitOriginalEnemy()
         {
             var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
@@ -1087,6 +1144,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_HostileKilledFollowThrough_EmitsSingleImmediateTerminalMarkerAndAudioChain()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            worldState.CreateWriteContext().SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 1, teamId: 2));
+
+            var dueTick = RunUntilDue(pipeline);
+
+            AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.OrdinaryLandingHostileKilledFollowThrough,
+                FlipBoxDisposition.MaterializeAtLanding,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, -1, 0),
+                FlipFloorImpactPresentationKind.FollowThrough);
+            AssertAudioChain(
+                dueTick,
+                (GameplayAudioSemanticId.EnemyDamage, 30),
+                (GameplayAudioSemanticId.EntityExitEnemyDeath, 30));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_DueTick_HostileKilledFollowThrough_AdvancesObjective()
         {
             var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
@@ -1133,6 +1214,32 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_SourceFallback_EmitsSingleImmediateTerminalMarkerAndAudioChain()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 1, teamId: 2));
+            writeContext.SpawnEntity(CreateUnit(31, new Vector2Int(-1, 0), hp: 3, teamId: 2));
+
+            var dueTick = RunUntilDue(pipeline);
+
+            AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.OrdinaryLandingHostileKilledSourceFallback,
+                FlipBoxDisposition.MaterializeAtSource,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                FlipFloorImpactPresentationKind.Stay);
+            AssertAudioChain(
+                dueTick,
+                (GameplayAudioSemanticId.EnemyDamage, 30),
+                (GameplayAudioSemanticId.EntityExitEnemyDeath, 30));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_DueTick_FriendlyEntered_BlocksNoDamage()
         {
             var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
@@ -1150,6 +1257,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             Assert.That(dueTick.EventLog.Any(entry => entry.Contains("DamagePath=B1ScheduledContactDue") && entry.Contains("Occupant=30")), Is.False);
             Assert.That(dueTick.PresentationData.EnemyDamageSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_FriendlyAndPlayerBlock_EmitSingleImmediateTerminalMarkerWithoutAudio()
+        {
+            var friendlyTick = RunOrdinaryFlipDueAfterLandingMutation(
+                writeContext => writeContext.SpawnEntity(CreateUnit(30, new Vector2Int(-1, 0), hp: 3, teamId: 1)));
+            AssertOrdinaryDueTerminalPresentation(
+                friendlyTick,
+                FlipContactResolutionKind.OrdinaryLandingNoDamageBlockSourceFallback,
+                FlipBoxDisposition.MaterializeAtSource,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                FlipFloorImpactPresentationKind.Stay);
+            AssertAudioChain(friendlyTick);
+
+            var playerTick = RunOrdinaryFlipDueAfterLandingMutation(
+                writeContext => writeContext.MoveEntity(10, new SurfaceCell(FaceId.Floor, -1, 0)));
+            AssertOrdinaryDueTerminalPresentation(
+                playerTick,
+                FlipContactResolutionKind.OrdinaryLandingNoDamageBlockSourceFallback,
+                FlipBoxDisposition.MaterializeAtSource,
+                expectedHitEntityId: 10,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                FlipFloorImpactPresentationKind.Stay);
+            AssertAudioChain(playerTick);
         }
 
         [Test]
@@ -1191,6 +1325,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
             Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_SolidBlock_EmitsSingleImmediateTerminalMarkerWithoutAudio()
+        {
+            var dueTick = RunOrdinaryFlipDueAfterLandingMutation(
+                writeContext => writeContext.SpawnEntity(CreateBox(30, new Vector2Int(-1, 0), BoxCapabilities.Push)));
+
+            AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.OrdinaryLandingSolidBlockSourceFallback,
+                FlipBoxDisposition.MaterializeAtSource,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                FlipFloorImpactPresentationKind.Stay);
+            AssertAudioChain(dueTick);
         }
 
         [Test]
@@ -1261,6 +1412,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_DestroySelf_EmitsSingleImmediateTerminalMarkerAndAudioChain()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SpawnEntity(CreateBox(30, new Vector2Int(-1, 0), BoxCapabilities.Push));
+            writeContext.SpawnEntity(CreateBox(31, new Vector2Int(1, 0), BoxCapabilities.Push));
+
+            var dueTick = RunUntilDue(pipeline);
+
+            AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.OrdinaryLandingSolidBlockDestroySelf,
+                FlipBoxDisposition.DestroySelf,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: null,
+                FlipFloorImpactPresentationKind.DestroySelf);
+            AssertAudioChain(dueTick, (GameplayAudioSemanticId.EntityExitBoxDestroy, 20));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_DueTick_DestroySelf_DoesNotAdvanceObjective()
         {
             var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
@@ -1304,6 +1478,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_InvalidLanding_EmitsSingleImmediateTerminalMarkerWithoutAudio()
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            ReplaceOrdinaryLandingCell(worldState, new SurfaceCell(FaceId.Floor, 99, 99));
+
+            var dueTick = RunUntilDue(pipeline);
+
+            AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.OrdinaryLandingInvalidSourceFallback,
+                FlipBoxDisposition.MaterializeAtSource,
+                expectedHitEntityId: 0,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                FlipFloorImpactPresentationKind.Stay);
+            AssertAudioChain(dueTick);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_DueTick_InvalidLanding_SourceBlocked_DestroySelf()
         {
             var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
@@ -1343,6 +1538,75 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.PresentationData.FlipB1InFlightMotionSignals, Is.Empty);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out var box), Is.True);
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+        }
+
+        private static TickResult RunOrdinaryFlipDueAfterLandingMutation(Action<IWorldWriteContext> mutate)
+        {
+            var pipeline = CreateOrdinaryFlipPipeline(out var worldState);
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            mutate(worldState.CreateWriteContext());
+            return RunUntilDue(pipeline);
+        }
+
+        private static void AssertOrdinaryDueTerminalPresentation(
+            TickResult dueTick,
+            FlipContactResolutionKind expectedResolutionKind,
+            FlipBoxDisposition expectedDisposition,
+            int expectedHitEntityId,
+            SurfaceCell? expectedMaterializeCell,
+            FlipFloorImpactPresentationKind expectedFloorImpactKind)
+        {
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals, Has.Count.EqualTo(1));
+            Assert.That(dueTick.PresentationData.FlipFloorImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(dueTick.PresentationData.FlipImpactSignals, Is.Empty);
+
+            var dueSignal = dueTick.PresentationData.FlipDueContactSignals.Single();
+            Assert.That(dueSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(dueSignal.VisualContactNormalizedTime, Is.Zero);
+            Assert.That(dueSignal.ResolutionKind, Is.EqualTo(expectedResolutionKind));
+            Assert.That(dueSignal.BoxDisposition, Is.EqualTo(expectedDisposition));
+            Assert.That(dueSignal.HitEntityId, Is.EqualTo(expectedHitEntityId));
+            Assert.That(dueSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(dueSignal.ContactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+
+            if (expectedMaterializeCell.HasValue)
+            {
+                Assert.That(dueSignal.HasMaterializeCell, Is.True);
+                Assert.That(dueSignal.MaterializeCell, Is.EqualTo(expectedMaterializeCell.Value));
+            }
+            else
+            {
+                Assert.That(dueSignal.HasMaterializeCell, Is.False);
+            }
+
+            var floorSignal = dueTick.PresentationData.FlipFloorImpactSignals.Single();
+            Assert.That(floorSignal.SourceActionPlanId, Is.EqualTo(dueSignal.SourceActionPlanId));
+            Assert.That(floorSignal.BoxEntityId, Is.EqualTo(dueSignal.BoxEntityId));
+            Assert.That(floorSignal.Kind, Is.EqualTo(expectedFloorImpactKind));
+            Assert.That(floorSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(floorSignal.VisualContactNormalizedTime, Is.Zero);
+
+            foreach (var exitSignal in dueTick.PresentationData.EntityExitSignals)
+            {
+                Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+                Assert.That(exitSignal.VisualContactNormalizedTime, Is.Zero);
+            }
+        }
+
+        private static void AssertAudioChain(
+            TickResult tick,
+            params (GameplayAudioSemanticId SemanticId, int OwnerEntityId)[] expectedRequests)
+        {
+            var requests = new GameplayAudioRequestPlanner().BuildRequests(tick);
+            Assert.That(requests, Has.Count.EqualTo(expectedRequests.Length));
+
+            for (var i = 0; i < expectedRequests.Length; i++)
+            {
+                Assert.That(requests[i].SemanticId, Is.EqualTo(expectedRequests[i].SemanticId));
+                Assert.That(requests[i].OwnerEntityId, Is.EqualTo(expectedRequests[i].OwnerEntityId));
+                Assert.That(requests[i].DelaySeconds, Is.Zero);
+            }
         }
 
         private static TickResult RunPlayerFlipImpact(int hp, out WorldState worldState, out TickResult startTick)

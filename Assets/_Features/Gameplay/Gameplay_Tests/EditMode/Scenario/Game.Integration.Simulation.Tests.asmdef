@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests.Scenario",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Audio",
     "Game.Feature.Gameplay.EnemyPresentation",
     "Game.Feature.Gameplay.Tests",
     "Game.Feature.Gameplay.Host",
