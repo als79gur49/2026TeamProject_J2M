@@ -1609,6 +1609,123 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
+        public enum EnemyGravityFieldAuraSourceInvalidation
+        {
+            RemoveSource,
+            MarkSourceForDeath,
+            KillSource,
+            DetachSource,
+            MoveSourceOffBottom,
+        }
+
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.RemoveSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.MarkSourceForDeath)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.KillSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.DetachSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.MoveSourceOffBottom)]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_SourceInvalidAfterEmit_DoesNotKeepLocking(
+            EnemyGravityFieldAuraSourceInvalidation invalidation)
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+                var fieldId = EnemyGravityFieldAuraFieldIds.Compute(40, sourceEffectIndex: 0, activationSequence: 1);
+                var emittedSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(emittedSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out _), Is.True);
+                Assert.That(emittedSnapshot.TryGetActiveBoxInteractionLockState(20, 3, out var emittedLock), Is.True);
+                Assert.That(emittedLock.ExpiresTickExclusive, Is.EqualTo(4));
+
+                InvalidateEnemyGravityFieldAuraSource(worldState, invalidation);
+                var invalidTick = pipeline.RunTick(new TickInput(4));
+                var invalidSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(
+                    invalidSnapshot.TryGetActiveBoxInteractionLockState(20, 4, out _),
+                    Is.False,
+                    invalidation.ToString());
+                Assert.That(
+                    invalidSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out _),
+                    Is.False,
+                    invalidation.ToString());
+                Assert.That(
+                    invalidTick.Trace.Text,
+                    Does.Contain("EnemyGravityFieldAuraFieldSourceInvalid"),
+                    invalidation.ToString());
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_StaticGravityField_TargetEligibilityParity()
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var auraTargets = CreateGravityFieldParityTargets();
+            var auraWorldState = CreateWorldState(auraTargets.Concat(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            }));
+            var staticWorldState = CreateWorldState(CreateGravityFieldParityTargets().Concat(new[]
+            {
+                CreateStaticGravityFieldEmitter(90, new SurfaceCell(FaceId.Floor, 0, 0)),
+            }));
+            staticWorldState.CreateWriteContext().SetGravityFieldState(90, GravityFieldPhase.Active, timerTicks: 2);
+
+            try
+            {
+                var auraPipeline = CreateEnemyPipeline(auraWorldState, profile);
+                auraPipeline.RunTick(new TickInput(1));
+                auraPipeline.RunTick(new TickInput(2));
+                auraPipeline.RunTick(new TickInput(3));
+
+                GameplayCompositionRoot.CreateTickPipeline(staticWorldState).RunTick(new TickInput(3));
+
+                var auraSnapshot = auraWorldState.CreateSnapshot();
+                var staticSnapshot = staticWorldState.CreateSnapshot();
+                Assert.That(ActiveLockTargetIds(auraSnapshot, tickIndex: 3, 20, 21, 22, 23, 24, 25).ToArray(), Is.EqualTo(new[] { 20 }));
+                Assert.That(ActiveLockTargetIds(staticSnapshot, tickIndex: 3, 20, 21, 22, 23, 24, 25).ToArray(), Is.EqualTo(new[] { 20 }));
+                Assert.That(auraSnapshot.TryGetActiveBoxInteractionLockState(20, 3, out var auraLock), Is.True);
+                Assert.That(staticSnapshot.TryGetActiveBoxInteractionLockState(20, 3, out var staticLock), Is.True);
+                Assert.That(auraLock.ExpiresTickExclusive, Is.EqualTo(staticLock.ExpiresTickExclusive));
+                Assert.That(auraLock.BlocksPush, Is.EqualTo(staticLock.BlocksPush));
+                Assert.That(auraLock.BlocksFlip, Is.EqualTo(staticLock.BlocksFlip));
+                Assert.That(auraLock.BlocksDestroy, Is.EqualTo(staticLock.BlocksDestroy));
+                Assert.That(auraLock.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.EnemyGravityFieldAura));
+                Assert.That(staticLock.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.GravityField));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void EnemyUtilityGravityFieldAura_SuppressesWindupAndRecover_ButFieldPersistsOnCell()
@@ -7555,6 +7672,94 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "gravityFieldAura", gravityFieldAura);
             return effect;
+        }
+
+        private static void InvalidateEnemyGravityFieldAuraSource(
+            WorldState worldState,
+            EnemyGravityFieldAuraSourceInvalidation invalidation)
+        {
+            var writeContext = worldState.CreateWriteContext();
+            switch (invalidation)
+            {
+                case EnemyGravityFieldAuraSourceInvalidation.RemoveSource:
+                    writeContext.RemoveEntity(40);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.MarkSourceForDeath:
+                    ((IAttackCommitContext)writeContext).MarkDestroy(40);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.KillSource:
+                    writeContext.ApplyDamage(40, 99);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.DetachSource:
+                    writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.MoveSourceOffBottom:
+                    writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(invalidation), invalidation, null);
+            }
+        }
+
+        private static IReadOnlyList<EntityState> CreateGravityFieldParityTargets()
+        {
+            var dead = CreateBox(entityId: 21, position: new Vector2Int(0, 1), capabilities: BoxCapabilities.Push);
+            dead.hp = 0;
+            var marked = CreateBox(entityId: 22, position: new Vector2Int(0, -1), capabilities: BoxCapabilities.Push);
+            marked.markedForDeath = true;
+            var detached = CreateBox(entityId: 23, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Push);
+            detached.boardPresence = EntityBoardPresence.Detached;
+            var sliding = CreateBox(
+                entityId: 24,
+                position: new Vector2Int(1, 1),
+                capabilities: BoxCapabilities.Push,
+                state: EntityPhaseState.Sliding);
+            var otherFace = CreateBox(entityId: 25, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push);
+            otherFace.position = new SurfaceCell(FaceId.Back, 1, 0);
+
+            return new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                dead,
+                marked,
+                detached,
+                sliding,
+                otherFace,
+            };
+        }
+
+        private static EntityState CreateStaticGravityFieldEmitter(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                boxCapabilities = BoxCapabilities.Push,
+                boxArchetype = BoxArchetype.GravityField,
+                gravityFieldPhase = GravityFieldPhase.Active,
+                gravityFieldTimerTicks = 2,
+            };
+        }
+
+        private static List<int> ActiveLockTargetIds(WorldSnapshot snapshot, int tickIndex, params int[] entityIds)
+        {
+            var result = new List<int>();
+            for (var i = 0; i < entityIds.Length; i++)
+            {
+                if (snapshot.TryGetActiveBoxInteractionLockState(entityIds[i], tickIndex, out _))
+                {
+                    result.Add(entityIds[i]);
+                }
+            }
+
+            return result;
         }
 
         private static float TicksToSeconds(int ticks)
