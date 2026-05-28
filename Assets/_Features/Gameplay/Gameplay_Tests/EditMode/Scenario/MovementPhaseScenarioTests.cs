@@ -3091,6 +3091,155 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void MovementExpander_DeferredSlidingImpact_UsesTileFeatureAwareJumpLanding_BarricadeFallback()
+        {
+            var exactCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var fallbackCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var slidingBox = CreateSlidingPushBox(30, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right);
+            var stopper = CreateUnit(11, exactCell, hp: 3, teamId: 1);
+            var jumper = CreateAirborneEnemyJumper(40, new SurfaceCell(FaceId.Floor, 0, 0));
+            var barricade = CreateTileFeature(100, exactCell, TileFeatureKind.Barricade);
+            var definitions = new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.Always) };
+            var worldState = CreateWorldState(
+                new[] { slidingBox, stopper, jumper },
+                DeferredJumpPredictionBounds(),
+                new[] { barricade });
+            SeedAirborneJumpState(worldState, 40, jumper.position, exactCell, landingTick: 1);
+            AssertResolvedJumpLanding(worldState, 40, definitions, fallbackCell);
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                definitions,
+                new IEntityLogic[] { new ScriptedJumpTimingLogic(40, cooldownTicks: 2) });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(40, out var jumperAfter), Is.True);
+            Assert.That(jumperAfter.position, Is.EqualTo(fallbackCell), result.Trace.Text);
+            Assert.That(jumperAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(snapshotAfter.TryGetEntity(11, out var stopperAfter), Is.True);
+            Assert.That(stopperAfter.hp, Is.EqualTo(3), "Old exact-cell prediction must not create a deferred impact.");
+            Assert.That(snapshotAfter.TryGetSolidSemanticAt(exactCell, out _), Is.False);
+            CollectionAssert.AreEqual(new[] { 11 }, GetUnitIdsAt(worldState, exactCell));
+            AssertNoIllegalUnitSolidOverlap(snapshotAfter);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpander_DeferredSlidingImpact_UsesTileFeatureAwareJumpLanding_DestroyTileAvoidance()
+        {
+            var exactCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var fallbackCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var slidingBox = CreateSlidingPushBox(30, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right);
+            var stopper = CreateUnit(11, exactCell, hp: 3, teamId: 1);
+            var jumper = CreateAirborneEnemyJumper(40, new SurfaceCell(FaceId.Floor, 0, 0));
+            var destroyTile = CreateDestroyTile(101, exactCell);
+            var definitions = new[] { CreateTileFeatureDefinition(101, TileFeatureActivationRule.Always) };
+            var worldState = CreateWorldState(
+                new[] { slidingBox, stopper, jumper },
+                DeferredJumpPredictionBounds(),
+                new[] { destroyTile });
+            SeedAirborneJumpState(worldState, 40, jumper.position, exactCell, landingTick: 1);
+            AssertResolvedJumpLanding(worldState, 40, definitions, fallbackCell);
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                definitions,
+                new IEntityLogic[] { new ScriptedJumpTimingLogic(40, cooldownTicks: 2) });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(40, out var jumperAfter), Is.True);
+            Assert.That(jumperAfter.position, Is.EqualTo(fallbackCell), result.Trace.Text);
+            Assert.That(snapshotAfter.TryGetEntity(11, out var stopperAfter), Is.True);
+            Assert.That(stopperAfter.hp, Is.EqualTo(3), "DestroyTile risk must not be predicted as an exact landing impact.");
+            Assert.That(snapshotAfter.TryGetTileFeature(101, out _), Is.True);
+            Assert.That(snapshotAfter.TryGetSolidSemanticAt(exactCell, out _), Is.False, "DestroyTile must not become a hard Solid blocker.");
+            CollectionAssert.AreEqual(new[] { 11 }, GetUnitIdsAt(worldState, exactCell));
+            AssertNoIllegalUnitSolidOverlap(snapshotAfter);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpander_DeferredSlidingImpact_DetectsActualFallbackJumpLandingCell()
+        {
+            var exactCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var fallbackCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var slidingBox = CreateSlidingPushBox(30, new SurfaceCell(FaceId.Floor, 3, 0), Direction.Right);
+            var stopper = CreateUnit(11, fallbackCell, hp: 3, teamId: 1);
+            var jumper = CreateAirborneEnemyJumper(40, new SurfaceCell(FaceId.Floor, -1, 0));
+            var barricade = CreateTileFeature(102, exactCell, TileFeatureKind.Barricade);
+            var definitions = new[] { CreateTileFeatureDefinition(102, TileFeatureActivationRule.Always) };
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    slidingBox,
+                    stopper,
+                    jumper,
+                    CreateNonUnitBlocker(90, new SurfaceCell(FaceId.Floor, 2, 1)),
+                    CreateNonUnitBlocker(91, new SurfaceCell(FaceId.Floor, 2, -1)),
+                    CreateNonUnitBlocker(92, new SurfaceCell(FaceId.Floor, 1, 0)),
+                },
+                DeferredJumpPredictionBounds(),
+                new[] { barricade });
+            SeedAirborneJumpState(worldState, 40, jumper.position, exactCell, landingTick: 1);
+            AssertResolvedJumpLanding(worldState, 40, definitions, fallbackCell);
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                definitions,
+                new IEntityLogic[] { new ScriptedJumpTimingLogic(40, cooldownTicks: 2) });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(
+                result.AttackPhaseResult.DrainedImpactReservations.Any(reservation =>
+                    reservation.SourceId == 30 &&
+                    reservation.TargetId == 40 &&
+                    reservation.ImpactCell == fallbackCell),
+                Is.True,
+                "Prediction must detect the actual tile-feature-aware fallback landing cell.");
+            Assert.That(snapshotAfter.TryGetEntity(40, out var jumperAfter), Is.True);
+            Assert.That(jumperAfter.position, Is.EqualTo(fallbackCell), result.Trace.Text);
+            Assert.That(jumperAfter.hp, Is.EqualTo(2));
+            AssertNoIllegalUnitSolidOverlap(snapshotAfter);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpander_DeferredSlidingImpact_IgnoresOffBottomJumpLandingUntilResolveEligible()
+        {
+            var impactCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var slidingBox = CreateSlidingPushBox(30, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right);
+            var stopper = CreateUnit(11, impactCell, hp: 3, teamId: 1);
+            var jumper = CreateAirborneEnemyJumper(40, new SurfaceCell(FaceId.Front, 0, 0));
+            var worldState = CreateWorldState(
+                new[] { slidingBox, stopper, jumper },
+                DeferredJumpPredictionBounds(),
+                Array.Empty<TileFeatureState>());
+            SeedAirborneJumpState(worldState, 40, jumper.position, impactCell, landingTick: 1);
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                Array.Empty<TileFeatureRuntimeDefinition>(),
+                new IEntityLogic[] { new ScriptedJumpTimingLogic(40, cooldownTicks: 2) });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(40, out var jumperAfter), Is.True);
+            Assert.That(jumperAfter.position.face, Is.EqualTo(FaceId.Front));
+            Assert.That(jumperAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(snapshotAfter.TryGetEnemyJumpState(40, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(snapshotAfter.TryGetEntity(11, out var stopperAfter), Is.True);
+            Assert.That(stopperAfter.hp, Is.EqualTo(3), "Off-bottom airborne jumpers are not same-tick landing impact candidates.");
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Movement_PlayerInput_FlipBeatsPushWhenBothButtonsArePressed()
         {
             var worldState = CreateWorldState(
@@ -5537,10 +5686,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TileFeatureState CreateDestroyTile(int tileId, SurfaceCell cell)
         {
+            return CreateTileFeature(tileId, cell, TileFeatureKind.Destroy);
+        }
+
+        private static TileFeatureState CreateTileFeature(int tileId, SurfaceCell cell, TileFeatureKind kind)
+        {
             return new TileFeatureState(
                 tileId,
                 cell,
-                TileFeatureKind.Destroy,
+                kind,
                 TileFeatureFlags.None,
                 sourceEntityId: 0,
                 ownerEntityId: 0,
@@ -5575,6 +5729,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var enemy = CreateUnit(entityId, position, hp, teamId: 2, facing: Direction.Right);
             enemy.aiMode = EnemyAiMode.Patrol;
             enemy.unitRole = UnitRole.Enemy;
+            return enemy;
+        }
+
+        private static EntityState CreateAirborneEnemyJumper(int entityId, SurfaceCell position)
+        {
+            var enemy = CreateUnit(entityId, position, hp: 3, teamId: 2, facing: Direction.Right);
+            enemy.aiMode = EnemyAiMode.Chase;
+            enemy.unitRole = UnitRole.Enemy;
+            enemy.boardPresence = EntityBoardPresence.Detached;
             return enemy;
         }
 
@@ -5640,6 +5803,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
+        private static EntityState CreateSlidingPushBox(int entityId, SurfaceCell position, Direction facing)
+        {
+            var box = CreateBox(entityId, position, BoxCapabilities.Push, facing);
+            box.state = EntityPhaseState.Sliding;
+            box.stateTimer = 0;
+            box.kineticInstigatorEntityId = 10;
+            box.kineticInstigatorTeamId = 1;
+            return box;
+        }
+
         private static EntityState CreateProjectile(int entityId, Vector2Int position, int hp)
         {
             return CreateProjectile(entityId, SurfaceCell.FromPlanar(position), hp);
@@ -5693,6 +5866,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return entities.Select(entity => entity.entityId).ToArray();
         }
 
+        private static void AssertResolvedJumpLanding(
+            WorldState worldState,
+            int entityId,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            SurfaceCell expectedLandingCell)
+        {
+            var snapshot = CreateSnapshot(worldState);
+            Assert.That(snapshot.TryGetEntity(entityId, out var source), Is.True);
+            Assert.That(snapshot.TryGetEnemyJumpState(entityId, out var jumpState), Is.True);
+            Assert.That(
+                EnemyJumpQueries.TryResolveLandingCell(
+                    snapshot,
+                    source,
+                    jumpState,
+                    out var landingCell,
+                    out _,
+                    tileFeatureDefinitions),
+                Is.True);
+            Assert.That(landingCell, Is.EqualTo(expectedLandingCell));
+        }
+
+        private static void AssertNoIllegalUnitSolidOverlap(WorldSnapshot snapshot)
+        {
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            foreach (var entity in entities)
+            {
+                if (entity.type != EntityType.Unit ||
+                    entity.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                Assert.That(
+                    snapshot.TryGetSolidSemanticAt(entity.position, out var solid) &&
+                    solid.Entity.entityId != entity.entityId,
+                    Is.False,
+                    $"Unit {entity.entityId} illegally overlaps Solid at {entity.position}.");
+            }
+        }
+
         private static Direction GetEntityFacing(WorldState worldState, int entityId)
         {
             var snapshot = CreateSnapshot(worldState);
@@ -5725,6 +5939,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);
+        }
+
+        private static BoardBounds DeferredJumpPredictionBounds()
+        {
+            return new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(5, 2));
+        }
+
+        private static void SeedAirborneJumpState(
+            WorldState worldState,
+            int entityId,
+            SurfaceCell sourceCell,
+            SurfaceCell lockedTargetCell,
+            int landingTick)
+        {
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                entityId,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = lockedTargetCell,
+                    windupEndTick = 0,
+                    landingTick = landingTick,
+                });
         }
 
         private static TickPipeline CreatePlayerTileFeaturePipeline(
@@ -5892,6 +6131,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     buffer.Add(_movementIntent.Value);
                 }
+            }
+        }
+
+        private sealed class ScriptedJumpTimingLogic : IMovementEntityLogic, IEnemyJumpTimingBinding
+        {
+            private readonly int _controlledEntityId;
+            private readonly int _cooldownTicks;
+
+            public ScriptedJumpTimingLogic(int controlledEntityId, int cooldownTicks)
+            {
+                _controlledEntityId = controlledEntityId;
+                _cooldownTicks = cooldownTicks;
+            }
+
+            public int ControlledEntityId => _controlledEntityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+            }
+
+            public bool TryGetJumpCooldownTicks(out int cooldownTicks)
+            {
+                cooldownTicks = _cooldownTicks;
+                return true;
             }
         }
 

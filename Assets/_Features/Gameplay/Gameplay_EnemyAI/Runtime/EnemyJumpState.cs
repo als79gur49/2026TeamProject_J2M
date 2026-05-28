@@ -200,7 +200,7 @@ namespace Game.Feature.Gameplay.Entities
             in EnemyJumpRuntimeState jumpState,
             out SurfaceCell landingCell,
             out string landingRule,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             landingCell = default;
             landingRule = string.Empty;

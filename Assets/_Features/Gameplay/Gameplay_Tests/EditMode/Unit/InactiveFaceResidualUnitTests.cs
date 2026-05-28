@@ -197,7 +197,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(snapshot.TryGetPlacementBlocker(EntityType.Unit, jumpState.lockedTargetCell, source.entityId, out _), Is.False);
             Assert.That(
-                EnemyJumpQueries.TryResolveLandingCell(snapshot, source, jumpState, out var landingCell, out var landingRule),
+                EnemyJumpQueries.TryResolveLandingCell(
+                    snapshot,
+                    source,
+                    jumpState,
+                    out var landingCell,
+                    out var landingRule,
+                    Array.Empty<TileFeatureRuntimeDefinition>()),
                 Is.True);
             Assert.That(landingCell, Is.EqualTo(jumpState.lockedTargetCell));
             Assert.That(landingRule, Is.EqualTo("TargetExact"));

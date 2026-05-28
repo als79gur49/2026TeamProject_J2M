@@ -816,6 +816,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         intent,
                         stopper.Cell,
                         tickIndex,
+                        tileFeatureDefinitions,
                         buffer))
                 {
                     return;
@@ -949,11 +950,17 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             MoveIntent intent,
             SurfaceCell impactCell,
             int tickIndex,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer)
         {
             if (tickIndex <= 0 ||
                 !TryResolveBoxImpactTeamId(source, source, out var sourceTeamId) ||
-                !HasSameTickHostileJumpLandingAt(snapshot, impactCell, sourceTeamId, tickIndex))
+                !HasSameTickHostileJumpLandingAt(
+                    snapshot,
+                    impactCell,
+                    sourceTeamId,
+                    tickIndex,
+                    tileFeatureDefinitions))
             {
                 return false;
             }
@@ -977,7 +984,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             WorldSnapshot snapshot,
             SurfaceCell impactCell,
             int sourceTeamId,
-            int tickIndex)
+            int tickIndex,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             var jumpEntries = new List<EnemyJumpSnapshotEntry>();
             snapshot.EnumerateEnemyJumpStatesOrdered(jumpEntries);
@@ -989,11 +997,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 if (jumpState.phase != EnemyJumpPhase.Airborne ||
                     tickIndex < jumpState.landingTick ||
                     !snapshot.TryGetEntity(jumpEntry.EntityId, out var jumper) ||
+                    jumper.position.face != snapshot.Topology.BottomFace ||
                     jumper.teamId <= 0 ||
                     jumper.teamId == sourceTeamId ||
                     jumper.hp <= 0 ||
                     jumper.markedForDeath ||
-                    !EnemyJumpQueries.TryResolveLandingCell(snapshot, jumper, jumpState, out var landingCell, out _))
+                    !EnemyJumpQueries.TryResolveLandingCell(
+                        snapshot,
+                        jumper,
+                        jumpState,
+                        out var landingCell,
+                        out _,
+                        tileFeatureDefinitions))
                 {
                     continue;
                 }
