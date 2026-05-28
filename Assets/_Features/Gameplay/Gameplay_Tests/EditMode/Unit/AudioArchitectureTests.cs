@@ -516,6 +516,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PlayerInvincible_DoesNotEmitPlayerDamageAudioIfPolicyRequires()
+        {
+            var planner = new GameplayAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>()));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(requests.Select(request => request.SemanticId), Has.No.EqualTo(GameplayAudioSemanticId.PlayerDamage));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayAudioRequestPlanner_EntityExitBoxDestroy_AfterEntityMotion_UsesEntityMotionDurationDelay()
         {
             var planner = new GameplayAudioRequestPlanner();

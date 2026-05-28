@@ -134,9 +134,15 @@ namespace Game.Feature.Gameplay.Loop
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             TickInputBuffer inputBuffer,
-            int startTickIndex = 1)
+            int startTickIndex = 1,
+            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
         {
-            return CreateDefaultBootstrapper().CreateTickRunner(worldState, entityLogics, inputBuffer, startTickIndex);
+            return CreateDefaultBootstrapper().CreateTickRunner(
+                worldState,
+                entityLogics,
+                inputBuffer,
+                startTickIndex,
+                demoGameplayOverrideSnapshotSource);
         }
 
         public static TickRunner CreateTickRunner(
@@ -150,7 +156,8 @@ namespace Game.Feature.Gameplay.Loop
             int startTickIndex = 1,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(
                 worldState,
@@ -163,7 +170,8 @@ namespace Game.Feature.Gameplay.Loop
                 startTickIndex,
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerContinuousLocomotion: playerContinuousLocomotion,
+                demoGameplayOverrideSnapshotSource: demoGameplayOverrideSnapshotSource);
         }
     }
 }

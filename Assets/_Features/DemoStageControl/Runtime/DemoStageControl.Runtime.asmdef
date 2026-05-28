@@ -2,6 +2,7 @@
   "name": "Game.Feature.DemoStageControl.Runtime",
   "rootNamespace": "Game.Feature.DemoStageControl",
   "references": [
+    "Game.Feature.Gameplay",
     "Game.Feature.Stages"
   ]
 }

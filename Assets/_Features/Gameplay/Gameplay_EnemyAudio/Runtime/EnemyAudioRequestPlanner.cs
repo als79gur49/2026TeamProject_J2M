@@ -145,9 +145,42 @@ namespace Game.Feature.Gameplay.EnemyAudio
             {
                 var signal = signals[i];
                 AddRequestIf(signal.EntityId, EnemyAudioCue.Windup, signal.StartedThisTick, requests);
-                AddRequestIf(signal.EntityId, EnemyAudioCue.Active, signal.ExecutedThisTick, requests);
+                AddEnemyActionExecutionRequest(signal, requests);
                 AddRequestIf(signal.EntityId, EnemyAudioCue.Recover, signal.StartedRecoveryThisTick, requests);
             }
+        }
+
+        private static void AddEnemyActionExecutionRequest(
+            in TickEnemyActionPresentationSignal signal,
+            ICollection<EnemyAudioRequest> requests)
+        {
+            if (!signal.ExecutedThisTick)
+            {
+                return;
+            }
+
+            if (signal.PresentationOutcome == EnemyActionPresentationOutcome.RejectedByReceiverCooldown)
+            {
+                return;
+            }
+
+            if (signal.PresentationSource == EnemyActionPresentationSource.PassiveContact)
+            {
+                if (signal.PresentationOutcome == EnemyActionPresentationOutcome.RejectedByPlayerInvincible)
+                {
+                    return;
+                }
+
+                AddRequest(signal.EntityId, EnemyAudioCue.PassiveContact, requests);
+                return;
+            }
+
+            if (signal.PresentationSource == EnemyActionPresentationSource.ForwardCellImpact)
+            {
+                return;
+            }
+
+            AddRequest(signal.EntityId, EnemyAudioCue.Active, requests);
         }
 
         private static void BuildUtilityRequests(

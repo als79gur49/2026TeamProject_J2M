@@ -17,6 +17,7 @@ namespace Game.Feature.UI.Composition
         private readonly DebugCommandAccess _debugCommandAccess;
         private readonly Action<DebugCommandResult> _debugStageResultRequested;
         private readonly IDemoStageControlCommandPort _demoStageControlCommandPort;
+        private readonly IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
         private readonly Func<bool> _isDebugCommandsRuntimeEnabled;
 
         public GameplayPopupRuntimeFactory(
@@ -25,6 +26,7 @@ namespace Game.Feature.UI.Composition
             DebugCommandAccess debugCommandAccess = null,
             Action<DebugCommandResult> debugStageResultRequested = null,
             IDemoStageControlCommandPort demoStageControlCommandPort = null,
+            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null,
             Func<bool> isDebugCommandsRuntimeEnabled = null)
         {
             _popupLayerView = popupLayerView ?? throw new ArgumentNullException(nameof(popupLayerView));
@@ -32,6 +34,7 @@ namespace Game.Feature.UI.Composition
             _debugCommandAccess = debugCommandAccess ?? DebugCommandAccess.Disabled;
             _debugStageResultRequested = debugStageResultRequested;
             _demoStageControlCommandPort = demoStageControlCommandPort;
+            _demoGameplayOverrideCommandPort = demoGameplayOverrideCommandPort;
             _isDebugCommandsRuntimeEnabled = isDebugCommandsRuntimeEnabled ?? IsDebugCommandsRuntimeEnabled;
         }
 
@@ -237,6 +240,7 @@ namespace Game.Feature.UI.Composition
                 new DemoStageControlPanelRuntime(
                     view,
                     _demoStageControlCommandPort,
+                    _demoGameplayOverrideCommandPort,
                     payload,
                     () => DestroyObject(view.gameObject)));
         }

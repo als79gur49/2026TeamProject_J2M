@@ -7,14 +7,17 @@ namespace Game.Feature.Gameplay.Loop
     {
         private readonly TickInputBuffer _inputBuffer;
         private readonly TickPipeline _pipeline;
+        private readonly IDemoGameplayOverrideSnapshotSource _demoGameplayOverrideSnapshotSource;
 
         public TickRunner(
             TickPipeline pipeline,
             TickInputBuffer inputBuffer,
-            int startTickIndex = 1)
+            int startTickIndex = 1,
+            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
         {
             _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
             _inputBuffer = inputBuffer ?? throw new ArgumentNullException(nameof(inputBuffer));
+            _demoGameplayOverrideSnapshotSource = demoGameplayOverrideSnapshotSource;
 
             if (startTickIndex <= 0)
             {
@@ -44,7 +47,9 @@ namespace Game.Feature.Gameplay.Loop
                 throw new InvalidOperationException("TickRunner requires monotonic tick execution.");
             }
 
-            var result = _pipeline.RunTick(input);
+            var overrideSnapshot = _demoGameplayOverrideSnapshotSource?.GetSnapshot() ??
+                                   DemoGameplayOverrideSnapshot.None;
+            var result = _pipeline.RunTick(input, overrideSnapshot);
             if (result.TickIndex != input.TickIndex)
             {
                 throw new InvalidOperationException("TickPipeline returned a mismatched tick index.");

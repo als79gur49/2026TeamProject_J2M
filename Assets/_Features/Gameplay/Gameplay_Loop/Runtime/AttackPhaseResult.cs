@@ -24,7 +24,8 @@ namespace Game.Feature.Gameplay.Loop
             DamageRejectReason rejectReason,
             int localActionIndex = 0,
             bool hasPlayerDamageState = false,
-            PlayerDamageState playerDamageState = default)
+            PlayerDamageState playerDamageState = default,
+            bool consumesReceiverCooldown = false)
         {
             _actionPlanId = groupId;
             _intentId = intentId;
@@ -37,6 +38,7 @@ namespace Game.Feature.Gameplay.Loop
             LocalActionIndex = localActionIndex;
             HasPlayerDamageState = hasPlayerDamageState;
             PlayerDamageState = playerDamageState;
+            ConsumesReceiverCooldown = consumesReceiverCooldown;
         }
 
         public int ActionPlanId => _actionPlanId;
@@ -64,6 +66,8 @@ namespace Game.Feature.Gameplay.Loop
         public bool HasPlayerDamageState { get; }
 
         public PlayerDamageState PlayerDamageState { get; }
+
+        public bool ConsumesReceiverCooldown { get; }
     }
 
     public readonly struct PendingCellImpactResolutionRecord
