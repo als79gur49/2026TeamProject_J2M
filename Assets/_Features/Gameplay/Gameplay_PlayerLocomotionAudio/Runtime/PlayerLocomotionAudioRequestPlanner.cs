@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.PlayerLocomotionAudio
                     continue;
                 }
 
-                if (!IsAudibleBottomToBackBlockedTransition(signal))
+                if (!IsAudibleVisualBottomToBackBlockedTransition(signal))
                 {
                     continue;
                 }
@@ -54,17 +54,19 @@ namespace Game.Feature.Gameplay.PlayerLocomotionAudio
             return requests;
         }
 
-        private static bool IsAudibleBottomToBackBlockedTransition(
+        private static bool IsAudibleVisualBottomToBackBlockedTransition(
             in TickPlayerTopologyTransitionBlockedSignal signal)
         {
+            var sourceBottomFace = signal.SourceTopology.BottomFace;
+            var visualBackFace = FaceIdUtility.GetPrevious(sourceBottomFace);
+
             return signal.PrimaryBlockerKind != TickTraversalBlockerKind.None &&
                    signal.PrimaryBlockerKind != TickTraversalBlockerKind.BoardEdge &&
                    signal.Direction == Direction.Down &&
-                   signal.SourceTopology.BottomFace == FaceId.Floor &&
-                   signal.OriginCell.face == FaceId.Floor &&
+                   signal.OriginCell.face == sourceBottomFace &&
                    signal.RotationKind == CubeRotationKind.Backward &&
-                   signal.RequiredTopology.BottomFace == FaceId.Back &&
-                   signal.CandidateCell.face == FaceId.Back;
+                   signal.RequiredTopology.BottomFace == visualBackFace &&
+                   signal.CandidateCell.face == visualBackFace;
         }
 
         private static int ComputeTopologyTransitionBlockedSequenceId(

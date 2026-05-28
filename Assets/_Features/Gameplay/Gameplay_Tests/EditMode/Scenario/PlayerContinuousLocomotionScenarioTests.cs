@@ -666,8 +666,41 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 string.Join(";", result.MovementPhaseResult.RejectedReasons));
             AssertBottomToBackBlockedSignal(
                 result,
+                FaceId.Floor,
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 new SurfaceCell(FaceId.Back, 0, 1),
+                TickTraversalBlockerKind.Solid);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Free2DTopology_VisualBottomToBackTargetFaceBox_WhenBottomFaceIsFront_EmitsTopologyBlockedSignal()
+        {
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 0, 1)),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Front));
+            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
+            var pipeline = CreateNativeTopologyPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(entry =>
+                    entry.Contains("Free2DTopologyNativeRejected") &&
+                    entry.Contains("TargetFaceBlockedBySolid")),
+                Is.True,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
+            AssertBottomToBackBlockedSignal(
+                result,
+                FaceId.Front,
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Floor, 0, 1),
                 TickTraversalBlockerKind.Solid);
         }
 
@@ -701,6 +734,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 string.Join(";", result.MovementPhaseResult.RejectedReasons));
             AssertBottomToBackBlockedSignal(
                 result,
+                FaceId.Floor,
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 targetCell,
                 TickTraversalBlockerKind.Terrain);
@@ -1135,6 +1169,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 string.Join(";", result.MovementPhaseResult.RejectedReasons));
             AssertBottomToBackBlockedSignal(
                 result,
+                FaceId.Floor,
                 sourceCell,
                 targetCell,
                 TickTraversalBlockerKind.TileFeature);
@@ -2613,18 +2648,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static void AssertBottomToBackBlockedSignal(
             TickResult result,
+            FaceId sourceBottomFace,
             SurfaceCell sourceCell,
             SurfaceCell targetCell,
             TickTraversalBlockerKind blockerKind)
         {
+            var visualBackFace = FaceIdUtility.GetPrevious(sourceBottomFace);
+
             Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
             var signal = result.PresentationData.PlayerTopologyTransitionBlockedSignals[0];
             Assert.That(signal.EntityId, Is.EqualTo(10));
             Assert.That(signal.Direction, Is.EqualTo(Direction.Down));
             Assert.That(signal.OriginCell, Is.EqualTo(sourceCell));
             Assert.That(signal.CandidateCell, Is.EqualTo(targetCell));
-            Assert.That(signal.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(signal.RequiredTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
+            Assert.That(signal.SourceTopology, Is.EqualTo(new CubeTopologyState(sourceBottomFace)));
+            Assert.That(signal.RequiredTopology, Is.EqualTo(new CubeTopologyState(visualBackFace)));
             Assert.That(signal.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
             Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(blockerKind));
         }

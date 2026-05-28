@@ -217,11 +217,20 @@ namespace Game.Feature.Gameplay.Tests
             Assert.That(exception.Message, Does.Contain("only allows one-shot definitions"));
         }
 
-        [Test]
-        public void Planner_BuildsTopologyTransitionBlockedCue_ForBottomToBackBlockedSignal()
+        [TestCase(FaceId.Floor, FaceId.Back)]
+        [TestCase(FaceId.Front, FaceId.Floor)]
+        [TestCase(FaceId.Ceiling, FaceId.Front)]
+        [TestCase(FaceId.Back, FaceId.Ceiling)]
+        public void Planner_BuildsTopologyTransitionBlockedCue_ForVisualBottomToBackBlockedSignal(
+            FaceId sourceBottomFace,
+            FaceId visualBackFace)
         {
             var planner = new PlayerLocomotionAudioRequestPlanner();
-            var signal = CreateBlockedSignal();
+            var signal = CreateBlockedSignal(
+                originFace: sourceBottomFace,
+                candidateFace: visualBackFace,
+                sourceBottomFace: sourceBottomFace,
+                requiredBottomFace: visualBackFace);
 
             var requests = planner.BuildRequests(
                 CreateTickResult(
@@ -254,7 +263,7 @@ namespace Game.Feature.Gameplay.Tests
         }
 
         [Test]
-        public void Planner_DoesNotBuildTopologyTransitionBlockedCue_ForBackwardRotationToNonBackDestination()
+        public void Planner_DoesNotBuildTopologyTransitionBlockedCue_ForBackwardRotationToNonVisualBackDestination()
         {
             var planner = new PlayerLocomotionAudioRequestPlanner();
             var signal = CreateBlockedSignal(
