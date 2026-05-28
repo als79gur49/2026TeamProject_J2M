@@ -51,9 +51,15 @@ MonoBehaviour:
     face: 0
     x: 0
     y: 0
+  presentationRoot: {fileID: 0}
   animator: {fileID: 6660101000000000001}
   buttonActivatedTriggerName: ButtonActivated
   destroyTileTriggeredTriggerName: DestroyTileTriggered
+  destroyTileActivatedTriggerName: DestroyTileActivated
+  destroyTileDeactivatedTriggerName: DestroyTileDeactivated
+  destroyTileActiveBoolName: DestroyTileActive
+  destroyTileActiveStateName: DestroyTileActiveIdle
+  destroyTileInactiveStateName: DestroyTileInactiveIdle
   slideTileRedirectedTriggerName: SlideTileRedirected
   barricadeBlockedTriggerName: BarricadeBlocked
   barricadeCrushedTriggerName: BarricadeCrushed
@@ -64,11 +70,17 @@ MonoBehaviour:
   barricadeLoweredStateName: LoweredIdle
   exitOpenedTriggerName: ExitOpened
   exitEnteredTriggerName: ExitEntered
+  exitOpenBoolName: ExitOpen
+  exitOpenedStateName: ExitOpenedIdle
+  exitClosedStateName: ExitClosedIdle
   moonBlockGeneratedTriggerName: MoonBlockGenerated
   moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
   moonBlockGeneratorBlockedUnitTriggerName:
   moonBlockGeneratorBlockedWallLikeSolidTriggerName:
   moonBlockGeneratorBlockedPlacementTriggerName:
+  destroyTileMaterialRenderers: []
+  destroyTileInactiveColor: {r: 1, g: 1, b: 1, a: 1}
+  destroyTileInactiveMetallic: 1
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -85,6 +97,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   destroyTileTriggeredPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileActivatedPlayed:
+    m_PersistentCalls:
+      m_Calls: []
+  destroyTileDeactivatedPlayed:
     m_PersistentCalls:
       m_Calls: []
   slideTileRedirectedPlayed:
@@ -187,15 +205,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: fc3fa2b055f5155439efb7e678c5da47, type: 3}
       propertyPath: m_LocalScale.x
-      value: 5.1
+      value: 5.25
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: fc3fa2b055f5155439efb7e678c5da47, type: 3}
       propertyPath: m_LocalScale.y
-      value: 5.1
+      value: 5.25
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: fc3fa2b055f5155439efb7e678c5da47, type: 3}
       propertyPath: m_LocalScale.z
-      value: 5.1
+      value: 10.145
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: fc3fa2b055f5155439efb7e678c5da47, type: 3}
       propertyPath: m_LocalPosition.x
@@ -207,7 +225,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: fc3fa2b055f5155439efb7e678c5da47, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.313
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: fc3fa2b055f5155439efb7e678c5da47, type: 3}
       propertyPath: m_LocalRotation.w

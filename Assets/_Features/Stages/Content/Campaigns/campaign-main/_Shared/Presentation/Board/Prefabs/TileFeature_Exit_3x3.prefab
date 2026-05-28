@@ -77,6 +77,9 @@ MonoBehaviour:
   moonBlockGeneratorBlockedUnitTriggerName: 
   moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
   moonBlockGeneratorBlockedPlacementTriggerName: 
+  destroyTileMaterialRenderers: []
+  destroyTileInactiveColor: {r: 1, g: 1, b: 1, a: 1}
+  destroyTileInactiveMetallic: 1
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -187,7 +190,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1
+      value: 1.018
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
       propertyPath: m_LocalPosition.x
