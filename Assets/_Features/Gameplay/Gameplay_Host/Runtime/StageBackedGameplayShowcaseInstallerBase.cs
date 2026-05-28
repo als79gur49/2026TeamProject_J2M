@@ -54,12 +54,14 @@ namespace Game.Feature.Gameplay.Host
             var sequenceDefinition = campaignStageSequenceDefinition != null
                 ? campaignStageSequenceDefinition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+            var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
             context = new DemoStageControlGameplayContext(
                 stageCatalogProvider,
                 new DemoStageControlCampaignBridge(
                     _saveSlotStore,
                     _activeSlotProvider,
-                    new CampaignStageSequenceResolver(sequenceDefinition)));
+                    sequenceResolver),
+                sequenceResolver);
             return true;
         }
 

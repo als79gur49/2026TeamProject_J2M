@@ -666,6 +666,7 @@ namespace Game.Feature.UI.Composition
             return new DemoStageControlService(
                 _demoStageControlSettings ?? DemoStageControlSettings.EnabledByDefault(),
                 context.StageCatalogProvider,
+                context.SequenceResolver,
                 context.CampaignBridge,
                 new DemoStageControlLaunchBridge(launchRouter, () => launchRouter.IsLaunchInProgress),
                 sceneHost.UiAccess.DemoStageControlCompletionBridge);
