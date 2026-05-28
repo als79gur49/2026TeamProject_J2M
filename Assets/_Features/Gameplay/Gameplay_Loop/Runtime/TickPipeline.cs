@@ -2392,7 +2392,8 @@ namespace Game.Feature.Gameplay.Loop
                     : PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
-            if (TileFeatureAccessQueries.IsActiveDestroyTile(
+            if (TileFeatureHazardQueries.IsDestroyTileLethalForUnit(entity) &&
+                TileFeatureAccessQueries.IsActiveDestroyTile(
                     snapshot,
                     _tileFeatureDefinitions,
                     transition.TargetAnchor,
@@ -2797,12 +2798,15 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
+            var blocksActiveDestroyTileForEntity = TileFeatureHazardQueries.IsDestroyTileLethalForUnit(entity);
+
             bool BlocksPlayerVoluntaryFree2DDestroyTile(
                 SurfaceCell candidateCell,
                 CubeTopologyState evaluationTopology,
                 out ContinuousLocomotionRejectionReason rejectedBy)
             {
-                if (TileFeatureAccessQueries.IsActiveDestroyTile(
+                if (blocksActiveDestroyTileForEntity &&
+                    TileFeatureAccessQueries.IsActiveDestroyTile(
                         snapshot,
                         _tileFeatureDefinitions,
                         candidateCell,

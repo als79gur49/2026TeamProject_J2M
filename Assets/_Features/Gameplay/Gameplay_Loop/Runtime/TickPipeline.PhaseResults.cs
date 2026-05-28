@@ -804,6 +804,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (!TrySelectCandidateCell(
                         snapshot,
                         source,
+                        unitMobilityKind,
                         summonRuntime,
                         reservedSpawnCells,
                         tileFeatureDefinitions,
@@ -864,12 +865,14 @@ namespace Game.Feature.Gameplay.Loop
         private static bool TrySelectCandidateCell(
             WorldSnapshot snapshot,
             in EntityState source,
+            UnitMobilityKind summonedUnitMobilityKind,
             in SummonMinionRuntime summonRuntime,
             ISet<SurfaceCell> reservedSpawnCells,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out SurfaceCell spawnCell)
         {
             var candidateOffsets = BuildCandidateOffsets(source.facing);
+            var riskActor = CreateSummonedPlacementRiskActor(source, summonedUnitMobilityKind);
             var hasRiskCandidate = false;
             var riskCandidate = default(SurfaceCell);
             for (var i = 0; i < candidateOffsets.Count; i++)
@@ -917,7 +920,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (TileFeatureHazardQueries.EvaluateTileApproachRisk(
                         snapshot,
                         tileFeatureDefinitions,
-                        source,
+                        riskActor,
                         candidateCell) != TileApproachRisk.Neutral)
                 {
                     if (!hasRiskCandidate)
@@ -941,6 +944,20 @@ namespace Game.Feature.Gameplay.Loop
 
             spawnCell = default;
             return false;
+        }
+
+        private static EntityState CreateSummonedPlacementRiskActor(
+            in EntityState source,
+            UnitMobilityKind summonedUnitMobilityKind)
+        {
+            var riskActor = source;
+            riskActor.entityId = 0;
+            riskActor.type = EntityType.Unit;
+            riskActor.unitMobilityKind = summonedUnitMobilityKind;
+            riskActor.boardPresence = EntityBoardPresence.Occupying;
+            riskActor.hp = Math.Max(1, riskActor.hp);
+            riskActor.markedForDeath = false;
+            return riskActor;
         }
 
         private static List<Vector2Int> BuildCandidateOffsets(Direction facing)
