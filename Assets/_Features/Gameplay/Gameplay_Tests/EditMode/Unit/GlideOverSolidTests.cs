@@ -708,14 +708,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GlideOverSolid_ActiveDoesNotBypassBarricadeTileFeature()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol),
+                },
+                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
+                GameplayTerrainData.Empty,
+                new[] { CreateTileFeature(100, destination, TileFeatureKind.Barricade, TileFeatureFlags.Activated) });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 10, durationTicks: 6, cooldownTicks: 0, recoveryTicks: 1));
+
+            var tick = CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
+                    worldState,
+                    new ScriptedMovementLogic(new RawMovementIntent(40, priority: 100, destination: destination.PlanarPosition)),
+                    new[] { CreateTileDefinition(100, TileFeatureKind.Barricade) },
+                    moonBlockRespawnDefinitions: null)
+                .RunTick(new TickInput(1));
+
+            Assert.That(HasMoveEntity(tick, 40, destination), Is.False);
+            Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
+            AssertEntityAt(worldState, 40, SurfaceCell.FromPlanar(Vector2Int.zero));
+            Assert.That(worldState.CreateSnapshot().TryGetPrimaryUnitAt(destination, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Glider_Active_PassesEverySolidType_ButNonActiveCannot()
         {
             foreach (var testCase in CreateP1SolidTileMatrixCases())
             {
-                AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Active, shouldMove: true);
+                AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Active, testCase.ActiveShouldMove);
                 AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Windup, shouldMove: false);
                 AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Recovery, shouldMove: false);
                 AssertP1SolidTilePhase(testCase, EnemyGlidePhase.Cooldown, shouldMove: false);
+
+                if (!testCase.ActiveShouldMove)
+                {
+                    continue;
+                }
 
                 var activeWorldState = testCase.CreateWorldState();
                 MoveGliderOntoSolidWithActiveAllowance(
@@ -2335,7 +2370,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 destination,
                 new[] { CreateWall(30, destination) },
                 new[] { CreateTileFeature(100, destination, TileFeatureKind.Barricade, TileFeatureFlags.Activated) },
-                new[] { CreateTileDefinition(100, TileFeatureKind.Barricade) });
+                new[] { CreateTileDefinition(100, TileFeatureKind.Barricade) },
+                activeShouldMove: false);
             yield return new P1SolidTileMatrixCase(
                 "DestroyTile",
                 destination,
@@ -2684,6 +2720,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 IReadOnlyList<TileFeatureState> tileFeatures = null,
                 IReadOnlyList<TileFeatureRuntimeDefinition> tileDefinitions = null,
                 IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
+                bool activeShouldMove = true,
                 Action<WorldState> seed = null)
             {
                 Name = name;
@@ -2692,12 +2729,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 _tileFeatures = tileFeatures;
                 TileDefinitions = tileDefinitions;
                 MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions;
+                ActiveShouldMove = activeShouldMove;
                 _seed = seed;
             }
 
             public string Name { get; }
 
             public SurfaceCell Destination { get; }
+
+            public bool ActiveShouldMove { get; }
 
             public IReadOnlyList<TileFeatureRuntimeDefinition> TileDefinitions { get; }
 
