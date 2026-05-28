@@ -289,32 +289,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
-            var sourceMove = result.MovementPhaseResult.ResolvedOperations.Single(operation =>
-                operation.Kind == FinalizationOperationKind.MoveEntity &&
-                operation.EntityId == 30);
 
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked", StringComparison.Ordinal)),
                 Is.False);
-            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
-            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
-            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(30));
-            Assert.That(result.PresentationData.TileEvents[0].TimingAnchor.Kind, Is.EqualTo(PresentationTimingKind.MotionContact));
-            Assert.That(result.PresentationData.TileEvents[0].TimingAnchor.SourceEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
             Assert.That(
-                result.PresentationData.TileEvents[0].TimingAnchor.ActionPlanId,
-                Is.EqualTo(sourceMove.Metadata.ActionPlanId));
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                    operation.EntityId == 30 &&
+                    operation.BoardPresence == EntityBoardPresence.InFlight),
+                Is.True);
             Assert.That(
-                result.PresentationData.TileEvents[0].TimingAnchor.LocalActionIndex,
-                Is.EqualTo(sourceMove.Metadata.LocalActionIndex));
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
+                Is.True);
+            Assert.That(result.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(30));
             Assert.That(
-                result.PresentationData.TileEvents[0].TimingAnchor.MovementSemanticKind,
-                Is.EqualTo(MovementSemanticKind.Flip));
-            Assert.That(
-                result.PresentationData.TileEvents[0].TimingAnchor.VisualContactNormalizedTime,
-                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
-            Assert.That(result.FinalEntities.Any(entity => entity.entityId == 30), Is.False);
+                result.FinalEntities.Single(entity => entity.entityId == 30).boardPresence,
+                Is.EqualTo(EntityBoardPresence.InFlight));
         }
 
         [Test]
@@ -680,7 +676,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void MovementPhase_Flip_RemainsGridTransaction()
+        public void MovementPhase_Flip_SchedulesOrdinaryB1Contact()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -696,18 +692,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
-                result,
-                30,
-                MovementExecutionBoundaryKind.BoxActionMovement);
-            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(
-                result.PresentationData.EntityMotions.Any(
-                    motion => motion.EntityId == 30 &&
-                              motion.MotionKind == TickEntityMotionKind.Flip &&
-                              motion.SourceCell == new SurfaceCell(FaceId.Floor, -1, 0) &&
-                              motion.DestinationCell == new SurfaceCell(FaceId.Floor, 1, 0)),
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                    operation.EntityId == 30 &&
+                    operation.BoardPresence == EntityBoardPresence.InFlight &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
                 Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                    operation.ScheduledFlipContact.SourceBoxEntityId == 30 &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
+                Is.True);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(30));
         }
 
         [Test]
@@ -747,7 +748,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void MoveOwnership_BoxActionMovement_RetainsRequiredMovePresentation()
         {
             MovementPhase_BoxPush_RemainsGridTransaction();
-            MovementPhase_Flip_RemainsGridTransaction();
+            MovementPhase_Flip_SchedulesOrdinaryB1Contact();
         }
 
         [Test]
@@ -762,7 +763,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void MoveOwnership_GridTransactions_Retained()
         {
             MovementPhase_BoxPush_RemainsGridTransaction();
-            MovementPhase_Flip_RemainsGridTransaction();
+            MovementPhase_Flip_SchedulesOrdinaryB1Contact();
             MovementPhase_Item_RemainsGridTransaction();
             DeprecationPhase1_MovementExpanderGridBranchStillAllowed();
         }
@@ -2374,27 +2375,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
+                    "BoardPresenceCommitted",
                     "E=30",
-                    "To=(1,0)",
-                    "Facing=Right"),
+                    "Presence=InFlight"),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
                 Is.True);
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
             Assert.That(GetEntityFacing(worldState, 10), Is.EqualTo(Direction.Right));
-            Assert.That(GetEntityFacing(worldState, 30), Is.EqualTo(Direction.Right));
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (EntityId: 30, Kind: TickEntityMotionKind.Flip, Source: new SurfaceCell(FaceId.Floor, -1, 0), Destination: new SurfaceCell(FaceId.Floor, 1, 0)),
-                },
-                result.PresentationData
-                    .EntityMotions
-                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
-                    .ToArray());
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(30));
             Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
-            Assert.That(result.Trace.Text, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(1,0)|Facing=Right"));
+            Assert.That(result.Trace.Text, Does.Contain("BoardPresenceCommitted|G=1|I=1|E=30|Presence=InFlight"));
         }
 
         [Test]
@@ -2835,18 +2833,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
+                    "BoardPresenceCommitted",
                     "E=30",
-                    "To=(1,0)",
-                    "Facing=Right"),
+                    "Presence=InFlight"),
                 Is.True);
-            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("BoardPresenceCommitted")), Is.False);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("DestroyMarked")), Is.False);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
+                Is.True);
             Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog), Is.Empty);
             Assert.That(result.PresentationData.VisibilityChanges, Is.Empty);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(GetEntityCell(worldState, 30), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(GetEntityCell(worldState, 30), Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out var flippedBox), Is.True);
+            Assert.That(flippedBox.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
             Assert.That(flippedBox.boxCapabilities, Is.EqualTo(BoxCapabilities.Item | BoxCapabilities.Flip | BoxCapabilities.Destroy));
             Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
         }
@@ -3120,7 +3123,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     PlayerTickCommand.Flip(Direction.Right)));
 
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                    operation.EntityId == 30 &&
+                    operation.BoardPresence == EntityBoardPresence.InFlight),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
+                Is.True);
         }
 
         [Test]
@@ -4463,11 +4478,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(
                     SemanticEventAssertions.ContainsEvent(
                         result.MovementPhaseResult.CommitEvents,
-                        "MoveCommitted",
+                        "BoardPresenceCommitted",
                         "E=20",
-                        "To=Front(1,0)"),
+                        "Presence=InFlight"),
                     Is.True);
-                Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+                Assert.That(
+                    result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                        operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                        operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                        operation.ScheduledFlipContact.SourceBoxEntityId == 20),
+                    Is.True);
+                Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 2)));
             }
             finally
             {
@@ -4625,13 +4646,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.CommitEvents,
-                    "MoveCommitted",
+                    "BoardPresenceCommitted",
                     "E=30",
-                    "To=(-1,0)",
-                    "Facing=Left"),
+                    "Presence=InFlight"),
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(2, 0)));
         }
 

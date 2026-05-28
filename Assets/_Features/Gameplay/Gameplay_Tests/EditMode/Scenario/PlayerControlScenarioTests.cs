@@ -465,11 +465,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(20));
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    (EntityId: 20, Kind: TickEntityMotionKind.Flip),
-                },
+                System.Array.Empty<(int EntityId, TickEntityMotionKind Kind)>(),
                 executeTick.PresentationData.EntityMotions.Select(motion => (motion.EntityId, motion.MotionKind)).ToArray());
+            Assert.That(executeTick.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(20));
+            Assert.That(
+                executeTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                    operation.ScheduledFlipContact.SourceBoxEntityId == 20),
+                Is.True);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
@@ -477,6 +481,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(controlState.activeAction.executionAttempted, Is.True);

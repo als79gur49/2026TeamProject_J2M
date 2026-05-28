@@ -750,8 +750,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(-1, 0), MovementCommandKind.Flip)) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.GridTransactionsRemainAllowed(flipTick, 30, MovementExecutionBoundaryKind.BoxActionMovement);
-            Assert.That(flipTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 30), Is.True);
+            Assert.That(
+                flipTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                    operation.EntityId == 30 &&
+                    operation.BoardPresence == EntityBoardPresence.InFlight &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
+                Is.True);
+            Assert.That(
+                flipTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
+                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
+                    operation.ScheduledFlipContact.SourceBoxEntityId == 30 &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
+                Is.True);
+            Assert.That(flipTick.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(30));
 
             var itemTick = CreatePipeline(
                     CreateWorldState(new[]

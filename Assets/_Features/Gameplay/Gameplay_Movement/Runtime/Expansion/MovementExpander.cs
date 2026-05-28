@@ -521,12 +521,45 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.Priority,
                 ActionGroupKind.Flip);
             actionGroup.AssignBoxKineticOwner(target.entityId, source.entityId, source.teamId);
-            actionGroup.Moves.Add(
-                new MoveAction(
+            actionGroup.BoardPresenceChanges.Add(
+                new BoardPresenceChangeAction(target.entityId, EntityBoardPresence.InFlight));
+            var actionStartTick = intent.ActionStartTick > 0
+                ? intent.ActionStartTick
+                : tickIndex - _flipExecuteDelayTicks;
+            var executeTick = intent.ActionExecuteTick > 0
+                ? intent.ActionExecuteTick
+                : tickIndex;
+            var actionDurationTicks = intent.ActionDurationTicks > 0
+                ? intent.ActionDurationTicks
+                : _flipInputLockDurationTicks;
+            var actionVisualImpactDelayTicks = intent.ActionDurationTicks > 0
+                ? GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(actionDurationTicks)
+                : _flipB1VisualImpactDelayTicks;
+            var dueTick = Math.Max(tickIndex, actionStartTick + actionVisualImpactDelayTicks);
+            var resolvedFlipExecuteDelayTicks = Math.Max(0, executeTick - actionStartTick);
+            actionGroup.AssignScheduledFlipContact(
+                new ScheduledFlipContactDraft(
+                    ScheduledFlipContactKind.OrdinaryLanding,
+                    source.entityId,
                     target.entityId,
                     target.position,
                     landingCell,
-                    ResolveCardinalFacing(-delta, "Flip landing requires an orthogonal adjacent interaction direction.")));
+                    landingCell,
+                    interactionFacing,
+                    target.position.face,
+                    target.boxCapabilities,
+                    BoxImpactDamageAmount,
+                    source.type == EntityType.Unit && source.teamId > 0 ? source.entityId : 0,
+                    source.teamId,
+                    actionStartTick,
+                    actionStartTick + actionVisualImpactDelayTicks,
+                    resolvedFlipExecuteDelayTicks,
+                    actionDurationTicks,
+                    executeTick,
+                    dueTick,
+                    intent.LocalSequence,
+                    FlipContactCancellationPolicy.SafeReturnOrDestroy,
+                    FlipContactDispositionPolicy.DefaultB1OrdinaryLanding));
             buffer.Add(actionGroup);
         }
 

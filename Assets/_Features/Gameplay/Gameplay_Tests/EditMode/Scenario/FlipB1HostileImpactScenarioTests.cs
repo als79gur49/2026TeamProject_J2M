@@ -794,33 +794,50 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlipB1HostileImpact_OrdinarySuccess_RemainsSameTickMaterialize_InPhase1()
+        public void OrdinaryFlipB1_ExecuteTick_DoesNotMaterializeLandingImmediately()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
-            });
-            var pipeline = CreatePipeline(
-                worldState,
-                new IEntityLogic[]
-                {
-                    CreatePlayerLogic(10),
-                });
-
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            var result = RunUntilExecute(pipeline);
+            RunOrdinaryFlipToExecute(out var worldState, out var result);
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
-            Assert.That(result.PresentationData.FlipB1InFlightMotionSignals, Is.Empty);
-            Assert.That(
-                result.PresentationData.EntityMotions.Any(
-                    motion => motion.EntityId == 20 && motion.MotionKind == TickEntityMotionKind.Flip),
-                Is.True);
+            Assert.That(result.AttackPhaseResult.FrozenMovementReservationExport.GetCellStatus(new SurfaceCell(FaceId.Floor, -1, 0)), Is.EqualTo(ReservationStatus.None));
+            Assert.That(result.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(20));
             Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
-            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
-            Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
+            Assert.That(GetScheduledContacts(worldState).Single().Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_ExecuteTick_BoxBecomesInFlight()
+        {
+            RunOrdinaryFlipToExecute(out var worldState, out _);
+
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
+            Assert.That(GetScheduledContacts(worldState).Single().Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_ExecuteTick_LandingCellRemainsUnreserved()
+        {
+            RunOrdinaryFlipToExecute(out _, out var result);
+
+            Assert.That(result.AttackPhaseResult.FrozenMovementReservationExport.GetCellStatus(new SurfaceCell(FaceId.Floor, -1, 0)), Is.EqualTo(ReservationStatus.None));
+            Assert.That(result.AttackPhaseResult.FrozenMovementReservationExport.ImpactReservations, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_ExecuteTick_SourceCellNoLongerSolidOccupant()
+        {
+            RunOrdinaryFlipToExecute(out var worldState, out _);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+            Assert.That(snapshot.TryGetSolidSemanticAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
         }
 
         [Test]
@@ -853,6 +870,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
             return RunUntilExecute(pipeline);
+        }
+
+        private static void RunOrdinaryFlipToExecute(out WorldState worldState, out TickResult executeTick)
+        {
+            worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var pipeline = CreatePipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreatePlayerLogic(10),
+                });
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            executeTick = RunUntilExecute(pipeline);
         }
 
         private static void RunPlayerFlipImpactToDue(
