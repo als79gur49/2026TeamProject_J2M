@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using Game.Feature.UI.HUD;
 
@@ -66,7 +67,8 @@ namespace Game.Feature.UI.Application
                     kind,
                     changed.Count > 0 ? changed[0] : -1,
                     changed,
-                    NextSequenceId());
+                    NextSequenceId(),
+                    ResolveAudioCuePolicy(next));
             }
 
             if (next.RemainingChances > previous.RemainingChances)
@@ -76,10 +78,18 @@ namespace Game.Feature.UI.Application
                     ChanceChangeKind.Gained,
                     changed.Count > 0 ? changed[0] : -1,
                     changed,
-                    NextSequenceId());
+                    NextSequenceId(),
+                    ResolveAudioCuePolicy(next));
             }
 
             return ChanceChangeAnimationHint.None;
+        }
+
+        private static ChanceChangeAudioCuePolicy ResolveAudioCuePolicy(UIChanceSlice chance)
+        {
+            return chance.AudioPolicy == GameplayChanceAudioPolicy.SuppressChanceChangeCue
+                ? ChanceChangeAudioCuePolicy.Suppress
+                : ChanceChangeAudioCuePolicy.Default;
         }
 
         private int NextSequenceId()

@@ -1,5 +1,11 @@
 namespace Game.Feature.Gameplay.UIAccess.Models
 {
+    public enum GameplayChanceAudioPolicy
+    {
+        Default = 0,
+        SuppressChanceChangeCue = 1,
+    }
+
     public readonly struct GameplayPlayerHudReadModel
     {
         public GameplayPlayerHudReadModel(
@@ -19,7 +25,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
             int remainingChances = 0,
-            int maxChances = 0)
+            int maxChances = 0,
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
             : this(
                 isAvailable,
                 playerEntityId,
@@ -38,7 +45,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
                 hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances,
                 remainingChances,
-                maxChances)
+                maxChances,
+                chanceAudioPolicy)
         {
         }
 
@@ -60,7 +68,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool hasExplicitPushCandidateInCurrentDirection = false,
             bool hasRemainingChances = false,
             int remainingChances = 0,
-            int maxChances = 0)
+            int maxChances = 0,
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
         {
             IsAvailable = isAvailable;
             PlayerEntityId = playerEntityId;
@@ -81,6 +90,9 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             MaxChances = maxChances > 0
                 ? maxChances
                 : (hasRemainingChances ? remainingChances : 0);
+            ChanceAudioPolicy = hasRemainingChances
+                ? chanceAudioPolicy
+                : GameplayChanceAudioPolicy.Default;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -117,6 +129,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public int RemainingChances { get; }
 
         public int MaxChances { get; }
+
+        public GameplayChanceAudioPolicy ChanceAudioPolicy { get; }
 
         public GameplayUiRecoveryCooldown? RecoveryCooldown { get; }
     }

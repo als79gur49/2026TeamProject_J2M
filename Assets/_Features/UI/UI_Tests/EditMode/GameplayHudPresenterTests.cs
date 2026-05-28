@@ -3,6 +3,7 @@ using System.Linq;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using NUnit.Framework;
@@ -178,6 +179,62 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.Slots.All(slot => !slot.IsFilled), Is.True);
             Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Lost));
             Assert.That(presenter.ViewModel.AnimationHint.PrimarySlotIndex, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.AnimationHint.AudioCuePolicy, Is.EqualTo(ChanceChangeAudioCuePolicy.Default));
+        }
+
+        [Test]
+        public void ChancePanelPresenter_FinalChanceLostSuppressPolicyKeepsVisualHint()
+        {
+            var presenter = new ChancePanelPresenter();
+
+            presenter.Apply(new UIChanceSlice(true, 1, 3));
+            presenter.Apply(new UIChanceSlice(
+                true,
+                0,
+                3,
+                GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+
+            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.Slots.All(slot => !slot.IsFilled), Is.True);
+            Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(ChanceChangeKind.Lost));
+            Assert.That(presenter.ViewModel.AnimationHint.PrimarySlotIndex, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.AnimationHint.AudioCuePolicy, Is.EqualTo(ChanceChangeAudioCuePolicy.Suppress));
+        }
+
+        [Test]
+        public void HudUiAudioFeedbackController_SuppressesTerminalChanceLossCue()
+        {
+            var presenter = new ChancePanelPresenter();
+            var uiAudioPort = new RecordingUiAudioPort();
+            using var controller = new HudUiAudioFeedbackController(
+                uiAudioPort,
+                presenter.ViewModel,
+                new ObjectiveHudViewModel());
+
+            presenter.Apply(new UIChanceSlice(true, 1, 3));
+            presenter.Apply(new UIChanceSlice(
+                true,
+                0,
+                3,
+                GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+        }
+
+        [Test]
+        public void HudUiAudioFeedbackController_DefaultFinalChanceLossPlaysChanceLossCue()
+        {
+            var presenter = new ChancePanelPresenter();
+            var uiAudioPort = new RecordingUiAudioPort();
+            using var controller = new HudUiAudioFeedbackController(
+                uiAudioPort,
+                presenter.ViewModel,
+                new ObjectiveHudViewModel());
+
+            presenter.Apply(new UIChanceSlice(true, 1, 3));
+            presenter.Apply(new UIChanceSlice(true, 0, 3));
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.ChanceLoss }));
         }
 
         [Test]

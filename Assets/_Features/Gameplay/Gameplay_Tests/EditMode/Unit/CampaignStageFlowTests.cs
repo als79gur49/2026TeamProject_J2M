@@ -13,6 +13,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using Game.Shared.AudioContracts;
 using NUnit.Framework;
@@ -743,9 +744,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
 
                 Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
-                Assert.That(chancesReadSource.TryReadChances(out var remainingChances, out var maxChances), Is.True);
+                Assert.That(
+                    chancesReadSource.TryReadChances(
+                        out var remainingChances,
+                        out var maxChances,
+                        out var audioPolicy),
+                    Is.True);
                 Assert.That(remainingChances, Is.EqualTo(0));
                 Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
             }
             finally
             {

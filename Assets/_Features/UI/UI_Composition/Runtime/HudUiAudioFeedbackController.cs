@@ -36,6 +36,11 @@ namespace Game.Feature.UI.Composition
             }
 
             _lastChanceSequenceId = hint.SequenceId;
+            if (hint.AudioCuePolicy == ChanceChangeAudioCuePolicy.Suppress)
+            {
+                return;
+            }
+
             switch (hint.Kind)
             {
                 case ChanceChangeKind.Gained:

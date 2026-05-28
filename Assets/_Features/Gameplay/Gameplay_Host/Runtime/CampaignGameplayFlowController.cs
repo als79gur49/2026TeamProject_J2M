@@ -121,7 +121,10 @@ namespace Game.Feature.Gameplay.Host
 
             if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
             {
-                _chanceDisplayOverride?.Set(0, SaveSlotStore.DefaultRemainingChances);
+                _chanceDisplayOverride?.Set(
+                    0,
+                    SaveSlotStore.DefaultRemainingChances,
+                    GameplayChanceAudioPolicy.SuppressChanceChangeCue);
                 _pendingDeathRecovery = PendingDeathRecoveryState.CreateLevelFailed(
                     route,
                     result.TickIndex,

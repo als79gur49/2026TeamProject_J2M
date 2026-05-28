@@ -46,8 +46,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
             var remainingChances = 0;
             var maxChances = 0;
+            var chanceAudioPolicy = GameplayChanceAudioPolicy.Default;
             var hasRemainingChances = _campaignChancesReadSource != null &&
-                                      _campaignChancesReadSource.TryReadChances(out remainingChances, out maxChances);
+                                      _campaignChancesReadSource.TryReadChances(
+                                          out remainingChances,
+                                          out maxChances,
+                                          out chanceAudioPolicy);
             var hasPlayer = _admissionPolicy.TryGetCommittedControllableActor(out var playerEntity);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.HudQueryRead)
             {
@@ -87,7 +91,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                     hasExplicitPushCandidateInCurrentDirection: false,
                     hasRemainingChances: hasRemainingChances,
                     remainingChances: hasRemainingChances ? remainingChances : 0,
-                    maxChances: hasRemainingChances ? maxChances : 0);
+                    maxChances: hasRemainingChances ? maxChances : 0,
+                    chanceAudioPolicy: hasRemainingChances
+                        ? chanceAudioPolicy
+                        : GameplayChanceAudioPolicy.Default);
             }
 
             var playerEntityId = playerEntity.entityId;
@@ -131,7 +138,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 hasExplicitPushCandidateInCurrentDirection: hasExplicitPushCandidateInCurrentDirection,
                 hasRemainingChances: hasRemainingChances,
                 remainingChances: hasRemainingChances ? remainingChances : 0,
-                maxChances: hasRemainingChances ? maxChances : 0);
+                maxChances: hasRemainingChances ? maxChances : 0,
+                chanceAudioPolicy: hasRemainingChances
+                    ? chanceAudioPolicy
+                    : GameplayChanceAudioPolicy.Default);
         }
 
         private static GameplayUiRecoveryCooldown? TryCreateRecoveryCooldown(

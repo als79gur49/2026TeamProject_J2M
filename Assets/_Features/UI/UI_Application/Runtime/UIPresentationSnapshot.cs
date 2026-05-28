@@ -55,13 +55,17 @@ namespace Game.Feature.UI.Application
         public UIChanceSlice(
             bool hasChances,
             int remainingChances,
-            int maxChances)
+            int maxChances,
+            GameplayChanceAudioPolicy audioPolicy = GameplayChanceAudioPolicy.Default)
         {
             MaxChances = hasChances ? Math.Max(0, maxChances) : 0;
             HasChances = hasChances && MaxChances > 0;
             RemainingChances = HasChances
                 ? Math.Max(0, Math.Min(remainingChances, MaxChances))
                 : 0;
+            AudioPolicy = HasChances
+                ? audioPolicy
+                : GameplayChanceAudioPolicy.Default;
         }
 
         public bool HasChances { get; }
@@ -70,11 +74,14 @@ namespace Game.Feature.UI.Application
 
         public int MaxChances { get; }
 
+        public GameplayChanceAudioPolicy AudioPolicy { get; }
+
         public bool Equals(UIChanceSlice other)
         {
             return HasChances == other.HasChances &&
                    RemainingChances == other.RemainingChances &&
-                   MaxChances == other.MaxChances;
+                   MaxChances == other.MaxChances &&
+                   AudioPolicy == other.AudioPolicy;
         }
 
         public override bool Equals(object obj)
@@ -84,7 +91,7 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(HasChances, RemainingChances, MaxChances);
+            return HashCode.Combine(HasChances, RemainingChances, MaxChances, AudioPolicy);
         }
     }
 
