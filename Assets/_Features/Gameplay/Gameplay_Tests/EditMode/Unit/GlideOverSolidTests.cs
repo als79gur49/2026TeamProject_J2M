@@ -708,7 +708,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GlideOverSolid_ActiveDoesNotBypassBarricadeTileFeature()
+        public void GlideOverSolid_ActiveDoesNotBypassActivatedBarricadeTileFeature()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
@@ -726,7 +726,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var tick = CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
                     worldState,
                     new ScriptedMovementLogic(new RawMovementIntent(40, priority: 100, destination: destination.PlanarPosition)),
-                    new[] { CreateTileDefinition(100, TileFeatureKind.Barricade) },
+                    new[] { CreateTileDefinition(100, TileFeatureKind.Barricade, activationRule: TileFeatureActivationRule.BottomFaceOnly) },
                     moonBlockRespawnDefinitions: null)
                 .RunTick(new TickInput(1));
 
@@ -734,6 +734,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
             AssertEntityAt(worldState, 40, SurfaceCell.FromPlanar(Vector2Int.zero));
             Assert.That(worldState.CreateSnapshot().TryGetPrimaryUnitAt(destination, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GlideOverSolid_ActiveDoesNotTreatInactiveBarricadeAsHardBlocker()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = RunActiveScriptedPass(
+                new[] { CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol) },
+                new[] { CreateTileFeature(100, destination, TileFeatureKind.Barricade) },
+                new[] { CreateTileDefinition(100, TileFeatureKind.Barricade, activationRule: TileFeatureActivationRule.FrontFaceOnly) });
+
+            AssertEntityAt(result.WorldState, 40, destination);
+            Assert.That(result.WorldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
+            Assert.That(result.Tick.EventLog, Has.None.Contains("Barricade"));
         }
 
         [Test]
@@ -2366,12 +2381,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             yield return new P1SolidTileMatrixCase("Wall", destination, new[] { CreateWall(30, destination) });
             yield return new P1SolidTileMatrixCase("Box", destination, new[] { CreateBox(30, destination, BoxCapabilities.Push) });
             yield return new P1SolidTileMatrixCase(
-                "Barricade",
+                "ActivatedBarricadeTileFeature",
                 destination,
                 new[] { CreateWall(30, destination) },
                 new[] { CreateTileFeature(100, destination, TileFeatureKind.Barricade, TileFeatureFlags.Activated) },
-                new[] { CreateTileDefinition(100, TileFeatureKind.Barricade) },
+                new[] { CreateTileDefinition(100, TileFeatureKind.Barricade, activationRule: TileFeatureActivationRule.BottomFaceOnly) },
                 activeShouldMove: false);
+            yield return new P1SolidTileMatrixCase(
+                "InactiveBarricadeTileFeature",
+                destination,
+                new[] { CreateWall(30, destination) },
+                new[] { CreateTileFeature(104, destination, TileFeatureKind.Barricade) },
+                new[] { CreateTileDefinition(104, TileFeatureKind.Barricade, activationRule: TileFeatureActivationRule.FrontFaceOnly) });
             yield return new P1SolidTileMatrixCase(
                 "DestroyTile",
                 destination,
@@ -2695,12 +2716,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TileFeatureRuntimeDefinition CreateTileDefinition(
             int tileId,
             TileFeatureKind kind,
+            TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always,
             Direction2D direction = Direction2D.None)
         {
             _ = kind;
             return new TileFeatureRuntimeDefinition(
                 tileId,
-                TileFeatureActivationRule.Always,
+                activationRule,
                 direction,
                 TileFeatureBoxSelector.AnyPushableBox,
                 boundEntityId: 0,
