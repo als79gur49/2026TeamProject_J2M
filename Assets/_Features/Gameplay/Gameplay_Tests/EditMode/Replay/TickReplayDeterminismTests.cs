@@ -11,6 +11,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -1054,6 +1055,46 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[0].Trace, Does.Contain("FlipB1Disposition|Tick=1|Box=30|Disposition=DestroySelf"));
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("FlipB1Removed|Tick=1|Action=1|Box=30"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=30|"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_OrdinaryFlipB1TerminalCleanupBeforeDue_ProducesStableHashTraceAndEventLog()
+        {
+            var firstReplay = RunSeededOrdinaryFlipB1TerminalCleanupReplay(blockSourceCell: false);
+            var secondReplay = RunSeededOrdinaryFlipB1TerminalCleanupReplay(blockSourceCell: false);
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=OrdinaryLanding|Action=1"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("Presence=InFlight"));
+            Assert.That(firstReplay[1].DeterminismHash, Is.Not.EqualTo(firstReplay[0].DeterminismHash));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Final.ScheduledFlipContacts"));
+            Assert.That(firstReplay[1].Trace, Does.Not.Contain("Kind=OrdinaryLanding|Action=1"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Result=OrdinaryLandingStageTerminal"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("FlipB1Removed|Tick=2|Action=1|Box=30"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("Presence=Occupying"));
+            Assert.That(firstReplay[2].EventLogDump, Does.Not.Contain("FlipB1Due|"));
+            Assert.That(firstReplay[2].Trace, Does.Not.Contain("Kind=OrdinaryLanding|Action=1"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_OrdinaryFlipB1TerminalCleanupDestroySelf_ProducesStableHashTraceAndSingleRemoval()
+        {
+            var firstReplay = RunSeededOrdinaryFlipB1TerminalCleanupReplay(blockSourceCell: true);
+            var secondReplay = RunSeededOrdinaryFlipB1TerminalCleanupReplay(blockSourceCell: true);
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[1].Trace, Does.Contain("Result=OrdinaryLandingStageTerminal"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("FlipB1Disposition|Tick=2|Box=30|Disposition=DestroySelf"));
+            Assert.That(CountOccurrences(firstReplay[1].EventLogDump, "FlipB1Removed|Tick=2|Action=1|Box=30"), Is.EqualTo(1));
+            Assert.That(CountOccurrences(firstReplay[1].EventLogDump, "CleanupRemoved|E=30"), Is.EqualTo(1));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Not.Contain("E=30|"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=90|Pos=(1,0)"));
+            Assert.That(firstReplay[2].EventLogDump, Does.Not.Contain("FlipB1Due|"));
+            Assert.That(firstReplay[2].Trace, Does.Not.Contain("Kind=OrdinaryLanding|Action=1"));
         }
 
         [Test]
@@ -3242,6 +3283,30 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
+        private static IReadOnlyList<TickReplayFrame> RunSeededOrdinaryFlipB1TerminalCleanupReplay(bool blockSourceCell)
+        {
+            var worldState = CreateSeededOrdinaryFlipB1World(includeLandingBlocker: false);
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetBoardPresence(30, EntityBoardPresence.InFlight);
+            if (blockSourceCell)
+            {
+                writeContext.SpawnEntity(CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0)));
+            }
+
+            writeContext.AddScheduledFlipContact(CreateOrdinaryLandingContact(actionId: 1, sourceBoxEntityId: 30, dueTick: 5));
+
+            return new TickReplayHarness().Run(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                new[]
+                {
+                    new TickInput(1),
+                    new TickInput(2),
+                    new TickInput(5),
+                },
+                objectiveDefinition: CreateAllEnemiesDefeatedObjective());
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunSeededOrdinaryFlipB1MultipleDueReplay()
         {
             var worldState = CreateWorldState(
@@ -3334,6 +3399,24 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 orderingKey: actionId,
                 cancellationPolicy: FlipContactCancellationPolicy.SafeReturnOrDestroy,
                 dispositionPolicy: FlipContactDispositionPolicy.DefaultB1OrdinaryLanding);
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(value))
+            {
+                return 0;
+            }
+
+            var count = 0;
+            var index = 0;
+            while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += value.Length;
+            }
+
+            return count;
         }
 
         private static IReadOnlyList<TickReplayFrame> RunSpawnReplaySequence()
@@ -3544,6 +3627,74 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 markedForDeath = false,
                 spawnTick = 0,
             };
+        }
+
+        private static StageObjectiveRuntimeDefinition CreateAllEnemiesDefeatedObjective()
+        {
+            return new StageObjectiveRuntimeDefinition(
+                StageCompletionPolicy.RequireAllConditions,
+                playerEntityId: 10,
+                zones: Array.Empty<StageZoneRuntimeDefinition>(),
+                conditionEntries: new[]
+                {
+                    new StageObjectiveConditionRuntimeDefinitionEntry(
+                        new AllEnemiesDefeatedConditionRuntimeDefinition(),
+                        required: true,
+                        StageObjectiveConditionRole.PrimaryGoal,
+                        "all-enemies-defeated"),
+                });
+        }
+
+        private sealed class AllEnemiesDefeatedConditionRuntimeDefinition : StageConditionRuntimeDefinition
+        {
+            public AllEnemiesDefeatedConditionRuntimeDefinition()
+                : base("all-enemies-defeated", "All Enemies Defeated")
+            {
+            }
+
+            public override IStageConditionRuntime CreateRuntime()
+            {
+                return new Runtime(ConditionId, DisplayName);
+            }
+
+            private sealed class Runtime : IStageConditionRuntime
+            {
+                private readonly string _conditionId;
+                private readonly string _displayName;
+
+                public Runtime(string conditionId, string displayName)
+                {
+                    _conditionId = conditionId;
+                    _displayName = displayName;
+                }
+
+                public bool IsSatisfied { get; private set; }
+
+                public void Reset()
+                {
+                    IsSatisfied = false;
+                }
+
+                public void Advance(WorldSnapshot finalSnapshot, in StageObjectiveTickFacts tickFacts)
+                {
+                    var entities = new List<EntityState>();
+                    finalSnapshot.EnumerateEntitiesOrdered(entities);
+                    IsSatisfied = !entities.Any(entity =>
+                        EntityRolePolicy.IsEnemyUnit(entity) &&
+                        entity.hp > 0 &&
+                        !entity.markedForDeath);
+                }
+
+                public StageConditionStatus CreateStatus()
+                {
+                    return new StageConditionStatus(
+                        _conditionId,
+                        _displayName,
+                        "AllEnemiesDefeatedTestCondition",
+                        IsSatisfied,
+                        $"Satisfied={(IsSatisfied ? 1 : 0)}");
+                }
+            }
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

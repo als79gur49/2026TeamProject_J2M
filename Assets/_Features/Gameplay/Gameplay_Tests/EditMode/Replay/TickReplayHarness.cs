@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Tests.Replay
@@ -18,7 +19,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IReadOnlyList<TickInput> inputs,
             IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null)
         {
             var entityLogicList = new List<IEntityLogic>(entityLogics);
             var timingProfile = GameplayTimingProfile.CreateDefault();
@@ -31,7 +33,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 timingProfile,
                 playerControlTiming,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerContinuousLocomotion: playerContinuousLocomotion,
+                objectiveDefinition: objectiveDefinition);
             return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
         }
 
@@ -42,7 +45,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IReadOnlyList<TickInput> inputs,
             IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null)
         {
             if (bootstrapper == null)
             {
@@ -60,7 +64,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 timingProfile,
                 playerControlTiming,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerContinuousLocomotion: playerContinuousLocomotion,
+                objectiveDefinition: objectiveDefinition);
             return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
         }
 

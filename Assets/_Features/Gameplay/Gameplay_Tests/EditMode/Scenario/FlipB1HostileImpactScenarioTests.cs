@@ -973,6 +973,68 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void OrdinaryFlipB1_TerminalBeforeDue_CancelsPendingTokenAndClosesInFlight()
+        {
+            var terminalTick = RunOrdinaryFlipTerminalCleanupAfterEnemyClear(
+                blockSourceCell: false,
+                out var worldState,
+                out var executeTick,
+                out var clearTick,
+                out var originalDueTick);
+            var snapshot = worldState.CreateSnapshot();
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
+
+            Assert.That(clearTick.ObjectiveResult.IsCleared, Is.True);
+            Assert.That(terminalTick.TickIndex, Is.LessThan(originalDueTick));
+            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.position, Is.EqualTo(sourceCell));
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(snapshot.TryGetSolidOccupantAt(landingCell, out _), Is.False);
+            Assert.That(terminalTick.PresentationData.FlipDueContactSignals, Has.Count.EqualTo(1));
+            Assert.That(terminalTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.CancelledStageTerminal));
+            Assert.That(terminalTick.PresentationData.FlipDueContactSignals.Single().BoxDisposition, Is.EqualTo(FlipBoxDisposition.MaterializeAtSource));
+            Assert.That(terminalTick.Trace.Text, Does.Contain("Result=OrdinaryLandingStageTerminal"));
+            Assert.That(terminalTick.Trace.Text, Does.Contain("FlipB1Removed|"));
+            Assert.That(terminalTick.Trace.Text, Does.Not.Contain("Kind=OrdinaryLanding|Action="));
+            Assert.That(terminalTick.DeterminismHash, Is.Not.EqualTo(executeTick.DeterminismHash));
+
+            AssertNoFlipDueSignalsThroughTick(worldState, terminalTick, originalDueTick + 1);
+            Assert.That(snapshot.TryGetSolidOccupantAt(landingCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_TerminalBeforeDue_SourceBlockedDestroysOnceWithoutDuplicateDue()
+        {
+            var terminalTick = RunOrdinaryFlipTerminalCleanupAfterEnemyClear(
+                blockSourceCell: true,
+                out var worldState,
+                out _,
+                out var clearTick,
+                out var originalDueTick);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(clearTick.ObjectiveResult.IsCleared, Is.True);
+            Assert.That(terminalTick.TickIndex, Is.LessThan(originalDueTick));
+            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(31, out var sourceBlocker), Is.True);
+            Assert.That(sourceBlocker.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, -1, 0), out _), Is.False);
+            Assert.That(terminalTick.PresentationData.FlipDueContactSignals, Has.Count.EqualTo(1));
+            Assert.That(terminalTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.CancelledStageTerminal));
+            Assert.That(terminalTick.PresentationData.FlipDueContactSignals.Single().BoxDisposition, Is.EqualTo(FlipBoxDisposition.DestroySelf));
+            Assert.That(terminalTick.EventLog.Count(entry => entry.StartsWith("FlipB1Removed|") && entry.Contains("Action=1") && entry.Contains("Box=20")), Is.EqualTo(1));
+            Assert.That(terminalTick.EventLog.Count(entry => entry == "CleanupRemoved|E=20"), Is.EqualTo(1));
+            Assert.That(terminalTick.PresentationData.EntityExitSignals.Count(signal => signal.ExitedEntityId == 20), Is.EqualTo(1));
+
+            AssertNoFlipDueSignalsThroughTick(worldState, terminalTick, originalDueTick + 1);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void OrdinaryFlipB1_Old0614_ObjectiveNotAdvanced()
         {
             var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
@@ -1547,6 +1609,65 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             RunUntilExecute(pipeline);
             mutate(worldState.CreateWriteContext());
             return RunUntilDue(pipeline);
+        }
+
+        private static TickResult RunOrdinaryFlipTerminalCleanupAfterEnemyClear(
+            bool blockSourceCell,
+            out WorldState worldState,
+            out TickResult executeTick,
+            out TickResult clearTick,
+            out int originalDueTick)
+        {
+            worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 30, position: new Vector2Int(0, 1), hp: 1, teamId: 2, unitRole: UnitRole.Enemy),
+            });
+            var pipeline = CreatePipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreatePlayerLogic(10),
+                },
+                CreateAllEnemiesDefeatedObjective());
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            executeTick = RunUntilExecute(pipeline);
+            var contact = GetScheduledContacts(worldState).Single();
+            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            originalDueTick = contact.DueTick;
+            Assert.That(executeTick.TickIndex, Is.LessThan(originalDueTick));
+
+            var writeContext = worldState.CreateWriteContext();
+            if (blockSourceCell)
+            {
+                writeContext.SpawnEntity(CreateBox(31, new Vector2Int(1, 0), BoxCapabilities.Push));
+            }
+
+            ((IAttackCommitContext)writeContext).MarkDestroy(30);
+            clearTick = pipeline.RunTick(new TickInput(executeTick.TickIndex + 1, PlayerTickCommand.None));
+            Assert.That(clearTick.ObjectiveResult.IsCleared, Is.True);
+            Assert.That(GetScheduledContacts(worldState), Has.Count.EqualTo(1));
+
+            return pipeline.RunTick(new TickInput(clearTick.TickIndex + 1, PlayerTickCommand.None));
+        }
+
+        private static void AssertNoFlipDueSignalsThroughTick(
+            WorldState worldState,
+            TickResult lastResult,
+            int finalTick)
+        {
+            var pipeline = CreatePipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                CreateAllEnemiesDefeatedObjective());
+
+            for (var tick = lastResult.TickIndex + 1; tick <= finalTick; tick++)
+            {
+                var result = pipeline.RunTick(new TickInput(tick, PlayerTickCommand.None));
+                Assert.That(result.PresentationData.FlipDueContactSignals, Is.Empty);
+            }
         }
 
         private static void AssertOrdinaryDueTerminalPresentation(

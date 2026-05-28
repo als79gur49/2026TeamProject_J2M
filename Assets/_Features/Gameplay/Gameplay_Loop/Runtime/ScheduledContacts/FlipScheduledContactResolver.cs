@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Loop
     internal sealed class FlipScheduledContactResolver
     {
         private readonly List<ScheduledFlipContact> _dueContacts = new();
+        private readonly List<ScheduledFlipContactSnapshotEntry> _scheduledContactEntries = new();
         private readonly List<EntityState> _unitBuffer = new();
 
         public FlipScheduledContactDueResult ResolveDueScheduledFlipContacts(
@@ -25,7 +26,15 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            snapshot.EnumerateDueScheduledFlipContactsOrdered(currentTick, _dueContacts);
+            if (stageAlreadyTerminal)
+            {
+                EnumerateStageTerminalScheduledFlipContacts(snapshot, currentTick, _dueContacts);
+            }
+            else
+            {
+                snapshot.EnumerateDueScheduledFlipContactsOrdered(currentTick, _dueContacts);
+            }
+
             if (_dueContacts.Count == 0)
             {
                 return FlipScheduledContactDueResult.Empty;
@@ -59,6 +68,24 @@ namespace Game.Feature.Gameplay.Loop
                 damageResolutions,
                 contactResolutions,
                 contactPresentationSignals);
+        }
+
+        private void EnumerateStageTerminalScheduledFlipContacts(
+            WorldSnapshot snapshot,
+            int currentTick,
+            List<ScheduledFlipContact> buffer)
+        {
+            buffer.Clear();
+            snapshot.EnumerateScheduledFlipContactsOrdered(_scheduledContactEntries);
+            for (var i = 0; i < _scheduledContactEntries.Count; i++)
+            {
+                var contact = _scheduledContactEntries[i].Contact;
+                if (contact.Kind == ScheduledFlipContactKind.OrdinaryLanding ||
+                    contact.DueTick <= currentTick)
+                {
+                    buffer.Add(contact);
+                }
+            }
         }
 
         private void ResolveSingleScheduledFlipContact(
