@@ -120,6 +120,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_PresentationPause_FreezesExtensionProgressUntilResume()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_PresentationPause_FreezesExtensionProgressUntilResume));
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                var extension = new RecordingPausablePresentationExtension();
+                presenter.AttachPresentationExtension(extension);
+                presenter.PresentInitial(Array.Empty<EntityState>(), topology);
+
+                presenter.SetPresentationPaused(true);
+                presenter.UpdatePresentation(0.5f);
+
+                Assert.That(presenter.IsPresentationPaused, Is.True);
+                Assert.That(extension.IsPaused, Is.True);
+                Assert.That(extension.PauseCallCount, Is.EqualTo(1));
+                Assert.That(extension.UpdateCallCount, Is.Zero);
+                Assert.That(extension.AdvancedSeconds, Is.EqualTo(0f).Within(0.0001f));
+
+                presenter.SetPresentationPaused(false);
+                presenter.UpdatePresentation(0.5f);
+
+                Assert.That(presenter.IsPresentationPaused, Is.False);
+                Assert.That(extension.IsPaused, Is.False);
+                Assert.That(extension.ResumeCallCount, Is.EqualTo(1));
+                Assert.That(extension.UpdateCallCount, Is.EqualTo(1));
+                Assert.That(extension.AdvancedSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty()
         {
@@ -9574,6 +9611,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void HardCleanup()
             {
+            }
+        }
+
+        private sealed class RecordingPausablePresentationExtension :
+            IGameplayTickPresentationExtension,
+            IGameplayPresentationPausable
+        {
+            public int UpdateCallCount { get; private set; }
+
+            public float AdvancedSeconds { get; private set; }
+
+            public bool IsPaused { get; private set; }
+
+            public int PauseCallCount { get; private set; }
+
+            public int ResumeCallCount { get; private set; }
+
+            public void ResetSession()
+            {
+            }
+
+            public void Present(in GameplayTickPresentationExtensionContext context)
+            {
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+                UpdateCallCount++;
+                AdvancedSeconds += deltaTime;
+            }
+
+            public void HardCleanup()
+            {
+            }
+
+            public void SetPresentationPaused(bool paused)
+            {
+                IsPaused = paused;
+                if (paused)
+                {
+                    PauseCallCount++;
+                    return;
+                }
+
+                ResumeCallCount++;
             }
         }
 

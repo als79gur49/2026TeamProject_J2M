@@ -15,7 +15,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private GameplayVfxPlaybackHandle handle;
         private VfxRendererMaterialInstanceSet activeMaterialInstances;
         private bool[] suspendedRendererEnabled;
-        private bool isPresentationSuspended;
+        private VfxPresentationSuspendReason presentationSuspendReasons;
         private bool usingSourceClone;
 
         public GameplayVfxPooledInstance(GameObject gameObject, Transform tailRoot)
@@ -49,7 +49,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
-            isPresentationSuspended = false;
+            presentationSuspendReasons = VfxPresentationSuspendReason.None;
             RestorePrefabVisuals();
             Transform.SetParent(parent, worldPositionStays: false);
             Transform.localPosition = anchor.HasLocalPose ? anchor.LocalPosition : Vector3.zero;
@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
-            isPresentationSuspended = false;
+            presentationSuspendReasons = VfxPresentationSuspendReason.None;
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
             Transform.SetParent(parent, worldPositionStays: false);
@@ -152,59 +152,38 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void SuspendPresentation()
         {
-            if (isPresentationSuspended)
+            SuspendPresentation(VfxPresentationSuspendReason.Visibility);
+        }
+
+        public void SuspendPresentation(VfxPresentationSuspendReason reason)
+        {
+            if (reason == VfxPresentationSuspendReason.None ||
+                presentationSuspendReasons.HasFlag(reason))
             {
                 return;
             }
 
-            if (suspendedRendererEnabled == null ||
-                suspendedRendererEnabled.Length != prefabRenderers.Length)
-            {
-                suspendedRendererEnabled = new bool[prefabRenderers.Length];
-            }
-
-            for (var i = 0; i < prefabRenderers.Length; i++)
-            {
-                var renderer = prefabRenderers[i];
-                suspendedRendererEnabled[i] = renderer != null && renderer.enabled;
-                if (renderer != null)
-                {
-                    renderer.enabled = false;
-                }
-            }
-
-            for (var i = 0; i < particleSystems.Length; i++)
-            {
-                particleSystems[i]?.Pause(true);
-            }
-
-            isPresentationSuspended = true;
+            var previousReasons = presentationSuspendReasons;
+            presentationSuspendReasons |= reason;
+            ApplyPresentationSuspendState(previousReasons);
         }
 
         public void ResumePresentation()
         {
-            if (!isPresentationSuspended)
+            ResumePresentation(VfxPresentationSuspendReason.Visibility);
+        }
+
+        public void ResumePresentation(VfxPresentationSuspendReason reason)
+        {
+            if (reason == VfxPresentationSuspendReason.None ||
+                !presentationSuspendReasons.HasFlag(reason))
             {
                 return;
             }
 
-            for (var i = 0; i < prefabRenderers.Length; i++)
-            {
-                var renderer = prefabRenderers[i];
-                if (renderer != null)
-                {
-                    renderer.enabled = suspendedRendererEnabled != null &&
-                                       i < suspendedRendererEnabled.Length &&
-                                       suspendedRendererEnabled[i];
-                }
-            }
-
-            for (var i = 0; i < particleSystems.Length; i++)
-            {
-                particleSystems[i]?.Play(true);
-            }
-
-            isPresentationSuspended = false;
+            var previousReasons = presentationSuspendReasons;
+            presentationSuspendReasons &= ~reason;
+            ApplyPresentationSuspendState(previousReasons);
         }
 
         public bool IsTailComplete(float nowSeconds)
@@ -224,7 +203,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ClearTrails();
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
-            isPresentationSuspended = false;
+            presentationSuspendReasons = VfxPresentationSuspendReason.None;
             GameObject.SetActive(false);
             Transform.SetParent(poolRoot, worldPositionStays: false);
             Transform.localPosition = Vector3.zero;
@@ -242,6 +221,87 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             handle = null;
+        }
+
+        private void ApplyPresentationSuspendState(VfxPresentationSuspendReason previousReasons)
+        {
+            var wasPaused = previousReasons != VfxPresentationSuspendReason.None;
+            var isPaused = presentationSuspendReasons != VfxPresentationSuspendReason.None;
+            var wasHidden = ShouldHideForSuspend(previousReasons);
+            var isHidden = ShouldHideForSuspend(presentationSuspendReasons);
+
+            if (!wasHidden && isHidden)
+            {
+                HideRenderersForSuspend();
+            }
+            else if (wasHidden && !isHidden)
+            {
+                RestoreSuspendedRendererState();
+            }
+
+            if (!wasPaused && isPaused)
+            {
+                PauseParticles();
+            }
+            else if (wasPaused && !isPaused)
+            {
+                ResumeParticles();
+            }
+        }
+
+        private void HideRenderersForSuspend()
+        {
+            if (suspendedRendererEnabled == null ||
+                suspendedRendererEnabled.Length != prefabRenderers.Length)
+            {
+                suspendedRendererEnabled = new bool[prefabRenderers.Length];
+            }
+
+            for (var i = 0; i < prefabRenderers.Length; i++)
+            {
+                var renderer = prefabRenderers[i];
+                suspendedRendererEnabled[i] = renderer != null && renderer.enabled;
+                if (renderer != null)
+                {
+                    renderer.enabled = false;
+                }
+            }
+        }
+
+        private void RestoreSuspendedRendererState()
+        {
+            for (var i = 0; i < prefabRenderers.Length; i++)
+            {
+                var renderer = prefabRenderers[i];
+                if (renderer != null)
+                {
+                    renderer.enabled = suspendedRendererEnabled != null &&
+                                       i < suspendedRendererEnabled.Length &&
+                                       suspendedRendererEnabled[i];
+                }
+            }
+        }
+
+        private void PauseParticles()
+        {
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                particleSystems[i]?.Pause(true);
+            }
+        }
+
+        private void ResumeParticles()
+        {
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                particleSystems[i]?.Play(true);
+            }
+        }
+
+        private static bool ShouldHideForSuspend(VfxPresentationSuspendReason reasons)
+        {
+            return reasons.HasFlag(VfxPresentationSuspendReason.Visibility) ||
+                   reasons.HasFlag(VfxPresentationSuspendReason.TopologyTransition);
         }
 
         private void ConfigureParameterizedVisuals(

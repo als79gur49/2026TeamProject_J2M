@@ -91,6 +91,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplaySfxArbitratingPlaybackPort _arbitratingGameplayAudioPlaybackPort;
         private TickResult _lastPresentedResult;
         private int _topologyTransitionEpoch;
+        private bool _isPresentationPaused;
 
         public GameplayTickPresentationCoordinator()
         {
@@ -150,6 +151,8 @@ namespace Game.Feature.Gameplay.Host
             _presentationActivityInspector.HasActiveBlockingJumpLandingCompletion();
 
         public bool IsInitialized => _isInitialized;
+
+        public bool IsPresentationPaused => _isPresentationPaused;
 
         public bool IsPresentationActive => CurrentPresentationPhase != GameplayPresentationPhase.Idle;
 
@@ -376,6 +379,12 @@ namespace Game.Feature.Gameplay.Host
                     _outputCamera,
                     _viewBinder != null ? _viewBinder.SearchRoot : null);
             }
+
+            if (_isPresentationPaused &&
+                extension is IGameplayPresentationPausable pausable)
+            {
+                pausable.SetPresentationPaused(true);
+            }
         }
 
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
@@ -581,6 +590,11 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (_isPresentationPaused)
+            {
+                return;
+            }
+
             var hadActiveBoardRotationTween = _topologyTransitionController.HasActiveBoardRotationTween;
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
             _audioPresentationController.Update(deltaTime);
@@ -603,6 +617,17 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.AdvanceDeathPresentationCleanups(deltaTime);
             _exitPresentationController.AdvanceContactDelayedEntityExits(deltaTime);
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            if (_isPresentationPaused == paused)
+            {
+                return;
+            }
+
+            _isPresentationPaused = paused;
+            SetPresentationPausedOnExtensions(paused);
         }
 
         internal void AttachGameplayAudioRuntime(
@@ -1011,6 +1036,17 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.UpdatePresentation(deltaTime);
+            }
+        }
+
+        private void SetPresentationPausedOnExtensions(bool paused)
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationPausable pausable)
+                {
+                    pausable.SetPresentationPaused(paused);
+                }
             }
         }
 

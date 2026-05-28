@@ -76,6 +76,11 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
+    public interface IGameplayPresentationPausable
+    {
+        void SetPresentationPaused(bool paused);
+    }
+
     public readonly struct GameplayInitialPresentationExtensionContext
     {
         public GameplayInitialPresentationExtensionContext(

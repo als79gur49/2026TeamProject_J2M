@@ -41,7 +41,11 @@ namespace Game.Feature.Gameplay.Vfx
 
         void SuspendPresentation();
 
+        void SuspendPresentation(VfxPresentationSuspendReason reason);
+
         void ResumePresentation();
+
+        void ResumePresentation(VfxPresentationSuspendReason reason);
 
         void ReleaseToPool();
 

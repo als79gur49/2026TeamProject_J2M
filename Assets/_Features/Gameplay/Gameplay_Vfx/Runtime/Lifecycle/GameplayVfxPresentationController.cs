@@ -89,6 +89,16 @@ namespace Game.Feature.Gameplay.Vfx
             persistentRegistry.ClearForTopologyTransitionStart(pool);
         }
 
+        public void SuspendPresentation(VfxPresentationSuspendReason reason)
+        {
+            persistentRegistry.SuspendAll(reason);
+        }
+
+        public void ResumePresentation(VfxPresentationSuspendReason reason)
+        {
+            persistentRegistry.ResumeAll(reason);
+        }
+
         public void HardCleanupAll()
         {
             delayedRequests.Clear();

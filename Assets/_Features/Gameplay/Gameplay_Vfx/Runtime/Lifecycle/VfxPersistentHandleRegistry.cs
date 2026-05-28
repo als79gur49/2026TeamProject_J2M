@@ -45,7 +45,8 @@ namespace Game.Feature.Gameplay.Vfx
                 {
                     if (existing.State == VfxLifetimeState.PresentationSuspended)
                     {
-                        existing.ResumePresentation();
+                        existing.ResumePresentation(VfxPresentationSuspendReason.Visibility);
+                        existing.ResumePresentation(VfxPresentationSuspendReason.TopologyTransition);
                     }
 
                     stopPolicies[command.PersistentKey] = command.Policy.StopPolicy;
@@ -139,13 +140,18 @@ namespace Game.Feature.Gameplay.Vfx
 
         public bool SuspendIfActive(VfxPersistentKey key)
         {
+            return SuspendIfActive(key, VfxPresentationSuspendReason.Visibility);
+        }
+
+        public bool SuspendIfActive(VfxPersistentKey key, VfxPresentationSuspendReason reason)
+        {
             if (!activeHandles.TryGetValue(key, out var handle) ||
                 !CanSuspend(handle))
             {
                 return false;
             }
 
-            handle.SuspendPresentation();
+            handle.SuspendPresentation(reason);
             LastStopReason = "PresentationSuspend";
             return true;
         }
@@ -219,7 +225,7 @@ namespace Game.Feature.Gameplay.Vfx
                         handle.CueId,
                         stopMode))
                 {
-                    handle.SuspendPresentation();
+                    handle.SuspendPresentation(VfxPresentationSuspendReason.TopologyTransition);
                     LastStopReason = "TopologyTransitionPresentationSuspend";
                     continue;
                 }
@@ -301,6 +307,28 @@ namespace Game.Feature.Gameplay.Vfx
                 }
 
                 RemoveActiveEntry(pair.Key);
+            }
+        }
+
+        public void SuspendAll(VfxPresentationSuspendReason reason)
+        {
+            foreach (var handle in activeHandles.Values.ToArray())
+            {
+                if (CanSuspend(handle))
+                {
+                    handle.SuspendPresentation(reason);
+                }
+            }
+        }
+
+        public void ResumeAll(VfxPresentationSuspendReason reason)
+        {
+            foreach (var handle in activeHandles.Values.ToArray())
+            {
+                if (handle != null && handle.State == VfxLifetimeState.PresentationSuspended)
+                {
+                    handle.ResumePresentation(reason);
+                }
             }
         }
 

@@ -373,10 +373,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void SuspendPresentation()
             {
+                SuspendPresentation(VfxPresentationSuspendReason.Visibility);
+            }
+
+            public void SuspendPresentation(VfxPresentationSuspendReason reason)
+            {
                 State = VfxLifetimeState.PresentationSuspended;
             }
 
             public void ResumePresentation()
+            {
+                ResumePresentation(VfxPresentationSuspendReason.Visibility);
+            }
+
+            public void ResumePresentation(VfxPresentationSuspendReason reason)
             {
                 State = VfxLifetimeState.Active;
             }

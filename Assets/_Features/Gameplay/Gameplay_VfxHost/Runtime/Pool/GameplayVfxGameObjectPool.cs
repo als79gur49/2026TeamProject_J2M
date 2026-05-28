@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly Dictionary<GameplayVfxCueId, int> releaseToPoolCountByCue = new();
         private IVfxPrefabProvider prefabProvider;
         private int nextHandleId;
+        private float gameplayPauseStartedAtSeconds = -1f;
 
         public GameplayVfxGameObjectPool(
             GameplayVfxRuntimeRoot root,
@@ -189,7 +190,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                             handle.CueId,
                             handle.TopologyStopMode))
                     {
-                        handle.SuspendPresentation();
+                        handle.SuspendPresentation(VfxPresentationSuspendReason.TopologyTransition);
                     }
 
                     continue;
@@ -202,6 +203,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void HardCleanupAll()
         {
+            gameplayPauseStartedAtSeconds = -1f;
             foreach (var handle in activeHandles.ToArray())
             {
                 handle?.HardCleanup();
@@ -252,6 +254,49 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             CleanupStoredInstancesForFamily(family);
+        }
+
+        public void SuspendActivePresentation(VfxPresentationSuspendReason reason)
+        {
+            if (reason == VfxPresentationSuspendReason.GameplayPause &&
+                gameplayPauseStartedAtSeconds < 0f)
+            {
+                gameplayPauseStartedAtSeconds = timeProvider.TimeSeconds;
+            }
+
+            foreach (var handle in activeHandles.ToArray())
+            {
+                if (handle == null || handle.IsTerminal)
+                {
+                    activeHandles.Remove(handle);
+                    continue;
+                }
+
+                handle.SuspendPresentation(reason);
+            }
+        }
+
+        public void ResumeActivePresentation(VfxPresentationSuspendReason reason)
+        {
+            var gameplayPauseDurationSeconds = 0f;
+            if (reason == VfxPresentationSuspendReason.GameplayPause &&
+                gameplayPauseStartedAtSeconds >= 0f)
+            {
+                gameplayPauseDurationSeconds = Mathf.Max(0f, timeProvider.TimeSeconds - gameplayPauseStartedAtSeconds);
+                gameplayPauseStartedAtSeconds = -1f;
+            }
+
+            foreach (var handle in activeHandles.ToArray())
+            {
+                if (handle == null || handle.IsTerminal)
+                {
+                    activeHandles.Remove(handle);
+                    continue;
+                }
+
+                handle.ShiftPresentationClock(gameplayPauseDurationSeconds);
+                handle.ResumePresentation(reason);
+            }
         }
 
         public void Advance(float deltaSeconds)

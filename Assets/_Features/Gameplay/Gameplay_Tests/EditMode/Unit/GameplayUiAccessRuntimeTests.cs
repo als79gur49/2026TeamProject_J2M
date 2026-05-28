@@ -413,6 +413,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(pausedSession.IsPaused, Is.True);
                 Assert.That(pausedSession.CanAcceptGameplayCommands, Is.False);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                Assert.That(host.Presenter.IsPresentationPaused, Is.True);
 
                 pauseService.Resume();
 
@@ -420,6 +421,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var snapshotAfter = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
 
                 Assert.That(resumedTick, Is.Not.Null);
+                Assert.That(host.Presenter.IsPresentationPaused, Is.False);
                 Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
                 Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             }

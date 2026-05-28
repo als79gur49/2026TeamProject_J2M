@@ -417,6 +417,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void BoxSlideFollow_GameplayPresentationPause_SuspendsAndResumesSameHandle()
+        {
+            var fixture = CreateFixture();
+            try
+            {
+                fixture.Prefab.AddComponent<ParticleSystem>();
+                fixture.RefreshAttached(DesiredBoxSlide());
+                var instance = fixture.View.ModelRoot.GetChild(0);
+                var renderer = instance.GetComponentInChildren<Renderer>(includeInactive: true);
+                var particleSystem = instance.GetComponentInChildren<ParticleSystem>(includeInactive: true);
+
+                Assert.That(renderer, Is.Not.Null);
+                Assert.That(particleSystem, Is.Not.Null);
+                Assert.That(renderer.enabled, Is.True);
+
+                fixture.Pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.GetChild(0), Is.EqualTo(instance));
+                Assert.That(renderer.enabled, Is.True);
+                Assert.That(particleSystem.isPaused, Is.True);
+
+                fixture.Pool.ResumeActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.ActiveCount, Is.EqualTo(1));
+                Assert.That(fixture.View.ModelRoot.GetChild(0), Is.EqualTo(instance));
+                Assert.That(renderer.enabled, Is.True);
+                Assert.That(particleSystem.isPlaying, Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void BoxSlideFollow_RetainsAcrossIdleRefreshUntilExplicitStop()
         {

@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -103,6 +103,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private Camera outputCamera;
         private Transform localSpaceRoot;
         private bool isTopologyTransitionVfxSuppressed;
+        private bool isPresentationPaused;
         private int topologyTransitionSuppressEpoch;
         private const float TopologyTransitionSoftSpawnDelaySeconds = 0.12f;
 
@@ -697,6 +698,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void ResetSession()
         {
+            isPresentationPaused = false;
             LastPlannedRequestCount = 0;
             isTopologyTransitionVfxSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
@@ -1043,6 +1045,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void UpdatePresentation(float deltaTime)
         {
+            if (isPresentationPaused)
+            {
+                return;
+            }
+
             if (isTopologyTransitionVfxSuppressed)
             {
                 return;
@@ -1099,6 +1106,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void HardCleanup()
         {
+            isPresentationPaused = false;
             isTopologyTransitionVfxSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
             motionFollowingVfxController.HardCleanup();
@@ -1116,6 +1124,25 @@ namespace Game.Feature.Gameplay.Vfx.Host
             pendingDelayedEnemyDeathMotionVfx.Clear();
             readyDelayedEnemyDeathMotionVfx.Clear();
             enemyMotionAttachedFollowerPlanner.Clear();
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            if (isPresentationPaused == paused)
+            {
+                return;
+            }
+
+            isPresentationPaused = paused;
+            if (paused)
+            {
+                controller?.SuspendPresentation(VfxPresentationSuspendReason.GameplayPause);
+                pool?.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+                return;
+            }
+
+            controller?.ResumePresentation(VfxPresentationSuspendReason.GameplayPause);
+            pool?.ResumeActivePresentation(VfxPresentationSuspendReason.GameplayPause);
         }
 
         private void EnsureRuntime(in GameplayTickPresentationExtensionContext context)
@@ -1474,6 +1501,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             isTopologyTransitionVfxSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
             controller?.SetTopologyTransitionStartSuppression(false, 0);
+            controller?.ResumePresentation(VfxPresentationSuspendReason.TopologyTransition);
+            pool?.ResumeActivePresentation(VfxPresentationSuspendReason.TopologyTransition);
         }
 
         private static bool IsTopologyTransitionStart(in GameplayTickPresentationExtensionContext context)

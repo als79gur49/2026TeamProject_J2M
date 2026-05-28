@@ -45,6 +45,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
+        public bool IsPresentationPaused => _presentationCoordinator.IsPresentationPaused;
+
         public float LastStageClearPlayerPresentationDelaySeconds =>
             _presentationCoordinator.LastStageClearPlayerPresentationDelaySeconds;
 
@@ -249,11 +251,27 @@ namespace Game.Feature.Gameplay.Host
 
         public void UpdatePresentation(float deltaTime)
         {
+            if (deltaTime < 0f)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            if (_presentationCoordinator.IsPresentationPaused)
+            {
+                return;
+            }
+
             _presentationCoordinator.UpdatePresentation(deltaTime);
             SyncViewCameraRuntime();
             RefreshTopologyTransitionPostFx();
             NotifyPresentationStateChangedIfNeeded();
             PresentationAdvanced?.Invoke(deltaTime);
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            _presentationCoordinator.SetPresentationPaused(paused);
+            NotifyPresentationStateChangedIfNeeded();
         }
 
         private void RefreshTopologyTransitionPostFx()

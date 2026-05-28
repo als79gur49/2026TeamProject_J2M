@@ -464,6 +464,47 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplayInputHost_BoxSlidePauseService_FreezesWorldPresentationUntilResume()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                },
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 1));
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            InvokeInputHostBufferUiPush(host.InputHost, Direction.Right);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds * 0.5f);
+            var pausedPosition = GetViewPosition(host, entityId: 30);
+
+            InvokePauseService(host, "Pause");
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+            Assert.That(host.Presenter.IsPresentationPaused, Is.True);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(pausedPosition));
+
+            InvokePauseService(host, "Resume");
+            Assert.That(host.Presenter.IsPresentationPaused, Is.False);
+            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
+
+            AssertViewMatchesProjectedState(host, entityId: 30);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         [Category("Full")]
         public IEnumerator GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks()
         {
@@ -1527,6 +1568,22 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
             return view.transform.position;
+        }
+
+        private static void InvokePauseService(GameplaySceneHost host, string methodName)
+        {
+            var uiAccess = (object)host.UiAccess;
+            Assert.That(uiAccess, Is.Not.Null);
+            var pauseServiceProperty = uiAccess
+                .GetType()
+                .GetProperty("PauseService", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(pauseServiceProperty, Is.Not.Null);
+
+            var pauseService = pauseServiceProperty.GetValue(uiAccess);
+            Assert.That(pauseService, Is.Not.Null);
+            var method = pauseService.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(pauseService, Array.Empty<object>());
         }
 
         private static GameplayEntityView LoadPlayerS1ViewPrefab()
