@@ -1,11 +1,15 @@
 using System;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host
 {
     public interface ICampaignChancesReadSource
     {
-        bool TryReadChances(out int remainingChances, out int maxChances);
+        bool TryReadChances(
+            out int remainingChances,
+            out int maxChances,
+            out GameplayChanceAudioPolicy audioPolicy);
     }
 
     internal sealed class CampaignChanceDisplayOverride
@@ -13,12 +17,17 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasOverride;
         private int _remainingChances;
         private int _maxChances;
+        private GameplayChanceAudioPolicy _audioPolicy;
 
-        public void Set(int remainingChances, int maxChances)
+        public void Set(
+            int remainingChances,
+            int maxChances,
+            GameplayChanceAudioPolicy audioPolicy = GameplayChanceAudioPolicy.Default)
         {
             _hasOverride = true;
             _remainingChances = Math.Max(0, remainingChances);
             _maxChances = Math.Max(0, maxChances);
+            _audioPolicy = audioPolicy;
         }
 
         public void Clear()
@@ -26,12 +35,19 @@ namespace Game.Feature.Gameplay.Host
             _hasOverride = false;
             _remainingChances = 0;
             _maxChances = 0;
+            _audioPolicy = GameplayChanceAudioPolicy.Default;
         }
 
-        public bool TryRead(out int remainingChances, out int maxChances)
+        public bool TryRead(
+            out int remainingChances,
+            out int maxChances,
+            out GameplayChanceAudioPolicy audioPolicy)
         {
             remainingChances = _remainingChances;
             maxChances = _maxChances;
+            audioPolicy = _hasOverride
+                ? _audioPolicy
+                : GameplayChanceAudioPolicy.Default;
             return _hasOverride;
         }
     }
@@ -52,16 +68,24 @@ namespace Game.Feature.Gameplay.Host
             _displayOverride = displayOverride;
         }
 
-        public bool TryReadChances(out int remainingChances, out int maxChances)
+        public bool TryReadChances(
+            out int remainingChances,
+            out int maxChances,
+            out GameplayChanceAudioPolicy audioPolicy)
         {
             remainingChances = 0;
             maxChances = SaveSlotStore.DefaultRemainingChances;
+            audioPolicy = GameplayChanceAudioPolicy.Default;
             if (_displayOverride != null &&
-                _displayOverride.TryRead(out var overrideRemainingChances, out var overrideMaxChances))
+                _displayOverride.TryRead(
+                    out var overrideRemainingChances,
+                    out var overrideMaxChances,
+                    out var overrideAudioPolicy))
             {
                 remainingChances = overrideRemainingChances;
                 maxChances = overrideMaxChances;
                 remainingChances = Clamp(remainingChances, 0, maxChances);
+                audioPolicy = overrideAudioPolicy;
                 CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
                 {
                     SourceType = GetType().Name,

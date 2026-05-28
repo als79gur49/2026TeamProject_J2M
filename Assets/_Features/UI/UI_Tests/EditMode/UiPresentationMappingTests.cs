@@ -235,11 +235,13 @@ namespace Game.Feature.UI.Tests
                 CreateRefreshInput(
                     hasRemainingChances: true,
                     remainingChances: 2,
-                    maxChances: 3));
+                    maxChances: 3,
+                    chanceAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue));
 
             Assert.That(result.Snapshot.Player.HasRemainingChances, Is.True);
             Assert.That(result.Snapshot.Player.RemainingChances, Is.EqualTo(2));
             Assert.That(result.Snapshot.Player.MaxChances, Is.EqualTo(3));
+            Assert.That(result.Snapshot.Chance.AudioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
         }
 
         [Test]
@@ -552,7 +554,8 @@ namespace Game.Feature.UI.Tests
                     hasExplicitPushCandidateInCurrentDirection: false,
                     hasRemainingChances: true,
                     remainingChances: 2,
-                    maxChances: 3),
+                    maxChances: 3,
+                    chanceAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue),
                 new GameplayObjectiveReadModel(false, false, false, false));
             var presentationFeed = new FakeGameplayPresentationFeed();
             var pauseService = new FakeGameplayPauseService();
@@ -567,6 +570,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source.CurrentSnapshot.Player.HasRemainingChances, Is.True);
             Assert.That(source.CurrentSnapshot.Player.RemainingChances, Is.EqualTo(2));
             Assert.That(source.CurrentSnapshot.Player.MaxChances, Is.EqualTo(3));
+            Assert.That(source.CurrentSnapshot.Chance.AudioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
         }
 
         [Test]
@@ -708,7 +712,8 @@ namespace Game.Feature.UI.Tests
             StageId stageId = default,
             string stageDisplayName = "",
             GameplayObjectiveReadModel objective = default,
-            GameplayTopologyPresentationSlice? topologyPresentation = null)
+            GameplayTopologyPresentationSlice? topologyPresentation = null,
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
         {
             return new UIStateRefreshInput(
                 tickIndex,
@@ -736,7 +741,8 @@ namespace Game.Feature.UI.Tests
                 stageId: stageId,
                 stageDisplayName: stageDisplayName,
                 objective: objective,
-                topologyPresentation: topologyPresentation);
+                topologyPresentation: topologyPresentation,
+                chanceAudioPolicy: chanceAudioPolicy);
         }
 
         private static GameplayObjectiveReadModel CreateObjectiveReadModel(bool isSatisfied)

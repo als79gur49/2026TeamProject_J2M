@@ -206,7 +206,8 @@ namespace Game.Feature.UI.Application
                 stage.StageId,
                 stage.DisplayName,
                 objective,
-                frame.HasValue ? frame.Value.Topology : null);
+                frame.HasValue ? frame.Value.Topology : null,
+                playerHud.ChanceAudioPolicy);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

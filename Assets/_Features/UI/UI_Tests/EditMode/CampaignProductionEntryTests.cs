@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
@@ -736,9 +737,15 @@ namespace Game.Feature.UI.Tests
                 var configuration = BuildConfiguration(installer);
 
                 Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
-                Assert.That(configuration.CampaignChancesReadSource.TryReadChances(out var remaining, out var max), Is.True);
+                Assert.That(
+                    configuration.CampaignChancesReadSource.TryReadChances(
+                        out var remaining,
+                        out var max,
+                        out var audioPolicy),
+                    Is.True);
                 Assert.That(remaining, Is.GreaterThanOrEqualTo(0));
                 Assert.That(max, Is.GreaterThan(0));
+                Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.Default));
 
                 var host = installerObject.AddComponent<GameplaySceneHost>();
                 host.Initialize(configuration);

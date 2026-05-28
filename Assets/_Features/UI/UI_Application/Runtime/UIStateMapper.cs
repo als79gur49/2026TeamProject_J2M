@@ -37,7 +37,8 @@ namespace Game.Feature.UI.Application
             StageId stageId = default,
             string stageDisplayName = null,
             GameplayObjectiveReadModel objective = default,
-            GameplayTopologyPresentationSlice? topologyPresentation = null)
+            GameplayTopologyPresentationSlice? topologyPresentation = null,
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -66,7 +67,8 @@ namespace Game.Feature.UI.Application
                 stageId,
                 stageDisplayName,
                 objective,
-                topologyPresentation)
+                topologyPresentation,
+                chanceAudioPolicy)
         {
         }
 
@@ -98,7 +100,8 @@ namespace Game.Feature.UI.Application
             StageId stageId = default,
             string stageDisplayName = null,
             GameplayObjectiveReadModel objective = default,
-            GameplayTopologyPresentationSlice? topologyPresentation = null)
+            GameplayTopologyPresentationSlice? topologyPresentation = null,
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -125,6 +128,9 @@ namespace Game.Feature.UI.Application
             MaxChances = maxChances > 0
                 ? maxChances
                 : (hasRemainingChances ? remainingChances : 0);
+            ChanceAudioPolicy = hasRemainingChances
+                ? chanceAudioPolicy
+                : GameplayChanceAudioPolicy.Default;
             StageId = stageId;
             StageDisplayName = stageDisplayName ?? string.Empty;
             Objective = objective;
@@ -177,6 +183,8 @@ namespace Game.Feature.UI.Application
         public int RemainingChances { get; }
 
         public int MaxChances { get; }
+
+        public GameplayChanceAudioPolicy ChanceAudioPolicy { get; }
 
         public StageId StageId { get; }
 
@@ -313,7 +321,8 @@ namespace Game.Feature.UI.Application
                 new UIChanceSlice(
                     refreshInput.HasRemainingChances,
                     refreshInput.RemainingChances,
-                    refreshInput.MaxChances),
+                    refreshInput.MaxChances,
+                    refreshInput.ChanceAudioPolicy),
                 topology,
                 surfaceBelt,
                 player,

@@ -11,6 +11,12 @@ namespace Game.Feature.UI.HUD
         LastChanceEntered = 3,
     }
 
+    public enum ChanceChangeAudioCuePolicy
+    {
+        Default = 0,
+        Suppress = 1,
+    }
+
     public readonly struct ChanceChangeAnimationHint : IEquatable<ChanceChangeAnimationHint>
     {
         public static readonly ChanceChangeAnimationHint None = new(
@@ -23,12 +29,14 @@ namespace Game.Feature.UI.HUD
             ChanceChangeKind kind,
             int primarySlotIndex,
             IReadOnlyList<int> changedSlotIndices,
-            int sequenceId)
+            int sequenceId,
+            ChanceChangeAudioCuePolicy audioCuePolicy = ChanceChangeAudioCuePolicy.Default)
         {
             Kind = kind;
             PrimarySlotIndex = primarySlotIndex;
             ChangedSlotIndices = CopyIndices(changedSlotIndices);
             SequenceId = sequenceId;
+            AudioCuePolicy = audioCuePolicy;
         }
 
         public ChanceChangeKind Kind { get; }
@@ -39,11 +47,14 @@ namespace Game.Feature.UI.HUD
 
         public int SequenceId { get; }
 
+        public ChanceChangeAudioCuePolicy AudioCuePolicy { get; }
+
         public bool Equals(ChanceChangeAnimationHint other)
         {
             if (Kind != other.Kind ||
                 PrimarySlotIndex != other.PrimarySlotIndex ||
-                SequenceId != other.SequenceId)
+                SequenceId != other.SequenceId ||
+                AudioCuePolicy != other.AudioCuePolicy)
             {
                 return false;
             }
@@ -73,7 +84,7 @@ namespace Game.Feature.UI.HUD
 
         public override int GetHashCode()
         {
-            var hash = HashCode.Combine(Kind, PrimarySlotIndex, SequenceId);
+            var hash = HashCode.Combine(Kind, PrimarySlotIndex, SequenceId, AudioCuePolicy);
             var indices = ChangedSlotIndices ?? Array.Empty<int>();
             for (var i = 0; i < indices.Count; i++)
             {
