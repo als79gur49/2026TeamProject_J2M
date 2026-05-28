@@ -6,10 +6,10 @@ using Game.Feature.Gameplay.Model.Actions;
 
 namespace Game.Feature.Gameplay.Model.Groups
 {
-    internal readonly struct ScheduledFlipContactDraft
+    internal readonly struct ScheduledFlipResolutionDraft
     {
-        public ScheduledFlipContactDraft(
-            ScheduledFlipContactKind kind,
+        public ScheduledFlipResolutionDraft(
+            ScheduledFlipResolutionKind kind,
             int actorEntityId,
             int sourceBoxEntityId,
             SurfaceCell sourceCell,
@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Model.Groups
             DispositionPolicy = dispositionPolicy;
         }
 
-        public ScheduledFlipContactKind Kind { get; }
+        public ScheduledFlipResolutionKind Kind { get; }
 
         public int ActorEntityId { get; }
 
@@ -96,9 +96,9 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public FlipContactDispositionPolicy DispositionPolicy { get; }
 
-        public ScheduledFlipContact ToScheduledContact(int actionId)
+        public ScheduledFlipResolution ToScheduledResolution(int actionId)
         {
-            return new ScheduledFlipContact(
+            return new ScheduledFlipResolution(
                 Kind,
                 actionId,
                 ActorEntityId,
@@ -188,9 +188,9 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public int BoxKineticInstigatorTeamId { get; private set; }
 
-        public bool HasScheduledFlipContact { get; private set; }
+        public bool HasScheduledFlipResolution { get; private set; }
 
-        public ScheduledFlipContactDraft ScheduledFlipContactDraft { get; private set; }
+        public ScheduledFlipResolutionDraft ScheduledFlipResolutionDraft { get; private set; }
 
         public List<MoveAction> Moves { get; }
 
@@ -319,20 +319,20 @@ namespace Game.Feature.Gameplay.Model.Groups
             BoxKineticInstigatorTeamId = instigatorTeamId;
         }
 
-        public void AssignScheduledFlipContact(ScheduledFlipContactDraft contactDraft)
+        public void AssignScheduledFlipResolution(ScheduledFlipResolutionDraft resolutionDraft)
         {
             if (GroupKind != ActionGroupKind.Flip)
             {
-                throw new InvalidOperationException("Only flip groups can schedule flip contacts.");
+                throw new InvalidOperationException("Only flip groups can schedule flip resolutions.");
             }
 
-            if (HasScheduledFlipContact)
+            if (HasScheduledFlipResolution)
             {
-                throw new InvalidOperationException("Scheduled flip contact has already been assigned.");
+                throw new InvalidOperationException("Scheduled flip resolution has already been assigned.");
             }
 
-            HasScheduledFlipContact = true;
-            ScheduledFlipContactDraft = contactDraft;
+            HasScheduledFlipResolution = true;
+            ScheduledFlipResolutionDraft = resolutionDraft;
         }
 
         internal void AssignGroupId(int groupId)

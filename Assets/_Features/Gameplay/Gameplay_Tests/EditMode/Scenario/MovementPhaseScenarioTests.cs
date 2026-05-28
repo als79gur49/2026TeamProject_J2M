@@ -303,9 +303,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                    operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                    operation.ScheduledFlipResolution.SourceBoxEntityId == 30),
                 Is.True);
             Assert.That(result.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(30));
             Assert.That(
@@ -701,9 +701,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                    operation.ScheduledFlipContact.SourceBoxEntityId == 30 &&
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                    operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                    operation.ScheduledFlipResolution.SourceBoxEntityId == 30 &&
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
                 Is.True);
             LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
@@ -2381,9 +2381,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                    operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                    operation.ScheduledFlipResolution.SourceBoxEntityId == 30),
                 Is.True);
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
@@ -2840,9 +2840,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("DestroyMarked")), Is.False);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                    operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                    operation.ScheduledFlipResolution.SourceBoxEntityId == 30),
                 Is.True);
             Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog), Is.Empty);
             Assert.That(result.PresentationData.VisibilityChanges, Is.Empty);
@@ -3132,9 +3132,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                    operation.ScheduledFlipContact.SourceBoxEntityId == 30),
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                    operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                    operation.ScheduledFlipResolution.SourceBoxEntityId == 30),
                 Is.True);
         }
 
@@ -4484,9 +4484,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     Is.True);
                 Assert.That(
                     result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                        operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                        operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                        operation.ScheduledFlipContact.SourceBoxEntityId == 20),
+                        operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                        operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                        operation.ScheduledFlipResolution.SourceBoxEntityId == 20),
                     Is.True);
                 Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 2)));
             }

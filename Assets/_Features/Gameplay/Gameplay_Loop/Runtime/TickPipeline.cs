@@ -39,7 +39,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackInputNormalizer _attackInputNormalizer = new();
         private readonly AttackExpander _attackExpander;
         private readonly CleanupProcessor _cleanupProcessor = new();
-        private readonly FlipScheduledContactResolver _flipScheduledContactResolver = new();
+        private readonly FlipScheduledResolutionResolver _flipScheduledResolutionResolver = new();
         private readonly RespawnProcessor _respawnProcessor = new();
         private readonly MoonBlockGeneratorRespawnProcessor _moonBlockGeneratorRespawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
@@ -219,25 +219,25 @@ namespace Game.Feature.Gameplay.Loop
 
             var tickStartSnapshot = SnapshotBuilder.Create(_worldState);
             var writeContext = _worldState.CreateWriteContext();
-            var dueContactResult = _flipScheduledContactResolver.ResolveDueScheduledFlipContacts(
+            var dueResolutionResult = _flipScheduledResolutionResolver.ResolveDueScheduledFlipResolutions(
                 tickStartSnapshot,
                 input.TickIndex,
                 _objectiveTracker.CurrentResult.IsCleared);
             CleanupPhaseResult dueCleanupPhaseResult = CleanupPhaseResult.Empty;
             WorldSnapshot initialSnapshot = tickStartSnapshot;
-            if (dueContactResult.HasWork)
+            if (dueResolutionResult.HasWork)
             {
-                dueContactResult.Batch.ApplyTo(writeContext, _delayedAttackEffectQueue);
+                dueResolutionResult.Batch.ApplyTo(writeContext, _delayedAttackEffectQueue);
                 var postDueFinalizeSnapshot = SnapshotBuilder.Create(_worldState);
-                var dueCleanupCandidates = CollectDueCleanupCandidateEntityIds(dueContactResult.Batch);
+                var dueCleanupCandidates = CollectDueCleanupCandidateEntityIds(dueResolutionResult.Batch);
                 dueCleanupPhaseResult = _cleanupProcessor.ProcessRemovalsOnly(
                     postDueFinalizeSnapshot,
                     writeContext,
                     dueCleanupCandidates);
-                if (dueContactResult.PostCleanupBatch.Operations.Count > 0 ||
-                    dueContactResult.PostCleanupBatch.TileFeatureOperations.Count > 0)
+                if (dueResolutionResult.PostCleanupBatch.Operations.Count > 0 ||
+                    dueResolutionResult.PostCleanupBatch.TileFeatureOperations.Count > 0)
                 {
-                    dueContactResult.PostCleanupBatch.ApplyTo(writeContext, _delayedAttackEffectQueue);
+                    dueResolutionResult.PostCleanupBatch.ApplyTo(writeContext, _delayedAttackEffectQueue);
                 }
 
                 initialSnapshot = SnapshotBuilder.Create(_worldState);
@@ -290,7 +290,7 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 input.PlayerCommand,
                 combinedCleanupPhaseResult.RemovedEntityIds,
-                BuildObjectiveDamageFacts(dueContactResult.DamageResolutions, attackPhaseResult.DamageResolutions));
+                BuildObjectiveDamageFacts(dueResolutionResult.DamageResolutions, attackPhaseResult.DamageResolutions));
             var objectiveResult = _objectiveTracker.Advance(finalAuthoritativeSnapshot, in objectiveTickFacts);
             var presentationBuildContext = new TickPresentationBuildContext(
                 preMovementSnapshot,
@@ -317,8 +317,8 @@ namespace Game.Feature.Gameplay.Loop
                 resolvePhaseResult.GravityFieldLockedTargetFacts,
                 resolvePhaseResult.FinalizationBatch,
                 planPhaseResult.PlayerActionAttemptResolutions,
-                dueContactResult.ContactPresentationSignals,
-                dueContactResult.DamageResolutions);
+                dueResolutionResult.ContactPresentationSignals,
+                dueResolutionResult.DamageResolutions);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -329,7 +329,7 @@ namespace Game.Feature.Gameplay.Loop
                 respawnPhaseResult,
                 objectiveResult,
                 presentationBuildContext,
-                dueContactResult.EventLogEntries);
+                dueResolutionResult.EventLogEntries);
             var determinismHash = ShouldEmitDeterminismHash()
                 ? _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData)
                 : string.Empty;
@@ -5628,8 +5628,8 @@ namespace Game.Feature.Gameplay.Loop
                 payload.KinematicMotionOutcomes,
                 payload.ExecutionBoundaryKind,
                 payload.BoundaryReason,
-                payload.HasScheduledFlipContact,
-                payload.ScheduledFlipContact);
+                payload.HasScheduledFlipResolution,
+                payload.ScheduledFlipResolution);
         }
 
         private static void MergeMovementActionPlanPayloads(
@@ -5996,9 +5996,9 @@ namespace Game.Feature.Gameplay.Loop
                 var hasDeferredImpactPayload = TryBuildDeferredImpactPayload(
                     group,
                     out var deferredImpactPayload);
-                var hasScheduledFlipContact = group.HasScheduledFlipContact;
-                var scheduledFlipContact = hasScheduledFlipContact
-                    ? group.ScheduledFlipContactDraft.ToScheduledContact(group.GroupId)
+                var hasScheduledFlipResolution = group.HasScheduledFlipResolution;
+                var scheduledFlipResolution = hasScheduledFlipResolution
+                    ? group.ScheduledFlipResolutionDraft.ToScheduledResolution(group.GroupId)
                     : default;
                 var executionBoundaryKind = ResolveMovementExecutionBoundaryKind(snapshot, sortedIntents, group);
 
@@ -6034,8 +6034,8 @@ namespace Game.Feature.Gameplay.Loop
                     deferredImpactPayload,
                     executionBoundaryKind: executionBoundaryKind,
                     boundaryReason: ResolveMovementExecutionBoundaryReason(executionBoundaryKind),
-                    hasScheduledFlipContact: hasScheduledFlipContact,
-                    scheduledFlipContact: scheduledFlipContact);
+                    hasScheduledFlipResolution: hasScheduledFlipResolution,
+                    scheduledFlipResolution: scheduledFlipResolution);
             }
 
             return payloads;
@@ -8546,14 +8546,14 @@ namespace Game.Feature.Gameplay.Loop
                         CreateMovementMetadata(payload, baseResolution, kineticIndex));
                 }
 
-                if (payload.HasScheduledFlipContact)
+                if (payload.HasScheduledFlipResolution)
                 {
-                    batch.AddScheduledFlipContact(
-                        payload.ScheduledFlipContact,
+                    batch.AddScheduledFlipResolution(
+                        payload.ScheduledFlipResolution,
                         CreateMovementMetadata(payload, baseResolution, localActionIndex: 0));
-                    var scheduledContact = payload.ScheduledFlipContact;
+                    var scheduledResolution = payload.ScheduledFlipResolution;
                     commitEvents.Add(
-                        $"FlipB1ContactScheduled|G={actionPlanId}|I={payload.IntentId}|Kind={scheduledContact.Kind}|Actor={scheduledContact.ActorEntityId}|Box={scheduledContact.SourceBoxEntityId}|Contact={FormatCell(scheduledContact.ContactCell)}|Landing={FormatCell(scheduledContact.LandingCell)}|ActionStart={scheduledContact.ActionStartTick}|ActionVisualImpact={scheduledContact.ActionVisualImpactTick}|Execute={scheduledContact.ExecuteTick}|Due={scheduledContact.DueTick}|FlipExecuteDelayTicks={scheduledContact.FlipExecuteDelayTicks}|FlipInputLockDurationTicks={scheduledContact.FlipInputLockDurationTicks}|VisualImpactNormalized={GameplayFlipMotionTiming.VisualSlamContactNormalizedTime}|DueMinusActionStart={scheduledContact.DueTick - scheduledContact.ActionStartTick}|DueMinusExecute={scheduledContact.DueTick - scheduledContact.ExecuteTick}|ActionNormAtDue={FormatActionNormAtDue(scheduledContact)}|Ordering={scheduledContact.OrderingKey}");
+                        $"FlipB1ContactScheduled|G={actionPlanId}|I={payload.IntentId}|Kind={scheduledResolution.Kind}|Actor={scheduledResolution.ActorEntityId}|Box={scheduledResolution.SourceBoxEntityId}|Contact={FormatCell(scheduledResolution.ContactCell)}|Landing={FormatCell(scheduledResolution.LandingCell)}|ActionStart={scheduledResolution.ActionStartTick}|ActionVisualImpact={scheduledResolution.ActionVisualImpactTick}|Execute={scheduledResolution.ExecuteTick}|Due={scheduledResolution.DueTick}|FlipExecuteDelayTicks={scheduledResolution.FlipExecuteDelayTicks}|FlipInputLockDurationTicks={scheduledResolution.FlipInputLockDurationTicks}|VisualImpactNormalized={GameplayFlipMotionTiming.VisualSlamContactNormalizedTime}|DueMinusActionStart={scheduledResolution.DueTick - scheduledResolution.ActionStartTick}|DueMinusExecute={scheduledResolution.DueTick - scheduledResolution.ExecuteTick}|ActionNormAtDue={FormatActionNormAtDue(scheduledResolution)}|Ordering={scheduledResolution.OrderingKey}");
                 }
 
                 for (var executionIndex = 0; executionIndex < payload.ExecutionLockWrites.Count; executionIndex++)

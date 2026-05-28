@@ -3027,9 +3027,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(groups, Has.Count.EqualTo(1), string.Join("\n", rejected));
             Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.Flip));
-            Assert.That(groups[0].HasScheduledFlipContact, Is.True);
-            Assert.That(groups[0].ScheduledFlipContactDraft.SourceBoxEntityId, Is.EqualTo(20));
-            Assert.That(groups[0].ScheduledFlipContactDraft.ContactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(groups[0].HasScheduledFlipResolution, Is.True);
+            Assert.That(groups[0].ScheduledFlipResolutionDraft.SourceBoxEntityId, Is.EqualTo(20));
+            Assert.That(groups[0].ScheduledFlipResolutionDraft.ContactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> entities)

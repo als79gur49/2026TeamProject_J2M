@@ -175,7 +175,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly BoardBounds _boardBounds;
         private readonly IReadOnlyDictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PendingCellImpact> _pendingCellImpactsById;
-        private readonly IReadOnlyDictionary<int, ScheduledFlipContact> _scheduledFlipContactsByActionId;
+        private readonly IReadOnlyDictionary<int, ScheduledFlipResolution> _scheduledFlipResolutionsByActionId;
         private readonly IReadOnlyDictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
@@ -210,7 +210,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<SurfaceCell, SortedSet<int>> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, PendingCellImpact> pendingCellImpactsById,
-            Dictionary<int, ScheduledFlipContact> scheduledFlipContactsByActionId,
+            Dictionary<int, ScheduledFlipResolution> scheduledFlipResolutionsByActionId,
             Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
@@ -239,7 +239,7 @@ namespace Game.Feature.Gameplay.BoardState
             _tileFeatureIdsByCell = CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell)));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
             _pendingCellImpactsById = new ReadOnlyDictionary<int, PendingCellImpact>(pendingCellImpactsById ?? throw new ArgumentNullException(nameof(pendingCellImpactsById)));
-            _scheduledFlipContactsByActionId = new ReadOnlyDictionary<int, ScheduledFlipContact>(scheduledFlipContactsByActionId ?? throw new ArgumentNullException(nameof(scheduledFlipContactsByActionId)));
+            _scheduledFlipResolutionsByActionId = new ReadOnlyDictionary<int, ScheduledFlipResolution>(scheduledFlipResolutionsByActionId ?? throw new ArgumentNullException(nameof(scheduledFlipResolutionsByActionId)));
             _enemyPatrolStatesByEntityId = new ReadOnlyDictionary<int, EnemyPatrolRuntimeState>(enemyPatrolStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyPatrolStatesByEntityId)));
             _enemyChargeStatesByEntityId = new ReadOnlyDictionary<int, EnemyChargeRuntimeState>(enemyChargeStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyChargeStatesByEntityId)));
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
@@ -338,9 +338,9 @@ namespace Game.Feature.Gameplay.BoardState
             return _pendingCellImpactsById.TryGetValue(impactId, out impact);
         }
 
-        public bool TryGetScheduledFlipContact(int actionId, out ScheduledFlipContact contact)
+        public bool TryGetScheduledFlipResolution(int actionId, out ScheduledFlipResolution contact)
         {
-            return _scheduledFlipContactsByActionId.TryGetValue(actionId, out contact);
+            return _scheduledFlipResolutionsByActionId.TryGetValue(actionId, out contact);
         }
 
         public int CountPendingCellImpactsForOwner(int ownerId)
@@ -1047,7 +1047,7 @@ namespace Game.Feature.Gameplay.BoardState
             buffer.Sort(ComparePendingCellImpactEntries);
         }
 
-        internal void EnumerateScheduledFlipContactsOrdered(List<ScheduledFlipContactSnapshotEntry> buffer)
+        internal void EnumerateScheduledFlipResolutionsOrdered(List<ScheduledFlipResolutionSnapshotEntry> buffer)
         {
             if (buffer == null)
             {
@@ -1056,15 +1056,15 @@ namespace Game.Feature.Gameplay.BoardState
 
             buffer.Clear();
 
-            foreach (var pair in _scheduledFlipContactsByActionId)
+            foreach (var pair in _scheduledFlipResolutionsByActionId)
             {
-                buffer.Add(new ScheduledFlipContactSnapshotEntry(pair.Key, pair.Value));
+                buffer.Add(new ScheduledFlipResolutionSnapshotEntry(pair.Key, pair.Value));
             }
 
-            buffer.Sort(ScheduledFlipContactComparer.Instance);
+            buffer.Sort(ScheduledFlipResolutionComparer.Instance);
         }
 
-        internal void EnumerateDueScheduledFlipContactsOrdered(int dueTick, List<ScheduledFlipContact> buffer)
+        internal void EnumerateDueScheduledFlipResolutionsOrdered(int dueTick, List<ScheduledFlipResolution> buffer)
         {
             if (buffer == null)
             {
@@ -1073,7 +1073,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             buffer.Clear();
 
-            foreach (var pair in _scheduledFlipContactsByActionId)
+            foreach (var pair in _scheduledFlipResolutionsByActionId)
             {
                 if (pair.Value.DueTick <= dueTick)
                 {
@@ -1081,7 +1081,7 @@ namespace Game.Feature.Gameplay.BoardState
                 }
             }
 
-            buffer.Sort(ScheduledFlipContactComparer.Instance);
+            buffer.Sort(ScheduledFlipResolutionComparer.Instance);
         }
 
         private static int ComparePendingCellImpactEntries(

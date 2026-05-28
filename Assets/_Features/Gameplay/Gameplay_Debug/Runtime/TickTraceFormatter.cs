@@ -118,7 +118,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.PlayerDamage", GetPlayerDamageEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
-            AppendSection(builder, $"{label}.ScheduledFlipContacts", GetScheduledFlipContactEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.ScheduledFlipContacts", GetScheduledFlipResolutionEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyPatrols", GetEnemyPatrolEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
@@ -222,15 +222,15 @@ namespace Game.Feature.Gameplay.Debug
             return lines;
         }
 
-        private static List<string> GetScheduledFlipContactEntries(WorldSnapshot snapshot)
+        private static List<string> GetScheduledFlipResolutionEntries(WorldSnapshot snapshot)
         {
-            var entries = new List<ScheduledFlipContactSnapshotEntry>();
+            var entries = new List<ScheduledFlipResolutionSnapshotEntry>();
             var lines = new List<string>();
-            snapshot.EnumerateScheduledFlipContactsOrdered(entries);
+            snapshot.EnumerateScheduledFlipResolutionsOrdered(entries);
 
             for (var i = 0; i < entries.Count; i++)
             {
-                var contact = entries[i].Contact;
+                var contact = entries[i].Resolution;
                 lines.Add(
                     $"Kind={contact.Kind}|Action={contact.ActionId}|Actor={contact.ActorEntityId}|Box={contact.SourceBoxEntityId}|Source={FormatCell(contact.SourceCell)}|Contact={FormatCell(contact.ContactCell)}|Landing={FormatCell(contact.LandingCell)}|Direction={contact.FlipDirection}|Capabilities={contact.SourceCapabilitiesSnapshot}|Damage={contact.DamageSpec.DamageAmount}|SourceKind={contact.DamageSpec.SourceKind}|Kinetic={contact.KineticInstigatorEntityId}|KineticTeam={contact.KineticInstigatorTeamId}|ActionStart={contact.ActionStartTick}|ActionVisualImpact={contact.ActionVisualImpactTick}|Execute={contact.ExecuteTick}|Due={contact.DueTick}|FlipExecuteDelayTicks={contact.FlipExecuteDelayTicks}|FlipInputLockDurationTicks={contact.FlipInputLockDurationTicks}|VisualImpactNormalized={GameplayFlipMotionTiming.VisualSlamContactNormalizedTime}|DueMinusActionStart={contact.DueTick - contact.ActionStartTick}|DueMinusExecute={contact.DueTick - contact.ExecuteTick}|ActionNormAtDue={FormatActionNormAtDue(contact)}|Ordering={contact.OrderingKey}|Cancel={contact.CancellationPolicy}|Disposition={contact.DispositionPolicy}");
             }
@@ -533,7 +533,7 @@ namespace Game.Feature.Gameplay.Debug
             return $"E={transition.EntityId}|Prev={transition.PreviousKind}|Curr={transition.CurrentKind}|PrevSeq={transition.PreviousSequence}|CurrSeq={transition.CurrentSequence}|Started={transition.StartedThisTick}|Completed={transition.CompletedThisTick}|Canceled={transition.CanceledThisTick}";
         }
 
-        private static string FormatActionNormAtDue(in ScheduledFlipContact contact)
+        private static string FormatActionNormAtDue(in ScheduledFlipResolution contact)
         {
             if (contact.FlipInputLockDurationTicks <= 0)
             {
@@ -768,20 +768,20 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|EffectSequence=").Append(operation.DelayedAttackEffect.EffectSequence);
                     break;
 
-                case FinalizationOperationKind.AddScheduledFlipContact:
-                    builder.Append("|ScheduledFlipAction=").Append(operation.ScheduledFlipContact.ActionId)
-                        .Append("|Kind=").Append(operation.ScheduledFlipContact.Kind)
-                        .Append("|Actor=").Append(operation.ScheduledFlipContact.ActorEntityId)
-                        .Append("|Box=").Append(operation.ScheduledFlipContact.SourceBoxEntityId)
-                        .Append("|Contact=").Append(FormatCell(operation.ScheduledFlipContact.ContactCell))
-                        .Append("|Due=").Append(operation.ScheduledFlipContact.DueTick);
+                case FinalizationOperationKind.AddScheduledFlipResolution:
+                    builder.Append("|ScheduledFlipAction=").Append(operation.ScheduledFlipResolution.ActionId)
+                        .Append("|Kind=").Append(operation.ScheduledFlipResolution.Kind)
+                        .Append("|Actor=").Append(operation.ScheduledFlipResolution.ActorEntityId)
+                        .Append("|Box=").Append(operation.ScheduledFlipResolution.SourceBoxEntityId)
+                        .Append("|Contact=").Append(FormatCell(operation.ScheduledFlipResolution.ContactCell))
+                        .Append("|Due=").Append(operation.ScheduledFlipResolution.DueTick);
                     break;
 
-                case FinalizationOperationKind.RemoveScheduledFlipContact:
+                case FinalizationOperationKind.RemoveScheduledFlipResolution:
                     builder.Append("|RemoveScheduledFlipAction=").Append(operation.EntityId);
                     break;
 
-                case FinalizationOperationKind.RemoveScheduledFlipContactsForEntity:
+                case FinalizationOperationKind.RemoveScheduledFlipResolutionsForEntity:
                     builder.Append("|RemoveScheduledFlipEntity=").Append(operation.EntityId);
                     break;
             }

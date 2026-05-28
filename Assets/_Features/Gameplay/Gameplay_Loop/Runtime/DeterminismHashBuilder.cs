@@ -66,7 +66,7 @@ namespace Game.Feature.Gameplay.Loop
             AppendPendingCellImpactLines(builder, GetOrderedPendingCellImpacts(finalSnapshot));
 
             builder.Append("ScheduledFlipContacts").Append('\n');
-            AppendScheduledFlipContactLines(builder, GetOrderedScheduledFlipContacts(finalSnapshot));
+            AppendScheduledFlipResolutionLines(builder, GetOrderedScheduledFlipResolutions(finalSnapshot));
 
             builder.Append("EnemyPatrols").Append('\n');
             AppendEnemyPatrolLines(builder, GetOrderedEnemyPatrolStates(finalSnapshot));
@@ -315,11 +315,11 @@ namespace Game.Feature.Gameplay.Loop
             return pendingCellImpacts;
         }
 
-        private static List<ScheduledFlipContactSnapshotEntry> GetOrderedScheduledFlipContacts(WorldSnapshot finalSnapshot)
+        private static List<ScheduledFlipResolutionSnapshotEntry> GetOrderedScheduledFlipResolutions(WorldSnapshot finalSnapshot)
         {
-            var scheduledFlipContacts = new List<ScheduledFlipContactSnapshotEntry>();
-            finalSnapshot.EnumerateScheduledFlipContactsOrdered(scheduledFlipContacts);
-            return scheduledFlipContacts;
+            var scheduledFlipResolutions = new List<ScheduledFlipResolutionSnapshotEntry>();
+            finalSnapshot.EnumerateScheduledFlipResolutionsOrdered(scheduledFlipResolutions);
+            return scheduledFlipResolutions;
         }
 
         private static List<SnapshotOccupancyEntry> GetOrderedProjectileOccupancy(WorldSnapshot finalSnapshot)
@@ -843,19 +843,19 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void AppendScheduledFlipContactLines(
+        private static void AppendScheduledFlipResolutionLines(
             StringBuilder builder,
-            IReadOnlyList<ScheduledFlipContactSnapshotEntry> scheduledFlipContacts)
+            IReadOnlyList<ScheduledFlipResolutionSnapshotEntry> scheduledFlipResolutions)
         {
-            if (scheduledFlipContacts.Count == 0)
+            if (scheduledFlipResolutions.Count == 0)
             {
                 builder.Append("<empty>").Append('\n');
                 return;
             }
 
-            for (var i = 0; i < scheduledFlipContacts.Count; i++)
+            for (var i = 0; i < scheduledFlipResolutions.Count; i++)
             {
-                var contact = scheduledFlipContacts[i].Contact;
+                var contact = scheduledFlipResolutions[i].Resolution;
                 builder
                     .Append((int)contact.Kind).Append('|')
                     .Append(contact.ActionId).Append('|')

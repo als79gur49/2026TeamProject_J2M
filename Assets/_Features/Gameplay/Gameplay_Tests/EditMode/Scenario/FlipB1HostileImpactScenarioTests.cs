@@ -145,7 +145,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var result = RunPlayerFlipImpact(hp: 3, out var worldState, out _);
 
-            var contacts = GetScheduledContacts(worldState);
+            var contacts = GetScheduledResolutions(worldState);
 
             Assert.That(contacts, Has.Count.EqualTo(1));
             Assert.That(
@@ -212,7 +212,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             RunPlayerFlipImpact(hp: 3, out var worldState, out _);
 
-            var contact = GetScheduledContacts(worldState).Single();
+            var contact = GetScheduledResolutions(worldState).Single();
             var expectedDelayTicks =
                 GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault());
 
@@ -233,7 +233,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             RunPlayerFlipImpact(hp: 3, out var worldState, out _);
 
-            var contact = GetScheduledContacts(worldState).Single();
+            var contact = GetScheduledResolutions(worldState).Single();
 
             Assert.That(contact.ActionId, Is.GreaterThan(0));
             Assert.That(contact.ActorEntityId, Is.EqualTo(10));
@@ -243,7 +243,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(contact.DamageSpec.DamageAmount, Is.EqualTo(1));
             Assert.That(contact.DamageSpec.SourceKind, Is.EqualTo(AttackSourceKind.B1ScheduledContactDue));
             Assert.That(contact.DamageSpec.SourceActionId, Is.EqualTo(contact.ActionId));
-            Assert.That(typeof(ScheduledFlipContact).GetProperty("TargetEntityId"), Is.Null);
+            Assert.That(typeof(ScheduledFlipResolution).GetProperty("TargetEntityId"), Is.Null);
         }
 
         [Test]
@@ -282,7 +282,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(target.markedForDeath, Is.False);
             Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
             Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
-            Assert.That(GetScheduledContacts(worldState), Has.Count.EqualTo(1));
+            Assert.That(GetScheduledResolutions(worldState), Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -300,7 +300,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             var snapshot = worldState.CreateSnapshot();
-            var contact = GetScheduledContacts(worldState).Single();
+            var contact = GetScheduledResolutions(worldState).Single();
             Assert.That(brokenTimingTick.PresentationData.FlipDueContactSignals, Is.Empty);
             Assert.That(brokenTimingTick.PresentationData.EnemyDamageSignals, Is.Empty);
             Assert.That(brokenTimingTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 30), Is.False);
@@ -324,7 +324,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
             RunUntilExecute(pipeline);
 
-            var contact = GetScheduledContacts(worldState).Single();
+            var contact = GetScheduledResolutions(worldState).Single();
             Assert.That(contact.ExecuteTick, Is.EqualTo(1 + PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate));
             Assert.That(contact.DueTick, Is.EqualTo(1 + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault())));
             Assert.That(contact.DueTick, Is.Not.EqualTo(contact.ExecuteTick + 6));
@@ -394,7 +394,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(target.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
             Assert.That(target.hp, Is.EqualTo(3));
             Assert.That(preDueMoveTick.PresentationData.EnemyDamageSignals, Is.Empty);
-            Assert.That(GetScheduledContacts(worldState), Has.Count.EqualTo(1));
+            Assert.That(GetScheduledResolutions(worldState), Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -403,7 +403,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             RunPlayerFlipImpactToDue(hp: 3, out var worldState, out _, out var dueTick);
 
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.EventLog.Any(entry => entry.StartsWith("FlipB1Removed|")), Is.True);
         }
 
@@ -753,7 +753,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             RunUntilDue(pipeline);
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             if (snapshot.TryGetEntity(20, out var sourceBox))
             {
                 Assert.That(sourceBox.boardPresence, Is.Not.EqualTo(EntityBoardPresence.InFlight));
@@ -771,7 +771,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var dueTick = RunUntilDue(pipeline);
 
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
             Assert.That(dueTick.EventLog.Any(entry => entry.Contains("Reason=BoxGone")), Is.True);
         }
@@ -787,7 +787,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var dueTick = RunUntilDue(pipeline);
 
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out var sourceBox), Is.True);
             Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             Assert.That(dueTick.EventLog.Any(entry => entry.Contains("Reason=BoxNotInFlight")), Is.True);
@@ -806,7 +806,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
-            Assert.That(GetScheduledContacts(worldState).Single().Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            Assert.That(GetScheduledResolutions(worldState).Single().Kind, Is.EqualTo(ScheduledFlipResolutionKind.OrdinaryLanding));
         }
 
         [Test]
@@ -817,7 +817,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out var box), Is.True);
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
-            Assert.That(GetScheduledContacts(worldState).Single().Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            Assert.That(GetScheduledResolutions(worldState).Single().Kind, Is.EqualTo(ScheduledFlipResolutionKind.OrdinaryLanding));
         }
 
         [Test]
@@ -858,7 +858,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
             Assert.That(snapshot.TryGetSolidOccupantAt(landingCell, out _), Is.False);
             AssertObjectiveNotAdvanced(executeTick.ObjectiveResult);
-            Assert.That(GetScheduledContacts(worldState).Single().Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            Assert.That(GetScheduledResolutions(worldState).Single().Kind, Is.EqualTo(ScheduledFlipResolutionKind.OrdinaryLanding));
         }
 
         [Test]
@@ -912,7 +912,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             RunOrdinaryFlipToDue(out var worldState, out _, out var dueTick);
 
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.EventLog.Any(entry => entry.StartsWith("FlipB1Removed|")), Is.True);
         }
 
@@ -960,13 +960,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             var snapshot = worldState.CreateSnapshot();
-            var contact = GetScheduledContacts(worldState).Single();
+            var contact = GetScheduledResolutions(worldState).Single();
 
             Assert.That(brokenTimingTick.PresentationData.FlipDueContactSignals, Is.Empty);
             Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, -1, 0), out _), Is.False);
             Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
-            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipResolutionKind.OrdinaryLanding));
             Assert.That(contact.DueTick, Is.EqualTo(1 + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault())));
             Assert.That(contact.DueTick, Is.GreaterThan(brokenTimingTick.TickIndex));
         }
@@ -987,7 +987,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(clearTick.ObjectiveResult.IsCleared, Is.True);
             Assert.That(terminalTick.TickIndex, Is.LessThan(originalDueTick));
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
             Assert.That(sourceBox.position, Is.EqualTo(sourceCell));
             Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
@@ -1018,7 +1018,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(clearTick.ObjectiveResult.IsCleared, Is.True);
             Assert.That(terminalTick.TickIndex, Is.LessThan(originalDueTick));
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshot.TryGetEntity(31, out var sourceBlocker), Is.True);
             Assert.That(sourceBlocker.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
@@ -1050,12 +1050,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             var snapshot = worldState.CreateSnapshot();
-            var contact = GetScheduledContacts(worldState).Single();
+            var contact = GetScheduledResolutions(worldState).Single();
 
             Assert.That(snapshot.TryGetSolidOccupantAt(landingCell, out _), Is.False);
             AssertObjectiveNotAdvanced(brokenTimingTick.ObjectiveResult);
             Assert.That(brokenTimingTick.PresentationData.FlipDueContactSignals, Is.Empty);
-            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipResolutionKind.OrdinaryLanding));
             Assert.That(contact.DueTick, Is.GreaterThan(brokenTimingTick.TickIndex));
         }
 
@@ -1092,7 +1092,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(snapshot.TryGetSolidOccupantAt(landingCell, out var occupant), Is.True);
             Assert.That(occupant.entityId, Is.EqualTo(20));
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             AssertObjectiveAdvanced(dueTick.ObjectiveResult);
             Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.EmptyLand));
         }
@@ -1112,7 +1112,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(30, out var hostile), Is.True);
             Assert.That(hostile.hp, Is.EqualTo(2));
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.EventLog.Any(entry => entry.Contains("DamagePath=B1ScheduledContactDue")), Is.True);
             Assert.That(dueTick.EventLog.Any(entry => entry.Contains("Occupant=30")), Is.True);
         }
@@ -1421,7 +1421,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
             Assert.That(sourceBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingSolidBlockSourceFallback));
         }
 
@@ -1447,7 +1447,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetSolidOccupantAt(landingCell, out var landingOccupant), Is.True);
             Assert.That(landingOccupant.entityId, Is.EqualTo(30));
             AssertObjectiveNotAdvanced(dueTick.ObjectiveResult);
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingSolidBlockSourceFallback));
         }
 
@@ -1468,7 +1468,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshot.TryGetEntity(30, out _), Is.True);
             Assert.That(snapshot.TryGetEntity(31, out _), Is.True);
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingSolidBlockDestroySelf));
         }
 
@@ -1516,7 +1516,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(30, out _), Is.True);
             Assert.That(snapshot.TryGetEntity(31, out _), Is.True);
             AssertObjectiveNotAdvanced(dueTick.ObjectiveResult);
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingSolidBlockDestroySelf));
         }
 
@@ -1574,7 +1574,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshot.TryGetEntity(30, out _), Is.True);
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().ResolutionKind, Is.EqualTo(FlipContactResolutionKind.OrdinaryLandingInvalidDestroySelf));
         }
 
@@ -1596,7 +1596,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = RunUntilExecute(pipeline);
 
             Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
-            Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(GetScheduledResolutions(worldState), Is.Empty);
             Assert.That(result.PresentationData.FlipB1InFlightMotionSignals, Is.Empty);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out var box), Is.True);
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
@@ -1634,8 +1634,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
             executeTick = RunUntilExecute(pipeline);
-            var contact = GetScheduledContacts(worldState).Single();
-            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            var contact = GetScheduledResolutions(worldState).Single();
+            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipResolutionKind.OrdinaryLanding));
             originalDueTick = contact.DueTick;
             Assert.That(executeTick.TickIndex, Is.LessThan(originalDueTick));
 
@@ -1648,7 +1648,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             ((IAttackCommitContext)writeContext).MarkDestroy(30);
             clearTick = pipeline.RunTick(new TickInput(executeTick.TickIndex + 1, PlayerTickCommand.None));
             Assert.That(clearTick.ObjectiveResult.IsCleared, Is.True);
-            Assert.That(GetScheduledContacts(worldState), Has.Count.EqualTo(1));
+            Assert.That(GetScheduledResolutions(worldState), Has.Count.EqualTo(1));
 
             return pipeline.RunTick(new TickInput(clearTick.TickIndex + 1, PlayerTickCommand.None));
         }
@@ -1846,21 +1846,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return result;
         }
 
-        private static List<ScheduledFlipContact> GetScheduledContacts(WorldState worldState)
+        private static List<ScheduledFlipResolution> GetScheduledResolutions(WorldState worldState)
         {
-            var contacts = new List<ScheduledFlipContact>();
-            worldState.CreateSnapshot().EnumerateDueScheduledFlipContactsOrdered(int.MaxValue, contacts);
+            var contacts = new List<ScheduledFlipResolution>();
+            worldState.CreateSnapshot().EnumerateDueScheduledFlipResolutionsOrdered(int.MaxValue, contacts);
             return contacts;
         }
 
         private static void ReplaceOrdinaryLandingCell(WorldState worldState, SurfaceCell landingCell)
         {
-            var contact = GetScheduledContacts(worldState).Single();
-            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipContactKind.OrdinaryLanding));
+            var contact = GetScheduledResolutions(worldState).Single();
+            Assert.That(contact.Kind, Is.EqualTo(ScheduledFlipResolutionKind.OrdinaryLanding));
             var writeContext = worldState.CreateWriteContext();
-            writeContext.RemoveScheduledFlipContact(contact.ActionId);
-            writeContext.AddScheduledFlipContact(
-                new ScheduledFlipContact(
+            writeContext.RemoveScheduledFlipResolution(contact.ActionId);
+            writeContext.AddScheduledFlipResolution(
+                new ScheduledFlipResolution(
                     contact.Kind,
                     contact.ActionId,
                     contact.ActorEntityId,
@@ -1988,7 +1988,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static string ExtractScheduledContactCreationSlice(string source)
         {
-            const string startMarker = "new ScheduledFlipContactDraft(";
+            const string startMarker = "new ScheduledFlipResolutionDraft(";
             const string endMarker = "FlipContactDispositionPolicy.DefaultB1HostileImpact";
             var start = source.IndexOf(startMarker, StringComparison.Ordinal);
             var end = source.IndexOf(endMarker, StringComparison.Ordinal);

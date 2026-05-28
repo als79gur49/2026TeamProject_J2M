@@ -759,9 +759,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 flipTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                    operation.ScheduledFlipContact.SourceBoxEntityId == 30 &&
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                    operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                    operation.ScheduledFlipResolution.SourceBoxEntityId == 30 &&
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
                 Is.True);
             Assert.That(flipTick.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(30));

@@ -10,13 +10,13 @@ using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
 {
-    internal sealed class FlipScheduledContactResolver
+    internal sealed class FlipScheduledResolutionResolver
     {
-        private readonly List<ScheduledFlipContact> _dueContacts = new();
-        private readonly List<ScheduledFlipContactSnapshotEntry> _scheduledContactEntries = new();
+        private readonly List<ScheduledFlipResolution> _dueResolutions = new();
+        private readonly List<ScheduledFlipResolutionSnapshotEntry> _scheduledResolutionEntries = new();
         private readonly List<EntityState> _unitBuffer = new();
 
-        public FlipScheduledContactDueResult ResolveDueScheduledFlipContacts(
+        public FlipScheduledResolutionDueResult ResolveDueScheduledFlipResolutions(
             WorldSnapshot snapshot,
             int currentTick,
             bool stageAlreadyTerminal)
@@ -28,16 +28,16 @@ namespace Game.Feature.Gameplay.Loop
 
             if (stageAlreadyTerminal)
             {
-                EnumerateStageTerminalScheduledFlipContacts(snapshot, currentTick, _dueContacts);
+                EnumerateStageTerminalScheduledFlipResolutions(snapshot, currentTick, _dueResolutions);
             }
             else
             {
-                snapshot.EnumerateDueScheduledFlipContactsOrdered(currentTick, _dueContacts);
+                snapshot.EnumerateDueScheduledFlipResolutionsOrdered(currentTick, _dueResolutions);
             }
 
-            if (_dueContacts.Count == 0)
+            if (_dueResolutions.Count == 0)
             {
-                return FlipScheduledContactDueResult.Empty;
+                return FlipScheduledResolutionDueResult.Empty;
             }
 
             var batch = new FinalizationBatch();
@@ -46,11 +46,11 @@ namespace Game.Feature.Gameplay.Loop
             var damageResolutions = new List<DamageResolutionRecord>();
             var contactResolutions = new List<FlipContactResolution>();
             var contactPresentationSignals = new List<FlipDueContactPresentationSignal>();
-            for (var i = 0; i < _dueContacts.Count; i++)
+            for (var i = 0; i < _dueResolutions.Count; i++)
             {
-                ResolveSingleScheduledFlipContact(
+                ResolveSingleScheduledFlipResolution(
                     snapshot,
-                    _dueContacts[i],
+                    _dueResolutions[i],
                     currentTick,
                     stageAlreadyTerminal,
                     batch,
@@ -61,7 +61,7 @@ namespace Game.Feature.Gameplay.Loop
                     contactPresentationSignals);
             }
 
-            return new FlipScheduledContactDueResult(
+            return new FlipScheduledResolutionDueResult(
                 batch,
                 postCleanupBatch,
                 eventLogEntries,
@@ -70,17 +70,17 @@ namespace Game.Feature.Gameplay.Loop
                 contactPresentationSignals);
         }
 
-        private void EnumerateStageTerminalScheduledFlipContacts(
+        private void EnumerateStageTerminalScheduledFlipResolutions(
             WorldSnapshot snapshot,
             int currentTick,
-            List<ScheduledFlipContact> buffer)
+            List<ScheduledFlipResolution> buffer)
         {
             buffer.Clear();
-            snapshot.EnumerateScheduledFlipContactsOrdered(_scheduledContactEntries);
-            for (var i = 0; i < _scheduledContactEntries.Count; i++)
+            snapshot.EnumerateScheduledFlipResolutionsOrdered(_scheduledResolutionEntries);
+            for (var i = 0; i < _scheduledResolutionEntries.Count; i++)
             {
-                var contact = _scheduledContactEntries[i].Contact;
-                if (contact.Kind == ScheduledFlipContactKind.OrdinaryLanding ||
+                var contact = _scheduledResolutionEntries[i].Resolution;
+                if (contact.Kind == ScheduledFlipResolutionKind.OrdinaryLanding ||
                     contact.DueTick <= currentTick)
                 {
                     buffer.Add(contact);
@@ -88,9 +88,9 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private void ResolveSingleScheduledFlipContact(
+        private void ResolveSingleScheduledFlipResolution(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             bool stageAlreadyTerminal,
             FinalizationBatch batch,
@@ -102,7 +102,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             switch (contact.Kind)
             {
-                case ScheduledFlipContactKind.OrdinaryLanding:
+                case ScheduledFlipResolutionKind.OrdinaryLanding:
                     ResolveOrdinaryLandingDue(
                         snapshot,
                         contact,
@@ -115,10 +115,10 @@ namespace Game.Feature.Gameplay.Loop
                         contactResolutions,
                         contactPresentationSignals);
                     return;
-                case ScheduledFlipContactKind.HostileImpact:
+                case ScheduledFlipResolutionKind.HostileImpact:
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(contact), contact.Kind, "Unknown scheduled flip contact kind.");
+                    throw new ArgumentOutOfRangeException(nameof(contact), contact.Kind, "Unknown scheduled flip resolution kind.");
             }
 
             if (stageAlreadyTerminal)
@@ -274,7 +274,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveOrdinaryLandingDue(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             bool stageAlreadyTerminal,
             FinalizationBatch batch,
@@ -399,7 +399,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveOrdinaryEmptyLandingDue(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FinalizationBatch batch,
             List<string> eventLogEntries,
@@ -430,7 +430,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             MaterializeOrdinarySourceBox(contact, contact.LandingCell, batch, metadata);
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -448,7 +448,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveOrdinaryHostileAtLandingDue(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             in EntityState occupant,
             int currentTick,
             FinalizationBatch batch,
@@ -476,7 +476,7 @@ namespace Game.Feature.Gameplay.Loop
             if (!targetDies)
             {
                 batch.MarkDestroy(contact.SourceBoxEntityId, metadata);
-                batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+                batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
                 AddResolution(
                     contact,
                     currentTick,
@@ -517,7 +517,7 @@ namespace Game.Feature.Gameplay.Loop
             if (followThroughAllowed)
             {
                 MaterializeOrdinarySourceBox(contact, contact.LandingCell, postCleanupBatch, metadata);
-                batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+                batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
                 AddResolution(
                     contact,
                     currentTick,
@@ -550,7 +550,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveOrdinaryNoDamageBlockDue(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int blockerEntityId,
             int currentTick,
             FinalizationBatch batch,
@@ -574,7 +574,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveOrdinarySolidBlockDue(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int blockerEntityId,
             int currentTick,
             FinalizationBatch batch,
@@ -598,7 +598,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveOrdinaryInvalidLandingDue(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FinalizationBatch batch,
             List<string> eventLogEntries,
@@ -620,7 +620,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveOrdinarySourceFallbackOrDestroy(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FlipContactResolutionKind sourceFallbackKind,
             FlipContactResolutionKind destroySelfKind,
@@ -638,7 +638,7 @@ namespace Game.Feature.Gameplay.Loop
             var result = disposition == FlipBoxDisposition.MaterializeAtSource
                 ? $"{resultPrefix}SourceFallback"
                 : $"{resultPrefix}DestroySelf";
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -656,7 +656,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void RemoveOrdinaryLandingTokenNoOp(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FinalizationBatch batch,
             List<string> eventLogEntries,
@@ -664,7 +664,7 @@ namespace Game.Feature.Gameplay.Loop
             List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             var metadata = CreateDueMetadata(contact);
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -681,7 +681,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveUnitContact(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             in EntityState occupant,
             int currentTick,
             FinalizationBatch batch,
@@ -727,7 +727,7 @@ namespace Game.Feature.Gameplay.Loop
             if (!targetDies)
             {
                 batch.MarkDestroy(contact.SourceBoxEntityId, metadata);
-                batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+                batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
                 AddResolution(
                     contact,
                     currentTick,
@@ -768,7 +768,7 @@ namespace Game.Feature.Gameplay.Loop
             if (followThroughAllowed)
             {
                 MaterializeSourceBox(contact, contact.LandingCell, postCleanupBatch, metadata);
-                batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+                batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
                 AddResolution(
                     contact,
                     currentTick,
@@ -785,7 +785,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var fallbackDisposition = SafeReturnOrDestroyInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -802,7 +802,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveEmptyOrProjectileContact(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FinalizationBatch batch,
             List<string> eventLogEntries,
@@ -819,7 +819,7 @@ namespace Game.Feature.Gameplay.Loop
             if (landingLegality.Verdict == LegalityVerdict.Allowed)
             {
                 MaterializeSourceBox(contact, contact.LandingCell, batch, metadata);
-                batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+                batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
                 AddResolution(
                     contact,
                     currentTick,
@@ -836,7 +836,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var disposition = SafeReturnOrDestroyInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -853,7 +853,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void ResolveBlocked(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FlipContactResolutionKind kind,
             string result,
@@ -865,7 +865,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             var metadata = CreateDueMetadata(contact, hitEntityId);
             var disposition = SafeReturnOrDestroyInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -882,7 +882,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private void CancelWithSafeReturn(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FlipContactResolutionKind kind,
             string reason,
@@ -893,7 +893,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             var metadata = CreateDueMetadata(contact);
             var disposition = SafeReturnOrDestroyInFlightBox(snapshot, contact, batch, metadata, out var materializeCell);
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -911,7 +911,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private void CancelNoSourceBox(
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             string reason,
             FinalizationBatch batch,
@@ -920,7 +920,7 @@ namespace Game.Feature.Gameplay.Loop
             List<FlipDueContactPresentationSignal> contactPresentationSignals)
         {
             var metadata = CreateDueMetadata(contact);
-            batch.RemoveScheduledFlipContact(contact.ActionId, metadata);
+            batch.RemoveScheduledFlipResolution(contact.ActionId, metadata);
             AddResolution(
                 contact,
                 currentTick,
@@ -939,7 +939,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private FlipBoxDisposition SafeReturnOrDestroyInFlightBox(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             FinalizationBatch batch,
             in FinalizationOperationMetadata metadata,
             out SurfaceCell? materializeCell)
@@ -969,7 +969,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private FlipBoxDisposition SafeReturnOrDestroyOrdinaryInFlightBox(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             FinalizationBatch batch,
             in FinalizationOperationMetadata metadata,
             out SurfaceCell? materializeCell)
@@ -1002,7 +1002,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private OrdinaryLandingCell ClassifyOrdinaryLandingCell(
             WorldSnapshot snapshot,
-            in ScheduledFlipContact contact)
+            in ScheduledFlipResolution contact)
         {
             if (!IsTopologyValid(snapshot, contact))
             {
@@ -1051,7 +1051,7 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static bool IsSourceFallbackCellValid(WorldSnapshot snapshot, in ScheduledFlipContact contact)
+        private static bool IsSourceFallbackCellValid(WorldSnapshot snapshot, in ScheduledFlipResolution contact)
         {
             return snapshot.Topology.IsFaceActive(contact.SourceFace) &&
                    snapshot.Topology.IsFaceActive(contact.SourceCell.face) &&
@@ -1080,7 +1080,7 @@ namespace Game.Feature.Gameplay.Loop
             return new FlipContactOccupant(FlipContactOccupantKind.Empty, default);
         }
 
-        private static bool IsTopologyValid(WorldSnapshot snapshot, in ScheduledFlipContact contact)
+        private static bool IsTopologyValid(WorldSnapshot snapshot, in ScheduledFlipResolution contact)
         {
             return snapshot.Topology.IsFaceActive(contact.SourceFace) &&
                    snapshot.Topology.IsFaceActive(contact.SourceCell.face) &&
@@ -1089,7 +1089,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static void MaterializeSourceBox(
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             SurfaceCell destination,
             FinalizationBatch batch,
             in FinalizationOperationMetadata metadata)
@@ -1099,7 +1099,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static void MaterializeOrdinarySourceBox(
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             SurfaceCell destination,
             FinalizationBatch batch,
             in FinalizationOperationMetadata metadata)
@@ -1110,7 +1110,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static FinalizationOperationMetadata CreateDueMetadata(
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int hitEntityId = 0)
         {
             return new FinalizationOperationMetadata(
@@ -1129,7 +1129,7 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static void AddResolution(
-            in ScheduledFlipContact contact,
+            in ScheduledFlipResolution contact,
             int currentTick,
             FlipContactResolutionKind kind,
             int? hitEntityId,
@@ -1180,7 +1180,7 @@ namespace Game.Feature.Gameplay.Loop
             return $"({cell.face},{cell.x},{cell.y})";
         }
 
-        private static string FormatActionNormAtDue(in ScheduledFlipContact contact)
+        private static string FormatActionNormAtDue(in ScheduledFlipResolution contact)
         {
             if (contact.FlipInputLockDurationTicks <= 0)
             {
@@ -1192,7 +1192,7 @@ namespace Game.Feature.Gameplay.Loop
                 .ToString("0.###", CultureInfo.InvariantCulture);
         }
 
-        private static int BuildStableDuePresentationSeed(int currentTick, in ScheduledFlipContact contact)
+        private static int BuildStableDuePresentationSeed(int currentTick, in ScheduledFlipResolution contact)
         {
             unchecked
             {
@@ -1253,9 +1253,9 @@ namespace Game.Feature.Gameplay.Loop
         }
     }
 
-    internal sealed class FlipScheduledContactDueResult
+    internal sealed class FlipScheduledResolutionDueResult
     {
-        public static readonly FlipScheduledContactDueResult Empty = new(
+        public static readonly FlipScheduledResolutionDueResult Empty = new(
             new FinalizationBatch(),
             new FinalizationBatch(),
             Array.Empty<string>(),
@@ -1263,7 +1263,7 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<FlipContactResolution>(),
             Array.Empty<FlipDueContactPresentationSignal>());
 
-        public FlipScheduledContactDueResult(
+        public FlipScheduledResolutionDueResult(
             FinalizationBatch batch,
             FinalizationBatch postCleanupBatch,
             IReadOnlyList<string> eventLogEntries,

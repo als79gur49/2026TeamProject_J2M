@@ -366,11 +366,11 @@ namespace Game.Feature.Gameplay.Loop
                 writeContext.AddPendingCellImpact(pendingCellImpacts[i].Impact);
             }
 
-            var scheduledFlipContacts = new List<ScheduledFlipContactSnapshotEntry>();
-            snapshot.EnumerateScheduledFlipContactsOrdered(scheduledFlipContacts);
-            for (var i = 0; i < scheduledFlipContacts.Count; i++)
+            var scheduledFlipResolutions = new List<ScheduledFlipResolutionSnapshotEntry>();
+            snapshot.EnumerateScheduledFlipResolutionsOrdered(scheduledFlipResolutions);
+            for (var i = 0; i < scheduledFlipResolutions.Count; i++)
             {
-                writeContext.AddScheduledFlipContact(scheduledFlipContacts[i].Contact);
+                writeContext.AddScheduledFlipResolution(scheduledFlipResolutions[i].Resolution);
             }
 
             return worldState;

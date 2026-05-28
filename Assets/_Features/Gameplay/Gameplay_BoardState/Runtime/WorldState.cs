@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, PendingCellImpact> _pendingCellImpactsById = new();
-        private readonly Dictionary<int, ScheduledFlipContact> _scheduledFlipContactsByActionId = new();
+        private readonly Dictionary<int, ScheduledFlipResolution> _scheduledFlipResolutionsByActionId = new();
         private readonly Dictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId = new();
         private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
@@ -132,7 +132,7 @@ namespace Game.Feature.Gameplay.BoardState
                 CloneTileFeatureIdsByCell(),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, PendingCellImpact>(_pendingCellImpactsById),
-                new Dictionary<int, ScheduledFlipContact>(_scheduledFlipContactsByActionId),
+                new Dictionary<int, ScheduledFlipResolution>(_scheduledFlipResolutionsByActionId),
                 new Dictionary<int, EnemyPatrolRuntimeState>(_enemyPatrolStatesByEntityId),
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
@@ -425,25 +425,25 @@ namespace Game.Feature.Gameplay.BoardState
             _pendingCellImpactsById.Remove(impactId);
         }
 
-        private void AddScheduledFlipContact(ScheduledFlipContact contact)
+        private void AddScheduledFlipResolution(ScheduledFlipResolution contact)
         {
-            _scheduledFlipContactsByActionId[contact.ActionId] = contact;
+            _scheduledFlipResolutionsByActionId[contact.ActionId] = contact;
         }
 
-        private void RemoveScheduledFlipContact(int actionId)
+        private void RemoveScheduledFlipResolution(int actionId)
         {
-            _scheduledFlipContactsByActionId.Remove(actionId);
+            _scheduledFlipResolutionsByActionId.Remove(actionId);
         }
 
-        private void RemoveScheduledFlipContactsForEntity(int entityId)
+        private void RemoveScheduledFlipResolutionsForEntity(int entityId)
         {
-            if (entityId <= 0 || _scheduledFlipContactsByActionId.Count == 0)
+            if (entityId <= 0 || _scheduledFlipResolutionsByActionId.Count == 0)
             {
                 return;
             }
 
             var actionIdsToRemove = new List<int>();
-            foreach (var pair in _scheduledFlipContactsByActionId)
+            foreach (var pair in _scheduledFlipResolutionsByActionId)
             {
                 var contact = pair.Value;
                 if (contact.ActorEntityId == entityId ||
@@ -456,7 +456,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             for (var i = 0; i < actionIdsToRemove.Count; i++)
             {
-                _scheduledFlipContactsByActionId.Remove(actionIdsToRemove[i]);
+                _scheduledFlipResolutionsByActionId.Remove(actionIdsToRemove[i]);
             }
         }
 
@@ -1303,19 +1303,19 @@ namespace Game.Feature.Gameplay.BoardState
             RemovePendingCellImpact(impactId);
         }
 
-        void IWorldStateMutationPort.AddScheduledFlipContact(ScheduledFlipContact contact)
+        void IWorldStateMutationPort.AddScheduledFlipResolution(ScheduledFlipResolution contact)
         {
-            AddScheduledFlipContact(contact);
+            AddScheduledFlipResolution(contact);
         }
 
-        void IWorldStateMutationPort.RemoveScheduledFlipContact(int actionId)
+        void IWorldStateMutationPort.RemoveScheduledFlipResolution(int actionId)
         {
-            RemoveScheduledFlipContact(actionId);
+            RemoveScheduledFlipResolution(actionId);
         }
 
-        void IWorldStateMutationPort.RemoveScheduledFlipContactsForEntity(int entityId)
+        void IWorldStateMutationPort.RemoveScheduledFlipResolutionsForEntity(int entityId)
         {
-            RemoveScheduledFlipContactsForEntity(entityId);
+            RemoveScheduledFlipResolutionsForEntity(entityId);
         }
 
         void IWorldStateMutationPort.SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)

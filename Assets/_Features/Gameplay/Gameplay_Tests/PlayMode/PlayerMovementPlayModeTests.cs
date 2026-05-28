@@ -1788,9 +1788,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             InvokeWorldWriteContextMethod(worldState, "SpawnEntity", entity);
         }
 
-        private static void AddScheduledFlipContact(WorldState worldState, ScheduledFlipContact contact)
+        private static void AddScheduledFlipResolution(WorldState worldState, ScheduledFlipResolution contact)
         {
-            InvokeWorldWriteContextMethod(worldState, "AddScheduledFlipContact", contact);
+            InvokeWorldWriteContextMethod(worldState, "AddScheduledFlipResolution", contact);
         }
 
         private static void InvokeWorldWriteContextMethod(WorldState worldState, string methodName, params object[] arguments)
@@ -1891,10 +1891,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var contactCell = new SurfaceCell(FaceId.Floor, -1, 0);
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var actionId = 3000 + dueTick;
-            AddScheduledFlipContact(
+            AddScheduledFlipResolution(
                 host.WorldState,
-                new ScheduledFlipContact(
-                    ScheduledFlipContactKind.HostileImpact,
+                new ScheduledFlipResolution(
+                    ScheduledFlipResolutionKind.HostileImpact,
                     actionId,
                     actorEntityId: 10,
                     sourceBoxEntityId: 30,

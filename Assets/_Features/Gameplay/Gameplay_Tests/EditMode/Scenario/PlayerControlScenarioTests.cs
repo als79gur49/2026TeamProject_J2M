@@ -470,9 +470,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeTick.PresentationData.FlipB1InFlightMotionSignals.Single().BoxEntityId, Is.EqualTo(20));
             Assert.That(
                 executeTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.AddScheduledFlipContact &&
-                    operation.ScheduledFlipContact.Kind == ScheduledFlipContactKind.OrdinaryLanding &&
-                    operation.ScheduledFlipContact.SourceBoxEntityId == 20),
+                    operation.Kind == FinalizationOperationKind.AddScheduledFlipResolution &&
+                    operation.ScheduledFlipResolution.Kind == ScheduledFlipResolutionKind.OrdinaryLanding &&
+                    operation.ScheduledFlipResolution.SourceBoxEntityId == 20),
                 Is.True);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);

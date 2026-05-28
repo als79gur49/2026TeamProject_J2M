@@ -3248,7 +3248,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             writeContext.SetBoardPresence(30, EntityBoardPresence.InFlight);
             if (includeContact)
             {
-                writeContext.AddScheduledFlipContact(CreateOrdinaryLandingContact(actionId: 1, sourceBoxEntityId: 30, dueTick: 5));
+                writeContext.AddScheduledFlipResolution(CreateOrdinaryLandingContact(actionId: 1, sourceBoxEntityId: 30, dueTick: 5));
             }
 
             return new TickReplayHarness().Run(
@@ -3265,7 +3265,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var worldState = CreateSeededOrdinaryFlipB1World(includeLandingBlocker: replayCase != OrdinaryDueReplayCase.EmptyLanding);
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetBoardPresence(30, EntityBoardPresence.InFlight);
-            writeContext.AddScheduledFlipContact(
+            writeContext.AddScheduledFlipResolution(
                 CreateOrdinaryLandingContact(
                     actionId: 1,
                     sourceBoxEntityId: 30,
@@ -3293,7 +3293,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 writeContext.SpawnEntity(CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0)));
             }
 
-            writeContext.AddScheduledFlipContact(CreateOrdinaryLandingContact(actionId: 1, sourceBoxEntityId: 30, dueTick: 5));
+            writeContext.AddScheduledFlipResolution(CreateOrdinaryLandingContact(actionId: 1, sourceBoxEntityId: 30, dueTick: 5));
 
             return new TickReplayHarness().Run(
                 worldState,
@@ -3321,7 +3321,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetBoardPresence(31, EntityBoardPresence.InFlight);
             writeContext.SetBoardPresence(32, EntityBoardPresence.InFlight);
-            writeContext.AddScheduledFlipContact(
+            writeContext.AddScheduledFlipResolution(
                 CreateOrdinaryLandingContact(
                     actionId: 2,
                     sourceBoxEntityId: 32,
@@ -3329,7 +3329,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     sourceCell: new SurfaceCell(FaceId.Floor, 2, 0),
                     contactCell: new SurfaceCell(FaceId.Floor, -2, 0),
                     landingCell: new SurfaceCell(FaceId.Floor, -2, 0)));
-            writeContext.AddScheduledFlipContact(
+            writeContext.AddScheduledFlipResolution(
                 CreateOrdinaryLandingContact(
                     actionId: 1,
                     sourceBoxEntityId: 31,
@@ -3365,7 +3365,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 GameplayTerrainData.Empty);
         }
 
-        private static ScheduledFlipContact CreateOrdinaryLandingContact(
+        private static ScheduledFlipResolution CreateOrdinaryLandingContact(
             int actionId,
             int sourceBoxEntityId,
             int dueTick,
@@ -3376,8 +3376,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var resolvedSourceCell = sourceCell ?? new SurfaceCell(FaceId.Floor, 1, 0);
             var resolvedContactCell = contactCell ?? new SurfaceCell(FaceId.Floor, -1, 0);
             var resolvedLandingCell = landingCell ?? resolvedContactCell;
-            return new ScheduledFlipContact(
-                ScheduledFlipContactKind.OrdinaryLanding,
+            return new ScheduledFlipResolution(
+                ScheduledFlipResolutionKind.OrdinaryLanding,
                 actionId,
                 actorEntityId: 10,
                 sourceBoxEntityId: sourceBoxEntityId,

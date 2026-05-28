@@ -537,9 +537,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 : _flipB1VisualImpactDelayTicks;
             var dueTick = Math.Max(tickIndex, actionStartTick + actionVisualImpactDelayTicks);
             var resolvedFlipExecuteDelayTicks = Math.Max(0, executeTick - actionStartTick);
-            actionGroup.AssignScheduledFlipContact(
-                new ScheduledFlipContactDraft(
-                    ScheduledFlipContactKind.OrdinaryLanding,
+            actionGroup.AssignScheduledFlipResolution(
+                new ScheduledFlipResolutionDraft(
+                    ScheduledFlipResolutionKind.OrdinaryLanding,
                     source.entityId,
                     target.entityId,
                     target.position,
@@ -622,9 +622,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 : flipB1VisualImpactDelayTicks;
             var dueTick = Math.Max(tickIndex, actionStartTick + actionVisualImpactDelayTicks);
             var resolvedFlipExecuteDelayTicks = Math.Max(0, executeTick - actionStartTick);
-            actionGroup.AssignScheduledFlipContact(
-                new ScheduledFlipContactDraft(
-                    ScheduledFlipContactKind.HostileImpact,
+            actionGroup.AssignScheduledFlipResolution(
+                new ScheduledFlipResolutionDraft(
+                    ScheduledFlipResolutionKind.HostileImpact,
                     actorSource.entityId,
                     sourceBox.entityId,
                     sourceBox.position,

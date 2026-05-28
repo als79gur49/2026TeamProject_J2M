@@ -17,9 +17,9 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
         void AddPendingCellImpact(PendingCellImpact impact);
         void RemovePendingCellImpact(int impactId);
-        void AddScheduledFlipContact(ScheduledFlipContact contact);
-        void RemoveScheduledFlipContact(int actionId);
-        void RemoveScheduledFlipContactsForEntity(int entityId);
+        void AddScheduledFlipResolution(ScheduledFlipResolution contact);
+        void RemoveScheduledFlipResolution(int actionId);
+        void RemoveScheduledFlipResolutionsForEntity(int entityId);
         void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
         void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);

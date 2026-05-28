@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.Tests.Core
     {
         [Test]
         [Category("Core")]
-        public void ScheduledFlipContact_DoesNotStoreTargetEntity()
+        public void ScheduledFlipResolution_DoesNotStoreTargetEntity()
         {
             var forbiddenNames = new HashSet<string>
             {
@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "ReservedTargetCell",
                 "SuppressedEnemyId",
             };
-            var members = typeof(ScheduledFlipContact)
+            var members = typeof(ScheduledFlipResolution)
                 .GetMembers(BindingFlags.Public | BindingFlags.Instance)
                 .Where(member => member.MemberType == MemberTypes.Field || member.MemberType == MemberTypes.Property)
                 .Select(member => member.Name)
@@ -37,9 +37,9 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void ScheduledFlipContact_OrdersDeterministically()
+        public void ScheduledFlipResolution_OrdersDeterministically()
         {
-            var contacts = new List<ScheduledFlipContact>
+            var contacts = new List<ScheduledFlipResolution>
             {
                 CreateContact(actionId: 4, sourceBoxEntityId: 24, dueTick: 6, executeTick: 4, orderingKey: 0),
                 CreateContact(actionId: 3, sourceBoxEntityId: 23, dueTick: 5, executeTick: 4, orderingKey: 2),
@@ -47,14 +47,14 @@ namespace Game.Feature.Gameplay.Tests.Core
                 CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 5, executeTick: 4, orderingKey: 1),
             };
 
-            contacts.Sort(ScheduledFlipContactComparer.Instance);
+            contacts.Sort(ScheduledFlipResolutionComparer.Instance);
 
             Assert.That(contacts.Select(contact => contact.ActionId), Is.EqualTo(new[] { 1, 2, 3, 4 }));
         }
 
         [Test]
         [Category("Core")]
-        public void ScheduledFlipContact_PreservesDamageSpecAndKineticOwner()
+        public void ScheduledFlipResolution_PreservesDamageSpecAndKineticOwner()
         {
             var contact = CreateContact(actionId: 7, sourceBoxEntityId: 27, kineticInstigatorEntityId: 10, kineticInstigatorTeamId: 2);
 
@@ -146,60 +146,60 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void ScheduledFlipContactQueue_EnumeratesDueContactsDeterministically()
+        public void ScheduledFlipResolutionQueue_EnumeratesDueContactsDeterministically()
         {
             var worldState = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
             var writeContext = worldState.CreateWriteContext();
-            writeContext.AddScheduledFlipContact(CreateContact(actionId: 3, sourceBoxEntityId: 23, dueTick: 7, executeTick: 4));
-            writeContext.AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5, executeTick: 3));
-            writeContext.AddScheduledFlipContact(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 5, executeTick: 4));
+            writeContext.AddScheduledFlipResolution(CreateContact(actionId: 3, sourceBoxEntityId: 23, dueTick: 7, executeTick: 4));
+            writeContext.AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5, executeTick: 3));
+            writeContext.AddScheduledFlipResolution(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 5, executeTick: 4));
 
             var snapshot = worldState.CreateSnapshot();
-            var contacts = new List<ScheduledFlipContact>();
-            snapshot.EnumerateDueScheduledFlipContactsOrdered(7, contacts);
+            var contacts = new List<ScheduledFlipResolution>();
+            snapshot.EnumerateDueScheduledFlipResolutionsOrdered(7, contacts);
 
             Assert.That(contacts.Select(contact => contact.ActionId), Is.EqualTo(new[] { 1, 2, 3 }));
         }
 
         [Test]
         [Category("Core")]
-        public void ScheduledFlipContactQueue_ExcludesFutureContacts()
+        public void ScheduledFlipResolutionQueue_ExcludesFutureContacts()
         {
             var worldState = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
             var writeContext = worldState.CreateWriteContext();
-            writeContext.AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5));
-            writeContext.AddScheduledFlipContact(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 8));
+            writeContext.AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5));
+            writeContext.AddScheduledFlipResolution(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 8));
 
-            var contacts = new List<ScheduledFlipContact>();
-            worldState.CreateSnapshot().EnumerateDueScheduledFlipContactsOrdered(5, contacts);
+            var contacts = new List<ScheduledFlipResolution>();
+            worldState.CreateSnapshot().EnumerateDueScheduledFlipResolutionsOrdered(5, contacts);
 
             Assert.That(contacts.Select(contact => contact.ActionId), Is.EqualTo(new[] { 1 }));
         }
 
         [Test]
         [Category("Core")]
-        public void ScheduledFlipContactQueue_RemovesContactByActionOrBox()
+        public void ScheduledFlipResolutionQueue_RemovesContactByActionOrBox()
         {
             var worldState = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
             var writeContext = worldState.CreateWriteContext();
-            writeContext.AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 20));
-            writeContext.AddScheduledFlipContact(CreateContact(actionId: 2, sourceBoxEntityId: 22));
-            writeContext.RemoveScheduledFlipContact(1);
-            writeContext.RemoveScheduledFlipContactsForEntity(22);
+            writeContext.AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 20));
+            writeContext.AddScheduledFlipResolution(CreateContact(actionId: 2, sourceBoxEntityId: 22));
+            writeContext.RemoveScheduledFlipResolution(1);
+            writeContext.RemoveScheduledFlipResolutionsForEntity(22);
 
-            var contacts = new List<ScheduledFlipContact>();
-            worldState.CreateSnapshot().EnumerateDueScheduledFlipContactsOrdered(int.MaxValue, contacts);
+            var contacts = new List<ScheduledFlipResolution>();
+            worldState.CreateSnapshot().EnumerateDueScheduledFlipResolutionsOrdered(int.MaxValue, contacts);
 
             Assert.That(contacts, Is.Empty);
         }
 
         [Test]
         [Category("Core")]
-        public void DeterminismHash_ChangesWhenScheduledFlipContactAdded()
+        public void DeterminismHash_ChangesWhenScheduledFlipResolutionAdded()
         {
             var baseline = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
             var withContact = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
-            withContact.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 20));
+            withContact.CreateWriteContext().AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 20));
 
             Assert.That(BuildHash(withContact.CreateSnapshot()), Is.Not.EqualTo(BuildHash(baseline.CreateSnapshot())));
         }
@@ -217,28 +217,28 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void DeterminismHash_IsStableForSameScheduledContactsDifferentInsertionOrder()
+        public void DeterminismHash_IsStableForSameScheduledResolutionsDifferentInsertionOrder()
         {
             var first = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
             var second = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
 
-            first.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 6));
-            first.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5));
-            second.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5));
-            second.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 6));
+            first.CreateWriteContext().AddScheduledFlipResolution(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 6));
+            first.CreateWriteContext().AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5));
+            second.CreateWriteContext().AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 21, dueTick: 5));
+            second.CreateWriteContext().AddScheduledFlipResolution(CreateContact(actionId: 2, sourceBoxEntityId: 22, dueTick: 6));
 
             Assert.That(BuildHash(first.CreateSnapshot()), Is.EqualTo(BuildHash(second.CreateSnapshot())));
         }
 
         [Test]
         [Category("Core")]
-        public void DeterminismHash_ChangesWhenScheduledFlipContactKindChanges()
+        public void DeterminismHash_ChangesWhenScheduledFlipResolutionKindChanges()
         {
             var hostile = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
             var ordinary = CreateWorldState(new[] { CreateUnit(10, Cell(0, 0)), CreateBox(20, Cell(1, 0)) });
 
-            hostile.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 20, kind: ScheduledFlipContactKind.HostileImpact));
-            ordinary.CreateWriteContext().AddScheduledFlipContact(CreateContact(actionId: 1, sourceBoxEntityId: 20, kind: ScheduledFlipContactKind.OrdinaryLanding));
+            hostile.CreateWriteContext().AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 20, kind: ScheduledFlipResolutionKind.HostileImpact));
+            ordinary.CreateWriteContext().AddScheduledFlipResolution(CreateContact(actionId: 1, sourceBoxEntityId: 20, kind: ScheduledFlipResolutionKind.OrdinaryLanding));
 
             Assert.That(BuildHash(ordinary.CreateSnapshot()), Is.Not.EqualTo(BuildHash(hostile.CreateSnapshot())));
         }
@@ -267,7 +267,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 new TickResultData(finalEntities, Array.Empty<DelayedAttackEffectRecord>(), Array.Empty<string>()));
         }
 
-        private static ScheduledFlipContact CreateContact(
+        private static ScheduledFlipResolution CreateContact(
             int actionId,
             int sourceBoxEntityId,
             int dueTick = 5,
@@ -275,9 +275,9 @@ namespace Game.Feature.Gameplay.Tests.Core
             int orderingKey = 0,
             int kineticInstigatorEntityId = 10,
             int kineticInstigatorTeamId = 1,
-            ScheduledFlipContactKind kind = ScheduledFlipContactKind.HostileImpact)
+            ScheduledFlipResolutionKind kind = ScheduledFlipResolutionKind.HostileImpact)
         {
-            return new ScheduledFlipContact(
+            return new ScheduledFlipResolution(
                 kind,
                 actionId,
                 actorEntityId: 10,

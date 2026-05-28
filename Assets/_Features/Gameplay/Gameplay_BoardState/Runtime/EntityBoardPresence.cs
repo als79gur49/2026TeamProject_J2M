@@ -81,7 +81,7 @@ namespace Game.Feature.Gameplay.BoardState
         DefaultB1OrdinaryLanding = 1,
     }
 
-    public enum ScheduledFlipContactKind
+    public enum ScheduledFlipResolutionKind
     {
         HostileImpact = 0,
         OrdinaryLanding = 1,
@@ -161,10 +161,10 @@ namespace Game.Feature.Gameplay.BoardState
         public FlipBoxDisposition Disposition { get; }
     }
 
-    public readonly struct ScheduledFlipContact : IEquatable<ScheduledFlipContact>
+    public readonly struct ScheduledFlipResolution : IEquatable<ScheduledFlipResolution>
     {
-        public ScheduledFlipContact(
-            ScheduledFlipContactKind kind,
+        public ScheduledFlipResolution(
+            ScheduledFlipResolutionKind kind,
             int actionId,
             int actorEntityId,
             int sourceBoxEntityId,
@@ -189,42 +189,42 @@ namespace Game.Feature.Gameplay.BoardState
         {
             if (actionId <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(actionId), "Scheduled flip contact action id must be positive.");
+                throw new ArgumentOutOfRangeException(nameof(actionId), "Scheduled flip resolution action id must be positive.");
             }
 
             if (actorEntityId <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(actorEntityId), "Scheduled flip contact actor id must be positive.");
+                throw new ArgumentOutOfRangeException(nameof(actorEntityId), "Scheduled flip resolution actor id must be positive.");
             }
 
             if (sourceBoxEntityId <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(sourceBoxEntityId), "Scheduled flip contact source box id must be positive.");
+                throw new ArgumentOutOfRangeException(nameof(sourceBoxEntityId), "Scheduled flip resolution source box id must be positive.");
             }
 
             if (dueTick < executeTick)
             {
-                throw new ArgumentOutOfRangeException(nameof(dueTick), "Scheduled flip contact due tick cannot precede execute tick.");
+                throw new ArgumentOutOfRangeException(nameof(dueTick), "Scheduled flip resolution due tick cannot precede execute tick.");
             }
 
             if (actionStartTick > executeTick)
             {
-                throw new ArgumentOutOfRangeException(nameof(actionStartTick), "Scheduled flip contact action start tick cannot follow execute tick.");
+                throw new ArgumentOutOfRangeException(nameof(actionStartTick), "Scheduled flip resolution action start tick cannot follow execute tick.");
             }
 
             if (actionVisualImpactTick < actionStartTick)
             {
-                throw new ArgumentOutOfRangeException(nameof(actionVisualImpactTick), "Scheduled flip contact visual impact tick cannot precede action start tick.");
+                throw new ArgumentOutOfRangeException(nameof(actionVisualImpactTick), "Scheduled flip resolution visual impact tick cannot precede action start tick.");
             }
 
             if (flipExecuteDelayTicks < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(flipExecuteDelayTicks), "Scheduled flip contact execute delay ticks must be zero or greater.");
+                throw new ArgumentOutOfRangeException(nameof(flipExecuteDelayTicks), "Scheduled flip resolution execute delay ticks must be zero or greater.");
             }
 
             if (flipInputLockDurationTicks <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(flipInputLockDurationTicks), "Scheduled flip contact input lock duration ticks must be greater than zero.");
+                throw new ArgumentOutOfRangeException(nameof(flipInputLockDurationTicks), "Scheduled flip resolution input lock duration ticks must be greater than zero.");
             }
 
             Kind = kind;
@@ -251,7 +251,7 @@ namespace Game.Feature.Gameplay.BoardState
             DispositionPolicy = dispositionPolicy;
         }
 
-        public ScheduledFlipContactKind Kind { get; }
+        public ScheduledFlipResolutionKind Kind { get; }
 
         public int ActionId { get; }
 
@@ -295,7 +295,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public FlipContactDispositionPolicy DispositionPolicy { get; }
 
-        public bool Equals(ScheduledFlipContact other)
+        public bool Equals(ScheduledFlipResolution other)
         {
             return Kind == other.Kind &&
                    ActionId == other.ActionId &&
@@ -323,7 +323,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public override bool Equals(object obj)
         {
-            return obj is ScheduledFlipContact other && Equals(other);
+            return obj is ScheduledFlipResolution other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -357,30 +357,30 @@ namespace Game.Feature.Gameplay.BoardState
         }
     }
 
-    internal readonly struct ScheduledFlipContactSnapshotEntry
+    internal readonly struct ScheduledFlipResolutionSnapshotEntry
     {
-        public ScheduledFlipContactSnapshotEntry(int actionId, ScheduledFlipContact contact)
+        public ScheduledFlipResolutionSnapshotEntry(int actionId, ScheduledFlipResolution resolution)
         {
             ActionId = actionId;
-            Contact = contact;
+            Resolution = resolution;
         }
 
         public int ActionId { get; }
 
-        public ScheduledFlipContact Contact { get; }
+        public ScheduledFlipResolution Resolution { get; }
     }
 
-    internal sealed class ScheduledFlipContactComparer :
-        IComparer<ScheduledFlipContact>,
-        IComparer<ScheduledFlipContactSnapshotEntry>
+    internal sealed class ScheduledFlipResolutionComparer :
+        IComparer<ScheduledFlipResolution>,
+        IComparer<ScheduledFlipResolutionSnapshotEntry>
     {
-        public static readonly ScheduledFlipContactComparer Instance = new ScheduledFlipContactComparer();
+        public static readonly ScheduledFlipResolutionComparer Instance = new ScheduledFlipResolutionComparer();
 
-        private ScheduledFlipContactComparer()
+        private ScheduledFlipResolutionComparer()
         {
         }
 
-        public int Compare(ScheduledFlipContact x, ScheduledFlipContact y)
+        public int Compare(ScheduledFlipResolution x, ScheduledFlipResolution y)
         {
             var dueTickComparison = x.DueTick.CompareTo(y.DueTick);
             if (dueTickComparison != 0)
@@ -415,9 +415,9 @@ namespace Game.Feature.Gameplay.BoardState
             return x.OrderingKey.CompareTo(y.OrderingKey);
         }
 
-        public int Compare(ScheduledFlipContactSnapshotEntry x, ScheduledFlipContactSnapshotEntry y)
+        public int Compare(ScheduledFlipResolutionSnapshotEntry x, ScheduledFlipResolutionSnapshotEntry y)
         {
-            var contactComparison = Compare(x.Contact, y.Contact);
+            var contactComparison = Compare(x.Resolution, y.Resolution);
             if (contactComparison != 0)
             {
                 return contactComparison;

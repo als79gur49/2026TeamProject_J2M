@@ -932,12 +932,12 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
-                if (operation.Kind != FinalizationOperationKind.AddScheduledFlipContact)
+                if (operation.Kind != FinalizationOperationKind.AddScheduledFlipResolution)
                 {
                     continue;
                 }
 
-                var contact = operation.ScheduledFlipContact;
+                var contact = operation.ScheduledFlipResolution;
                 if (contact.ActionId <= 0 ||
                     contact.SourceBoxEntityId <= 0 ||
                     contact.ExecuteTick != context.CurrentTickIndex ||

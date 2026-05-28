@@ -50,7 +50,7 @@ namespace Game.Feature.Gameplay.Loop
                 : $"{cell.face}({cell.x},{cell.y})";
         }
 
-        private static string FormatActionNormAtDue(in ScheduledFlipContact contact)
+        private static string FormatActionNormAtDue(in ScheduledFlipResolution contact)
         {
             if (contact.FlipInputLockDurationTicks <= 0)
             {

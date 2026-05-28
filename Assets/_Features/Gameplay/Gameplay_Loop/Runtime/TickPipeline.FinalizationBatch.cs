@@ -69,9 +69,9 @@ namespace Game.Feature.Gameplay.Loop
         RemovePendingCellImpact = 30,
         SetEnemyGravityFieldAuraFieldState = 31,
         RemoveEnemyGravityFieldAuraFieldState = 32,
-        AddScheduledFlipContact = 33,
-        RemoveScheduledFlipContact = 34,
-        RemoveScheduledFlipContactsForEntity = 35,
+        AddScheduledFlipResolution = 33,
+        RemoveScheduledFlipResolution = 34,
+        RemoveScheduledFlipResolutionsForEntity = 35,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -249,7 +249,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyDefinitionBindingState spawnedEntityEnemyDefinitionBindingState = default,
             DelayedAttackEffectRecord delayedAttackEffect = default,
             PendingCellImpact pendingCellImpact = default,
-            ScheduledFlipContact scheduledFlipContact = default)
+            ScheduledFlipResolution scheduledFlipResolution = default)
         {
             Sequence = sequence;
             Bucket = bucket;
@@ -293,7 +293,7 @@ namespace Game.Feature.Gameplay.Loop
             SpawnedEntityEnemyDefinitionBindingState = spawnedEntityEnemyDefinitionBindingState;
             DelayedAttackEffect = delayedAttackEffect;
             PendingCellImpact = pendingCellImpact;
-            ScheduledFlipContact = scheduledFlipContact;
+            ScheduledFlipResolution = scheduledFlipResolution;
         }
 
         public long Sequence { get; }
@@ -342,7 +342,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public PendingCellImpact PendingCellImpact { get; }
 
-        public ScheduledFlipContact ScheduledFlipContact { get; }
+        public ScheduledFlipResolution ScheduledFlipResolution { get; }
 
         public EnemyPatrolRuntimeState EnemyPatrolState { get; }
 
@@ -427,7 +427,7 @@ namespace Game.Feature.Gameplay.Loop
                 SpawnedEntityEnemyDefinitionBindingState,
                 DelayedAttackEffect,
                 PendingCellImpact,
-                ScheduledFlipContact);
+                ScheduledFlipResolution);
         }
 
         public static FinalizationOperation MoveEntity(long sequence, int entityId, SurfaceCell destination, FinalizationOperationMetadata metadata = default)
@@ -590,32 +590,32 @@ namespace Game.Feature.Gameplay.Loop
                 entityId: impactId);
         }
 
-        public static FinalizationOperation AddScheduledFlipContact(long sequence, ScheduledFlipContact contact, FinalizationOperationMetadata metadata = default)
+        public static FinalizationOperation AddScheduledFlipResolution(long sequence, ScheduledFlipResolution contact, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
                 sequence,
                 FinalizationOperationBucket.NonHpState,
-                FinalizationOperationKind.AddScheduledFlipContact,
+                FinalizationOperationKind.AddScheduledFlipResolution,
                 metadata,
-                scheduledFlipContact: contact);
+                scheduledFlipResolution: contact);
         }
 
-        public static FinalizationOperation RemoveScheduledFlipContact(long sequence, int actionId, FinalizationOperationMetadata metadata = default)
+        public static FinalizationOperation RemoveScheduledFlipResolution(long sequence, int actionId, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
                 sequence,
                 FinalizationOperationBucket.Destroy,
-                FinalizationOperationKind.RemoveScheduledFlipContact,
+                FinalizationOperationKind.RemoveScheduledFlipResolution,
                 metadata,
                 entityId: actionId);
         }
 
-        public static FinalizationOperation RemoveScheduledFlipContactsForEntity(long sequence, int entityId, FinalizationOperationMetadata metadata = default)
+        public static FinalizationOperation RemoveScheduledFlipResolutionsForEntity(long sequence, int entityId, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
                 sequence,
                 FinalizationOperationBucket.Destroy,
-                FinalizationOperationKind.RemoveScheduledFlipContactsForEntity,
+                FinalizationOperationKind.RemoveScheduledFlipResolutionsForEntity,
                 metadata,
                 entityId: entityId);
         }
@@ -938,19 +938,19 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.RemovePendingCellImpact(_nextSequence++, impactId, metadata));
         }
 
-        public void AddScheduledFlipContact(ScheduledFlipContact contact, FinalizationOperationMetadata metadata = default)
+        public void AddScheduledFlipResolution(ScheduledFlipResolution contact, FinalizationOperationMetadata metadata = default)
         {
-            _operations.Add(FinalizationOperation.AddScheduledFlipContact(_nextSequence++, contact, metadata));
+            _operations.Add(FinalizationOperation.AddScheduledFlipResolution(_nextSequence++, contact, metadata));
         }
 
-        public void RemoveScheduledFlipContact(int actionId, FinalizationOperationMetadata metadata = default)
+        public void RemoveScheduledFlipResolution(int actionId, FinalizationOperationMetadata metadata = default)
         {
-            _operations.Add(FinalizationOperation.RemoveScheduledFlipContact(_nextSequence++, actionId, metadata));
+            _operations.Add(FinalizationOperation.RemoveScheduledFlipResolution(_nextSequence++, actionId, metadata));
         }
 
-        public void RemoveScheduledFlipContactsForEntity(int entityId, FinalizationOperationMetadata metadata = default)
+        public void RemoveScheduledFlipResolutionsForEntity(int entityId, FinalizationOperationMetadata metadata = default)
         {
-            _operations.Add(FinalizationOperation.RemoveScheduledFlipContactsForEntity(_nextSequence++, entityId, metadata));
+            _operations.Add(FinalizationOperation.RemoveScheduledFlipResolutionsForEntity(_nextSequence++, entityId, metadata));
         }
 
         public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state, FinalizationOperationMetadata metadata = default)
@@ -1219,8 +1219,8 @@ namespace Game.Feature.Gameplay.Loop
                         ((IEnemyActionCommitContext)writeContext).AddPendingCellImpact(operation.PendingCellImpact);
                         break;
 
-                    case FinalizationOperationKind.AddScheduledFlipContact:
-                        writeContext.AddScheduledFlipContact(operation.ScheduledFlipContact);
+                    case FinalizationOperationKind.AddScheduledFlipResolution:
+                        writeContext.AddScheduledFlipResolution(operation.ScheduledFlipResolution);
                         break;
 
                     case FinalizationOperationKind.SetEnemyPatrolState:
@@ -1310,12 +1310,12 @@ namespace Game.Feature.Gameplay.Loop
                         ((IAttackCommitContext)writeContext).RemovePendingCellImpact(operation.EntityId);
                         break;
 
-                    case FinalizationOperationKind.RemoveScheduledFlipContact:
-                        writeContext.RemoveScheduledFlipContact(operation.EntityId);
+                    case FinalizationOperationKind.RemoveScheduledFlipResolution:
+                        writeContext.RemoveScheduledFlipResolution(operation.EntityId);
                         break;
 
-                    case FinalizationOperationKind.RemoveScheduledFlipContactsForEntity:
-                        writeContext.RemoveScheduledFlipContactsForEntity(operation.EntityId);
+                    case FinalizationOperationKind.RemoveScheduledFlipResolutionsForEntity:
+                        writeContext.RemoveScheduledFlipResolutionsForEntity(operation.EntityId);
                         break;
 
                     case FinalizationOperationKind.EnqueueDelayedAttackEffect:
@@ -1396,19 +1396,19 @@ namespace Game.Feature.Gameplay.Loop
             _batch.RemovePendingCellImpact(impactId);
         }
 
-        public void AddScheduledFlipContact(ScheduledFlipContact contact)
+        public void AddScheduledFlipResolution(ScheduledFlipResolution contact)
         {
-            _batch.AddScheduledFlipContact(contact);
+            _batch.AddScheduledFlipResolution(contact);
         }
 
-        public void RemoveScheduledFlipContact(int actionId)
+        public void RemoveScheduledFlipResolution(int actionId)
         {
-            _batch.RemoveScheduledFlipContact(actionId);
+            _batch.RemoveScheduledFlipResolution(actionId);
         }
 
-        public void RemoveScheduledFlipContactsForEntity(int entityId)
+        public void RemoveScheduledFlipResolutionsForEntity(int entityId)
         {
-            _batch.RemoveScheduledFlipContactsForEntity(entityId);
+            _batch.RemoveScheduledFlipResolutionsForEntity(entityId);
         }
 
         public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
