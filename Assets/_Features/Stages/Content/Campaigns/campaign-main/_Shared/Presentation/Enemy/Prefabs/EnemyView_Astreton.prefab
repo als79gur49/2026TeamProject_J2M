@@ -79,8 +79,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
   attackWindupAnimatorDurationSeconds: -1
-  jumpWindupAnimatorDurationSeconds: 0.35
-  jumpAirborneAnimatorDurationSeconds: 1.5
+  jumpWindupAnimatorDurationSeconds: 0.5
+  jumpAirborneAnimatorDurationSeconds: 1.35
   recoverAnimatorDurationSeconds: -1
   deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: 0.001
