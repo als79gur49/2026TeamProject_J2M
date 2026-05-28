@@ -21,8 +21,8 @@ MonoBehaviour:
     Kind: 0
     Cell:
       face: 0
-      x: 1
-      y: 1
+      x: 4
+      y: 0
     Facing: 2
     Hp: 1
     UnitMobilityKind: 0
@@ -39,7 +39,7 @@ MonoBehaviour:
     Cell:
       face: 0
       x: 12
-      y: 0
+      y: 3
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
@@ -54,8 +54,8 @@ MonoBehaviour:
     Kind: 2
     Cell:
       face: 0
-      x: 12
-      y: 1
+      x: 13
+      y: 3
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
@@ -279,7 +279,7 @@ MonoBehaviour:
     Kind: 1
     Cell:
       face: 0
-      x: 4
+      x: 2
       y: 0
     Facing: 0
     Hp: 1
@@ -424,18 +424,18 @@ MonoBehaviour:
   - ZoneId: zone
     FaceId: 0
     Regions:
-    - MinInclusive: {x: 12, y: 3}
-      MaxInclusive: {x: 12, y: 3}
+    - MinInclusive: {x: 10, y: 1}
+      MaxInclusive: {x: 10, y: 1}
   - ZoneId: exit
     FaceId: 0
     Regions:
-    - MinInclusive: {x: 12, y: 3}
-      MaxInclusive: {x: 12, y: 3}
+    - MinInclusive: {x: 10, y: 1}
+      MaxInclusive: {x: 10, y: 1}
   tileFeatures:
   - TileId: 1
     Cell:
       face: 0
-      x: 14
+      x: 12
       y: 0
     Kind: 4
     ActivationRule: 3
@@ -446,8 +446,8 @@ MonoBehaviour:
   - TileId: 2
     Cell:
       face: 0
-      x: 14
-      y: 1
+      x: 13
+      y: 0
     Kind: 4
     ActivationRule: 3
     Direction: 0
@@ -545,8 +545,8 @@ MonoBehaviour:
   - TileId: 11
     Cell:
       face: 0
-      x: 12
-      y: 3
+      x: 10
+      y: 1
     Kind: 6
     ActivationRule: 3
     Direction: 0
@@ -556,13 +556,13 @@ MonoBehaviour:
   - TileId: 12
     Cell:
       face: 0
-      x: 12
-      y: 1
-    Kind: 5
-    ActivationRule: 1
+      x: 8
+      y: 0
+    Kind: 3
+    ActivationRule: 2
     Direction: 0
     BoxSelector: 0
-    BoundEntityId: 202
+    BoundEntityId: 0
     PresentationKey: moon-generator.default
   - TileId: 13
     Cell:
@@ -597,6 +597,50 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: barricade.default
+  - TileId: 16
+    Cell:
+      face: 0
+      x: 5
+      y: 0
+    Kind: 1
+    ActivationRule: 2
+    Direction: 2
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: slide.right
+  - TileId: 17
+    Cell:
+      face: 0
+      x: 6
+      y: 0
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
+  - TileId: 18
+    Cell:
+      face: 0
+      x: 7
+      y: 0
+    Kind: 2
+    ActivationRule: 3
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 19
+    Cell:
+      face: 0
+      x: 4
+      y: 0
+    Kind: 7
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: Reach the Exit
