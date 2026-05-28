@@ -45,6 +45,8 @@ MonoBehaviour:
     PresentationId: black_eye
   - EntityId: 406
     PresentationId: startis
+  - EntityId: 414
+    PresentationId: black_eye
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 31
@@ -832,6 +834,8 @@ MonoBehaviour:
   boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
+  worldGuideCatalog: {fileID: 0}
+  worldGuideInstructions: []
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 

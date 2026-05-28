@@ -24,12 +24,14 @@ namespace Game.Feature.Stages.Editor.Tests
             catalog.SetEntries(new[] { entry });
             provider.AssignCatalog(catalog);
             StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
         }
 
         [TearDown]
         public void TearDown()
         {
             StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
             UnityEngine.Object.DestroyImmediate(entry);
             UnityEngine.Object.DestroyImmediate(provider);
             UnityEngine.Object.DestroyImmediate(catalog);
@@ -92,6 +94,62 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(stageId.Value, Is.EqualTo("tutorial-scene"));
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var pendingStageId), Is.True);
             Assert.That(pendingStageId, Is.EqualTo(stageId));
+        }
+
+        [Test]
+        public void PlayerCaptureLaunchOptions_NormalizesTutorialStageArgument()
+        {
+            var parsed = PlayerCaptureLaunchOptions.TryParse(
+                new[] { "Game.exe", "--capture-stage", "Tutorial Scene" },
+                out var options,
+                out var error);
+
+            Assert.That(parsed, Is.True, error);
+            Assert.That(options.HasCaptureStage, Is.True);
+            Assert.That(options.StageId.Value, Is.EqualTo("tutorial-scene"));
+        }
+
+        [Test]
+        public void PlayerCaptureBootstrap_PrimesTutorialStageIdBeforeSceneLoad()
+        {
+            var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                new[] { "Game.exe", "--capture-stage=tutorial-scene" },
+                logErrors: false,
+                out var error);
+
+            Assert.That(primed, Is.True, error);
+            Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
+            Assert.That(current.Value, Is.EqualTo("tutorial-scene"));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().SuppressCampaignFlow, Is.True);
+        }
+
+        [Test]
+        public void PlayerCaptureBuildScenes_CaptureStageUsesGameplayShellScene()
+        {
+            var scenes = PlayerProfilerCaptureCli.ResolveBuildScenesForTests(new[]
+            {
+                "Unity.exe",
+                "-captureStage",
+                "tutorial-scene",
+                "-captureScenes",
+                "Assets/Scenes/TutorialScene.unity",
+            });
+
+            Assert.That(scenes, Is.EqualTo(new[] { "Assets/Scenes/UIAudioScene.unity" }));
+        }
+
+        [Test]
+        public void PlayerCaptureBuildScenes_RejectsDirectTutorialSceneWithoutCaptureStage()
+        {
+            var exception = Assert.Throws<System.InvalidOperationException>(() =>
+                PlayerProfilerCaptureCli.ResolveBuildScenesForTests(new[]
+                {
+                    "Unity.exe",
+                    "-captureScenes",
+                    "Assets/Scenes/TutorialScene.unity",
+                }));
+
+            StringAssert.Contains("--capture-stage tutorial-scene", exception?.Message);
         }
     }
 }

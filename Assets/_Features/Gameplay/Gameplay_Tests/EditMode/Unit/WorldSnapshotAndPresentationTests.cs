@@ -29,6 +29,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class WorldSnapshotAndPresentationTests
     {
+        private static readonly BoardBounds TestBounds = new(
+            Vector2Int.zero,
+            new Vector2Int(4, 4));
+
         [Test]
         [Category("Extended")]
         public void TickPresentationData_EmptyAndLegacyConstructorsExposeEmptyFrontFaceShieldSignals()
@@ -854,6 +858,272 @@ namespace Game.Feature.Gameplay.Tests.Unit
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
             CollectionAssert.AreEqual(new[] { 10, 20, 30 }, orderedEntities.Select(entity => entity.entityId).ToArray());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_EnumerateEntitiesOrdered_SecondCallUsesCache()
+        {
+            var snapshot = CreateSnapshot(CreateWorldState(new[]
+            {
+                CreateEntity(30, EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), Direction.Right),
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 1, 0), Direction.Right),
+                CreateEntity(20, EntityType.Projectile, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right),
+            }));
+            var orderedEntities = new List<EntityState>();
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                snapshot.EnumerateEntitiesOrdered(orderedEntities);
+                snapshot.EnumerateEntitiesOrdered(orderedEntities);
+                counts = capture.Counts;
+            }
+
+            CollectionAssert.AreEqual(new[] { 10, 20, 30 }, orderedEntities.Select(entity => entity.entityId).ToArray());
+            Assert.That(counts.OrderedEntitiesCacheMissCount, Is.EqualTo(1));
+            Assert.That(counts.OrderedEntitiesCacheHitCount, Is.EqualTo(1));
+            Assert.That(counts.OrderedEntitiesSortCount, Is.EqualTo(1));
+            Assert.That(counts.OrderedEntitiesEnumeratedCount, Is.EqualTo(6));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_EnumerateEntitiesOrdered_CacheCannotBeMutatedByCaller()
+        {
+            var snapshot = CreateSnapshot(CreateWorldState(new[]
+            {
+                CreateEntity(30, EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), Direction.Right),
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 1, 0), Direction.Right),
+            }));
+            var orderedEntities = new List<EntityState>();
+
+            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+            orderedEntities[0] = CreateEntity(999, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right);
+            orderedEntities.Clear();
+            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            CollectionAssert.AreEqual(new[] { 10, 30 }, orderedEntities.Select(entity => entity.entityId).ToArray());
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_EnumerateTileFeaturesOrdered_SecondCallUsesCache()
+        {
+            var snapshot = CreateTileFeatureSnapshot(
+                CreateTileFeature(30, new SurfaceCell(FaceId.Floor, 2, 0), TileFeatureKind.Slide, TileFeatureFlags.None),
+                CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 0, 1), TileFeatureKind.Slide, TileFeatureFlags.None),
+                CreateTileFeature(20, new SurfaceCell(FaceId.Floor, 0, 1), TileFeatureKind.Destroy, TileFeatureFlags.None));
+            var orderedTileFeatures = new List<TileFeatureState>();
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                snapshot.EnumerateTileFeaturesOrdered(orderedTileFeatures);
+                snapshot.EnumerateTileFeaturesOrdered(orderedTileFeatures);
+                counts = capture.Counts;
+            }
+
+            CollectionAssert.AreEqual(new[] { 10, 20, 30 }, orderedTileFeatures.Select(tile => tile.TileId).ToArray());
+            Assert.That(counts.OrderedTileFeaturesCacheMissCount, Is.EqualTo(1));
+            Assert.That(counts.OrderedTileFeaturesCacheHitCount, Is.EqualTo(1));
+            Assert.That(counts.OrderedTileFeaturesSortCount, Is.EqualTo(1));
+            Assert.That(counts.OrderedTileFeaturesEnumeratedCount, Is.EqualTo(6));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_OrderCache_DoesNotAffectNewSnapshotAfterWorldMutation()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEntity(30, EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), Direction.Right),
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 1, 0), Direction.Right),
+            });
+            var firstSnapshot = CreateSnapshot(worldState);
+            var orderedEntities = new List<EntityState>();
+            firstSnapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            CreateWriteContext(worldState).SpawnEntity(
+                CreateEntity(20, EntityType.Unit, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right));
+            var secondSnapshot = CreateSnapshot(worldState);
+            secondSnapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            CollectionAssert.AreEqual(new[] { 10, 20, 30 }, orderedEntities.Select(entity => entity.entityId).ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshot_Immutability_TileFeatureIdsByCellCannotBeMutatedThroughSnapshot()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var snapshot = CreateTileFeatureSnapshot(
+                CreateTileFeature(30, cell, TileFeatureKind.Slide, TileFeatureFlags.None),
+                CreateTileFeature(10, cell, TileFeatureKind.Destroy, TileFeatureFlags.None));
+            var tileIds = GetCellIndex(snapshot, "_tileFeatureIdsByCell")[cell];
+            var mutableView = tileIds as IList<int>;
+            var tileFeatures = new List<TileFeatureState>();
+
+            Assert.That(mutableView, Is.Not.Null);
+            Assert.Throws<NotSupportedException>(() => { mutableView.Add(20); });
+            Assert.Throws<NotSupportedException>(() => { mutableView[0] = 99; });
+
+            snapshot.EnumerateTileFeaturesAt(cell, tileFeatures);
+            CollectionAssert.AreEqual(new[] { 10, 30 }, tileFeatures.Select(tile => tile.TileId).ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void WorldSnapshot_Immutability_StackedUnitsByCellCannotBeMutatedThroughSnapshot()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var snapshot = CreateSnapshot(CreateWorldState(new[]
+            {
+                CreateEntity(30, EntityType.Unit, cell, Direction.Right),
+                CreateEntity(10, EntityType.Unit, cell, Direction.Right),
+            }));
+            var unitIds = GetCellIndex(snapshot, "_stackedUnitsByCell")[cell];
+            var mutableView = unitIds as IList<int>;
+            var units = new List<EntityState>();
+
+            Assert.That(mutableView, Is.Not.Null);
+            Assert.Throws<NotSupportedException>(() => { mutableView.Remove(10); });
+            Assert.Throws<NotSupportedException>(() => { mutableView[0] = 99; });
+
+            snapshot.EnumerateUnitsAt(cell, units);
+            CollectionAssert.AreEqual(new[] { 10, 30 }, units.Select(unit => unit.entityId).ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SnapshotBuilder_Create_PreservesTileFeatureIdsByCellOrder()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var tileFeatures = new[]
+            {
+                CreateTileFeature(30, cell, TileFeatureKind.Slide, TileFeatureFlags.None),
+                CreateTileFeature(10, cell, TileFeatureKind.Destroy, TileFeatureFlags.None),
+            };
+            var ownedSnapshot = SnapshotBuilder.Create(CreateWorldState(Array.Empty<EntityState>(), TestBounds, GameplayTerrainData.Empty, new CubeTopologyState(FaceId.Floor), tileFeatures));
+            var defensiveSnapshot = CreateDefensiveSnapshot(Array.Empty<EntityState>(), tileFeatures);
+
+            CollectionAssert.AreEqual(
+                CollectTileFeatureIdsAt(defensiveSnapshot, cell),
+                CollectTileFeatureIdsAt(ownedSnapshot, cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SnapshotBuilder_Create_PreservesStackedUnitOrder()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var entities = new[]
+            {
+                CreateEntity(30, EntityType.Unit, cell, Direction.Right),
+                CreateEntity(10, EntityType.Unit, cell, Direction.Right),
+            };
+            var ownedSnapshot = SnapshotBuilder.Create(CreateWorldState(entities));
+            var defensiveSnapshot = CreateDefensiveSnapshot(entities, Array.Empty<TileFeatureState>());
+
+            CollectionAssert.AreEqual(
+                CollectUnitIdsAt(defensiveSnapshot, cell),
+                CollectUnitIdsAt(ownedSnapshot, cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SnapshotBuilder_Create_ReusedOrOwnedIndexDoesNotObserveWorldStateMutation()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(30, EntityType.Unit, cell, Direction.Right),
+                    CreateEntity(10, EntityType.Unit, cell, Direction.Right),
+                },
+                TestBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[]
+                {
+                    CreateTileFeature(30, cell, TileFeatureKind.Slide, TileFeatureFlags.None),
+                    CreateTileFeature(10, cell, TileFeatureKind.Destroy, TileFeatureFlags.None),
+                });
+            var snapshot = SnapshotBuilder.Create(worldState);
+            var writeContext = CreateWriteContext(worldState);
+
+            writeContext.SpawnEntity(CreateEntity(20, EntityType.Unit, cell, Direction.Right));
+            writeContext.AddTileFeature(CreateTileFeature(20, cell, TileFeatureKind.Button, TileFeatureFlags.None));
+
+            CollectionAssert.AreEqual(new[] { 10, 30 }, CollectUnitIdsAt(snapshot, cell));
+            CollectionAssert.AreEqual(new[] { 10, 30 }, CollectTileFeatureIdsAt(snapshot, cell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SnapshotBuilder_Create_ProducesEquivalentSnapshotBeforeAfterOptimization()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var entities = new[]
+            {
+                CreateEntity(30, EntityType.Unit, sharedCell, Direction.Right),
+                CreateEntity(10, EntityType.Unit, sharedCell, Direction.Right),
+                CreateEntity(40, EntityType.Box, new SurfaceCell(FaceId.Floor, 2, 1), Direction.None),
+                CreateEntity(50, EntityType.Projectile, new SurfaceCell(FaceId.Floor, 3, 1), Direction.Right),
+            };
+            var tileFeatures = new[]
+            {
+                CreateTileFeature(30, sharedCell, TileFeatureKind.Slide, TileFeatureFlags.None),
+                CreateTileFeature(10, sharedCell, TileFeatureKind.Destroy, TileFeatureFlags.None),
+                CreateTileFeature(20, new SurfaceCell(FaceId.Front, 0, 0), TileFeatureKind.Button, TileFeatureFlags.Activated),
+            };
+            var ownedSnapshot = SnapshotBuilder.Create(CreateWorldState(
+                entities,
+                TestBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                tileFeatures));
+            var defensiveSnapshot = CreateDefensiveSnapshot(entities, tileFeatures);
+
+            CollectionAssert.AreEqual(CollectUnitIdsAt(defensiveSnapshot, sharedCell), CollectUnitIdsAt(ownedSnapshot, sharedCell));
+            CollectionAssert.AreEqual(CollectTileFeatureIdsAt(defensiveSnapshot, sharedCell), CollectTileFeatureIdsAt(ownedSnapshot, sharedCell));
+            CollectionAssert.AreEqual(
+                Collect<EntityState>(defensiveSnapshot.EnumerateEntitiesOrdered).Select(entity => entity.entityId).ToArray(),
+                Collect<EntityState>(ownedSnapshot.EnumerateEntitiesOrdered).Select(entity => entity.entityId).ToArray());
+            CollectionAssert.AreEqual(
+                Collect<TileFeatureState>(defensiveSnapshot.EnumerateTileFeaturesOrdered).Select(tile => tile.TileId).ToArray(),
+                Collect<TileFeatureState>(ownedSnapshot.EnumerateTileFeaturesOrdered).Select(tile => tile.TileId).ToArray());
+            CollectionAssert.AreEqual(
+                Collect<SnapshotOccupancyEntry>(defensiveSnapshot.EnumerateUnitOccupancyOrdered),
+                Collect<SnapshotOccupancyEntry>(ownedSnapshot.EnumerateUnitOccupancyOrdered));
+            CollectionAssert.AreEqual(
+                Collect<SnapshotOccupancyEntry>(defensiveSnapshot.EnumerateSolidOccupancyOrdered),
+                Collect<SnapshotOccupancyEntry>(ownedSnapshot.EnumerateSolidOccupancyOrdered));
+            CollectionAssert.AreEqual(
+                Collect<SnapshotOccupancyEntry>(defensiveSnapshot.EnumerateProjectileOccupancyOrdered),
+                Collect<SnapshotOccupancyEntry>(ownedSnapshot.EnumerateProjectileOccupancyOrdered));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SnapshotMaterializationDiagnostics_ResolveReasons_AreSeparated()
+        {
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(CreateWorldState(new[]
+            {
+                CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right),
+            }));
+
+            SnapshotMaterializationCounts counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                pipeline.RunTick(new TickInput(7));
+                counts = capture.Counts;
+            }
+
+            Assert.That(counts.GetMaterializedSnapshotCount(ProjectedWorldSnapshotReason.Unspecified), Is.EqualTo(0));
+            Assert.That(counts.GetCacheHitCount(ProjectedWorldSnapshotReason.Unspecified), Is.EqualTo(0));
+            Assert.That(CountReasonedSnapshots(counts, ProjectedWorldSnapshotReason.ResolvePostMovement), Is.GreaterThan(0));
+            Assert.That(CountReasonedSnapshots(counts, ProjectedWorldSnapshotReason.ResolvePostAttack), Is.GreaterThan(0));
         }
 
         [Test]
@@ -4140,6 +4410,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData, topology);
         }
 
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology,
+            IEnumerable<TileFeatureState> tileFeatures)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                topology,
+                GameplayTimingProfile.CreateDefault(),
+                tileFeatures);
+        }
+
         private static WorldSnapshot CreateSnapshot(WorldState worldState)
         {
             var createSnapshotMethod = typeof(WorldState).GetMethod(
@@ -4149,6 +4435,134 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(createSnapshotMethod, Is.Not.Null);
 
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
+        }
+
+        private static WorldSnapshot CreateDefensiveSnapshot(
+            IEnumerable<EntityState> initialEntities,
+            IEnumerable<TileFeatureState> initialTileFeatures)
+        {
+            var entitiesById = new Dictionary<int, EntityState>();
+            var stackedUnitsByCell = new Dictionary<SurfaceCell, SortedSet<int>>();
+            var solidOccupancy = new Dictionary<SurfaceCell, int>();
+            var projectileOccupancy = new Dictionary<SurfaceCell, int>();
+            foreach (var entity in initialEntities)
+            {
+                entitiesById.Add(entity.entityId, entity);
+                if (entity.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                if (entity.type == EntityType.Unit)
+                {
+                    AddCellIndexValue(stackedUnitsByCell, entity.position, entity.entityId);
+                }
+                else if (entity.type == EntityType.Projectile)
+                {
+                    projectileOccupancy.Add(entity.position, entity.entityId);
+                }
+                else
+                {
+                    solidOccupancy.Add(entity.position, entity.entityId);
+                }
+            }
+
+            var tileFeaturesById = new Dictionary<int, TileFeatureState>();
+            var tileFeatureIdsByCell = new Dictionary<SurfaceCell, SortedSet<int>>();
+            foreach (var tileFeature in initialTileFeatures)
+            {
+                tileFeaturesById.Add(tileFeature.TileId, tileFeature);
+                AddCellIndexValue(tileFeatureIdsByCell, tileFeature.Cell, tileFeature.TileId);
+            }
+
+            var args = new object[]
+            {
+                entitiesById,
+                stackedUnitsByCell,
+                solidOccupancy,
+                projectileOccupancy,
+                tileFeaturesById,
+                tileFeatureIdsByCell,
+                new Dictionary<int, EnemyActionRuntimeState>(),
+                new Dictionary<int, PendingCellImpact>(),
+                new Dictionary<int, EnemyPatrolRuntimeState>(),
+                new Dictionary<int, EnemyChargeRuntimeState>(),
+                new Dictionary<int, EntityExecutionLockState>(),
+                new Dictionary<int, EnemyJumpRuntimeState>(),
+                new Dictionary<int, EnemyGlideRuntimeState>(),
+                new Dictionary<int, EnemyUtilityRuntimeState>(),
+                new Dictionary<int, EnemyFrontFaceSupportRuntimeState>(),
+                new Dictionary<int, BoxInteractionLockState>(),
+                new Dictionary<int, EnemyGravityFieldAuraFieldState>(),
+                new Dictionary<int, PhasedRuntimeState>(),
+                new Dictionary<int, PlayerDamageState>(),
+                new Dictionary<int, PlayerControlState>(),
+                new Dictionary<int, SummonedEntityState>(),
+                new Dictionary<int, EnemyDefinitionBindingState>(),
+                new Dictionary<int, UnitKinematicRuntimeState>(),
+                new Dictionary<int, UnitContinuousLocomotionState>(),
+                new CubeTopologyState(FaceId.Floor),
+                TestBounds,
+                GameplayTerrainData.Empty,
+            };
+
+            return (WorldSnapshot)Activator.CreateInstance(
+                typeof(WorldSnapshot),
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                args: args,
+                culture: null);
+        }
+
+        private static IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> GetCellIndex(
+            WorldSnapshot snapshot,
+            string fieldName)
+        {
+            var field = typeof(WorldSnapshot).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>)field.GetValue(snapshot);
+        }
+
+        private static int[] CollectTileFeatureIdsAt(WorldSnapshot snapshot, SurfaceCell cell)
+        {
+            var tileFeatures = new List<TileFeatureState>();
+            snapshot.EnumerateTileFeaturesAt(cell, tileFeatures);
+            return tileFeatures.Select(tile => tile.TileId).ToArray();
+        }
+
+        private static int[] CollectUnitIdsAt(WorldSnapshot snapshot, SurfaceCell cell)
+        {
+            var units = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, units);
+            return units.Select(unit => unit.entityId).ToArray();
+        }
+
+        private static int CountReasonedSnapshots(
+            SnapshotMaterializationCounts counts,
+            ProjectedWorldSnapshotReason reason)
+        {
+            return counts.GetMaterializedSnapshotCount(reason) + counts.GetCacheHitCount(reason);
+        }
+
+        private static List<T> Collect<T>(Action<List<T>> enumerate)
+        {
+            var buffer = new List<T>();
+            enumerate(buffer);
+            return buffer;
+        }
+
+        private static void AddCellIndexValue(
+            IDictionary<SurfaceCell, SortedSet<int>> valuesByCell,
+            SurfaceCell cell,
+            int value)
+        {
+            if (!valuesByCell.TryGetValue(cell, out var values))
+            {
+                values = new SortedSet<int>();
+                valuesByCell.Add(cell, values);
+            }
+
+            values.Add(value);
         }
 
         private static WorldSnapshot CreateTileFeatureSnapshot(params TileFeatureState[] tileFeatures)

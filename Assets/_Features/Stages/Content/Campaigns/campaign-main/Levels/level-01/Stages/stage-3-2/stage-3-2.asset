@@ -1382,7 +1382,7 @@ MonoBehaviour:
     Kind: 2
     Cell:
       face: 2
-      x: 7
+      x: 5
       y: 7
     Facing: 0
     Hp: 1
@@ -2900,7 +2900,7 @@ MonoBehaviour:
   - TileId: 36
     Cell:
       face: 2
-      x: 6
+      x: 4
       y: 7
     Kind: 4
     ActivationRule: 3

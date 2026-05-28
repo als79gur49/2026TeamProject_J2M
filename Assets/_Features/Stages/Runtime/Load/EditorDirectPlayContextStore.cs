@@ -83,6 +83,8 @@ namespace Game.Feature.Stages
         private static Func<string> readCurrentJson;
         private static Action<string> writeCurrentJson;
         private static Action clearCurrentJson;
+        private static EditorDirectPlayContext fallbackContext = EditorDirectPlayContext.None;
+        private static bool hasFallbackContext;
 
         public static EditorDirectPlayContext GetCurrentOrNone()
         {
@@ -91,6 +93,12 @@ namespace Game.Feature.Stages
 
         public static bool TryGetCurrent(out EditorDirectPlayContext context)
         {
+            if (readCurrentJson == null && hasFallbackContext)
+            {
+                context = fallbackContext;
+                return context.Mode != EditorDirectPlayMode.None;
+            }
+
             var json = readCurrentJson != null ? readCurrentJson() : string.Empty;
             if (!string.IsNullOrWhiteSpace(json))
             {
@@ -108,12 +116,25 @@ namespace Game.Feature.Stages
 
         public static void SetCurrent(EditorDirectPlayContext context)
         {
-            writeCurrentJson?.Invoke(JsonUtility.ToJson(ToDto(context)));
+            if (writeCurrentJson != null)
+            {
+                writeCurrentJson(JsonUtility.ToJson(ToDto(context)));
+                return;
+            }
+
+            fallbackContext = context;
+            hasFallbackContext = context.Mode != EditorDirectPlayMode.None;
         }
 
         public static void Clear()
         {
-            clearCurrentJson?.Invoke();
+            if (clearCurrentJson != null)
+            {
+                clearCurrentJson();
+            }
+
+            fallbackContext = EditorDirectPlayContext.None;
+            hasFallbackContext = false;
         }
 
         public static void ClearTempDirectPlaySave()
@@ -161,6 +182,13 @@ namespace Game.Feature.Stages
             readCurrentJson = readJson;
             writeCurrentJson = writeJson;
             clearCurrentJson = clearJson;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetOnDomainReload()
+        {
+            fallbackContext = EditorDirectPlayContext.None;
+            hasFallbackContext = false;
         }
 
         [Serializable]

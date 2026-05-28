@@ -8,6 +8,216 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal readonly struct EntityPresentationApplyDiagnostics
+    {
+        public EntityPresentationApplyDiagnostics(
+            int candidateCount,
+            int executedCount,
+            int skippedCount,
+            int activeBypassCount,
+            int enemyCandidateCount,
+            int enemySkippedCount,
+            int playerExecutedCount,
+            int signatureChangedCount,
+            int signatureUnchangedCount)
+        {
+            CandidateCount = candidateCount;
+            ExecutedCount = executedCount;
+            SkippedCount = skippedCount;
+            ActiveBypassCount = activeBypassCount;
+            EnemyCandidateCount = enemyCandidateCount;
+            EnemySkippedCount = enemySkippedCount;
+            PlayerExecutedCount = playerExecutedCount;
+            SignatureChangedCount = signatureChangedCount;
+            SignatureUnchangedCount = signatureUnchangedCount;
+        }
+
+        public int CandidateCount { get; }
+
+        public int ExecutedCount { get; }
+
+        public int SkippedCount { get; }
+
+        public int ActiveBypassCount { get; }
+
+        public int EnemyCandidateCount { get; }
+
+        public int EnemySkippedCount { get; }
+
+        public int PlayerExecutedCount { get; }
+
+        public int SignatureChangedCount { get; }
+
+        public int SignatureUnchangedCount { get; }
+    }
+
+    internal readonly struct EntityPresentationApplySignature : IEquatable<EntityPresentationApplySignature>
+    {
+        public EntityPresentationApplySignature(
+            int entityId,
+            EntityType entityType,
+            UnitRole unitRole,
+            bool isVisible,
+            bool isCommittedVisible,
+            bool isTransitionVisible,
+            bool isTransitionOnlyVisible,
+            bool isJumpDetachedVisible,
+            bool isJumpLandingCompletionHeld,
+            bool hasProjectedSlot,
+            GameplayProjectedFaceSlot projectedSlot,
+            bool hasAuthoritativeFace,
+            FaceId authoritativeFace,
+            bool isGameplayAutonomySuppressed,
+            EnemyAiMode aiMode,
+            bool hasActiveMotion,
+            bool hasJumpAirborneVisualState,
+            bool isTopologyTransitionActive,
+            bool isJumpTopologySuspended,
+            bool isOnVisualFrontFace,
+            Vector3 localPosition,
+            Quaternion localRotation,
+            EnemyVisualSemanticState enemyVisualState)
+        {
+            EntityId = entityId;
+            EntityType = entityType;
+            UnitRole = unitRole;
+            IsVisible = isVisible;
+            IsCommittedVisible = isCommittedVisible;
+            IsTransitionVisible = isTransitionVisible;
+            IsTransitionOnlyVisible = isTransitionOnlyVisible;
+            IsJumpDetachedVisible = isJumpDetachedVisible;
+            IsJumpLandingCompletionHeld = isJumpLandingCompletionHeld;
+            HasProjectedSlot = hasProjectedSlot;
+            ProjectedSlot = projectedSlot;
+            HasAuthoritativeFace = hasAuthoritativeFace;
+            AuthoritativeFace = authoritativeFace;
+            IsGameplayAutonomySuppressed = isGameplayAutonomySuppressed;
+            AiMode = aiMode;
+            HasActiveMotion = hasActiveMotion;
+            HasJumpAirborneVisualState = hasJumpAirborneVisualState;
+            IsTopologyTransitionActive = isTopologyTransitionActive;
+            IsJumpTopologySuspended = isJumpTopologySuspended;
+            IsOnVisualFrontFace = isOnVisualFrontFace;
+            LocalPosition = localPosition;
+            LocalRotation = localRotation;
+            EnemyVisualState = enemyVisualState;
+        }
+
+        public int EntityId { get; }
+
+        public EntityType EntityType { get; }
+
+        public UnitRole UnitRole { get; }
+
+        public bool IsVisible { get; }
+
+        public bool IsCommittedVisible { get; }
+
+        public bool IsTransitionVisible { get; }
+
+        public bool IsTransitionOnlyVisible { get; }
+
+        public bool IsJumpDetachedVisible { get; }
+
+        public bool IsJumpLandingCompletionHeld { get; }
+
+        public bool HasProjectedSlot { get; }
+
+        public GameplayProjectedFaceSlot ProjectedSlot { get; }
+
+        public bool HasAuthoritativeFace { get; }
+
+        public FaceId AuthoritativeFace { get; }
+
+        public bool IsGameplayAutonomySuppressed { get; }
+
+        public EnemyAiMode AiMode { get; }
+
+        public bool HasActiveMotion { get; }
+
+        public bool HasJumpAirborneVisualState { get; }
+
+        public bool IsTopologyTransitionActive { get; }
+
+        public bool IsJumpTopologySuspended { get; }
+
+        public bool IsOnVisualFrontFace { get; }
+
+        public Vector3 LocalPosition { get; }
+
+        public Quaternion LocalRotation { get; }
+
+        public EnemyVisualSemanticState EnemyVisualState { get; }
+
+        public bool Equals(EntityPresentationApplySignature other)
+        {
+            return EntityId == other.EntityId &&
+                   EntityType == other.EntityType &&
+                   UnitRole == other.UnitRole &&
+                   IsVisible == other.IsVisible &&
+                   IsCommittedVisible == other.IsCommittedVisible &&
+                   IsTransitionVisible == other.IsTransitionVisible &&
+                   IsTransitionOnlyVisible == other.IsTransitionOnlyVisible &&
+                   IsJumpDetachedVisible == other.IsJumpDetachedVisible &&
+                   IsJumpLandingCompletionHeld == other.IsJumpLandingCompletionHeld &&
+                   HasProjectedSlot == other.HasProjectedSlot &&
+                   (!HasProjectedSlot || ProjectedSlot == other.ProjectedSlot) &&
+                   HasAuthoritativeFace == other.HasAuthoritativeFace &&
+                   (!HasAuthoritativeFace || AuthoritativeFace == other.AuthoritativeFace) &&
+                   IsGameplayAutonomySuppressed == other.IsGameplayAutonomySuppressed &&
+                   AiMode == other.AiMode &&
+                   HasActiveMotion == other.HasActiveMotion &&
+                   HasJumpAirborneVisualState == other.HasJumpAirborneVisualState &&
+                   IsTopologyTransitionActive == other.IsTopologyTransitionActive &&
+                   IsJumpTopologySuspended == other.IsJumpTopologySuspended &&
+                   IsOnVisualFrontFace == other.IsOnVisualFrontFace &&
+                   LocalPosition == other.LocalPosition &&
+                   LocalRotation == other.LocalRotation &&
+                   EnemyVisualState.ActivityState == other.EnemyVisualState.ActivityState &&
+                   EnemyVisualState.ShouldPauseAnimatorPlayback == other.EnemyVisualState.ShouldPauseAnimatorPlayback &&
+                   EnemyVisualState.ShouldPauseAutonomousPresentation ==
+                   other.EnemyVisualState.ShouldPauseAutonomousPresentation;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EntityPresentationApplySignature other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = EntityId;
+                hash = (hash * 397) ^ (int)EntityType;
+                hash = (hash * 397) ^ (int)UnitRole;
+                hash = (hash * 397) ^ IsVisible.GetHashCode();
+                hash = (hash * 397) ^ IsCommittedVisible.GetHashCode();
+                hash = (hash * 397) ^ IsTransitionVisible.GetHashCode();
+                hash = (hash * 397) ^ IsTransitionOnlyVisible.GetHashCode();
+                hash = (hash * 397) ^ IsJumpDetachedVisible.GetHashCode();
+                hash = (hash * 397) ^ IsJumpLandingCompletionHeld.GetHashCode();
+                hash = (hash * 397) ^ HasProjectedSlot.GetHashCode();
+                hash = (hash * 397) ^ (HasProjectedSlot ? (int)ProjectedSlot : 0);
+                hash = (hash * 397) ^ HasAuthoritativeFace.GetHashCode();
+                hash = (hash * 397) ^ (HasAuthoritativeFace ? (int)AuthoritativeFace : 0);
+                hash = (hash * 397) ^ IsGameplayAutonomySuppressed.GetHashCode();
+                hash = (hash * 397) ^ (int)AiMode;
+                hash = (hash * 397) ^ HasActiveMotion.GetHashCode();
+                hash = (hash * 397) ^ HasJumpAirborneVisualState.GetHashCode();
+                hash = (hash * 397) ^ IsTopologyTransitionActive.GetHashCode();
+                hash = (hash * 397) ^ IsJumpTopologySuspended.GetHashCode();
+                hash = (hash * 397) ^ IsOnVisualFrontFace.GetHashCode();
+                hash = (hash * 397) ^ LocalPosition.GetHashCode();
+                hash = (hash * 397) ^ LocalRotation.GetHashCode();
+                hash = (hash * 397) ^ (int)EnemyVisualState.ActivityState;
+                hash = (hash * 397) ^ EnemyVisualState.ShouldPauseAnimatorPlayback.GetHashCode();
+                hash = (hash * 397) ^ EnemyVisualState.ShouldPauseAutonomousPresentation.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
     internal sealed class GameplayEntityPresentationApplier
     {
         private readonly GameplayAnimationSyncCoordinator _animationSync;
@@ -71,6 +281,15 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.PresentedLocalPosesByEntityId.Clear();
             AdvancePlayerDeathDisplacementTracks(deltaTime);
 
+            var candidateCount = 0;
+            var executedCount = 0;
+            var skippedCount = 0;
+            var activeBypassCount = 0;
+            var enemyCandidateCount = 0;
+            var enemySkippedCount = 0;
+            var playerExecutedCount = 0;
+            var signatureChangedCount = 0;
+            var signatureUnchangedCount = 0;
             var processingEntityIds = BuildProcessingEntityIds();
             for (var i = 0; i < processingEntityIds.Count; i++)
             {
@@ -183,6 +402,7 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
+                candidateCount++;
                 var hasActiveLocalMotion = _trackState.LocalMotionTracks.TryGetValue(
                     entityId,
                     out var activeMotionTrack) &&
@@ -223,36 +443,120 @@ namespace Game.Feature.Gameplay.Host
 
                 var hasActiveMotion = hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
                                       hasActiveLocalMotion;
-                var playerAnimationPlayback = _animationSync.ResolvePlayerAnimationPlayback(
-                    entityId,
-                    ShouldPlayPlayerWalkLoop(entityId),
-                    HasActivePlayerWalkMotion(entityId));
-                var wasViewActiveInHierarchy = view.gameObject.activeInHierarchy;
-                var enemySemanticState = UpdateEnemyVisualPresentationState(
+                var enemyVisualFacts = BuildEnemyVisualPresentationFacts(
                     entityId,
                     isVisible,
                     hasActiveMotion,
-                    hasActiveBoardRotationTween,
-                    view);
+                    hasActiveBoardRotationTween);
+                _stateStore.EnemyVisualFactsByEntityId[entityId] = enemyVisualFacts;
+                var enemySemanticState = _enemyVisualSemanticResolver.Resolve(enemyVisualFacts);
+                _stateStore.EnemyVisualSemanticStatesByEntityId[entityId] = enemySemanticState;
+
+                var hasEntityType = _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType);
+                var hasUnitRole = _stateStore.UnitRolesByEntityId.TryGetValue(entityId, out var unitRole);
+                var isEnemy = hasEntityType &&
+                              hasUnitRole &&
+                              EntityRolePolicy.IsEnemyUnit(entityType, unitRole);
+                var isPlayer = hasEntityType &&
+                               hasUnitRole &&
+                               EntityRolePolicy.IsPlayerUnit(entityType, unitRole);
+                var hasEnemyApplySignature = false;
+                var enemyApplySignature = default(EntityPresentationApplySignature);
+                var requiresEnemyPresentationApply = false;
+                if (isEnemy &&
+                    TryBuildEnemyApplySignature(
+                        entityId,
+                        entityType,
+                        unitRole,
+                        isVisible,
+                        hasActiveMotion,
+                        localPose,
+                        enemyVisualFacts,
+                        enemySemanticState,
+                        out enemyApplySignature))
+                {
+                    enemyCandidateCount++;
+                    hasEnemyApplySignature = true;
+                    requiresEnemyPresentationApply = RequiresEnemyPresentationApply(
+                        entityId,
+                        hasActiveBoardRotationTween,
+                        hasKinematicPoseOverride,
+                        hasPlayerDeathHoldPose,
+                        hasActiveLocalMotion,
+                        hasActiveOriginalViewMotion,
+                        isDeferredExitRetained,
+                        isContactDelayedRetained,
+                        isDeathPresentationPlaying);
+
+                    if (_stateStore.LastEnemyApplySignaturesByEntityId.TryGetValue(
+                            entityId,
+                            out var previousSignature) &&
+                        previousSignature.Equals(enemyApplySignature))
+                    {
+                        signatureUnchangedCount++;
+                        if (!requiresEnemyPresentationApply)
+                        {
+                            skippedCount++;
+                            enemySkippedCount++;
+                            if (isVisible)
+                            {
+                                _stateStore.PresentedLocalPosesByEntityId[entityId] = localPose;
+                                _trackState.VisibleEntityIds.Add(entityId);
+                            }
+
+                            continue;
+                        }
+
+                        activeBypassCount++;
+                        _stateStore.LastEnemyApplySignaturesByEntityId.Remove(entityId);
+                    }
+                    else
+                    {
+                        signatureChangedCount++;
+                    }
+                }
+
+                executedCount++;
+                if (isPlayer)
+                {
+                    playerExecutedCount++;
+                }
+
+                var wasViewActiveInHierarchy = view.gameObject.activeInHierarchy;
+                ApplyEnemyVisualSemanticPresentationDrivers(entityId, view, enemySemanticState);
                 _animationSync.SyncEnemyRuntimeState(
                     entityId,
                     isVisible,
                     hasActiveMotion,
                     enemySemanticState.ShouldPauseAnimatorPlayback,
                     _stateStore.ViewsByEntityId);
-                _animationSync.SyncPlayerRuntimeState(
-                    entityId,
-                    isVisible,
-                    playerAnimationPlayback,
-                    _motionTimingResolver.ResolvePlayerAnimationStateMotionDurationSeconds(
+
+                if (!isEnemy)
+                {
+                    var playerAnimationPlayback = _animationSync.ResolvePlayerAnimationPlayback(
                         entityId,
-                        playerAnimationPlayback.State,
-                        timingProfile),
-                    _stateStore.ViewsByEntityId);
+                        ShouldPlayPlayerWalkLoop(entityId),
+                        HasActivePlayerWalkMotion(entityId));
+                    _animationSync.SyncPlayerRuntimeState(
+                        entityId,
+                        isVisible,
+                        playerAnimationPlayback,
+                        _motionTimingResolver.ResolvePlayerAnimationStateMotionDurationSeconds(
+                            entityId,
+                            playerAnimationPlayback.State,
+                            timingProfile),
+                        _stateStore.ViewsByEntityId);
+                }
+
                 if (!isVisible)
                 {
                     ResetPlayerDeathDisplacement(view);
                     ResetMotionVisualScaleIfApplied(entityId, view);
+                    StoreEnemyApplySignatureIfStable(
+                        entityId,
+                        hasEnemyApplySignature,
+                        requiresEnemyPresentationApply,
+                        enemyApplySignature);
                     continue;
                 }
 
@@ -278,6 +582,11 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _trackState.VisibleEntityIds.Add(entityId);
+                StoreEnemyApplySignatureIfStable(
+                    entityId,
+                    hasEnemyApplySignature,
+                    requiresEnemyPresentationApply,
+                    enemyApplySignature);
             }
 
             _animationSync.AdvanceEnemyAutonomousPresentationAfterSemantic(deltaTime);
@@ -304,6 +613,17 @@ namespace Game.Feature.Gameplay.Host
                     animationState,
                     timingProfile),
                 _stateStore.ViewsByEntityId);
+            _trackState.PresentationEventTargetEntityIds.Clear();
+            _stateStore.LastEntityPresentationApplyDiagnostics = new EntityPresentationApplyDiagnostics(
+                candidateCount,
+                executedCount,
+                skippedCount,
+                activeBypassCount,
+                enemyCandidateCount,
+                enemySkippedCount,
+                playerExecutedCount,
+                signatureChangedCount,
+                signatureUnchangedCount);
         }
 
         public void ResetAllPlayerDeathDisplacements()
@@ -391,6 +711,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
             _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
+            _stateStore.LastEnemyApplySignaturesByEntityId.Remove(entityId);
         }
 
         private void CleanupCompletedTopologyTransitionState(bool hasActiveBoardRotationTween)
@@ -739,6 +1060,7 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(entityId);
             _enemySemanticDriversByEntityId.Remove(entityId);
             _stateStore.EntityTypesByEntityId.Remove(entityId);
+            _stateStore.LastEnemyApplySignaturesByEntityId.Remove(entityId);
             _stateStore.UnitRolesByEntityId.Remove(entityId);
         }
 
@@ -815,25 +1137,119 @@ namespace Game.Feature.Gameplay.Host
                    signal.ShouldPlayWalkLoop;
         }
 
-        private EnemyVisualSemanticState UpdateEnemyVisualPresentationState(
+        private void StoreEnemyApplySignatureIfStable(
             int entityId,
+            bool hasEnemyApplySignature,
+            bool requiresEnemyPresentationApply,
+            EntityPresentationApplySignature enemyApplySignature)
+        {
+            if (!hasEnemyApplySignature)
+            {
+                _stateStore.LastEnemyApplySignaturesByEntityId.Remove(entityId);
+                return;
+            }
+
+            if (requiresEnemyPresentationApply)
+            {
+                _stateStore.LastEnemyApplySignaturesByEntityId.Remove(entityId);
+                return;
+            }
+
+            _stateStore.LastEnemyApplySignaturesByEntityId[entityId] = enemyApplySignature;
+        }
+
+        private bool RequiresEnemyPresentationApply(
+            int entityId,
+            bool hasActiveBoardRotationTween,
+            bool hasKinematicPoseOverride,
+            bool hasPlayerDeathHoldPose,
+            bool hasActiveLocalMotion,
+            bool hasActiveOriginalViewMotion,
+            bool isDeferredExitRetained,
+            bool isContactDelayedRetained,
+            bool isDeathPresentationPlaying)
+        {
+            return hasActiveBoardRotationTween ||
+                   hasKinematicPoseOverride ||
+                   hasPlayerDeathHoldPose ||
+                   hasActiveLocalMotion ||
+                   hasActiveOriginalViewMotion ||
+                   isDeferredExitRetained ||
+                   isContactDelayedRetained ||
+                   isDeathPresentationPlaying ||
+                   _trackState.PresentationEventTargetEntityIds.Contains(entityId) ||
+                   _trackState.JumpTracks.ContainsKey(entityId) ||
+                   _trackState.JumpWindupRotationTracks.ContainsKey(entityId) ||
+                   _trackState.PlayerFlipResultTurnTracks.ContainsKey(entityId) ||
+                   _trackState.VisibilityTracks.ContainsKey(entityId) ||
+                   _trackState.GlidePresentationOffsetsByEntityId.ContainsKey(entityId) ||
+                   _trackState.JumpLandingCompletionHoldEntityIds.Contains(entityId) ||
+                   _trackState.PlayerDeathDisplacementTracks.ContainsKey(entityId) ||
+                   _trackState.MotionVisualScaleEntityIds.Contains(entityId) ||
+                   _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
+                   _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
+        }
+
+        private bool TryBuildEnemyApplySignature(
+            int entityId,
+            EntityType entityType,
+            UnitRole unitRole,
             bool isVisible,
             bool hasActiveMotion,
-            bool hasActiveBoardRotationTween,
-            GameplayEntityView view)
+            GameplayEntityPose localPose,
+            in EnemyVisualPresentationFacts facts,
+            in EnemyVisualSemanticState semanticState,
+            out EntityPresentationApplySignature signature)
         {
-            var facts = BuildEnemyVisualPresentationFacts(
+            var hasAuthoritativeFace = false;
+            var authoritativeFace = default(FaceId);
+            if (facts.IsCommittedVisible &&
+                _stateStore.CommittedFacesByEntityId.TryGetValue(entityId, out var committedFace))
+            {
+                hasAuthoritativeFace = true;
+                authoritativeFace = committedFace;
+            }
+            else if (facts.IsTransitionVisible &&
+                     _stateStore.TransitionVisibilityStates.TryGetValue(
+                         entityId,
+                         out var transitionVisibilityState) &&
+                     transitionVisibilityState.SurfaceFace.HasValue)
+            {
+                hasAuthoritativeFace = true;
+                authoritativeFace = transitionVisibilityState.SurfaceFace.Value;
+            }
+            else if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
+            {
+                hasAuthoritativeFace = true;
+                authoritativeFace = jumpDetachedState.AuthoritativeFace;
+            }
+
+            var hasProjectedSlot = facts.ProjectedSlot.HasValue;
+            signature = new EntityPresentationApplySignature(
                 entityId,
+                entityType,
+                unitRole,
                 isVisible,
+                facts.IsCommittedVisible,
+                facts.IsTransitionVisible,
+                facts.IsTransitionOnlyVisible,
+                facts.IsJumpDetachedVisible,
+                facts.IsJumpLandingCompletionHeld,
+                hasProjectedSlot,
+                hasProjectedSlot ? facts.ProjectedSlot.Value : default,
+                hasAuthoritativeFace,
+                authoritativeFace,
+                facts.IsGameplayAutonomySuppressed,
+                facts.AiMode,
                 hasActiveMotion,
-                hasActiveBoardRotationTween);
-            _stateStore.EnemyVisualFactsByEntityId[entityId] = facts;
-
-            var semanticState = _enemyVisualSemanticResolver.Resolve(facts);
-            _stateStore.EnemyVisualSemanticStatesByEntityId[entityId] = semanticState;
-            ApplyEnemyVisualSemanticPresentationDrivers(entityId, view, semanticState);
-
-            return semanticState;
+                facts.HasJumpAirborneVisualState,
+                facts.IsTopologyTransitionActive,
+                facts.IsJumpTopologySuspended,
+                facts.IsOnVisualFrontFace,
+                localPose.Position,
+                localPose.Rotation,
+                semanticState);
+            return true;
         }
 
         private void ApplyEnemyVisualSemanticPresentationDrivers(

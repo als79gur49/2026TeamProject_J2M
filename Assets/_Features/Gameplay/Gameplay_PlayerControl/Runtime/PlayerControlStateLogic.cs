@@ -99,8 +99,9 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return;
             }
 
-            var nextState = snapshot.TryGetPlayerControlState(_entityId, out var controlState)
-                ? controlState
+            var hasPreviousControlState = snapshot.TryGetPlayerControlState(_entityId, out var previousControlState);
+            var nextState = hasPreviousControlState
+                ? previousControlState
                 : default;
 
             if (nextState.moveCooldownTicks > 0)
@@ -248,7 +249,17 @@ namespace Game.Feature.Gameplay.PlayerControl
                 nextState.activeAction,
                 writeContext,
                 updates);
-            writeContext.SetPlayerControlState(_entityId, nextState);
+            if (hasPreviousControlState &&
+                AreEqual(previousControlState, nextState))
+            {
+                SnapshotMaterializationDiagnostics.RecordPlayerControlStateSameStateSkipped();
+            }
+            else
+            {
+                writeContext.SetPlayerControlState(_entityId, nextState);
+                SnapshotMaterializationDiagnostics.RecordPlayerControlStateWritten();
+            }
+
             actionTransitions.Add(
                 new PlayerActionTransition(
                     _entityId,
@@ -438,6 +449,41 @@ namespace Game.Feature.Gameplay.PlayerControl
             return action.kind == PlayerActionKind.Flip &&
                    action.IsActive &&
                    !action.executionAttempted;
+        }
+
+        private static bool AreEqual(
+            in PlayerControlState left,
+            in PlayerControlState right)
+        {
+            return left.moveCooldownTicks == right.moveCooldownTicks &&
+                   left.nextMoveAllowedTick == right.nextMoveAllowedTick &&
+                   left.actionSequenceCounter == right.actionSequenceCounter &&
+                   AreEqual(left.activeAction, right.activeAction) &&
+                   left.queuedKinematicTurnDirection == right.queuedKinematicTurnDirection &&
+                   AreEqual(left.queuedFree2DAction, right.queuedFree2DAction);
+        }
+
+        private static bool AreEqual(
+            in PlayerActionRuntimeState left,
+            in PlayerActionRuntimeState right)
+        {
+            return left.kind == right.kind &&
+                   left.sequence == right.sequence &&
+                   left.direction == right.direction &&
+                   left.targetEntityId == right.targetEntityId &&
+                   left.startTick == right.startTick &&
+                   left.executeTick == right.executeTick &&
+                   left.recoveryEndTick == right.recoveryEndTick &&
+                   left.executionAttempted == right.executionAttempted;
+        }
+
+        private static bool AreEqual(
+            in PlayerQueuedFree2DActionState left,
+            in PlayerQueuedFree2DActionState right)
+        {
+            return left.kind == right.kind &&
+                   left.direction == right.direction &&
+                   left.requestedTick == right.requestedTick;
         }
     }
 }

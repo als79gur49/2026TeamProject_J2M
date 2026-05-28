@@ -90,6 +90,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TileFeatureEffectResolver_StillSeesSameOrderedFeatures()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var lowerIdButton = CreateButton(10, cell);
+            var higherIdButton = CreateButton(30, cell);
+            var box = CreateBox(20, cell);
+            var result = ResolveWithStops(
+                CreateWorldState(new[] { box }, new[] { higherIdButton, lowerIdButton }).CreateSnapshot(),
+                new[] { CreateStop(20, cell, TileEffectBoxMovementFamily.Push) },
+                CreateDefinition(30),
+                CreateDefinition(10));
+
+            CollectionAssert.AreEqual(
+                new[] { 10, 30 },
+                result.Operations.Operations.Select(operation => operation.TileId).ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
         public void ButtonLatch_FlipStopOnSameCell_EmitsMotionContactPresentationAnchor()
         {
             var button = CreateButton(10, new SurfaceCell(FaceId.Floor, 1, 1));
@@ -4006,11 +4025,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertPinnedEmptyBudget(SnapshotMaterializationCounts counts)
         {
-            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(6));
-            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(2));
+            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(5));
+            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(1));
             Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(10));
-            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(12));
-            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(12));
+            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(11));
+            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(11));
         }
 
         private static TickResultData CreateTickResultData(

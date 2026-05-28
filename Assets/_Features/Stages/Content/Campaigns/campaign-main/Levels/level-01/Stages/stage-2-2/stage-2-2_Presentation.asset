@@ -287,8 +287,6 @@ MonoBehaviour:
     PresentationId: wall_spaceBed
   - EntityId: 327
     PresentationId: wall_chair
-  - EntityId: 332
-    PresentationId: wall_tutorial
   - EntityId: 333
     PresentationId: wall_tutorial
   - EntityId: 334
@@ -299,6 +297,8 @@ MonoBehaviour:
     PresentationId: wall_tutorial
   - EntityId: 337
     PresentationId: wall_tutorial
+  - EntityId: 338
+    PresentationId: box_tutorial
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []
@@ -721,6 +721,8 @@ MonoBehaviour:
   boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
+  worldGuideCatalog: {fileID: 0}
+  worldGuideInstructions: []
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 
