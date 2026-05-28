@@ -2482,6 +2482,34 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
             }
 
+            var dueSignals = presentationData.FlipDueContactSignals;
+            for (var i = 0; i < dueSignals.Count; i++)
+            {
+                var signal = dueSignals[i];
+                if (!FlipDestroySelfMotionVfxCommandBuilder.TryBuildDueContinuation(
+                        signal,
+                        context.TimingProfile,
+                        motionTimingResolver,
+                        poseResolver,
+                        context.Projector,
+                        out var command))
+                {
+                    continue;
+                }
+
+                plannedCommandCount++;
+                var key = FlipDestroySelfMotionInstanceKey.Create(command, context.Result.TickIndex);
+                if (playedFlipDestroySelfMotionKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                if (TryPlayFlipDestroySelfMotionCommand(context.Result.TickIndex, command))
+                {
+                    playedFlipDestroySelfMotionKeys.Add(key);
+                }
+            }
+
             return plannedCommandCount;
         }
 
@@ -2537,6 +2565,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < signals.Count; i++)
             {
                 if (signals[i].Disposition == FlipImpactPresentationDisposition.DestroySelf)
+                {
+                    return true;
+                }
+            }
+
+            var dueSignals = presentationData.FlipDueContactSignals;
+            for (var i = 0; i < dueSignals.Count; i++)
+            {
+                if (dueSignals[i].BoxDisposition == FlipBoxDisposition.DestroySelf)
                 {
                     return true;
                 }

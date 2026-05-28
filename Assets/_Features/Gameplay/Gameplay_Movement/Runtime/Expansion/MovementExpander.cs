@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Movement.Expansion
@@ -16,7 +17,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         private const int BoxImpactDamageAmount = 1;
         private readonly int _projectileStateTimerTicks;
         private readonly int _slidingStateTimerTicks;
-        private readonly int _flipContactDelayTicks;
+        private readonly int _flipExecuteDelayTicks;
+        private readonly int _flipInputLockDurationTicks;
+        private readonly int _flipB1VisualImpactDelayTicks;
 
         public MovementExpander()
             : this(GameplayTimingProfile.CreateDefault())
@@ -24,11 +27,25 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         }
 
         public MovementExpander(GameplayTimingProfile timingProfile)
+            : this(
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    (timingProfile ?? GameplayTimingProfile.CreateDefault()).SimulationTicksPerSecond,
+                    (timingProfile ?? GameplayTimingProfile.CreateDefault()).RepeatedMoveIntervalSeconds))
+        {
+        }
+
+        public MovementExpander(
+            GameplayTimingProfile timingProfile,
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
         {
             var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _projectileStateTimerTicks = resolvedTimingProfile.ProjectileStepIntervalTicks;
             _slidingStateTimerTicks = resolvedTimingProfile.BoxSlideStepIntervalTicks;
-            _flipContactDelayTicks = resolvedTimingProfile.FlipContactDelayTicks;
+            _flipExecuteDelayTicks = playerControlTiming.FlipExecuteDelayTicks;
+            _flipInputLockDurationTicks = playerControlTiming.FlipInputLockDurationTicks;
+            _flipB1VisualImpactDelayTicks =
+                GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(playerControlTiming);
         }
 
         public void Expand(
@@ -485,7 +502,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         tickIndex,
                         interactionFacing,
                         landingCell,
-                        _flipContactDelayTicks,
+                        _flipExecuteDelayTicks,
+                        _flipInputLockDurationTicks,
+                        _flipB1VisualImpactDelayTicks,
                         buffer))
                 {
                     return;
@@ -519,7 +538,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             int tickIndex,
             Direction flipDirection,
             SurfaceCell contactCell,
-            int flipContactDelayTicks,
+            int flipExecuteDelayTicks,
+            int flipInputLockDurationTicks,
+            int flipB1VisualImpactDelayTicks,
             List<ActionGroup> buffer)
         {
             if (!TryResolveBoxImpactTeamId(actorSource, sourceBox, out var sourceTeamId))
@@ -554,6 +575,20 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 ActionGroupKind.Flip);
             actionGroup.BoardPresenceChanges.Add(
                 new BoardPresenceChangeAction(sourceBox.entityId, EntityBoardPresence.InFlight));
+            var actionStartTick = intent.ActionStartTick > 0
+                ? intent.ActionStartTick
+                : tickIndex - flipExecuteDelayTicks;
+            var executeTick = intent.ActionExecuteTick > 0
+                ? intent.ActionExecuteTick
+                : tickIndex;
+            var actionDurationTicks = intent.ActionDurationTicks > 0
+                ? intent.ActionDurationTicks
+                : flipInputLockDurationTicks;
+            var actionVisualImpactDelayTicks = intent.ActionDurationTicks > 0
+                ? GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(actionDurationTicks)
+                : flipB1VisualImpactDelayTicks;
+            var dueTick = Math.Max(tickIndex, actionStartTick + actionVisualImpactDelayTicks);
+            var resolvedFlipExecuteDelayTicks = Math.Max(0, executeTick - actionStartTick);
             actionGroup.AssignScheduledFlipContact(
                 new ScheduledFlipContactDraft(
                     actorSource.entityId,
@@ -567,8 +602,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     BoxImpactDamageAmount,
                     actorSource.type == EntityType.Unit && actorSource.teamId > 0 ? actorSource.entityId : 0,
                     sourceTeamId,
-                    tickIndex,
-                    tickIndex + flipContactDelayTicks,
+                    actionStartTick,
+                    actionStartTick + actionVisualImpactDelayTicks,
+                    resolvedFlipExecuteDelayTicks,
+                    actionDurationTicks,
+                    executeTick,
+                    dueTick,
                     intent.LocalSequence,
                     FlipContactCancellationPolicy.SafeReturnOrDestroy,
                     FlipContactDispositionPolicy.DefaultB1HostileImpact));

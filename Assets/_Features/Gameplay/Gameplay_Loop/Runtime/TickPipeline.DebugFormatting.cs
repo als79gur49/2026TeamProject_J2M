@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
@@ -48,6 +49,19 @@ namespace Game.Feature.Gameplay.Loop
                 ? $"({cell.x},{cell.y})"
                 : $"{cell.face}({cell.x},{cell.y})";
         }
+
+        private static string FormatActionNormAtDue(in ScheduledFlipContact contact)
+        {
+            if (contact.FlipInputLockDurationTicks <= 0)
+            {
+                return "0";
+            }
+
+            var dueMinusActionStart = Math.Max(0, contact.DueTick - contact.ActionStartTick);
+            return (dueMinusActionStart / (float)contact.FlipInputLockDurationTicks)
+                .ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
         private static bool TryGetStructuredLogValue(string line, string key, out string value)
         {
             value = null;

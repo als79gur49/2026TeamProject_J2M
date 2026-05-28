@@ -60,7 +60,7 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(contact.DamageSpec.DamageAmount, Is.EqualTo(1));
             Assert.That(contact.DamageSpec.DamageKind, Is.EqualTo(FlipImpactDamageKind.Impact));
-            Assert.That(contact.DamageSpec.SourceKind, Is.EqualTo(AttackSourceKind.ImpactReservation));
+            Assert.That(contact.DamageSpec.SourceKind, Is.EqualTo(AttackSourceKind.B1ScheduledContactDue));
             Assert.That(contact.DamageSpec.SourceActionId, Is.EqualTo(7));
             Assert.That(contact.KineticInstigatorEntityId, Is.EqualTo(10));
             Assert.That(contact.KineticInstigatorTeamId, Is.EqualTo(2));
@@ -276,10 +276,14 @@ namespace Game.Feature.Gameplay.Tests.Core
                 damageSpec: new FlipImpactDamageSpec(
                     damageAmount: 1,
                     damageKind: FlipImpactDamageKind.Impact,
-                    sourceKind: AttackSourceKind.ImpactReservation,
+                    sourceKind: AttackSourceKind.B1ScheduledContactDue,
                     sourceActionId: actionId),
                 kineticInstigatorEntityId,
                 kineticInstigatorTeamId,
+                actionStartTick: Math.Max(0, executeTick - 1),
+                actionVisualImpactTick: dueTick,
+                flipExecuteDelayTicks: executeTick - Math.Max(0, executeTick - 1),
+                flipInputLockDurationTicks: Math.Max(1, dueTick - Math.Max(0, executeTick - 1)),
                 executeTick,
                 dueTick,
                 orderingKey,

@@ -7,5 +7,6 @@ namespace Game.Feature.Gameplay.Attack
         ImpactReservation = 2,
         DelayedEffect = 3,
         ForwardCellImpact = 4,
+        B1ScheduledContactDue = 5,
     }
 }

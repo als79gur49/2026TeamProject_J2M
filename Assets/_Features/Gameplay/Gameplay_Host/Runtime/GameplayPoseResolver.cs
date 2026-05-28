@@ -356,6 +356,34 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryResolveFlipDueContactSignalLocalPoses(
+            GameplayCubeProjector projector,
+            FlipDueContactPresentationSignal signal,
+            out GameplayEntityPose sourcePose,
+            out GameplayEntityPose contactPose)
+        {
+            if (projector == null)
+            {
+                throw new ArgumentNullException(nameof(projector));
+            }
+
+            sourcePose = default;
+            contactPose = default;
+
+            var entityType = _stateStore.EntityTypesByEntityId.TryGetValue(signal.BoxEntityId, out var resolvedEntityType)
+                ? resolvedEntityType
+                : EntityType.Box;
+            if (!projector.TryProjectEntityCell(signal.SourceCell, signal.Topology, entityType, out var sourceProjectedPose) ||
+                !projector.TryProjectEntityCell(signal.ContactCell, signal.Topology, entityType, out var contactProjectedPose))
+            {
+                return false;
+            }
+
+            sourcePose = CreateEntityPose(projector, signal.SourceCell, signal.Topology, sourceProjectedPose, signal.SourceFacing);
+            contactPose = CreateEntityPose(projector, signal.ContactCell, signal.Topology, contactProjectedPose, signal.ContactFacing);
+            return true;
+        }
+
         public bool TryResolveVisibilityLocalPose(
             GameplayCubeProjector projector,
             TickVisibilityChange change,

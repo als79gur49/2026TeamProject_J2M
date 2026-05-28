@@ -23,8 +23,11 @@ namespace Game.Feature.Gameplay.Movement.Intents
             Vector2Int destination,
             int localSequence = 0,
             int moveCooldownTicks = 0,
-            int ordinaryKinematicMoveTicks = 0)
-            : this(sourceId, priority, destination, MovementCommandKind.Move, localSequence, moveCooldownTicks, ordinaryKinematicMoveTicks)
+            int ordinaryKinematicMoveTicks = 0,
+            int actionStartTick = 0,
+            int actionExecuteTick = 0,
+            int actionDurationTicks = 0)
+            : this(sourceId, priority, destination, MovementCommandKind.Move, localSequence, moveCooldownTicks, ordinaryKinematicMoveTicks, actionStartTick, actionExecuteTick, actionDurationTicks)
         {
         }
 
@@ -35,7 +38,10 @@ namespace Game.Feature.Gameplay.Movement.Intents
             MovementCommandKind commandKind,
             int localSequence,
             int moveCooldownTicks,
-            int ordinaryKinematicMoveTicks)
+            int ordinaryKinematicMoveTicks,
+            int actionStartTick = 0,
+            int actionExecuteTick = 0,
+            int actionDurationTicks = 0)
             : base(sourceId, priority, TickPhase.Plan)
         {
             Destination = destination;
@@ -43,6 +49,9 @@ namespace Game.Feature.Gameplay.Movement.Intents
             LocalSequence = localSequence;
             MoveCooldownTicks = moveCooldownTicks;
             OrdinaryKinematicMoveTicks = ordinaryKinematicMoveTicks;
+            ActionStartTick = actionStartTick;
+            ActionExecuteTick = actionExecuteTick;
+            ActionDurationTicks = actionDurationTicks;
         }
 
         public Vector2Int Destination { get; }
@@ -54,6 +63,12 @@ namespace Game.Feature.Gameplay.Movement.Intents
         public int MoveCooldownTicks { get; }
 
         public int OrdinaryKinematicMoveTicks { get; }
+
+        public int ActionStartTick { get; }
+
+        public int ActionExecuteTick { get; }
+
+        public int ActionDurationTicks { get; }
 
         protected internal override int GetTypeSortKey()
         {
@@ -85,8 +100,11 @@ namespace Game.Feature.Gameplay.Movement.Intents
             Vector2Int destination,
             int localSequence = 0,
             int moveCooldownTicks = 0,
-            int ordinaryKinematicMoveTicks = 0)
-            : base(sourceId, priority, destination, MovementCommandKind.Push, localSequence, moveCooldownTicks, ordinaryKinematicMoveTicks)
+            int ordinaryKinematicMoveTicks = 0,
+            int actionStartTick = 0,
+            int actionExecuteTick = 0,
+            int actionDurationTicks = 0)
+            : base(sourceId, priority, destination, MovementCommandKind.Push, localSequence, moveCooldownTicks, ordinaryKinematicMoveTicks, actionStartTick, actionExecuteTick, actionDurationTicks)
         {
         }
 
@@ -104,8 +122,11 @@ namespace Game.Feature.Gameplay.Movement.Intents
             Vector2Int destination,
             int localSequence = 0,
             int moveCooldownTicks = 0,
-            int ordinaryKinematicMoveTicks = 0)
-            : base(sourceId, priority, destination, MovementCommandKind.Flip, localSequence, moveCooldownTicks, ordinaryKinematicMoveTicks)
+            int ordinaryKinematicMoveTicks = 0,
+            int actionStartTick = 0,
+            int actionExecuteTick = 0,
+            int actionDurationTicks = 0)
+            : base(sourceId, priority, destination, MovementCommandKind.Flip, localSequence, moveCooldownTicks, ordinaryKinematicMoveTicks, actionStartTick, actionExecuteTick, actionDurationTicks)
         {
         }
 

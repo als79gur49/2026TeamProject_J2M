@@ -2652,6 +2652,57 @@ namespace Game.Feature.Gameplay.Loop
         public FlipImpactPresentationDisposition Disposition { get; }
     }
 
+    public readonly struct FlipB1InFlightMotionPresentationSignal
+    {
+        public FlipB1InFlightMotionPresentationSignal(
+            int sourceActionPlanId,
+            int boxEntityId,
+            int actorEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell contactCell,
+            SurfaceCell landingCell,
+            CubeTopologyState topology,
+            Direction direction,
+            int executeTick,
+            int dueTick,
+            int contactDelayTicks)
+        {
+            SourceActionPlanId = sourceActionPlanId;
+            BoxEntityId = boxEntityId;
+            ActorEntityId = actorEntityId;
+            SourceCell = sourceCell;
+            ContactCell = contactCell;
+            LandingCell = landingCell;
+            Topology = topology;
+            Direction = direction;
+            ExecuteTick = executeTick;
+            DueTick = dueTick;
+            ContactDelayTicks = contactDelayTicks;
+        }
+
+        public int SourceActionPlanId { get; }
+
+        public int BoxEntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell ContactCell { get; }
+
+        public SurfaceCell LandingCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction Direction { get; }
+
+        public int ExecuteTick { get; }
+
+        public int DueTick { get; }
+
+        public int ContactDelayTicks { get; }
+    }
+
     public readonly struct FlipDueContactPresentationSignal
     {
         public FlipDueContactPresentationSignal(
@@ -2857,6 +2908,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<BoxSlideStartPresentationSignal> _boxSlideStartSignals;
         private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
         private readonly ReadOnlyCollection<FlipFloorImpactPresentationSignal> _flipFloorImpactSignals;
+        private readonly ReadOnlyCollection<FlipB1InFlightMotionPresentationSignal> _flipB1InFlightMotionSignals;
         private readonly ReadOnlyCollection<FlipImpactPresentationSignal> _flipImpactSignals;
         private readonly ReadOnlyCollection<FlipDueContactPresentationSignal> _flipDueContactSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
@@ -3253,7 +3305,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null,
+            IEnumerable<FlipB1InFlightMotionPresentationSignal> flipB1InFlightMotionSignals = null)
         {
             if (entityMotions == null)
             {
@@ -3426,6 +3479,9 @@ namespace Game.Feature.Gameplay.Loop
             _flipFloorImpactSignals = new ReadOnlyCollection<FlipFloorImpactPresentationSignal>(
                 new List<FlipFloorImpactPresentationSignal>(
                     flipFloorImpactSignals ?? Array.Empty<FlipFloorImpactPresentationSignal>()));
+            _flipB1InFlightMotionSignals = new ReadOnlyCollection<FlipB1InFlightMotionPresentationSignal>(
+                new List<FlipB1InFlightMotionPresentationSignal>(
+                    flipB1InFlightMotionSignals ?? Array.Empty<FlipB1InFlightMotionPresentationSignal>()));
             _flipDueContactSignals = new ReadOnlyCollection<FlipDueContactPresentationSignal>(
                 new List<FlipDueContactPresentationSignal>(
                     flipDueContactSignals ?? Array.Empty<FlipDueContactPresentationSignal>()));
@@ -3482,7 +3538,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null,
+            IEnumerable<FlipB1InFlightMotionPresentationSignal> flipB1InFlightMotionSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3519,7 +3576,8 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                flipDueContactSignals: flipDueContactSignals)
+                flipDueContactSignals: flipDueContactSignals,
+                flipB1InFlightMotionSignals: flipB1InFlightMotionSignals)
         {
         }
 
@@ -3598,7 +3656,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null,
+            IEnumerable<FlipB1InFlightMotionPresentationSignal> flipB1InFlightMotionSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3639,7 +3698,8 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                flipDueContactSignals: flipDueContactSignals)
+                flipDueContactSignals: flipDueContactSignals,
+                flipB1InFlightMotionSignals: flipB1InFlightMotionSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -3696,7 +3756,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null)
+            IEnumerable<FlipDueContactPresentationSignal> flipDueContactSignals = null,
+            IEnumerable<FlipB1InFlightMotionPresentationSignal> flipB1InFlightMotionSignals = null)
             : this(
                 entityMotions: entityMotions,
                 topologyMotion: topologyMotion,
@@ -3738,7 +3799,8 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                flipDueContactSignals: flipDueContactSignals)
+                flipDueContactSignals: flipDueContactSignals,
+                flipB1InFlightMotionSignals: flipB1InFlightMotionSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -3846,6 +3908,9 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<BoxSlideStartPresentationSignal> BoxSlideStartSignals => _boxSlideStartSignals;
 
         public IReadOnlyList<FlipImpactPresentationSignal> FlipImpactSignals => _flipImpactSignals;
+
+        public IReadOnlyList<FlipB1InFlightMotionPresentationSignal> FlipB1InFlightMotionSignals =>
+            _flipB1InFlightMotionSignals;
 
         public IReadOnlyList<FlipFloorImpactPresentationSignal> FlipFloorImpactSignals => _flipFloorImpactSignals;
 

@@ -33,7 +33,9 @@
 - Ordinary Flip success remains same-tick materialization in the current scope.
 - Hostile impact execute tick does not reserve a target, suppress enemy movement, apply damage, mark death, or remove the hostile.
 - The source box becomes `BoxInFlight` and the action records a `ScheduledFlipContact`.
+- Actual input B-1 timing is anchored to the flip action start, not the execute tick. The due tick is `ActionStartTick + RoundToInt(FlipInputLockDurationTicks * 0.936)`, so the default `23/57` production profile resolves to due tick `S + 53`.
 - The due resolver requeries the current `WorldSnapshot` at due tick, so a moved-away original hostile is not hit and a different hostile currently occupying the contact cell can be hit.
+- Seeded `ScheduledFlipContact` tests cover due resolver behavior only. Actual-input timing tests are the evidence for the action-normalized B-1 timing contract.
 - Due contact presentation uses `DueContactImmediate`; legacy `AtContactTime` remains for non-B1 paths.
 - StageResult B-1 barrier delays only UI publication for a due-contact stage clear. It does not delay objective, reward, or stage authoritative commit.
 

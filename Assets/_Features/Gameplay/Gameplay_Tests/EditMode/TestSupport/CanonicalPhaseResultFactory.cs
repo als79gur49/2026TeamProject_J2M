@@ -464,6 +464,7 @@ namespace Game.Feature.Gameplay.Tests
                 AttackSourceKind.DelayedEffect => DamageSourceType.Attack,
                 AttackSourceKind.ForwardCellImpact => DamageSourceType.Attack,
                 AttackSourceKind.ImpactReservation => DamageSourceType.Impact,
+                AttackSourceKind.B1ScheduledContactDue => DamageSourceType.Impact,
                 AttackSourceKind.PassiveContact => DamageSourceType.Environmental,
                 _ => DamageSourceType.None,
             };

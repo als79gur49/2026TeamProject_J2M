@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
@@ -248,6 +249,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipB1HostileImpact_ContactTime_UsesVisualImpactNotRecoveryFraction()
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var oldRecoveryDelayTicks = GameplayTimingProfile.SecondsToCeilTicks(
+                timingProfile.FlipMotionDurationSeconds * 0.5f,
+                timingProfile.SimulationTicksPerSecond);
+
+            Assert.That(
+                GameplayFlipMotionTiming.VisualSlamContactNormalizedTime,
+                Is.EqualTo(0.936f).Within(0.0001f));
+            Assert.That(oldRecoveryDelayTicks, Is.EqualTo(6));
+            Assert.That(
+                GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(timingProfile),
+                Is.EqualTo(53));
+            Assert.That(
+                GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(timingProfile),
+                Is.Not.EqualTo(oldRecoveryDelayTicks));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_DueTick_IsVisualImpactDelay()
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var actionStartTick = 1;
+            var executeTick = actionStartTick + PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate;
+            var expectedDelayTicks = GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(timingProfile);
+
+            Assert.That(
+                actionStartTick + expectedDelayTicks,
+                Is.EqualTo(54));
+            Assert.That(expectedDelayTicks, Is.EqualTo(53));
+            Assert.That(actionStartTick + expectedDelayTicks, Is.Not.EqualTo(executeTick + GameplayTimingProfile.DefaultFlipContactDelayTicks));
+            Assert.That(expectedDelayTicks, Is.Not.EqualTo(6));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTrackPlanner_JumpWindupSignal_CreatesRotationTrackBetweenCurrentAndTargetFacing()
         {
             var rootObject = new GameObject("GameplayTrackPlanner_JumpWindupSignal_CreatesRotationTrack");
@@ -359,15 +398,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickResult CreateTickResult(TickPresentationData presentationData)
         {
+            return CreateTickResult(presentationData, new CubeTopologyState(FaceId.Floor));
+        }
+
+        private static TickResult CreateTickResult(TickPresentationData presentationData, CubeTopologyState topology)
+        {
+            return CreateTickResult(presentationData, topology, Array.Empty<EntityState>());
+        }
+
+        private static TickResult CreateTickResult(
+            TickPresentationData presentationData,
+            CubeTopologyState topology,
+            IReadOnlyList<EntityState> finalEntities)
+        {
             return new TickResult(
                 tickIndex: 1,
                 Array.Empty<TickPhase>(),
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                Array.Empty<EntityState>(),
+                finalEntities,
                 Array.Empty<string>(),
-                new CubeTopologyState(FaceId.Floor),
+                topology,
                 presentationData,
                 string.Empty,
                 TickTrace.Empty);

@@ -156,6 +156,10 @@ namespace Game.Feature.Gameplay.BoardState
             FlipImpactDamageSpec damageSpec,
             int kineticInstigatorEntityId,
             int kineticInstigatorTeamId,
+            int actionStartTick,
+            int actionVisualImpactTick,
+            int flipExecuteDelayTicks,
+            int flipInputLockDurationTicks,
             int executeTick,
             int dueTick,
             int orderingKey,
@@ -182,6 +186,26 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentOutOfRangeException(nameof(dueTick), "Scheduled flip contact due tick cannot precede execute tick.");
             }
 
+            if (actionStartTick > executeTick)
+            {
+                throw new ArgumentOutOfRangeException(nameof(actionStartTick), "Scheduled flip contact action start tick cannot follow execute tick.");
+            }
+
+            if (actionVisualImpactTick < actionStartTick)
+            {
+                throw new ArgumentOutOfRangeException(nameof(actionVisualImpactTick), "Scheduled flip contact visual impact tick cannot precede action start tick.");
+            }
+
+            if (flipExecuteDelayTicks < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(flipExecuteDelayTicks), "Scheduled flip contact execute delay ticks must be zero or greater.");
+            }
+
+            if (flipInputLockDurationTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(flipInputLockDurationTicks), "Scheduled flip contact input lock duration ticks must be greater than zero.");
+            }
+
             ActionId = actionId;
             ActorEntityId = actorEntityId;
             SourceBoxEntityId = sourceBoxEntityId;
@@ -194,6 +218,10 @@ namespace Game.Feature.Gameplay.BoardState
             DamageSpec = damageSpec;
             KineticInstigatorEntityId = kineticInstigatorEntityId;
             KineticInstigatorTeamId = kineticInstigatorTeamId;
+            ActionStartTick = actionStartTick;
+            ActionVisualImpactTick = actionVisualImpactTick;
+            FlipExecuteDelayTicks = flipExecuteDelayTicks;
+            FlipInputLockDurationTicks = flipInputLockDurationTicks;
             ExecuteTick = executeTick;
             DueTick = dueTick;
             OrderingKey = orderingKey;
@@ -225,6 +253,14 @@ namespace Game.Feature.Gameplay.BoardState
 
         public int KineticInstigatorTeamId { get; }
 
+        public int ActionStartTick { get; }
+
+        public int ActionVisualImpactTick { get; }
+
+        public int FlipExecuteDelayTicks { get; }
+
+        public int FlipInputLockDurationTicks { get; }
+
         public int ExecuteTick { get; }
 
         public int DueTick { get; }
@@ -249,6 +285,10 @@ namespace Game.Feature.Gameplay.BoardState
                    DamageSpec.Equals(other.DamageSpec) &&
                    KineticInstigatorEntityId == other.KineticInstigatorEntityId &&
                    KineticInstigatorTeamId == other.KineticInstigatorTeamId &&
+                   ActionStartTick == other.ActionStartTick &&
+                   ActionVisualImpactTick == other.ActionVisualImpactTick &&
+                   FlipExecuteDelayTicks == other.FlipExecuteDelayTicks &&
+                   FlipInputLockDurationTicks == other.FlipInputLockDurationTicks &&
                    ExecuteTick == other.ExecuteTick &&
                    DueTick == other.DueTick &&
                    OrderingKey == other.OrderingKey &&
@@ -277,6 +317,10 @@ namespace Game.Feature.Gameplay.BoardState
                 hashCode = (hashCode * 397) ^ DamageSpec.GetHashCode();
                 hashCode = (hashCode * 397) ^ KineticInstigatorEntityId;
                 hashCode = (hashCode * 397) ^ KineticInstigatorTeamId;
+                hashCode = (hashCode * 397) ^ ActionStartTick;
+                hashCode = (hashCode * 397) ^ ActionVisualImpactTick;
+                hashCode = (hashCode * 397) ^ FlipExecuteDelayTicks;
+                hashCode = (hashCode * 397) ^ FlipInputLockDurationTicks;
                 hashCode = (hashCode * 397) ^ ExecuteTick;
                 hashCode = (hashCode * 397) ^ DueTick;
                 hashCode = (hashCode * 397) ^ OrderingKey;

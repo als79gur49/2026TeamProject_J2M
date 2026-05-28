@@ -119,7 +119,12 @@ namespace Game.Feature.Gameplay.Entities
                         DefaultCommandPriority,
                         entity.position.PlanarPosition + actionDelta,
                         ResolveCommandKind(controlState.activeAction.kind),
-                        localSequence: controlState.activeAction.sequence));
+                        localSequence: controlState.activeAction.sequence,
+                        actionStartTick: controlState.activeAction.startTick,
+                        actionExecuteTick: controlState.activeAction.executeTick,
+                        actionDurationTicks: Math.Max(
+                            1,
+                            controlState.activeAction.recoveryEndTick - controlState.activeAction.startTick)));
                 return;
             }
 

@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -114,7 +117,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlipB1HostileImpact_ExecuteTick_DoesNotCreateImpactReservation()
+        public void FlipB1HostileImpact_NoImpactReservation()
         {
             var result = RunPlayerFlipImpact(hp: 3, out _, out _);
 
@@ -127,7 +130,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlipB1HostileImpact_ExecuteTick_DoesNotEnterAttackInputNormalizer()
+        public void FlipB1HostileImpact_NoAttackInputNormalizerSyntheticAttack()
         {
             var result = RunPlayerFlipImpact(hp: 3, out _, out _);
 
@@ -204,19 +207,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlipB1HostileImpact_ExecuteTick_ScheduledContactDueTickIsExplicitDelay()
+        public void FlipB1HostileImpact_ActualInput_DueTickIsActionVisualImpactTick()
         {
             RunPlayerFlipImpact(hp: 3, out var worldState, out _);
 
             var contact = GetScheduledContacts(worldState).Single();
+            var expectedDelayTicks =
+                GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault());
 
-            Assert.That(contact.ExecuteTick, Is.EqualTo(2));
-            Assert.That(contact.DueTick, Is.EqualTo(2 + GameplayTimingProfile.DefaultFlipContactDelayTicks));
+            Assert.That(contact.ActionStartTick, Is.EqualTo(1));
+            Assert.That(contact.ExecuteTick, Is.EqualTo(1 + PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate));
+            Assert.That(contact.FlipInputLockDurationTicks, Is.EqualTo(PlayerControlTimingSettings.DefaultFlipInputLockDurationTicksAtDefaultSimulationRate));
+            Assert.That(expectedDelayTicks, Is.EqualTo(53));
+            Assert.That(contact.DueTick, Is.Not.EqualTo(contact.ExecuteTick + GameplayTimingProfile.DefaultFlipContactDelayTicks));
+            Assert.That(contact.DueTick, Is.EqualTo(contact.ActionStartTick + expectedDelayTicks));
+            Assert.That(
+                (contact.DueTick - contact.ActionStartTick) / (float)contact.FlipInputLockDurationTicks,
+                Is.EqualTo(0.936f).Within(0.01f));
         }
 
         [Test]
         [Category("Extended")]
-        public void FlipB1HostileImpact_ExecuteTick_ScheduledContactHasNoTargetId()
+        public void FlipB1HostileImpact_NoTargetReservation()
         {
             RunPlayerFlipImpact(hp: 3, out var worldState, out _);
 
@@ -228,6 +240,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(contact.ContactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(contact.LandingCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(contact.DamageSpec.DamageAmount, Is.EqualTo(1));
+            Assert.That(contact.DamageSpec.SourceKind, Is.EqualTo(AttackSourceKind.B1ScheduledContactDue));
             Assert.That(contact.DamageSpec.SourceActionId, Is.EqualTo(contact.ActionId));
             Assert.That(typeof(ScheduledFlipContact).GetProperty("TargetEntityId"), Is.Null);
         }
@@ -245,7 +258,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = CreatePipeline(worldState, objectiveDefinition: CreateAllEnemiesDefeatedObjective());
 
             var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            var executeTick = RunUntilExecute(pipeline);
 
             Assert.That(startTick.ObjectiveResult.ClearedThisTick, Is.False);
             Assert.That(executeTick.ObjectiveResult.ClearedThisTick, Is.False);
@@ -254,14 +267,133 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlipB1Presentation_BeforeDue_NoEnemyDeathCloneOrRetainedDeadFacts()
+        public void FlipB1HostileImpact_NoDamageOnExecuteTick()
         {
-            var executeTick = RunPlayerFlipImpact(hp: 1, out _, out _);
+            var executeTick = RunPlayerFlipImpact(hp: 1, out var worldState, out _);
+            var snapshot = worldState.CreateSnapshot();
 
             Assert.That(executeTick.PresentationData.FlipDueContactSignals, Is.Empty);
             Assert.That(executeTick.PresentationData.EnemyDamageSignals, Is.Empty);
             Assert.That(executeTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 30), Is.False);
             Assert.That(executeTick.PresentationData.FlipFloorImpactSignals, Is.Empty);
+            Assert.That(snapshot.TryGetEntity(30, out var target), Is.True);
+            Assert.That(target.hp, Is.EqualTo(1));
+            Assert.That(target.markedForDeath, Is.False);
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
+            Assert.That(GetScheduledContacts(worldState), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_ActualInput_NoDamageAtCurrentBroken0614Timing()
+        {
+            var pipeline = CreateDefaultImpactPipeline(hp: 1, out var worldState);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var executeTick = RunUntilExecute(pipeline);
+            TickResult brokenTimingTick = executeTick;
+            for (var tick = executeTick.TickIndex + 1; tick <= 1 + 35; tick++)
+            {
+                brokenTimingTick = pipeline.RunTick(new TickInput(tick, PlayerTickCommand.None));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            var contact = GetScheduledContacts(worldState).Single();
+            Assert.That(brokenTimingTick.PresentationData.FlipDueContactSignals, Is.Empty);
+            Assert.That(brokenTimingTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(brokenTimingTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 30), Is.False);
+            Assert.That(snapshot.TryGetEntity(30, out var target), Is.True);
+            Assert.That(target.hp, Is.EqualTo(1));
+            Assert.That(target.markedForDeath, Is.False);
+            Assert.That(snapshot.TryGetEntity(20, out var sourceBox), Is.True);
+            Assert.That(sourceBox.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
+            Assert.That(contact.ExecuteTick, Is.EqualTo(1 + PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate));
+            Assert.That(contact.DueTick, Is.EqualTo(1 + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault())));
+            Assert.That(contact.DueTick, Is.GreaterThan(brokenTimingTick.TickIndex));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_DueTick_DoesNotUseMotionDuration()
+        {
+            var timingProfile = CreateTimingProfile(flipMotionDurationSeconds: 0.05f);
+            var pipeline = CreateDefaultImpactPipeline(3, timingProfile, out var worldState);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+
+            var contact = GetScheduledContacts(worldState).Single();
+            Assert.That(contact.ExecuteTick, Is.EqualTo(1 + PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate));
+            Assert.That(contact.DueTick, Is.EqualTo(1 + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault())));
+            Assert.That(contact.DueTick, Is.Not.EqualTo(contact.ExecuteTick + 6));
+
+            var creationSlice = ExtractScheduledContactCreationSlice(
+                ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs"));
+            Assert.That(creationSlice, Does.Not.Contain("FlipMotionDuration"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_DueTick_DoesNotUseMotionTrackStartDelay()
+        {
+            var source = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs");
+            var creationSlice = ExtractScheduledContactCreationSlice(source);
+
+            Assert.That(creationSlice, Does.Not.Contain("StartDelay"));
+            Assert.That(creationSlice, Does.Not.Contain("MotionTrack"));
+            Assert.That(creationSlice, Does.Contain("actionStartTick + actionVisualImpactDelayTicks"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_DueTick_DoesNotUseSamplerSlamEndTime()
+        {
+            var source = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs");
+            var creationSlice = ExtractScheduledContactCreationSlice(source);
+
+            Assert.That(creationSlice, Does.Not.Contain("BoxFlipSlamSampler"));
+            Assert.That(creationSlice, Does.Not.Contain("SlamEndTime"));
+            Assert.That(creationSlice, Does.Not.Contain("FlipImpactInteractionOnsetNormalizedTime"));
+            Assert.That(creationSlice, Does.Not.Contain("SecondsToCeilTicks"));
+            Assert.That(creationSlice, Does.Contain("actionStartTick + actionVisualImpactDelayTicks"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_NoEnemySuppression()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1, facing: Direction.Up),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 30, position: new Vector2Int(-1, 0), hp: 3, teamId: 2),
+            });
+            var pipeline = CreatePipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreatePlayerLogic(10),
+                    new StubMovementLogic(
+                        new RawMovementIntent(
+                            sourceId: 30,
+                            priority: 200,
+                            destination: new Vector2Int(-2, 0),
+                            MovementCommandKind.Move,
+                            localSequence: 0),
+                        tickIndex: 25),
+                });
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            RunUntilExecute(pipeline);
+            var preDueMoveTick = pipeline.RunTick(new TickInput(25, PlayerTickCommand.None));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(30, out var target), Is.True);
+            Assert.That(target.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
+            Assert.That(target.hp, Is.EqualTo(3));
+            Assert.That(preDueMoveTick.PresentationData.EnemyDamageSignals, Is.Empty);
+            Assert.That(GetScheduledContacts(worldState), Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -289,6 +421,52 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(signal.BoxDisposition, Is.EqualTo(FlipBoxDisposition.DestroySelf));
             Assert.That(signal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
             Assert.That(signal.VisualContactNormalizedTime, Is.EqualTo(0f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_ActualInput_DamageOnlyAtVisualImpactDueTick()
+        {
+            RunPlayerFlipImpactToDue(hp: 1, out var worldState, out var executeTick, out var dueTick);
+
+            Assert.That(
+                dueTick.TickIndex,
+                Is.EqualTo(1 + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault())));
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(dueTick.PresentationData.EnemyDamageSignals.Single().EntityId, Is.EqualTo(30));
+            Assert.That(dueTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 30), Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(30, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_ActualInput_DamagePathIsB1ScheduledContactDue()
+        {
+            RunPlayerFlipImpactToDue(hp: 1, out _, out _, out var dueTick);
+
+            Assert.That(dueTick.EventLog.Any(entry => entry.Contains("DamagePath=B1ScheduledContactDue")), Is.True);
+            Assert.That(dueTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(dueTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(dueTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(
+                dueTick.MovementPhaseResult.CommitEvents.Any(entry => entry.StartsWith("ImpactReservationCreated|")),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_RuntimeProfile_UsesActionVisualImpactDelay()
+        {
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds);
+            var dueDelayFromActionStart = GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(playerControlTiming);
+
+            Assert.That(playerControlTiming.FlipExecuteDelayTicks, Is.EqualTo(23));
+            Assert.That(playerControlTiming.FlipInputLockDurationTicks, Is.EqualTo(57));
+            Assert.That(GameplayFlipMotionTiming.VisualSlamContactNormalizedTime, Is.EqualTo(0.936f).Within(0.0001f));
+            Assert.That(dueDelayFromActionStart, Is.EqualTo(53));
+            Assert.That(dueDelayFromActionStart - playerControlTiming.FlipExecuteDelayTicks, Is.EqualTo(30));
         }
 
         [Test]
@@ -334,11 +512,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlipB1HostileImpact_DueTick_RequeriesCurrentSnapshot()
+        public void FlipB1HostileImpact_CurrentSnapshotRequeryAtDue()
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().MoveEntity(30, new SurfaceCell(FaceId.Floor, -2, 0));
             worldState.CreateWriteContext().SpawnEntity(CreateUnit(31, new Vector2Int(-1, 0), hp: 3, teamId: 2));
 
@@ -358,7 +536,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().MoveEntity(30, new SurfaceCell(FaceId.Floor, -2, 0));
 
             RunUntilDue(pipeline);
@@ -377,7 +555,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().MoveEntity(30, new SurfaceCell(FaceId.Floor, -2, 0));
             worldState.CreateWriteContext().SpawnEntity(CreateUnit(31, new Vector2Int(-1, 0), hp: 3, teamId: 1));
 
@@ -397,7 +575,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().MoveEntity(30, new SurfaceCell(FaceId.Floor, -2, 0));
             worldState.CreateWriteContext().SpawnEntity(CreateBox(31, new Vector2Int(-1, 0), BoxCapabilities.Push));
 
@@ -441,7 +619,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(hp: 1, out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().SpawnEntity(CreateUnit(29, new Vector2Int(-1, 0), hp: 1, teamId: 2));
 
             RunUntilDue(pipeline);
@@ -468,7 +646,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = CreatePipeline(worldState);
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             RunUntilDue(pipeline);
 
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out _), Is.False);
@@ -480,7 +658,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().SpawnEntity(CreateUnit(29, new Vector2Int(-1, 0), hp: 3, teamId: 2));
 
             RunUntilDue(pipeline);
@@ -502,12 +680,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 30, position: new Vector2Int(-1, 0), hp: 1, teamId: 2),
             });
-            var dueTickIndex = 2 + GameplayTimingProfile.DefaultFlipContactDelayTicks;
+            var dueTickIndex = 1 + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(
+                GameplayTimingProfile.CreateDefault());
             var pipeline = CreatePipeline(
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreatePlayerLogic(10),
                     new StubMovementLogic(
                         new RawMovementIntent(
                             sourceId: 30,
@@ -519,7 +698,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             var dueTick = RunUntilDue(pipeline);
 
             Assert.That(worldState.CreateSnapshot().TryGetEntity(30, out _), Is.False);
@@ -539,7 +718,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = CreatePipeline(worldState, objectiveDefinition: CreateAllEnemiesDefeatedObjective());
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            var executeTick = RunUntilExecute(pipeline);
             var dueTick = RunUntilDue(pipeline);
 
             Assert.That(executeTick.ObjectiveResult.ClearedThisTick, Is.False);
@@ -553,7 +732,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             ((IAttackCommitContext)worldState.CreateWriteContext()).ApplyDamage(10, 99);
 
             RunUntilDue(pipeline);
@@ -572,7 +751,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().RemoveEntity(20);
 
             var dueTick = RunUntilDue(pipeline);
@@ -588,7 +767,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var pipeline = CreateDefaultImpactPipeline(out var worldState);
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            RunUntilExecute(pipeline);
             worldState.CreateWriteContext().SetBoardPresence(20, EntityBoardPresence.Occupying);
 
             var dueTick = RunUntilDue(pipeline);
@@ -608,18 +787,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePipeline(
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreatePlayerLogic(10),
                 });
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            var result = RunUntilExecute(pipeline);
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(result.PresentationData.FlipB1InFlightMotionSignals, Is.Empty);
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 20 && motion.MotionKind == TickEntityMotionKind.Flip),
+                Is.True);
             Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
@@ -635,15 +819,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 30, position: new Vector2Int(-1, 0), teamId: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreatePipeline(
                 worldState,
-                new IEntityLogic[] { new PlayerLogic(10) });
+                new IEntityLogic[] { CreatePlayerLogic(10) });
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            var result = RunUntilExecute(pipeline);
 
             Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
             Assert.That(GetScheduledContacts(worldState), Is.Empty);
+            Assert.That(result.PresentationData.FlipB1InFlightMotionSignals, Is.Empty);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(20, out var box), Is.True);
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
         }
@@ -653,7 +838,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = CreateDefaultImpactPipeline(hp, out worldState);
 
             startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            return pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            return RunUntilExecute(pipeline);
         }
 
         private static void RunPlayerFlipImpactToDue(
@@ -665,7 +850,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = CreateDefaultImpactPipeline(hp, out worldState);
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.None));
+            executeTick = RunUntilExecute(pipeline);
             dueTick = RunUntilDue(pipeline);
         }
 
@@ -675,6 +860,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         private static TickPipeline CreateDefaultImpactPipeline(int hp, out WorldState worldState)
+        {
+            return CreateDefaultImpactPipeline(hp, GameplayTimingProfile.CreateDefault(), out worldState);
+        }
+
+        private static TickPipeline CreateDefaultImpactPipeline(
+            int hp,
+            GameplayTimingProfile timingProfile,
+            out WorldState worldState)
         {
             worldState = CreateWorldState(new[]
             {
@@ -686,15 +879,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
-                });
+                    CreatePlayerLogic(10, timingProfile),
+                },
+                timingProfile: timingProfile);
         }
 
         private static TickResult RunUntilDue(TickPipeline pipeline)
         {
             TickResult result = null;
-            var dueTick = 2 + GameplayTimingProfile.DefaultFlipContactDelayTicks;
-            for (var tick = 3; tick <= dueTick; tick++)
+            for (var tick = PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate + 2; tick <= 80; tick++)
+            {
+                result = pipeline.RunTick(new TickInput(tick, PlayerTickCommand.None));
+                if (result.PresentationData.FlipDueContactSignals.Count > 0)
+                {
+                    return result;
+                }
+            }
+
+            return result;
+        }
+
+        private static TickResult RunUntilExecute(TickPipeline pipeline)
+        {
+            TickResult result = null;
+            var executeTick = 1 + PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate;
+            for (var tick = 2; tick <= executeTick; tick++)
             {
                 result = pipeline.RunTick(new TickInput(tick, PlayerTickCommand.None));
             }
@@ -712,17 +921,85 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static TickPipeline CreatePipeline(
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics = null,
-            StageObjectiveRuntimeDefinition objectiveDefinition = null)
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
+            GameplayTimingProfile timingProfile = null)
         {
-            var timing = GameplayTimingProfile.CreateDefault();
+            var timing = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timing.SimulationTicksPerSecond,
+                GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds);
             return GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
-                entityLogics ?? new IEntityLogic[] { new PlayerLogic(10) },
+                entityLogics ?? new IEntityLogic[] { CreatePlayerLogic(10, playerControlTiming) },
                 timing,
+                playerControlTiming,
+                objectiveDefinition: objectiveDefinition);
+        }
+
+        private static PlayerLogic CreatePlayerLogic(
+            int entityId,
+            GameplayTimingProfile timingProfile = null)
+        {
+            var timing = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            return CreatePlayerLogic(
+                entityId,
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     timing.SimulationTicksPerSecond,
-                    GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
-                objectiveDefinition: objectiveDefinition);
+                    GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds));
+        }
+
+        private static PlayerLogic CreatePlayerLogic(
+            int entityId,
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+        {
+            return new PlayerLogic(
+                entityId,
+                playerControlTiming.PushWindupTicks,
+                playerControlTiming.PushRecoveryTicks,
+                playerControlTiming.FlipWindupTicks,
+                playerControlTiming.FlipRecoveryTicks);
+        }
+
+        private static GameplayTimingProfile CreateTimingProfile(float flipMotionDurationSeconds)
+        {
+            return new GameplayTimingProfile(
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
+                GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
+                GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds,
+                GameplayTimingProfile.DefaultProjectileStepIntervalSeconds,
+                GameplayTimingProfile.DefaultMoveMotionDurationSeconds,
+                GameplayTimingProfile.DefaultPushMotionDurationSeconds,
+                GameplayTimingProfile.DefaultTopologyMotionDurationSeconds,
+                flipMotionDurationSeconds,
+                GameplayTimingProfile.DefaultFlipArcHeightInCells,
+                GameplayTimingProfile.DefaultMaxTicksPerFrame,
+                GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds,
+                GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds,
+                GameplayTimingProfile.DefaultMoveOccupancyDurationSeconds,
+                GameplayTimingProfile.DefaultEnemyDeathEffectDurationSeconds,
+                GameplayTimingProfile.DefaultPlayerDeathDisplacementDurationSeconds,
+                GameplayTimingProfile.DefaultPlayerDeathDisplacementDistanceInCells,
+                GameplayTimingProfile.DefaultPlayerDeathDisplacementCameraBiasWeight,
+                GameplayTimingProfile.DefaultMoonBlockEmergenceDurationSeconds,
+                GameplayTimingProfile.DefaultFlipContactDelayTicks);
+        }
+
+        private static string ExtractScheduledContactCreationSlice(string source)
+        {
+            const string startMarker = "new ScheduledFlipContactDraft(";
+            const string endMarker = "FlipContactDispositionPolicy.DefaultB1HostileImpact";
+            var start = source.IndexOf(startMarker, StringComparison.Ordinal);
+            var end = source.IndexOf(endMarker, StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThanOrEqualTo(0));
+            Assert.That(end, Is.GreaterThan(start));
+            return source.Substring(start, end - start);
+        }
+
+        private static string ReadRepoFile(string relativePath)
+        {
+            var absolutePath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", relativePath));
+            return File.ReadAllText(absolutePath);
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

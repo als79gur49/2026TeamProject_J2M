@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
@@ -231,7 +232,7 @@ namespace Game.Feature.Gameplay.Debug
             {
                 var contact = entries[i].Contact;
                 lines.Add(
-                    $"Action={contact.ActionId}|Actor={contact.ActorEntityId}|Box={contact.SourceBoxEntityId}|Source={FormatCell(contact.SourceCell)}|Contact={FormatCell(contact.ContactCell)}|Landing={FormatCell(contact.LandingCell)}|Direction={contact.FlipDirection}|Capabilities={contact.SourceCapabilitiesSnapshot}|Damage={contact.DamageSpec.DamageAmount}|SourceKind={contact.DamageSpec.SourceKind}|Kinetic={contact.KineticInstigatorEntityId}|KineticTeam={contact.KineticInstigatorTeamId}|Execute={contact.ExecuteTick}|Due={contact.DueTick}|Ordering={contact.OrderingKey}|Cancel={contact.CancellationPolicy}|Disposition={contact.DispositionPolicy}");
+                    $"Action={contact.ActionId}|Actor={contact.ActorEntityId}|Box={contact.SourceBoxEntityId}|Source={FormatCell(contact.SourceCell)}|Contact={FormatCell(contact.ContactCell)}|Landing={FormatCell(contact.LandingCell)}|Direction={contact.FlipDirection}|Capabilities={contact.SourceCapabilitiesSnapshot}|Damage={contact.DamageSpec.DamageAmount}|SourceKind={contact.DamageSpec.SourceKind}|Kinetic={contact.KineticInstigatorEntityId}|KineticTeam={contact.KineticInstigatorTeamId}|ActionStart={contact.ActionStartTick}|ActionVisualImpact={contact.ActionVisualImpactTick}|Execute={contact.ExecuteTick}|Due={contact.DueTick}|FlipExecuteDelayTicks={contact.FlipExecuteDelayTicks}|FlipInputLockDurationTicks={contact.FlipInputLockDurationTicks}|VisualImpactNormalized={GameplayFlipMotionTiming.VisualSlamContactNormalizedTime}|DueMinusActionStart={contact.DueTick - contact.ActionStartTick}|DueMinusExecute={contact.DueTick - contact.ExecuteTick}|ActionNormAtDue={FormatActionNormAtDue(contact)}|Ordering={contact.OrderingKey}|Cancel={contact.CancellationPolicy}|Disposition={contact.DispositionPolicy}");
             }
 
             return lines;
@@ -530,6 +531,18 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatPlayerActionTransition(PlayerActionTransition transition)
         {
             return $"E={transition.EntityId}|Prev={transition.PreviousKind}|Curr={transition.CurrentKind}|PrevSeq={transition.PreviousSequence}|CurrSeq={transition.CurrentSequence}|Started={transition.StartedThisTick}|Completed={transition.CompletedThisTick}|Canceled={transition.CanceledThisTick}";
+        }
+
+        private static string FormatActionNormAtDue(in ScheduledFlipContact contact)
+        {
+            if (contact.FlipInputLockDurationTicks <= 0)
+            {
+                return "0";
+            }
+
+            var dueMinusActionStart = Math.Max(0, contact.DueTick - contact.ActionStartTick);
+            return (dueMinusActionStart / (float)contact.FlipInputLockDurationTicks)
+                .ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         private static string FormatEnemyActionTransition(EnemyActionTransition transition)

@@ -343,10 +343,10 @@ namespace Game.Feature.Gameplay.Host
         private readonly PresentationMotionCommand _command;
         private float _elapsedSeconds;
 
-        private PresentationMotionTrack(in PresentationMotionCommand command)
+        private PresentationMotionTrack(in PresentationMotionCommand command, float initialNormalizedTime = 0f)
         {
             _command = command;
-            _elapsedSeconds = 0f;
+            _elapsedSeconds = Mathf.Clamp01(initialNormalizedTime) * command.DurationSeconds;
         }
 
         public PresentationMotionKind Kind => _command.Kind;
@@ -385,6 +385,13 @@ namespace Game.Feature.Gameplay.Host
         public static PresentationMotionTrack CreateFlipImpactStay(in FlipImpactStayMotionCommand command)
         {
             return Create(FlipImpactStayPresentationMotionCommandAdapter.ToPresentationMotionCommand(command));
+        }
+
+        public static PresentationMotionTrack CreateFlipImpactStayFromContact(in FlipImpactStayMotionCommand command)
+        {
+            return new PresentationMotionTrack(
+                FlipImpactStayPresentationMotionCommandAdapter.ToPresentationMotionCommand(command),
+                command.ContactNormalizedTime);
         }
 
         public void Advance(float deltaTime)

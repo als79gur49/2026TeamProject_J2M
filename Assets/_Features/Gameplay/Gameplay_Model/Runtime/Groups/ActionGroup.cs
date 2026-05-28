@@ -20,6 +20,10 @@ namespace Game.Feature.Gameplay.Model.Groups
             int damageAmount,
             int kineticInstigatorEntityId,
             int kineticInstigatorTeamId,
+            int actionStartTick,
+            int actionVisualImpactTick,
+            int flipExecuteDelayTicks,
+            int flipInputLockDurationTicks,
             int executeTick,
             int dueTick,
             int orderingKey,
@@ -37,6 +41,10 @@ namespace Game.Feature.Gameplay.Model.Groups
             DamageAmount = damageAmount;
             KineticInstigatorEntityId = kineticInstigatorEntityId;
             KineticInstigatorTeamId = kineticInstigatorTeamId;
+            ActionStartTick = actionStartTick;
+            ActionVisualImpactTick = actionVisualImpactTick;
+            FlipExecuteDelayTicks = flipExecuteDelayTicks;
+            FlipInputLockDurationTicks = flipInputLockDurationTicks;
             ExecuteTick = executeTick;
             DueTick = dueTick;
             OrderingKey = orderingKey;
@@ -66,6 +74,14 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public int KineticInstigatorTeamId { get; }
 
+        public int ActionStartTick { get; }
+
+        public int ActionVisualImpactTick { get; }
+
+        public int FlipExecuteDelayTicks { get; }
+
+        public int FlipInputLockDurationTicks { get; }
+
         public int ExecuteTick { get; }
 
         public int DueTick { get; }
@@ -91,10 +107,14 @@ namespace Game.Feature.Gameplay.Model.Groups
                 new FlipImpactDamageSpec(
                     DamageAmount,
                     FlipImpactDamageKind.Impact,
-                    AttackSourceKind.ImpactReservation,
+                    AttackSourceKind.B1ScheduledContactDue,
                     actionId),
                 KineticInstigatorEntityId,
                 KineticInstigatorTeamId,
+                ActionStartTick,
+                ActionVisualImpactTick,
+                FlipExecuteDelayTicks,
+                FlipInputLockDurationTicks,
                 ExecuteTick,
                 DueTick,
                 OrderingKey,

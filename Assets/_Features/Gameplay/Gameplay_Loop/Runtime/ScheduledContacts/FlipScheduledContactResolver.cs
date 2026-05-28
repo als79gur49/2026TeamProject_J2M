@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -608,7 +609,7 @@ namespace Game.Feature.Gameplay.Loop
                     materializeCell.GetValueOrDefault(),
                     BuildStableDuePresentationSeed(currentTick, contact)));
             eventLogEntries.Add(
-                $"FlipB1Due|Tick={currentTick}|Action={contact.ActionId}|Box={contact.SourceBoxEntityId}|Contact={FormatCell(contact.ContactCell)}|Occupant={(hitEntityId.HasValue ? hitEntityId.Value.ToString() : "None")}|Result={result}");
+                $"FlipB1Due|currentTick={currentTick}|Tick={currentTick}|Action={contact.ActionId}|Box={contact.SourceBoxEntityId}|Contact={FormatCell(contact.ContactCell)}|Occupant={(hitEntityId.HasValue ? hitEntityId.Value.ToString() : "None")}|ActionNormAtDue={FormatActionNormAtDue(contact)}|DamagePath={contact.DamageSpec.SourceKind}|Result={result}");
             eventLogEntries.Add(
                 $"FlipB1Disposition|Tick={currentTick}|Box={contact.SourceBoxEntityId}|Disposition={disposition}");
             eventLogEntries.Add(
@@ -618,6 +619,18 @@ namespace Game.Feature.Gameplay.Loop
         private static string FormatCell(SurfaceCell cell)
         {
             return $"({cell.face},{cell.x},{cell.y})";
+        }
+
+        private static string FormatActionNormAtDue(in ScheduledFlipContact contact)
+        {
+            if (contact.FlipInputLockDurationTicks <= 0)
+            {
+                return "0";
+            }
+
+            var dueMinusActionStart = Math.Max(0, contact.DueTick - contact.ActionStartTick);
+            return (dueMinusActionStart / (float)contact.FlipInputLockDurationTicks)
+                .ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         private static int BuildStableDuePresentationSeed(int currentTick, in ScheduledFlipContact contact)

@@ -502,6 +502,70 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
+        public IEnumerator FlipB1HostileImpact_InputBranch_CreatesAndPlaysMotionTrack()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var contactCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
+                CreateBox(entityId: 30, position: sourceCell, capabilities: BoxCapabilities.Flip),
+                CreateHostileUnit(entityId: 40, position: contactCell, hp: 3),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.BufferFlip();
+            var startTick = host.InputHost.RunSingleTick();
+            Assert.That(startTick, Is.Not.Null);
+
+            var executeTick = startTick.PresentationData.FlipB1InFlightMotionSignals.Count > 0
+                ? startTick
+                : null;
+            for (var i = 0;
+                 i < PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate + 2 && executeTick == null;
+                 i++)
+            {
+                host.InputHost.SetRawMoveInput(Vector2.zero);
+                var tick = host.InputHost.RunSingleTick();
+                Assert.That(tick, Is.Not.Null);
+                if (tick.PresentationData.FlipB1InFlightMotionSignals.Count > 0)
+                {
+                    executeTick = tick;
+                }
+            }
+
+            Assert.That(executeTick, Is.Not.Null);
+            Assert.That(executeTick.PresentationData.FlipB1InFlightMotionSignals, Has.Count.EqualTo(1));
+            var motionSignal = executeTick.PresentationData.FlipB1InFlightMotionSignals.Single();
+            Assert.That(motionSignal.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(motionSignal.ContactCell, Is.EqualTo(contactCell));
+
+            var snapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(snapshot.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.InFlight));
+            Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
+            Assert.That(boxView.gameObject.activeInHierarchy, Is.True);
+
+            var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
+            Assert.That(projector.TryProjectEntityCell(sourceCell, snapshot.Topology, EntityType.Box, out var sourcePose), Is.True);
+            Assert.That(projector.TryProjectEntityCell(contactCell, snapshot.Topology, EntityType.Box, out var contactPose), Is.True);
+            var sourceWorld = host.BoardRoot.transform.TransformPoint(sourcePose.LocalPosition);
+            var contactWorld = host.BoardRoot.transform.TransformPoint(contactPose.LocalPosition);
+            var travel = contactWorld - sourceWorld;
+
+            AdvancePresentation(
+                host,
+                GameplayFlipMotionTiming.ResolveB1VisualImpactDelaySeconds(host.TimingProfile));
+
+            var fromSource = boxView.transform.position - sourceWorld;
+            Assert.That(Vector3.Dot(fromSource, travel.normalized), Is.GreaterThan(travel.magnitude * 0.9f));
+            Assert.That(Vector3.Distance(boxView.transform.position, contactWorld), Is.LessThan(0.05f));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_PresenterRefreshesTransformAfterTick()
         {
@@ -1803,7 +1867,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             int alreadyAdvancedTicksAfterExecute = 0)
         {
             TickResult result = null;
-            var remainingTicks = GameplayTimingProfile.DefaultFlipContactDelayTicks - alreadyAdvancedTicksAfterExecute;
+            var remainingTicks =
+                GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(host.TimingProfile) -
+                alreadyAdvancedTicksAfterExecute;
             Assert.That(remainingTicks, Is.GreaterThanOrEqualTo(0));
             for (var i = 0; i <= remainingTicks + 2; i++)
             {
@@ -1840,10 +1906,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     damageSpec: new FlipImpactDamageSpec(
                         damageAmount: 1,
                         damageKind: FlipImpactDamageKind.Impact,
-                        sourceKind: AttackSourceKind.ImpactReservation,
+                        sourceKind: AttackSourceKind.B1ScheduledContactDue,
                         sourceActionId: actionId),
                     kineticInstigatorEntityId: 10,
                     kineticInstigatorTeamId: 1,
+                    actionStartTick: 0,
+                    actionVisualImpactTick: dueTick,
+                    flipExecuteDelayTicks: 0,
+                    flipInputLockDurationTicks: Math.Max(1, dueTick),
                     executeTick: 0,
                     dueTick,
                     orderingKey: 0,

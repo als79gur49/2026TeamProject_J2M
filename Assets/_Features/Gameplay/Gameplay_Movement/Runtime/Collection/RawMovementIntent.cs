@@ -38,7 +38,10 @@ namespace Game.Feature.Gameplay.Movement.Collection
             MovementCommandKind commandKind,
             int localSequence,
             int moveCooldownTicks = 0,
-            int ordinaryKinematicMoveTicks = 0)
+            int ordinaryKinematicMoveTicks = 0,
+            int actionStartTick = 0,
+            int actionExecuteTick = 0,
+            int actionDurationTicks = 0)
         {
             SourceId = sourceId;
             Priority = priority;
@@ -47,6 +50,9 @@ namespace Game.Feature.Gameplay.Movement.Collection
             LocalSequence = localSequence;
             MoveCooldownTicks = moveCooldownTicks;
             OrdinaryKinematicMoveTicks = ordinaryKinematicMoveTicks;
+            ActionStartTick = actionStartTick;
+            ActionExecuteTick = actionExecuteTick;
+            ActionDurationTicks = actionDurationTicks;
         }
 
         public int SourceId { get; }
@@ -62,5 +68,11 @@ namespace Game.Feature.Gameplay.Movement.Collection
         public int MoveCooldownTicks { get; }
 
         public int OrdinaryKinematicMoveTicks { get; }
+
+        public int ActionStartTick { get; }
+
+        public int ActionExecuteTick { get; }
+
+        public int ActionDurationTicks { get; }
     }
 }

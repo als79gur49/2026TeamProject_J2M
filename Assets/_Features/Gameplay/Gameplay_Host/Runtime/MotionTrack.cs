@@ -8,8 +8,11 @@ namespace Game.Feature.Gameplay.Host
     public sealed class MotionTrack
     {
         private readonly List<MotionClip> _clips = new();
+        private float _startDelayRemainingSeconds;
 
         public bool HasClips => _clips.Count > 0;
+
+        public float StartDelayRemainingSeconds => _startDelayRemainingSeconds;
 
         public TickEntityMotionKind TailMotionKind => _clips[_clips.Count - 1].MotionKind;
 
@@ -41,7 +44,13 @@ namespace Game.Feature.Gameplay.Host
 
         public void Clear()
         {
+            _startDelayRemainingSeconds = 0f;
             _clips.Clear();
+        }
+
+        public void SetStartDelaySeconds(float delaySeconds)
+        {
+            _startDelayRemainingSeconds = Mathf.Max(0f, delaySeconds);
         }
 
         public void AlignToCommittedTargetPose(GameplayEntityPose committedTargetPose)
@@ -80,6 +89,22 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var remainingDeltaTime = deltaTime;
+            if (_startDelayRemainingSeconds > 0f)
+            {
+                if (remainingDeltaTime <= 0f)
+                {
+                    return fallbackPose;
+                }
+
+                var consumedDelay = Mathf.Min(_startDelayRemainingSeconds, remainingDeltaTime);
+                _startDelayRemainingSeconds = Mathf.Max(0f, _startDelayRemainingSeconds - consumedDelay);
+                remainingDeltaTime = Mathf.Max(0f, remainingDeltaTime - consumedDelay);
+                if (remainingDeltaTime <= 0f)
+                {
+                    return fallbackPose;
+                }
+            }
+
             while (_clips.Count > 0)
             {
                 var clip = _clips[0];

@@ -725,6 +725,7 @@ namespace Game.Feature.Gameplay.Loop
             var impactTransientSignals = new List<TickImpactTransientPresentationSignal>();
             var flipImpactSignals = new List<FlipImpactPresentationSignal>();
             var flipFloorImpactSignals = new List<FlipFloorImpactPresentationSignal>();
+            var flipB1InFlightMotionSignals = new List<FlipB1InFlightMotionPresentationSignal>();
             var flipDueContactSignals = new List<FlipDueContactPresentationSignal>();
             var boxSlideStopSignals = new List<BoxSlideStopPresentationSignal>();
             var boxSlideStartSignals = new List<BoxSlideStartPresentationSignal>();
@@ -778,6 +779,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildGravityFieldVisualStates(context, gravityFieldVisualStates);
             BuildTileFeatureActiveVisualStates(context, topologyFact, tileFeatureActiveVisualStates);
             BuildFlipDueContactPresentation(context, flipDueContactSignals);
+            BuildFlipB1InFlightMotionPresentation(context, flipB1InFlightMotionSignals);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildFlipFloorImpactPresentation(context, flipFloorImpactSignals);
@@ -845,6 +847,7 @@ namespace Game.Feature.Gameplay.Loop
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
                    flipFloorImpactSignals.Count == 0 &&
+                   flipB1InFlightMotionSignals.Count == 0 &&
                    flipDueContactSignals.Count == 0 &&
                    boxSlideStopSignals.Count == 0 &&
                    boxSlideStartSignals.Count == 0 &&
@@ -916,7 +919,47 @@ namespace Game.Feature.Gameplay.Loop
                     entitySpawnSignals,
                     playerOutcomeSignals,
                     enemyUtilityPhaseStates,
-                    flipDueContactSignals: flipDueContactSignals);
+                    flipDueContactSignals: flipDueContactSignals,
+                    flipB1InFlightMotionSignals: flipB1InFlightMotionSignals);
+        }
+
+        private static void BuildFlipB1InFlightMotionPresentation(
+            in TickPresentationBuildContext context,
+            List<FlipB1InFlightMotionPresentationSignal> flipB1InFlightMotionSignals)
+        {
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            var emittedActionIds = new HashSet<int>();
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.AddScheduledFlipContact)
+                {
+                    continue;
+                }
+
+                var contact = operation.ScheduledFlipContact;
+                if (contact.ActionId <= 0 ||
+                    contact.SourceBoxEntityId <= 0 ||
+                    contact.ExecuteTick != context.CurrentTickIndex ||
+                    !emittedActionIds.Add(contact.ActionId))
+                {
+                    continue;
+                }
+
+                flipB1InFlightMotionSignals.Add(
+                    new FlipB1InFlightMotionPresentationSignal(
+                        contact.ActionId,
+                        contact.SourceBoxEntityId,
+                        contact.ActorEntityId,
+                        contact.SourceCell,
+                        contact.ContactCell,
+                        contact.LandingCell,
+                        context.PreMovementSnapshot.Topology,
+                        contact.FlipDirection,
+                        contact.ExecuteTick,
+                        contact.DueTick,
+                        Math.Max(0, contact.DueTick - contact.ExecuteTick)));
+            }
         }
 
         private static void BuildFlipDueContactPresentation(

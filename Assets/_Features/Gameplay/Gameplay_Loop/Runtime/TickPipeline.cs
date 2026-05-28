@@ -141,7 +141,7 @@ namespace Game.Feature.Gameplay.Loop
                     "Player respawn delay ticks must be greater than zero.");
             }
 
-            _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
+            _movementExpander = new MovementExpander(resolvedGeneralTimingProfile, playerControlTiming);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
             _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
@@ -1881,21 +1881,30 @@ namespace Game.Feature.Gameplay.Loop
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
                         rawIntent.MoveCooldownTicks,
-                        rawIntent.OrdinaryKinematicMoveTicks),
+                        rawIntent.OrdinaryKinematicMoveTicks,
+                        rawIntent.ActionStartTick,
+                        rawIntent.ActionExecuteTick,
+                        rawIntent.ActionDurationTicks),
                     Movement.MovementCommandKind.Flip => new FlipIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
                         rawIntent.MoveCooldownTicks,
-                        rawIntent.OrdinaryKinematicMoveTicks),
+                        rawIntent.OrdinaryKinematicMoveTicks,
+                        rawIntent.ActionStartTick,
+                        rawIntent.ActionExecuteTick,
+                        rawIntent.ActionDurationTicks),
                     _ => new MoveIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence,
                         rawIntent.MoveCooldownTicks,
-                        rawIntent.OrdinaryKinematicMoveTicks),
+                        rawIntent.OrdinaryKinematicMoveTicks,
+                        rawIntent.ActionStartTick,
+                        rawIntent.ActionExecuteTick,
+                        rawIntent.ActionDurationTicks),
                 };
                 moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
                 sortedIntents.Add(moveIntent);
@@ -7553,6 +7562,7 @@ namespace Game.Feature.Gameplay.Loop
                 AttackSourceKind.DelayedEffect => DamageSourceType.Attack,
                 AttackSourceKind.ForwardCellImpact => DamageSourceType.Attack,
                 AttackSourceKind.ImpactReservation => DamageSourceType.Impact,
+                AttackSourceKind.B1ScheduledContactDue => DamageSourceType.Impact,
                 AttackSourceKind.PassiveContact => DamageSourceType.Environmental,
                 _ => DamageSourceType.None,
             };
@@ -8541,8 +8551,9 @@ namespace Game.Feature.Gameplay.Loop
                     batch.AddScheduledFlipContact(
                         payload.ScheduledFlipContact,
                         CreateMovementMetadata(payload, baseResolution, localActionIndex: 0));
+                    var scheduledContact = payload.ScheduledFlipContact;
                     commitEvents.Add(
-                        $"FlipB1ContactScheduled|G={actionPlanId}|I={payload.IntentId}|Actor={payload.ScheduledFlipContact.ActorEntityId}|Box={payload.ScheduledFlipContact.SourceBoxEntityId}|Contact={FormatCell(payload.ScheduledFlipContact.ContactCell)}|Landing={FormatCell(payload.ScheduledFlipContact.LandingCell)}|Execute={payload.ScheduledFlipContact.ExecuteTick}|Due={payload.ScheduledFlipContact.DueTick}|Ordering={payload.ScheduledFlipContact.OrderingKey}");
+                        $"FlipB1ContactScheduled|G={actionPlanId}|I={payload.IntentId}|Actor={scheduledContact.ActorEntityId}|Box={scheduledContact.SourceBoxEntityId}|Contact={FormatCell(scheduledContact.ContactCell)}|Landing={FormatCell(scheduledContact.LandingCell)}|ActionStart={scheduledContact.ActionStartTick}|ActionVisualImpact={scheduledContact.ActionVisualImpactTick}|Execute={scheduledContact.ExecuteTick}|Due={scheduledContact.DueTick}|FlipExecuteDelayTicks={scheduledContact.FlipExecuteDelayTicks}|FlipInputLockDurationTicks={scheduledContact.FlipInputLockDurationTicks}|VisualImpactNormalized={GameplayFlipMotionTiming.VisualSlamContactNormalizedTime}|DueMinusActionStart={scheduledContact.DueTick - scheduledContact.ActionStartTick}|DueMinusExecute={scheduledContact.DueTick - scheduledContact.ExecuteTick}|ActionNormAtDue={FormatActionNormAtDue(scheduledContact)}|Ordering={scheduledContact.OrderingKey}");
                 }
 
                 for (var executionIndex = 0; executionIndex < payload.ExecutionLockWrites.Count; executionIndex++)
