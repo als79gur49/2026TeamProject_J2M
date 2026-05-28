@@ -68,6 +68,39 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void NonB1AtContactTimeCarrier_PreservesLegacyTimingModeAndContactFraction()
+        {
+            var contactNormalizedTime = 0.35f;
+            var exitSignal = new TickEntityExitPresentationSignal(
+                exitedEntityId: 40,
+                TickEntityExitCause.EnemyDeath,
+                new SurfaceCell(FaceId.Floor, -1, 0),
+                new CubeTopologyState(FaceId.Floor),
+                Direction.Left,
+                EntityType.Unit,
+                timing: EntityExitPresentationTiming.AtContactTime,
+                visualContactNormalizedTime: contactNormalizedTime);
+            var floorImpactSignal = new FlipFloorImpactPresentationSignal(
+                sourceActionPlanId: 7,
+                boxEntityId: 20,
+                actorEntityId: 10,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new SurfaceCell(FaceId.Floor, -1, 0),
+                new CubeTopologyState(FaceId.Floor),
+                Direction.Right,
+                Direction.Left,
+                FlipFloorImpactPresentationKind.Stay,
+                visualContactNormalizedTime: contactNormalizedTime);
+
+            Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.AtContactTime));
+            Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.AtContactTime));
+            Assert.That(exitSignal.VisualContactNormalizedTime, Is.EqualTo(contactNormalizedTime));
+            Assert.That(floorImpactSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.AtContactTime));
+            Assert.That(floorImpactSignal.VisualContactNormalizedTime, Is.EqualTo(contactNormalizedTime));
+        }
+
+        [Test]
+        [Category("Core")]
         public void BoxInFlight_DoesNotOccupySolidLayer()
         {
             var snapshot = CreateInFlightBoxSnapshot(out _, out var boxCell);

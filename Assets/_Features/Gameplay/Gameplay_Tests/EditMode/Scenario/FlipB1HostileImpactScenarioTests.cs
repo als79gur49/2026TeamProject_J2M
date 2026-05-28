@@ -617,6 +617,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void FlipB1HostileImpact_DueTick_HostileSurvives_DoesNotUseLegacyAtContactTimeOrFlipImpact()
+        {
+            RunPlayerFlipImpactToDue(hp: 3, out _, out _, out var dueTick);
+
+            AssertB1DuePresentationDoesNotUseLegacyContactTiming(
+                dueTick,
+                FlipContactResolutionKind.HitHostileSurvived,
+                FlipBoxDisposition.DestroySelf,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: null,
+                FlipFloorImpactPresentationKind.DestroySelf);
+            AssertAudioChain(
+                dueTick,
+                (GameplayAudioSemanticId.EnemyDamage, 30),
+                (GameplayAudioSemanticId.EntityExitBoxDestroy, 20));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FlipB1HostileImpact_DueTick_HostileDies_SettlementAllowed_FollowThrough()
         {
             RunPlayerFlipImpactToDue(hp: 1, out var worldState, out _, out _);
@@ -626,6 +645,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(box.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipB1HostileImpact_DueTick_HostileKilledFollowThrough_DoesNotUseLegacyAtContactTimeOrFlipImpact()
+        {
+            RunPlayerFlipImpactToDue(hp: 1, out _, out _, out var dueTick);
+
+            AssertB1DuePresentationDoesNotUseLegacyContactTiming(
+                dueTick,
+                FlipContactResolutionKind.HitHostileDiedSettlementAllowed,
+                FlipBoxDisposition.MaterializeAtLanding,
+                expectedHitEntityId: 30,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, -1, 0),
+                FlipFloorImpactPresentationKind.FollowThrough);
+            AssertAudioChain(
+                dueTick,
+                (GameplayAudioSemanticId.EnemyDamage, 30),
+                (GameplayAudioSemanticId.EntityExitEnemyDeath, 30));
         }
 
         [Test]
@@ -937,6 +975,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             RunOrdinaryFlipToDue(out _, out _, out var dueTick);
 
             AssertOrdinaryDueTerminalPresentation(
+                dueTick,
+                FlipContactResolutionKind.EmptyLand,
+                FlipBoxDisposition.MaterializeAtLanding,
+                expectedHitEntityId: 0,
+                expectedMaterializeCell: new SurfaceCell(FaceId.Floor, -1, 0),
+                FlipFloorImpactPresentationKind.FollowThrough);
+            AssertAudioChain(dueTick);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void OrdinaryFlipB1_DueTick_EmptyLanding_DoesNotUseLegacyAtContactTimeOrFlipImpact()
+        {
+            RunOrdinaryFlipToDue(out _, out _, out var dueTick);
+
+            AssertB1DuePresentationDoesNotUseLegacyContactTiming(
                 dueTick,
                 FlipContactResolutionKind.EmptyLand,
                 FlipBoxDisposition.MaterializeAtLanding,
@@ -1678,6 +1732,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             SurfaceCell? expectedMaterializeCell,
             FlipFloorImpactPresentationKind expectedFloorImpactKind)
         {
+            AssertB1DuePresentationDoesNotUseLegacyContactTiming(
+                dueTick,
+                expectedResolutionKind,
+                expectedDisposition,
+                expectedHitEntityId,
+                expectedMaterializeCell,
+                expectedFloorImpactKind);
+        }
+
+        private static void AssertB1DuePresentationDoesNotUseLegacyContactTiming(
+            TickResult dueTick,
+            FlipContactResolutionKind expectedResolutionKind,
+            FlipBoxDisposition expectedDisposition,
+            int expectedHitEntityId,
+            SurfaceCell? expectedMaterializeCell,
+            FlipFloorImpactPresentationKind expectedFloorImpactKind)
+        {
             Assert.That(dueTick.PresentationData.FlipDueContactSignals, Has.Count.EqualTo(1));
             Assert.That(dueTick.PresentationData.FlipFloorImpactSignals, Has.Count.EqualTo(1));
             Assert.That(dueTick.PresentationData.FlipImpactSignals, Is.Empty);
@@ -1710,6 +1781,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             foreach (var exitSignal in dueTick.PresentationData.EntityExitSignals)
             {
+                Assert.That(exitSignal.Timing, Is.Not.EqualTo(EntityExitPresentationTiming.AtContactTime));
                 Assert.That(exitSignal.TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
                 Assert.That(exitSignal.VisualContactNormalizedTime, Is.Zero);
             }
