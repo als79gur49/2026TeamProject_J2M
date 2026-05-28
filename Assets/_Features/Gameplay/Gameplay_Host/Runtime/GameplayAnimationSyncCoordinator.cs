@@ -563,8 +563,7 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                pair.Value.SyncRuntimeState(
-                    isVisible: false,
+                pair.Value.SyncHiddenRuntimeState(
                     isMoving: false,
                     playbackSuppressed: false);
             }
@@ -578,11 +577,7 @@ namespace Game.Feature.Gameplay.Host
 
                 if (TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
-                    var resolvedState = resolveHiddenPlayerAnimationState(pair.Key);
-                    driver.SyncRuntimeState(
-                        isVisible: false,
-                        resolvedState,
-                        resolveHiddenPlayerMotionDurationSeconds(pair.Key, resolvedState));
+                    driver.SyncHiddenRuntimeState();
                     _playerDeathVisualOverrideEntityIds.Remove(pair.Key);
                 }
             }
