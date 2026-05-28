@@ -440,6 +440,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void HostileFlipB1_StillHitsAtVisualImpactDue()
+        {
+            RunPlayerFlipImpactToDue(hp: 3, out var worldState, out _, out var dueTick);
+
+            Assert.That(
+                dueTick.TickIndex,
+                Is.EqualTo(1 + GameplayFlipMotionTiming.ResolveB1VisualImpactDelayTicks(GameplayTimingProfile.CreateDefault())));
+            Assert.That(dueTick.PresentationData.FlipDueContactSignals.Single().TimingMode, Is.EqualTo(GameplayPresentationTimingMode.DueContactImmediate));
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(30, out var target), Is.True);
+            Assert.That(target.hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FlipB1HostileImpact_ActualInput_DamagePathIsB1ScheduledContactDue()
         {
             RunPlayerFlipImpactToDue(hp: 1, out _, out _, out var dueTick);
