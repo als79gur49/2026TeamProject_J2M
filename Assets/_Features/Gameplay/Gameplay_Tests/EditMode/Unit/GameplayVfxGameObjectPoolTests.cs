@@ -119,6 +119,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void VFX_SpawnedWhileGameplayPresentationPaused_StartsSuspended()
+        {
+            pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+
+            var handle = pool.PlayTransient(CreateCommand(VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration));
+            var particleSystem = root.OneShotRoot.GetChild(0).GetComponent<ParticleSystem>();
+
+            Assert.That(handle, Is.Not.Null);
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.PresentationSuspended));
+            Assert.That(particleSystem.isPaused, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VFX_SpawnedWhilePaused_ResumesSameHandleAfterResume()
+        {
+            pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+            var handle = pool.PlayTransient(CreateCommand(VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration));
+            var handleId = handle.HandleId;
+            var instance = root.OneShotRoot.GetChild(0).gameObject;
+
+            pool.ResumeActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+
+            Assert.That(handle.HandleId, Is.EqualTo(handleId));
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.Active));
+            Assert.That(root.OneShotRoot.GetChild(0).gameObject, Is.SameAs(instance));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PooledVfx_ReusedAfterPause_DoesNotLeakOldSuspendReasons()
+        {
+            pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+            var firstHandle = pool.PlayTransient(CreateCommand(VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration));
+            var firstInstance = root.OneShotRoot.GetChild(0).gameObject;
+            pool.Release(firstHandle);
+            pool.ResumeActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+
+            var secondHandle = pool.PlayTransient(CreateCommand(
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                sequenceId: 2));
+            var reusedInstance = root.OneShotRoot.GetChild(0).gameObject;
+
+            Assert.That(reusedInstance, Is.SameAs(firstInstance));
+            Assert.That(secondHandle.State, Is.EqualTo(VfxLifetimeState.Active));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PooledVfx_LeasedWhilePauseStillActive_InheritsGameplayPauseReason()
+        {
+            var firstHandle = pool.PlayTransient(CreateCommand(VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration));
+            var firstInstance = root.OneShotRoot.GetChild(0).gameObject;
+            pool.Release(firstHandle);
+            pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+
+            var secondHandle = pool.PlayTransient(CreateCommand(
+                VfxPlaybackMode.OneShot,
+                VfxStopPolicy.AuthoredDuration,
+                sequenceId: 2));
+            var reusedInstance = root.OneShotRoot.GetChild(0).gameObject;
+
+            Assert.That(reusedInstance, Is.SameAs(firstInstance));
+            Assert.That(secondHandle.State, Is.EqualTo(VfxLifetimeState.PresentationSuspended));
+        }
+
+        [Test]
         [Category("Extended")]
         public void StopEmittingThenRelease_WaitsForTailSeconds()
         {

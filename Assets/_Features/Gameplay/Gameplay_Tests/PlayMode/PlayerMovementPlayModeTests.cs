@@ -93,6 +93,100 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_GameplayPause_FreezesVisualProgressUntilResume()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.25f);
+            var pausedProgress = host.Presenter.CurrentTopologyTransitionVisualState.Progress01;
+
+            InvokePauseService(host, "Pause");
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.Progress01, Is.EqualTo(pausedProgress).Within(0.0001f));
+
+            InvokePauseService(host, "Resume");
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_PauseResume_KeepsPresentationLockedUntilTransitionCompletes()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+
+            InvokePauseService(host, "Pause");
+            InvokePauseService(host, "Resume");
+
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.True);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_GameplayPauseDoesNotCompleteWhilePaused()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+            InvokePauseService(host, "Pause");
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 2f);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.True);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_ResumeCompletesAndReleasesPresentationLock()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+            InvokePauseService(host, "Pause");
+            InvokePauseService(host, "Resume");
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         [Category("Full")]
         public IEnumerator RespawnTopologyReset_UsesExistingTopologyTransitionInputLock()
         {

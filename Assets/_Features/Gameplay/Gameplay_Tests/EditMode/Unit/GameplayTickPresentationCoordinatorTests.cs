@@ -157,6 +157,178 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void DirectParticleSystem_GameplayPause_PausesAndRestoresPreviousPlayingState()
+        {
+            var rootObject = new GameObject(nameof(DirectParticleSystem_GameplayPause_PausesAndRestoresPreviousPlayingState));
+
+            try
+            {
+                var particles = rootObject.AddComponent<ParticleSystem>();
+                particles.Play(withChildren: true);
+                var registry = new GameplayPresentationPauseRegistry();
+                registry.RegisterRoot(rootObject);
+
+                registry.SetPresentationPaused(true);
+                Assert.That(particles.isPaused, Is.True);
+
+                registry.SetPresentationPaused(false);
+                Assert.That(particles.isPlaying, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureVisual_GameplayPause_DoesNotAdvanceOrEmit()
+        {
+            var rootObject = new GameObject(nameof(TileFeatureVisual_GameplayPause_DoesNotAdvanceOrEmit));
+
+            try
+            {
+                var target = rootObject.AddComponent<TileFeatureVisualTargetView>();
+                var particles = rootObject.AddComponent<ParticleSystem>();
+                SetPrivateField(target, "buttonActivatedParticles", particles);
+                var registry = new GameplayPresentationPauseRegistry();
+                registry.RegisterRoot(rootObject);
+                registry.SetPresentationPaused(true);
+
+                target.PlayButtonActivated();
+
+                Assert.That(particles.isPaused, Is.True);
+                Assert.That(particles.particleCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GravityFieldVisual_GameplayPause_DoesNotAdvanceOrEmit()
+        {
+            var rootObject = new GameObject(nameof(GravityFieldVisual_GameplayPause_DoesNotAdvanceOrEmit));
+
+            try
+            {
+                var target = rootObject.AddComponent<GravityFieldVisualTargetView>();
+                var particles = rootObject.AddComponent<ParticleSystem>();
+                SetPrivateField(target, "activatedParticles", particles);
+                var registry = new GameplayPresentationPauseRegistry();
+                registry.RegisterRoot(rootObject);
+                registry.SetPresentationPaused(true);
+
+                target.PlayGravityFieldActivated();
+
+                Assert.That(particles.isPaused, Is.True);
+                Assert.That(particles.particleCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyFloatingPresentation_GameplayPause_DoesNotAdvanceOffset()
+        {
+            var rootObject = new GameObject(nameof(EnemyFloatingPresentation_GameplayPause_DoesNotAdvanceOffset));
+            var targetObject = new GameObject("Target");
+
+            try
+            {
+                targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var driver = rootObject.AddComponent<EnemyFloatingPresentationDriver>();
+                SetPrivateField(driver, "target", targetObject.transform);
+                driver.CaptureBaseLocalPosition();
+                driver.SetPresentationPaused(true);
+
+                driver.Advance(1f);
+
+                Assert.That(driver.CurrentOffset, Is.EqualTo(Vector3.zero));
+                Assert.That(targetObject.transform.localPosition, Is.EqualTo(Vector3.zero));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyInactiveVisual_GameplayPause_DoesNotAdvancePulse()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisual_GameplayPause_DoesNotAdvancePulse));
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.ApplyEnemyVisualSemanticState(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.SetPresentationPaused(true);
+
+                controller.AdvanceInactiveNoiseReveal(1f);
+
+                Assert.That(controller.CurrentInactiveNoiseReveal, Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPupilVisual_GameplayPause_DoesNotAdvanceLookMotion()
+        {
+            var rootObject = new GameObject(nameof(EnemyPupilVisual_GameplayPause_DoesNotAdvanceLookMotion));
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyPupilVisualController>();
+                InvokePrivate(controller, "BeginWindup", 1f);
+                controller.SetPresentationPaused(true);
+
+                controller.Advance(0.5f);
+
+                Assert.That(GetPrivateField<float>(controller, "_phaseElapsedSeconds"), Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AnimatorDrivenGameplayPresentation_GameplayPause_FreezesAndRestoresSpeed()
+        {
+            var rootObject = new GameObject(nameof(AnimatorDrivenGameplayPresentation_GameplayPause_FreezesAndRestoresSpeed));
+
+            try
+            {
+                var animator = rootObject.AddComponent<Animator>();
+                animator.speed = 0.75f;
+                var registry = new GameplayPresentationPauseRegistry();
+                registry.RegisterRoot(rootObject);
+
+                registry.SetPresentationPaused(true);
+                Assert.That(animator.speed, Is.EqualTo(0f));
+
+                registry.SetPresentationPaused(false);
+                Assert.That(animator.speed, Is.EqualTo(0.75f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_CurrentTilePresentationRequests_NoTileEvents_StaysEmpty()
         {
@@ -9657,6 +9829,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 ResumeCallCount++;
             }
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            target.GetType()
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(target, value);
+        }
+
+        private static T GetPrivateField<T>(object target, string fieldName)
+        {
+            return (T)target.GetType()
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(target);
+        }
+
+        private static void InvokePrivate(object target, string methodName, params object[] args)
+        {
+            target.GetType()
+                .GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(target, args);
         }
 
         private static TileFeatureVisualTargetView AttachTileVisualTarget(
