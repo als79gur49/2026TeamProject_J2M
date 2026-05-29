@@ -30,6 +30,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs";
         private const string ProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
+        private const string InactiveBlendProperty = "_InactiveBlend";
+        private const string InactiveNoiseRevealProperty = "_InactiveNoiseReveal";
+        private const string DesaturateStrengthProperty = "_DesaturateStrength";
+        private const string EmissionSuppressionProperty = "_EmissionSuppression";
+        private const string InactiveTintProperty = "_InactiveTint";
 
         [Test]
         [Category("Extended")]
@@ -357,6 +362,84 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                Destroy(cueMap, binding, prefab, cameraObject, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DelayedEnemyDeathMotion_CapturesInactiveVisualStateBeforeSourceReset()
+        {
+            var owner = new GameObject("EnemyDeathMotionDelayedInactiveRuntime");
+            var cameraObject = CreateCameraObject("EnemyDeathMotionDelayedInactiveRuntimeCamera");
+            var prefab = CreateRuntimePrefab("EnemyDeathMotionDelayedInactiveRuntimePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            InactiveSourceViewFixture source = default;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
+                var context = CreateExtensionContext(
+                    CreateEnemyExitSignal(
+                        40,
+                        TickEntityExitCause.EnemyDeath,
+                        timing: EntityExitPresentationTiming.AtContactTime,
+                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+                context.StateStore.RetainedLocalTargetPoses[40] = new GameplayEntityPose(
+                    new Vector3(1.25f, 0.5f, -0.25f),
+                    Quaternion.Euler(0f, 45f, 0f));
+                source = CreateInactiveSourceView(context.StateStore, entityId: 40);
+                var scheduledTint = new Color(0.16f, 0.29f, 0.47f, 1f);
+                ApplyInactivePropertyBlock(
+                    source.Renderer,
+                    inactiveBlend: 1f,
+                    inactiveNoiseReveal: 1f,
+                    desaturateStrength: 0.33f,
+                    emissionSuppression: 0.77f,
+                    scheduledTint);
+
+                runtime.Present(context);
+                ApplyInactivePropertyBlock(
+                    source.Renderer,
+                    inactiveBlend: 0f,
+                    inactiveNoiseReveal: 0f,
+                    desaturateStrength: 0.11f,
+                    emissionSuppression: 0.22f,
+                    new Color(0.9f, 0.1f, 0.1f, 1f));
+                source.Owner.SetActive(false);
+
+                var contactDelaySeconds =
+                    context.TimingProfile.FlipMotionDurationSeconds *
+                    GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
+                runtime.UpdatePresentation(contactDelaySeconds);
+                runtime.RefreshPresentationMotionVfx(
+                    new GameplayPresentationMotionVfxContext(
+                        context.Result.TickIndex,
+                        new GameplayPresentationTrackState(),
+                        context.StateStore,
+                        context.Projector,
+                        context.TimingProfile));
+
+                var clone = FindParameterizedMotionClone(owner.transform);
+                Assert.That(clone, Is.Not.Null);
+                var cloneMaterial = clone
+                    .GetComponentInChildren<Renderer>(includeInactive: true)
+                    .sharedMaterial;
+                Assert.That(cloneMaterial.GetFloat(InactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(InactiveNoiseRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(DesaturateStrengthProperty), Is.EqualTo(0.33f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(EmissionSuppressionProperty), Is.EqualTo(0.77f).Within(0.0001f));
+                AssertColorApproximately(scheduledTint, cloneMaterial.GetColor(InactiveTintProperty));
+            }
+            finally
+            {
+                source.Destroy();
                 Destroy(cueMap, binding, prefab, cameraObject, owner);
             }
         }
@@ -822,6 +905,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return cameraObject;
         }
 
+        private static InactiveSourceViewFixture CreateInactiveSourceView(
+            GameplayPresentationStateStore stateStore,
+            int entityId)
+        {
+            var owner = new GameObject("EnemyDeathMotionInactiveSourceView");
+            var view = owner.AddComponent<GameplayEntityView>();
+            view.Initialize(entityId);
+            var modelRoot = view.EnsureModelRoot();
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            UnityEngine.Object.DestroyImmediate(visual.GetComponent<Collider>());
+            visual.transform.SetParent(modelRoot, worldPositionStays: false);
+            var renderer = visual.GetComponent<Renderer>();
+            var shader = Shader.Find("Game/Enemy/CustomEnemyLit");
+            Assert.That(shader, Is.Not.Null, "Game/Enemy/CustomEnemyLit shader is required for inactive visual snapshot tests.");
+            var material = new Material(shader);
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", Color.white);
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                material.color = Color.white;
+            }
+
+            renderer.sharedMaterial = material;
+            stateStore.ViewsByEntityId[entityId] = view;
+            return new InactiveSourceViewFixture(owner, renderer, material);
+        }
+
+        private static void ApplyInactivePropertyBlock(
+            Renderer renderer,
+            float inactiveBlend,
+            float inactiveNoiseReveal,
+            float desaturateStrength,
+            float emissionSuppression,
+            Color inactiveTint)
+        {
+            var block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            block.SetFloat(InactiveBlendProperty, inactiveBlend);
+            block.SetFloat(InactiveNoiseRevealProperty, inactiveNoiseReveal);
+            block.SetFloat(DesaturateStrengthProperty, desaturateStrength);
+            block.SetFloat(EmissionSuppressionProperty, emissionSuppression);
+            block.SetColor(InactiveTintProperty, inactiveTint);
+            renderer.SetPropertyBlock(block);
+        }
+
+        private static Transform FindParameterizedMotionClone(Transform root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            if (root.name == "ParameterizedMotionCloneRoot")
+            {
+                return root;
+            }
+
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var childResult = FindParameterizedMotionClone(root.GetChild(i));
+                if (childResult != null)
+                {
+                    return childResult;
+                }
+            }
+
+            return null;
+        }
+
+        private static void AssertColorApproximately(Color expected, Color actual)
+        {
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(0.0001f));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.0001f));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.0001f));
+            Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.0001f));
+        }
+
         private static void AssertForbiddenAuthorityTokensAbsent(string source)
         {
             var forbiddenTokens = new[]
@@ -955,6 +1118,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void Destroy()
             {
                 GameplayVfxEnemyDeathMotionPrefabWithSourceCloneTests.Destroy(Root);
+            }
+        }
+
+        private readonly struct InactiveSourceViewFixture
+        {
+            public InactiveSourceViewFixture(GameObject owner, Renderer renderer, Material material)
+            {
+                Owner = owner;
+                Renderer = renderer;
+                Material = material;
+            }
+
+            public GameObject Owner { get; }
+
+            public Renderer Renderer { get; }
+
+            private Material Material { get; }
+
+            public void Destroy()
+            {
+                GameplayVfxEnemyDeathMotionPrefabWithSourceCloneTests.Destroy(Material, Owner);
             }
         }
     }

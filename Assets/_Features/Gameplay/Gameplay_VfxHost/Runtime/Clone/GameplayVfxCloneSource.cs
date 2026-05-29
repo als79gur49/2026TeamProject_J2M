@@ -15,6 +15,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public Transform ModelRoot { get; }
 
         public Vector3 LocalScale { get; }
+
+        internal VfxRendererInactiveVisualSnapshotSet CaptureInactiveVisualSnapshot()
+        {
+            return VfxRendererInactiveVisualSnapshotSet.CaptureFromModelRoot(ModelRoot);
+        }
     }
 
     public interface IGameplayVfxCloneSourceProvider

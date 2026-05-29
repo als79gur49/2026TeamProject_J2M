@@ -94,6 +94,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in ResolvedVfxPlaybackCommand command,
             in ParameterizedMotionVfxCommand motionCommand)
         {
+            return PlayParameterizedMotion(
+                command,
+                motionCommand,
+                VfxRendererInactiveVisualSnapshotSet.Empty);
+        }
+
+        internal IVfxPlaybackHandle PlayParameterizedMotion(
+            in ResolvedVfxPlaybackCommand command,
+            in ParameterizedMotionVfxCommand motionCommand,
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
+        {
             command.Policy.ValidateOrThrow();
             if (command.CueId != motionCommand.CueId)
             {
@@ -151,7 +162,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var instance = Lease(prefab, prefabInstanceId);
             var now = timeProvider.TimeSeconds;
             var handle = new GameplayVfxPlaybackHandle(++nextHandleId, command, instance, now, timeProvider);
-            instance.ActivateParameterizedMotion(prefabInstanceId, handle, root.OneShotRoot, motionCommand, cloneSourceProvider);
+            instance.ActivateParameterizedMotion(
+                prefabInstanceId,
+                handle,
+                root.OneShotRoot,
+                motionCommand,
+                cloneSourceProvider,
+                sourceVisualSnapshot);
             handle.MarkSpawned();
             handle.MarkActive();
             ApplyStickySuspendReasons(handle);

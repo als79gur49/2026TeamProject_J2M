@@ -9,6 +9,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayVfxSourceCloneRuntimeTests
     {
+        private const string InactiveBlendProperty = "_InactiveBlend";
+        private const string InactiveNoiseRevealProperty = "_InactiveNoiseReveal";
+        private const string DesaturateStrengthProperty = "_DesaturateStrength";
+        private const string EmissionSuppressionProperty = "_EmissionSuppression";
+        private const string InactiveTintProperty = "_InactiveTint";
+
         [Test]
         [Category("Extended")]
         public void CloneSourceProvider_ResolvesSourceModelRoot()
@@ -57,10 +63,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(instance.Find("ParameterizedMotionCloneRoot"), Is.Null);
                 Assert.That(instance.GetComponentInChildren<Renderer>(includeInactive: true).enabled, Is.True);
+                Assert.That(fixture.Pool.MissingSourceViewCount, Is.EqualTo(1));
+                Assert.That(fixture.Pool.MissingPrefabCount, Is.Zero);
             }
             finally
             {
                 fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SourceClone_CopiesFrontFaceInactiveVisualState()
+        {
+            var expectedTint = new Color(0.18f, 0.27f, 0.39f, 1f);
+            var source = CreateInactiveCompatibleCloneSource("SourceViewInactiveState");
+            var fixture = CreateEnemyDeathMotionFixture(source.ModelRoot);
+            try
+            {
+                ApplyInactivePropertyBlock(
+                    source.Renderer,
+                    inactiveBlend: 1f,
+                    inactiveNoiseReveal: 1f,
+                    desaturateStrength: 0.37f,
+                    emissionSuppression: 0.68f,
+                    expectedTint);
+
+                fixture.Pool.PlayParameterizedMotion(fixture.PlaybackCommand, CreateEnemyDeathMotionCommand());
+
+                var cloneMaterial = ResolveCloneRenderer(fixture).sharedMaterial;
+                Assert.That(cloneMaterial, Is.Not.SameAs(source.SharedMaterial));
+                Assert.That(cloneMaterial.GetFloat(InactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(InactiveNoiseRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(DesaturateStrengthProperty), Is.EqualTo(0.37f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(EmissionSuppressionProperty), Is.EqualTo(0.68f).Within(0.0001f));
+                AssertColorApproximately(expectedTint, cloneMaterial.GetColor(InactiveTintProperty));
+                Assert.That(source.SharedMaterial.GetFloat(InactiveBlendProperty), Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                fixture.Destroy();
+                source.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SourceClone_InactiveSnapshot_DoesNotBreakDeathAlphaFade()
+        {
+            var expectedTint = new Color(0.42f, 0.31f, 0.2f, 1f);
+            var source = CreateInactiveCompatibleCloneSource("SourceViewInactiveAlphaFade");
+            var fixture = CreateEnemyDeathMotionFixture(source.ModelRoot);
+            try
+            {
+                var sourceAlpha = GetMaterialAlpha(source.SharedMaterial);
+                ApplyInactivePropertyBlock(
+                    source.Renderer,
+                    inactiveBlend: 1f,
+                    inactiveNoiseReveal: 1f,
+                    desaturateStrength: 0.44f,
+                    emissionSuppression: 0.55f,
+                    expectedTint);
+
+                fixture.Pool.PlayParameterizedMotion(fixture.PlaybackCommand, CreateEnemyDeathMotionCommand());
+                fixture.TimeProvider.TimeSeconds = 0.9f;
+                fixture.Pool.Advance(0.9f);
+
+                var cloneMaterial = ResolveCloneRenderer(fixture).sharedMaterial;
+                Assert.That(GetMaterialAlpha(cloneMaterial), Is.LessThan(1f));
+                Assert.That(cloneMaterial.GetFloat(InactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(InactiveNoiseRevealProperty), Is.EqualTo(1f).Within(0.0001f));
+                AssertColorApproximately(expectedTint, cloneMaterial.GetColor(InactiveTintProperty));
+                Assert.That(GetMaterialAlpha(source.SharedMaterial), Is.EqualTo(sourceAlpha).Within(0.0001f));
+            }
+            finally
+            {
+                fixture.Destroy();
+                source.Destroy();
             }
         }
 
@@ -263,6 +342,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return ResolveClone(fixture).GetComponentInChildren<Renderer>(includeInactive: true);
         }
 
+        private static GameplayVfxParameterizedMotionRuntimeTests.PoolFixture CreateEnemyDeathMotionFixture(Transform sourceRoot)
+        {
+            return GameplayVfxParameterizedMotionRuntimeTests.CreatePoolFixture(
+                tailSeconds: 0f,
+                cloneSourceProvider: new SingleCloneSourceProvider(sourceRoot),
+                cueId: GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                visualSourceMode: VfxVisualSourceMode.PrefabWithSourceClone);
+        }
+
         private static CloneSourceFixture CreateCloneSource(string name, bool assignMaterial = true)
         {
             var viewObject = new GameObject(name);
@@ -291,13 +379,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new CloneSourceFixture(viewObject, modelRoot, sharedMaterial);
         }
 
+        private static CloneSourceFixture CreateInactiveCompatibleCloneSource(string name)
+        {
+            var source = CreateCloneSource(name, assignMaterial: false);
+            var shader = Shader.Find("Game/Enemy/CustomEnemyLit");
+            Assert.That(shader, Is.Not.Null, "Game/Enemy/CustomEnemyLit shader is required for inactive visual snapshot tests.");
+            var material = new Material(shader);
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", Color.white);
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                material.color = Color.white;
+            }
+
+            source.Renderer.sharedMaterial = material;
+            return new CloneSourceFixture(source.Owner, source.ModelRoot, material, source.Renderer);
+        }
+
+        private static ParameterizedMotionVfxCommand CreateEnemyDeathMotionCommand()
+        {
+            return new ParameterizedMotionVfxCommand(
+                GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                sourceEntityId: 30,
+                sequenceId: 7,
+                presentationSeed: 7,
+                sourceLocalPosition: Vector3.zero,
+                sourceLocalRotation: Quaternion.identity,
+                targetLocalPosition: new Vector3(0f, 0f, -2f),
+                targetLocalRotation: Quaternion.identity,
+                durationSeconds: 1f,
+                arcHeight: 0.2f,
+                breakStartSeconds: 0.12f,
+                fadeDurationSeconds: 0.88f,
+                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxCloneMode.PrefabWithSourceClone,
+                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
+                arcLocalDirection: Vector3.up,
+                spinDegrees: 360f,
+                spinAxisLocal: Vector3.forward);
+        }
+
+        private static void ApplyInactivePropertyBlock(
+            Renderer renderer,
+            float inactiveBlend,
+            float inactiveNoiseReveal,
+            float desaturateStrength,
+            float emissionSuppression,
+            Color inactiveTint)
+        {
+            var block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            block.SetFloat(InactiveBlendProperty, inactiveBlend);
+            block.SetFloat(InactiveNoiseRevealProperty, inactiveNoiseReveal);
+            block.SetFloat(DesaturateStrengthProperty, desaturateStrength);
+            block.SetFloat(EmissionSuppressionProperty, emissionSuppression);
+            block.SetColor(InactiveTintProperty, inactiveTint);
+            renderer.SetPropertyBlock(block);
+        }
+
+        private static float GetMaterialAlpha(Material material)
+        {
+            if (material.HasProperty("_BaseColor"))
+            {
+                return material.GetColor("_BaseColor").a;
+            }
+
+            return material.HasProperty("_Color")
+                ? material.color.a
+                : 1f;
+        }
+
+        private static void AssertColorApproximately(Color expected, Color actual)
+        {
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(0.0001f));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.0001f));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.0001f));
+            Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.0001f));
+        }
+
         private readonly struct CloneSourceFixture
         {
-            public CloneSourceFixture(GameObject owner, Transform modelRoot, Material sharedMaterial)
+            public CloneSourceFixture(GameObject owner, Transform modelRoot, Material sharedMaterial, Renderer renderer = null)
             {
                 Owner = owner;
                 ModelRoot = modelRoot;
                 SharedMaterial = sharedMaterial;
+                Renderer = renderer != null ? renderer : modelRoot.GetComponentInChildren<Renderer>(includeInactive: true);
             }
 
             public GameObject Owner { get; }
@@ -305,6 +475,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public Transform ModelRoot { get; }
 
             public Material SharedMaterial { get; }
+
+            public Renderer Renderer { get; }
 
             public void Destroy()
             {

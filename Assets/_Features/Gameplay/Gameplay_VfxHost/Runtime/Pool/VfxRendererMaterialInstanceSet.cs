@@ -5,6 +5,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 {
     internal sealed class VfxRendererMaterialInstanceSet
     {
+        private static readonly int InactiveBlendId = Shader.PropertyToID("_InactiveBlend");
+        private static readonly int InactiveNoiseRevealId = Shader.PropertyToID("_InactiveNoiseReveal");
+        private static readonly int DesaturateStrengthId = Shader.PropertyToID("_DesaturateStrength");
+        private static readonly int EmissionSuppressionId = Shader.PropertyToID("_EmissionSuppression");
+        private static readonly int InactiveTintId = Shader.PropertyToID("_InactiveTint");
+
         private readonly Material[][] originalSharedMaterials;
         private readonly bool restoreSharedMaterials;
         private readonly Material[][] runtimeMaterials;
@@ -46,6 +52,34 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
                 {
                     SetMaterialAlpha(materials[materialIndex], alpha);
+                }
+            }
+        }
+
+        public void ApplyInactiveVisualSnapshot(in VfxRendererInactiveVisualSnapshotSet snapshotSet)
+        {
+            if (!hasRuntimeMaterials || !snapshotSet.HasEntries)
+            {
+                return;
+            }
+
+            var rendererCount = Mathf.Min(runtimeMaterials.Length, snapshotSet.Count);
+            for (var rendererIndex = 0; rendererIndex < rendererCount; rendererIndex++)
+            {
+                if (!snapshotSet.TryGetEntry(rendererIndex, out var snapshot))
+                {
+                    continue;
+                }
+
+                var materials = runtimeMaterials[rendererIndex];
+                if (materials == null)
+                {
+                    continue;
+                }
+
+                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
+                {
+                    ApplyInactiveVisualSnapshot(materials[materialIndex], snapshot);
                 }
             }
         }
@@ -113,6 +147,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             hasRuntimeMaterials = true;
+        }
+
+        private static void ApplyInactiveVisualSnapshot(
+            Material material,
+            in VfxRendererInactiveVisualSnapshot snapshot)
+        {
+            if (!VfxRendererInactiveVisualSnapshotSet.MaterialSupportsInactiveContract(material))
+            {
+                return;
+            }
+
+            material.SetFloat(InactiveBlendId, snapshot.InactiveBlend);
+            material.SetFloat(InactiveNoiseRevealId, snapshot.InactiveNoiseReveal);
+            material.SetFloat(DesaturateStrengthId, snapshot.DesaturateStrength);
+            material.SetFloat(EmissionSuppressionId, snapshot.EmissionSuppression);
+            material.SetColor(InactiveTintId, snapshot.InactiveTint);
         }
 
         private static void SetMaterialAlpha(Material material, float alpha)

@@ -76,6 +76,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in ParameterizedMotionVfxCommand command,
             IGameplayVfxCloneSourceProvider cloneSourceProvider)
         {
+            ActivateParameterizedMotion(
+                prefabInstanceId,
+                playbackHandle,
+                parent,
+                command,
+                cloneSourceProvider,
+                VfxRendererInactiveVisualSnapshotSet.Empty);
+        }
+
+        public void ActivateParameterizedMotion(
+            int prefabInstanceId,
+            GameplayVfxPlaybackHandle playbackHandle,
+            Transform parent,
+            in ParameterizedMotionVfxCommand command,
+            IGameplayVfxCloneSourceProvider cloneSourceProvider,
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
+        {
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
             presentationSuspendReasons = VfxPresentationSuspendReason.None;
@@ -87,7 +104,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.localRotation = command.SourceLocalRotation;
             Transform.localScale = Vector3.one;
             GameObject.SetActive(true);
-            ConfigureParameterizedVisuals(command, cloneSourceProvider);
+            ConfigureParameterizedVisuals(command, cloneSourceProvider, sourceVisualSnapshot);
             ApplyParameterizedMotion(command, elapsedSeconds: 0f);
             if (!usingSourceClone)
             {
@@ -355,12 +372,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void ConfigureParameterizedVisuals(
             in ParameterizedMotionVfxCommand command,
-            IGameplayVfxCloneSourceProvider cloneSourceProvider)
+            IGameplayVfxCloneSourceProvider cloneSourceProvider,
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
         {
-            if (TryCreateSourceClone(command, cloneSourceProvider, out var cloneRenderers))
+            if (TryCreateSourceClone(command, cloneSourceProvider, out var cloneRenderers, out var liveSourceSnapshot))
             {
                 HidePrefabVisuals();
                 activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(cloneRenderers);
+                activeMaterialInstances.ApplyInactiveVisualSnapshot(
+                    sourceVisualSnapshot.HasEntries ? sourceVisualSnapshot : liveSourceSnapshot);
                 usingSourceClone = true;
                 return;
             }
@@ -380,9 +400,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool TryCreateSourceClone(
             in ParameterizedMotionVfxCommand command,
             IGameplayVfxCloneSourceProvider cloneSourceProvider,
-            out Renderer[] cloneRenderers)
+            out Renderer[] cloneRenderers,
+            out VfxRendererInactiveVisualSnapshotSet liveSourceSnapshot)
         {
             cloneRenderers = Array.Empty<Renderer>();
+            liveSourceSnapshot = VfxRendererInactiveVisualSnapshotSet.Empty;
             if (command.CloneMode == ParameterizedMotionVfxCloneMode.PrefabOnly ||
                 cloneSourceProvider == null ||
                 !cloneSourceProvider.TryResolveCloneSource(command.SourceEntityId, out var source) ||
@@ -391,6 +413,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
+            liveSourceSnapshot = source.CaptureInactiveVisualSnapshot();
             sourceCloneObject = UnityEngine.Object.Instantiate(source.ModelRoot.gameObject, Transform, worldPositionStays: false);
             sourceCloneObject.name = "ParameterizedMotionCloneRoot";
             sourceCloneObject.transform.localPosition = source.ModelRoot.localPosition;

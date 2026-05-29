@@ -1921,7 +1921,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 if (signal.Timing == EntityExitPresentationTiming.AtContactTime &&
                     signal.VisualContactNormalizedTime > 0f)
                 {
-                    if (ScheduleDelayedEnemyDeathMotionVfx(context.Result.TickIndex, signal, context.TimingProfile))
+                    if (ScheduleDelayedEnemyDeathMotionVfx(
+                            context.Result.TickIndex,
+                            signal,
+                            context.TimingProfile,
+                            context.StateStore))
                     {
                         plannedCommandCount++;
                     }
@@ -1951,7 +1955,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool ScheduleDelayedEnemyDeathMotionVfx(
             int tickIndex,
             in TickEntityExitPresentationSignal signal,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            GameplayPresentationStateStore stateStore)
         {
             var key = DelayedEnemyDeathMotionVfxKey.Create(tickIndex, signal);
             if (!scheduledDelayedEnemyDeathMotionVfxKeys.Add(key))
@@ -1961,11 +1966,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var resolvedTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             var delaySeconds = resolvedTimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
+            VfxRendererInactiveVisualSnapshotSet.TryCapture(
+                stateStore,
+                signal.ExitedEntityId,
+                out var sourceVisualSnapshot);
             var delayed = new DelayedEnemyDeathMotionVfx(
                 tickIndex,
                 signal,
                 resolvedTimingProfile,
-                delaySeconds);
+                delaySeconds,
+                sourceVisualSnapshot);
             if (delaySeconds <= 0.0001f)
             {
                 PlayDelayedEnemyDeathMotionVfx(delayed);
@@ -2035,12 +2045,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            TryPlayEnemyDeathMotionCommand(delayed.TickIndex, command);
+            TryPlayEnemyDeathMotionCommand(delayed.TickIndex, command, delayed.SourceVisualSnapshot);
         }
 
         private bool TryPlayEnemyDeathMotionCommand(
             int tickIndex,
             in EnemyDeathMotionVfxCommand command)
+        {
+            return TryPlayEnemyDeathMotionCommand(
+                tickIndex,
+                command,
+                VfxRendererInactiveVisualSnapshotSet.Empty);
+        }
+
+        private bool TryPlayEnemyDeathMotionCommand(
+            int tickIndex,
+            in EnemyDeathMotionVfxCommand command,
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
         {
             var parameterizedCommand = command.ToParameterizedMotionVfxCommand();
             var cueId = GameplayVfxCueId.From(EnemyVfxCue.DeathMotion);
@@ -2077,7 +2098,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayParameterizedMotion(playbackCommand, parameterizedCommand) != null;
+            return pool.PlayParameterizedMotion(
+                playbackCommand,
+                parameterizedCommand,
+                sourceVisualSnapshot) != null;
         }
 
         private int PlayBoxSlideSolidStopCommands(in GameplayTickPresentationExtensionContext context)
@@ -2963,12 +2987,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 int tickIndex,
                 TickEntityExitPresentationSignal signal,
                 GameplayTimingProfile timingProfile,
-                float remainingSeconds)
+                float remainingSeconds,
+                in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
             {
                 TickIndex = tickIndex;
                 Signal = signal;
                 TimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
                 RemainingSeconds = Mathf.Max(0f, remainingSeconds);
+                SourceVisualSnapshot = sourceVisualSnapshot;
             }
 
             public int TickIndex { get; }
@@ -2979,13 +3005,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             public float RemainingSeconds { get; }
 
+            public VfxRendererInactiveVisualSnapshotSet SourceVisualSnapshot { get; }
+
             public DelayedEnemyDeathMotionVfx Advance(float deltaTime)
             {
                 return new DelayedEnemyDeathMotionVfx(
                     TickIndex,
                     Signal,
                     TimingProfile,
-                    RemainingSeconds - Mathf.Max(0f, deltaTime));
+                    RemainingSeconds - Mathf.Max(0f, deltaTime),
+                    SourceVisualSnapshot);
             }
         }
 
