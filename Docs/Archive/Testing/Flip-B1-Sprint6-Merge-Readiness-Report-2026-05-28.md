@@ -1,6 +1,6 @@
 # Flip B-1 Sprint 6 Merge Readiness Report
 
-Post-8B note: ordinary Flip B-1 and B-1-specific legacy timing cleanup are now tracked by [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](./Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md). This Sprint 6 note remains historical evidence for the hostile-impact-only readiness checkpoint; its ordinary-Flip deferral rows are superseded for current status.
+Archive note: ordinary Flip B-1 and B-1-specific legacy timing cleanup are now tracked by [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](../../Testing/Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md). This Sprint 6 note remains historical evidence for the hostile-impact-only readiness checkpoint; its ordinary-Flip deferral rows are superseded for current status.
 
 ## 1. Summary
 - Readiness judgment: Hostile Flip B-1 is ready under the current hostile-impact-only scope, but still requires manual UX confirmation before making a final release-polish claim.
@@ -96,8 +96,8 @@ Barrier recommendation:
 
 ## 5. Documentation Updates
 Files changed for Sprint 6:
-- `Docs/Testing/Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md`
-- `Docs/Testing/Flip-B1-Sprint5-Hardening-Report-2026-05-28.md`
+- `Docs/Archive/Testing/Flip-B1-Sprint6-Merge-Readiness-Report-2026-05-28.md`
+- `Docs/Archive/Testing/Flip-B1-Sprint5-Hardening-Report-2026-05-28.md`
 - `Docs/Architecture/Gameplay-Rules-Appendix.md`
 
 Architecture notes:

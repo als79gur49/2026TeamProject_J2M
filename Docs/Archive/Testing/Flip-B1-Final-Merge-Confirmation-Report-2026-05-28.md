@@ -1,6 +1,6 @@
 # Flip B-1 Final Merge Confirmation Report
 
-Post-8B note: ordinary Flip B-1 and B-1-specific legacy timing cleanup are now tracked by [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](./Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md). This dated report remains historical evidence for the hostile-impact-only merge checkpoint; its ordinary-Flip deferral rows are superseded for current status.
+Archive note: ordinary Flip B-1 and B-1-specific legacy timing cleanup are now tracked by [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](../../Testing/Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md). This dated report remains historical evidence for the hostile-impact-only merge checkpoint; its ordinary-Flip deferral rows are superseded for current status.
 
 ## 1. Summary
 - Final readiness judgment: merge under hostile-impact-only scope.

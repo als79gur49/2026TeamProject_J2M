@@ -14,6 +14,7 @@
 - Removed ignored same-tick hostile Flip characterization tests that asserted obsolete `ImpactReservation`, same-tick damage/disposition, and legacy `FlipImpactSignals` behavior.
 - Updated the current gameplay rules appendix so B-1 scope includes ordinary Flip success / landing and explicitly preserves Push/non-B1 legacy timing carriers.
 - Marked earlier dated B-1 notes as superseded for ordinary-Flip and legacy-timing cleanup status while keeping them as historical evidence.
+- Archived the superseded hostile-impact checkpoint notes under [Docs/Archive/Testing](../Archive/Testing/README.md); those notes are provenance only and no longer define current B-1 status.
 
 ## Intentionally Kept
 - `EntityExitPresentationTiming.AtContactTime` and `GameplayPresentationTimingMode.AtContactTime`.
@@ -22,13 +23,13 @@
 - Push, sliding Push, non-hostile blocked Flip, non-B1 impact presentation, and global FlipImpact VFX/motion paths.
 
 ## Current Status
-- Ordinary Flip B-1 cleanup is complete for the B-1-specific legacy timing scope: current ordinary B-1 due facts use `DueContactImmediate` and do not rely on legacy `AtContactTime` or `FlipImpactSignals`.
+- Ordinary Flip B-1 cleanup is complete for the B-1-specific legacy timing scope: current ordinary B-1 due facts use `DueContactImmediate` and do not rely on legacy `AtContactTime`, `FlipImpactSignals`, or `ImpactReservation`.
 - Global legacy timing cleanup is not complete and was intentionally not attempted in this 8B pass because Push/non-B1 paths still consume those carriers.
 
 ## Validation
 | Command | Result | Failures |
 |---|---|---|
 | `git diff --check` | Passed | None |
-| `./run_tests.sh core` | Passed. Core EditMode `94 total / 0 failed`; Core PlayMode `11 total / 0 failed`. | None |
+| `./run_tests.sh core` | Passed. Core EditMode `94 total / 0 failed`; Core PlayMode `15 total / 0 failed`. | None |
 | `./run_tests.sh --integration-replay` | Passed. Unity integration-replay EditMode `150 total / 0 failed`. | None |
-| `./run_tests.sh --integration-simulation` | Red overall. Unity integration-simulation EditMode `735 total / 2 failed`. | `AttackPhaseScenarioTests.Attack_OnHit_DoesNotCreateSameTickNewIntent`; `AttackPhaseScenarioTests.Attack_OnHit_DoesNotReenterMovementPhase`. These are the known AttackPhase baseline failures and are not B-1-specific cleanup failures. |
+| `./run_tests.sh --integration-simulation` | Red overall. Unity integration-simulation EditMode `737 total / 2 failed`. | `AttackPhaseScenarioTests.Attack_OnHit_DoesNotCreateSameTickNewIntent`; `AttackPhaseScenarioTests.Attack_OnHit_DoesNotReenterMovementPhase`. These are the known AttackPhase baseline failures and are not B-1-specific cleanup failures. |

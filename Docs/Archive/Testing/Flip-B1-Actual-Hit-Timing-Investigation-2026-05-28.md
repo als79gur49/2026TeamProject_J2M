@@ -1,6 +1,6 @@
 # Flip B-1 Actual Hit Timing Investigation
 
-Post-8B note: this investigation remains historical evidence for hostile-impact timing. Current ordinary Flip B-1 and B-1-specific legacy timing cleanup status is tracked in [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](./Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md).
+Archive note: this investigation remains historical evidence for hostile-impact timing. Current ordinary Flip B-1 and B-1-specific legacy timing cleanup status is tracked in [Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md](../../Testing/Flip-B1-Legacy-Timing-Cleanup-8B-2026-05-29.md).
 
 ## Final Scope
 - Applies only to hostile impact Flip.

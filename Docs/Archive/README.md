@@ -19,3 +19,4 @@ archived 문서는 삭제 대상이 아니라 과거 설계/계획/구조 기록
 ## Contents
 
 - [Architecture](./Architecture)
+- [Testing](./Testing)
