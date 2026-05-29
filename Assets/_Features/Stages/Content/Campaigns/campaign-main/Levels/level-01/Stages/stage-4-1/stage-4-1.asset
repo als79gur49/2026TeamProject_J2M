@@ -1891,38 +1891,6 @@ MonoBehaviour:
     EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
     PresentationId: 
     UnitStackGroup: 
-  - EntityId: 342
-    Kind: 1
-    Cell:
-      face: 3
-      x: 4
-      y: 6
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: 
-    UnitStackGroup: 
-  - EntityId: 343
-    Kind: 1
-    Cell:
-      face: 3
-      x: 11
-      y: 6
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: 
-    UnitStackGroup: 
   - EntityId: 344
     Kind: 1
     Cell:
@@ -2908,39 +2876,6 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: destroy.bottom
-  - TileId: 54
-    Cell:
-      face: 3
-      x: 0
-      y: 1
-    Kind: 1
-    ActivationRule: 2
-    Direction: 2
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.right
-  - TileId: 55
-    Cell:
-      face: 3
-      x: 3
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 2
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.right
-  - TileId: 56
-    Cell:
-      face: 3
-      x: 4
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 2
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 57
     Cell:
       face: 3
@@ -3029,6 +2964,50 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: entrance.default
+  - TileId: 65
+    Cell:
+      face: 3
+      x: 2
+      y: 5
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 66
+    Cell:
+      face: 3
+      x: 0
+      y: 1
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 67
+    Cell:
+      face: 3
+      x: 3
+      y: 3
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 68
+    Cell:
+      face: 3
+      x: 4
+      y: 3
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: Reach the Exit
