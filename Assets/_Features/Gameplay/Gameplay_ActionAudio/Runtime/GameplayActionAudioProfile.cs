@@ -10,8 +10,30 @@ namespace Game.Feature.Gameplay.ActionAudio
     {
         public GameplayActionKind Action;
         public GameplayActionAudioMoment Moment;
+        [SerializeReference]
         public AudioBinding Binding;
         public bool IsOptional;
+    }
+
+    public enum GameplayActionAudioProfileDiagnosticSeverity
+    {
+        Error = 0,
+        Warning = 1,
+    }
+
+    public readonly struct GameplayActionAudioProfileDiagnostic
+    {
+        public GameplayActionAudioProfileDiagnostic(
+            GameplayActionAudioProfileDiagnosticSeverity severity,
+            string message)
+        {
+            Severity = severity;
+            Message = message;
+        }
+
+        public GameplayActionAudioProfileDiagnosticSeverity Severity { get; }
+
+        public string Message { get; }
     }
 
     [CreateAssetMenu(menuName = "Game/Audio/Gameplay Action Audio Profile")]
@@ -23,11 +45,43 @@ namespace Game.Feature.Gameplay.ActionAudio
 
         private void OnValidate()
         {
-            var validationErrors = CollectValidationErrors();
-            for (var i = 0; i < validationErrors.Count; i++)
+            var diagnostics = CollectDiagnostics();
+            for (var i = 0; i < diagnostics.Count; i++)
             {
-                UnityEngine.Debug.LogError(validationErrors[i], this);
+                if (diagnostics[i].Severity == GameplayActionAudioProfileDiagnosticSeverity.Error)
+                {
+                    UnityEngine.Debug.LogError(diagnostics[i].Message, this);
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning(diagnostics[i].Message, this);
+                }
             }
+        }
+
+        public bool ContainsEntry(
+            GameplayActionKind action,
+            GameplayActionAudioMoment moment)
+        {
+            var found = false;
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].Action != action ||
+                    entries[i].Moment != moment)
+                {
+                    continue;
+                }
+
+                if (found)
+                {
+                    throw new InvalidOperationException(
+                        $"{name} contains duplicate gameplay action audio entry '{action}/{moment}'.");
+                }
+
+                found = true;
+            }
+
+            return found;
         }
 
         public bool TryResolve(
@@ -78,9 +132,9 @@ namespace Game.Feature.Gameplay.ActionAudio
             }
         }
 
-        private List<string> CollectValidationErrors()
+        public IReadOnlyList<GameplayActionAudioProfileDiagnostic> CollectDiagnostics()
         {
-            var validationErrors = new List<string>();
+            var diagnostics = new List<GameplayActionAudioProfileDiagnostic>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
             for (var i = 0; i < entries.Length; i++)
             {
@@ -88,10 +142,19 @@ namespace Game.Feature.Gameplay.ActionAudio
                 var entryLabel = $"{entry.Action}/{entry.Moment}";
                 if (!seen.Add(entryLabel))
                 {
-                    validationErrors.Add(
-                        $"{name} contains duplicate gameplay action audio entry '{entryLabel}'.");
+                    diagnostics.Add(new GameplayActionAudioProfileDiagnostic(
+                        GameplayActionAudioProfileDiagnosticSeverity.Error,
+                        $"{name} contains duplicate gameplay action audio entry '{entryLabel}'."));
                 }
 
+                if (entry.Binding == null && entry.IsOptional)
+                {
+                    diagnostics.Add(new GameplayActionAudioProfileDiagnostic(
+                        GameplayActionAudioProfileDiagnosticSeverity.Warning,
+                        $"{name} optional entry '{entryLabel}' has no assigned AudioBinding."));
+                }
+
+                var validationErrors = new List<string>();
                 AudioBindingDiagnostics.AppendValidationErrors(
                     entry.Binding,
                     name,
@@ -101,6 +164,28 @@ namespace Game.Feature.Gameplay.ActionAudio
                         OneShotSfxCategories,
                         allowLoopingDefinitions: false,
                         allowNullBinding: entry.IsOptional));
+
+                for (var errorIndex = 0; errorIndex < validationErrors.Count; errorIndex++)
+                {
+                    diagnostics.Add(new GameplayActionAudioProfileDiagnostic(
+                        GameplayActionAudioProfileDiagnosticSeverity.Error,
+                        validationErrors[errorIndex]));
+                }
+            }
+
+            return diagnostics;
+        }
+
+        private List<string> CollectValidationErrors()
+        {
+            var validationErrors = new List<string>();
+            var diagnostics = CollectDiagnostics();
+            for (var i = 0; i < diagnostics.Count; i++)
+            {
+                if (diagnostics[i].Severity == GameplayActionAudioProfileDiagnosticSeverity.Error)
+                {
+                    validationErrors.Add(diagnostics[i].Message);
+                }
             }
 
             return validationErrors;

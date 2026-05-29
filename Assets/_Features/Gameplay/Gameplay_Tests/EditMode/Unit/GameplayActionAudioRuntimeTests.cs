@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayActionAudioRuntimeTests
     {
         private const string PlayerPrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
+        private const string PlayerActionAudioProfilePath =
+            "Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile_Test.asset";
 
         [Test]
         [Category("Extended")]
@@ -84,6 +86,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Recovery, out _),
                 Is.False);
+            Assert.That(
+                profileBundle.Profile.CollectDiagnostics()
+                    .Where(diagnostic => diagnostic.Severity == GameplayActionAudioProfileDiagnosticSeverity.Warning)
+                    .Select(diagnostic => diagnostic.Message)
+                    .ToArray(),
+                Is.EqualTo(new[]
+                {
+                    $"{profileBundle.Profile.name} optional entry 'Push/Recovery' has no assigned AudioBinding.",
+                }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayActionAudioProfile_ValidateOrThrow_RejectsBindingWithNullDefinition()
+        {
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    definitionSpec: null,
+                    isOptional: true,
+                    createBindingWithNullDefinition: true));
+
+            var exception = Assert.Throws<InvalidOperationException>(() => profileBundle.Profile.ValidateOrThrow());
+            Assert.That(exception.Message, Does.Contain("entry 'Push/Windup' is missing an AudioDefinition binding"));
         }
 
         [Test]
@@ -191,9 +218,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(authoring.Profile, Is.Not.Null);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Windup, out _), Is.True);
-            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Contact, out _), Is.True);
-            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Blocked, out _), Is.True);
-            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.ImpactEnemy, out _), Is.True);
+            AssertOptionalUnassignedCue(authoring.Profile, GameplayActionKind.Push, GameplayActionAudioMoment.Contact);
+            AssertOptionalUnassignedCue(authoring.Profile, GameplayActionKind.Push, GameplayActionAudioMoment.Blocked);
+            AssertOptionalUnassignedCue(authoring.Profile, GameplayActionKind.Push, GameplayActionAudioMoment.ImpactEnemy);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.AssistOutOfRange, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.NoTarget, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Invalid, out _), Is.True);
@@ -202,6 +229,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.AssistOutOfRange, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.NoTarget, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.Invalid, out _), Is.True);
+
+            Assert.That(AssetDatabase.GetAssetPath(authoring.Profile), Is.EqualTo(PlayerActionAudioProfilePath));
+            Assert.That(
+                authoring.Profile.CollectDiagnostics()
+                    .Where(diagnostic => diagnostic.Severity == GameplayActionAudioProfileDiagnosticSeverity.Warning)
+                    .Select(diagnostic => diagnostic.Message)
+                    .ToArray(),
+                Is.EquivalentTo(new[]
+                {
+                    $"{authoring.Profile.name} optional entry 'Push/Contact' has no assigned AudioBinding.",
+                    $"{authoring.Profile.name} optional entry 'Push/ImpactEnemy' has no assigned AudioBinding.",
+                    $"{authoring.Profile.name} optional entry 'Push/Blocked' has no assigned AudioBinding.",
+                }));
         }
 
         [Test]
@@ -392,6 +432,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         canceledThisTick: false)),
                     new[] { CreateUnit(10, UnitRole.Player) }));
 
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_OptionalUnassignedActionCue_IsRuntimeNoOp()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_OptionalUnassignedActionCue_IsRuntimeNoOp));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Contact,
+                    definitionSpec: null,
+                    isOptional: true));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { CreateUnit(10, UnitRole.Player) }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true)),
+                    new[] { CreateUnit(10, UnitRole.Player) }));
+
+                Assert.That(
+                    profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Contact, out _),
+                    Is.False);
                 Assert.That(playbackPort.AttachedCalls, Is.Empty);
                 Assert.That(playbackPort.TwoDCalls, Is.Empty);
             }
@@ -625,6 +707,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new DefinitionSpec(category, loop);
         }
 
+        private static void AssertOptionalUnassignedCue(
+            GameplayActionAudioProfile profile,
+            GameplayActionKind action,
+            GameplayActionAudioMoment moment)
+        {
+            Assert.That(profile.ContainsEntry(action, moment), Is.True);
+            Assert.That(profile.TryResolve(action, moment, out _), Is.False);
+        }
+
         private static ActionAudioProfileBundle CreateActionAudioProfile(params ActionAudioEntrySpec[] entrySpecs)
         {
             var profile = ScriptableObject.CreateInstance<GameplayActionAudioProfile>();
@@ -634,16 +725,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < entrySpecs.Length; i++)
             {
                 AudioBinding binding = null;
-                if (entrySpecs[i].DefinitionSpec.HasValue)
+                if (entrySpecs[i].DefinitionSpec.HasValue ||
+                    entrySpecs[i].CreateBindingWithNullDefinition)
                 {
-                    var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
-                    definition.name = $"{entrySpecs[i].Action}_{entrySpecs[i].Moment}";
-                    var clip = AudioClip.Create(definition.name, 4410, 1, 44100, false);
-                    trackedObjects.Add(clip);
-                    trackedObjects.Add(definition);
-                    SetSerializedField(typeof(SingleAudioDefinition), definition, "clip", clip);
-                    SetSerializedField(typeof(AudioDefinition), definition, "category", entrySpecs[i].DefinitionSpec.Value.Category);
-                    SetSerializedField(typeof(AudioDefinition), definition, "loop", entrySpecs[i].DefinitionSpec.Value.Loop);
+                    SingleAudioDefinition definition = null;
+                    if (entrySpecs[i].DefinitionSpec.HasValue)
+                    {
+                        definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+                        definition.name = $"{entrySpecs[i].Action}_{entrySpecs[i].Moment}";
+                        var clip = AudioClip.Create(definition.name, 4410, 1, 44100, false);
+                        trackedObjects.Add(clip);
+                        trackedObjects.Add(definition);
+                        SetSerializedField(typeof(SingleAudioDefinition), definition, "clip", clip);
+                        SetSerializedField(typeof(AudioDefinition), definition, "category", entrySpecs[i].DefinitionSpec.Value.Category);
+                        SetSerializedField(typeof(AudioDefinition), definition, "loop", entrySpecs[i].DefinitionSpec.Value.Loop);
+                    }
 
                     binding = new AudioBinding();
                     SetSerializedField(typeof(AudioBinding), binding, "definition", definition);
@@ -723,13 +819,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayActionAudioMoment moment,
                 DefinitionSpec? definitionSpec,
                 bool isOptional = false,
-                AudioAttachmentSlot attachmentSlot = default)
+                AudioAttachmentSlot attachmentSlot = default,
+                bool createBindingWithNullDefinition = false)
             {
                 Action = action;
                 Moment = moment;
                 DefinitionSpec = definitionSpec;
                 IsOptional = isOptional;
                 AttachmentSlot = attachmentSlot;
+                CreateBindingWithNullDefinition = createBindingWithNullDefinition;
             }
 
             public GameplayActionKind Action { get; }
@@ -741,6 +839,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public bool IsOptional { get; }
 
             public AudioAttachmentSlot AttachmentSlot { get; }
+
+            public bool CreateBindingWithNullDefinition { get; }
         }
 
         private sealed class ActionAudioProfileBundle : IDisposable
