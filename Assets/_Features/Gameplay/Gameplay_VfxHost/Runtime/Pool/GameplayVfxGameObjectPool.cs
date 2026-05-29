@@ -18,7 +18,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly Dictionary<GameplayVfxCueId, int> releaseToPoolCountByCue = new();
         private IVfxPrefabProvider prefabProvider;
         private int nextHandleId;
-        private float gameplayPauseStartedAtSeconds = -1f;
+        private VfxPresentationSuspendReason stickyRuntimeSuspendReasons;
 
         public GameplayVfxGameObjectPool(
             GameplayVfxRuntimeRoot root,
@@ -154,6 +154,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             instance.ActivateParameterizedMotion(prefabInstanceId, handle, root.OneShotRoot, motionCommand, cloneSourceProvider);
             handle.MarkSpawned();
             handle.MarkActive();
+            ApplyStickySuspendReasons(handle);
             activeHandles.Add(handle);
             activeParameterizedMotions[handle] = motionCommand;
             return handle;
@@ -203,7 +204,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void HardCleanupAll()
         {
-            gameplayPauseStartedAtSeconds = -1f;
+            stickyRuntimeSuspendReasons = VfxPresentationSuspendReason.None;
             foreach (var handle in activeHandles.ToArray())
             {
                 handle?.HardCleanup();
@@ -258,11 +259,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void SuspendActivePresentation(VfxPresentationSuspendReason reason)
         {
-            if (reason == VfxPresentationSuspendReason.GameplayPause &&
-                gameplayPauseStartedAtSeconds < 0f)
+            if (reason == VfxPresentationSuspendReason.None)
             {
-                gameplayPauseStartedAtSeconds = timeProvider.TimeSeconds;
+                return;
             }
+
+            stickyRuntimeSuspendReasons |= reason;
 
             foreach (var handle in activeHandles.ToArray())
             {
@@ -278,13 +280,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void ResumeActivePresentation(VfxPresentationSuspendReason reason)
         {
-            var gameplayPauseDurationSeconds = 0f;
-            if (reason == VfxPresentationSuspendReason.GameplayPause &&
-                gameplayPauseStartedAtSeconds >= 0f)
+            if (reason == VfxPresentationSuspendReason.None)
             {
-                gameplayPauseDurationSeconds = Mathf.Max(0f, timeProvider.TimeSeconds - gameplayPauseStartedAtSeconds);
-                gameplayPauseStartedAtSeconds = -1f;
+                return;
             }
+
+            stickyRuntimeSuspendReasons &= ~reason;
 
             foreach (var handle in activeHandles.ToArray())
             {
@@ -294,7 +295,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                handle.ShiftPresentationClock(gameplayPauseDurationSeconds);
+                if (reason == VfxPresentationSuspendReason.GameplayPause)
+                {
+                    handle.ShiftPresentationClock(handle.ConsumeGameplayPauseSuspendDurationSeconds());
+                }
+
                 handle.ResumePresentation(reason);
             }
         }
@@ -347,8 +352,31 @@ namespace Game.Feature.Gameplay.Vfx.Host
             instance.Activate(prefabInstanceId, handle, parent, command.Anchor);
             handle.MarkSpawned();
             handle.MarkActive();
+            ApplyStickySuspendReasons(handle);
             activeHandles.Add(handle);
             return handle;
+        }
+
+        private void ApplyStickySuspendReasons(GameplayVfxPlaybackHandle handle)
+        {
+            if (handle == null || stickyRuntimeSuspendReasons == VfxPresentationSuspendReason.None)
+            {
+                return;
+            }
+
+            ApplyStickySuspendReason(handle, VfxPresentationSuspendReason.Visibility);
+            ApplyStickySuspendReason(handle, VfxPresentationSuspendReason.TopologyTransition);
+            ApplyStickySuspendReason(handle, VfxPresentationSuspendReason.GameplayPause);
+        }
+
+        private void ApplyStickySuspendReason(
+            GameplayVfxPlaybackHandle handle,
+            VfxPresentationSuspendReason reason)
+        {
+            if ((stickyRuntimeSuspendReasons & reason) == reason)
+            {
+                handle.SuspendPresentation(reason);
+            }
         }
 
         private bool IsOverConcurrentLimit(VfxBindingRuntimePolicy policy)

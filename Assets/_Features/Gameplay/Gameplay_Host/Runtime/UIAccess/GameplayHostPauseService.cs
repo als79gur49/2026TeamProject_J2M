@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
     {
         private readonly GameplayInputHost _inputHost;
         private readonly GameplayTickViewPresenter _presenter;
+        private int _pauseDepth;
 
         public GameplayHostPauseService(GameplayInputHost inputHost, GameplayTickViewPresenter presenter = null)
         {
@@ -17,16 +18,19 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public event Action<bool> PauseChanged;
 
-        public bool IsPaused { get; private set; }
+        public bool IsPaused => _pauseDepth > 0;
+
+        internal int PauseDepth => _pauseDepth;
 
         public void Pause()
         {
-            if (IsPaused)
+            var wasPaused = IsPaused;
+            _pauseDepth++;
+            if (wasPaused)
             {
                 return;
             }
 
-            IsPaused = true;
             _inputHost.ClearPendingUiInput();
             _inputHost.SetSimulationPaused(true);
             _presenter?.SetPresentationPaused(true);
@@ -35,12 +39,19 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public void Resume()
         {
-            if (!IsPaused)
+            if (_pauseDepth <= 0)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"{nameof(GameplayHostPauseService)}.{nameof(Resume)} ignored because there is no active pause ownership.");
+                return;
+            }
+
+            _pauseDepth--;
+            if (_pauseDepth > 0)
             {
                 return;
             }
 
-            IsPaused = false;
             _presenter?.SetPresentationPaused(false);
             _inputHost.SetSimulationPaused(false);
             PauseChanged?.Invoke(false);

@@ -31,6 +31,7 @@ namespace Game.Feature.Gameplay.Host
         private ParticleSystem[] _childParticleSystems = Array.Empty<ParticleSystem>();
         private TrailRenderer[] _childTrailRenderers = Array.Empty<TrailRenderer>();
         private bool _isInactiveTarget;
+        private bool _isGameplayPresentationPaused;
         private bool _inactiveGateEnabled;
         private float _currentInactiveNoiseReveal;
         private float _targetInactiveNoiseReveal;
@@ -61,6 +62,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void Update()
         {
+            if (_isGameplayPresentationPaused)
+            {
+                return;
+            }
+
             AdvanceInactiveNoiseReveal(Time.deltaTime);
         }
 
@@ -106,8 +112,18 @@ namespace Game.Feature.Gameplay.Host
             WriteInactiveProperties();
         }
 
+        public void SetPresentationPaused(bool paused)
+        {
+            _isGameplayPresentationPaused = paused;
+        }
+
         public void AdvanceInactiveNoiseReveal(float deltaTime)
         {
+            if (_isGameplayPresentationPaused)
+            {
+                return;
+            }
+
             if (deltaTime < 0f)
             {
                 deltaTime = 0f;

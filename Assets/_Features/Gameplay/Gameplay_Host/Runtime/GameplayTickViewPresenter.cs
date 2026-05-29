@@ -186,6 +186,11 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachTileFeatureVisualPoseSynchronizer(synchronizer);
         }
 
+        internal void RegisterPresentationPauseRoot(GameObject root)
+        {
+            _presentationCoordinator.RegisterPresentationPauseRoot(root);
+        }
+
         public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.AttachPresentationExtension(extension);

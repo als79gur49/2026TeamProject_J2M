@@ -24,7 +24,8 @@ namespace Game.Feature.Gameplay.Host
         IExitOpenStateVisualTarget,
         IMoonBlockGeneratedVisualTarget,
         IMoonBlockGeneratorBlockedVisualTarget,
-        ITileFeatureVisualTargetConfigurator
+        ITileFeatureVisualTargetConfigurator,
+        IGameplayPresentationPausable
     {
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
@@ -121,6 +122,7 @@ namespace Game.Feature.Gameplay.Host
         private MoonBlockGeneratorBlockedPayload _debugLastMoonBlockGeneratorBlockedPayload;
         private MaterialPropertyBlock _destroyTileMaterialPropertyBlock;
         private bool _hasBarricadeActiveImmediateState;
+        private bool _isGameplayPresentationPaused;
         private bool _lastBarricadeActiveImmediateState;
 
         public int TileId => tileId;
@@ -222,7 +224,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (buttonActivatedParticles != null)
             {
-                buttonActivatedParticles.Play(withChildren: true);
+                PlayParticles(buttonActivatedParticles);
             }
 
             buttonActivatedPlayed?.Invoke();
@@ -241,7 +243,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (destroyTileTriggeredParticles != null)
             {
-                destroyTileTriggeredParticles.Play(withChildren: true);
+                PlayParticles(destroyTileTriggeredParticles);
             }
 
             destroyTileTriggeredPlayed?.Invoke();
@@ -286,7 +288,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (slideTileRedirectedParticles != null)
             {
-                slideTileRedirectedParticles.Play(withChildren: true);
+                PlayParticles(slideTileRedirectedParticles);
             }
 
             slideTileRedirectedPlayed?.Invoke();
@@ -308,7 +310,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (barricadeBlockedParticles != null)
             {
-                barricadeBlockedParticles.Play(withChildren: true);
+                PlayParticles(barricadeBlockedParticles);
             }
 
             barricadeBlockedPlayed?.Invoke();
@@ -328,7 +330,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (barricadeCrushedParticles != null)
             {
-                barricadeCrushedParticles.Play(withChildren: true);
+                PlayParticles(barricadeCrushedParticles);
             }
 
             barricadeCrushedPlayed?.Invoke();
@@ -374,7 +376,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (exitOpenedParticles != null)
             {
-                exitOpenedParticles.Play(withChildren: true);
+                PlayParticles(exitOpenedParticles);
             }
 
             exitOpenedPlayed?.Invoke();
@@ -400,7 +402,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (exitEnteredParticles != null)
             {
-                exitEnteredParticles.Play(withChildren: true);
+                PlayParticles(exitEnteredParticles);
             }
 
             exitEnteredPlayed?.Invoke();
@@ -420,7 +422,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (moonBlockGeneratedParticles != null)
             {
-                moonBlockGeneratedParticles.Play(withChildren: true);
+                PlayParticles(moonBlockGeneratedParticles);
             }
 
             moonBlockGeneratedPlayed?.Invoke();
@@ -440,7 +442,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (moonBlockGeneratorBlockedParticles != null)
             {
-                moonBlockGeneratorBlockedParticles.Play(withChildren: true);
+                PlayParticles(moonBlockGeneratorBlockedParticles);
             }
 
             moonBlockGeneratorBlockedPlayed?.Invoke();
@@ -489,10 +491,15 @@ namespace Game.Feature.Gameplay.Host
 
             if (particles != null)
             {
-                particles.Play(withChildren: true);
+                PlayParticles(particles);
             }
 
             played?.Invoke();
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            _isGameplayPresentationPaused = paused;
         }
 
         private void ApplyDestroyTileMaterialState(bool active)
@@ -591,6 +598,20 @@ namespace Game.Feature.Gameplay.Host
             if (HasAnimatorParameter(triggerName, AnimatorControllerParameterType.Trigger, out var hash))
             {
                 animator.SetTrigger(hash);
+            }
+        }
+
+        private void PlayParticles(ParticleSystem particles)
+        {
+            if (particles == null)
+            {
+                return;
+            }
+
+            particles.Play(withChildren: true);
+            if (_isGameplayPresentationPaused)
+            {
+                particles.Pause(withChildren: true);
             }
         }
 

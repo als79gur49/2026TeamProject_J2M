@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.Host
         private float _phaseDurationSeconds;
         private bool _pendingRecover;
         private float _pendingRecoverDurationSeconds;
+        private bool _isGameplayPresentationPaused;
         private bool _signalCountsInitialized;
         private int _lastWindupSignalCount;
         private int _lastAttackSignalCount;
@@ -67,15 +68,30 @@ namespace Game.Feature.Gameplay.Host
 
         private void Update()
         {
+            if (_isGameplayPresentationPaused)
+            {
+                return;
+            }
+
             Advance(Time.deltaTime);
         }
 
         internal void Advance(float deltaTime)
         {
+            if (_isGameplayPresentationPaused)
+            {
+                return;
+            }
+
             CacheDependencies();
             SyncDriverSignals();
             AdvancePhase(Mathf.Max(0f, deltaTime));
             ApplyCurrentBorder();
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            _isGameplayPresentationPaused = paused;
         }
 
         private void CacheDependencies()

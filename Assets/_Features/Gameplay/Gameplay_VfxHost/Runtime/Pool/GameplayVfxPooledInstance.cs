@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private GameObject sourceCloneObject;
         private GameplayVfxPlaybackHandle handle;
         private VfxRendererMaterialInstanceSet activeMaterialInstances;
+        private bool[] suspendedParticlePlaying;
         private bool[] suspendedRendererEnabled;
         private VfxPresentationSuspendReason presentationSuspendReasons;
         private bool usingSourceClone;
@@ -31,6 +32,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 prefabRendererEnabled[i] = prefabRenderers[i] != null && prefabRenderers[i].enabled;
             }
+
+            suspendedParticlePlaying = new bool[particleSystems.Length];
         }
 
         public GameObject GameObject { get; }
@@ -50,6 +53,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
             presentationSuspendReasons = VfxPresentationSuspendReason.None;
+            ClearSuspendedParticleSnapshot();
             RestorePrefabVisuals();
             Transform.SetParent(parent, worldPositionStays: false);
             Transform.localPosition = anchor.HasLocalPose ? anchor.LocalPosition : Vector3.zero;
@@ -75,6 +79,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             PrefabInstanceId = prefabInstanceId;
             handle = playbackHandle;
             presentationSuspendReasons = VfxPresentationSuspendReason.None;
+            ClearSuspendedParticleSnapshot();
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
             Transform.SetParent(parent, worldPositionStays: false);
@@ -204,6 +209,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             ClearParameterizedVisuals();
             RestorePrefabVisuals();
             presentationSuspendReasons = VfxPresentationSuspendReason.None;
+            ClearSuspendedParticleSnapshot();
             GameObject.SetActive(false);
             Transform.SetParent(poolRoot, worldPositionStays: false);
             Transform.localPosition = Vector3.zero;
@@ -286,7 +292,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             for (var i = 0; i < particleSystems.Length; i++)
             {
-                particleSystems[i]?.Pause(true);
+                var particleSystem = particleSystems[i];
+                if (particleSystem == null)
+                {
+                    if (i < suspendedParticlePlaying.Length)
+                    {
+                        suspendedParticlePlaying[i] = false;
+                    }
+
+                    continue;
+                }
+
+                if (i < suspendedParticlePlaying.Length)
+                {
+                    suspendedParticlePlaying[i] = particleSystem.isPlaying || particleSystem.isEmitting;
+                }
+
+                particleSystem.Pause(true);
             }
         }
 
@@ -294,8 +316,35 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             for (var i = 0; i < particleSystems.Length; i++)
             {
-                particleSystems[i]?.Play(true);
+                var particleSystem = particleSystems[i];
+                if (particleSystem == null)
+                {
+                    continue;
+                }
+
+                var wasPlaying = i < suspendedParticlePlaying.Length && suspendedParticlePlaying[i];
+                if (wasPlaying)
+                {
+                    particleSystem.Play(true);
+                    continue;
+                }
+
+                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             }
+
+            ClearSuspendedParticleSnapshot();
+        }
+
+        private void ClearSuspendedParticleSnapshot()
+        {
+            if (suspendedParticlePlaying == null ||
+                suspendedParticlePlaying.Length != particleSystems.Length)
+            {
+                suspendedParticlePlaying = new bool[particleSystems.Length];
+                return;
+            }
+
+            Array.Clear(suspendedParticlePlaying, 0, suspendedParticlePlaying.Length);
         }
 
         private static bool ShouldHideForSuspend(VfxPresentationSuspendReason reasons)

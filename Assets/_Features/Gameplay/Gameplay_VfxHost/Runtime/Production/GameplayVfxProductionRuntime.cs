@@ -1193,6 +1193,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 bindingResolver,
                 new VfxPersistentHandleRegistry(),
                 new VfxLifetimeRunner());
+            if (isPresentationPaused)
+            {
+                controller.SuspendPresentation(VfxPresentationSuspendReason.GameplayPause);
+                pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+            }
         }
 
         private void RebuildBindingRuntime()

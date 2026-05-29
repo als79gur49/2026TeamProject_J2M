@@ -59,6 +59,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationTrackState _trackState = new();
         private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
+        private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry = new();
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
@@ -339,6 +340,7 @@ namespace Game.Feature.Gameplay.Host
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
+            _presentationPauseRegistry.Clear();
             _summonedEnemyPresentationResolver.Initialize(
                 boardRoot != null ? boardRoot.EntityRoot : viewBinder.SearchRoot,
                 viewBinder.ViewRegistry,
@@ -438,6 +440,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            RegisterCommittedViewPauseTargets();
             _gravityFieldVisualPresentationController.RefreshContinuousStates(_currentGravityFieldVisualStates);
             if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
             {
@@ -566,6 +569,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            RegisterCommittedViewPauseTargets();
             _topologyTransitionController.CompleteInitialTopology(topology);
             _animationSync.ApplyInitialEnemyPresentation(
                 entities,
@@ -627,6 +631,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _isPresentationPaused = paused;
+            _presentationPauseRegistry.SetPresentationPaused(paused);
             SetPresentationPausedOnExtensions(paused);
         }
 
@@ -694,6 +699,16 @@ namespace Game.Feature.Gameplay.Host
         internal void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
         {
             _tileFeatureVisualPresentationController.AttachRegistry(registry);
+            if (registry is TileFeatureVisualRegistry concreteRegistry &&
+                concreteRegistry.SearchRoot != null)
+            {
+                RegisterPresentationPauseRoot(concreteRegistry.SearchRoot.gameObject);
+            }
+        }
+
+        internal void RegisterPresentationPauseRoot(GameObject root)
+        {
+            _presentationPauseRegistry.RegisterRoot(root);
         }
 
         internal void AttachTileFeatureVisualPoseSynchronizer(TileFeatureVisualPoseSynchronizer synchronizer)
@@ -1028,6 +1043,17 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.ResetSession();
+            }
+        }
+
+        private void RegisterCommittedViewPauseTargets()
+        {
+            foreach (var pair in _stateStore.ViewsByEntityId)
+            {
+                if (pair.Value != null)
+                {
+                    _presentationPauseRegistry.RegisterRoot(pair.Value.gameObject);
+                }
             }
         }
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
@@ -79,6 +80,340 @@ namespace Game.Feature.Gameplay.Host
     public interface IGameplayPresentationPausable
     {
         void SetPresentationPaused(bool paused);
+    }
+
+    internal sealed class GameplayPresentationPauseRegistry
+    {
+        private readonly List<IGameplayPresentationPausable> pausableTargets = new();
+        private readonly List<ReflectedPausableTarget> reflectedPausableTargets = new();
+        private readonly Dictionary<Animator, AnimatorPauseState> animatorStates = new();
+        private readonly Dictionary<ParticleSystem, ParticlePauseState> particleStates = new();
+
+        public bool IsPaused { get; private set; }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            if (IsPaused == paused)
+            {
+                return;
+            }
+
+            IsPaused = paused;
+            ApplyPauseStateToRegisteredTargets(paused);
+        }
+
+        public void RegisterRoot(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is IGameplayPresentationPausable pausable)
+                {
+                    Register(pausable);
+                }
+                else if (ReflectedPausableTarget.TryCreate(behaviours[i], out var reflectedTarget))
+                {
+                    Register(reflectedTarget);
+                }
+            }
+
+            var animators = root.GetComponentsInChildren<Animator>(includeInactive: true);
+            for (var i = 0; i < animators.Length; i++)
+            {
+                Register(animators[i]);
+            }
+
+            var particleSystems = root.GetComponentsInChildren<ParticleSystem>(includeInactive: true);
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                Register(particleSystems[i]);
+            }
+        }
+
+        public void Clear()
+        {
+            pausableTargets.Clear();
+            reflectedPausableTargets.Clear();
+            animatorStates.Clear();
+            particleStates.Clear();
+            IsPaused = false;
+        }
+
+        private void Register(IGameplayPresentationPausable target)
+        {
+            if (target == null || pausableTargets.Contains(target))
+            {
+                return;
+            }
+
+            pausableTargets.Add(target);
+            if (IsPaused)
+            {
+                target.SetPresentationPaused(true);
+            }
+        }
+
+        private void Register(ReflectedPausableTarget target)
+        {
+            if (target.Behaviour == null ||
+                reflectedPausableTargets.Exists(existing => existing.Behaviour == target.Behaviour))
+            {
+                return;
+            }
+
+            reflectedPausableTargets.Add(target);
+            if (IsPaused)
+            {
+                target.SetPresentationPaused(true);
+            }
+        }
+
+        private void Register(Animator animator)
+        {
+            if (animator == null || animatorStates.ContainsKey(animator))
+            {
+                return;
+            }
+
+            animatorStates.Add(animator, default);
+            if (IsPaused)
+            {
+                PauseAnimator(animator);
+            }
+        }
+
+        private void Register(ParticleSystem particleSystem)
+        {
+            if (particleSystem == null || particleStates.ContainsKey(particleSystem))
+            {
+                return;
+            }
+
+            particleStates.Add(particleSystem, default);
+            if (IsPaused)
+            {
+                PauseParticles(particleSystem);
+            }
+        }
+
+        private void ApplyPauseStateToRegisteredTargets(bool paused)
+        {
+            RemoveDestroyedTargets();
+
+            for (var i = 0; i < pausableTargets.Count; i++)
+            {
+                pausableTargets[i]?.SetPresentationPaused(paused);
+            }
+
+            for (var i = 0; i < reflectedPausableTargets.Count; i++)
+            {
+                reflectedPausableTargets[i].SetPresentationPaused(paused);
+            }
+
+            foreach (var animator in new List<Animator>(animatorStates.Keys))
+            {
+                if (paused)
+                {
+                    PauseAnimator(animator);
+                }
+                else
+                {
+                    ResumeAnimator(animator);
+                }
+            }
+
+            foreach (var particleSystem in new List<ParticleSystem>(particleStates.Keys))
+            {
+                if (paused)
+                {
+                    PauseParticles(particleSystem);
+                }
+                else
+                {
+                    ResumeParticles(particleSystem);
+                }
+            }
+        }
+
+        private void PauseAnimator(Animator animator)
+        {
+            if (animator == null)
+            {
+                animatorStates.Remove(animator);
+                return;
+            }
+
+            var state = animatorStates[animator];
+            if (state.IsPaused)
+            {
+                return;
+            }
+
+            animatorStates[animator] = new AnimatorPauseState(animator.speed, isPaused: true);
+            animator.speed = 0f;
+        }
+
+        private void ResumeAnimator(Animator animator)
+        {
+            if (animator == null)
+            {
+                animatorStates.Remove(animator);
+                return;
+            }
+
+            var state = animatorStates[animator];
+            if (!state.IsPaused)
+            {
+                return;
+            }
+
+            animator.speed = state.SpeedBeforePause;
+            animatorStates[animator] = default;
+        }
+
+        private void PauseParticles(ParticleSystem particleSystem)
+        {
+            if (particleSystem == null)
+            {
+                particleStates.Remove(particleSystem);
+                return;
+            }
+
+            var state = particleStates[particleSystem];
+            if (state.IsPaused)
+            {
+                return;
+            }
+
+            particleStates[particleSystem] = new ParticlePauseState(
+                particleSystem.isPlaying || particleSystem.isEmitting,
+                isPaused: true);
+            particleSystem.Pause(withChildren: true);
+        }
+
+        private void ResumeParticles(ParticleSystem particleSystem)
+        {
+            if (particleSystem == null)
+            {
+                particleStates.Remove(particleSystem);
+                return;
+            }
+
+            var state = particleStates[particleSystem];
+            if (!state.IsPaused)
+            {
+                return;
+            }
+
+            if (state.WasPlayingBeforePause)
+            {
+                particleSystem.Play(withChildren: true);
+            }
+            else
+            {
+                particleSystem.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+
+            particleStates[particleSystem] = default;
+        }
+
+        private void RemoveDestroyedTargets()
+        {
+            pausableTargets.RemoveAll(target => target == null || target is Object unityObject && unityObject == null);
+            reflectedPausableTargets.RemoveAll(target => target.Behaviour == null);
+
+            foreach (var animator in new List<Animator>(animatorStates.Keys))
+            {
+                if (animator == null)
+                {
+                    animatorStates.Remove(animator);
+                }
+            }
+
+            foreach (var particleSystem in new List<ParticleSystem>(particleStates.Keys))
+            {
+                if (particleSystem == null)
+                {
+                    particleStates.Remove(particleSystem);
+                }
+            }
+        }
+
+        private readonly struct AnimatorPauseState
+        {
+            public AnimatorPauseState(float speedBeforePause, bool isPaused)
+            {
+                SpeedBeforePause = speedBeforePause;
+                IsPaused = isPaused;
+            }
+
+            public float SpeedBeforePause { get; }
+
+            public bool IsPaused { get; }
+        }
+
+        private readonly struct ParticlePauseState
+        {
+            public ParticlePauseState(bool wasPlayingBeforePause, bool isPaused)
+            {
+                WasPlayingBeforePause = wasPlayingBeforePause;
+                IsPaused = isPaused;
+            }
+
+            public bool WasPlayingBeforePause { get; }
+
+            public bool IsPaused { get; }
+        }
+
+        private readonly struct ReflectedPausableTarget
+        {
+            private const string SetPresentationPausedMethodName = "SetPresentationPaused";
+            private readonly MethodInfo method;
+
+            private ReflectedPausableTarget(MonoBehaviour behaviour, MethodInfo method)
+            {
+                Behaviour = behaviour;
+                this.method = method;
+            }
+
+            public MonoBehaviour Behaviour { get; }
+
+            public static bool TryCreate(MonoBehaviour behaviour, out ReflectedPausableTarget target)
+            {
+                target = default;
+                if (behaviour == null)
+                {
+                    return false;
+                }
+
+                var method = behaviour.GetType().GetMethod(
+                    SetPresentationPausedMethodName,
+                    BindingFlags.Instance | BindingFlags.Public,
+                    binder: null,
+                    types: new[] { typeof(bool) },
+                    modifiers: null);
+                if (method == null)
+                {
+                    return false;
+                }
+
+                target = new ReflectedPausableTarget(behaviour, method);
+                return true;
+            }
+
+            public void SetPresentationPaused(bool paused)
+            {
+                if (Behaviour != null)
+                {
+                    method.Invoke(Behaviour, new object[] { paused });
+                }
+            }
+        }
     }
 
     public readonly struct GameplayInitialPresentationExtensionContext

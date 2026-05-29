@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly IGameplayVfxTimeProvider timeProvider;
         private VfxLifetimeState state;
         private VfxPresentationSuspendReason suspendReasons;
+        private float gameplayPauseSuspendedAtSeconds = -1f;
 
         public int HandleId { get; }
 
@@ -65,6 +66,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             state == VfxLifetimeState.HardCleanup;
 
         public bool IsPresentationSuspended => State == VfxLifetimeState.PresentationSuspended;
+
+        internal VfxPresentationSuspendReason SuspendReasons => suspendReasons;
 
         public void MarkSpawned()
         {
@@ -110,6 +113,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             Instance?.StopEmitting();
             suspendReasons = VfxPresentationSuspendReason.None;
+            gameplayPauseSuspendedAtSeconds = -1f;
             state = VfxLifetimeState.StopEmitting;
         }
 
@@ -122,6 +126,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             Instance?.StopEmittingAndClear();
             suspendReasons = VfxPresentationSuspendReason.None;
+            gameplayPauseSuspendedAtSeconds = -1f;
             state = VfxLifetimeState.ReleasedToPool;
         }
 
@@ -134,6 +139,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             Instance?.DetachToTailRoot();
             suspendReasons = VfxPresentationSuspendReason.None;
+            gameplayPauseSuspendedAtSeconds = -1f;
             state = VfxLifetimeState.Detached;
         }
 
@@ -171,6 +177,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            if (reason == VfxPresentationSuspendReason.GameplayPause &&
+                gameplayPauseSuspendedAtSeconds < 0f)
+            {
+                gameplayPauseSuspendedAtSeconds = timeProvider?.TimeSeconds ?? 0f;
+            }
+
             suspendReasons |= reason;
             Instance?.SuspendPresentation(reason);
         }
@@ -190,6 +202,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             suspendReasons &= ~reason;
+            if (reason == VfxPresentationSuspendReason.GameplayPause)
+            {
+                gameplayPauseSuspendedAtSeconds = -1f;
+            }
+
             Instance?.ResumePresentation(reason);
             if (suspendReasons == VfxPresentationSuspendReason.None)
             {
@@ -205,6 +222,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             suspendReasons = VfxPresentationSuspendReason.None;
+            gameplayPauseSuspendedAtSeconds = -1f;
             state = VfxLifetimeState.TailPlaying;
             TailStartedAtSeconds = nowSeconds;
             HasTailStarted = true;
@@ -213,12 +231,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void ReleaseToPool()
         {
             suspendReasons = VfxPresentationSuspendReason.None;
+            gameplayPauseSuspendedAtSeconds = -1f;
             state = VfxLifetimeState.ReleasedToPool;
         }
 
         public void HardCleanup()
         {
             suspendReasons = VfxPresentationSuspendReason.None;
+            gameplayPauseSuspendedAtSeconds = -1f;
             state = VfxLifetimeState.HardCleanup;
             Instance?.HardCleanup();
             DetachInstance();
@@ -241,6 +261,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 TailStartedAtSeconds += deltaSeconds;
             }
+        }
+
+        internal float ConsumeGameplayPauseSuspendDurationSeconds()
+        {
+            if (gameplayPauseSuspendedAtSeconds < 0f)
+            {
+                return 0f;
+            }
+
+            var durationSeconds = Mathf.Max(0f, (timeProvider?.TimeSeconds ?? 0f) - gameplayPauseSuspendedAtSeconds);
+            gameplayPauseSuspendedAtSeconds = -1f;
+            return durationSeconds;
         }
 
         private static bool CanShowAsPresentationSuspended(VfxLifetimeState value)
