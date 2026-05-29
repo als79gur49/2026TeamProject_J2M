@@ -495,6 +495,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayActionAudio_ImpactEnemy_RespectsTopologyAudioGate()
+        {
+            var rootObject = new GameObject(nameof(GameplayActionAudio_ImpactEnemy_RespectsTopologyAudioGate));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.ImpactEnemy,
+                    CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var player = CreateUnit(10, UnitRole.Player, new SurfaceCell(FaceId.Front, 0, 0));
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player }, sourceTopology);
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(
+                                entityId: player.entityId,
+                                activeActionKind: PlayerActionKind.Push,
+                                activeActionSequence: 1,
+                                startedThisTick: false,
+                                completedThisTick: false,
+                                canceledThisTick: false,
+                                executedThisTick: true,
+                                resolutionKind: TickPlayerActionResolutionKind.Impact),
+                        },
+                        Array.Empty<TickEnemyDamagePresentationSignal>(),
+                        new TickTopologyMotion(
+                            sourceTopology,
+                            destinationTopology,
+                            CubeRotationKind.Forward)),
+                    new[] { player },
+                    destinationTopology));
+
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+
+                presenter.UpdatePresentation(0.2f);
+
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Action:Push:ImpactEnemy" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayActionAudioPresentationController_RemainsOneShotOnly_WithoutPlaybackHandles()
         {
@@ -541,7 +600,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickResult CreateTickResult(
             TickPresentationData presentationData,
-            IReadOnlyList<EntityState> finalEntities = null)
+            IReadOnlyList<EntityState> finalEntities = null,
+            CubeTopologyState? finalTopology = null)
         {
             return new TickResult(
                 1,
@@ -551,7 +611,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AttackPhaseResult.Empty,
                 finalEntities ?? Array.Empty<EntityState>(),
                 Array.Empty<string>(),
-                new CubeTopologyState(FaceId.Floor),
+                finalTopology ?? new CubeTopologyState(FaceId.Floor),
                 presentationData,
                 string.Empty,
                 TickTrace.Empty,
@@ -585,11 +645,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickPresentationData CreatePresentationData(
             TickPlayerActionPresentationSignal[] playerActionSignals,
-            TickEnemyDamagePresentationSignal[] enemyDamageSignals)
+            TickEnemyDamagePresentationSignal[] enemyDamageSignals,
+            TickTopologyMotion? topologyMotion = null)
         {
             return new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
-                topologyMotion: null,
+                topologyMotion,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 playerActionSignals ?? Array.Empty<TickPlayerActionPresentationSignal>(),
@@ -601,12 +662,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEntityExitPresentationSignal>());
         }
 
-        private static EntityState CreateUnit(int entityId, UnitRole unitRole)
+        private static EntityState CreateUnit(
+            int entityId,
+            UnitRole unitRole,
+            SurfaceCell? cell = null)
         {
             return new EntityState
             {
                 entityId = entityId,
-                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                position = cell ?? new SurfaceCell(FaceId.Floor, 0, 0),
                 hp = 1,
                 maxHp = 1,
                 teamId = unitRole == UnitRole.Player ? 1 : 2,

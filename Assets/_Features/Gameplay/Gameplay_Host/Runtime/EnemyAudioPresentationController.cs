@@ -7,11 +7,17 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class EnemyAudioPresentationController
     {
+        private const int EnemyAudioLaneId = 2;
+
         private readonly EnemyMoveCadenceGate _moveCadenceGate = new();
         private readonly EnemyStationaryActiveCadenceGate _stationaryActiveCadenceGate = new();
         private readonly List<ScheduledEnemyAudioRequest> _pendingRequests = new();
+        private readonly List<ScheduledEnemyAudioRequest> _deferredRequests = new();
+        private readonly HashSet<GameplayAudioPlaybackRequestKey> _deferredKeys = new();
+        private readonly HashSet<GameplayAudioPlaybackRequestKey> _playedDeferredKeys = new();
         private readonly GameplayPresentationStateStore _stateStore;
 
+        private GameplayAudioPlaybackGateState _gateState = GameplayAudioPlaybackGateState.Open;
         private IGameplayAudioPlaybackPort _playbackPort;
 
         public EnemyAudioPresentationController(GameplayPresentationStateStore stateStore)
@@ -20,6 +26,8 @@ namespace Game.Feature.Gameplay.Host
         }
 
         internal int PendingRequestCount => _pendingRequests.Count;
+
+        internal int DeferredRequestCount => _deferredRequests.Count;
 
         public void ConfigureMoveCadence(int simulationTicksPerSecond)
         {
@@ -52,6 +60,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void ReplacePendingPlan(IReadOnlyList<EnemyAudioRequest> plannedRequests)
         {
+            ReplacePendingPlan(plannedRequests, tickIndex: 0);
+        }
+
+        public void ReplacePendingPlan(IReadOnlyList<EnemyAudioRequest> plannedRequests, int tickIndex)
+        {
             if (plannedRequests == null)
             {
                 throw new ArgumentNullException(nameof(plannedRequests));
@@ -61,8 +74,16 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < plannedRequests.Count; i++)
             {
                 var request = plannedRequests[i];
-                _pendingRequests.Add(new ScheduledEnemyAudioRequest(request, request.DelaySeconds));
+                _pendingRequests.Add(new ScheduledEnemyAudioRequest(
+                    request,
+                    request.DelaySeconds,
+                    CreateRequestKey(request, tickIndex, i)));
             }
+        }
+
+        public void SetPlaybackGateState(GameplayAudioPlaybackGateState gateState)
+        {
+            _gateState = gateState;
         }
 
         public void PlayPlannedAudio(int tickIndex)
@@ -88,17 +109,34 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (!_gateState.IsBlocked)
+            {
+                DrainDeferredRequests(tickIndex);
+            }
+
             var retainedCount = 0;
             for (var i = 0; i < _pendingRequests.Count; i++)
             {
-                var scheduled = _pendingRequests[i].Advance(deltaTime);
+                var pending = _pendingRequests[i];
+                var scheduled = ShouldFreezeTimer(pending.Request)
+                    ? pending
+                    : pending.Advance(deltaTime);
                 if (scheduled.RemainingSeconds > 0f)
                 {
                     _pendingRequests[retainedCount++] = scheduled;
                     continue;
                 }
 
-                PlayRequest(scheduled.Request, tickIndex);
+                if (ShouldDefer(scheduled.Request))
+                {
+                    DeferRequest(scheduled);
+                    continue;
+                }
+
+                if (!ShouldSuppress(scheduled.Request))
+                {
+                    PlayRequest(scheduled.Request, tickIndex);
+                }
             }
 
             if (retainedCount < _pendingRequests.Count)
@@ -110,6 +148,9 @@ namespace Game.Feature.Gameplay.Host
         public void ClearPendingPlan()
         {
             _pendingRequests.Clear();
+            _deferredRequests.Clear();
+            _deferredKeys.Clear();
+            _playedDeferredKeys.Clear();
         }
 
         private void RemoveImmediatePendingRequests()
@@ -164,6 +205,92 @@ namespace Game.Feature.Gameplay.Host
             _playbackPort.Play2D(binding.Definition, request.Context);
         }
 
+        private void DrainDeferredRequests(int tickIndex)
+        {
+            if (_deferredRequests.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _deferredRequests.Count; i++)
+            {
+                var scheduled = _deferredRequests[i];
+                if (ShouldSuppress(scheduled.Request))
+                {
+                    _playedDeferredKeys.Add(scheduled.Key);
+                    continue;
+                }
+
+                PlayRequest(scheduled.Request, tickIndex);
+                _playedDeferredKeys.Add(scheduled.Key);
+            }
+
+            _deferredRequests.Clear();
+            _deferredKeys.Clear();
+        }
+
+        private void DeferRequest(in ScheduledEnemyAudioRequest scheduled)
+        {
+            if (_deferredKeys.Contains(scheduled.Key) ||
+                _playedDeferredKeys.Contains(scheduled.Key))
+            {
+                return;
+            }
+
+            _deferredRequests.Add(scheduled);
+            _deferredKeys.Add(scheduled.Key);
+        }
+
+        private bool ShouldFreezeTimer(in EnemyAudioRequest request)
+        {
+            return _gateState.IsBlocked &&
+                   IsTopologyLockSensitive(request.Cue);
+        }
+
+        private bool ShouldDefer(in EnemyAudioRequest request)
+        {
+            return EvaluatePlaybackPolicy(request) == GameplayAudioPlaybackDecision.DeferUntilUnlock;
+        }
+
+        private bool ShouldSuppress(in EnemyAudioRequest request)
+        {
+            return EvaluatePlaybackPolicy(request) == GameplayAudioPlaybackDecision.Suppress;
+        }
+
+        private GameplayAudioPlaybackDecision EvaluatePlaybackPolicy(in EnemyAudioRequest request)
+        {
+            if (!_gateState.IsBlocked)
+            {
+                return GameplayAudioPlaybackDecision.PlayNow;
+            }
+
+            if (_gateState.Reason == GameplayAudioPlaybackBlockReason.TopologyPresentationLock &&
+                IsTopologyLockSensitive(request.Cue))
+            {
+                return GameplayAudioPlaybackDecision.DeferUntilUnlock;
+            }
+
+            return GameplayAudioPlaybackDecision.PlayNow;
+        }
+
+        private static bool IsTopologyLockSensitive(EnemyAudioCue cue)
+        {
+            return cue == EnemyAudioCue.ProjectileImpact;
+        }
+
+        private static GameplayAudioPlaybackRequestKey CreateRequestKey(
+            in EnemyAudioRequest request,
+            int tickIndex,
+            int orderIndex)
+        {
+            return new GameplayAudioPlaybackRequestKey(
+                EnemyAudioLaneId,
+                tickIndex,
+                (int)request.Cue,
+                request.OwnerEntityId,
+                orderIndex);
+        }
+
         private bool TryResolveLiveOwner(int ownerEntityId, out GameplayEntityView ownerView)
         {
             ownerView = null;
@@ -207,19 +334,28 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly struct ScheduledEnemyAudioRequest
         {
-            public ScheduledEnemyAudioRequest(EnemyAudioRequest request, float remainingSeconds)
+            public ScheduledEnemyAudioRequest(
+                EnemyAudioRequest request,
+                float remainingSeconds,
+                GameplayAudioPlaybackRequestKey key)
             {
                 Request = request;
                 RemainingSeconds = Math.Max(0f, remainingSeconds);
+                Key = key;
             }
 
             public EnemyAudioRequest Request { get; }
 
             public float RemainingSeconds { get; }
 
+            public GameplayAudioPlaybackRequestKey Key { get; }
+
             public ScheduledEnemyAudioRequest Advance(float deltaTime)
             {
-                return new ScheduledEnemyAudioRequest(Request, RemainingSeconds - Math.Max(0f, deltaTime));
+                return new ScheduledEnemyAudioRequest(
+                    Request,
+                    RemainingSeconds - Math.Max(0f, deltaTime),
+                    Key);
             }
         }
     }

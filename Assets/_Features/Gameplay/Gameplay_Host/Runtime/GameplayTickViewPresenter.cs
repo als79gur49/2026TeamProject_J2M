@@ -230,6 +230,8 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
 
+        internal int DeferredGameplayAudioRequestCount => _presentationCoordinator.DeferredGameplayAudioRequestCount;
+
         internal int PendingMoonBlockEmergenceRequestCount =>
             _presentationCoordinator.PendingMoonBlockEmergenceRequestCount;
 

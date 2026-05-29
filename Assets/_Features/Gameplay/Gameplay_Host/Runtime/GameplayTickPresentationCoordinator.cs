@@ -183,6 +183,11 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
 
+        internal int DeferredGameplayAudioRequestCount =>
+            _audioPresentationController.DeferredRequestCount +
+            _actionAudioPresentationController.DeferredRequestCount +
+            _enemyAudioPresentationController.DeferredRequestCount;
+
         internal int PendingMoonBlockEmergenceRequestCount =>
             _moonBlockEmergencePresentationController.PendingRequestCount;
 
@@ -323,6 +328,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
             _enemyAudioPresentationController.ResetSession();
+            SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState.Open);
             _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
@@ -474,6 +480,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.RefreshBoardSurfaceTransition(
                 result.PresentationData,
                 _stateStore.CommittedTopology);
+            RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
                 _topologyAudioRequestPlanner.BuildRequests(result));
             _planner.RefreshTracks(
@@ -500,7 +507,7 @@ namespace Game.Feature.Gameplay.Host
             try
             {
                 _audioPresentationController.PlayPlannedAudio();
-                _actionAudioPresentationController.PlayPlannedAudio();
+                _actionAudioPresentationController.PlayPlannedAudio(result.TickIndex);
                 _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
                 _blockAudioPresentationController.PlayPlannedAudio();
                 _playerLocomotionAudioPresentationController.PlayPlannedAudio();
@@ -538,6 +545,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
             _enemyAudioPresentationController.ResetSession();
+            SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState.Open);
             _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
@@ -601,8 +609,14 @@ namespace Game.Feature.Gameplay.Host
 
             var hadActiveBoardRotationTween = _topologyTransitionController.HasActiveBoardRotationTween;
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
-            _audioPresentationController.Update(deltaTime);
-            _enemyAudioPresentationController.Update(_lastPresentedTickIndex, deltaTime);
+            RefreshGameplayAudioPlaybackGate();
+            var gameplayAudioDeltaTime =
+                hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween
+                    ? 0f
+                    : deltaTime;
+            _audioPresentationController.Update(gameplayAudioDeltaTime);
+            _actionAudioPresentationController.Update();
+            _enemyAudioPresentationController.Update(_lastPresentedTickIndex, gameplayAudioDeltaTime);
             _blockAudioPresentationController.Update(deltaTime);
             _playerLocomotionAudioPresentationController.Update(deltaTime);
             _tileFeatureAudioPresentationController.Update(deltaTime);
@@ -789,9 +803,26 @@ namespace Game.Feature.Gameplay.Host
                 gameplayAudioRequests,
                 enemyAudioRequests);
 
-            _audioPresentationController.ReplacePendingPlan(filteredGameplayAudioRequests);
-            _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
-            _enemyAudioPresentationController.ReplacePendingPlan(enemyAudioRequests);
+            _audioPresentationController.ReplacePendingPlan(filteredGameplayAudioRequests, result.TickIndex);
+            _actionAudioPresentationController.ReplacePendingPlan(
+                _actionAudioRequestPlanner.BuildRequests(result),
+                result.TickIndex);
+            _enemyAudioPresentationController.ReplacePendingPlan(enemyAudioRequests, result.TickIndex);
+        }
+
+        private void RefreshGameplayAudioPlaybackGate()
+        {
+            SetGameplayAudioPlaybackGate(
+                _topologyTransitionController.HasActiveBoardRotationTween
+                    ? GameplayAudioPlaybackGateState.TopologyLocked
+                    : GameplayAudioPlaybackGateState.Open);
+        }
+
+        private void SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState gateState)
+        {
+            _audioPresentationController.SetPlaybackGateState(gateState);
+            _actionAudioPresentationController.SetPlaybackGateState(gateState);
+            _enemyAudioPresentationController.SetPlaybackGateState(gateState);
         }
 
         private IReadOnlyList<GameplayAudioRequest> SuppressLethalEnemyDamageRequests(

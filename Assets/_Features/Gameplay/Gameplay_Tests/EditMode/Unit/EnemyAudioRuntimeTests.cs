@@ -1961,6 +1961,125 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TopologyTransition_AndProjectileImpactAudioInSamePresent_IsDeferredUntilTransitionCompletes()
+        {
+            var rootObject = new GameObject(nameof(TopologyTransition_AndProjectileImpactAudioInSamePresent_IsDeferredUntilTransitionCompletes));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.ProjectileImpact, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var player = CreateUnit(10, UnitRole.Player, targetCell);
+                var enemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Front, 0, 0));
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player, enemy }, sourceTopology);
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        topologyMotion: new TickTopologyMotion(
+                            sourceTopology,
+                            destinationTopology,
+                            CubeRotationKind.Forward),
+                        forwardCellImpactSignals: new[]
+                        {
+                            CreateForwardCellImpactSignal(
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
+                                targetCell: targetCell,
+                                hit: true,
+                                targetEntityId: player.entityId),
+                        },
+                        playerDamageSignals: new[]
+                        {
+                            new TickPlayerDamagePresentationSignal(
+                                player.entityId,
+                                tookDamageThisTick: true,
+                                damageAmount: 1),
+                        }),
+                    finalEntities: new[] { player, enemy },
+                    finalTopology: destinationTopology));
+
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(presenter.DeferredGameplayAudioRequestCount, Is.EqualTo(2));
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+
+                presenter.UpdatePresentation(0.05f);
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+
+                presenter.UpdatePresentation(0.2f);
+
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(presenter.DeferredGameplayAudioRequestCount, Is.Zero);
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "PlayerDamage", "ProjectileImpact" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyTransition_ProjectileImpactAudioDeferred_DoesNotDuplicateOnRepeatedPresentationUpdate()
+        {
+            var rootObject = new GameObject(nameof(TopologyTransition_ProjectileImpactAudioDeferred_DoesNotDuplicateOnRepeatedPresentationUpdate));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.ProjectileImpact, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var enemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Front, 0, 0));
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, sourceTopology);
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(
+                        topologyMotion: new TickTopologyMotion(
+                            sourceTopology,
+                            destinationTopology,
+                            CubeRotationKind.Forward),
+                        forwardCellImpactSignals: new[]
+                        {
+                            CreateForwardCellImpactSignal(
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
+                                targetCell: targetCell,
+                                hit: true,
+                                targetEntityId: 10),
+                        }),
+                    finalEntities: new[] { enemy },
+                    finalTopology: destinationTopology));
+
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+
+                presenter.UpdatePresentation(0.2f);
+                presenter.UpdatePresentation(0.2f);
+
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "ProjectileImpact" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void BlackEyeProjectile_PlayerHit_FinalPlaybackDoesNotContainBlackEyeActiveWhenActiveIsImpactDerived()
         {
             var rootObject = new GameObject(nameof(BlackEyeProjectile_PlayerHit_FinalPlaybackDoesNotContainBlackEyeActiveWhenActiveIsImpactDerived));
@@ -2304,11 +2423,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
             IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
             IReadOnlyList<TickEnemyDamagePresentationSignal> enemyDamageSignals = null,
-            IReadOnlyList<TickPlayerDamagePresentationSignal> playerDamageSignals = null)
+            IReadOnlyList<TickPlayerDamagePresentationSignal> playerDamageSignals = null,
+            TickTopologyMotion? topologyMotion = null)
         {
             return new TickPresentationData(
                 entityMotions ?? Array.Empty<TickEntityMotion>(),
-                topologyMotion: null,
+                topologyMotion,
                 visibilityChanges ?? Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),
