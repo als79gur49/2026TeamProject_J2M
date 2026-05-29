@@ -851,6 +851,303 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentWallExactMaxContact_AllowsTransition()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
+
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var footprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, sourceCell),
+                    CreateWall(20, footprintNeighbor),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(exactMaxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, exactMaxContactX);
+            AssertNoTargetFootprintOrTileFeatureReject(result);
+            Assert.That(snapshot.TryGetSolidOccupantAt(snapshot.Topology, footprintNeighbor, out var wall), Is.True);
+            Assert.That(wall.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentWallOneInsideMaxContact_AllowsTransition()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var oneInsideX = KinematicFixed.HalfCellUnits - radius - 1;
+            AssertBottomToFrontBoundaryRemap(oneInsideX, radius, BoundaryRadiusSpeedUnitsPerTick());
+
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetBoundaryFootprintPose(worldState, oneInsideX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(oneInsideX + radius, Is.LessThan(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, oneInsideX);
+            AssertNoTargetFootprintOrTileFeatureReject(result);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentWallOneBeyondMaxContact_BlocksWithFootprintReason()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            AssertBottomToFrontBoundaryRemap(oneBeyondX, radius, BoundaryRadiusSpeedUnitsPerTick());
+
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, sourceCell),
+                    CreateWall(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionBlockedByFootprint(snapshot, result, sourceCell);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideWallProjectsOneBeyondBeforeRemap_AllowsTransition()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var oneBeyondX = maxContactX + 1;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var sourceContactCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetFootprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, sourceCell),
+                    CreateWall(20, sourceContactCell),
+                    CreateBox(21, targetFootprintNeighbor),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            Assert.That(maxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, maxContactX);
+            AssertNoTargetFootprintOrTileFeatureReject(result);
+            Assert.That(snapshot.TryGetSolidOccupantAt(snapshot.Topology, targetFootprintNeighbor, out var targetBox), Is.True);
+            Assert.That(targetBox.entityId, Is.EqualTo(21));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideInactiveBarricadeDoesNotProjectOneBeyond()
+        {
+            AssertBottomToFrontSourceFeatureDoesNotProjectOneBeyond(
+                CreateBarricade,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideDestroyTileDoesNotProjectOneBeyond()
+        {
+            AssertBottomToFrontSourceFeatureDoesNotProjectOneBeyond(
+                CreateDestroyTile,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideActiveBarricadeProjectsOneBeyondBeforeRemap()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var oneBeyondX = maxContactX + 1;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var sourceContactCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetFootprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, sourceCell),
+                    CreateBox(20, targetFootprintNeighbor),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(100, sourceContactCell) });
+            SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
+                worldState,
+                BoundaryFootprintRadiusCells(),
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            Assert.That(maxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, maxContactX);
+            AssertNoTargetFootprintOrTileFeatureReject(result);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideWallsDoNotCauseFalseTargetFootprintBlock()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
+
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(20, new SurfaceCell(FaceId.Floor, -1, 1)),
+                    CreateWall(21, new SurfaceCell(FaceId.Floor, 1, 1)),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, exactMaxContactX);
+            AssertNoTargetFootprintOrTileFeatureReject(result);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_WrongFaceNeighborWallIgnored()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
+
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(20, new SurfaceCell(FaceId.Back, 1, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, exactMaxContactX);
+            AssertNoTargetFootprintOrTileFeatureReject(result);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentActiveBarricadeExactMaxContact_AllowsTransition()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
+
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(100, new SurfaceCell(FaceId.Front, 1, 0)) });
+            SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
+                worldState,
+                BoundaryFootprintRadiusCells(),
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(exactMaxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, exactMaxContactX);
+            AssertNoTargetFootprintOrTileFeatureReject(result);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentActiveBarricadeOneBeyond_BlocksWithFootprintReason()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            AssertBottomToFrontBoundaryRemap(oneBeyondX, radius, BoundaryRadiusSpeedUnitsPerTick());
+
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(100, new SurfaceCell(FaceId.Front, 1, 0)) });
+            SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
+                worldState,
+                BoundaryFootprintRadiusCells(),
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionBlockedByFootprint(snapshot, result, sourceCell);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void Player_Free2D_RadiusApproachBox_ClampsBeforeBoundary()
         {
             var worldState = CreateWorldState(
@@ -3001,6 +3298,163 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return PlayerContinuousLocomotionSettings.CreateDefault()
                 .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                 .SpeedUnitsPerTick;
+        }
+
+        private static int BoundaryFootprintRadiusUnits()
+        {
+            return KinematicFixed.UnitsPerCell * 3 / 16;
+        }
+
+        private static float BoundaryFootprintRadiusCells()
+        {
+            return BoundaryFootprintRadiusUnits() / (float)KinematicFixed.UnitsPerCell;
+        }
+
+        private static int BoundaryRadiusSpeedUnitsPerTick()
+        {
+            return DefaultFree2DSpeedUnitsPerTick();
+        }
+
+        private static void SetBoundaryFootprintPose(WorldState worldState, int localX, int radiusUnits)
+        {
+            var speed = BoundaryRadiusSpeedUnitsPerTick();
+            SetPlayerContinuousLocalOffset(
+                worldState,
+                localX,
+                KinematicFixed.HalfCellUnits - radiusUnits - speed,
+                speed);
+        }
+
+        private static Free2DTopologyRemapResult AssertBottomToFrontBoundaryRemap(
+            int localX,
+            int radiusUnits,
+            int speedUnitsPerTick)
+        {
+            var configuredRadius = new PlayerContinuousLocomotionSettings
+            {
+                CollisionRadiusCells = BoundaryFootprintRadiusCells(),
+            }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond).CollisionRadiusUnits;
+            Assert.That(configuredRadius, Is.EqualTo(radiusUnits));
+
+            var sourceThresholdY = KinematicFixed.HalfCellUnits - radiusUnits;
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Vector2Int.up,
+                new KinematicOffset2(
+                    KinematicFixed.FromRaw(localX),
+                    KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick)),
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                radiusUnits,
+                out var rejectReason,
+                out var remap);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+            Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radiusUnits));
+            Assert.That(remap.TargetVelocity.X.RawValue, Is.Zero);
+            Assert.That(remap.TargetVelocity.Y.RawValue, Is.EqualTo(speedUnitsPerTick));
+            return remap;
+        }
+
+        private static void AssertBottomToFrontNativeTransitionSucceeded(
+            WorldSnapshot snapshot,
+            TickResult result,
+            SurfaceCell targetCell,
+            int expectedLocalX)
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(targetCell));
+            Assert.That(snapshot.TryGetSolidOccupantAt(snapshot.Topology, targetCell, out _), Is.False);
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(expectedLocalX));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius));
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == 10 &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                    operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
+                Is.True);
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.BoundaryReason == "PlayerFree2DTopologyApproachSettle"),
+                Is.False);
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
+        }
+
+        private static void AssertBottomToFrontNativeTransitionBlockedByFootprint(
+            WorldSnapshot snapshot,
+            TickResult result,
+            SurfaceCell sourceCell)
+        {
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(sourceCell));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("Free2DTopologyNativeRejected") &&
+                    reason.Contains("TargetFaceFootprintBlocked")),
+                Is.True,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetTopology ||
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
+                Is.False);
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Metadata.BoundaryReason == "PlayerFree2DTopologyApproachSettle"),
+                Is.False);
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.False);
+        }
+
+        private static void AssertNoTargetFootprintOrTileFeatureReject(TickResult result)
+        {
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("TargetFaceFootprintBlocked") ||
+                    reason.Contains("TargetFaceBlockedByTileFeature")),
+                Is.False,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
+        }
+
+        private static void AssertBottomToFrontSourceFeatureDoesNotProjectOneBeyond(
+            Func<int, SurfaceCell, TileFeatureState> createTileFeature,
+            TileFeatureActivationRule activationRule)
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceContactCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetFootprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, sourceCell),
+                    CreateBox(20, targetFootprintNeighbor),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { createTileFeature(100, sourceContactCell) });
+            SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
+                worldState,
+                BoundaryFootprintRadiusCells(),
+                new[] { CreateTileFeatureDefinition(100, activationRule) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            AssertBottomToFrontNativeTransitionBlockedByFootprint(snapshot, result, sourceCell);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("TargetFaceBlockedByTileFeature")),
+                Is.False,
+                string.Join(";", result.MovementPhaseResult.RejectedReasons));
         }
 
         private static void AssertBottomToBackBlockedSignal(

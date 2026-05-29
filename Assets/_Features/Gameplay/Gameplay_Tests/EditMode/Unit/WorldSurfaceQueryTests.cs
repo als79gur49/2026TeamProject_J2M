@@ -1220,6 +1220,230 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(unrelatedResult.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void SurfaceFree2DTopologyTransitionQueries_BottomToFront_FootprintNeighborCheckedOnlyOnOverflow()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var speed = BoundaryRadiusSpeedUnitsPerTick();
+            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var oneInsideX = exactMaxContactX - 1;
+            var oneBeyondX = exactMaxContactX + 1;
+            var footprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
+
+            var exact = ResolveBottomToFrontWithNeighborWall(exactMaxContactX, radius, speed, footprintNeighbor);
+            Assert.That(exact.Resolved, Is.True);
+            Assert.That(exact.Result.Success, Is.True);
+            Assert.That(exact.Result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(exact.Result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+
+            var inside = ResolveBottomToFrontWithNeighborWall(oneInsideX, radius, speed, footprintNeighbor);
+            Assert.That(inside.Resolved, Is.True);
+            Assert.That(inside.Result.Success, Is.True);
+            Assert.That(inside.Result.TargetLocalOffset.X.RawValue + radius, Is.LessThan(KinematicFixed.HalfCellUnits));
+            Assert.That(inside.Result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+
+            var beyond = ResolveBottomToFrontWithNeighborWall(oneBeyondX, radius, speed, footprintNeighbor);
+            Assert.That(beyond.Resolved, Is.False);
+            Assert.That(beyond.Result.Success, Is.False);
+            Assert.That(beyond.Result.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(beyond.Result.TargetLocalOffset.X.RawValue, Is.EqualTo(oneBeyondX));
+            Assert.That(beyond.Result.TargetLocalOffset.X.RawValue + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            Assert.That(beyond.Result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked));
+            Assert.That(beyond.Result.TargetLegality.Cell, Is.EqualTo(footprintNeighbor));
+            Assert.That(beyond.Result.TargetLegality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Solid));
+            Assert.That(beyond.Result.TargetLegality.Blockers[0].EntityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceContinuousContactProjectionQueries_PositiveX_BlockingNeighborProjectsToMaxContact()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var oneBeyondX = maxContactX + 1;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var contactCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, sourceCell),
+                    CreateWall(20, contactCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var actor), Is.True);
+
+            var projection = SurfaceContinuousContactProjectionQueries.ProjectLocalOffsetAgainstSourceFaceBlockers(
+                snapshot,
+                StateQuery.BuildActorRef(snapshot, actor),
+                sourceCell,
+                new KinematicOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                radius,
+                snapshot.Topology,
+                null,
+                SurfaceContactProjectionAxes.X);
+
+            Assert.That(projection.OriginalLocalOffset.X.RawValue, Is.EqualTo(oneBeyondX));
+            Assert.That(projection.ProjectedLocalOffset.X.RawValue, Is.EqualTo(maxContactX));
+            Assert.That(projection.ClampedPositiveX, Is.True);
+            Assert.That(projection.Contacts.Count, Is.EqualTo(1));
+            Assert.That(projection.Contacts[0].Cell, Is.EqualTo(contactCell));
+            Assert.That(projection.Contacts[0].Legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Solid));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceContinuousContactProjectionQueries_PositiveX_NoBlockingNeighborDoesNotProject()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(10, sourceCell) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var actor), Is.True);
+
+            var projection = SurfaceContinuousContactProjectionQueries.ProjectLocalOffsetAgainstSourceFaceBlockers(
+                snapshot,
+                StateQuery.BuildActorRef(snapshot, actor),
+                sourceCell,
+                new KinematicOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                radius,
+                snapshot.Topology,
+                null,
+                SurfaceContactProjectionAxes.X);
+
+            Assert.That(projection.ProjectedLocalOffset.X.RawValue, Is.EqualTo(oneBeyondX));
+            Assert.That(projection.ClampedPositiveX, Is.False);
+            Assert.That(projection.Contacts, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceContinuousContactProjectionQueries_PositiveX_InactiveBarricadeAndDestroyTileDoNotProject()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            AssertPositiveXSourceFeatureDoesNotProject(
+                TileFeatureKind.Barricade,
+                TileFeatureActivationRule.FrontFaceOnly,
+                oneBeyondX,
+                radius);
+            AssertPositiveXSourceFeatureDoesNotProject(
+                TileFeatureKind.Destroy,
+                TileFeatureActivationRule.BottomFaceOnly,
+                oneBeyondX,
+                radius);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceFree2DTopologyTransitionQueries_BottomToFront_UsesProjectedSourceOffsetForRemap()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var speed = BoundaryRadiusSpeedUnitsPerTick();
+            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var oneBeyondX = maxContactX + 1;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var sourceContactCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, sourceCell),
+                    CreateWall(20, sourceContactCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetContinuousPoseAtForwardSeam(
+                worldState,
+                10,
+                oneBeyondX,
+                KinematicFixed.HalfCellUnits - radius - speed,
+                speed);
+
+            var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
+                worldState.CreateSnapshot(),
+                10,
+                Vector2Int.up,
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
+                radius,
+                out var result);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.SourceLocalOffset.X.RawValue, Is.EqualTo(oneBeyondX));
+            Assert.That(result.SourceContactProjection.OriginalLocalOffset.X.RawValue, Is.EqualTo(oneBeyondX));
+            Assert.That(result.SourceContactProjection.ProjectedLocalOffset.X.RawValue, Is.EqualTo(maxContactX));
+            Assert.That(result.SourceContactProjection.Contacts[0].Cell, Is.EqualTo(sourceContactCell));
+            Assert.That(result.TargetLocalOffset.X.RawValue, Is.EqualTo(maxContactX));
+            Assert.That(result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceTopologyBasisQueries_BottomToFront_RemapsLocalOffsetWithoutChangingLateralClamp()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var speed = BoundaryRadiusSpeedUnitsPerTick();
+            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var oneInsideX = exactMaxContactX - 1;
+
+            foreach (var localX in new[] { exactMaxContactX, oneInsideX })
+            {
+                var remap = AssertBottomToFrontBoundaryRemap(localX, radius, speed);
+
+                Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
+                Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius));
+                Assert.That(remap.TargetLocalOffset.X.RawValue + radius, Is.LessThanOrEqualTo(KinematicFixed.HalfCellUnits));
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SurfaceFree2DTopologyTransitionQueries_BottomToFront_SamePlanarOtherFaceNeighborIgnored()
+        {
+            var radius = BoundaryFootprintRadiusUnits();
+            var speed = BoundaryRadiusSpeedUnitsPerTick();
+            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(20, new SurfaceCell(FaceId.Back, 1, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetContinuousPoseAtForwardSeam(
+                worldState,
+                10,
+                exactMaxContactX,
+                KinematicFixed.HalfCellUnits - radius - speed,
+                speed);
+
+            var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
+                worldState.CreateSnapshot(),
+                10,
+                Vector2Int.up,
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
+                radius,
+                out var result);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+        }
+
         private static void AssertFree2DTopologyTransitionTargetTileFeaturePresenceBlocks(
             TileFeatureKind tileFeatureKind,
             TileFeatureActivationRule activationRule)
@@ -1258,20 +1482,151 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void SetContinuousPoseAtForwardSeam(WorldState worldState, int entityId)
         {
+            SetContinuousPoseAtForwardSeam(
+                worldState,
+                entityId,
+                localX: 0,
+                localY: KinematicFixed.MaxPositiveLocalOffset,
+                speedUnitsPerTick: 0);
+        }
+
+        private static void SetContinuousPoseAtForwardSeam(
+            WorldState worldState,
+            int entityId,
+            int localX,
+            int localY,
+            int speedUnitsPerTick)
+        {
             worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
                 entityId,
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new KinematicOffset2(
-                        KinematicFixed.Zero,
-                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                        KinematicFixed.FromRaw(localX),
+                        KinematicFixed.FromRaw(localY)),
                     velocity = KinematicVelocity2.Zero,
                     facing = Direction.Up,
                     lastMoveDirection = Direction.Up,
-                    speedUnitsPerTick = 0,
+                    speedUnitsPerTick = speedUnitsPerTick,
                     mode = ContinuousLocomotionMode.Idle,
                     sequenceId = 1,
                 }.NormalizedForStorage());
+        }
+
+        private static int BoundaryFootprintRadiusUnits()
+        {
+            return KinematicFixed.UnitsPerCell * 3 / 16;
+        }
+
+        private static float BoundaryFootprintRadiusCells()
+        {
+            return BoundaryFootprintRadiusUnits() / (float)KinematicFixed.UnitsPerCell;
+        }
+
+        private static int BoundaryRadiusSpeedUnitsPerTick()
+        {
+            return PlayerContinuousLocomotionSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .SpeedUnitsPerTick;
+        }
+
+        private static Free2DTopologyRemapResult AssertBottomToFrontBoundaryRemap(
+            int localX,
+            int radiusUnits,
+            int speedUnitsPerTick)
+        {
+            var configuredRadius = new PlayerContinuousLocomotionSettings
+            {
+                CollisionRadiusCells = BoundaryFootprintRadiusCells(),
+            }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond).CollisionRadiusUnits;
+            Assert.That(configuredRadius, Is.EqualTo(radiusUnits));
+
+            var sourceThresholdY = KinematicFixed.HalfCellUnits - radiusUnits;
+            var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
+                new CubeTopologyState(FaceId.Floor),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Vector2Int.up,
+                new KinematicOffset2(
+                    KinematicFixed.FromRaw(localX),
+                    KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick)),
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                radiusUnits,
+                out var rejectReason,
+                out var remap);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+            Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radiusUnits));
+            return remap;
+        }
+
+        private static (bool Resolved, Free2DTopologyTransitionResult Result) ResolveBottomToFrontWithNeighborWall(
+            int localX,
+            int radiusUnits,
+            int speedUnitsPerTick,
+            SurfaceCell footprintNeighbor)
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateWall(20, footprintNeighbor),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            SetContinuousPoseAtForwardSeam(
+                worldState,
+                10,
+                localX,
+                KinematicFixed.HalfCellUnits - radiusUnits - speedUnitsPerTick,
+                speedUnitsPerTick);
+
+            var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
+                worldState.CreateSnapshot(),
+                10,
+                Vector2Int.up,
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                radiusUnits,
+                out var result);
+            return (resolved, result);
+        }
+
+        private static void AssertPositiveXSourceFeatureDoesNotProject(
+            TileFeatureKind featureKind,
+            TileFeatureActivationRule activationRule,
+            int oneBeyondX,
+            int radius)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var featureCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(10, sourceCell) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateTileFeature(100, featureCell, featureKind) });
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var actor), Is.True);
+
+            var projection = SurfaceContinuousContactProjectionQueries.ProjectLocalOffsetAgainstSourceFaceBlockers(
+                snapshot,
+                StateQuery.BuildActorRef(snapshot, actor),
+                sourceCell,
+                new KinematicOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                radius,
+                snapshot.Topology,
+                new[] { CreateDefinition(100, activationRule) },
+                SurfaceContactProjectionAxes.X);
+
+            Assert.That(projection.ProjectedLocalOffset.X.RawValue, Is.EqualTo(oneBeyondX));
+            Assert.That(projection.ClampedPositiveX, Is.False);
+            Assert.That(projection.Contacts, Is.Empty);
         }
 
         private static EntityState CreateUnit(
