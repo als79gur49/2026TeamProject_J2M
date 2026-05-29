@@ -994,7 +994,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled,
-                    new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly) })
+                    new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) })
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var finalSnapshot = worldState.CreateSnapshot();
 

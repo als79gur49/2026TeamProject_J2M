@@ -466,7 +466,8 @@ namespace Game.Feature.Gameplay.BoardState
                 context.TerminalCell,
                 TileFeatureBlockerSubject.Unit,
                 TileFeatureMovementKind.UnitSettlement,
-                out tileFeatureBlocker);
+                out tileFeatureBlocker,
+                context.TerminalTopology);
         }
 
         private static bool TryGetSettlementBlockingOccupant(

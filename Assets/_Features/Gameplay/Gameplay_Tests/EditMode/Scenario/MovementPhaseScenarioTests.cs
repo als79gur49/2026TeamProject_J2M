@@ -113,7 +113,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void MovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsAllowed()
+        public void PlayerMovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsAllowed()
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var player = CreateUnit(
@@ -157,6 +157,88 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(finalPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(finalPlayer.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
             Assert.That(finalPlayer.hp, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovementExpander_ActivatedBarricadeBlocksMoveIntent()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateBarricade(100, barricadeCell) });
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: new HashSet<int> { 10 },
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    rejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=BlockedDestination",
+                    "Cell=(1,0)",
+                    "LegalityBlockerKinds=TileFeature"),
+                Is.True);
+            Assert.That(expandedCandidates, Is.Empty);
+            Assert.That(CreateSnapshot(worldState).TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovementExpander_InactiveBarricadeAllowsMoveIntent()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateBarricade(100, barricadeCell) });
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: new HashSet<int> { 10 },
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            Assert.That(
+                rejectedReasons.Any(reason =>
+                    reason.Contains("LegalityBlockerKinds=TileFeature", StringComparison.Ordinal) ||
+                    reason.Contains("Reason=BlockedDestination", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(expandedCandidates, Is.Not.Empty);
+            Assert.That(CreateSnapshot(worldState).TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
         }
 
         [Test]
@@ -5541,6 +5623,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tileId,
                 cell,
                 TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureState CreateBarricade(int tileId, SurfaceCell cell)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
                 TileFeatureFlags.None,
                 sourceEntityId: 0,
                 ownerEntityId: 0,
