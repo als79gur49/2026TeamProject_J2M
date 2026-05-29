@@ -7,7 +7,7 @@ namespace Game.Shared.Audio
     public sealed class AudioManager : MonoBehaviour, IAudioService, IAudioSettingsService, IAudioPlaybackPauseService
     {
         [SerializeField] [Min(1)] private int initialPoolSize = 8;
-        [SerializeField] [Min(1)] private int maxPoolSize = 24;
+        [SerializeField] [Min(1)] private int maxPoolSize = 48;
 
         private AudioMixingService mixingService;
         private IAudioSettingsPersistenceStore persistenceStoreOverride;

@@ -45,6 +45,8 @@ namespace Game.Shared.Audio
 
     internal sealed class AudioPlaybackService
     {
+        private const float SilentVolumeEpsilon = 0.0001f;
+
         private readonly List<AudioSourcePlaybackController> activeControllers = new();
         private readonly Dictionary<AudioPlaybackPauseGroup, AudioPauseReason> activeGroupPauseReasons = new();
         private readonly Dictionary<AudioSourcePlaybackController, AudioLivePlaybackRecord> livePlaybacks = new();
@@ -523,6 +525,17 @@ namespace Game.Shared.Audio
             var leafChannel = AudioDefinitionCategoryRules.ToLeafChannel(
                 playbackData.Category,
                 $"AudioDefinition '{definition.name}'");
+            var fadeMultiplier = Mathf.Clamp01(initialFadeMultiplier);
+            var finalVolume = mixingService.ResolvePlaybackVolume(leafChannel, playbackData.Volume) * fadeMultiplier;
+
+            if (!attachedKey.HasValue &&
+                !useBgmLane &&
+                playbackData.Category != AudioCategory.Bgm &&
+                !playbackData.Loop &&
+                finalVolume <= SilentVolumeEpsilon)
+            {
+                return AudioPlaybackHandle.Invalid;
+            }
 
             var source = useBgmLane
                 ? bgmSource
@@ -536,8 +549,6 @@ namespace Game.Shared.Audio
                 return AudioPlaybackHandle.Invalid;
             }
 
-            var fadeMultiplier = Mathf.Clamp01(initialFadeMultiplier);
-            var finalVolume = mixingService.ResolvePlaybackVolume(leafChannel, playbackData.Volume) * fadeMultiplier;
             ConfigureSource(source, playbackData, finalVolume);
             source.Play();
 
