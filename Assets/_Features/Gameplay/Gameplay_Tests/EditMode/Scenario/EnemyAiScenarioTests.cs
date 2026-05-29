@@ -4569,7 +4569,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyMovesIntoPlayer_LegacyFallbackBaseline_CommitsMoveAndPassiveContact()
+        public void EnemyMovesIntoPlayer_RemovedDiagnosticBaseline_CommitsMoveAndPassiveContact()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4621,7 +4621,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyMovesIntoPlayer_LegacyFallbackBaseline_PublishesLegacyMotionAndContact()
+        public void EnemyMovesIntoPlayer_RemovedDiagnosticBaseline_PublishesLegacyMotionAndContact()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);

@@ -6,6 +6,8 @@ Date: 2026-05-02
 
 Phase 8D adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper property for removed-fallback diagnostic routing compatibility. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackEnabled` remains a deprecated compatibility alias and delegates to the canonical helper. `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` remains the underlying compatibility field; it is not renamed or deleted in this phase.
 
+2026-05-29 supersession: the follow-up alias cleanup deletes `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackEnabled` after active runtime/tests moved to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`. `LegacyOrdinaryFallbackEnabled` alias has been removed. `LegacyOrdinaryFallbackBaseline` alias has been removed.
+
 Runtime validation semantics are unchanged. When the diagnostic helper is false, covered player, enemy, and Charge fallback attempts still reject with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. When the diagnostic helper is true, those attempts route to `PlayerLegacyFallbackRemovedFromRuntime`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`. No covered fallback is authorized.
 
 `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, replay assets, and golden files are not semantically changed in Phase 8D.
@@ -38,10 +40,10 @@ Current runtime, tests, replay helpers, and documentation should use `RemovedLeg
 Phase 8D adds canaries for:
 
 - `Phase8D_RemovedLegacyFallbackDiagnosticsEnabled_IsCanonicalHelper`
-- `Phase8D_LegacyOrdinaryFallbackEnabled_IsCompatibilityAlias`
+- `LegacyAliasCleanup_LegacyOrdinaryFallbackEnabled_IsRemoved`
 - `Phase8D_RemovedDiagnosticHelper_DoesNotAuthorizeFallback`
 - `Phase8D_None_Default_AllKinematic_HelperFalse`
-- `Phase8D_LegacyOrdinaryFallbackEnabled_HasNoCanonicalInternalUsage`
+- `LegacyAliasCleanup_LegacyOrdinaryFallbackEnabled_HasNoActiveUsage`
 - `Phase8D_CurrentPolicyDocs_UseRemovedDiagnosticHelper`
 - `Phase8D_GridTransactionsRemainAllowed`
 - `Phase8D_GlideDefaultAdoptionAndFlagOffFallbackRetained`

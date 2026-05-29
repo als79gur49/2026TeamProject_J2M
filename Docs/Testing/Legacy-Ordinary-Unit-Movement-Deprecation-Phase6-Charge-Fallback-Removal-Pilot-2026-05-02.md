@@ -26,16 +26,16 @@ Retained grid transactions still pass the grid transaction allowlist before fall
 
 Phase 6 canonical canaries:
 
-- `Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved`
-- `Phase6_LegacyBaseline_PlayerEnemyStillRemoved`
-- `Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
+- `Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved`
+- `Phase6_RemovedDiagnosticBaseline_PlayerEnemyStillRemoved`
+- `Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved`
 - `Phase6_None_ChargeFallbackStillBlocked`
 - `Phase6_DefaultGameplay_ChargeFallbackStillAbsent`
 - `Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove`
 - `Phase6_GlideFlagOffFallbackStillRetained`
 - `Phase6_MovementExpander_GridBranchStillAllowed`
-- `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
-- `Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved`
+- `Replay_Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved`
+- `Replay_Phase6_ChargeRemovedDiagnosticBaseline_FallbackRemoved`
 - `Replay_Phase6_DefaultGameplay_NoChargeMove`
 
 The Phase 2C/Phase 3/Phase 5 Charge fallback-allowed canaries are superseded. Historical wrappers may remain only when they assert the Phase 6 removed policy.

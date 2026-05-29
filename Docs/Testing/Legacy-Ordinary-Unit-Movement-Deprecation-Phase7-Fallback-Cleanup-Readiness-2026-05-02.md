@@ -31,13 +31,13 @@ Older `Allows*` helper names remain only as obsolete compatibility wrappers. Pha
 
 Phase 7 canaries:
 
-- `Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset`
+- `Phase7_RemovedDiagnosticBaseline_IsDiagnosticCompatibilityPreset`
 - `Phase7_None_NoCoveredFallback`
 - `Phase7_DefaultGameplay_NoCoveredFallback`
 - `Phase7_GridTransactionsRemainAllowed`
 - `Phase7_GlidePolicy_DefaultAdoptedAndFlagOffFallbackRetained`
 - `Phase7_HelperNames_AreCurrent`
-- `Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic`
+- `Replay_Phase7_RemovedDiagnosticBaseline_DiagnosticsDeterministic`
 - `Replay_Phase7_DefaultGameplay_NoCoveredFallback`
 
 ## Presentation Cleanup Inventory

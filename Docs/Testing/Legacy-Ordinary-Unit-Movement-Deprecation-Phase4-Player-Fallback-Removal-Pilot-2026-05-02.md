@@ -29,7 +29,7 @@ Retained grid transactions still pass the grid transaction allowlist before play
 
 Phase 4 canonical canaries:
 
-- `Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved`
+- `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`
 - `Phase4_None_PlayerFallbackStillBlocked`
 - `Phase4_DefaultGameplay_PlayerFallbackStillAbsent`
 - `Phase4_PlayerKinematicFlagOn_NoLegacyFallback`
@@ -37,10 +37,10 @@ Phase 4 canonical canaries:
 
 `Phase4_PlayerTopologyHandoff_StillGridTransaction` documents the compatibility path. Native Player Free2D topology transition is gated separately by `EnablePlayerFree2DNativeTopologyTransition` and uses `Free2DTopologyTransition` boundary metadata when enabled.
 - `Phase4_MovementExpander_GridBranchStillAllowed`
-- `Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5`
-- `Phase4_LegacyBaseline_ChargeFallbackRemovedByPhase6`
-- `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
-- `Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved`
+- `Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemovedByPhase5`
+- `Phase4_RemovedDiagnosticBaseline_ChargeFallbackRemovedByPhase6`
+- `Replay_Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved`
+- `Replay_Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`
 
 Old player fallback-allowed canaries are superseded. Enemy fallback-allowed canaries are superseded by Phase 5. Charge fallback-allowed canaries are superseded by Phase 6.
 

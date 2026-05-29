@@ -6,7 +6,11 @@ Date: 2026-05-02
 
 Phase 8C changes tests and documentation only. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical preset for deterministic removed-fallback diagnostics. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias for `RemovedLegacyFallbackDiagnosticBaseline`; it is not deleted in this phase.
 
+2026-05-29 supersession: the follow-up alias cleanup deletes the legacy preset alias after current callers moved to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`. `LegacyOrdinaryFallbackBaseline` alias has been removed.
+
 Runtime validation semantics are unchanged. Covered player, enemy, and Charge fallback attempts reject with removed diagnostics under the canonical preset. `GameplayRuntimeFeatureFlags.None` still rejects covered fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 8D supersedes the remaining helper naming inventory by adding `RemovedLegacyFallbackDiagnosticsEnabled`; `LegacyOrdinaryFallbackEnabled` remains a deprecated compatibility alias, and `EnableLegacyOrdinaryUnitFallback` remains the underlying compatibility field.
+
+2026-05-29 supersession: the follow-up helper alias cleanup deletes the legacy helper alias after current runtime/tests moved to `RemovedLegacyFallbackDiagnosticsEnabled`. `LegacyOrdinaryFallbackEnabled` alias has been removed.
 
 `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, replay assets, and golden files are not changed in Phase 8C.
 
@@ -15,8 +19,8 @@ Runtime validation semantics are unchanged. Covered player, enemy, and Charge fa
 | usage location | usage kind | current text/symbol | canonical replacement | allowed to keep? | action |
 |---|---|---|---|---|---|
 | `GameplayRuntimeFeatureFlags.cs` | alias definition | `LegacyOrdinaryFallbackBaseline => RemovedLegacyFallbackDiagnosticBaseline` | none | yes | keep as compatibility alias |
-| `BoundaryInventoryScenarioTests.cs` | alias equivalence test | `Phase8B_LegacyOrdinaryFallbackBaseline_IsCompatibilityAlias` | none | yes | keep |
-| `BoundaryInventoryScenarioTests.cs` | compatibility-only canary | `Phase8C_LegacyOrdinaryFallbackBaseline_IsCompatibilityOnly` | none | yes | keep |
+| `BoundaryInventoryScenarioTests.cs` | alias equivalence test | `LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_IsRemoved` | none | yes | keep |
+| `BoundaryInventoryScenarioTests.cs` | compatibility-only canary | `LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_HasNoActiveUsage` | none | yes | keep |
 | scenario and replay current diagnostics | canonical usage | old alias direct calls | `RemovedLegacyFallbackDiagnosticBaseline` | no | migrated |
 | retained grid transaction tests | unrelated retained behavior | old alias direct calls | canonical or default non-old lane | no | migrated away from old alias |
 | docs current policy | current preset wording | old alias as current baseline | `RemovedLegacyFallbackDiagnosticBaseline` | no | update wording |
@@ -46,7 +50,7 @@ Disallowed wording patterns:
 Phase 8C adds or updates these canaries:
 
 - `Phase8C_RemovedDiagnosticBaseline_IsCanonicalUsage`
-- `Phase8C_LegacyOrdinaryFallbackBaseline_IsCompatibilityOnly`
+- `LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_HasNoActiveUsage`
 - `Phase8C_CurrentPolicyDocs_UseRemovedDiagnosticBaseline`
 - `Phase8C_AllowedOldAliasUsage_IsLimited`
 - `Phase8C_GridTransactionsRemainAllowed`

@@ -489,7 +489,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved()
+        public void Replay_Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved()
         {
             Replay_Phase8C_RemovedDiagnosticBaseline_DiagnosticsDeterministic();
         }
@@ -580,7 +580,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic()
+        public void Replay_Phase7_RemovedDiagnosticBaseline_DiagnosticsDeterministic()
         {
             Replay_Phase8C_RemovedDiagnosticBaseline_DiagnosticsDeterministic();
         }
@@ -746,7 +746,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase5_EnemyLegacyBaseline_FallbackRemoved()
+        public void Replay_Phase5_EnemyRemovedDiagnosticBaseline_FallbackRemoved()
         {
             var replay = RunScriptedEnemyOrdinaryReplay(
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
@@ -804,12 +804,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
         // Historical/pre-Phase6 wrapper: delegates to the canonical Charge removed-diagnostic replay.
         public void Replay_Phase2C_ChargeFlagOffLegacyFallback_BaselineDocumented()
         {
-            Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved();
+            Replay_Phase6_ChargeRemovedDiagnosticBaseline_FallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved()
+        public void Replay_Phase6_ChargeRemovedDiagnosticBaseline_FallbackRemoved()
         {
             var replay = RunScriptedChargeActiveReplay(
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,

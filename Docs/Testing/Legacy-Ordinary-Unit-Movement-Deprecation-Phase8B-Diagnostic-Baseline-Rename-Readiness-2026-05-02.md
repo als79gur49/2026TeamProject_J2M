@@ -20,7 +20,7 @@ Phase 8B adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseli
 Phase 8B adds canonical alias canaries:
 
 - `Phase8B_RemovedDiagnosticBaseline_IsCanonicalAlias`
-- `Phase8B_LegacyOrdinaryFallbackBaseline_IsCompatibilityAlias`
+- `LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_IsRemoved`
 - `Phase8B_RemovedDiagnosticBaseline_PlayerEnemyChargeDiagnostics`
 - `Phase8B_DefaultGameplay_NoCoveredFallback_Unchanged`
 - `Phase8B_None_NoCoveredFallback_Unchanged`

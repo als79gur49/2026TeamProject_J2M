@@ -48,11 +48,11 @@ Glide policy is unchanged. `EnableEnemyGlideKinematicLocomotion` remains explici
 Canonical Phase 3 tests use explicit names such as:
 
 - `Phase3_None_NoPlayerEnemyChargeLegacyFallback`
-- `Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved`
-- `Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved`
-- `Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved`
+- `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`
+- `Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved`
+- `Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved`
 - `Replay_Phase3_None_NoCoveredFallback`
-- `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
+- `Replay_Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved`
 
 Older Phase 2 `FlagOffBaseline` tests are historical/pre-Phase6 compatibility wrappers, and current policy delegates them to removed-diagnostic tests instead of treating them as authorization canaries.
 

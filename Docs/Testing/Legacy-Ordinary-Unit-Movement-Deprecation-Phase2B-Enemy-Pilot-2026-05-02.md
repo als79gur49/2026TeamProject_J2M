@@ -70,7 +70,7 @@ Historical/pre-Phase5 wrapper names are retained only to preserve Phase 2B migra
 - `MovementPhaseScenarioTests.Phase2B_EnemyLegacyFallback_ValidateLegacyExpansionIntents_EnemyFlagReachability`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoLegacyFallback`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2B_EnemyKinematicFlagOn_NoLegacyFallback`
-- `EnemyKinematicLocomotionReplayTests.Replay_Phase5_EnemyLegacyBaseline_FallbackRemoved`
+- `EnemyKinematicLocomotionReplayTests.Replay_Phase5_EnemyRemovedDiagnosticBaseline_FallbackRemoved`
 
 The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presentation, and `LegacyUnitOrdinaryMovementDetected`. It must not become a broad `MoveEntity` ban.
 

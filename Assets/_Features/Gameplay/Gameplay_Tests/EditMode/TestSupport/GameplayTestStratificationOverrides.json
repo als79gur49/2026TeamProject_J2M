@@ -1155,7 +1155,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_LegacyFallbackBaseline_CommitsMoveAndPassiveContact",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_RemovedDiagnosticBaseline_CommitsMoveAndPassiveContact",
       "category": "Core",
       "contracts": [
         "damage_affects_movement",
@@ -1961,7 +1961,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1973,7 +1973,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase7_RemovedDiagnosticBaseline_DiagnosticsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -2033,7 +2033,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2044,7 +2044,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase6_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2055,7 +2055,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DeprecationPhase1_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DeprecationPhase1_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2066,7 +2066,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_RemovedDiagnosticBaseline_IsDiagnosticCompatibilityPreset",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2139,7 +2139,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_RemovedDiagnosticBaseline_IsDiagnosticCompatibilityNaming",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2239,12 +2239,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_LegacyOrdinaryFallbackBaseline_IsCompatibilityAlias",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_IsRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage for Phase 8B legacy baseline compatibility alias shape.",
+      "reason": "Locked Core coverage that the legacy ordinary fallback baseline alias is removed.",
       "locked": true
     },
     {
@@ -2314,12 +2314,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_LegacyOrdinaryFallbackBaseline_IsCompatibilityOnly",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_HasNoActiveUsage",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8C keeps the old alias compatibility-only.",
+      "reason": "Locked Core coverage that active sources no longer use the legacy ordinary fallback baseline alias.",
       "locked": true
     },
     {
@@ -2332,12 +2332,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_AllowedOldAliasUsage_IsLimited",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.LegacyAliasCleanup_ActiveSourcesUseRemovedDiagnosticBaseline",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8C limits direct old alias source usage.",
+      "reason": "Locked Core coverage that active sources use the canonical removed diagnostic baseline.",
       "locked": true
     },
     {
@@ -2396,12 +2396,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_LegacyOrdinaryFallbackEnabled_IsCompatibilityAlias",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.LegacyAliasCleanup_LegacyOrdinaryFallbackEnabled_IsRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8D keeps the old helper as compatibility-only.",
+      "reason": "Locked Core coverage that the legacy ordinary fallback helper alias is removed.",
       "locked": true
     },
     {
@@ -2425,12 +2425,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_LegacyOrdinaryFallbackEnabled_HasNoCanonicalInternalUsage",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.LegacyAliasCleanup_LegacyOrdinaryFallbackEnabled_HasNoActiveUsage",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8D limits direct old helper source usage.",
+      "reason": "Locked Core coverage that active sources no longer use the legacy ordinary fallback helper alias.",
       "locked": true
     },
     {

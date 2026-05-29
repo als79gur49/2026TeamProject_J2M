@@ -520,7 +520,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void FlagOff_LegacyFallbackBaseline_CommitsMoveAndPassiveContact()
+        public void FlagOff_None_CommitsMoveAndPassiveContact()
         {
             var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(

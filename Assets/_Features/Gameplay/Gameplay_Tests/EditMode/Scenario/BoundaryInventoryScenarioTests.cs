@@ -267,12 +267,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         // Historical/pre-Phase4 wrapper: delegates to the canonical player removed-diagnostic test.
         public void Phase2_PlayerLegacyFallback_FlagOffBaseline_RemovedByPhase4()
         {
-            Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved();
+            Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved()
+        public void Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved()
         {
             var tick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
@@ -343,9 +343,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase5_LegacyBaseline_PlayerFallbackStillRemoved()
+        public void Phase5_RemovedDiagnosticBaseline_PlayerFallbackStillRemoved()
         {
-            Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved();
+            Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved();
         }
 
         [Test]
@@ -399,12 +399,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         // Historical/pre-Phase5 wrapper: delegates to the canonical enemy removed-diagnostic test.
         public void Phase2B_EnemyLegacyFallback_FlagOffBaseline_RemovedByPhase5()
         {
-            Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved();
+            Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved()
+        public void Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved()
         {
             var tick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
@@ -418,9 +418,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5()
+        public void Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemovedByPhase5()
         {
-            Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved();
+            Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved();
         }
 
         [Test]
@@ -555,12 +555,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         // Historical/pre-Phase6 wrapper: delegates to the canonical Charge removed-diagnostic test.
         public void Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6()
         {
-            Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved();
+            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved()
+        public void Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved()
         {
             var worldState = CreateActiveChargeWorldState(50);
             var tick = CreatePipeline(
@@ -577,7 +577,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void ChargeMoveCleanup_RemovedDiagnosticBaseline_NoChargeMoveProducer()
         {
-            Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved();
+            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
@@ -691,16 +691,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase4_LegacyBaseline_ChargeFallbackRemovedByPhase6()
+        public void Phase4_RemovedDiagnosticBaseline_ChargeFallbackRemovedByPhase6()
         {
-            Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved();
+            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase5_LegacyBaseline_ChargeFallbackRemovedByPhase6()
+        public void Phase5_RemovedDiagnosticBaseline_ChargeFallbackRemovedByPhase6()
         {
-            Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved();
+            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
@@ -841,7 +841,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase3_LegacyBaseline_DoesNotEnableGlideKinematic()
+        public void Phase3_RemovedDiagnosticBaseline_DoesNotEnableGlideKinematic()
         {
             var flags = GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline;
 
@@ -1093,21 +1093,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved()
+        public void BoundaryInventory_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved()
         {
             Phase8C_RemovedDiagnosticBaseline_IsCanonicalUsage();
         }
 
         [Test]
         [Category("Core")]
-        public void Phase6_LegacyBaseline_PlayerEnemyChargeRemoved()
+        public void Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved()
         {
             Phase8C_RemovedDiagnosticBaseline_IsCanonicalUsage();
         }
 
         [Test]
         [Category("Core")]
-        public void Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset()
+        public void Phase7_RemovedDiagnosticBaseline_IsDiagnosticCompatibilityPreset()
         {
             var playerTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
@@ -1149,9 +1149,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_LegacyBaseline_PlayerEnemyChargeRemoved()
+        public void DeprecationPhase1_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved()
         {
-            BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved();
+            BoundaryInventory_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved();
         }
 
         [Test]
@@ -1167,7 +1167,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
             var phase7ReportStrings = new[]
             {
-                "LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset",
+                "RemovedLegacyFallbackDiagnosticBaseline: diagnostic compatibility preset",
                 "covered fallback authorization: removed",
                 "grid transactions: retained",
                 "glide default adoption: complete; flag-off fallback retained",
@@ -1176,7 +1176,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(canonicalHelperNames.Any(name => name.Contains("Allows", StringComparison.Ordinal)), Is.False);
             Assert.That(canonicalHelperNames.Any(name => name.Contains("Allowed", StringComparison.Ordinal)), Is.False);
             Assert.That(phase7ReportStrings.Any(text => text.Contains("allows covered fallback", StringComparison.Ordinal)), Is.False);
-            Assert.That(phase7ReportStrings, Does.Contain("LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset"));
+            Assert.That(phase7ReportStrings, Does.Contain("RemovedLegacyFallbackDiagnosticBaseline: diagnostic compatibility preset"));
         }
 
         [Test]
@@ -1228,18 +1228,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming()
+        public void Phase8A_RemovedDiagnosticBaseline_IsDiagnosticCompatibilityNaming()
         {
             var currentVocabulary = new[]
             {
-                "LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset",
+                "RemovedLegacyFallbackDiagnosticBaseline: diagnostic compatibility preset",
                 "covered fallback authorization: removed",
                 "obsolete covered fallback helpers: removed",
                 "retained grid transactions remain allowed",
                 "glide retained fallback remains separate",
             };
 
-            Assert.That(currentVocabulary, Does.Contain("LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset"));
+            Assert.That(currentVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticBaseline: diagnostic compatibility preset"));
             Assert.That(currentVocabulary.Any(text => text.Contains("baseline allows fallback", StringComparison.Ordinal)), Is.False);
             Assert.That(currentVocabulary.Any(text => text.Contains("covered fallback allowed", StringComparison.Ordinal)), Is.False);
             Assert.That(currentVocabulary.Any(text => text.Contains("fallback output retained", StringComparison.Ordinal)), Is.False);
@@ -1435,20 +1435,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8B_LegacyOrdinaryFallbackBaseline_IsCompatibilityAlias()
+        public void LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_IsRemoved()
         {
-            var canonical = GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline;
-            var compatibility = GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline;
-            var phase8BVocabulary = new[]
-            {
-                "RemovedLegacyFallbackDiagnosticBaseline: canonical diagnostic preset",
-                "LegacyOrdinaryFallbackBaseline: compatibility alias",
-                "covered fallback authorization: removed",
-            };
+            var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
+            var removedAlias = typeof(GameplayRuntimeFeatureFlags).GetProperty(
+                "LegacyOrdinaryFallbackBaseline",
+                BindingFlags.Public | BindingFlags.Static);
 
-            AssertSameRuntimeFeatureFlags(compatibility, canonical);
-            Assert.That(phase8BVocabulary, Does.Contain("LegacyOrdinaryFallbackBaseline: compatibility alias"));
-            Assert.That(phase8BVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
+            Assert.That(removedAlias, Is.Null);
+            Assert.That(runtimeFlags, Does.Contain("RemovedLegacyFallbackDiagnosticBaseline"));
+            Assert.That(runtimeFlags, Does.Not.Contain("LegacyOrdinaryFallbackBaseline"));
         }
 
         [Test]
@@ -1495,7 +1491,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var phase8CVocabulary = new[]
             {
                 "RemovedLegacyFallbackDiagnosticBaseline: canonical diagnostic preset",
-                "LegacyOrdinaryFallbackBaseline: deprecated compatibility alias",
+                "legacy ordinary fallback baseline alias: removed",
                 "covered fallback authorization: removed",
             };
 
@@ -1507,23 +1503,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8C_LegacyOrdinaryFallbackBaseline_IsCompatibilityOnly()
+        public void LegacyAliasCleanup_LegacyOrdinaryFallbackBaseline_HasNoActiveUsage()
         {
-            var canonical = GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline;
-            var compatibility = GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline;
-            var allowedOldAliasContexts = new[]
+            var activeSources = new[]
             {
-                "GameplayRuntimeFeatureFlags.cs alias definition",
-                "Phase8B_LegacyOrdinaryFallbackBaseline_IsCompatibilityAlias",
-                "Phase8C_LegacyOrdinaryFallbackBaseline_IsCompatibilityOnly",
-                "historical docs: deprecated compatibility alias",
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs",
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs",
+                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs",
             };
 
-            AssertSameRuntimeFeatureFlags(compatibility, canonical);
-            Assert.That(
-                allowedOldAliasContexts,
-                Does.Contain("Phase8C_LegacyOrdinaryFallbackBaseline_IsCompatibilityOnly"));
-            Assert.That(allowedOldAliasContexts.Any(text => text.Contains("canonical usage", StringComparison.Ordinal)), Is.False);
+            foreach (var relativePath in activeSources)
+            {
+                var source = ReadRepoFile(relativePath);
+                Assert.That(source, Does.Not.Contain("LegacyOrdinaryFallbackBaseline"), relativePath);
+            }
         }
 
         [Test]
@@ -1550,14 +1545,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(
                 docs.Any(doc => doc.Contains(
-                    "LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias",
+                    "LegacyOrdinaryFallbackBaseline` alias has been removed",
                     StringComparison.Ordinal)),
                 Is.True);
         }
 
         [Test]
         [Category("Core")]
-        public void Phase8C_AllowedOldAliasUsage_IsLimited()
+        public void LegacyAliasCleanup_ActiveSourcesUseRemovedDiagnosticBaseline()
         {
             var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
             var sourceFilesWithoutOldAliasDirectUsage = new[]
@@ -1569,7 +1564,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(
                 runtimeFlags,
-                Does.Contain("public static GameplayRuntimeFeatureFlags LegacyOrdinaryFallbackBaseline"));
+                Does.Not.Contain("LegacyOrdinaryFallbackBaseline"));
             Assert.That(runtimeFlags, Does.Contain("RemovedLegacyFallbackDiagnosticBaseline"));
 
             foreach (var relativePath in sourceFilesWithoutOldAliasDirectUsage)
@@ -1577,7 +1572,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var source = ReadRepoFile(relativePath);
                 Assert.That(
                     source,
-                    Does.Not.Contain("GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline"),
+                    Does.Not.Contain("LegacyOrdinaryFallbackBaseline"),
                     relativePath);
             }
         }
@@ -1605,13 +1600,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayRuntimeFeatureFlags.None,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
                 GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
             };
             var phase8DVocabulary = new[]
             {
                 "RemovedLegacyFallbackDiagnosticsEnabled: canonical diagnostic routing helper",
-                "LegacyOrdinaryFallbackEnabled: deprecated compatibility alias",
+                "LegacyOrdinaryFallbackEnabled: removed alias",
                 "covered fallback authorization: removed",
             };
 
@@ -1632,34 +1626,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8D_LegacyOrdinaryFallbackEnabled_IsCompatibilityAlias()
+        public void LegacyAliasCleanup_LegacyOrdinaryFallbackEnabled_IsRemoved()
         {
-            var presets = new[]
-            {
-                GameplayRuntimeFeatureFlags.None,
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
-                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
-            };
-            var allowedOldHelperContexts = new[]
-            {
-                "GameplayRuntimeFeatureFlags.cs helper definition",
-                "Phase8D_LegacyOrdinaryFallbackEnabled_IsCompatibilityAlias",
-                "historical docs: deprecated compatibility helper",
-            };
+            var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
+            var removedAlias = typeof(GameplayRuntimeFeatureFlags).GetProperty(
+                "LegacyOrdinaryFallbackEnabled",
+                BindingFlags.Public | BindingFlags.Instance);
 
-            foreach (var preset in presets)
-            {
-                Assert.That(
-                    preset.LegacyOrdinaryFallbackEnabled,
-                    Is.EqualTo(preset.RemovedLegacyFallbackDiagnosticsEnabled));
-            }
-
-            Assert.That(
-                allowedOldHelperContexts,
-                Does.Contain("Phase8D_LegacyOrdinaryFallbackEnabled_IsCompatibilityAlias"));
-            Assert.That(allowedOldHelperContexts.Any(text => text.Contains("canonical usage", StringComparison.Ordinal)), Is.False);
+            Assert.That(removedAlias, Is.Null);
+            Assert.That(runtimeFlags, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled"));
+            Assert.That(runtimeFlags, Does.Not.Contain("LegacyOrdinaryFallbackEnabled"));
         }
 
         [Test]
@@ -1683,7 +1659,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8D_LegacyOrdinaryFallbackEnabled_HasNoCanonicalInternalUsage()
+        public void LegacyAliasCleanup_LegacyOrdinaryFallbackEnabled_HasNoActiveUsage()
         {
             var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
             var tickPipeline = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
@@ -1697,7 +1673,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(runtimeFlags, Does.Contain("public bool RemovedLegacyFallbackDiagnosticsEnabled"));
             Assert.That(
                 runtimeFlags,
-                Does.Contain("public bool LegacyOrdinaryFallbackEnabled => RemovedLegacyFallbackDiagnosticsEnabled"));
+                Does.Not.Contain("LegacyOrdinaryFallbackEnabled"));
             Assert.That(tickPipeline, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled"));
             Assert.That(tickPipeline, Does.Not.Contain("LegacyOrdinaryFallbackEnabled"));
             Assert.That(tickPipeline, Does.Not.Contain("_runtimeFeatureFlags.EnableLegacyOrdinaryUnitFallback"));
@@ -1730,7 +1706,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(
                 docs.Any(doc => doc.Contains(
-                    "LegacyOrdinaryFallbackEnabled` remains a deprecated compatibility alias",
+                    "LegacyOrdinaryFallbackEnabled` alias has been removed",
                     StringComparison.Ordinal)),
                 Is.True);
         }
@@ -1762,7 +1738,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline,
             };
             var phase8EVocabulary = new[]
             {
@@ -1783,7 +1758,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
-            Assert.That(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
             Assert.That(phase8EVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: preferred helper"));
             Assert.That(phase8EVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
         }
@@ -2086,10 +2060,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase6_LegacyBaseline_PlayerEnemyStillRemoved()
+        public void Phase6_RemovedDiagnosticBaseline_PlayerEnemyStillRemoved()
         {
-            Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved();
-            Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved();
+            Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved();
+            Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved();
         }
 
         [Test]

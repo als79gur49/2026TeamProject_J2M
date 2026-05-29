@@ -28,12 +28,12 @@ Retained grid transactions still pass the grid transaction allowlist before fall
 
 Phase 5 canonical canaries:
 
-- `Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved`
-- `Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
-- `Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5`
-- `Phase5_LegacyBaseline_ChargeFallbackRemovedByPhase6`
-- `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
-- `Replay_Phase5_EnemyLegacyBaseline_FallbackRemoved`
+- `Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved`
+- `Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved`
+- `Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemovedByPhase5`
+- `Phase5_RemovedDiagnosticBaseline_ChargeFallbackRemovedByPhase6`
+- `Replay_Phase6_RemovedDiagnosticBaseline_PlayerEnemyChargeRemoved`
+- `Replay_Phase5_EnemyRemovedDiagnosticBaseline_FallbackRemoved`
 
 The Phase 2B/Phase 4 enemy fallback-allowed canaries are superseded. Phase 6 supersedes Charge fallback-allowed canaries.
 

@@ -10,14 +10,14 @@ It does not authorize covered player, enemy, or Charge fallback.
 No new canonical field such as `EnableRemovedLegacyFallbackDiagnostics` is added in Phase 8E.
 Runtime validation semantics, replay behavior, and trace token text are unchanged.
 `RemovedLegacyFallbackDiagnosticsEnabled` remains the preferred helper for current runtime and test policy.
-`LegacyOrdinaryFallbackEnabled` and `LegacyOrdinaryFallbackBaseline` remain compatibility aliases.
+The 2026-05-29 alias cleanup removes the legacy preset/helper aliases; `LegacyOrdinaryFallbackBaseline` alias has been removed, and `LegacyOrdinaryFallbackEnabled` alias has been removed.
 Option B is a future consideration, not a Phase 8E implementation.
 
 ## Current Phase Status
 
 Phase 8B added `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical preset for deterministic removed diagnostics.
-Phase 8C migrated current internal usage to that canonical preset while keeping `LegacyOrdinaryFallbackBaseline` as a deprecated compatibility alias.
-Phase 8D added `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper while keeping `LegacyOrdinaryFallbackEnabled` as a deprecated compatibility alias.
+Phase 8C migrated current internal usage to that canonical preset.
+Phase 8D added `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper.
 
 The remaining misleading symbol is the underlying field and constructor parameter `EnableLegacyOrdinaryUnitFallback`.
 It is risky to rename or delete immediately because it participates in the public struct shape, preset construction, tests, docs, and trace/golden vocabulary decisions.
@@ -30,9 +30,9 @@ It is risky to rename or delete immediately because it participates in the publi
 | `EnableLegacyOrdinaryUnitFallback` assignment | `GameplayRuntimeFeatureFlags.cs` | backing assignment | compatibility field storage | medium | low | no | keep | Option B/C review |
 | `EnableLegacyOrdinaryUnitFallback` property | `GameplayRuntimeFeatureFlags.cs` | public property | removed-specific diagnostic routing | high: public flag shape churn | low-medium if projected into config later | no | keep as compatibility-only | Option B/C/D |
 | `RemovedLegacyFallbackDiagnosticBaseline` | `GameplayRuntimeFeatureFlags.cs` | preset initialization | deterministic removed diagnostics | medium | low | no | keep canonical preset | alias cleanup later |
-| `LegacyOrdinaryFallbackBaseline` | `GameplayRuntimeFeatureFlags.cs` | compatibility preset alias | deprecated preset alias | low | low | no | keep | separate alias cleanup |
+| `LegacyOrdinaryFallbackBaseline` | `GameplayRuntimeFeatureFlags.cs` | removed preset alias | historical name only | low | low | done | removed in 2026-05-29 alias cleanup | none |
 | `RemovedLegacyFallbackDiagnosticsEnabled` | `GameplayRuntimeFeatureFlags.cs`, `TickPipeline.cs` | helper property / validation read | canonical diagnostic-routing helper | low | low | done | keep preferred read | none |
-| `LegacyOrdinaryFallbackEnabled` | `GameplayRuntimeFeatureFlags.cs` | compatibility helper alias | deprecated helper alias | low | low | no | keep | obsolete/remove later |
+| `LegacyOrdinaryFallbackEnabled` | `GameplayRuntimeFeatureFlags.cs` | removed helper alias | historical name only | low | low | done | removed in 2026-05-29 alias cleanup | none |
 | explicit-baseline gate | `TickPipeline.ValidateLegacyExpansionIntents` | validation helper read | false routes to `LegacyOrdinaryFallbackRequiresExplicitBaseline` | high | none | no | keep helper read | none |
 | removed reasons | `TickPipeline.TryResolveForbiddenLegacyUnitOrdinaryMovement` | diagnostic routing | true routes to player/enemy/Charge removed reasons | high | none | no | keep semantics | none |
 | `LegacyFallback=` | `TickPipeline.FormatLocomotionFeatureFlags` | trace formatter token | diagnostic routing trace bit | high: replay/golden churn | none | no | keep token text | trace cleanup phase |
