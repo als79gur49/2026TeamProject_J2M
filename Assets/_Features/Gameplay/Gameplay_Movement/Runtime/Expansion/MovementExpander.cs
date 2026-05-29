@@ -242,6 +242,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             if (intent.CommandKind == MovementCommandKind.Move &&
                 usesPlayerTraversal &&
                 EntityRolePolicy.IsPlayerUnit(source) &&
+                TileFeatureHazardQueries.IsDestroyTileLethalForUnit(source) &&
                 TileFeatureAccessQueries.IsActiveDestroyTile(
                     snapshot,
                     tileFeatureDefinitions,

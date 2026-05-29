@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -405,6 +407,78 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_ActivatedBarricadeBlocksWindupStart()
+        {
+            var middleCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var barricade = CreateTileFeature(100, middleCell, TileFeatureKind.Barricade);
+            var definitions = CreateActiveDefinitions(barricade);
+            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { barricade });
+            var before = DumpOccupancy(worldState.CreateSnapshot());
+
+            var tick = CreatePipeline(worldState, definitions).RunTick(new TickInput(1));
+
+            AssertNoForwardCellProjectileStarted(worldState);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(middleCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_InactiveBarricadeDoesNotBlock()
+        {
+            var middleCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var barricade = CreateTileFeature(101, middleCell, TileFeatureKind.Barricade);
+            var definitions = CreateInactiveDefinitions(barricade);
+            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { barricade });
+
+            var observation = ReleaseForwardCellProjectile(worldState, definitions);
+
+            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(middleCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_ActivatedDestroyTileDoesNotBlock()
+        {
+            var middleCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var destroyTile = CreateTileFeature(102, middleCell, TileFeatureKind.Destroy);
+            var definitions = CreateActiveDefinitions(destroyTile);
+            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { destroyTile });
+
+            var observation = ReleaseForwardCellProjectile(worldState, definitions);
+
+            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(middleCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_SamePlanarOtherFaceActivatedBarricadeIgnored()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var otherFaceBarricade = CreateTileFeature(103, new SurfaceCell(FaceId.Front, 2, 0), TileFeatureKind.Barricade);
+            var definitions = CreateActiveDefinitions(otherFaceBarricade);
+            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { otherFaceBarricade });
+
+            var observation = ReleaseForwardCellProjectile(worldState, definitions);
+
+            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
+            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_BlockerPolicy_InactiveFace_CurrentContract()
         {
             var inactiveTargetCell = new SurfaceCell(FaceId.Ceiling, 4, 0);
@@ -670,9 +744,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
         }
 
-        private static TickPipeline CreatePipeline(WorldState worldState)
+        private static TickPipeline CreatePipeline(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(LoadProfile()).CreateTickPipeline(worldState);
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(LoadProfile()).CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerTiming,
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static void InvalidatePlayerDuringWindup(WorldState worldState, string invalidationKind)
@@ -745,7 +831,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             IEnumerable<EntityState> extraEntities = null,
             GameplayTerrainData terrainData = null,
             BoardBounds? boardBounds = null,
-            CubeTopologyState? topology = null)
+            CubeTopologyState? topology = null,
+            IEnumerable<TileFeatureState> initialTileFeatures = null)
         {
             var entities = new List<EntityState>
             {
@@ -761,7 +848,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entities,
                 boardBounds ?? new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
                 terrainData ?? GameplayTerrainData.Empty,
-                topology ?? new CubeTopologyState(FaceId.Floor));
+                topology ?? new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                initialTileFeatures);
         }
 
         private static EntityState CreateUnit(
@@ -850,9 +939,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return impacts.Single().Impact;
         }
 
-        private static ForwardCellProjectileReleaseObservation ReleaseForwardCellProjectile(WorldState worldState)
+        private static ForwardCellProjectileReleaseObservation ReleaseForwardCellProjectile(
+            WorldState worldState,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            var pipeline = CreatePipeline(worldState);
+            var pipeline = CreatePipeline(worldState, tileFeatureDefinitions);
 
             pipeline.RunTick(new TickInput(1));
             var action = GetEnemyActionState(worldState);
@@ -1045,6 +1136,48 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             Assert.That(action.kind, Is.Not.EqualTo(EnemyActionKind.ForwardCellProjectile));
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateActiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.Always, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateInactiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.InactiveFaceOnly, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateDefinitions(
+            TileFeatureActivationRule activationRule,
+            params TileFeatureState[] tileFeatures)
+        {
+            return tileFeatures
+                .Select(tileFeature => new TileFeatureRuntimeDefinition(
+                    tileFeature.TileId,
+                    activationRule,
+                    Direction2D.None,
+                    TileFeatureBoxSelector.None,
+                    boundEntityId: tileFeature.Charges,
+                    presentationKey: string.Empty))
+                .ToArray();
         }
 
         private static string DumpOccupancy(WorldSnapshot snapshot)

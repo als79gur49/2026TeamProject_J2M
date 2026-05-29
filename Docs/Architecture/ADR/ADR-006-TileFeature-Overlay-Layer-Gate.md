@@ -97,7 +97,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - Free2D native topology transition checks `transition.TargetAnchor` under `transition.UpdatedTopology` before topology or anchor materialization.
 - Topology relocation is not movement-derived entity contact.
 - A topology-caused logical feature activation may emit a separate activation-transition occupant fact.
-- Air units may have DestroyTile hazard lethal exceptions, but player voluntary access guards still block active DestroyTile destination or Free2D scoped blocker entry.
+- Air units are immune to DestroyTile lethal hazard/effect policy, so player voluntary access guards must not block active DestroyTile destination or Free2D scoped blocker entry for Air mobility.
 - Unit targets are destroyed when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection, and lethal Ground Units are also destroyed when a topology-caused DestroyTile activation occurs under them.
 - Player and Enemy are both Unit targets; Player death presentation/audio is transported through `TickResult` presentation facts, not direct gameplay UI/audio calls.
 - Projectile and non-box solid occupants are not destroyed in v1.

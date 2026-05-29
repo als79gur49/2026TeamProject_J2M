@@ -3523,6 +3523,148 @@
       ],
       "reason": "Locked Core PlayMode coverage that stopped, owner-invalidated, and naturally completed gameplay playbacks are not revived by group resume.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.StartisEnemyRuntimeContractTests.Startis_ForwardMovement_ActivatedBarricadeBlocksOwnCell",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "startis_forward_movement_runtime_contract"
+      ],
+      "reason": "Locked Core representative coverage that Startis ordinary movement treats only active Barricade as a hard TileFeature blocker without creating Solid occupancy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BlackEyeWindupProjectileRuntimeContractTests.BlackEye_ForwardCellProjectile_BlockerPolicy_ActivatedBarricadeBlocksWindupStart",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "forward_cell_projectile_runtime_contract"
+      ],
+      "reason": "Locked Core representative coverage that BlackEye forward-cell projectile windup uses active Barricade blocker policy on its runtime acquisition path.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.RocketFaceChargeRuntimeContractTests.EnemyCharge_RocketFaceProfile_ActivatedBarricadeStopsActiveChargeAndThenRecovers",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "rocketface_charge_runtime_contract"
+      ],
+      "reason": "Locked Core representative coverage that RocketFace active charge stops on active Barricade as a hard TileFeature blocker while preserving charge recovery.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_GroundPlayer_ActivatedBarricadeBlocksMovement",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion"
+      ],
+      "reason": "Locked Core representative coverage that player Free2D local locomotion treats active Barricade as a hard TileFeature blocker without Solid occupancy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_InactiveBarricadeDoesNotBlockMovement",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion"
+      ],
+      "reason": "Locked Core representative coverage that player Free2D local locomotion ignores inactive Barricade while preserving overlay-only occupancy policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_SamePlanarOtherFaceTileFeaturesIgnored",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion"
+      ],
+      "reason": "Locked Core representative coverage that player Free2D local locomotion keeps SurfaceCell face identity for same-planar TileFeature policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_ActivatedBarricadeTargetPolicy",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that player Free2D native topology transition evaluates Barricade target activation under the transition topology.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_GroundPlayer_ActivatedDestroyTile_CurrentPolicyGuard",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion"
+      ],
+      "reason": "Locked Core representative coverage for the current-policy player Free2D Ground DestroyTile voluntary entry guard.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_AirPlayer_ActivatedDestroyTile_IsAllowedAndNoEffect",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion"
+      ],
+      "reason": "Locked Core representative coverage that Air player Free2D entry into active DestroyTile is allowed and produces no DestroyTile effect.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetAllowed",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that Air player Free2D native topology transition is not blocked by active DestroyTile target policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.PlayerMovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsAllowed",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "movement_phase_contract"
+      ],
+      "reason": "Locked Core compatibility coverage that MovementExpander allows Air player traversal into active DestroyTile.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.PlayerMovementExpander_ActivatedBarricadeBlocksMoveIntent",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "movement_phase_contract"
+      ],
+      "reason": "Locked Core compatibility coverage that MovementExpander treats active Barricade as a TileFeature blocker for player MoveIntent.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.PlayerMovementExpander_InactiveBarricadeAllowsMoveIntent",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "movement_phase_contract"
+      ],
+      "reason": "Locked Core compatibility coverage that MovementExpander allows player MoveIntent through inactive Barricade.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TileFeatureEffectResolverTests.PlayerDestroyTileEffect_AirPlayerEnteringActiveDestroyTile_DoesNotKillOrTrigger",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "tile_feature_effect_resolver_contract"
+      ],
+      "reason": "Locked Core representative coverage that Air player DestroyTile contacts do not kill, detach, mark, or trigger DestroyTile events.",
+      "locked": true
     }
   ]
 }

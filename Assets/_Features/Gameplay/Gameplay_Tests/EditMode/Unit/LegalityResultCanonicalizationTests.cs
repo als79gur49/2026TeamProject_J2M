@@ -51,9 +51,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void RuntimeTraversalLegalityPolicy_EvaluateDestination_WithRotation_ExportsTopologyUpdateRequirement()
         {
-            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()).CreateSnapshot();
             var updatedTopology = new CubeTopologyState(FaceId.Back);
+            var destinationCell = new SurfaceCell(updatedTopology.BottomFace, 0, 0);
 
             var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                 snapshot,

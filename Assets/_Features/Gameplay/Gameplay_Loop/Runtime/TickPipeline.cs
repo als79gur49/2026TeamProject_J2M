@@ -354,6 +354,7 @@ namespace Game.Feature.Gameplay.Loop
             BindTileFeatureDefinitionContext(entityLogicsForTick.AiStateLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick.PreMovementStateLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick.MovementLogics);
+            BindTileFeatureDefinitionContext(entityLogicsForTick.EnemyActionStateLogics);
         }
 
         private void BindTileFeatureDefinitionContext<TLogic>(IReadOnlyList<TLogic> logics)
@@ -2417,7 +2418,8 @@ namespace Game.Feature.Gameplay.Loop
                     : PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
-            if (TileFeatureAccessQueries.IsActiveDestroyTile(
+            if (TileFeatureHazardQueries.IsDestroyTileLethalForUnit(entity) &&
+                TileFeatureAccessQueries.IsActiveDestroyTile(
                     snapshot,
                     _tileFeatureDefinitions,
                     transition.TargetAnchor,
@@ -2952,12 +2954,15 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
+            var blocksActiveDestroyTileForEntity = TileFeatureHazardQueries.IsDestroyTileLethalForUnit(entity);
+
             bool BlocksPlayerVoluntaryFree2DDestroyTile(
                 SurfaceCell candidateCell,
                 CubeTopologyState evaluationTopology,
                 out ContinuousLocomotionRejectionReason rejectedBy)
             {
-                if (TileFeatureAccessQueries.IsActiveDestroyTile(
+                if (blocksActiveDestroyTileForEntity &&
+                    TileFeatureAccessQueries.IsActiveDestroyTile(
                         snapshot,
                         _tileFeatureDefinitions,
                         candidateCell,
@@ -4031,7 +4036,11 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             handledByKinematic = true;
-            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, entity, delta))
+            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(
+                    snapshot,
+                    entity,
+                    delta,
+                    _tileFeatureDefinitions))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyChargeKinematicTraversalBlocked|Anchor={FormatCell(entity.position)}");
