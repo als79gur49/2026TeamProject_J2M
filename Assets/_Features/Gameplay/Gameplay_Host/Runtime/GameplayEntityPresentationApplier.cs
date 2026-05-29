@@ -708,6 +708,7 @@ namespace Game.Feature.Gameplay.Host
         public void ClearJumpPresentationState(int entityId)
         {
             _trackState.JumpTracks.Remove(entityId);
+            _trackState.ClearAirborneJumpTrackKeys(entityId);
             _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
             _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
@@ -764,11 +765,17 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entityId = _trackState.CompletedJumpTrackIds[i];
                 var wasLandingCompletionHeld = _trackState.JumpLandingCompletionHoldEntityIds.Remove(entityId);
+                if (_trackState.ActiveAirborneJumpTrackKeys.TryGetValue(entityId, out var airborneKey))
+                {
+                    _trackState.CompletedAirborneJumpTrackKeys.Add(airborneKey);
+                    _trackState.ActiveAirborneJumpTrackKeys.Remove(entityId);
+                }
+
                 _trackState.JumpTracks.Remove(entityId);
                 _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
-                _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
                 if (wasLandingCompletionHeld)
                 {
+                    _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
                     _animationSync.CompleteEnemyJumpLandingPresentation(entityId, _stateStore.ViewsByEntityId);
                 }
             }

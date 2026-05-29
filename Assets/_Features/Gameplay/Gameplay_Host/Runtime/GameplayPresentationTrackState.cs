@@ -1,10 +1,85 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal readonly struct EnemyAirbornePresentationKey : System.IEquatable<EnemyAirbornePresentationKey>
+    {
+        public EnemyAirbornePresentationKey(
+            int entityId,
+            int sequence,
+            EnemyJumpPhase phase,
+            int retryCount,
+            int landingTick)
+        {
+            EntityId = entityId;
+            Sequence = sequence;
+            Phase = phase;
+            RetryCount = retryCount;
+            LandingTick = landingTick;
+        }
+
+        public int EntityId { get; }
+
+        public int Sequence { get; }
+
+        public EnemyJumpPhase Phase { get; }
+
+        public int RetryCount { get; }
+
+        public int LandingTick { get; }
+
+        public static EnemyAirbornePresentationKey FromSignal(TickEnemyJumpPresentationSignal signal)
+        {
+            return new EnemyAirbornePresentationKey(
+                signal.EntityId,
+                signal.Sequence,
+                signal.Phase,
+                signal.RetryCount,
+                signal.LandingTick);
+        }
+
+        public bool Equals(EnemyAirbornePresentationKey other)
+        {
+            return EntityId == other.EntityId &&
+                   Sequence == other.Sequence &&
+                   Phase == other.Phase &&
+                   RetryCount == other.RetryCount &&
+                   LandingTick == other.LandingTick;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EnemyAirbornePresentationKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = EntityId;
+                hashCode = (hashCode * 397) ^ Sequence;
+                hashCode = (hashCode * 397) ^ (int)Phase;
+                hashCode = (hashCode * 397) ^ RetryCount;
+                hashCode = (hashCode * 397) ^ LandingTick;
+                return hashCode;
+            }
+        }
+
+        public static bool operator ==(EnemyAirbornePresentationKey left, EnemyAirbornePresentationKey right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(EnemyAirbornePresentationKey left, EnemyAirbornePresentationKey right)
+        {
+            return !left.Equals(right);
+        }
+    }
+
     internal readonly struct KinematicPresentationPose
     {
         public KinematicPresentationPose(
@@ -45,6 +120,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _contactDelayedRetainedEntityIds = new();
         private readonly HashSet<int> _deathPresentationPlayingEntityIds = new();
         private readonly HashSet<int> _deferredExitRetainedEntityIds = new();
+        private readonly Dictionary<int, EnemyAirbornePresentationKey> _activeAirborneJumpTrackKeys = new();
+        private readonly HashSet<EnemyAirbornePresentationKey> _completedAirborneJumpTrackKeys = new();
         private readonly HashSet<int> _jumpLandingCompletionHoldEntityIds = new();
         private readonly HashSet<int> _jumpTopologySuspendedEntityIds = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
@@ -97,6 +174,10 @@ namespace Game.Feature.Gameplay.Host
 
         public HashSet<int> DeferredExitRetainedEntityIds => _deferredExitRetainedEntityIds;
 
+        public Dictionary<int, EnemyAirbornePresentationKey> ActiveAirborneJumpTrackKeys => _activeAirborneJumpTrackKeys;
+
+        public HashSet<EnemyAirbornePresentationKey> CompletedAirborneJumpTrackKeys => _completedAirborneJumpTrackKeys;
+
         public HashSet<int> JumpLandingCompletionHoldEntityIds => _jumpLandingCompletionHoldEntityIds;
 
         public HashSet<int> JumpTopologySuspendedEntityIds => _jumpTopologySuspendedEntityIds;
@@ -132,6 +213,12 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, VisibilityTrack> VisibilityTracks => _visibilityTracks;
 
+        public void ClearAirborneJumpTrackKeys(int entityId)
+        {
+            _activeAirborneJumpTrackKeys.Remove(entityId);
+            _completedAirborneJumpTrackKeys.RemoveWhere(key => key.EntityId == entityId);
+        }
+
         public void ResetSession()
         {
             _completedFlipInteractionTrackIds.Clear();
@@ -148,6 +235,8 @@ namespace Game.Feature.Gameplay.Host
             _contactDelayedRetainedEntityIds.Clear();
             _deathPresentationPlayingEntityIds.Clear();
             _deferredExitRetainedEntityIds.Clear();
+            _activeAirborneJumpTrackKeys.Clear();
+            _completedAirborneJumpTrackKeys.Clear();
             _jumpLandingCompletionHoldEntityIds.Clear();
             _jumpTopologySuspendedEntityIds.Clear();
             _completedTransitionVisibilityStateIds.Clear();

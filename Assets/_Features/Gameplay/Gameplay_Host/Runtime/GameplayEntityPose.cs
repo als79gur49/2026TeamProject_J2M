@@ -89,6 +89,14 @@ namespace Game.Feature.Gameplay.Host
             ? _clip.RemainingSeconds
             : 0f;
 
+        public float ElapsedSeconds => _clip != null
+            ? _clip.ElapsedSeconds
+            : 0f;
+
+        public float Progress01 => _clip != null
+            ? _clip.Progress01
+            : 1f;
+
         public void Clear()
         {
             _clip = null;
@@ -153,6 +161,8 @@ namespace Game.Feature.Gameplay.Host
         public bool IsComplete => RemainingSeconds <= 0.0001f;
 
         public float RemainingSeconds => Mathf.Max(0f, DurationSeconds - ElapsedSeconds);
+
+        public float Progress01 => Mathf.Clamp01(ElapsedSeconds / DurationSeconds);
 
         public GameplayEntityPose StartPose { get; }
 

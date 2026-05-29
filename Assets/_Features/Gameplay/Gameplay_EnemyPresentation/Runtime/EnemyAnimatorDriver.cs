@@ -91,6 +91,8 @@ namespace Game.Feature.Gameplay.Host
 
         public string LastCrossFadedStateName { get; private set; } = string.Empty;
 
+        public bool IsPresentationPaused { get; private set; }
+
         private bool _animationTimingResolved;
         private bool _hasAnimationTimingAuthoring;
         private EnemyAnimationTimingSnapshot _animationTiming;
@@ -110,6 +112,11 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
+        public void SetPresentationPaused(bool paused)
+        {
+            IsPresentationPaused = paused;
+        }
+
         private void Reset()
         {
             animator = GetComponentInChildren<Animator>();
@@ -123,6 +130,11 @@ namespace Game.Feature.Gameplay.Host
             CurrentAiMode = state.AiMode;
             CurrentActiveActionKind = state.ActiveActionKind;
             IsMoving = state.IsMoving;
+
+            if (IsPresentationPaused)
+            {
+                return;
+            }
 
             var targetAnimator = ResolveAnimator();
             TryConsumePendingNamedStateCrossFade(targetAnimator);
@@ -255,6 +267,11 @@ namespace Game.Feature.Gameplay.Host
             CurrentActiveActionKind = settledState.ActiveActionKind;
             IsMoving = settledState.IsMoving;
 
+            if (IsPresentationPaused)
+            {
+                return;
+            }
+
             var targetAnimator = ResolveAnimator();
             TryConsumePendingNamedStateCrossFade(targetAnimator);
             SyncOptionalParameters(targetAnimator, settledState);
@@ -270,6 +287,11 @@ namespace Game.Feature.Gameplay.Host
             IsVisible = isVisible;
             IsMoving = isMoving;
             IsPlaybackSuppressed = effectivePlaybackSuppressed;
+
+            if (IsPresentationPaused)
+            {
+                return;
+            }
 
             var targetAnimator = ResolveAnimator();
             TryConsumePendingNamedStateCrossFade(targetAnimator);
@@ -303,6 +325,11 @@ namespace Game.Feature.Gameplay.Host
             IsMoving = isMoving;
             IsPlaybackSuppressed = playbackSuppressed || isJumpAirborne;
 
+            if (IsPresentationPaused)
+            {
+                return;
+            }
+
             var targetAnimator = ResolveAnimator();
             if (isJumpAirborne)
             {
@@ -314,17 +341,32 @@ namespace Game.Feature.Gameplay.Host
 
         public void ApplyPresentationPhaseTiming(EnemyPresentationPhase phase)
         {
+            if (IsPresentationPaused)
+            {
+                return;
+            }
+
             ApplyAnimatorTiming(ResolveAnimator(), phase);
         }
 
         public void RestorePresentationTiming()
         {
+            if (IsPresentationPaused)
+            {
+                return;
+            }
+
             ApplyAnimatorTiming(ResolveAnimator(), ResolvePresentationPhase(LastPresentationState));
         }
 
         public bool ResyncAnimatorStateFromLastPresentation()
         {
             if (LastPresentationState.EntityId == 0)
+            {
+                return false;
+            }
+
+            if (IsPresentationPaused)
             {
                 return false;
             }
@@ -369,13 +411,18 @@ namespace Game.Feature.Gameplay.Host
 
         public void PlayUtilityWindup(EnemyUtilityPresentationKind kind)
         {
-            var targetAnimator = ResolveAnimator();
             if (kind != EnemyUtilityPresentationKind.LockNearbyBoxes &&
                 kind != EnemyUtilityPresentationKind.GravityFieldAura)
             {
                 return;
             }
 
+            if (IsPresentationPaused)
+            {
+                return;
+            }
+
+            var targetAnimator = ResolveAnimator();
             UtilityWindupSignalCount++;
             if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup))
             {
@@ -403,6 +450,11 @@ namespace Game.Feature.Gameplay.Host
             CurrentAiMode = currentState.AiMode;
             CurrentActiveActionKind = currentState.ActiveActionKind;
             IsMoving = false;
+            if (IsPresentationPaused)
+            {
+                return DeathPresentationDurationSeconds;
+            }
+
             DeathSignalCount++;
             SetTrigger(targetAnimator, deathTriggerName);
             ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.Death);
@@ -456,6 +508,11 @@ namespace Game.Feature.Gameplay.Host
             var resolvedSpeed = ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
             CurrentAnimatorSpeed = resolvedSpeed;
             CurrentPresentationDurationSeconds = presentationDurationSeconds;
+            if (IsPresentationPaused)
+            {
+                return;
+            }
+
             var targetSpeed = IsPlaybackSuppressed
                 ? 0f
                 : resolvedSpeed;
@@ -871,16 +928,31 @@ namespace Game.Feature.Gameplay.Host
 
         public bool PreserveJumpAirborneAnimatorForTopologySuspend()
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             return PreserveJumpAirborneAnimatorForTopologySuspend(ResolveAnimator());
         }
 
         public bool EnsureJumpAirborneBaseAnimation()
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             return EnsureJumpAirborneAnimatorState(ResolveAnimator());
         }
 
         private bool PreserveJumpAirborneAnimatorForTopologySuspend(Animator targetAnimator)
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
             {
                 return false;
@@ -926,11 +998,21 @@ namespace Game.Feature.Gameplay.Host
 
         public bool RestoreJumpAirborneAnimatorAfterTopologySuspend()
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             return RestoreJumpAirborneAnimatorAfterTopologySuspend(ResolveAnimator());
         }
 
         private bool RestoreJumpAirborneAnimatorAfterTopologySuspend(Animator targetAnimator)
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne ||
                 !_jumpAirborneTopologySuspendSnapshot.HasValue)
             {
@@ -955,6 +1037,11 @@ namespace Game.Feature.Gameplay.Host
 
         private bool EnsureJumpAirborneAnimatorState(Animator targetAnimator)
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             if (LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
             {
                 return false;
@@ -1010,6 +1097,11 @@ namespace Game.Feature.Gameplay.Host
             string stateName,
             bool requireOverride = false)
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             if (string.IsNullOrWhiteSpace(stateName))
             {
                 return false;
@@ -1044,6 +1136,11 @@ namespace Game.Feature.Gameplay.Host
 
         private bool TryConsumePendingNamedStateCrossFade(Animator targetAnimator)
         {
+            if (IsPresentationPaused)
+            {
+                return false;
+            }
+
             if (string.IsNullOrWhiteSpace(_pendingCrossFadeStateName) ||
                 !CanDriveAnimator(targetAnimator))
             {
