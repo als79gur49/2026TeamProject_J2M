@@ -38,11 +38,8 @@ Limited deferred gate
 
 2026-05-29 legacy/deprecated cleanup closeout
 - Closed the old `Confirmed stale-only` rows out of active tracking. They remain historical evidence from the lane-lock cleanup and should not be used as current failure inventory.
-- Remaining open row count: `1`, the Stage 3-1 asset contract deferred-classification row below.
-
-| Test Id | Current Classification | Evidence | Blocking Semantic Dependency | Recheck Step | Promote to Confirmed stale-only when | Promote to Active Regression when |
-| --- | --- | --- | --- | --- | --- | --- |
-| `StageRuntimeBuilderTests.StageRuntimeBuilder_Stage31Build_ReflectsVfxSfxStageContract` | `Deferred classification` | Current `stage-3-1.asset` has `BoxSpawns.Length = 4` while the test expects `12`; latest stage asset history includes level-01 stage composition updates. This is a stage asset contract issue, not Finding 1 presentation leakage. | Confirm whether the current Stage 3-1 asset design intentionally reduced BoxSpawns before changing tests or assets. | `P3` | Stage 3-1 design owner confirms the current asset is canonical and only the literal test expectation is stale. | BoxSpawns count impacts objective, VFX/SFX, pacing, or authored content intent and the asset must be restored. |
+- Closed `StageRuntimeBuilderTests.StageRuntimeBuilder_Stage31Build_ReflectsVfxSfxStageContract` because the current Stage 3-1 asset and test contract are already generalized/current: the test no longer carries the stale literal `BoxSpawns.Length == 12` expectation and derives runtime entity count from authored stage arrays.
+- Remaining open row count: `0`.
 
 Closed stale-only rows:
 - `MovementPhaseScenarioTests.Movement_PushInputPushBox_ContinuesAcrossBottomFrontSharedEdge`
