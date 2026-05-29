@@ -54,12 +54,14 @@ namespace Game.Feature.Gameplay.Host
             var sequenceDefinition = campaignStageSequenceDefinition != null
                 ? campaignStageSequenceDefinition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+            var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
             context = new DemoStageControlGameplayContext(
                 stageCatalogProvider,
                 new DemoStageControlCampaignBridge(
                     _saveSlotStore,
                     _activeSlotProvider,
-                    new CampaignStageSequenceResolver(sequenceDefinition)));
+                    sequenceResolver),
+                sequenceResolver);
             return true;
         }
 
@@ -155,9 +157,6 @@ namespace Game.Feature.Gameplay.Host
                 _activeSlotProvider,
                 _campaignChanceDisplayOverride);
             configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
-                _saveSlotStore,
-                _activeSlotProvider);
-            configuration.DebugStageLaunchConstraint = new CampaignActiveSlotDebugStageLaunchConstraint(
                 _saveSlotStore,
                 _activeSlotProvider);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)

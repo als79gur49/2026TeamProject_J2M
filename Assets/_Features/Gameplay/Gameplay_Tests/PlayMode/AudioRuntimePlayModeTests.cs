@@ -469,6 +469,191 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [Test]
+        [Category("Core")]
+        public void AudioPlaybackPauseService_GameplayPresentation_PausesAndResumesSfxWithoutDuplicatingPlayback()
+        {
+            var rootObject = new GameObject("AudioGameplayPauseSfxRoot");
+            var clip = AudioClip.Create("GameplayPauseSfxLoop", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var handle = manager.Play2D(definition);
+                var initialSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(handle.IsValid, Is.True);
+                Assert.That(initialSnapshot, Has.Length.EqualTo(1));
+                Assert.That(initialSnapshot[0].PauseGroup, Is.EqualTo(AudioPlaybackPauseGroup.GameplayPresentation));
+
+                manager.PauseGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                var pausedSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(manager.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause), Is.True);
+                Assert.That(pausedSnapshot, Has.Length.EqualTo(1));
+                Assert.That(pausedSnapshot[0].Source, Is.SameAs(initialSnapshot[0].Source));
+                Assert.That(pausedSnapshot[0].ActivePauseReasons, Is.EqualTo(AudioPauseReason.GameplayPause));
+
+                manager.ResumeGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                var resumedSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(manager.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause), Is.False);
+                Assert.That(resumedSnapshot, Has.Length.EqualTo(1));
+                Assert.That(resumedSnapshot[0].Source, Is.SameAs(initialSnapshot[0].Source));
+                Assert.That(resumedSnapshot[0].ActivePauseReasons, Is.EqualTo(AudioPauseReason.None));
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AudioPlaybackPauseService_GameplayPresentation_ExcludesUiAndBgm()
+        {
+            var rootObject = new GameObject("AudioGameplayPauseExclusionRoot");
+            var sfxClip = AudioClip.Create("GameplayPauseSfx", 4410, 1, 44100, false);
+            var uiClip = AudioClip.Create("GameplayPauseUi", 4410, 1, 44100, false);
+            var bgmClip = AudioClip.Create("GameplayPauseBgm", 4410, 1, 44100, false);
+            var sfxDefinition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var uiDefinition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var bgmDefinition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(sfxDefinition, sfxClip, loop: true);
+                ConfigureDefinition(uiDefinition, uiClip, loop: true);
+                SetSerializedField(typeof(AudioDefinition), uiDefinition, "category", AudioCategory.Ui);
+                ConfigureBgmDefinition(bgmDefinition, bgmClip);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.Play2D(sfxDefinition);
+                manager.Play2D(uiDefinition);
+                manager.PlayBgm(CreateBgmPlayRequest(bgmDefinition, AudioBgmTransition.Immediate));
+                manager.PauseGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+
+                var snapshots = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(snapshots, Has.Length.EqualTo(3));
+                Assert.That(
+                    Array.Find(snapshots, snapshot => snapshot.LeafChannel == AudioChannel.Sfx).ActivePauseReasons,
+                    Is.EqualTo(AudioPauseReason.GameplayPause));
+                Assert.That(
+                    Array.Find(snapshots, snapshot => snapshot.LeafChannel == AudioChannel.Ui).ActivePauseReasons,
+                    Is.EqualTo(AudioPauseReason.None));
+                Assert.That(
+                    Array.Find(snapshots, snapshot => snapshot.LeafChannel == AudioChannel.Bgm).ActivePauseReasons,
+                    Is.EqualTo(AudioPauseReason.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(sfxDefinition);
+                UnityEngine.Object.DestroyImmediate(uiDefinition);
+                UnityEngine.Object.DestroyImmediate(bgmDefinition);
+                UnityEngine.Object.DestroyImmediate(sfxClip);
+                UnityEngine.Object.DestroyImmediate(uiClip);
+                UnityEngine.Object.DestroyImmediate(bgmClip);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AudioPlaybackPauseService_NewSfxCreatedDuringGameplayPause_IsRegisteredPaused()
+        {
+            var rootObject = new GameObject("AudioGameplayPauseNewSfxRoot");
+            var clip = AudioClip.Create("GameplayPauseNewSfx", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.PauseGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                var handle = manager.Play2D(definition);
+                var pausedSnapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(handle.IsValid, Is.True);
+                Assert.That(pausedSnapshot, Has.Length.EqualTo(1));
+                Assert.That(pausedSnapshot[0].ActivePauseReasons, Is.EqualTo(AudioPauseReason.GameplayPause));
+
+                manager.ResumeGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                var resumedSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(resumedSnapshot, Has.Length.EqualTo(1));
+                Assert.That(resumedSnapshot[0].Source, Is.SameAs(pausedSnapshot[0].Source));
+                Assert.That(resumedSnapshot[0].ActivePauseReasons, Is.EqualTo(AudioPauseReason.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator AudioPlaybackPauseService_StoppedOrNaturallyCompletedPlayback_DoesNotReviveOnResume()
+        {
+            var rootObject = new GameObject("AudioGameplayPauseCleanupRoot");
+            var ownerObject = new GameObject("AudioGameplayPauseOwner");
+            var loopClip = AudioClip.Create("GameplayPauseStoppedLoop", 4410, 1, 44100, false);
+            var shortClip = AudioClip.Create("GameplayPauseShortOneShot", 64, 1, 44100, false);
+            var loopDefinition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var shortDefinition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(loopDefinition, loopClip, loop: true);
+                ConfigureDefinition(shortDefinition, shortClip, loop: false);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var stoppedHandle = manager.Play2D(loopDefinition);
+                manager.PauseGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                stoppedHandle.Stop();
+                manager.ResumeGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                Assert.That(stoppedHandle.IsValid, Is.False);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+
+                var owner = ownerObject.AddComponent<TestOwner>();
+                var attachedHandle = manager.PlayAttached(
+                    loopDefinition,
+                    owner,
+                    AudioAttachmentSlot.FromId("pause-cleanup"));
+                manager.PauseGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                ownerObject.SetActive(false);
+                yield return null;
+                manager.ResumeGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                Assert.That(attachedHandle.IsValid, Is.False);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+
+                manager.PauseGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                var oneShotHandle = manager.Play2D(shortDefinition);
+                yield return null;
+                Assert.That(oneShotHandle.IsValid, Is.True);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+
+                manager.ResumeGroup(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause);
+                yield return new WaitForSecondsRealtime(0.03f);
+
+                Assert.That(oneShotHandle.IsValid, Is.False);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(ownerObject);
+                UnityEngine.Object.DestroyImmediate(loopDefinition);
+                UnityEngine.Object.DestroyImmediate(shortDefinition);
+                UnityEngine.Object.DestroyImmediate(loopClip);
+                UnityEngine.Object.DestroyImmediate(shortClip);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void AudioManager_PlayBgm_Replacement_UnregistersPreviousLiveRecordBeforeRegisteringNewOne()
         {

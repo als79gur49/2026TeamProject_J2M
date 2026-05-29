@@ -11,7 +11,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         private readonly IStageCompletionProfileStore _profileStore;
         private readonly StageSessionTracker _sessionTracker = new();
         private bool _completionInProgress;
-        private bool _debugResultOnlyEmitted;
 
         public GameplayHostStageCompletionRuntime(
             StageContentEntry entry,
@@ -101,66 +100,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             }
         }
 
-        public StageCompletionReadModel ForceClearResultOnly()
-        {
-            if (_debugResultOnlyEmitted)
-            {
-                return CurrentStageCompletion;
-            }
-
-            var stageId = ResolveStageId(_entry);
-            if (!stageId.IsValid)
-            {
-                throw new InvalidOperationException(
-                    "Debug forced clear requires a valid StageContentEntry StageId.");
-            }
-
-            var currentState = _sessionTracker.CurrentState;
-            var runId = currentState != null && currentState.RunId.IsValid
-                ? currentState.RunId
-                : StageRunId.New();
-            var clearResult = new StageClearResult(
-                stageId,
-                runId,
-                StageTerminalReason.Cleared,
-                wasCleared: true,
-                finalTickIndex: currentState?.CurrentTickIndex ?? 0,
-                finalObjectiveProgress: currentState?.ObjectiveProgress ?? default,
-                sessionMetricsSnapshot: currentState?.SessionMetrics ?? Array.Empty<StageSessionMetricValue>(),
-                challengeRuntimeStates: currentState?.ChallengeRuntimeStates ?? Array.Empty<StageChallengeRuntimeState>());
-            var clearEvaluationResult = StageClearEvaluator.Evaluate(_entry?.ClearEvaluationDefinition, clearResult);
-            var emptyRewardGrantResult = new RewardGrantResult(
-                stageId,
-                runId,
-                Array.Empty<RewardGrantEntry>(),
-                Array.Empty<string>(),
-                Array.Empty<RewardGrantId>(),
-                wasFirstClear: false);
-            var currentProgress = LoadCurrentProgress(stageId);
-            var baseReadModel = StageCompletionReadModelBuilder.Build(
-                _entry,
-                clearResult,
-                clearEvaluationResult,
-                emptyRewardGrantResult,
-                currentProgress);
-
-            CurrentStageCompletion = new StageCompletionReadModel(
-                baseReadModel.StageId,
-                baseReadModel.DisplayName,
-                "DEBUG FORCED CLEAR",
-                string.IsNullOrWhiteSpace(baseReadModel.ResultSummaryText)
-                    ? "Result Only mode"
-                    : baseReadModel.ResultSummaryText,
-                BuildDebugDetail(baseReadModel.ResultDetailText),
-                baseReadModel.ResultContinueLabel,
-                clearResult,
-                clearEvaluationResult,
-                emptyRewardGrantResult,
-                currentProgress);
-            _debugResultOnlyEmitted = true;
-            return CurrentStageCompletion;
-        }
-
         private PlayerStageProgress LoadCurrentProgress(StageId stageId)
         {
             var snapshot = _profileStore.Load() ?? new StageCompletionProfileSnapshot();
@@ -174,13 +113,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             return entry != null && entry.StageId.IsValid
                 ? entry.StageId
                 : StageId.None;
-        }
-
-        private static string BuildDebugDetail(string baseDetail)
-        {
-            return string.IsNullOrWhiteSpace(baseDetail)
-                ? "DEBUG FORCED CLEAR / NO SAVE / NO REWARD"
-                : $"{baseDetail}\nDEBUG FORCED CLEAR / NO SAVE / NO REWARD";
         }
 
         private sealed class InMemoryStageCompletionProfileStore : IStageCompletionProfileStore

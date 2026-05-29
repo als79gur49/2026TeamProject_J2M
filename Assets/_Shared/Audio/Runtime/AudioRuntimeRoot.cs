@@ -16,6 +16,8 @@ namespace Game.Shared.Audio
 
         public IAudioSettingsService AudioSettingsService => audioManager;
 
+        public IAudioPlaybackPauseService AudioPlaybackPauseService => audioManager;
+
         internal bool IsRuntimeInitialized => runtimeInitialized;
 
         public void InitializeRuntime()

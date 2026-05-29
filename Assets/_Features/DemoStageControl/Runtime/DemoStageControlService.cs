@@ -8,20 +8,22 @@ namespace Game.Feature.DemoStageControl
     {
         private readonly IDemoStageControlCampaignBridge _campaignBridge;
         private readonly StageCatalogResolver _catalogResolver;
-        private readonly StageCatalogQueryService _catalogQueryService;
         private readonly IDemoStageControlCompletionBridge _completionBridge;
         private readonly IDemoStageControlLaunchBridge _launchBridge;
+        private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly DemoStageControlSettings _settings;
         private string _lastResultMessage = string.Empty;
 
         public DemoStageControlService(
             DemoStageControlSettings settings,
             IStageCatalogProvider stageCatalogProvider,
+            CampaignStageSequenceResolver sequenceResolver,
             IDemoStageControlCampaignBridge campaignBridge,
             IDemoStageControlLaunchBridge launchBridge,
             IDemoStageControlCompletionBridge completionBridge)
         {
             _settings = settings ?? DemoStageControlSettings.EnabledByDefault();
+            _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
             _campaignBridge = campaignBridge ?? throw new ArgumentNullException(nameof(campaignBridge));
             _launchBridge = launchBridge ?? throw new ArgumentNullException(nameof(launchBridge));
             _completionBridge = completionBridge ?? throw new ArgumentNullException(nameof(completionBridge));
@@ -31,29 +33,27 @@ namespace Game.Feature.DemoStageControl
             }
 
             _catalogResolver = new StageCatalogResolver(stageCatalogProvider);
-            _catalogQueryService = new StageCatalogQueryService(stageCatalogProvider);
         }
 
         public IReadOnlyList<DemoStageControlStageItem> GetStages()
         {
-            var catalogItems = _catalogQueryService.EnumerateLaunchCatalogItems();
-            var result = new List<DemoStageControlStageItem>(catalogItems.Count);
+            var sequenceEntries = _sequenceResolver.Entries;
+            var result = new List<DemoStageControlStageItem>(sequenceEntries.Count);
             var currentStageId = ResolveCurrentStageId();
-            for (var i = 0; i < catalogItems.Count; i++)
+            for (var i = 0; i < sequenceEntries.Count; i++)
             {
-                var item = catalogItems[i];
-                if (!item.StageId.IsValid || !_catalogResolver.TryResolve(item.StageId, out var entry))
+                var sequenceEntry = sequenceEntries[i];
+                if (sequenceEntry == null ||
+                    !sequenceEntry.StageId.IsValid ||
+                    !_catalogResolver.TryResolve(sequenceEntry.StageId, out var entry))
                 {
                     continue;
                 }
 
-                var displayName = string.IsNullOrWhiteSpace(item.DisplayName)
-                    ? item.StageId.Value
-                    : item.DisplayName;
                 result.Add(new DemoStageControlStageItem(
-                    item.StageId,
-                    displayName,
-                    item.StageId.Equals(currentStageId),
+                    sequenceEntry.StageId,
+                    ResolveDisplayName(entry, sequenceEntry),
+                    sequenceEntry.StageId.Equals(currentStageId),
                     _campaignBridge.IsUnlocked(entry)));
             }
 
@@ -80,6 +80,12 @@ namespace Game.Feature.DemoStageControl
             if (!stageId.IsValid)
             {
                 return Remember(DemoStageControlResult.Fail("Selected stage id is invalid."));
+            }
+
+            if (!_sequenceResolver.Contains(stageId))
+            {
+                return Remember(DemoStageControlResult.Fail(
+                    $"Stage '{stageId.Value}' is not part of the campaign sequence."));
             }
 
             if (!_catalogResolver.TryResolve(stageId, out var entry) || entry == null)
@@ -135,6 +141,28 @@ namespace Game.Feature.DemoStageControl
             return StageLaunchContextStore.CurrentStageId.IsValid
                 ? StageLaunchContextStore.CurrentStageId
                 : _campaignBridge.CurrentStageId;
+        }
+
+        private static string ResolveDisplayName(
+            StageContentEntry entry,
+            CampaignStageSequenceEntry sequenceEntry)
+        {
+            var presentationDisplayName = entry != null && entry.PresentationDefinition != null
+                ? entry.PresentationDefinition.DisplayName
+                : string.Empty;
+            if (!string.IsNullOrWhiteSpace(presentationDisplayName))
+            {
+                return presentationDisplayName;
+            }
+
+            if (sequenceEntry != null && !string.IsNullOrWhiteSpace(sequenceEntry.DisplayName))
+            {
+                return sequenceEntry.DisplayName;
+            }
+
+            return sequenceEntry != null && sequenceEntry.StageId.IsValid
+                ? sequenceEntry.StageId.Value
+                : string.Empty;
         }
 
         private DemoStageControlResult Remember(DemoStageControlResult result)

@@ -118,7 +118,8 @@ namespace Game.Feature.Gameplay.Host
                     overflowMode: VoiceOverflowMode.DropNewest);
             }
 
-            if (debugTag == "WalkStep")
+            if (debugTag == "WalkStep" ||
+                debugTag == "TopologyTransitionBlocked")
             {
                 return new AudioVoicePolicy(
                     AudioVoiceGroupId.PlayerLocomotion,
