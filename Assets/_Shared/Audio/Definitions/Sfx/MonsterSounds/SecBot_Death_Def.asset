@@ -16,4 +16,4 @@ MonoBehaviour:
   defaultVolumeTrim: 1
   pitchRange: {x: 1, y: 1}
   loop: 0
-  clip: {fileID: 8300000, guid: f7e6d9b2584b48d47b8b6a37306a17cd, type: 3}
+  clip: {fileID: 8300000, guid: ef2a1f8514468a34793420b0e7f1913a, type: 3}
