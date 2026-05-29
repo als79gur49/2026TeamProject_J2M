@@ -173,21 +173,9 @@ namespace Game.Feature.Gameplay.Tests
             NoLegacyOrdinaryUnitMove(result, enemyEntityId);
         }
 
-        [System.Obsolete("Fallback wrapper cleanup: historical compatibility wrapper only; use AssertEnemyFallbackRemovedFromRuntime for removed diagnostics.")]
-        public static void AllowsEnemyFlagOffLegacyOrdinaryFallback(TickResult result, int enemyEntityId)
-        {
-            AssertEnemyFallbackRemovedFromRuntime(result, enemyEntityId);
-        }
-
         public static void NoChargeActiveLegacyFallback(TickResult result, int chargeEntityId)
         {
             NoLegacyOrdinaryUnitMove(result, chargeEntityId);
-        }
-
-        [System.Obsolete("Fallback wrapper cleanup: historical compatibility wrapper only; use AssertChargeFallbackRemovedFromRuntime for removed diagnostics.")]
-        public static void AllowsChargeFlagOffLegacyFallback(TickResult result, int chargeEntityId)
-        {
-            AssertChargeFallbackRemovedFromRuntime(result, chargeEntityId);
         }
 
         public static void AllowsRetainedGlideFallback(TickResult result, int entityId)
@@ -209,25 +197,6 @@ namespace Game.Feature.Gameplay.Tests
             }
 
             AllowsRetainedGlideFallback(result, entityId);
-        }
-
-        [System.Obsolete("Fallback wrapper cleanup: historical compatibility wrapper only; retained glide/grid helpers are the current allowed vocabulary.")]
-        public static void AllowsFlagOffLegacyFallback(TickResult result, int entityId, bool chargeMove = false)
-        {
-            HasLegacyFallbackMoveEntity(result, entityId);
-            HasLegacyFallbackMove(result, entityId);
-        }
-
-        [System.Obsolete("Fallback wrapper cleanup: historical compatibility wrapper only; use AssertCoveredFallbackRemovedDiagnostics.")]
-        public static void AllowsLegacyOrdinaryFallbackBaseline(TickResult result, int entityId, bool chargeMove = false)
-        {
-            AssertCoveredFallbackRemovedDiagnostics(result, entityId);
-        }
-
-        [System.Obsolete("Fallback wrapper cleanup: historical compatibility wrapper only; use AssertCoveredFallbackRemovedDiagnostics.")]
-        public static void AllowsOnlyFlagOffCoveredFallback(TickResult result, int entityId, bool chargeMove = false)
-        {
-            AssertCoveredFallbackRemovedDiagnostics(result, entityId);
         }
 
         public static void GridTransactionsRemainAllowed(

@@ -2,18 +2,18 @@
 
 ## Decision
 
-Phase 8A changes naming and test support only. Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. Phase 8B/8C supersedes the diagnostic preset name with `RemovedLegacyFallbackDiagnosticBaseline`; Phase 8D adds `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper for diagnostic routing. `LegacyOrdinaryFallbackBaseline` and `LegacyOrdinaryFallbackEnabled` remain deprecated compatibility aliases. `EnableLegacyOrdinaryUnitFallback`, `LegacyOrdinaryFallbackBaseline`, `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and glide retained fallback are not removed or renamed in Phase 8A.
+Phase 8A changed naming and test support only. Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. Phase 8B/8C supersedes the diagnostic preset name with `RemovedLegacyFallbackDiagnosticBaseline`; Phase 8D adds `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper for diagnostic routing. The 2026-05-29 legacy/deprecated cleanup removed the obsolete `Allows*` helper wrappers after confirming no behavioral callers remained. `LegacyOrdinaryFallbackBaseline` and `LegacyOrdinaryFallbackEnabled` remain deprecated compatibility aliases. `EnableLegacyOrdinaryUnitFallback`, `LegacyOrdinaryFallbackBaseline`, `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and glide retained fallback are not removed or renamed by this helper-wrapper cleanup.
 
 ## Obsolete Helper Inventory
 
 | helper | Phase 8A state | canonical replacement | action |
 |---|---|---|---|
-| `AllowsLegacyOrdinaryFallbackBaseline` | obsolete wrapper, definition only | `AssertCoveredFallbackRemovedDiagnostics` | keep for compatibility; no internal callers |
+| `AllowsLegacyOrdinaryFallbackBaseline` | removed 2026-05-29 | `AssertCoveredFallbackRemovedDiagnostics` | do not restore |
 | `AllowsPlayerFlagOffLegacyOrdinaryFallback` | not present | `AssertPlayerFallbackRemovedFromRuntime` | do not restore |
-| `AllowsEnemyFlagOffLegacyOrdinaryFallback` | obsolete wrapper, definition only | `AssertEnemyFallbackRemovedFromRuntime` | keep for compatibility; no internal callers |
-| `AllowsChargeFlagOffLegacyFallback` | obsolete wrapper, definition only | `AssertChargeFallbackRemovedFromRuntime` | keep for compatibility; no internal callers |
-| `AllowsOnlyFlagOffCoveredFallback` | obsolete wrapper, definition only | `AssertCoveredFallbackRemovedDiagnostics` | keep for compatibility; no internal callers |
-| `AllowsFlagOffLegacyFallback` | historical compatibility wrapper | covered fallback helpers above | do not use for covered fallback assertions |
+| `AllowsEnemyFlagOffLegacyOrdinaryFallback` | removed 2026-05-29 | `AssertEnemyFallbackRemovedFromRuntime` | do not restore |
+| `AllowsChargeFlagOffLegacyFallback` | removed 2026-05-29 | `AssertChargeFallbackRemovedFromRuntime` | do not restore |
+| `AllowsOnlyFlagOffCoveredFallback` | removed 2026-05-29 | `AssertCoveredFallbackRemovedDiagnostics` | do not restore |
+| `AllowsFlagOffLegacyFallback` | removed 2026-05-29 | retained glide/grid helpers | do not restore |
 | `AllowsRetainedGlideFallback*` | active retained glide helper | unchanged | retained exception; not covered fallback cleanup |
 
 ## Naming Policy
@@ -29,7 +29,7 @@ Phase 8A adds canonical canaries:
 - `Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained`
 - `Replay_Phase8A_DiagnosticBaseline_Deterministic`
 
-Historical Phase 2/4/5/6 wrapper names remain for compatibility and stratification continuity. They are historical names for removed diagnostics, not current fallback allowance policy.
+Historical Phase 2/4/5/6 test method names remain for compatibility and stratification continuity. The old helper wrapper methods are removed; current tests must call canonical removed-diagnostic helpers directly.
 
 ## Replay And Golden
 

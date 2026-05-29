@@ -1201,8 +1201,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var method = typeof(LegacyMovementBoundaryAssert).GetMethod(
                     obsoleteCoveredHelperNames[i],
                     BindingFlags.Public | BindingFlags.Static);
-                Assert.That(method, Is.Not.Null, obsoleteCoveredHelperNames[i]);
-                Assert.That(method.GetCustomAttribute<ObsoleteAttribute>(), Is.Not.Null, obsoleteCoveredHelperNames[i]);
+                Assert.That(method, Is.Null, obsoleteCoveredHelperNames[i]);
             }
 
             var canonicalHelperNames = new[]
@@ -1214,12 +1213,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
             var phase8AUsageInventory = new[]
             {
-                "AllowsLegacyOrdinaryFallbackBaseline: definition only",
+                "AllowsLegacyOrdinaryFallbackBaseline: removed",
                 "AllowsPlayerFlagOffLegacyOrdinaryFallback: not present",
-                "AllowsEnemyFlagOffLegacyOrdinaryFallback: definition only",
-                "AllowsChargeFlagOffLegacyFallback: definition only",
-                "AllowsOnlyFlagOffCoveredFallback: definition only",
-                "AllowsFlagOffLegacyFallback: definition only",
+                "AllowsEnemyFlagOffLegacyOrdinaryFallback: removed",
+                "AllowsChargeFlagOffLegacyFallback: removed",
+                "AllowsOnlyFlagOffCoveredFallback: removed",
+                "AllowsFlagOffLegacyFallback: removed",
             };
 
             Assert.That(canonicalHelperNames.Any(name => name.Contains("Allows", StringComparison.Ordinal)), Is.False);
@@ -1235,7 +1234,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 "LegacyOrdinaryFallbackBaseline: diagnostic compatibility preset",
                 "covered fallback authorization: removed",
-                "obsolete covered fallback helpers: wrapper-only",
+                "obsolete covered fallback helpers: removed",
                 "retained grid transactions remain allowed",
                 "glide retained fallback remains separate",
             };
@@ -1281,7 +1280,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs",
                 "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs",
             };
-            var retainedCompatibilityWrappers = new[]
+            var removedCompatibilityWrappers = new[]
             {
                 "AllowsLegacyOrdinaryFallbackBaseline",
                 "AllowsEnemyFlagOffLegacyOrdinaryFallback",
@@ -1290,14 +1289,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 "AllowsFlagOffLegacyFallback",
             };
 
-            foreach (var wrapper in retainedCompatibilityWrappers)
+            foreach (var wrapper in removedCompatibilityWrappers)
             {
-                Assert.That(helperSource, Does.Contain("[System.Obsolete"));
                 Assert.That(
                     helperSource,
-                    Does.Contain("public static void " + wrapper + "("),
+                    Does.Not.Contain("public static void " + wrapper + "("),
                     wrapper);
-                Assert.That(helperSource, Does.Contain("historical compatibility wrapper only"), wrapper);
             }
 
             Assert.That(
@@ -1307,7 +1304,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             foreach (var relativePath in internalCallsiteFiles)
             {
                 var source = ReadRepoFile(relativePath);
-                foreach (var wrapper in retainedCompatibilityWrappers)
+                foreach (var wrapper in removedCompatibilityWrappers)
                 {
                     Assert.That(source, Does.Not.Contain("LegacyMovementBoundaryAssert." + wrapper + "("), relativePath);
                     Assert.That(source, Does.Not.Contain(wrapper + "(result"), relativePath);
