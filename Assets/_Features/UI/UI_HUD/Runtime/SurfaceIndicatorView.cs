@@ -13,8 +13,6 @@ namespace Game.Feature.UI.HUD
         [FormerlySerializedAs("_transitionLabel")]
         [SerializeField] private TMP_Text _currentSurfaceText;
         [SerializeField] private Image _progressBar;
-        [FormerlySerializedAs("_faceChips")]
-        [SerializeField] private FaceChipView[] _legacyFaceChips;
 
         private SurfaceIndicatorViewModel _viewModel;
 
@@ -82,8 +80,6 @@ namespace Game.Feature.UI.HUD
                 _root.SetActive(_viewModel != null);
             }
 
-            HideLegacyFaceChips();
-
             if (_viewModel == null)
             {
                 return;
@@ -100,22 +96,6 @@ namespace Game.Feature.UI.HUD
             {
                 _progressBar.gameObject.SetActive(_viewModel.IsTransitionActive);
                 _progressBar.fillAmount = _viewModel.Progress01;
-            }
-        }
-
-        private void HideLegacyFaceChips()
-        {
-            if (_legacyFaceChips == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < _legacyFaceChips.Length; i++)
-            {
-                if (_legacyFaceChips[i] != null)
-                {
-                    _legacyFaceChips[i].gameObject.SetActive(false);
-                }
             }
         }
 
