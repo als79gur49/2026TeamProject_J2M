@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private GameObject sourceCloneObject;
         private GameplayVfxPlaybackHandle handle;
         private VfxRendererMaterialInstanceSet activeMaterialInstances;
-        private bool[] suspendedParticlePlaying;
+        private SuspendedParticleSnapshot[] suspendedParticleSnapshots;
         private bool[] suspendedRendererEnabled;
         private VfxPresentationSuspendReason presentationSuspendReasons;
         private bool usingSourceClone;
@@ -33,7 +33,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 prefabRendererEnabled[i] = prefabRenderers[i] != null && prefabRenderers[i].enabled;
             }
 
-            suspendedParticlePlaying = new bool[particleSystems.Length];
+            suspendedParticleSnapshots = new SuspendedParticleSnapshot[particleSystems.Length];
         }
 
         public GameObject GameObject { get; }
@@ -312,17 +312,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 var particleSystem = particleSystems[i];
                 if (particleSystem == null)
                 {
-                    if (i < suspendedParticlePlaying.Length)
+                    if (i < suspendedParticleSnapshots.Length)
                     {
-                        suspendedParticlePlaying[i] = false;
+                        suspendedParticleSnapshots[i] = default;
                     }
 
                     continue;
                 }
 
-                if (i < suspendedParticlePlaying.Length)
+                if (i < suspendedParticleSnapshots.Length)
                 {
-                    suspendedParticlePlaying[i] = particleSystem.isPlaying || particleSystem.isEmitting;
+                    var wasPlaying = particleSystem.isPlaying;
+                    var wasEmitting = particleSystem.isEmitting;
+                    suspendedParticleSnapshots[i] = new SuspendedParticleSnapshot(
+                        wasPlaying,
+                        wasEmitting,
+                        particleSystem.isPaused,
+                        particleSystem.particleCount);
                 }
 
                 particleSystem.Pause(true);
@@ -339,14 +345,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                var wasPlaying = i < suspendedParticlePlaying.Length && suspendedParticlePlaying[i];
-                if (wasPlaying)
+                var snapshot = i < suspendedParticleSnapshots.Length
+                    ? suspendedParticleSnapshots[i]
+                    : default;
+                if (snapshot.ShouldResumePlayback)
                 {
                     particleSystem.Play(true);
-                    continue;
                 }
-
-                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             }
 
             ClearSuspendedParticleSnapshot();
@@ -354,14 +359,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private void ClearSuspendedParticleSnapshot()
         {
-            if (suspendedParticlePlaying == null ||
-                suspendedParticlePlaying.Length != particleSystems.Length)
+            if (suspendedParticleSnapshots == null ||
+                suspendedParticleSnapshots.Length != particleSystems.Length)
             {
-                suspendedParticlePlaying = new bool[particleSystems.Length];
+                suspendedParticleSnapshots = new SuspendedParticleSnapshot[particleSystems.Length];
                 return;
             }
 
-            Array.Clear(suspendedParticlePlaying, 0, suspendedParticlePlaying.Length);
+            Array.Clear(suspendedParticleSnapshots, 0, suspendedParticleSnapshots.Length);
         }
 
         private static bool ShouldHideForSuspend(VfxPresentationSuspendReason reasons)
@@ -623,6 +628,32 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 UnityEngine.Object.DestroyImmediate(target);
             }
+        }
+
+        private readonly struct SuspendedParticleSnapshot
+        {
+            public SuspendedParticleSnapshot(
+                bool wasPlaying,
+                bool wasEmitting,
+                bool wasPaused,
+                int particleCountAtSuspend)
+            {
+                WasPlaying = wasPlaying;
+                WasEmitting = wasEmitting;
+                WasPaused = wasPaused;
+                ParticleCountAtSuspend = particleCountAtSuspend;
+                ShouldResumePlayback = wasPlaying || wasEmitting;
+            }
+
+            public bool WasPlaying { get; }
+
+            public bool WasEmitting { get; }
+
+            public bool WasPaused { get; }
+
+            public int ParticleCountAtSuspend { get; }
+
+            public bool ShouldResumePlayback { get; }
         }
     }
 }
