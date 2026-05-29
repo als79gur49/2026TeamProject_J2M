@@ -3675,14 +3675,14 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_ActivatedBarricadeTargetPolicy",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_TargetActiveBarricadePresence_BlocksTransition",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
         "player_free2d_continuous_locomotion",
         "topology_materialization"
       ],
-      "reason": "Locked Core representative coverage that player Free2D native topology transition evaluates Barricade target activation under the transition topology.",
+      "reason": "Locked Core representative coverage that player Free2D native topology transition rejects Barricade presence at the resolved target anchor.",
       "locked": true
     },
     {
@@ -3706,14 +3706,99 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetAllowed",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetPresence_BlocksTransition",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
         "player_free2d_continuous_locomotion",
         "topology_materialization"
       ],
-      "reason": "Locked Core representative coverage that Air player Free2D native topology transition is not blocked by active DestroyTile target policy.",
+      "reason": "Locked Core representative coverage that Air player Free2D native topology transition rejects DestroyTile presence at the resolved target anchor without using the same-face DestroyTile guard.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.PlayerMovement_TopologyTransition_UnrelatedTileFeaturePresence_DoesNotBlockTransition",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "movement_phase_contract",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that MovementPhase topology transition ignores DestroyTile and Barricade presence outside the resolved target anchor.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_UnrelatedDestroyOrBarricadePresence_DoesNotBlock",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that player Free2D native topology transition ignores DestroyTile and Barricade presence outside the resolved target anchor.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintInactiveBarricadePresence_DoesNotBlockByTopologyPresenceRule",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that inactive Barricade presence in the Free2D topology footprint is not rejected by the target-anchor presence rule.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintInactiveDestroyTilePresence_DoesNotBlockByTopologyPresenceRule",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that inactive DestroyTile presence in the Free2D topology footprint is not rejected by the target-anchor presence rule.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintActiveBarricadeMayBlockByExistingLegality_NotPresenceRule",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "player_free2d_continuous_locomotion",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that active Barricade in the Free2D topology footprint is classified as existing footprint legality, not target-anchor presence reject.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSurfaceQueryTests.TileFeatureMovementBlockerQuery_TopologyTransition_TargetAnchorDestroyPresenceBlocksRegardlessOfActivation",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that the topology transition TileFeature helper rejects DestroyTile presence at the exact target anchor without activation policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSurfaceQueryTests.TileFeatureMovementBlockerQuery_TopologyTransition_TargetAnchorBarricadePresenceBlocksRegardlessOfActivation",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that the topology transition TileFeature helper rejects Barricade presence at the exact target anchor without activation policy.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSurfaceQueryTests.TileFeatureMovementBlockerQuery_TopologyTransition_IgnoreNonTargetCellFeature",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "topology_materialization"
+      ],
+      "reason": "Locked Core representative coverage that the topology transition TileFeature helper ignores DestroyTile and Barricade presence outside the exact target anchor.",
       "locked": true
     },
     {

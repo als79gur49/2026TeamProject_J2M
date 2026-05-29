@@ -469,6 +469,49 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 TileFeatureActivationRule.BottomFaceOnly);
         }
 
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_UnrelatedTileFeaturePresence_DoesNotBlockTransition()
+        {
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[]
+                {
+                    CreateDestroyTile(100, new SurfaceCell(FaceId.Front, 1, 0)),
+                    CreateBarricade(101, new SurfaceCell(FaceId.Back, 0, 0)),
+                });
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly),
+                    CreateTileFeatureDefinition(101, TileFeatureActivationRule.BottomFaceOnly),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "TopologyCommitted|G=1|I=1|Rotation=Forward|Bottom=Front|Front=Ceiling",
+                    "MoveCommitted|G=1|I=1|E=10|To=Front(0,0)|Facing=Up",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Reason=BlockedDestination", StringComparison.Ordinal) &&
+                reason.Contains("LegalityBlockerKinds=TileFeature", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
+            Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+        }
+
         private static void AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
             Func<int, SurfaceCell, TileFeatureState> createTileFeature,
             TileFeatureActivationRule activationRule)

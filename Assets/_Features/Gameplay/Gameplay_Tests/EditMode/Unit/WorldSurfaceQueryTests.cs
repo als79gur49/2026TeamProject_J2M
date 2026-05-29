@@ -1081,6 +1081,84 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TileFeatureMovementBlockerQuery_TopologyTransition_TargetAnchorDestroyPresenceBlocksRegardlessOfActivation()
+        {
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Destroy) });
+
+            var blocked = TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
+                worldState.CreateSnapshot(),
+                targetCell,
+                out var blocker);
+
+            Assert.That(blocked, Is.True);
+            Assert.That(blocker.Kind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(blocker.Cell, Is.EqualTo(targetCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureMovementBlockerQuery_TopologyTransition_TargetAnchorBarricadePresenceBlocksRegardlessOfActivation()
+        {
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Barricade) });
+
+            var blocked = TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
+                worldState.CreateSnapshot(),
+                targetCell,
+                out var blocker);
+
+            Assert.That(blocked, Is.True);
+            Assert.That(blocker.Kind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(blocker.Cell, Is.EqualTo(targetCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureMovementBlockerQuery_TopologyTransition_IgnoreNonTargetCellFeature()
+        {
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[]
+                {
+                    CreateTileFeature(100, new SurfaceCell(FaceId.Front, 1, 0), TileFeatureKind.Destroy),
+                    CreateTileFeature(101, new SurfaceCell(FaceId.Back, 0, 0), TileFeatureKind.Barricade),
+                });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(
+                TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
+                    snapshot,
+                    targetCell,
+                    out _),
+                Is.False);
+            Assert.That(
+                TileFeatureMovementBlockerQuery.HasTopologyTransitionTileFeatureBlocker(
+                    snapshot,
+                    targetCell),
+                Is.False);
+        }
+
+        [Test]
         [Category("Extended")]
         public void WorldSurfaceQuery_Free2DTopologyTransition_TargetInactiveBarricadePresence_BlocksWithTileFeatureReason()
         {

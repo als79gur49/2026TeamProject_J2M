@@ -1375,6 +1375,142 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void PlayerFree2D_NativeTopologyTransition_UnrelatedDestroyOrBarricadePresence_DoesNotBlock()
+        {
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[]
+                {
+                    CreateDestroyTile(100, new SurfaceCell(FaceId.Front, 1, 0)),
+                    CreateBarricade(101, new SurfaceCell(FaceId.Back, 0, 0)),
+                });
+            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            var pipeline = CreateDefaultGameplayPipeline(
+                worldState,
+                new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly),
+                    CreateTileFeatureDefinition(101, TileFeatureActivationRule.BottomFaceOnly),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(targetCell));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
+                Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_NativeTopologyTransition_FootprintInactiveBarricadePresence_DoesNotBlockByTopologyPresenceRule()
+        {
+            AssertPlayerFree2DNativeTopologyTransitionFootprintTileFeatureDoesNotBlockByPresenceRule(
+                CreateBarricade,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_NativeTopologyTransition_FootprintInactiveDestroyTilePresence_DoesNotBlockByTopologyPresenceRule()
+        {
+            AssertPlayerFree2DNativeTopologyTransitionFootprintTileFeatureDoesNotBlockByPresenceRule(
+                CreateDestroyTile,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_NativeTopologyTransition_FootprintActiveBarricadeMayBlockByExistingLegality_NotPresenceRule()
+        {
+            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(100, new SurfaceCell(FaceId.Front, 1, 0)) });
+            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed, speed);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
+                worldState,
+                radiusCells,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(sourceCell));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DTopologyNativeRejected") &&
+                reason.Contains("TargetFaceFootprintBlocked")), Is.True);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
+                Is.False);
+        }
+
+        private static void AssertPlayerFree2DNativeTopologyTransitionFootprintTileFeatureDoesNotBlockByPresenceRule(
+            Func<int, SurfaceCell, TileFeatureState> createTileFeature,
+            TileFeatureActivationRule activationRule)
+        {
+            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var footprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { createTileFeature(100, footprintNeighbor) });
+            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed, speed);
+            var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
+                worldState,
+                radiusCells,
+                new[] { CreateTileFeatureDefinition(100, activationRule) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(targetCell));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("TargetFaceBlockedByTileFeature") ||
+                reason.Contains("TargetFaceFootprintBlocked")), Is.False);
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
+                Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
+        }
+
+        [Test]
         [Category("Extended")]
         public void Player_Free2D_RadiusApproachBoxNegative_ClampsBeforeBoundary()
         {
@@ -2782,6 +2918,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CollisionRadiusCells = collisionRadiusCells,
                 }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
+        }
+
+        private static TickPipeline CreateNativeTopologyPipelineWithCollisionRadius(
+            WorldState worldState,
+            float collisionRadiusCells,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            params IEntityLogic[] extraLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+                worldState,
+                CreatePlayerLogics(extraLogics),
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled,
+                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
+                {
+                    CollisionRadiusCells = collisionRadiusCells,
+                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond),
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static TickPipeline CreateActionAssistPipeline(WorldState worldState, params IEntityLogic[] extraLogics)
