@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _intentId;
 
         public DamageResolutionRecord(
-            int groupId,
+            int actionPlanId,
             int intentId,
             int sourceId,
             AttackSourceKind sourceKind,
@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.Loop
             bool hasPlayerDamageState = false,
             PlayerDamageState playerDamageState = default)
         {
-            _actionPlanId = groupId;
+            _actionPlanId = actionPlanId;
             _intentId = intentId;
             SourceId = sourceId;
             SourceKind = sourceKind;

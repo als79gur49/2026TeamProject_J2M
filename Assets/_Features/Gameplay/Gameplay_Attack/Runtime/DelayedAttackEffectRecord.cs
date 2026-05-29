@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Attack
             int priority,
             int tickGenerated,
             int executeAtTick,
-            int sourceActionGroupId,
+            int sourceActionPlanId,
             int effectSequence)
         {
             if (sourceId <= 0)
@@ -42,9 +42,9 @@ namespace Game.Feature.Gameplay.Attack
                 throw new ArgumentOutOfRangeException(nameof(executeAtTick), "Delayed attack effects must execute on a later tick.");
             }
 
-            if (sourceActionGroupId <= 0)
+            if (sourceActionPlanId <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(sourceActionGroupId), "Delayed attack effects require a positive source group ID.");
+                throw new ArgumentOutOfRangeException(nameof(sourceActionPlanId), "Delayed attack effects require a positive source action plan ID.");
             }
 
             if (effectSequence <= 0)
@@ -58,7 +58,7 @@ namespace Game.Feature.Gameplay.Attack
             Priority = priority;
             TickGenerated = tickGenerated;
             ExecuteAtTick = executeAtTick;
-            _sourceActionPlanId = sourceActionGroupId;
+            _sourceActionPlanId = sourceActionPlanId;
             EffectSequence = effectSequence;
         }
 

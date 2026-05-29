@@ -283,7 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool accepted)
         {
             return new DestroyResolutionRecord(
-                groupId: 1,
+                actionPlanId: 1,
                 intentId: 1,
                 sourceId,
                 targetId,

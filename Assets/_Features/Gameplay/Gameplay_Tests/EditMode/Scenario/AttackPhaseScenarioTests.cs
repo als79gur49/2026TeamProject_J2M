@@ -1108,7 +1108,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     priority: 5,
                     tickGenerated: 1,
                     executeAtTick: 2,
-                    sourceActionGroupId: 99,
+                    sourceActionPlanId: 99,
                     effectSequence: 1));
 
             var firstResult = pipeline.RunTick(new TickInput(1));

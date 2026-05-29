@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DamageResolutionRecord_ActionPlanId_AliasesLegacyGroupId()
         {
             var record = new DamageResolutionRecord(
-                groupId: 17,
+                actionPlanId: 17,
                 intentId: 23,
                 sourceId: 10,
                 sourceKind: AttackSourceKind.Combat,
@@ -35,7 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DestroyResolutionRecord_ActionPlanId_AliasesLegacyGroupId()
         {
             var record = new DestroyResolutionRecord(
-                groupId: 31,
+                actionPlanId: 31,
                 intentId: 41,
                 sourceId: 10,
                 targetId: 20,
@@ -62,7 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 priority: 5,
                 tickGenerated: 3,
                 executeAtTick: 4,
-                sourceActionGroupId: 29,
+                sourceActionPlanId: 29,
                 effectSequence: 2);
 
             Assert.That(record.SourceActionPlanId, Is.EqualTo(29));

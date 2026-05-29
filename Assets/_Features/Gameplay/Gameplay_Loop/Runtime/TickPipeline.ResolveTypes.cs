@@ -229,7 +229,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _intentId;
 
         public DestroyResolutionRecord(
-            int groupId,
+            int actionPlanId,
             int intentId,
             int sourceId,
             int targetId,
@@ -238,7 +238,7 @@ namespace Game.Feature.Gameplay.Loop
             bool accepted,
             int localActionIndex)
         {
-            _actionPlanId = groupId;
+            _actionPlanId = actionPlanId;
             _intentId = intentId;
             SourceId = sourceId;
             TargetId = targetId;
