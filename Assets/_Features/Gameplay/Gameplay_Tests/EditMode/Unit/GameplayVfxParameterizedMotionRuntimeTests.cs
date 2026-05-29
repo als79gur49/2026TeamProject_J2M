@@ -733,16 +733,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ParameterizedMotionCloneMode_SourceViewCloneWithPrefabFallback_IsLegacyAliasForPrefabWithSourceClone()
+        public void ParameterizedMotionCloneMode_UsesCanonicalValuesWithoutLegacyAlias()
         {
-#pragma warning disable 0618
+            var removedAliasName = "SourceViewClone" + "WithPrefabFallback";
+
             Assert.That(
-                (int)ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
-                Is.EqualTo((int)ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
-            Assert.That(
-                ParameterizedMotionVfxCloneMode.SourceViewCloneWithPrefabFallback,
-                Is.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
-#pragma warning restore 0618
+                System.Enum.GetNames(typeof(ParameterizedMotionVfxCloneMode)),
+                Does.Not.Contain(removedAliasName));
+            Assert.That((int)ParameterizedMotionVfxCloneMode.PrefabOnly, Is.EqualTo(0));
+            Assert.That((int)ParameterizedMotionVfxCloneMode.SourceViewClone, Is.EqualTo(1));
+            Assert.That((int)ParameterizedMotionVfxCloneMode.PrefabWithSourceClone, Is.EqualTo(2));
+            Assert.That((int)ParameterizedMotionVfxCloneMode.SourceCloneMotion, Is.EqualTo(3));
         }
 
         [Test]
@@ -757,7 +758,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SourceCloneMotionCues_DoNotUseSourceViewCloneWithPrefabFallback()
+        public void SourceCloneMotionCues_RemainSeparateFromPrefabWithSourceClone()
         {
             var commands = new[]
             {

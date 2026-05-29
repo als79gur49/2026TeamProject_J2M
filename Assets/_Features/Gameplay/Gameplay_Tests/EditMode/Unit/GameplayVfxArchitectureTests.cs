@@ -81,7 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "## Placeholder Prefab Policy",
                 "## ADR: SourceCloneMotion Host Strategy",
                 "## Test Naming Policy",
-                "## Legacy Name",
+                "## Clone Mode Separation",
             };
 
             Assert.That(readme, Does.Contain("Gameplay-VFX-Governance.md"));
@@ -101,7 +101,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("### PrefabOnly"));
             Assert.That(document, Does.Contain("### SourceCloneMotion"));
             Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
-            Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
         }
 
         [Test]
@@ -114,8 +113,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("### PrefabOnly"));
             Assert.That(document, Does.Contain("### SourceCloneMotion"));
             Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
-            Assert.That(document, Does.Contain("## Legacy Name"));
-            Assert.That(document, Does.Contain("do not use `SourceViewCloneWithPrefabFallback` for `SourceCloneMotion` cues"));
+            Assert.That(document, Does.Contain("## Clone Mode Separation"));
+            Assert.That(document, Does.Contain("do not use `PrefabWithSourceClone` for `SourceCloneMotion` cues"));
             Assert.That(document, Does.Contain("do not mix `EnemyDeathMotion_Binding.asset` with `EnemyOutOfBoundsExit_Binding.asset`"));
         }
 
@@ -170,7 +169,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("`OriginalViewImmutability`"));
             Assert.That(document, Does.Contain("`HostRelease`"));
             Assert.That(document, Does.Contain("Avoid for new tests"));
-            Assert.That(document, Does.Contain("tests that explicitly verify obsolete compatibility aliases"));
             Assert.That(document, Does.Contain("tests that verify historical cleanup rules"));
             Assert.That(document, Does.Contain("tests that document intentional non-regression against a past bug"));
         }

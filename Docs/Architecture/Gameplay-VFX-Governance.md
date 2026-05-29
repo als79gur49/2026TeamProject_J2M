@@ -291,17 +291,16 @@ Avoid for new tests:
 
 Allowed exceptions:
 
-- tests that explicitly verify obsolete compatibility aliases;
 - tests that verify historical cleanup rules;
 - tests that document intentional non-regression against a past bug.
 
-## Legacy Name
+## Clone Mode Separation
 
-`SourceViewCloneWithPrefabFallback` is a legacy clone-mode name. Its current meaning is `PrefabWithSourceClone`, and it is kept only as a compatibility alias until serialized compatibility is fully audited.
+`PrefabWithSourceClone` and `SourceCloneMotion` are distinct clone modes. The former keeps the prefab-backed fallback behavior used by cues with real fallback art, while the latter clones source-view motion without cue-specific placeholder prefabs.
 
 Rules:
 
-- do not use `SourceViewCloneWithPrefabFallback` for `SourceCloneMotion` cues.
+- do not use `PrefabWithSourceClone` for `SourceCloneMotion` cues.
 - do not add cue-specific placeholder prefabs to `SourceCloneMotion` cues.
 - do not force cues with real fallback art, such as `EnemyVfxCue.DeathMotion`, into `SourceCloneMotion`.
 - do not combine source view missing and prefab missing into one failure.
