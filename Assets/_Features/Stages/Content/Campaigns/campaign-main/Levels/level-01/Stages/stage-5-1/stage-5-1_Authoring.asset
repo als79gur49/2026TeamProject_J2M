@@ -657,6 +657,61 @@ MonoBehaviour:
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: entrance.default
+  - TileId: 20
+    Cell:
+      face: 3
+      x: 0
+      y: 7
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 21
+    Cell:
+      face: 3
+      x: 1
+      y: 7
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 22
+    Cell:
+      face: 3
+      x: 2
+      y: 7
+    Kind: 3
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: barricade.default
+  - TileId: 23
+    Cell:
+      face: 1
+      x: 9
+      y: 0
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 24
+    Cell:
+      face: 1
+      x: 10
+      y: 0
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
   zones:
   - ZoneId: zone
     FaceId: 0
