@@ -3485,6 +3485,96 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_SilentSfxOneShot_ReturnsInvalidWithoutPoolAcquire",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pool_budget",
+        "silent_play2d_skip"
+      ],
+      "reason": "Locked Core PlayMode coverage that muted gameplay Sfx one-shots return invalid before touching the shared AudioSource pool.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_MasterMutedOneShot_ReturnsInvalidWithoutPoolAcquire",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pool_budget",
+        "master_mute_silent_play2d_skip"
+      ],
+      "reason": "Locked Core PlayMode coverage that master-muted one-shots return invalid before consuming shared pool capacity.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_AudibleOneShot_StillUsesPoolAndRegistersPlayback",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pool_budget",
+        "audible_play2d_playback"
+      ],
+      "reason": "Locked Core PlayMode coverage that audible one-shots still lease a pooled source and register live playback.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_SfxMute_DoesNotMuteHiddenUiOneShot",
+      "category": "Core",
+      "contracts": [
+        "hidden_ui_audio_channel",
+        "silent_play2d_skip"
+      ],
+      "reason": "Locked Core PlayMode coverage that Sfx mute does not silence hidden Ui one-shots or trigger the silent skip path.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_MasterMuteSkipsHiddenUiOneShotWithoutPoolAcquire",
+      "category": "Core",
+      "contracts": [
+        "hidden_ui_audio_channel",
+        "master_mute_silent_play2d_skip"
+      ],
+      "reason": "Locked Core PlayMode coverage that Master mute can silence hidden Ui one-shots without consuming shared pool capacity.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_PlayBgm_MasterMutedStillCreatesBgmPlayback",
+      "category": "Core",
+      "contracts": [
+        "bgm_lane_exclusion",
+        "silent_play2d_skip"
+      ],
+      "reason": "Locked Core PlayMode coverage that BGM lane playback is not skipped by the Play2D silent one-shot guard.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_MasterMutedLoopStillCreatesPlayback",
+      "category": "Core",
+      "contracts": [
+        "loop_playback_lifetime",
+        "silent_play2d_skip"
+      ],
+      "reason": "Locked Core PlayMode coverage that looped playback remains live even when its initial resolved volume is silent.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_PlayAttached_SilentOneShotPreservesReuseAndReplaceSemantics",
+      "category": "Core",
+      "contracts": [
+        "attached_audio_registry",
+        "silent_play2d_skip"
+      ],
+      "reason": "Locked Core PlayMode coverage that attached playback keeps owner-slot reuse and replacement semantics under muted final volume.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_DefaultPoolSizes_KeepInitialPrewarmAndRaiseMaxCapTo48",
+      "category": "Core",
+      "contracts": [
+        "shared_audio_pool_budget",
+        "audio_manager_runtime_initialization"
+      ],
+      "reason": "Locked Core PlayMode coverage that AudioManager keeps the prewarm default and passes the raised shared pool cap to runtime playback.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioPlaybackPauseService_GameplayPresentation_PausesAndResumesSfxWithoutDuplicatingPlayback",
       "category": "Core",
       "contracts": [
