@@ -8166,7 +8166,8 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationOperationMetadata metadata,
             out TileEffectBoxMovementFamily family)
         {
-            if (metadata.LocalActionIndex == 1)
+            if (metadata.LocalActionIndex == 1 &&
+                metadata.MovementSemanticKind != MovementSemanticKind.Flip)
             {
                 family = default;
                 return false;

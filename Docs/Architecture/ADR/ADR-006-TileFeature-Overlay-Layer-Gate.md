@@ -62,8 +62,8 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - Stage authoring must not set initial Button `Activated` state.
 - `ButtonActivatedCondition` reads only the final `WorldSnapshot` `Activated` flag.
 - `ButtonActivatedCondition` must not read `TilePresentationEvent` or `TilePresentationRequest` as objective completion evidence.
-- Button latch accepts accepted terminal stop facts from Push, Slide, and non-impact Flip movement when the final stopped Box matches the Button selector.
-- Flip impact follow-through is not a Button latch source.
+- Button latch accepts accepted terminal stop facts from Push, Slide, non-impact Flip movement, and accepted Flip impact follow-through landing when the final stopped Box matches the Button selector.
+- Flip Stay and Flip DestroySelf impact outcomes are not Button latch sources.
 - `ButtonActivated` event is derived from a pre/final state transition.
 - An already Activated Button must not create duplicate event, request, audio, or visual output on the next tick.
 - `ButtonActivated` event `TargetEntityId` is `0`.

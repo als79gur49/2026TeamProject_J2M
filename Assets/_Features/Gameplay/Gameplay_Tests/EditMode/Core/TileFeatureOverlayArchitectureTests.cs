@@ -168,8 +168,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 "Button latch is runtime state stored as `TileFeatureFlags.Activated`.",
                 "`ButtonActivatedCondition` reads only the final `WorldSnapshot` `Activated` flag.",
-                "Button latch accepts accepted terminal stop facts from Push, Slide, and non-impact Flip movement",
-                "Flip impact follow-through is not a Button latch source.",
+                "Button latch accepts accepted terminal stop facts from Push, Slide, non-impact Flip movement, and accepted Flip impact follow-through landing",
+                "Flip Stay and Flip DestroySelf impact outcomes are not Button latch sources.",
                 "`ButtonActivated` event `TargetEntityId` is `0`.",
                 "`ButtonActivated` event does not carry the triggering box id yet.",
                 "MoonBlock identity is `EntityType.Box + BoxArchetype.Moon`.",

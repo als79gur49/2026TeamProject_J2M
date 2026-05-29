@@ -897,7 +897,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void StopFacts_FlipImpactFollowThroughMove_CreatesNoStop()
+        public void StopFacts_FlipImpactFollowThroughMove_CreatesFlipStop()
         {
             var beforeCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var buttonCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -914,7 +914,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var stops = TickPipeline.BuildTileEffectBoxStops(beforeSnapshot, finalSnapshot, batch);
 
-            Assert.That(stops, Is.Empty);
+            Assert.That(stops, Has.Count.EqualTo(1));
+            Assert.That(stops[0].BoxEntityId, Is.EqualTo(20));
+            Assert.That(stops[0].Cell, Is.EqualTo(buttonCell));
+            Assert.That(stops[0].MovementFamily, Is.EqualTo(TileEffectBoxMovementFamily.Flip));
+            Assert.That(stops[0].Cause.MovementSemanticKind, Is.EqualTo(MovementSemanticKind.Flip));
+            Assert.That(stops[0].Cause.LocalActionIndex, Is.EqualTo(1));
         }
 
         [Test]
@@ -3435,6 +3440,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
             Assert.That(boxAfter.position, Is.EqualTo(buttonCell));
             Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(finalSnapshot.TryGetTileFeature(100, out var buttonAfter), Is.True);
+            Assert.That((buttonAfter.Flags & TileFeatureFlags.Activated), Is.Not.EqualTo(0));
+            Assert.That(
+                result.PresentationData.TileEvents.Count(tileEvent => tileEvent.EventKind == TilePresentationEventKind.ButtonActivated),
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ButtonLatch_Pipeline_FlipImpactFollowThroughLandingActivatesButton()
+        {
+            var buttonCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var enemy = CreateEnemyUnit(30, buttonCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 0, 0), boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+                    enemy,
+                },
+                new[] { CreateButton(100, buttonCell) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(0, 0), MovementCommandKind.Flip)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(buttonCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
             Assert.That(finalSnapshot.TryGetTileFeature(100, out var buttonAfter), Is.True);
             Assert.That((buttonAfter.Flags & TileFeatureFlags.Activated), Is.Not.EqualTo(0));
             Assert.That(
