@@ -1,6 +1,6 @@
 # ActionPlanId Correlation Housekeeping Baseline 2026-04-20
 
-이 문서는 ActionPlanId canonical correlation migration 이후 남은 housekeeping만 기록한다. runtime behavior, data shape, reservation/export contract, fixed tick determinism, WorldState authoritative contract, Finalize no-recheck, `IntentId` carry-forward rule은 이번 단계에서 변경하지 않았다.
+이 문서는 ActionPlanId canonical correlation migration 이후 남은 housekeeping만 기록한다. runtime behavior, reservation/export contract, fixed tick determinism, WorldState authoritative contract, Finalize no-recheck, `IntentId` carry-forward rule은 이번 단계에서 변경하지 않았다.
 
 ## Commands
 
@@ -16,9 +16,10 @@ python3 Tools/check_gameplay_action_plan_correlation_migration.py --root /mnt/c/
 
 | Test row | Decision | Why |
 | --- | --- | --- |
-| `DamageResolutionRecord_ActionPlanId_AliasesLegacyGroupId` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
-| `DestroyResolutionRecord_ActionPlanId_AliasesLegacyGroupId` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
-| `DelayedAttackEffectRecord_SourceActionPlanId_AliasesLegacySourceActionGroupId` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
+| `DamageResolutionRecord_ActionPlanId_RemainsWithoutLegacyGroupIdAlias` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
+| `DestroyResolutionRecord_ActionPlanId_RemainsWithoutLegacyGroupIdAlias` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
+| `DelayedAttackEffectRecord_SourceActionPlanId_RemainsWithoutLegacySourceActionGroupIdAlias` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
+| `ActionGroup_GroupId_RemainsCompatibilityIrVocabulary` | `Extended` | preserves the compatibility IR vocabulary boundary while result carrier aliases stay removed |
 
 ## Before / After Summary
 
@@ -26,17 +27,22 @@ python3 Tools/check_gameplay_action_plan_correlation_migration.py --root /mnt/c/
 | --- | --- | --- | --- |
 | stratification mismatch rows introduced by this migration | `ActionPlanCorrelationContractTests` 3 rows reported as `Core != Extended` | those exact 3 rows no longer appear | pass |
 | strict stratification overall status | red | red | expected; pre-existing execution-placement debt and older unrelated mismatch debt remain |
-| ActionPlanId correlation governance | pass | pass | unchanged |
+| ActionPlanId correlation governance | pass | pass | asserts removed result-carrier aliases stay absent while canonical IDs remain |
 | `./run_tests.sh core` | green | green | pass |
 | `ActionPlanCorrelationDocumentationTests` rows in `full` EditMode XML | absent | `4/4` passed | pass |
 | `./run_tests.sh full` overall status | red baseline | red baseline (`1041 total / 92 failed`) | expected; touched docs rows passed and baseline red remains unrelated |
-| runtime/data shape | canonical `ActionPlanId` contract active | unchanged | pass |
+| runtime/data shape | canonical `ActionPlanId` contract active | result-carrier compatibility alias properties removed; canonical `ActionPlanId` / `SourceActionPlanId`, `IntentId`, and `ActionGroup.GroupId` remain | pass |
 
 ## Exact mismatch rows removed
 
 - `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DamageResolutionRecord_ActionPlanId_AliasesLegacyGroupId`
 - `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DestroyResolutionRecord_ActionPlanId_AliasesLegacyGroupId`
 - `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DelayedAttackEffectRecord_SourceActionPlanId_AliasesLegacySourceActionGroupId`
+
+## Alias removal closeout
+
+- `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, and `DelayedAttackEffectRecord.SourceActionGroupId` are removed from the result carrier API.
+- `DamageResolutionRecord.ActionPlanId`, `DestroyResolutionRecord.ActionPlanId`, `DelayedAttackEffectRecord.SourceActionPlanId`, `DamageResolutionRecord.IntentId`, `DestroyResolutionRecord.IntentId`, and `ActionGroup.GroupId` remain available.
 
 ## Notes
 

@@ -247,7 +247,7 @@
   - semantic result 예: `SourceId`, `SourceKind`, `TargetId`, `Amount`, `Accepted`, `RejectReason`
   - provenance/correlation 예: `ActionPlanId`, `IntentId`, `LocalActionIndex`, `EffectSequence`
 - `IntentId`는 deterministic ordering, resolver dedupe, payload/finalization metadata, diagnostics correlation에 남는 canonical internal ID다.
-- `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 migration compatibility alias이며 새 runtime reader가 직접 읽어서는 안 된다.
+- `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 제거된 migration compatibility alias이며 새 runtime reader가 직접 읽어서는 안 된다.
 - structured trace의 `Plan=` / `SourcePlan=` token은 canonical structured trace surface다. machine-readable trace/debug/tooling은 typed runtime carrier 다음 우선순위로 이 표면을 읽는다.
 - free-form `CommitEvents` / `EventLog`의 `G=` token은 compatibility token in free-form event log다. current `ActionPlanId` value를 mirror하지만 old semantic GroupId revival이 아니다.
 - 새 parser/test/tooling은 `G=`를 canonical parser surface로 읽지 않고 `ActionPlanId` / `SourceActionPlanId` 또는 structured trace `Plan=` / `SourcePlan=`를 읽는다.

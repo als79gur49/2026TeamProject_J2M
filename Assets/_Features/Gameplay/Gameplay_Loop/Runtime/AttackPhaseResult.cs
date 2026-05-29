@@ -41,9 +41,6 @@ namespace Game.Feature.Gameplay.Loop
 
         public int ActionPlanId => _actionPlanId;
 
-        [Obsolete("Legacy alias for ActionPlanId. Prefer ActionPlanId for correlation and semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
-        public int GroupId => _actionPlanId;
-
         [Obsolete("IR metadata only. Prefer ActionPlanId for plan correlation and semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
         public int IntentId => _intentId;
 

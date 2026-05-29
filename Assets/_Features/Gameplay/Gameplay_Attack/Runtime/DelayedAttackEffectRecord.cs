@@ -76,9 +76,6 @@ namespace Game.Feature.Gameplay.Attack
 
         public int SourceActionPlanId => _sourceActionPlanId;
 
-        [Obsolete("Legacy alias for SourceActionPlanId. Prefer SourceActionPlanId for delayed-effect correlation.")]
-        public int SourceActionGroupId => _sourceActionPlanId;
-
         public int EffectSequence { get; }
     }
 
