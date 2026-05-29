@@ -478,6 +478,7 @@ MonoBehaviour:
   - {fileID: 8082376648895355669}
   - {fileID: 7005498256123909409}
   - {fileID: 7162846685965655845}
+  - {fileID: 5058383850533117823}
 --- !u!114 &348448032428166706
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -982,6 +983,111 @@ MonoBehaviour:
   tint:
     m_OverrideState: 1
     m_Value: 0
+--- !u!114 &5058383850533117823
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41657620d74c4464e834491f5ba99000, type: 3}
+  m_Name: OutlineSettings
+  m_EditorClassIdentifier: Assembly-CSharp::ToonShadersPro.URP.OutlineSettings
+  active: 1
+  renderPassEvent:
+    m_OverrideState: 1
+    m_Value: 1
+  outlineType:
+    m_OverrideState: 1
+    m_Value: 2
+  outlineColor:
+    m_OverrideState: 1
+    m_Value: {r: 0, g: 0, b: 0, a: 1}
+  colorSensitivity:
+    m_OverrideState: 0
+    m_Value: 0.1
+  colorStrength:
+    m_OverrideState: 0
+    m_Value: 0.5
+  depthSensitivity:
+    m_OverrideState: 0
+    m_Value: 0.01
+  depthStrength:
+    m_OverrideState: 0
+    m_Value: 0.75
+  normalSensitivity:
+    m_OverrideState: 0
+    m_Value: 0.1
+  normalStrength:
+    m_OverrideState: 0
+    m_Value: 0.75
+  depthThreshold:
+    m_OverrideState: 0
+    m_Value: 0.99
+  objectMask:
+    m_OverrideState: 1
+    m_Value:
+      serializedVersion: 2
+      m_Bits: 1
+  maskDrawingMode:
+    m_OverrideState: 1
+    m_Value: 0
+  lightModes:
+    m_OverrideState: 1
+    m_Value: 0000000000000000
+  renderQueue:
+    m_OverrideState: 1
+    m_Value: 0
+  maskIgnoreDepth:
+    m_OverrideState: 1
+    m_Value: 1
+  useDepthNormals:
+    m_OverrideState: 0
+    m_Value: 0
+  maskedOutlineThickness:
+    m_OverrideState: 1
+    m_Value: 3
+  maskedOutlineSmoothing:
+    m_OverrideState: 1
+    m_Value: 2
+  outlineDrawSides:
+    m_OverrideState: 1
+    m_Value: 1
+  outlineFadeStart:
+    m_OverrideState: 1
+    m_Value: 80
+  outlineFadeEnd:
+    m_OverrideState: 1
+    m_Value: 120
+  outlineThickness:
+    m_OverrideState: 0
+    m_Value: 0.02
+  outlineTransparency:
+    m_OverrideState: 0
+    m_Value: 0
+  outlineLighting:
+    m_OverrideState: 0
+    m_Value: 0
+  flipOutlineDirection:
+    m_OverrideState: 0
+    m_Value: 1
+  outlineMinLighting:
+    m_OverrideState: 0
+    m_Value: 0
+  useNoiseOffsets:
+    m_OverrideState: 1
+    m_Value: 0
+  noiseScale:
+    m_OverrideState: 0
+    m_Value: 1
+  noiseOffset:
+    m_OverrideState: 0
+    m_Value: 0
+  noiseStrength:
+    m_OverrideState: 0
+    m_Value: 0.05
 --- !u!114 &5121689355394583866
 MonoBehaviour:
   m_ObjectHideFlags: 3
