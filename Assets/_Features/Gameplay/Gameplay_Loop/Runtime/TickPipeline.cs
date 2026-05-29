@@ -2418,24 +2418,6 @@ namespace Game.Feature.Gameplay.Loop
                     : PlayerFree2DNativeTopologyDisposition.NotCandidate;
             }
 
-            if (TileFeatureHazardQueries.IsDestroyTileLethalForUnit(entity) &&
-                TileFeatureAccessQueries.IsActiveDestroyTile(
-                    snapshot,
-                    _tileFeatureDefinitions,
-                    transition.TargetAnchor,
-                    transition.UpdatedTopology))
-            {
-                AddPlayerFree2DTopologyTransitionBlockedSignalIfNeeded(
-                    playerTopologyTransitionBlockedSignals,
-                    snapshot.Topology,
-                    directionDelta,
-                    transition,
-                    TickTraversalBlockerKind.TileFeature);
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Free2DTopology|Source={entity.entityId}|I={intent.IntentId}|Reason=PlayerVoluntaryDestroyTileEntryBlocked|Cell={FormatCell(transition.TargetAnchor)}");
-                return PlayerFree2DNativeTopologyDisposition.AccessBlocked;
-            }
-
             var movementMetadata = new FinalizationOperationMetadata(
                 TickPhase.Plan,
                 ResolvedActionSemanticKind.Move,

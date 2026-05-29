@@ -242,6 +242,39 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             if (intent.CommandKind == MovementCommandKind.Move &&
                 usesPlayerTraversal &&
                 EntityRolePolicy.IsPlayerUnit(source) &&
+                rotationKind != CubeRotationKind.None &&
+                TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
+                    snapshot,
+                    destinationCell,
+                    out var topologyTransitionBlocker))
+            {
+                var transitionBlockedLegality = LegalityResult.Blocked(
+                    LegalityDomain.Traversal,
+                    destinationCell,
+                    movementTopology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(topologyTransitionBlocker),
+                    transitionRequirement: TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology));
+                AddPlayerTopologyTransitionBlockedSignalIfNeeded(
+                    playerTopologyTransitionBlockedSignals,
+                    snapshot,
+                    source,
+                    intent,
+                    stepFacing,
+                    destinationCell,
+                    rotationKind,
+                    updatedTopology,
+                    traversalStepResolved,
+                    transitionBlockedLegality);
+                var actorRef = BuildActorRef(snapshot, source);
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(destinationCell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(transitionBlockedLegality, actorRef.SpatialState)}");
+                return;
+            }
+
+            if (intent.CommandKind == MovementCommandKind.Move &&
+                usesPlayerTraversal &&
+                EntityRolePolicy.IsPlayerUnit(source) &&
+                rotationKind == CubeRotationKind.None &&
                 TileFeatureHazardQueries.IsDestroyTileLethalForUnit(source) &&
                 TileFeatureAccessQueries.IsActiveDestroyTile(
                     snapshot,

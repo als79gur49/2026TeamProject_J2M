@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack;
@@ -1000,64 +1001,60 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerFree2D_NativeTopologyTransition_ActivatedBarricadeTargetPolicy()
+        public void PlayerFree2D_NativeTopologyTransition_TargetInactiveBarricadePresence_BlocksTransition()
+        {
+            AssertPlayerFree2DNativeTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateBarricade,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_NativeTopologyTransition_TargetActiveBarricadePresence_BlocksTransition()
+        {
+            AssertPlayerFree2DNativeTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateBarricade,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        private static void AssertPlayerFree2DNativeTopologyTransitionTargetTileFeaturePresenceBlocks(
+            Func<int, SurfaceCell, TileFeatureState> createTileFeature,
+            TileFeatureActivationRule activationRule)
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var speed = DefaultFree2DSpeedUnitsPerTick();
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
-
-            var activeWorldState = CreateWorldState(
+            var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 boardBounds,
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
-                new[] { CreateBarricade(100, targetCell) });
-            SetPlayerContinuousLocalOffset(activeWorldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
-            var activePipeline = CreateDefaultGameplayPipeline(
-                activeWorldState,
-                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+                new[] { createTileFeature(100, targetCell) });
+            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            var pipeline = CreateDefaultGameplayPipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, activationRule) });
 
-            var activeResult = activePipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            var activeSnapshot = activeWorldState.CreateSnapshot();
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(activeSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(activeSnapshot.TryGetEntity(10, out var activePlayer), Is.True);
-            Assert.That(activePlayer.position, Is.EqualTo(sourceCell));
-            Assert.That(activeResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(sourceCell));
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("Free2DTopologyNativeRejected") &&
                 reason.Contains("TargetFaceBlockedByTileFeature")), Is.True);
-            Assert.That(activeResult.MovementPhaseResult.ResolvedOperations.Any(operation =>
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked")), Is.False);
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                 operation.Kind == FinalizationOperationKind.SetTopology ||
                 operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
                 Is.False);
-            Assert.That(activeResult.PresentationData.TopologyMotion.HasValue, Is.False);
-            Assert.That(activeResult.PresentationData.TileEvents, Is.Empty);
-
-            var inactiveWorldState = CreateWorldState(
-                new[] { CreatePlayer(10, sourceCell) },
-                boardBounds,
-                GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
-                new[] { CreateBarricade(101, targetCell) });
-            SetPlayerContinuousLocalOffset(inactiveWorldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
-            var inactivePipeline = CreateDefaultGameplayPipeline(
-                inactiveWorldState,
-                new[] { CreateTileFeatureDefinition(101, TileFeatureActivationRule.FrontFaceOnly) });
-
-            var inactiveResult = inactivePipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            var inactiveSnapshot = inactiveWorldState.CreateSnapshot();
-
-            Assert.That(inactiveSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
-            Assert.That(inactiveSnapshot.TryGetEntity(10, out var inactivePlayer), Is.True);
-            Assert.That(inactivePlayer.position, Is.EqualTo(targetCell));
-            Assert.That(inactiveResult.MovementPhaseResult.RejectedReasons.Any(reason =>
-                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
-            Assert.That(inactiveResult.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                operation.Kind == FinalizationOperationKind.SetTopology ||
-                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
-                Is.True);
-            Assert.That(inactiveResult.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.False);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals[0].PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.TileFeature));
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
         }
 
         [Test]
@@ -1285,49 +1282,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Player_Free2D_NativeTopologyTransitionTargetActiveDestroyTile_Blocks()
+        public void PlayerFree2D_NativeTopologyTransition_TargetInactiveDestroyTilePresence_BlocksTransition()
         {
-            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
-            var speed = DefaultFree2DSpeedUnitsPerTick();
-            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
-            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
-            var worldState = CreateWorldState(
-                new[] { CreatePlayer(10, sourceCell) },
-                boardBounds,
-                GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
-                new[] { CreateDestroyTile(100, targetCell) });
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
-            var pipeline = CreateDefaultGameplayPipeline(
-                worldState,
-                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.ActiveFaceOnly) });
+            AssertPlayerFree2DNativeTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateDestroyTile,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            var snapshot = worldState.CreateSnapshot();
-
-            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(sourceCell));
-            Assert.That(player.hp, Is.EqualTo(3));
-            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(0));
-            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
-            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                reason.Contains("Stage=Free2DTopology") &&
-                reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked") &&
-                reason.Contains("Cell=Front(0,0)")), Is.True);
-            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                operation.Kind == FinalizationOperationKind.SetTopology ||
-                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
-                Is.False);
-            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.False);
-            Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track =>
-                track.EntityId == 10 &&
-                (track.SourceTopology.HasValue ||
-                 track.DestinationTopology.HasValue ||
-                 track.TopologyRotationKind != CubeRotationKind.None)), Is.False);
-            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
-            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_NativeTopologyTransition_TargetActiveDestroyTilePresence_BlocksTransition()
+        {
+            AssertPlayerFree2DNativeTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateDestroyTile,
+                TileFeatureActivationRule.ActiveFaceOnly);
         }
 
         [Test]
@@ -1352,9 +1320,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("Stage=Free2DTopology") &&
-                    reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked") &&
-                    reason.Contains("Cell=Back(0,1)")),
+                    reason.Contains("Free2DTopologyNativeRejected") &&
+                    reason.Contains("TargetFaceBlockedByTileFeature")),
                 Is.True,
                 string.Join(";", result.MovementPhaseResult.RejectedReasons));
             AssertBottomToBackBlockedSignal(
@@ -1367,7 +1334,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetAllowed()
+        public void PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetPresence_BlocksTransition()
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var speed = DefaultFree2DSpeedUnitsPerTick();
@@ -1387,19 +1354,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            Assert.That(player.position, Is.EqualTo(sourceCell));
             Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(player.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             Assert.That(player.markedForDeath, Is.False);
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                reason.Contains("Stage=Free2DTopology") &&
-                reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked") &&
-                reason.Contains("Cell=Front(0,0)")), Is.False);
+                reason.Contains("Free2DTopologyNativeRejected") &&
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.True);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked")), Is.False);
             Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                 operation.Kind == FinalizationOperationKind.SetTopology ||
                 operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
-                Is.True);
+                Is.False);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
         }
 

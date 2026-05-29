@@ -1082,46 +1082,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Free2DTopologyTransition_TargetAnchorWithActiveBarricade_BlocksWithTileFeatureReason()
+        public void WorldSurfaceQuery_Free2DTopologyTransition_TargetInactiveBarricadePresence_BlocksWithTileFeatureReason()
         {
-            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
-                GameplayTimingProfile.CreateDefault(),
-                new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Barricade) });
-            SetContinuousPoseAtForwardSeam(worldState, 10);
-
-            var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
-                worldState.CreateSnapshot(),
-                10,
-                Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
-                collisionRadiusUnits: 0,
-                out var result,
-                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
-
-            Assert.That(resolved, Is.False);
-            Assert.That(result.Success, Is.False);
-            Assert.That(result.TargetAnchor, Is.EqualTo(targetCell));
-            Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature));
-            Assert.That(result.TargetLegality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.TileFeature));
+            AssertFree2DTopologyTransitionTargetTileFeaturePresenceBlocks(
+                TileFeatureKind.Barricade,
+                TileFeatureActivationRule.FrontFaceOnly);
         }
 
         [Test]
         [Category("Extended")]
-        public void Free2DTopologyTransition_InactiveOrUnrelatedBarricade_AllowsTransition()
+        public void WorldSurfaceQuery_Free2DTopologyTransition_TargetActiveBarricadePresence_BlocksWithTileFeatureReason()
         {
-            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
-            var inactiveWorldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
-                GameplayTimingProfile.CreateDefault(),
-                new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Barricade) });
+            AssertFree2DTopologyTransitionTargetTileFeaturePresenceBlocks(
+                TileFeatureKind.Barricade,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSurfaceQuery_Free2DTopologyTransition_TargetInactiveDestroyTilePresence_BlocksWithTileFeatureReason()
+        {
+            AssertFree2DTopologyTransitionTargetTileFeaturePresenceBlocks(
+                TileFeatureKind.Destroy,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSurfaceQuery_Free2DTopologyTransition_TargetActiveDestroyTilePresence_BlocksWithTileFeatureReason()
+        {
+            AssertFree2DTopologyTransitionTargetTileFeaturePresenceBlocks(
+                TileFeatureKind.Destroy,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DTopologyTransition_UnrelatedBarricade_AllowsTransition()
+        {
             var unrelatedWorldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(20, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
@@ -1129,17 +1127,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateTileFeature(101, new SurfaceCell(FaceId.Front, 1, 0), TileFeatureKind.Barricade) });
-            SetContinuousPoseAtForwardSeam(inactiveWorldState, 10);
             SetContinuousPoseAtForwardSeam(unrelatedWorldState, 20);
 
-            var inactiveResolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
-                inactiveWorldState.CreateSnapshot(),
-                10,
-                Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
-                collisionRadiusUnits: 0,
-                out var inactiveResult,
-                new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
             var unrelatedResolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
                 unrelatedWorldState.CreateSnapshot(),
                 20,
@@ -1149,10 +1138,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out var unrelatedResult,
                 new[] { CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly) });
 
-            Assert.That(inactiveResolved, Is.True);
-            Assert.That(inactiveResult.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
             Assert.That(unrelatedResolved, Is.True);
             Assert.That(unrelatedResult.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
+        }
+
+        private static void AssertFree2DTopologyTransitionTargetTileFeaturePresenceBlocks(
+            TileFeatureKind tileFeatureKind,
+            TileFeatureActivationRule activationRule)
+        {
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateTileFeature(100, targetCell, tileFeatureKind) });
+            SetContinuousPoseAtForwardSeam(worldState, 10);
+
+            var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
+                worldState.CreateSnapshot(),
+                10,
+                Vector2Int.up,
+                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                collisionRadiusUnits: 0,
+                out var result,
+                new[] { CreateDefinition(100, activationRule) });
+
+            Assert.That(resolved, Is.False);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.TargetAnchor, Is.EqualTo(targetCell));
+            Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature));
+            Assert.That(result.TargetLegality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.TileFeature));
+            Assert.That(result.TargetLegality.Blockers[0].TileFeatureKind, Is.EqualTo(tileFeatureKind));
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

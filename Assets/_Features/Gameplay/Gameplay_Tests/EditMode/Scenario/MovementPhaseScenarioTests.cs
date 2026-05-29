@@ -435,7 +435,43 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerMovement_TopologyResolvedDestinationActiveDestroyTile_IsBlocked()
+        public void PlayerMovement_TopologyTransition_TargetInactiveDestroyTilePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateDestroyTile,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_TargetActiveDestroyTilePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateDestroyTile,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_TargetInactiveBarricadePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateBarricade,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_TargetActiveBarricadePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateBarricade,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        private static void AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+            Func<int, SurfaceCell, TileFeatureState> createTileFeature,
+            TileFeatureActivationRule activationRule)
         {
             var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1));
             player.unitRole = UnitRole.Player;
@@ -446,10 +482,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     player,
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new[] { CreateDestroyTile(100, resolvedDestination) });
+                new[] { createTileFeature(100, resolvedDestination) });
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
-                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+                new[] { CreateTileFeatureDefinition(100, activationRule) });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
@@ -460,11 +496,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "MovementRejected",
                     "Stage=Expand",
                     "Source=10",
-                    "Reason=PlayerVoluntaryDestroyTileEntryBlocked",
-                    "Cell=Front(0,0)"),
+                    "Reason=BlockedDestination",
+                    "Cell=Front(0,0)",
+                    "LegalityBlockerKinds=TileFeature"),
                 Is.True);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("TopologyCommitted", StringComparison.Ordinal)), Is.False);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals[0].PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.TileFeature));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
             Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));

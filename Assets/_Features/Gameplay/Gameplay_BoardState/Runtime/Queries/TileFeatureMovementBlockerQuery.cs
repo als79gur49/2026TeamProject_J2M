@@ -22,6 +22,43 @@ namespace Game.Feature.Gameplay.BoardState
 
     internal static class TileFeatureMovementBlockerQuery
     {
+        public static bool HasTopologyTransitionTileFeatureBlocker(
+            WorldSnapshot snapshot,
+            SurfaceCell targetCell)
+        {
+            return TryGetTopologyTransitionTileFeatureBlocker(
+                snapshot,
+                targetCell,
+                out _);
+        }
+
+        public static bool TryGetTopologyTransitionTileFeatureBlocker(
+            WorldSnapshot snapshot,
+            SurfaceCell targetCell,
+            out TileFeatureState blocker)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            var tileFeatures = new List<TileFeatureState>();
+            snapshot.EnumerateTileFeaturesAt(targetCell, tileFeatures);
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.Kind == TileFeatureKind.Destroy ||
+                    tileFeature.Kind == TileFeatureKind.Barricade)
+                {
+                    blocker = tileFeature;
+                    return true;
+                }
+            }
+
+            blocker = default;
+            return false;
+        }
+
         public static bool HasActiveBarricadeBlocker(
             WorldSnapshot snapshot,
             IReadOnlyList<TileFeatureRuntimeDefinition> definitions,

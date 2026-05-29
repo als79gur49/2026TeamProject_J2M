@@ -173,6 +173,37 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
+            if (TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
+                    snapshot,
+                    remap.TargetAnchor,
+                    out var topologyTransitionBlocker))
+            {
+                var topologyTransitionBlockerLegality = LegalityResult.Blocked(
+                    LegalityDomain.Traversal,
+                    remap.TargetAnchor,
+                    remap.UpdatedTopology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(topologyTransitionBlocker),
+                    transitionRequirement: TransitionRequirement.TopologyUpdate(
+                        remap.RotationKind,
+                        remap.UpdatedTopology));
+                result = new Free2DTopologyTransitionResult(
+                    false,
+                    entityId,
+                    entity.position,
+                    pose.LocalOffset,
+                    velocityDelta,
+                    remap.TargetAnchor,
+                    remap.UpdatedTopology,
+                    remap.RotationKind,
+                    remap.TargetLocalOffset,
+                    remap.TargetVelocity,
+                    0,
+                    0,
+                    Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature,
+                    topologyTransitionBlockerLegality);
+                return false;
+            }
+
             var targetLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                 snapshot,
                 EntityType.Unit,
