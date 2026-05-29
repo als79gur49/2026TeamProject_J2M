@@ -872,7 +872,197 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Player_Free2D_SameFaceApproachActiveDestroyTile_ClampsAtCollisionRadiusThreshold()
+        public void PlayerFree2D_GroundPlayer_ActivatedBarricadeBlocksMovement()
+        {
+            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var expectedClampX = KinematicFixed.HalfCellUnits - radius;
+            var barricadeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(100, barricadeCell) });
+            SetPlayerContinuousLocalOffset(worldState, expectedClampX - speed, 0, speed);
+            var pipeline = CreatePipelineWithCollisionRadius(
+                worldState,
+                radiusCells,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(expectedClampX));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(0));
+            Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(snapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            Assert.That(snapshot.TryGetSolidSemanticAt(player.position, out _), Is.False);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DContinuousBlocked") &&
+                reason.Contains("TraversalBlocked")), Is.True);
+            Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track =>
+                track.EntityId == 10 &&
+                track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
+                track.DestinationLocalOffset.X.RawValue == expectedClampX),
+                Is.True);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_InactiveBarricadeDoesNotBlockMovement()
+        {
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var barricadeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(100, barricadeCell) });
+            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
+            var pipeline = CreatePipelineWithCollisionRadius(
+                worldState,
+                radiusCells,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(barricadeCell));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(snapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DContinuousBlocked") ||
+                reason.Contains("TraversalBlocked") ||
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
+            Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track =>
+                track.EntityId == 10 &&
+                track.DestinationAnchorCell == barricadeCell),
+                Is.True);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_SamePlanarOtherFaceTileFeaturesIgnored()
+        {
+            const float radiusCells = 0.1875f;
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var floorDestination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = CreateWorldState(
+                new[] { CreatePlayer(10) },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[]
+                {
+                    CreateBarricade(100, otherFaceCell),
+                    CreateDestroyTile(200, otherFaceCell),
+                });
+            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
+            var pipeline = CreatePipelineWithCollisionRadius(
+                worldState,
+                radiusCells,
+                new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    CreateTileFeatureDefinition(200, TileFeatureActivationRule.FrontFaceOnly),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(floorDestination));
+            Assert.That(player.hp, Is.EqualTo(3));
+            Assert.That(player.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(player.markedForDeath, Is.False);
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(snapshot.TryGetSolidSemanticAt(otherFaceCell, out _), Is.False);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("TraversalBlocked") ||
+                reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked") ||
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(result.FinalEntities.Single(entity => entity.entityId == 10).markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_NativeTopologyTransition_ActivatedBarricadeTargetPolicy()
+        {
+            var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
+            var speed = DefaultFree2DSpeedUnitsPerTick();
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
+
+            var activeWorldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(100, targetCell) });
+            SetPlayerContinuousLocalOffset(activeWorldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            var activePipeline = CreateDefaultGameplayPipeline(
+                activeWorldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            var activeResult = activePipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var activeSnapshot = activeWorldState.CreateSnapshot();
+
+            Assert.That(activeSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(activeSnapshot.TryGetEntity(10, out var activePlayer), Is.True);
+            Assert.That(activePlayer.position, Is.EqualTo(sourceCell));
+            Assert.That(activeResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Free2DTopologyNativeRejected") &&
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.True);
+            Assert.That(activeResult.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.SetTopology ||
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
+                Is.False);
+            Assert.That(activeResult.PresentationData.TopologyMotion.HasValue, Is.False);
+            Assert.That(activeResult.PresentationData.TileEvents, Is.Empty);
+
+            var inactiveWorldState = CreateWorldState(
+                new[] { CreatePlayer(10, sourceCell) },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { CreateBarricade(101, targetCell) });
+            SetPlayerContinuousLocalOffset(inactiveWorldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            var inactivePipeline = CreateDefaultGameplayPipeline(
+                inactiveWorldState,
+                new[] { CreateTileFeatureDefinition(101, TileFeatureActivationRule.FrontFaceOnly) });
+
+            var inactiveResult = inactivePipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var inactiveSnapshot = inactiveWorldState.CreateSnapshot();
+
+            Assert.That(inactiveSnapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(inactiveSnapshot.TryGetEntity(10, out var inactivePlayer), Is.True);
+            Assert.That(inactivePlayer.position, Is.EqualTo(targetCell));
+            Assert.That(inactiveResult.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
+            Assert.That(inactiveResult.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Kind == FinalizationOperationKind.SetTopology ||
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
+                Is.True);
+            Assert.That(inactiveResult.PresentationData.TopologyMotion.HasValue, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerFree2D_GroundPlayer_ActivatedDestroyTile_CurrentPolicyGuard()
         {
             const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
@@ -969,7 +1159,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Player_Free2D_AirPlayerApproachActiveDestroyTile_IsAllowed()
+        public void PlayerFree2D_AirPlayer_ActivatedDestroyTile_IsAllowedAndNoEffect()
         {
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
@@ -1177,7 +1367,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Player_Free2D_AirPlayerNativeTopologyTransitionTargetActiveDestroyTile_IsAllowed()
+        public void PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetAllowed()
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var speed = DefaultFree2DSpeedUnitsPerTick();
@@ -2880,6 +3070,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tileId,
                 cell,
                 TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureState CreateBarricade(int tileId, SurfaceCell cell)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
                 TileFeatureFlags.None,
                 sourceEntityId: 0,
                 ownerEntityId: 0,

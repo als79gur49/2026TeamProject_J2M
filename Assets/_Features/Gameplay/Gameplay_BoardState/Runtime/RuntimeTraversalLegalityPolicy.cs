@@ -222,7 +222,8 @@ namespace Game.Feature.Gameplay.BoardState
                 context.CandidateCell,
                 TileFeatureBlockerSubject.Unit,
                 movementKind,
-                out tileFeatureBlocker);
+                out tileFeatureBlocker,
+                context.EvaluationTopology);
         }
     }
 }
