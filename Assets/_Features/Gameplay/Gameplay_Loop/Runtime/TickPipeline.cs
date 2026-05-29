@@ -1364,8 +1364,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var impactResolution = attackPlanResult.PendingCellImpactResolutions[i];
                 attackStageBatch.RemovePendingCellImpact(impactResolution.Impact.ImpactId);
-                attackCommitEvents.Add(
-                    $"ForwardCellImpactResolved|Impact={impactResolution.Impact.ImpactId}|Owner={impactResolution.Impact.OwnerId}|Cell={FormatCell(impactResolution.Impact.TargetCell)}|Hit={(impactResolution.Hit ? 1 : 0)}|Target={impactResolution.TargetEntityId}");
+                attackCommitEvents.Add(BuildPendingCellImpactCommitEvent(impactResolution));
             }
             var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
                 _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ||
@@ -5686,6 +5685,13 @@ namespace Game.Feature.Gameplay.Loop
             for (var impactIndex = 0; impactIndex < duePendingCellImpacts.Count; impactIndex++)
             {
                 var impact = duePendingCellImpacts[impactIndex];
+                var invalidResult = ValidatePendingCellImpact(snapshot, impact);
+                if (invalidResult != null)
+                {
+                    resolutions.Add(invalidResult.Value);
+                    continue;
+                }
+
                 var hitTargetId = 0;
                 for (var entityIndex = 0; entityIndex < players.Count; entityIndex++)
                 {
@@ -5702,7 +5708,13 @@ namespace Game.Feature.Gameplay.Loop
                     break;
                 }
 
-                resolutions.Add(new PendingCellImpactResolutionRecord(impact, hitTargetId > 0, hitTargetId));
+                resolutions.Add(
+                    new PendingCellImpactResolutionRecord(
+                        impact,
+                        hitTargetId > 0
+                            ? PendingCellImpactResolutionKind.Hit
+                            : PendingCellImpactResolutionKind.Miss,
+                        hitTargetId));
                 if (hitTargetId <= 0)
                 {
                     continue;
@@ -5720,6 +5732,61 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return resolutions;
+        }
+
+        private static PendingCellImpactResolutionRecord? ValidatePendingCellImpact(
+            WorldSnapshot snapshot,
+            in PendingCellImpact impact)
+        {
+            if (!snapshot.TryGetEntity(impact.SourceEnemyId, out var source) ||
+                !EnemyParticipationPolicy.IsEnemyLogicEntity(source) ||
+                source.hp <= 0 ||
+                source.markedForDeath ||
+                source.boardPresence != EntityBoardPresence.Occupying ||
+                source.aiMode == EnemyAiMode.Dead ||
+                source.position.face != snapshot.Topology.BottomFace ||
+                !source.position.Equals(impact.SourceCell))
+            {
+                return new PendingCellImpactResolutionRecord(
+                    impact,
+                    PendingCellImpactResolutionKind.CancelledSourceInvalid);
+            }
+
+            if (!impact.LaunchTopology.Equals(snapshot.Topology))
+            {
+                return new PendingCellImpactResolutionRecord(
+                    impact,
+                    PendingCellImpactResolutionKind.ExpiredTopologyInvalid);
+            }
+
+            if (!snapshot.Topology.IsFaceActive(impact.TargetCell.face))
+            {
+                return new PendingCellImpactResolutionRecord(
+                    impact,
+                    PendingCellImpactResolutionKind.CancelledTargetInvalid);
+            }
+
+            return null;
+        }
+
+        private static string BuildPendingCellImpactCommitEvent(in PendingCellImpactResolutionRecord resolution)
+        {
+            var impact = resolution.Impact;
+            if (resolution.ResultKind == PendingCellImpactResolutionKind.CancelledSourceInvalid ||
+                resolution.ResultKind == PendingCellImpactResolutionKind.CancelledTargetInvalid)
+            {
+                return
+                    $"PendingCellImpactCancelled|Impact={impact.ImpactId}|Owner={impact.OwnerId}|Cell={FormatCell(impact.TargetCell)}|Reason={resolution.ResultKind}";
+            }
+
+            if (resolution.ResultKind == PendingCellImpactResolutionKind.ExpiredTopologyInvalid)
+            {
+                return
+                    $"PendingCellImpactExpired|Impact={impact.ImpactId}|Owner={impact.OwnerId}|Cell={FormatCell(impact.TargetCell)}|Reason={resolution.ResultKind}";
+            }
+
+            return
+                $"ForwardCellImpactResolved|Impact={impact.ImpactId}|Owner={impact.OwnerId}|Cell={FormatCell(impact.TargetCell)}|Hit={(resolution.Hit ? 1 : 0)}|Target={resolution.TargetEntityId}|Result={resolution.ResultKind}";
         }
 
         private static bool IsPlayerCurrentCombatAnchorCell(

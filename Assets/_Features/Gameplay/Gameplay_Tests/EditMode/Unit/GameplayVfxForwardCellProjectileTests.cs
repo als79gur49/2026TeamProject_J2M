@@ -58,7 +58,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void ForwardCellProjectile_ImpactSignalCreatesImpactVfx()
         {
-            var data = CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: false) });
+            var data = CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) });
             var plan = PlanProjectile(data);
             var playerBuilder = new GameplayVfxRequestPlanBuilder();
 
@@ -70,6 +70,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(plan.Requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
             Assert.That(plan.Requests[0].Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellFloor));
             Assert.That(playerBuilder.Build().Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ForwardCellProjectile_MissImpactSignalDoesNotCreateImpactVfx()
+        {
+            var data = CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: false) });
+            var plan = PlanProjectile(data);
+
+            Assert.That(
+                plan.Requests.Any(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
+                Is.False);
         }
 
         [Test]
@@ -124,7 +136,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(contextFactory.Create(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() })));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
 
-                runtime.Present(contextFactory.Create(CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: false) })));
+                runtime.Present(contextFactory.Create(CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) })));
                 Assert.That(runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
                 Assert.That(runtime.GetActiveVfxInstanceCount(ImpactCueId), Is.EqualTo(1));
             }
@@ -185,7 +197,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.DoesNotThrow(() => fixture.Present(CreatePresentationData(forwardCellImpactSignals: new[]
             {
-                CreateImpactSignal(hit: false),
+                CreateImpactSignal(hit: true, targetEntityId: 10),
             })));
             AssertActiveCarrierKeys(fixture.Runtime);
             Assert.That(fixture.Runtime.GetReleaseToPoolCount(FlightCueId), Is.EqualTo(1));
@@ -249,7 +261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             fixture.Present(CreatePresentationData(forwardCellImpactSignals: new[]
             {
-                CreateImpactSignal(hit: false, presentationKey: keyA, impactId: keyA, ownerId: enemyA),
+                CreateImpactSignal(hit: true, targetEntityId: 10, presentationKey: keyA, impactId: keyA, ownerId: enemyA),
             }));
             AssertActiveMarkerKeys(fixture.Runtime);
             AssertActiveCarrierKeys(fixture.Runtime);

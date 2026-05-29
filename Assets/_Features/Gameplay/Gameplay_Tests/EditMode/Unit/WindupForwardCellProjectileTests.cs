@@ -443,6 +443,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(2));
             Assert.That(result.AttackPhaseResult.PendingCellImpactResolutions.Single().Hit, Is.True);
+            Assert.That(
+                result.AttackPhaseResult.PendingCellImpactResolutions.Single().ResultKind,
+                Is.EqualTo(PendingCellImpactResolutionKind.Hit));
+            Assert.That(result.PresentationData.ForwardCellImpactSignals, Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -453,24 +457,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(3));
             Assert.That(result.AttackPhaseResult.PendingCellImpactResolutions.Single().Hit, Is.False);
+            Assert.That(
+                result.AttackPhaseResult.PendingCellImpactResolutions.Single().ResultKind,
+                Is.EqualTo(PendingCellImpactResolutionKind.Miss));
         }
 
         [Test]
         [Category("Extended")]
-        public void WindupForwardCellProjectile_ImpactEmitsImpactPresentationSignalOnMiss()
+        public void WindupForwardCellProjectile_ImpactMiss_DoesNotEmitImpactPresentationSignal()
         {
             var (result, _) = RunReleasedImpact(playerCellBeforeImpact: new SurfaceCell(FaceId.Floor, 1, 1));
             var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
-            var signal = result.PresentationData.ForwardCellImpactSignals.Single();
 
-            Assert.That(signal.PresentationKey, Is.EqualTo(resolution.Impact.ImpactId));
-            Assert.That(signal.ImpactId, Is.EqualTo(resolution.Impact.ImpactId));
-            Assert.That(signal.OwnerId, Is.EqualTo(EnemyId));
-            Assert.That(signal.SourceEnemyId, Is.EqualTo(EnemyId));
-            Assert.That(signal.TargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(signal.Direction, Is.EqualTo(Direction.Right));
-            Assert.That(signal.Hit, Is.False);
-            Assert.That(signal.TargetEntityId, Is.Zero);
+            Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.Miss));
+            Assert.That(result.PresentationData.ForwardCellImpactSignals, Is.Empty);
         }
 
         [Test]
@@ -481,6 +481,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(3));
             Assert.That(result.AttackPhaseResult.PendingCellImpactResolutions.Single().TargetEntityId, Is.Zero);
+            Assert.That(result.PresentationData.ForwardCellImpactSignals, Is.Empty);
         }
 
         [Test]
@@ -490,6 +491,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var (_, worldState) = RunReleasedImpact(playerCellBeforeImpact: new SurfaceCell(FaceId.Floor, 1, 0));
 
             Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PendingCellImpact_SourceLeavesBottomFace_CancelsBeforeResolve()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
+                worldState.CreateWriteContext().AddPendingCellImpact(CreatePendingImpact(impactTick: 1));
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Back));
+                var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+                var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
+
+                Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.CancelledSourceInvalid));
+                Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(3));
+                Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+                Assert.That(result.PresentationData.ForwardCellImpactSignals, Is.Empty);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PendingCellImpact_TargetLeavesActiveTopology_CancelsBeforeResolve()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
+            try
+            {
+                var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Ceiling, 1, 0));
+                worldState.CreateWriteContext().AddPendingCellImpact(
+                    CreatePendingImpact(
+                        impactTick: 1,
+                        targetCell: new SurfaceCell(FaceId.Ceiling, 1, 0)));
+                var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
+                var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
+
+                Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.CancelledTargetInvalid));
+                Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(3));
+                Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+                Assert.That(result.PresentationData.ForwardCellImpactSignals, Is.Empty);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
         }
 
         [Test]
@@ -600,7 +651,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static string ToComparableResolution(PendingCellImpactResolutionRecord resolution)
         {
-            return $"{resolution.Impact.ImpactId}:{resolution.Impact.TargetCell}:{resolution.Hit}:{resolution.TargetEntityId}";
+            return $"{resolution.Impact.ImpactId}:{resolution.Impact.TargetCell}:{resolution.ResultKind}:{resolution.TargetEntityId}";
         }
 
         private static int ComputePresentationKey(int ownerId, int actionSequence)
@@ -684,13 +735,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             ((IPreMovementStateCommitContext)writeContext).SetFacing(EnemyId, entityFacing);
         }
 
-        private static PendingCellImpact CreatePendingImpact(int impactTick)
+        private static PendingCellImpact CreatePendingImpact(
+            int impactTick,
+            SurfaceCell? sourceCell = null,
+            SurfaceCell? targetCell = null,
+            CubeTopologyState? launchTopology = null)
         {
             return new PendingCellImpact(
                 impactId: 1,
                 ownerId: EnemyId,
                 sourceEnemyId: EnemyId,
-                targetCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                sourceCell: sourceCell ?? new SurfaceCell(FaceId.Floor, 0, 0),
+                targetCell: targetCell ?? new SurfaceCell(FaceId.Floor, 1, 0),
+                launchTopology: launchTopology ?? new CubeTopologyState(FaceId.Floor),
                 direction: Direction.Right,
                 damage: 1,
                 createdTick: 0,

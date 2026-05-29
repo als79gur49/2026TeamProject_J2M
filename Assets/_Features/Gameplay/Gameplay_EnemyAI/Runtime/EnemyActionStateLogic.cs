@@ -165,6 +165,7 @@ namespace Game.Feature.Gameplay.Entities
                         workingAction.executeTick <= tickIndex)
                     {
                         var releasedAction = CommitForwardCellProjectileRelease(
+                            snapshot,
                             source,
                             workingAction,
                             writeContext,
@@ -290,6 +291,7 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         private EnemyActionRuntimeState CommitForwardCellProjectileRelease(
+            WorldSnapshot snapshot,
             in EntityState source,
             in EnemyActionRuntimeState action,
             IEnemyActionCommitContext writeContext,
@@ -312,7 +314,9 @@ namespace Game.Feature.Gameplay.Entities
                 AllocatePendingCellImpactId(_entityId, action.sequence),
                 _entityId,
                 _entityId,
+                action.lockedAttackBaseCell,
                 action.lockedTargetCell,
+                snapshot.Topology,
                 action.lockedAttackDirection,
                 settings.Damage,
                 tickIndex,

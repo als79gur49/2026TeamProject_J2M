@@ -1184,6 +1184,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequestPlanner_ForwardCellImpactMiss_DoesNotEmitProjectileImpactCue()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                forwardCellImpactSignals: new[]
+                {
+                    new TickForwardCellImpactPresentationSignal(
+                        impactId: 100,
+                        presentationKey: 100,
+                        ownerId: 20,
+                        sourceEnemyId: 20,
+                        targetCell: targetCell,
+                        direction: Direction.Right,
+                        hit: false,
+                        targetEntityId: 0),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => request.Cue).ToArray(),
+                Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+        }
+
+        [Test]
         [Category("Core")]
         public void BlackEyeProjectile_PlayerHit_EmitsProjectileImpactRequest()
         {
@@ -2051,8 +2078,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 ownerId: enemy.entityId,
                                 sourceEnemyId: enemy.entityId,
                                 targetCell: targetCell,
-                                hit: false,
-                                targetEntityId: 0),
+                                hit: true,
+                                targetEntityId: 10),
                         }),
                     finalEntities: new[] { enemy }));
 

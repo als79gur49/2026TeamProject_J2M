@@ -321,6 +321,7 @@
 - Attack:
   - raw attack input, `ImpactReservation`, delayed effect handoff를 소비한다.
   - reservation을 attack damage로 전개한다.
+  - `PendingCellImpact` due tick과 topology transition이 같은 tick에 발생하면 movement/topology commit 이후의 attack snapshot을 기준으로 source/target validity를 재검사한다. source가 current Bottom participant가 아니거나 launch/target topology context가 invalid이면 pending impact는 damage 없이 cancel/expire된다.
   - resolve는 current Push/Flip impact-disposition plan에서 `Stay / FollowThrough / DestroySelf` 중 하나를 닫는다.
 - Cleanup:
   - `hp <= 0` 또는 `markedForDeath` removal을 확정한다.

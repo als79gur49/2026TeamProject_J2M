@@ -332,7 +332,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 AddRequestIf(
                     signal.SourceEnemyId,
                     EnemyAudioCue.ProjectileImpact,
-                    signal.SourceEnemyId > 0,
+                    signal.SourceEnemyId > 0 && signal.Hit,
                     requests);
             }
         }

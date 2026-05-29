@@ -124,6 +124,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var impactSignals = presentationData.ForwardCellImpactSignals;
             for (var i = 0; i < impactSignals.Count; i++)
             {
+                if (!impactSignals[i].Hit)
+                {
+                    continue;
+                }
+
                 PresentImpact(
                     context.Result.TickIndex,
                     context.Topology,

@@ -988,6 +988,11 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < resolutions.Count; i++)
             {
                 var resolution = resolutions[i];
+                if (resolution.ResultKind != PendingCellImpactResolutionKind.Hit)
+                {
+                    continue;
+                }
+
                 var impact = resolution.Impact;
                 forwardCellImpactSignals.Add(
                     new TickForwardCellImpactPresentationSignal(

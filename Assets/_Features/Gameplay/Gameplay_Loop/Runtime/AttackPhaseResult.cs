@@ -70,21 +70,43 @@ namespace Game.Feature.Gameplay.Loop
         public bool ConsumesReceiverCooldown { get; }
     }
 
+    public enum PendingCellImpactResolutionKind
+    {
+        Hit = 0,
+        Miss = 1,
+        CancelledSourceInvalid = 2,
+        CancelledTargetInvalid = 3,
+        ExpiredTopologyInvalid = 4,
+    }
+
     public readonly struct PendingCellImpactResolutionRecord
     {
         public PendingCellImpactResolutionRecord(
             PendingCellImpact impact,
             bool hit,
             int targetEntityId)
+            : this(
+                impact,
+                hit ? PendingCellImpactResolutionKind.Hit : PendingCellImpactResolutionKind.Miss,
+                targetEntityId)
+        {
+        }
+
+        public PendingCellImpactResolutionRecord(
+            PendingCellImpact impact,
+            PendingCellImpactResolutionKind resultKind,
+            int targetEntityId = 0)
         {
             Impact = impact;
-            Hit = hit;
+            ResultKind = resultKind;
             TargetEntityId = targetEntityId;
         }
 
         public PendingCellImpact Impact { get; }
 
-        public bool Hit { get; }
+        public PendingCellImpactResolutionKind ResultKind { get; }
+
+        public bool Hit => ResultKind == PendingCellImpactResolutionKind.Hit;
 
         public int TargetEntityId { get; }
     }

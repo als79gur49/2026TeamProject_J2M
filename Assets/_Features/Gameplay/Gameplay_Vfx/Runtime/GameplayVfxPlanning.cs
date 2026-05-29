@@ -1865,6 +1865,11 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < impactSignals.Count; i++)
             {
                 var signal = impactSignals[i];
+                if (!signal.Hit)
+                {
+                    continue;
+                }
+
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
