@@ -175,7 +175,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(CountUnitsAt(worldState.CreateSnapshot(), forwardCell), Is.EqualTo(1));
         }
 
-        // TileFeature summon placement policy is face-aware: DestroyTile is risk/avoidance, active Barricade is a hard TileFeature blocker, and generated MoonBlock Solid is the Solid blocker.
+        // TileFeature summon placement policy is face-aware: DestroyTile risk uses the summoned unit mobility, active Barricade is a hard TileFeature blocker, and generated MoonBlock Solid is the Solid blocker.
 
         [Test]
         [Category("Extended")]
@@ -275,10 +275,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileAppearsDuringWindup_RevalidatesPlacementAndAvoidsRiskAtResolve()
+        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileAppearsDuringWindup_RevalidatesPlacementWithSummonedAirMobility()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
             var destroyTile = CreateTileFeature(110, forwardCell, TileFeatureKind.Destroy);
             var worldState = CreateWindupWorldForCandidateMutation();
             var pipeline = CreatePipeline(worldState);
@@ -289,7 +288,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             pipeline.RunTick(new TickInput(2));
             var child = GetSingleSummonedChild(worldState);
 
-            Assert.That(child.position, Is.EqualTo(rightCell), "DestroyTile remains legal but is avoided when a non-risk summon candidate exists at resolve.");
+            Assert.That(child.position, Is.EqualTo(forwardCell), "Jpeter summon placement must evaluate DestroyTile risk with the summoned PassiveContactMinion Air mobility.");
+            Assert.That(child.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
             AssertSummonedMetadata(worldState, child.entityId);
             AssertNoGhostSummonState(worldState);
         }
@@ -399,10 +399,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileSummonCandidateIsAvoidedWhenLegalAlternativeExists()
+        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileSummonCandidateIsNeutralForSummonedAirMobility()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
             var destroyTile = CreateTileFeature(116, forwardCell, TileFeatureKind.Destroy);
             var worldState = CreateWorldState(
                 new[] { CreateJpeter(aiMode: EnemyAiMode.Recover, aiStateTimer: 10) },
@@ -412,8 +411,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CreatePipeline(worldState, CreateActiveDefinitions(destroyTile)).RunTick(new TickInput(1));
             var child = GetSingleSummonedChild(worldState);
 
-            Assert.That(child.position, Is.EqualTo(rightCell));
-            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), forwardCell), Is.Zero);
+            Assert.That(child.position, Is.EqualTo(forwardCell));
+            Assert.That(child.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+            Assert.That(CountUnitsAt(worldState.CreateSnapshot(), forwardCell), Is.EqualTo(1));
             AssertSummonedMetadata(worldState, child.entityId);
         }
 
