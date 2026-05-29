@@ -204,6 +204,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.SetTraceSink(traceSink);
         }
 
+        internal void SetEntityPresentationPhaseObservationSink(
+            int entityId,
+            System.Action<GameplayEntityPresentationPhaseObservation> observationSink)
+        {
+            _presentationCoordinator.SetEntityPresentationPhaseObservationSink(entityId, observationSink);
+        }
+
         internal void SetTileFeatureVisualDiagnosticSink(System.Action<string> diagnosticSink)
         {
             _presentationCoordinator.SetTileFeatureVisualDiagnosticSink(diagnosticSink);

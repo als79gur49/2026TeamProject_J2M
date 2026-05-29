@@ -5,7 +5,9 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
+using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
@@ -14,6 +16,9 @@ using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Vfx;
+using Game.Feature.Gameplay.Vfx.Authoring;
+using Game.Feature.Gameplay.Vfx.Host;
 using Game.Feature.Stages;
 using Game.Shared.Input;
 using NUnit.Framework;
@@ -465,6 +470,192 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
 
             yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator CompletedFlipSlidingIntoDestroyTile_DoesNotSnapBackBeforeDestroyVfx()
+        {
+            var unflipped = CreateSlidingDestroyObservation(completeFlipFirst: false);
+            var flipped = CreateSlidingDestroyObservation(completeFlipFirst: true);
+
+            try
+            {
+                TestContext.Out.WriteLine(unflipped.FormatSummary("unflipped"));
+                TestContext.Out.WriteLine(flipped.FormatSummary("flipped"));
+                AssertSlideContinuity(unflipped);
+                AssertSlideContinuity(flipped);
+                Assert.That(
+                    flipped.JustBeforeDestroyProgress,
+                    Is.EqualTo(unflipped.JustBeforeDestroyProgress).Within(0.08f));
+                Assert.That(flipped.DestroyVfxLocalPosition.HasValue, Is.True);
+                Assert.That(
+                    Vector3.Distance(flipped.DestroyVfxLocalPosition.Value, flipped.ContactLocalPosition),
+                    Is.LessThan(0.25f));
+                Assert.That(
+                    Vector3.Distance(flipped.JustBeforeDestroyLocalPosition, flipped.SourceLocalPosition),
+                    Is.GreaterThan(0.65f));
+                Assert.That(
+                    Vector3.Distance(flipped.JustBeforeDestroyLocalPosition, flipped.InitialLocalPosition),
+                    Is.GreaterThan(0.65f));
+            }
+            finally
+            {
+                DestroyObservation(unflipped);
+                DestroyObservation(flipped);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator CompletedFlipSlidingIntoDestroyTile_DestroyExitUsesSlideMotionEndPose()
+        {
+            var observation = CreateSlidingDestroyObservation(completeFlipFirst: true);
+
+            try
+            {
+                var motion = observation.SlideTick.PresentationData.EntityMotions.Single(motion => motion.EntityId == 30);
+                Assert.That(motion.MotionKind, Is.EqualTo(TickEntityMotionKind.BoxSlide));
+                Assert.That(motion.SourceCell, Is.EqualTo(observation.SourceCell));
+                Assert.That(motion.DestinationCell, Is.EqualTo(observation.ContactCell));
+
+                var exitSignal = observation.SlideTick.PresentationData.EntityExitSignals.Single(signal => signal.ExitedEntityId == 30);
+                Assert.That(exitSignal.ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+                Assert.That(exitSignal.Timing, Is.EqualTo(EntityExitPresentationTiming.AfterEntityMotion));
+                Assert.That(exitSignal.SourceCell, Is.EqualTo(observation.ContactCell));
+
+                Assert.That(observation.DestroyVfxLocalPosition.HasValue, Is.True);
+                Assert.That(
+                    Vector3.Distance(observation.DestroyVfxLocalPosition.Value, observation.ContactLocalPosition),
+                    Is.LessThan(0.25f));
+                Assert.That(
+                    Vector3.Distance(observation.DestroyVfxLocalPosition.Value, observation.SourceLocalPosition),
+                    Is.GreaterThan(0.65f));
+                Assert.That(
+                    Vector3.Distance(observation.DestroyVfxLocalPosition.Value, observation.InitialLocalPosition),
+                    Is.GreaterThan(0.65f));
+            }
+            finally
+            {
+                DestroyObservation(observation);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator CompletedFlipSlidingIntoDestroyTile_ViewSyncDoesNotOverrideActiveSlideTrack()
+        {
+            var observation = CreateSlidingDestroyObservation(completeFlipFirst: true);
+
+            try
+            {
+                var duringSlide = observation.PhaseObservations
+                    .Where(sample =>
+                        sample.HasActiveLocalMotion &&
+                        sample.ActiveLocalMotionKind == TickEntityMotionKind.BoxSlide &&
+                        sample.DeferredExitRetained)
+                    .ToArray();
+                TestContext.Out.WriteLine(observation.FormatSummary("view-sync"));
+                TestContext.Out.WriteLine(observation.FormatPhaseObservations());
+                Assert.That(duringSlide, Is.Not.Empty);
+                Assert.That(
+                    duringSlide.Any(sample =>
+                        sample.Phase == GameplayEntityPresentationObservedPhase.BeforeViewSync &&
+                        Vector3.Distance(sample.LocalPosition, observation.SourceLocalPosition) < 0.05f),
+                    Is.True);
+                Assert.That(
+                    duringSlide.Any(sample =>
+                        sample.Phase == GameplayEntityPresentationObservedPhase.AfterMotionTrackApply &&
+                        ProjectProgress(sample.LocalPosition, observation.SourceLocalPosition, observation.ContactLocalPosition) > 0.25f),
+                    Is.True);
+                Assert.That(
+                    duringSlide.Where(sample => sample.Phase == GameplayEntityPresentationObservedPhase.AfterMotionTrackApply)
+                        .All(sample =>
+                            Vector3.Distance(sample.LocalPosition, observation.InitialLocalPosition) > 0.65f ||
+                            ProjectProgress(sample.LocalPosition, observation.SourceLocalPosition, observation.ContactLocalPosition) <= 0.05f),
+                    Is.True);
+                Assert.That(
+                    Vector3.Distance(observation.JustBeforeDestroyLocalPosition, observation.SourceLocalPosition),
+                    Is.GreaterThan(0.65f));
+            }
+            finally
+            {
+                DestroyObservation(observation);
+            }
+
+            yield return null;
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipStartAudio_ExecuteTickSemanticClassification()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            });
+
+            try
+            {
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferFlip();
+                var startTick = host.InputHost.RunSingleTick();
+                var executeTick = RunTicksUntil(
+                    host,
+                    result => result.PresentationData.FlipB1InFlightMotionSignals.Count > 0,
+                    PlayerControlTimingSettings.DefaultFlipExecuteDelayTicksAtDefaultSimulationRate + 3);
+                var dueTick = RunUntilFlipB1Due(host);
+
+                Assert.That(startTick, Is.Not.Null);
+                Assert.That(executeTick, Is.Not.Null);
+                Assert.That(dueTick, Is.Not.Null);
+
+                var actionRequests = new GameplayActionAudioRequestPlanner().BuildRequests(startTick);
+                TestContext.Out.WriteLine(FormatActionAudioRequests("start", startTick, actionRequests));
+                Assert.That(
+                    actionRequests.Any(request =>
+                        request.OwnerEntityId == 10 &&
+                        request.Action == GameplayActionKind.Flip &&
+                        request.Moment == GameplayActionAudioMoment.Windup),
+	                Is.True);
+
+                var executeActionRequests = new GameplayActionAudioRequestPlanner().BuildRequests(executeTick);
+                TestContext.Out.WriteLine(FormatActionAudioRequests("execute", executeTick, executeActionRequests));
+                Assert.That(
+                    executeActionRequests.Any(request =>
+                        request.OwnerEntityId == 10 &&
+                        request.Action == GameplayActionKind.Flip &&
+                        request.Moment == GameplayActionAudioMoment.Windup),
+                    Is.False);
+
+                var dueActionRequests = new GameplayActionAudioRequestPlanner().BuildRequests(dueTick);
+                TestContext.Out.WriteLine(FormatActionAudioRequests("due", dueTick, dueActionRequests));
+                Assert.That(
+                    dueActionRequests.Any(request =>
+                        request.OwnerEntityId == 10 &&
+                        request.Action == GameplayActionKind.Flip &&
+                        request.Moment == GameplayActionAudioMoment.Windup),
+                    Is.False);
+
+                var blockRequests = new BlockAudioRequestPlanner().BuildRequests(executeTick, host.TimingProfile);
+                var dueBlockRequests = new BlockAudioRequestPlanner().BuildRequests(dueTick, host.TimingProfile);
+                TestContext.Out.WriteLine(FormatBlockAudioRequests("execute", executeTick, blockRequests));
+                TestContext.Out.WriteLine(FormatBlockAudioRequests("due", dueTick, dueBlockRequests));
+                Assert.That(
+                    blockRequests.Concat(dueBlockRequests).Any(request =>
+                        request.OwnerEntityId == 30 &&
+                        request.Cue == BlockAudioCue.FlipLanding),
+                    Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(host.gameObject);
+            }
         }
 
         [UnityTest]
@@ -1551,7 +1742,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             GameplayEntityView playerViewPrefabOverride = null,
             GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            StageContentEntry stageContentEntry = null)
+            StageContentEntry stageContentEntry = null,
+            TileFeatureState[] initialTileFeatures = null,
+            TileFeatureRuntimeDefinition[] tileFeatureDefinitions = null)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1592,6 +1785,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
                 InitialMoveDelaySeconds = initialMoveDelaySeconds,
                 InitialEntities = initialEntities,
+                InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>(),
                 MaxTicksPerFrame = 8,
                 MoveDeadzone = 0.5f,
                 MoveMotionDurationSeconds = moveMotionDurationSeconds,
@@ -1607,6 +1801,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 StageContentEntry = stageContentEntry,
                 StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
                 SnapViewCameraToTarget = viewCamera != null,
+                TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>(),
                 TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile ?? TopologyTransitionPostFxProfile.CreateDefault(),
                 ViewCamera = viewCamera,
             };
@@ -1717,6 +1912,282 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var box = CreateBox(entityId, sourceCell, BoxCapabilities.Flip);
             box.boardPresence = EntityBoardPresence.InFlight;
             return box;
+        }
+
+        private static SlidingDestroyObservation CreateSlidingDestroyObservation(bool completeFlipFirst)
+        {
+            var initialCell = completeFlipFirst
+                ? new SurfaceCell(FaceId.Floor, 1, 0)
+                : new SurfaceCell(FaceId.Floor, -1, 0);
+            var sourceCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var contactCell = new SurfaceCell(FaceId.Floor, -2, 0);
+            var destroyTile = CreateDestroyTileState(100, contactCell);
+            var destroyDefinition = CreateDestroyTileDefinition(100);
+            var phaseObservations = new List<GameplayEntityPresentationPhaseObservation>();
+
+            var box = CreateBox(30, initialCell, BoxCapabilities.Push | BoxCapabilities.Flip);
+            if (!completeFlipFirst)
+            {
+                box.facing = Direction.Left;
+                box.state = EntityPhaseState.Sliding;
+                box.stateTimer = 0;
+            }
+
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    box,
+                },
+                initialTileFeatures: new[] { destroyTile },
+                tileFeatureDefinitions: new[] { destroyDefinition });
+            var vfxRuntime = AttachDestroyObservationVfx(
+                host,
+                out var smokeBinding,
+                out var shrinkBinding,
+                out var cueMap,
+                out var smokePrefab,
+                out var commonHostPrefab);
+
+            host.Presenter.SetEntityPresentationPhaseObservationSink(30, phaseObservations.Add);
+
+            if (completeFlipFirst)
+            {
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferFlip();
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                var dueTick = RunUntilFlipB1Due(host);
+                Assert.That(dueTick, Is.Not.Null);
+                AdvancePresentation(host, host.TimingProfile.FlipMotionDurationSeconds + 0.05f);
+                Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(30, out var flippedBox), Is.True);
+                Assert.That(flippedBox.position, Is.EqualTo(sourceCell));
+                host.InputHost.SetRawMoveInput(Vector2.zero);
+            }
+
+            InvokeWorldWriteContextMethod(host.WorldState, "ApplyStateChange", 30, EntityPhaseState.Sliding, 0);
+            var initialLocalPosition = ProjectEntityLocalPosition(host, initialCell, EntityType.Box);
+            var sourceLocalPosition = ProjectEntityLocalPosition(host, sourceCell, EntityType.Box);
+            var contactLocalPosition = ProjectEntityLocalPosition(host, contactCell, EntityType.Box);
+
+            var slideTick = host.InputHost.RunSingleTick();
+            Assert.That(slideTick, Is.Not.Null);
+            Assert.That(slideTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 30), Is.True);
+            Assert.That(slideTick.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 30), Is.True);
+            Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
+
+            var slideStartLocalPosition = boxView.transform.localPosition;
+            host.Presenter.UpdatePresentation(host.TimingProfile.BoxSlideStepIntervalSeconds * 0.5f);
+            var midSlideLocalPosition = boxView.transform.localPosition;
+            host.Presenter.UpdatePresentation(host.TimingProfile.BoxSlideStepIntervalSeconds * 0.49f);
+            var justBeforeDestroyLocalPosition = boxView.transform.localPosition;
+            Assert.That(vfxRuntime.ActiveVfxInstanceCount, Is.Zero);
+            host.Presenter.UpdatePresentation(host.TimingProfile.BoxSlideStepIntervalSeconds * 0.03f + 0.01f);
+            var destroyVfxLocalPosition = TryFindClosestOneShotVfxLocalPosition(host, contactLocalPosition, out var resolvedVfxPosition)
+                ? resolvedVfxPosition
+                : (Vector3?)null;
+
+            return new SlidingDestroyObservation(
+                host,
+                vfxRuntime,
+                smokeBinding,
+                shrinkBinding,
+                cueMap,
+                smokePrefab,
+                commonHostPrefab,
+                completeFlipFirst,
+                initialCell,
+                sourceCell,
+                contactCell,
+                initialLocalPosition,
+                sourceLocalPosition,
+                contactLocalPosition,
+                slideStartLocalPosition,
+                midSlideLocalPosition,
+                justBeforeDestroyLocalPosition,
+                destroyVfxLocalPosition,
+                slideTick,
+                phaseObservations);
+        }
+
+        private static void AssertSlideContinuity(in SlidingDestroyObservation observation)
+        {
+            Assert.That(observation.SlideStartProgress, Is.EqualTo(0f).Within(0.08f));
+            Assert.That(observation.MidSlideProgress, Is.GreaterThan(0.25f));
+            Assert.That(observation.MidSlideProgress, Is.LessThan(0.75f));
+            Assert.That(observation.JustBeforeDestroyProgress, Is.GreaterThan(0.85f));
+            Assert.That(
+                Vector3.Distance(observation.JustBeforeDestroyLocalPosition, observation.ContactLocalPosition),
+                Is.LessThan(0.2f));
+        }
+
+        private static string FormatActionAudioRequests(
+            string phaseName,
+            TickResult tick,
+            IReadOnlyList<GameplayActionAudioRequest> requests)
+        {
+            return $"{phaseName} Tick={tick.TickIndex} ActionAudio=[" +
+                   string.Join(", ", requests.Select(request =>
+                       $"Owner={request.OwnerEntityId} Action={request.Action} Moment={request.Moment}")) +
+                   "]";
+        }
+
+        private static string FormatBlockAudioRequests(
+            string phaseName,
+            TickResult tick,
+            IReadOnlyList<BlockAudioRequest> requests)
+        {
+            return $"{phaseName} Tick={tick.TickIndex} BlockAudio=[" +
+                   string.Join(", ", requests.Select(request =>
+                       $"Owner={request.OwnerEntityId} Cue={request.Cue} Delay={request.DelaySeconds:F3}")) +
+                   "]";
+        }
+
+        private static GameplayVfxProductionRuntime AttachDestroyObservationVfx(
+            GameplaySceneHost host,
+            out VfxBindingDefinitionAsset smokeBinding,
+            out VfxBindingDefinitionAsset shrinkBinding,
+            out VfxCueMapAsset cueMap,
+            out GameObject smokePrefab,
+            out GameObject commonHostPrefab)
+        {
+            smokePrefab = CreateVfxPrefab("DestroyObservationSmokePrefab");
+            commonHostPrefab = CreateVfxPrefab("DestroyObservationCommonHostPrefab");
+            smokeBinding = CreateBoxVfxBinding(smokePrefab, BoxVfxCue.DestroySmoke);
+            shrinkBinding = CreateBoxVfxBinding(null, BoxVfxCue.DestroyShrink);
+            cueMap = ScriptableObject.CreateInstance<VfxCueMapAsset>();
+            SetSerializedField(cueMap, "bindings", new[] { smokeBinding, shrinkBinding });
+
+            var runtime = host.gameObject.AddComponent<GameplayVfxProductionRuntime>();
+            runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
+            runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
+            runtime.ConfigureCommonEmptyHostPrefab(commonHostPrefab);
+            runtime.ConfigureHostDefaultMap(cueMap);
+            host.Presenter.AttachPresentationExtension(runtime);
+            return runtime;
+        }
+
+        private static GameObject CreateVfxPrefab(string name)
+        {
+            var prefab = new GameObject(name);
+            var modelRoot = new GameObject("ModelRoot");
+            modelRoot.transform.SetParent(prefab.transform, worldPositionStays: false);
+            modelRoot.AddComponent<ParticleSystem>();
+            return prefab;
+        }
+
+        private static VfxBindingDefinitionAsset CreateBoxVfxBinding(GameObject prefab, BoxVfxCue cue)
+        {
+            var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
+            SetSerializedField(binding, "family", GameplayVfxFamily.Box);
+            SetSerializedField(binding, "cueCode", (int)cue);
+            SetSerializedField(binding, "prefab", prefab);
+            SetSerializedField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
+            SetSerializedField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);
+            SetSerializedField(binding, "playbackMode", VfxPlaybackMode.OneShot);
+            SetSerializedField(
+                binding,
+                "visualSourceMode",
+                cue == BoxVfxCue.DestroyShrink ? VfxVisualSourceMode.SourceCloneMotion : VfxVisualSourceMode.PrefabOnly);
+            SetSerializedField(
+                binding,
+                "hostRequirement",
+                cue == BoxVfxCue.DestroyShrink
+                    ? GameplayVfxHostRequirement.CommonHostAllowed
+                    : GameplayVfxHostRequirement.ExplicitPrefabRequired);
+            SetSerializedField(binding, "stopPolicy", VfxStopPolicy.AuthoredDuration);
+            SetSerializedField(binding, "defaultLifetimeSeconds", cue == BoxVfxCue.DestroyShrink ? 0f : 0.18f);
+            SetSerializedField(binding, "tailSeconds", 0.25f);
+            SetSerializedField(binding, "initialPoolSize", 2);
+            SetSerializedField(binding, "maxConcurrentInstances", 8);
+            return binding;
+        }
+
+        private static TileFeatureState CreateDestroyTileState(int tileId, SurfaceCell cell)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                TileFeatureKind.Destroy,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateDestroyTileDefinition(int tileId)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                TileFeatureActivationRule.BottomFaceOnly,
+                Direction2D.None,
+                TileFeatureBoxSelector.AnyPushableBox,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
+        }
+
+        private static Vector3 ProjectEntityLocalPosition(GameplaySceneHost host, SurfaceCell cell, EntityType entityType)
+        {
+            var snapshot = CaptureAuthoritativeSnapshot(host);
+            var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
+            Assert.That(projector.TryProjectEntityCell(cell, snapshot.Topology, entityType, out var projectedPose), Is.True);
+            return projectedPose.LocalPosition;
+        }
+
+        private static bool TryFindClosestOneShotVfxLocalPosition(
+            GameplaySceneHost host,
+            Vector3 expectedLocalPosition,
+            out Vector3 localPosition)
+        {
+            localPosition = default;
+            var oneShotRoot = host.transform.Find("GameplayVfxRuntimeRoot/OneShot");
+            if (oneShotRoot == null || oneShotRoot.childCount == 0)
+            {
+                return false;
+            }
+
+            var bestDistance = float.PositiveInfinity;
+            for (var i = 0; i < oneShotRoot.childCount; i++)
+            {
+                var candidate = oneShotRoot.GetChild(i).localPosition;
+                var distance = Vector3.Distance(candidate, expectedLocalPosition);
+                if (distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                localPosition = candidate;
+            }
+
+            return true;
+        }
+
+        private static float ProjectProgress(Vector3 position, Vector3 source, Vector3 target)
+        {
+            var travel = target - source;
+            var magnitude = travel.magnitude;
+            if (magnitude <= 0.0001f)
+            {
+                return 0f;
+            }
+
+            return Vector3.Dot(position - source, travel.normalized) / magnitude;
+        }
+
+        private static void DestroyObservation(in SlidingDestroyObservation observation)
+        {
+            if (observation.Host != null)
+            {
+                UnityEngine.Object.Destroy(observation.Host.gameObject);
+            }
+
+            UnityEngine.Object.Destroy(observation.CueMap);
+            UnityEngine.Object.Destroy(observation.SmokeBinding);
+            UnityEngine.Object.Destroy(observation.ShrinkBinding);
+            UnityEngine.Object.Destroy(observation.SmokePrefab);
+            UnityEngine.Object.Destroy(observation.CommonHostPrefab);
         }
 
         private static IEnumerator DestroyHost(GameplaySceneHost host, UnityEngine.Object ownedActions = null)
@@ -2174,6 +2645,132 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 buffer.Add(_intent);
+            }
+        }
+
+        private readonly struct SlidingDestroyObservation
+        {
+            public SlidingDestroyObservation(
+                GameplaySceneHost host,
+                GameplayVfxProductionRuntime vfxRuntime,
+                VfxBindingDefinitionAsset smokeBinding,
+                VfxBindingDefinitionAsset shrinkBinding,
+                VfxCueMapAsset cueMap,
+                GameObject smokePrefab,
+                GameObject commonHostPrefab,
+                bool completedFlipFirst,
+                SurfaceCell initialCell,
+                SurfaceCell sourceCell,
+                SurfaceCell contactCell,
+                Vector3 initialLocalPosition,
+                Vector3 sourceLocalPosition,
+                Vector3 contactLocalPosition,
+                Vector3 slideStartLocalPosition,
+                Vector3 midSlideLocalPosition,
+                Vector3 justBeforeDestroyLocalPosition,
+                Vector3? destroyVfxLocalPosition,
+                TickResult slideTick,
+                IReadOnlyList<GameplayEntityPresentationPhaseObservation> phaseObservations)
+            {
+                Host = host;
+                VfxRuntime = vfxRuntime;
+                SmokeBinding = smokeBinding;
+                ShrinkBinding = shrinkBinding;
+                CueMap = cueMap;
+                SmokePrefab = smokePrefab;
+                CommonHostPrefab = commonHostPrefab;
+                CompletedFlipFirst = completedFlipFirst;
+                InitialCell = initialCell;
+                SourceCell = sourceCell;
+                ContactCell = contactCell;
+                InitialLocalPosition = initialLocalPosition;
+                SourceLocalPosition = sourceLocalPosition;
+                ContactLocalPosition = contactLocalPosition;
+                SlideStartLocalPosition = slideStartLocalPosition;
+                MidSlideLocalPosition = midSlideLocalPosition;
+                JustBeforeDestroyLocalPosition = justBeforeDestroyLocalPosition;
+                DestroyVfxLocalPosition = destroyVfxLocalPosition;
+                SlideTick = slideTick;
+                PhaseObservations = phaseObservations ?? Array.Empty<GameplayEntityPresentationPhaseObservation>();
+            }
+
+            public GameplaySceneHost Host { get; }
+
+            public GameplayVfxProductionRuntime VfxRuntime { get; }
+
+            public VfxBindingDefinitionAsset SmokeBinding { get; }
+
+            public VfxBindingDefinitionAsset ShrinkBinding { get; }
+
+            public VfxCueMapAsset CueMap { get; }
+
+            public GameObject SmokePrefab { get; }
+
+            public GameObject CommonHostPrefab { get; }
+
+            public bool CompletedFlipFirst { get; }
+
+            public SurfaceCell InitialCell { get; }
+
+            public SurfaceCell SourceCell { get; }
+
+            public SurfaceCell ContactCell { get; }
+
+            public Vector3 InitialLocalPosition { get; }
+
+            public Vector3 SourceLocalPosition { get; }
+
+            public Vector3 ContactLocalPosition { get; }
+
+            public Vector3 SlideStartLocalPosition { get; }
+
+            public Vector3 MidSlideLocalPosition { get; }
+
+            public Vector3 JustBeforeDestroyLocalPosition { get; }
+
+            public Vector3? DestroyVfxLocalPosition { get; }
+
+            public TickResult SlideTick { get; }
+
+            public IReadOnlyList<GameplayEntityPresentationPhaseObservation> PhaseObservations { get; }
+
+            public float SlideStartProgress => ProjectProgress(SlideStartLocalPosition, SourceLocalPosition, ContactLocalPosition);
+
+            public float MidSlideProgress => ProjectProgress(MidSlideLocalPosition, SourceLocalPosition, ContactLocalPosition);
+
+            public float JustBeforeDestroyProgress => ProjectProgress(JustBeforeDestroyLocalPosition, SourceLocalPosition, ContactLocalPosition);
+
+            public string FormatSummary(string label)
+            {
+                return $"{label}: CompletedFlipFirst={CompletedFlipFirst} " +
+                       $"Start={FormatVector(SlideStartLocalPosition)}({SlideStartProgress:F3}) " +
+                       $"Mid={FormatVector(MidSlideLocalPosition)}({MidSlideProgress:F3}) " +
+                       $"BeforeDestroy={FormatVector(JustBeforeDestroyLocalPosition)}({JustBeforeDestroyProgress:F3}) " +
+                       $"Source={FormatVector(SourceLocalPosition)} Contact={FormatVector(ContactLocalPosition)} " +
+                       $"Initial={FormatVector(InitialLocalPosition)} Vfx={FormatOptionalVector(DestroyVfxLocalPosition)}";
+            }
+
+            public string FormatPhaseObservations()
+            {
+                var sourceLocalPosition = SourceLocalPosition;
+                var contactLocalPosition = ContactLocalPosition;
+                return string.Join(
+                    Environment.NewLine,
+                    PhaseObservations.Select(sample =>
+                        $"{sample.Phase}: HasView={sample.HasView} Active={sample.ViewActiveSelf} " +
+                        $"Pos={FormatVector(sample.LocalPosition)} Progress={ProjectProgress(sample.LocalPosition, sourceLocalPosition, contactLocalPosition):F3} " +
+                        $"ActiveMotion={sample.HasActiveLocalMotion}/{sample.ActiveLocalMotionKind} " +
+                        $"DeferredExit={sample.DeferredExitRetained} CommittedPose={sample.CommittedPoseRetained} RetainedPose={sample.RetainedPoseRetained}"));
+            }
+
+            private static string FormatOptionalVector(Vector3? value)
+            {
+                return value.HasValue ? FormatVector(value.Value) : "<none>";
+            }
+
+            private static string FormatVector(Vector3 value)
+            {
+                return $"({value.x:F3},{value.y:F3},{value.z:F3})";
             }
         }
 

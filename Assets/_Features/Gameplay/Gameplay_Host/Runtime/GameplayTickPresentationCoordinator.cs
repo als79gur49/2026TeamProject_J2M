@@ -85,6 +85,8 @@ namespace Game.Feature.Gameplay.Host
         private IReadOnlyList<TileFeatureVisualState> _currentTileFeatureVisualStates =
             EmptyTileFeatureVisualStates;
         private Action<string> _traceSink;
+        private Action<GameplayEntityPresentationPhaseObservation> _entityPresentationPhaseObservationSink;
+        private int _entityPresentationPhaseObservationEntityId;
         private int _lastPresentedTickIndex;
         private TileFeatureVisualPoseSynchronizer _tileFeatureVisualPoseSynchronizer;
         private IGameplayAudioPlaybackPort _rawGameplayAudioPlaybackPort;
@@ -590,13 +592,17 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.UpdatePresentation(deltaTime);
             _gravityFieldVisualPresentationController.UpdatePresentation(deltaTime);
             UpdateExtensions(deltaTime);
+            ObserveEntityPresentationPhase(GameplayEntityPresentationObservedPhase.BeforeViewSync);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,
                 _viewBinder,
                 _timingProfile);
+            ObserveEntityPresentationPhase(GameplayEntityPresentationObservedPhase.AfterMotionTrackApply);
             _exitPresentationController.CompleteDeferredEntityExits();
+            ObserveEntityPresentationPhase(GameplayEntityPresentationObservedPhase.BeforeExitVfx);
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
+            ObserveEntityPresentationPhase(GameplayEntityPresentationObservedPhase.AfterExitVfx);
             _exitPresentationController.AdvanceDeathPresentationCleanups(deltaTime);
             _exitPresentationController.AdvanceContactDelayedEntityExits(deltaTime);
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
@@ -879,6 +885,14 @@ namespace Game.Feature.Gameplay.Host
             _traceSink = traceSink;
         }
 
+        internal void SetEntityPresentationPhaseObservationSink(
+            int entityId,
+            Action<GameplayEntityPresentationPhaseObservation> observationSink)
+        {
+            _entityPresentationPhaseObservationEntityId = entityId;
+            _entityPresentationPhaseObservationSink = observationSink;
+        }
+
         internal void SetTileFeatureVisualDiagnosticSink(Action<string> diagnosticSink)
         {
             _tileFeatureVisualPresentationController.SetDiagnosticSink(diagnosticSink);
@@ -1119,6 +1133,94 @@ namespace Game.Feature.Gameplay.Host
             _traceSink?.Invoke(stepName);
         }
 
+        private void ObserveEntityPresentationPhase(GameplayEntityPresentationObservedPhase phase)
+        {
+            if (_entityPresentationPhaseObservationSink == null ||
+                _entityPresentationPhaseObservationEntityId <= 0)
+            {
+                return;
+            }
+
+            var entityId = _entityPresentationPhaseObservationEntityId;
+            var hasView = _stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) && view != null;
+            var hasActiveLocalMotion =
+                _trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack) &&
+                motionTrack.HasClips;
+
+            _entityPresentationPhaseObservationSink.Invoke(
+                new GameplayEntityPresentationPhaseObservation(
+                    phase,
+                    entityId,
+                    hasView,
+                    hasView && view.gameObject.activeSelf,
+                    hasView ? view.transform.localPosition : default,
+                    hasView ? view.transform.localRotation : default,
+                    hasActiveLocalMotion,
+                    hasActiveLocalMotion ? motionTrack.TailMotionKind : TickEntityMotionKind.None,
+                    _trackState.DeferredExitRetainedEntityIds.Contains(entityId),
+                    _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId),
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId)));
+        }
+
+    }
+
+    internal enum GameplayEntityPresentationObservedPhase
+    {
+        BeforeViewSync = 0,
+        AfterMotionTrackApply = 1,
+        BeforeExitVfx = 2,
+        AfterExitVfx = 3,
+    }
+
+    internal readonly struct GameplayEntityPresentationPhaseObservation
+    {
+        public GameplayEntityPresentationPhaseObservation(
+            GameplayEntityPresentationObservedPhase phase,
+            int entityId,
+            bool hasView,
+            bool viewActiveSelf,
+            Vector3 localPosition,
+            Quaternion localRotation,
+            bool hasActiveLocalMotion,
+            TickEntityMotionKind activeLocalMotionKind,
+            bool deferredExitRetained,
+            bool committedPoseRetained,
+            bool retainedPoseRetained)
+        {
+            Phase = phase;
+            EntityId = entityId;
+            HasView = hasView;
+            ViewActiveSelf = viewActiveSelf;
+            LocalPosition = localPosition;
+            LocalRotation = localRotation;
+            HasActiveLocalMotion = hasActiveLocalMotion;
+            ActiveLocalMotionKind = activeLocalMotionKind;
+            DeferredExitRetained = deferredExitRetained;
+            CommittedPoseRetained = committedPoseRetained;
+            RetainedPoseRetained = retainedPoseRetained;
+        }
+
+        public GameplayEntityPresentationObservedPhase Phase { get; }
+
+        public int EntityId { get; }
+
+        public bool HasView { get; }
+
+        public bool ViewActiveSelf { get; }
+
+        public Vector3 LocalPosition { get; }
+
+        public Quaternion LocalRotation { get; }
+
+        public bool HasActiveLocalMotion { get; }
+
+        public TickEntityMotionKind ActiveLocalMotionKind { get; }
+
+        public bool DeferredExitRetained { get; }
+
+        public bool CommittedPoseRetained { get; }
+
+        public bool RetainedPoseRetained { get; }
     }
 
     internal readonly struct GameplayEntityPresentationLifecycleDebugSnapshot

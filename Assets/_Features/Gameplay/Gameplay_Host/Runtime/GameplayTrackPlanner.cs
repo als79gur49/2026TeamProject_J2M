@@ -1396,11 +1396,26 @@ namespace Game.Feature.Gameplay.Host
                 return committedPose;
             }
 
-            if (_stateStore.RetainedLocalTargetPoses.TryGetValue(motion.EntityId, out var retainedPose))
+            if (TryResolveAuthoritativeMotionDestinationPose(
+                    motion,
+                    topologyMotion,
+                    projector,
+                    out var destinationPose))
             {
-                return retainedPose;
+                return destinationPose;
             }
 
+            return _stateStore.RetainedLocalTargetPoses.TryGetValue(motion.EntityId, out var retainedPose)
+                ? retainedPose
+                : default;
+        }
+
+        private bool TryResolveAuthoritativeMotionDestinationPose(
+            TickEntityMotion motion,
+            TickTopologyMotion? topologyMotion,
+            GameplayCubeProjector projector,
+            out GameplayEntityPose destinationPose)
+        {
             var destinationTopology = motion.DestinationTopology ?? _stateStore.CommittedTopology;
             var destinationFacing = motion.DestinationFacing ?? motion.SourceFacing ?? Direction.Up;
             var sourceTopology = motion.SourceTopology ?? destinationTopology;
@@ -1412,9 +1427,9 @@ namespace Game.Feature.Gameplay.Host
                     sourceTopology,
                     destinationTopology,
                     destinationFacing,
-                    out var transitionEndPose))
+                    out destinationPose))
             {
-                return transitionEndPose;
+                return true;
             }
 
             return _poseResolver.TryResolveLocalPose(
@@ -1423,9 +1438,7 @@ namespace Game.Feature.Gameplay.Host
                 motion.DestinationCell,
                 destinationTopology,
                 destinationFacing,
-                out var destinationPose)
-                ? destinationPose
-                : default;
+                out destinationPose);
         }
 
         private GameplayEntityPose ResolveMotionStartPose(
