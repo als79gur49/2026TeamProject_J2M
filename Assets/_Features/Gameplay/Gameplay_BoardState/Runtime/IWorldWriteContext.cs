@@ -43,6 +43,10 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
 
+        void SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction);
+
+        void ClearPendingEnemyBlockedReaction(int entityId);
+
         void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
 
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
@@ -117,6 +121,8 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveBoxInteractionLockState(int entityId);
 
         void RemoveEnemyGravityFieldAuraFieldState(int fieldId);
+
+        void ClearPendingEnemyBlockedReaction(int entityId);
     }
 
     internal interface IEnemyUtilityTriggerSink
