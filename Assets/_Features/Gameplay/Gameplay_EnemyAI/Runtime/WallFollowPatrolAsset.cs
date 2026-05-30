@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private WallFollowTurnPreference turnPreference = WallFollowTurnPreference.Right;
         [SerializeField] private bool followWalls = true;
         [SerializeField] private bool followBoxes = true;
+        [SerializeField] private bool treatBoardEdgeAsObstacleBoundary = true;
 
         public override PatrolStrategyKind Kind => PatrolStrategyKind.WallFollow;
 
@@ -16,7 +17,8 @@ namespace Game.Feature.Gameplay.Entities
             blockedMovementResponse,
             turnPreference,
             followWalls,
-            followBoxes);
+            followBoxes,
+            treatBoardEdgeAsObstacleBoundary: treatBoardEdgeAsObstacleBoundary);
 
         protected override IPatrolStrategy ResolveStrategy()
         {

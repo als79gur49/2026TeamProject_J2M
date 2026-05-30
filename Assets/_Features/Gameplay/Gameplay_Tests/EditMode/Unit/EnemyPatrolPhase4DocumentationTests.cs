@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("`WallFollow`는 unsupported bounded strategy로 유지한다."));
             Assert.That(doc, Does.Contain("`RandomWalk` pilot과 `Forward` commonization을 흔들지 않는다."));
             Assert.That(doc, Does.Contain("## 11. 재설계 task를 여는 경우의 bounded sub-problem"));
-            Assert.That(doc, Does.Contain("`anchor semantics extraction`"));
+            Assert.That(doc, Does.Contain("`boundary context gate extraction`"));
             Assert.That(doc, Does.Contain("`facing-only / rotate-only boundary`"));
             Assert.That(doc, Does.Contain("`same-cell passive-contact hold boundary`"));
             Assert.That(doc, Does.Contain("`turn-and-move same-tick contract`"));

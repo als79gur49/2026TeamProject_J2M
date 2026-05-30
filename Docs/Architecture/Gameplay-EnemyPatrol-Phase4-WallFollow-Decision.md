@@ -14,7 +14,7 @@ phase 4의 목표는 `WallFollow`를 지금 `RandomWalk` / `Forward`와 같은 �
 
 현재 `EnemyPatrolDecisionPlanner` support matrix는 `Forward`, `RandomWalk`만 지원하고 `WallFollow`는 unsupported bounded path로 남아 있다. `WallFollow` truth는 한 레이어에 있지 않다.
 
-- anchor / turn / weak-vs-strong anchor fallback은 `EnemyMovementPolicy.cs`가 소유한다.
+- pure hand-rule direction order와 no-wall boundary gate는 `EnemyMovementPolicy.cs`가 소유한다.
 - same-cell passive-contact hold, unsupported fallback, `BeforeAttack` rotate-only facing은 `EnemyLogic.cs`가 소유한다.
 - patrol state post-move commit gate는 `MovementCommitter.cs`가 소유한다.
 - authored default와 rollout contract는 `EnemyAi_WallFollower.asset`, `EnemyPatrol_WallFollow_Left.asset`, stage builder tests가 소유한다.
@@ -43,15 +43,16 @@ phase 4의 목표는 `WallFollow`를 지금 `RandomWalk` / `Forward`와 같은 �
 
 | rule | observable truth | current owner | existing evidence | proposal-frame fit | phase4 note |
 | --- | --- | --- | --- | --- | --- |
-| anchor 유지 | hand-side strong anchor가 있고 forward가 traversable이면 facing을 유지한 채 전진한다 | `EnemyMovementPolicy.cs` (`HasWallFollowAnchor`, `TryChooseWallFollowDirection`) | `WallFollowPatrolStrategy_RightHandWall_PrefersForwardWhileHandAnchorExists` | 부분 적합 | move-only rule로 축약하면 anchor 유지 의미가 사라진다 |
-| result-anchor 재획득 | source anchor가 없어도 destination anchor가 있으면 그 방향을 우선 채택해 hand anchor를 재획득한다 | `EnemyMovementPolicy.cs` destination-anchor path | `WallFollowPatrolStrategy_ResultAnchorForward_ReacquiresHandAnchorAfterStep` | 부분 적합 | current 5-field proposal만으로는 “왜 그 방향이 선택됐는지”를 보존하지 못한다 |
-| edge fallback | wall / box strong anchor가 없을 때 board edge weak anchor를 fallback으로 인정한다 | `EnemyMovementPolicy.cs` (`MatchesWallFollowAnchorFilter`) | `EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoardEdgeAsAnchor`, `EnemyMovementStrategyShared_WallFollowDirection_UsesBoardEdgeWeakAnchorFallback_WhenNoStrongAnchorExists` | 낮음 | weak-vs-strong anchor ordering이 wall-specific semantics다 |
-| box anchor | `followBoxes == true`면 box도 wall-follow strong anchor로 취급한다 | `EnemyMovementPolicy.cs` | `EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoxAsAnchor`, `EnemyMovementStrategyShared_WallFollowResultAnchor_TreatsBoxAsAnchor` | 낮음 | planner/common layer가 solid semantic policy를 직접 떠안게 된다 |
-| unit ignored as anchor | unit / player는 wall-follow anchor로 보지 않는다 | `EnemyMovementPolicy.cs` | `EnemyMovementStrategyShared_WallFollowAnchor_IgnoresUnitsIncludingPlayers`, `EnemyMovementStrategyShared_WallFollowResultAnchor_IgnoresUnitsIncludingPlayers` | 낮음 | anchor classification policy가 common layer로 새어 나간다 |
-| preferred turn | turn preference는 candidate ordering과 rotate-only facing ordering 양쪽에 모두 적용된다 | `EnemyMovementPolicy.cs` | `WallFollowPatrolStrategy_ResultAnchorPreferredTurn_RoundsConvexCorner`, `EnemyMovementStrategyShared_WallFollowRotateOnlyFacing_UsesTurnPreferenceSymmetry` | 부분 적합 | direction과 facing-only ordering을 같은 field 집합으로 표현할 수 없다 |
+| no-wall gate | nearby trackable wall / box / configured board-edge boundary가 없으면 movement intent와 rotate-only facing을 모두 만들지 않는다 | `EnemyMovementPolicy.cs` + `EnemyLogic.ResolvePatrolFacing(...)` | `WallFollowPatrolStrategy_NoTrackableBoundary_DoesNotBuildMovementOrFacing`, `SunWheel_NoTrackableBoundary_PreservesPositionAndFacingAcrossTicks` | 낮음 | no-move reason을 direction-only proposal로 표현할 수 없다 |
+| pure hand-rule order | left-hand는 `Left -> Forward -> Right -> Back`, right-hand는 `Right -> Forward -> Left -> Back` 순서로 passability만 평가한다 | `EnemyMovementPolicy.cs` (`ChooseWallFollowDirection`) | `WallFollowPatrolStrategy_LeftHandRule_LeftOpenChoosesLeftBeforeForward`, `WallFollowPatrolStrategy_RightHandRule_MirrorsLeftHandOrder` | 부분 적합 | deterministic order는 표현 가능하지만 no-wall / no-legal reason은 빠진다 |
+| no anchor scoring | destination boundary, current boundary, weak fallback은 후보 순서를 재정렬하지 않는다 | `EnemyMovementPolicy.cs` | `WallFollowPatrolStrategy_LeftHandRule_BackBoundaryContextDoesNotReorderRightCandidate`, `SunWheel_LeftHand_BackBoundaryContextDoesNotReorderRightCandidate` | 낮음 | proposal이 단순 direction만 담으면 obsolete anchor-scored path와 구분 근거가 사라진다 |
+| box boundary | `followBoxes == true`면 box도 no-wall gate의 trackable boundary로 취급한다 | `EnemyMovementPolicy.cs` | `EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoxAsAnchor` | 낮음 | wall-follow-specific boundary policy가 common layer로 새어 나간다 |
+| board-edge boundary | `treatBoardEdgeAsObstacleBoundary == true`면 adjacent board edge도 no-wall gate의 trackable boundary context로 취급하지만 candidate order / anchor scoring에는 쓰지 않는다 | `EnemyMovementPolicy.cs` + `EnemyPatrol_WallFollow_Left.asset` | `EnemyMovementStrategyShared_WallFollowBoundaryContext_TreatsAdjacentBoardEdgeAsTrackableBoundary`, `SunWheel_BoardEdgeOnlyStraight_LeftHand_MovesForward` | 낮음 | board-edge는 gate boolean일 뿐 proposal scoring signal이 아니다 |
+| unit ignored as boundary | unit / player는 wall-follow boundary context로 보지 않는다 | `EnemyMovementPolicy.cs` | `EnemyMovementStrategyShared_WallFollowAnchor_IgnoresUnitsIncludingPlayers` | 낮음 | boundary classification policy가 common layer로 새어 나간다 |
+| preferred turn | turn preference는 movement candidate ordering과 rotate-only facing에 적용된다 | `EnemyMovementPolicy.cs` | `WallFollowPatrolStrategy_LeftHandRule_LeftForwardBlockedRightOpenChoosesRightNotBack`, `EnemyMovementStrategyShared_WallFollowRotateOnlyFacing_UsesTurnPreferenceSymmetry` | 부분 적합 | direction과 facing-only ordering을 같은 field 집합으로 표현할 수 없다 |
 | turn-and-move | blocked forward라도 turn candidate가 있으면 same tick에 facing과 move가 함께 바뀔 수 있다 | `EnemyMovementPolicy.cs` + `EnemyLogic.ResolvePatrolFacing(...)` | `DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick` | 낮음 | movement proposal 하나만으로는 stage별 facing owner를 설명하지 못한다 |
 | same-cell passive contact hold | `WallFollow` + passive contact + same-cell target이면 movement를 억제하고 same-cell damage만 남긴다 | `EnemyLogic.cs` (`ShouldHoldWallFollowForSameCellPassiveContact`) | `EnemyLogic_WallFollowPassiveContact_SameCellHold_SuppressesMovementIntent_AndStillProducesPassiveContact`, `EnemyAi_WallFollowerProfile_WithPassiveContact_SameCellDealsDamage` | 불가 | current proposal contract는 hold reason을 표현하지 않는다 |
-| dead-end rotate-only | move candidate가 전혀 없으면 `BeforeAttack` stage에서 turn preference 기반 rotate-only facing이 가능하다 | `EnemyLogic.ResolvePatrolFacing(...)` + `EnemyMovementPolicy.cs` (`TryChooseWallFollowRotateOnlyFacing`) | `EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_CommitsRotateOnlyFacing`, `WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol` | 불가 | `HasDirection == false`와 rotate-only facing을 분리하는 새 surface가 필요하다 |
+| dead-end rotate-only | move candidate가 전혀 없으면 `BeforeAttack` stage에서 turn preference 기반 rotate-only facing이 가능하다 | `EnemyLogic.ResolvePatrolFacing(...)` + `EnemyMovementPolicy.cs` (`TryChooseWallFollowRotateOnlyFacing`) | `EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_CommitsRotateOnlyFacing`, `WallFollowPatrolStrategy_AllDirectionsBlocked_RotatesInPlaceWithoutMovementIntent` | 불가 | `HasDirection == false`와 rotate-only facing을 분리하는 새 surface가 필요하다 |
 | locomotion cooldown 유지 | locomotion cooldown 동안 wall-follow rule은 잠시 정지하지만, cooldown 해제 후 같은 rule ordering으로 재개된다 | `EnemyLogic.ResolveBaselineGroundLocomotion(...)` + existing wall-follow helpers | `EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule` | 부분 적합 | cooldown owner는 proposal layer 바깥이다 |
 | no patrol-state footprint | `WallFollow`는 proposal init write가 없고 initialized patrol state도 만들지 않으므로 `EnemyPatrolStateUpdated` / patrol dump footprint가 없다 | unsupported proposal matrix + `EnemyLogic.TryInitializePatrolStateFromProposal(...)` + `MovementCommitter.ResolveEnemyPatrolResolutions(...)` gate | `Replay_WallFollowerProfile_ProducesStableHashTrace_AndNoPatrolStateWrites` | 불가 | `EnemyPatrolRuntimeState`를 `WallFollow`에 즉시 적용하지 않는다 |
 
@@ -59,13 +60,13 @@ phase 4의 목표는 `WallFollow`를 지금 `RandomWalk` / `Forward`와 같은 �
 
 | surface | current owner | why not simple proposal | allowed phase4 action | future redesign cue |
 | --- | --- | --- | --- | --- |
-| anchor classification | `EnemyMovementPolicy.cs` | wall / box / board-edge / unit-ignore policy가 common decision layer로 새면 wall-specific semantics가 된다 | truth 문서화, tests pin | strong / weak anchor extraction이 필요할 때만 별도 task |
-| candidate ordering | `EnemyMovementPolicy.cs` | preferred turn / forward / opposite turn ordering이 anchor 상태와 결합돼 있다 | current ordering 고정 | wall-only adapter spike가 필요할 때 분리 검토 |
-| destination-anchor check | `EnemyMovementPolicy.cs` | source state만으로는 설명이 안 되고 destination semantic 평가가 필요하다 | truth table 고정 | anchor reacquire extraction |
+| boundary context gate | `EnemyMovementPolicy.cs` | wall / box / board-edge / unit-ignore policy가 common decision layer로 새면 wall-specific semantics가 된다 | truth 문서화, tests pin | boundary-context extraction이 필요할 때만 별도 task |
+| candidate ordering | `EnemyMovementPolicy.cs` | preferred / forward / opposite / back order는 movement passability와 no-wall reason을 함께 봐야 한다 | current ordering 고정 | wall-only adapter spike가 필요할 때 분리 검토 |
+| destination-anchor check | 없음 | destination anchor scoring은 current truth가 아니다 | obsolete path 제거 | 재도입 금지 regression guard |
 | pre-movement facing | `EnemyLogic.ResolvePatrolFacing(...)` | movement intent와 별개 owner surface다 | facing owner 문서화 | facing-only boundary task |
 | same-cell hold | `EnemyLogic.cs` | no-move reason이 patrol이 아니라 passive-contact와 결합된다 | hold 테스트 보강 | same-cell hold boundary task |
 | `BeforeAttack` rotate-only | `EnemyLogic.ResolvePatrolFacing(...)` | `HasDirection == false`와 rotate-only facing이 분리된다 | stage owner 문서화 | rotate-only boundary task |
-| movement intent build | `WallFollowPatrolStrategy` + shared helper | move-only로 줄이면 hold / rotate-only / anchor ordering이 빠진다 | unchanged 유지 | adapter fit spike |
+| movement intent build | `WallFollowPatrolStrategy` + shared helper | move-only로 줄이면 hold / rotate-only / no-wall reason이 빠진다 | unchanged 유지 | adapter fit spike |
 | patrol-state write gate | `MovementCommitter.cs` | initialized patrol state가 없으면 write가 생기지 않는다 | no-footprint evidence pin | state footprint redesign이 실제로 필요할 때만 별도 검토 |
 | authoring asset | `EnemyPatrol_WallFollow_Left.asset` / `WallFollowPatrolAsset.cs` | shipping archetype default를 phase 4에서 흔들면 bounded decision이 아니라 rollout 변경이 된다 | asset contract test 추가 | authored policy change는 별도 rollout task |
 | stage profile binding | `EnemyAi_WallFollower.asset`, stage builder | profile drift는 phase 4 scope 밖이다 | existing stage tests 유지 | stage-content task로만 분리 |
@@ -76,7 +77,7 @@ phase 4의 목표는 `WallFollow`를 지금 `RandomWalk` / `Forward`와 같은 �
 
 | dimension | `Forward` | `RandomWalk` | `WallFollow` | implication for phase4 |
 | --- | --- | --- | --- | --- |
-| state dependency | stateless | `EnemyPatrolRuntimeState` read + init hint 필요 | canonical patrol state는 없지만 stage-local hold / rotate-only / anchor context가 필요 | simple proposal fit이 가장 낮다 |
+| state dependency | stateless | `EnemyPatrolRuntimeState` read + init hint 필요 | canonical patrol state는 없지만 stage-local hold / rotate-only / boundary context가 필요 | simple proposal fit이 가장 낮다 |
 | decision shape | direction or no-direction | proposal plan + facing + init hint | movement / no-move / facing / hold / rotate-only 결합 | 단순 direction proposal로 환원하기 어렵다 |
 | facing semantics | 항상 current facing | planner가 planned facing 반환 | `BeforeMovement` turn, `BeforeAttack` rotate-only 둘 다 있음 | current 5-field contract만으로 부족하다 |
 | no-move semantics | blocked stop | no-direction | same-cell hold와 dead-end rotate-only가 분리됨 | no-move reason surface가 필요하다 |
@@ -91,7 +92,7 @@ phase 4의 핵심 질문은 하나로 고정한다.
 
 - 현재 `EnemyPatrolDecisionProposal` 5필드만으로 `WallFollow` truth를 표현할 수 있는가
 
-현재 답은 `아니오`다. same-cell hold, `BeforeAttack` rotate-only, destination-anchor preserving turn order, weak-vs-strong anchor fallback은 새 field나 stage-specific planner branching 없이는 표현되지 않는다. 따라서 `WallFollow`는 phase 4 기준 simple proposal candidate 아님으로 고정한다.
+현재 답은 `아니오`다. same-cell hold, `BeforeAttack` rotate-only, no-wall gate, no-legal-move reason은 새 field나 stage-specific planner branching 없이는 표현되지 않는다. 따라서 `WallFollow`는 phase 4 기준 simple proposal candidate 아님으로 고정한다.
 
 ## 7. `유지` vs `재설계` 판정 기준
 
@@ -116,7 +117,7 @@ phase 4의 핵심 질문은 하나로 고정한다.
 - `WallFollow`는 legacy가 아니라 active bounded strategy다.
 - current truth는 code / tests / docs로 coherent하게 문서화 가능하다.
 - replay / hash / trace 관점에서도 stable하고 patrol-state footprint가 없다.
-- common layer로 올리려면 wall-specific anchor semantics, same-cell hold, rotate-only stage surface를 planner/common layer가 새로 떠안아야 한다.
+- common layer로 올리려면 wall-specific boundary context, same-cell hold, rotate-only stage surface를 planner/common layer가 새로 떠안아야 한다.
 
 phase 4 이후 canonical truth는 아래로 고정한다.
 
@@ -130,11 +131,19 @@ phase 4 이후 canonical truth는 아래로 고정한다.
 ### unit
 
 - `WallFollowPatrolStrategy_RightHandWall_PrefersForwardWhileHandAnchorExists`
-- `WallFollowPatrolStrategy_ResultAnchorForward_ReacquiresHandAnchorAfterStep`
-- `WallFollowPatrolStrategy_ResultAnchorPreferredTurn_RoundsConvexCorner`
+- `WallFollowPatrolStrategy_LeftHandRule_LeftOpenChoosesLeftBeforeForward`
+- `WallFollowPatrolStrategy_LeftHandRule_LeftBlockedForwardOpenChoosesForward`
+- `WallFollowPatrolStrategy_LeftHandRule_LeftForwardBlockedRightOpenChoosesRightNotBack`
+- `WallFollowPatrolStrategy_LeftHandRule_LeftForwardRightBlockedBackOpenChoosesBack`
+- `WallFollowPatrolStrategy_RightHandRule_MirrorsLeftHandOrder`
+- `WallFollowPatrolStrategy_LeftHandRule_BackBoundaryContextDoesNotReorderRightCandidate`
+- `WallFollowPatrolStrategy_NoTrackableBoundary_DoesNotBuildMovementOrFacing`
 - `EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoxAsAnchor`
-- `EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoardEdgeAsAnchor`
-- `EnemyMovementStrategyShared_WallFollowDirection_UsesBoardEdgeWeakAnchorFallback_WhenNoStrongAnchorExists`
+- `EnemyMovementStrategyShared_WallFollowAnchor_DoesNotTreatBoardEdgeAsAnchor`
+- `EnemyMovementStrategyShared_WallFollowBoundaryContext_TreatsAdjacentBoardEdgeAsTrackableBoundary`
+- `EnemyMovementStrategyShared_WallFollowBoundaryContext_BoardEdgeOptOutStopsBoardOnlySegment`
+- `WallFollowPatrolStrategy_BoardEdgeOnlyStraight_LeftHand_MovesForward`
+- `WallFollowPatrolStrategy_BoardEdgeOnlyCorner_LeftHand_ChoosesRightNotBack`
 - `EnemyMovementStrategyShared_WallFollowRotateOnlyFacing_UsesTurnPreferenceSymmetry`
 - `EnemyLogic_WallFollowPassiveContact_SameCellHold_SuppressesMovementIntent_AndStillProducesPassiveContact`
 - `EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_CommitsRotateOnlyFacing`
@@ -147,9 +156,16 @@ phase 4 이후 canonical truth는 아래로 고정한다.
 
 - `EnemyAi_WallFollowerProfile_CirculatesAroundWallAcrossMultipleTicks`
 - `EnemyAi_WallFollowerProfile_CirculatesAroundBoxAcrossMultipleTicks`
-- `EnemyAi_WallFollowerProfile_CirculatesAlongBoardEdgeAcrossMultipleTicks`
+- `SunWheel_LeftHand_LeftOpen_ChoosesLeftBeforeForward`
+- `SunWheel_LeftHand_LeftBlockedForwardOpen_ChoosesForward`
+- `SunWheel_LeftHand_LeftForwardBlockedRightOpen_ChoosesRightNotBack`
+- `SunWheel_LeftHand_LeftForwardRightBlockedBackOpen_ChoosesBack`
+- `SunWheel_LeftHand_BackBoundaryContextDoesNotReorderRightCandidate`
+- `SunWheel_BoardEdgeOnlyStraight_LeftHand_MovesForward`
+- `SunWheel_BoardEdgeOnlyCorner_LeftHand_ChoosesRightNotBack`
+- `SunWheel_NoTrackableBoundary_PreservesPositionAndFacingAcrossTicks`
 - `EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule`
-- `WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol`
+- `WallFollowPatrolStrategy_AllDirectionsBlocked_RotatesInPlaceWithoutMovementIntent`
 - `DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick`
 - `EnemyAi_WallFollowerProfile_WithPassiveContact_SameCellDealsDamage`
 
@@ -180,7 +196,7 @@ phase 4 이후 canonical truth는 아래로 고정한다.
 
 현재 phase 4 verdict는 `유지`이므로 follow-up redesign task는 열지 않는다. 다만 향후 reopen이 필요하면 아래 sub-problem으로만 bounded하게 쪼갠다.
 
-- `anchor semantics extraction`
+- `boundary context gate extraction`
 - `facing-only / rotate-only boundary`
 - `same-cell passive-contact hold boundary`
 - `turn-and-move same-tick contract`

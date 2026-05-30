@@ -2829,6 +2829,12 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (stage == EnemyAiTransitionStage.BeforeMovement &&
+                _patrolStrategy is WallFollowPatrolStrategy)
+            {
+                return null;
+            }
+
+            if (stage == EnemyAiTransitionStage.BeforeMovement &&
                 _patrolStrategy is IPatrolFacingStrategy patrolFacingStrategy &&
                 patrolFacingStrategy.TryResolveFacing(snapshot, source, _patrolSettings, out var patrolFacing))
             {
@@ -2836,8 +2842,19 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (stage != EnemyAiTransitionStage.BeforeAttack ||
-                _patrolStrategy is not WallFollowPatrolStrategy ||
-                EnemyMovementStrategyShared.TryChooseWallFollowDirection(snapshot, source, _patrolSettings, out _) ||
+                _patrolStrategy is not WallFollowPatrolStrategy)
+            {
+                return null;
+            }
+
+            var wallFollowOutcome = EnemyMovementStrategyShared.ChooseWallFollowDirection(
+                snapshot,
+                source,
+                _patrolSettings,
+                _tileFeatureDefinitions,
+                out _);
+            if (wallFollowOutcome == EnemyMovementStrategyShared.WallFollowHandRuleOutcome.NoTrackableBoundary ||
+                wallFollowOutcome == EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection ||
                 !EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
                     source.facing,
                     _patrolSettings.TurnPreference,

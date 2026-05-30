@@ -7322,13 +7322,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol()
+        public void WallFollowPatrolStrategy_AllDirectionsBlocked_RotatesInPlaceWithoutMovementIntent()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateWall(entityId: 90, position: new Vector2Int(1, 2)),
                 CreateWall(entityId: 91, position: new Vector2Int(2, 1)),
                 CreateWall(entityId: 92, position: new Vector2Int(0, 1)),
+                CreateWall(entityId: 93, position: new Vector2Int(1, 0)),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
             });
             var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
@@ -7337,12 +7338,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var firstTick = pipeline.RunTick(new TickInput(1));
-                var secondTick = pipeline.RunTick(new TickInput(2));
 
                 Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
                 Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
                 Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));
-                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
             }
             finally
             {

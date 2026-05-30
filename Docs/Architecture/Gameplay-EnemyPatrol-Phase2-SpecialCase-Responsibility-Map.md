@@ -218,7 +218,7 @@
 - `EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove`
 - `EnemyAi_KinematicPatrolChaseAttackRecover_CurrentContract`
 - `EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule`
-- `WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol`
+- `WallFollowPatrolStrategy_AllDirectionsBlocked_RotatesInPlaceWithoutMovementIntent`
 - `DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick`
 
 ### authoring

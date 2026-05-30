@@ -32,6 +32,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private WallFollowTurnPreference turnPreference;
         [SerializeField] private bool followWalls;
         [SerializeField] private bool followBoxes;
+        [SerializeField] private bool treatBoardEdgeAsObstacleBoundary;
         [SerializeField] private int leashRadius;
         [SerializeField] private int forwardWeight;
         [SerializeField] private int sideWeight;
@@ -47,12 +48,14 @@ namespace Game.Feature.Gameplay.Entities
             int forwardWeight = 0,
             int sideWeight = 0,
             int backwardWeight = 0,
-            bool preventImmediateBacktrack = false)
+            bool preventImmediateBacktrack = false,
+            bool treatBoardEdgeAsObstacleBoundary = true)
         {
             this.blockedMovementResponse = blockedMovementResponse;
             this.turnPreference = turnPreference;
             this.followWalls = followWalls;
             this.followBoxes = followBoxes;
+            this.treatBoardEdgeAsObstacleBoundary = treatBoardEdgeAsObstacleBoundary;
             this.leashRadius = leashRadius;
             this.forwardWeight = forwardWeight;
             this.sideWeight = sideWeight;
@@ -67,6 +70,8 @@ namespace Game.Feature.Gameplay.Entities
         public bool FollowWalls => followWalls;
 
         public bool FollowBoxes => followBoxes;
+
+        public bool TreatBoardEdgeAsObstacleBoundary => treatBoardEdgeAsObstacleBoundary;
 
         public int LeashRadius => leashRadius;
 
@@ -284,7 +289,12 @@ namespace Game.Feature.Gameplay.Entities
 
             intent = default;
 
-            if (!EnemyMovementStrategyShared.TryChooseWallFollowDirection(snapshot, source, settings, out var direction) ||
+            if (EnemyMovementStrategyShared.ChooseWallFollowDirection(
+                    snapshot,
+                    source,
+                    settings,
+                    tileFeatureDefinitions,
+                    out var direction) != EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection ||
                 !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta))
             {
                 return false;
@@ -631,6 +641,14 @@ namespace Game.Feature.Gameplay.Entities
 
     internal static class EnemyMovementStrategyShared
     {
+        private static readonly Vector2Int[] BoardEdgeBoundaryProbeDeltas =
+        {
+            Vector2Int.up,
+            Vector2Int.right,
+            Vector2Int.down,
+            Vector2Int.left,
+        };
+
         internal readonly struct RandomWalkPatrolCandidate
         {
             public RandomWalkPatrolCandidate(Direction direction, SurfaceCell destinationCell)
@@ -666,20 +684,21 @@ namespace Game.Feature.Gameplay.Entities
             Forward = 0,
             PreferredTurn = 1,
             OppositeTurn = 2,
+            Back = 3,
         }
 
-        private enum WallFollowAnchorFilter
+        internal enum WallFollowHandRuleOutcome
         {
-            PreferredOnly = 0,
-            WeakOnly = 1,
+            BuiltDirection = 0,
+            NoTrackableBoundary = 1,
+            NoLegalMove = 2,
         }
 
         private enum WallFollowAnchorKind
         {
             None = 0,
-            BoardEdge = 1,
-            Wall = 2,
-            Box = 3,
+            Wall = 1,
+            Box = 2,
         }
 
         public static bool TryBuildMoveIntent(
@@ -992,6 +1011,17 @@ namespace Game.Feature.Gameplay.Entities
             in PatrolSettings settings,
             out Direction direction)
         {
+            return ChooseWallFollowDirection(snapshot, source, settings, null, out direction) ==
+                   WallFollowHandRuleOutcome.BuiltDirection;
+        }
+
+        internal static WallFollowHandRuleOutcome ChooseWallFollowDirection(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in PatrolSettings settings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out Direction direction)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -999,52 +1029,29 @@ namespace Game.Feature.Gameplay.Entities
 
             direction = Direction.None;
 
-            if (TryChooseWallFollowDirectionWithDestinationAnchor(
-                    snapshot,
-                    source,
-                    settings,
-                    WallFollowAnchorFilter.PreferredOnly,
-                    WallFollowMovementChoice.PreferredTurn,
-                    WallFollowMovementChoice.Forward,
-                    WallFollowMovementChoice.OppositeTurn,
-                    out direction))
+            if (!HasTrackableWallFollowBoundaryContext(snapshot, source, settings))
             {
-                return true;
+                return WallFollowHandRuleOutcome.NoTrackableBoundary;
             }
 
-            if (HasWallFollowAnchor(snapshot, source, settings))
+            for (var i = 0; i < 4; i++)
             {
-                return TryChooseFirstAvailableWallFollowDirection(
-                    snapshot,
-                    source,
-                    settings,
-                    WallFollowMovementChoice.Forward,
-                    WallFollowMovementChoice.PreferredTurn,
-                    WallFollowMovementChoice.OppositeTurn,
-                    out direction);
+                if (TryEvaluateWallFollowCandidate(
+                        snapshot,
+                        source,
+                        settings,
+                        GetHandRuleWallFollowChoice(i),
+                        tileFeatureDefinitions,
+                        out direction,
+                        out _,
+                        out _))
+                {
+                    return WallFollowHandRuleOutcome.BuiltDirection;
+                }
             }
 
-            if (TryChooseWallFollowDirectionWithDestinationAnchor(
-                    snapshot,
-                    source,
-                    settings,
-                    WallFollowAnchorFilter.WeakOnly,
-                    WallFollowMovementChoice.PreferredTurn,
-                    WallFollowMovementChoice.Forward,
-                    WallFollowMovementChoice.OppositeTurn,
-                    out direction))
-            {
-                return true;
-            }
-
-            return TryChooseFirstAvailableWallFollowDirection(
-                    snapshot,
-                    source,
-                    settings,
-                    WallFollowMovementChoice.PreferredTurn,
-                    WallFollowMovementChoice.Forward,
-                    WallFollowMovementChoice.OppositeTurn,
-                    out direction);
+            direction = Direction.None;
+            return WallFollowHandRuleOutcome.NoLegalMove;
         }
 
         internal static bool TryChooseWallFollowFacing(
@@ -1058,7 +1065,8 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            if (TryChooseWallFollowDirection(snapshot, source, settings, out direction) &&
+            if (ChooseWallFollowDirection(snapshot, source, settings, null, out direction) ==
+                WallFollowHandRuleOutcome.BuiltDirection &&
                 direction != source.facing)
             {
                 return true;
@@ -1073,144 +1081,8 @@ namespace Game.Feature.Gameplay.Entities
             WallFollowTurnPreference turnPreference,
             out Direction direction)
         {
-            return TryChooseFacingOnlyWallFollowDirection(
-                facing,
-                turnPreference,
-                WallFollowMovementChoice.PreferredTurn,
-                WallFollowMovementChoice.OppositeTurn,
-                WallFollowMovementChoice.Forward,
-                out direction);
-        }
-
-        private static bool TryChooseWallFollowDirectionWithDestinationAnchor(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            WallFollowAnchorFilter filter,
-            WallFollowMovementChoice firstChoice,
-            WallFollowMovementChoice secondChoice,
-            WallFollowMovementChoice thirdChoice,
-            out Direction direction)
-        {
-            direction = Direction.None;
-
-            if (TryChooseWallFollowDirectionWithDestinationAnchor(snapshot, source, settings, filter, firstChoice, out direction))
-            {
-                return true;
-            }
-
-            if (TryChooseWallFollowDirectionWithDestinationAnchor(snapshot, source, settings, filter, secondChoice, out direction))
-            {
-                return true;
-            }
-
-            return TryChooseWallFollowDirectionWithDestinationAnchor(snapshot, source, settings, filter, thirdChoice, out direction);
-        }
-
-        private static bool TryChooseWallFollowDirectionWithDestinationAnchor(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            WallFollowAnchorFilter filter,
-            WallFollowMovementChoice choice,
-            out Direction direction)
-        {
-            direction = Direction.None;
-
-            if (!TryEvaluateWallFollowCandidate(snapshot, source, settings, choice, out var candidateDirection, out _, out var destinationCell))
-            {
-                return false;
-            }
-
-            var anchorKind = GetWallFollowAnchorKind(
-                snapshot,
-                source.type,
-                source.entityId,
-                destinationCell,
-                candidateDirection,
-                settings);
-
-            if (!MatchesWallFollowAnchorFilter(anchorKind, filter))
-            {
-                return false;
-            }
-
-            direction = candidateDirection;
-            return true;
-        }
-
-        private static bool TryChooseFirstAvailableWallFollowDirection(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            WallFollowMovementChoice firstChoice,
-            WallFollowMovementChoice secondChoice,
-            WallFollowMovementChoice thirdChoice,
-            out Direction direction)
-        {
-            direction = Direction.None;
-
-            if (TryChooseFirstAvailableWallFollowDirection(snapshot, source, settings, firstChoice, out direction))
-            {
-                return true;
-            }
-
-            if (TryChooseFirstAvailableWallFollowDirection(snapshot, source, settings, secondChoice, out direction))
-            {
-                return true;
-            }
-
-            return TryChooseFirstAvailableWallFollowDirection(snapshot, source, settings, thirdChoice, out direction);
-        }
-
-        private static bool TryChooseFirstAvailableWallFollowDirection(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in PatrolSettings settings,
-            WallFollowMovementChoice choice,
-            out Direction direction)
-        {
-            direction = Direction.None;
-
-            if (!TryEvaluateWallFollowCandidate(snapshot, source, settings, choice, out var candidateDirection, out _, out _))
-            {
-                return false;
-            }
-
-            direction = candidateDirection;
-            return true;
-        }
-
-        private static bool TryChooseFacingOnlyWallFollowDirection(
-            Direction facing,
-            WallFollowTurnPreference turnPreference,
-            WallFollowMovementChoice firstChoice,
-            WallFollowMovementChoice secondChoice,
-            WallFollowMovementChoice thirdChoice,
-            out Direction direction)
-        {
-            direction = Direction.None;
-
-            if (TryChooseFacingOnlyWallFollowDirection(facing, turnPreference, firstChoice, out direction))
-            {
-                return true;
-            }
-
-            if (TryChooseFacingOnlyWallFollowDirection(facing, turnPreference, secondChoice, out direction))
-            {
-                return true;
-            }
-
-            return TryChooseFacingOnlyWallFollowDirection(facing, turnPreference, thirdChoice, out direction);
-        }
-
-        private static bool TryChooseFacingOnlyWallFollowDirection(
-            Direction facing,
-            WallFollowTurnPreference turnPreference,
-            WallFollowMovementChoice choice,
-            out Direction direction)
-        {
-            return TryResolveWallFollowDirection(facing, turnPreference, choice, out direction, out _);
+            return TryResolveWallFollowDirection(facing, turnPreference, WallFollowMovementChoice.PreferredTurn, out direction, out _) &&
+                   direction != facing;
         }
 
         private static bool TryEvaluateWallFollowCandidate(
@@ -1218,6 +1090,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             in PatrolSettings settings,
             WallFollowMovementChoice choice,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out Direction direction,
             out Vector2Int delta,
             out SurfaceCell destinationCell)
@@ -1227,7 +1100,7 @@ namespace Game.Feature.Gameplay.Entities
             destinationCell = default;
 
             if (!TryResolveWallFollowDirection(source.facing, settings.TurnPreference, choice, out direction, out delta) ||
-                !CanTraverseStep(snapshot, source, delta) ||
+                !CanTraverseStep(snapshot, source, delta, tileFeatureDefinitions) ||
                 !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source.position, delta, out destinationCell))
             {
                 direction = Direction.None;
@@ -1237,6 +1110,18 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return true;
+        }
+
+        private static WallFollowMovementChoice GetHandRuleWallFollowChoice(int index)
+        {
+            return index switch
+            {
+                0 => WallFollowMovementChoice.PreferredTurn,
+                1 => WallFollowMovementChoice.Forward,
+                2 => WallFollowMovementChoice.OppositeTurn,
+                3 => WallFollowMovementChoice.Back,
+                _ => WallFollowMovementChoice.Forward,
+            };
         }
 
         private static bool TryResolveWallFollowDirection(
@@ -1251,6 +1136,7 @@ namespace Game.Feature.Gameplay.Entities
                 WallFollowMovementChoice.Forward => RelativeDirection.Forward,
                 WallFollowMovementChoice.PreferredTurn => GetHandSide(turnPreference),
                 WallFollowMovementChoice.OppositeTurn => GetOppositeHandSide(turnPreference),
+                WallFollowMovementChoice.Back => RelativeDirection.Back,
                 _ => RelativeDirection.Forward,
             };
 
@@ -1352,6 +1238,78 @@ namespace Game.Feature.Gameplay.Entities
             return GetWallFollowAnchorKind(snapshot, adjacentCell, blocker, settings);
         }
 
+        private static bool HasTrackableWallFollowBoundaryContext(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in PatrolSettings settings)
+        {
+            if (HasTrackableSolidWallFollowBoundaryContext(snapshot, source, settings))
+            {
+                return true;
+            }
+
+            return settings.TreatBoardEdgeAsObstacleBoundary &&
+                   HasBoardEdgeWallFollowBoundaryContext(snapshot, source.position);
+        }
+
+        private static bool HasTrackableSolidWallFollowBoundaryContext(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in PatrolSettings settings)
+        {
+            for (var y = -1; y <= 1; y++)
+            {
+                for (var x = -1; x <= 1; x++)
+                {
+                    if (x == 0 && y == 0)
+                    {
+                        continue;
+                    }
+
+                    var cell = new SurfaceCell(source.position.face, source.position.x + x, source.position.y + y);
+                    if (!snapshot.TryGetPlacementBlocker(
+                            snapshot.Topology,
+                            source.type,
+                            cell,
+                            source.entityId,
+                            out var blocker))
+                    {
+                        continue;
+                    }
+
+                    var boundaryKind = GetWallFollowAnchorKind(snapshot, cell, blocker, settings);
+                    if (boundaryKind == WallFollowAnchorKind.Wall ||
+                        boundaryKind == WallFollowAnchorKind.Box)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasBoardEdgeWallFollowBoundaryContext(
+            WorldSnapshot snapshot,
+            SurfaceCell current)
+        {
+            for (var i = 0; i < BoardEdgeBoundaryProbeDeltas.Length; i++)
+            {
+                var probeDelta = BoardEdgeBoundaryProbeDeltas[i];
+                var probeCell = new SurfaceCell(
+                    current.face,
+                    current.x + probeDelta.x,
+                    current.y + probeDelta.y);
+
+                if (!snapshot.IsInsideBoard(probeCell))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static WallFollowAnchorKind GetWallFollowAnchorKind(
             WorldSnapshot snapshot,
             SurfaceCell adjacentCell,
@@ -1360,7 +1318,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             if (blocker.Kind == SlideStopperKind.BoardEdge)
             {
-                return WallFollowAnchorKind.BoardEdge;
+                return WallFollowAnchorKind.None;
             }
 
             if (blocker.Kind != SlideStopperKind.Entity ||
@@ -1380,19 +1338,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return WallFollowAnchorKind.None;
-        }
-
-        private static bool MatchesWallFollowAnchorFilter(
-            WallFollowAnchorKind anchorKind,
-            WallFollowAnchorFilter filter)
-        {
-            return filter switch
-            {
-                WallFollowAnchorFilter.PreferredOnly => anchorKind == WallFollowAnchorKind.Wall ||
-                                                        anchorKind == WallFollowAnchorKind.Box,
-                WallFollowAnchorFilter.WeakOnly => anchorKind == WallFollowAnchorKind.BoardEdge,
-                _ => false,
-            };
         }
 
         private static RelativeDirection GetHandSide(WallFollowTurnPreference turnPreference)

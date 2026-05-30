@@ -303,11 +303,166 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertNoGhostOrUnitSolidOverlap(worldState, WallFollowSource, WallFollowDestination);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_LeftHand_LeftOpen_ChoosesLeftBeforeForward()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 2, 1)),
+                CreateEnemy(source, Direction.Up),
+            });
+
+            var tick = CreatePipeline(worldState, LoadSunWheelProfile()).RunTick(new TickInput(1));
+
+            AssertSunWheelIntentDestination(tick, new Vector2Int(0, 1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_LeftHand_LeftBlockedForwardOpen_ChoosesForward()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 0, 1)),
+                CreateEnemy(source, Direction.Up),
+            });
+
+            var tick = CreatePipeline(worldState, LoadSunWheelProfile()).RunTick(new TickInput(1));
+
+            AssertSunWheelIntentDestination(tick, new Vector2Int(1, 2));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_LeftHand_LeftForwardBlockedRightOpen_ChoosesRightNotBack()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 0, 1)),
+                CreateWall(91, new SurfaceCell(FaceId.Floor, 1, 2)),
+                CreateEnemy(source, Direction.Up),
+            });
+
+            var tick = CreatePipeline(worldState, LoadSunWheelProfile()).RunTick(new TickInput(1));
+
+            AssertSunWheelIntentDestination(tick, new Vector2Int(2, 1));
+            Assert.That(
+                tick.MovementPhaseResult.RawIntents.Single(raw => raw.SourceId == EnemyId).Destination,
+                Is.Not.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_LeftHand_LeftForwardRightBlockedBackOpen_ChoosesBack()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 0, 1)),
+                CreateWall(91, new SurfaceCell(FaceId.Floor, 1, 2)),
+                CreateWall(92, new SurfaceCell(FaceId.Floor, 2, 1)),
+                CreateEnemy(source, Direction.Up),
+            });
+
+            var tick = CreatePipeline(worldState, LoadSunWheelProfile()).RunTick(new TickInput(1));
+
+            AssertSunWheelIntentDestination(tick, new Vector2Int(1, 0));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_LeftHand_BackBoundaryContextDoesNotReorderRightCandidate()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 0, 1)),
+                CreateWall(91, new SurfaceCell(FaceId.Floor, 1, 2)),
+                CreateWall(92, new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateWall(93, new SurfaceCell(FaceId.Floor, 2, 0)),
+                CreateEnemy(source, Direction.Up),
+            });
+
+            var tick = CreatePipeline(worldState, LoadSunWheelProfile()).RunTick(new TickInput(1));
+
+            AssertSunWheelIntentDestination(tick, new Vector2Int(2, 1));
+            Assert.That(
+                tick.MovementPhaseResult.RawIntents.Single(raw => raw.SourceId == EnemyId).Destination,
+                Is.Not.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_BoardEdgeOnlyStraight_LeftHand_MovesForward()
+        {
+            var source = new SurfaceCell(FaceId.Floor, -2, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEnemy(source, Direction.Up),
+            });
+
+            var tick = CreatePipeline(worldState, LoadSunWheelProfile()).RunTick(new TickInput(1));
+
+            AssertSunWheelIntentDestination(tick, new Vector2Int(-2, 1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_BoardEdgeOnlyCorner_LeftHand_ChoosesRightNotBack()
+        {
+            var source = new SurfaceCell(FaceId.Floor, -2, 4);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEnemy(source, Direction.Up),
+            });
+
+            var tick = CreatePipeline(worldState, LoadSunWheelProfile()).RunTick(new TickInput(1));
+
+            AssertSunWheelIntentDestination(tick, new Vector2Int(-1, 4));
+            Assert.That(
+                tick.MovementPhaseResult.RawIntents.Single(raw => raw.SourceId == EnemyId).Destination,
+                Is.Not.EqualTo(new Vector2Int(-2, 3)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_NoTrackableBoundary_PreservesPositionAndFacingAcrossTicks()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEnemy(source, Direction.Up),
+            });
+            var pipeline = CreatePipeline(worldState, LoadSunWheelProfile());
+
+            for (var tickIndex = 1; tickIndex <= 3; tickIndex++)
+            {
+                var tick = pipeline.RunTick(new TickInput(tickIndex));
+                var enemy = GetEntity(worldState, EnemyId);
+
+                Assert.That(tick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == EnemyId), Is.Empty);
+                Assert.That(enemy.position, Is.EqualTo(source));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
+            }
+        }
+
         private static EnemyAiProfile LoadSunWheelProfile()
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(SunWheelProfilePath);
             Assert.That(profile, Is.Not.Null, $"Missing SunWheel WallFollow profile at '{SunWheelProfilePath}'.");
             return profile;
+        }
+
+        private static void AssertSunWheelIntentDestination(TickResult tick, Vector2Int destination)
+        {
+            var intent = tick.MovementPhaseResult.RawIntents.Single(raw => raw.SourceId == EnemyId);
+
+            Assert.That(intent.CommandKind, Is.EqualTo(MovementCommandKind.Move));
+            Assert.That(intent.Destination, Is.EqualTo(destination));
         }
 
         private static WorldState CreateWallFollowWorld(IEnumerable<TileFeatureState> initialTileFeatures = null)

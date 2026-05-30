@@ -156,6 +156,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(asset.Settings.TurnPreference, Is.EqualTo(WallFollowTurnPreference.Left));
             Assert.That(asset.Settings.FollowWalls, Is.True);
             Assert.That(asset.Settings.FollowBoxes, Is.True);
+            Assert.That(asset.Settings.TreatBoardEdgeAsObstacleBoundary, Is.True);
         }
 
         [Test]
