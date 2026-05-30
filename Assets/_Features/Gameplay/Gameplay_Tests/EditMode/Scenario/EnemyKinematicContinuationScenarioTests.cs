@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class EnemyKinematicContinuationScenarioTests
     {
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void MovementStage_EnemyKinematicContinuation_DoesNotMaterializeAnchorCommitIntoExistingSolidBox()
         {
             var blockedAnchorCell = new SurfaceCell(FaceId.Floor, 12, 4);
@@ -57,6 +57,114 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 HasClosedBlockedKinematicContinuation(result),
                 Is.True,
                 "The continuation should be rejected, blocked, held, or cancelled instead of materializing into the existing solid box.");
+            Assert.That(
+                snapshot.TryGetPendingEnemyBlockedReaction(61, out var reaction),
+                Is.True);
+            Assert.That(reaction.Kind, Is.EqualTo(EnemyBlockedReactionKind.KinematicContinuationTargetBlocked));
+            Assert.That(reaction.ModeAtBlock, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(reaction.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 11, 4)));
+            Assert.That(reaction.BlockedTargetCell, Is.EqualTo(blockedAnchorCell));
+            Assert.That(reaction.BlockedDirection, Is.EqualTo(Direction.Right));
+            Assert.That(reaction.BlockerKind, Is.EqualTo(LegalityBlockerKind.Solid));
+            Assert.That(reaction.BlockerSolidKind, Is.EqualTo(SolidKind.Box));
+            Assert.That(reaction.BlockerEntityType, Is.EqualTo(EntityType.Box));
+            Assert.That(reaction.BlockerEntityId, Is.EqualTo(201));
+            Assert.That(reaction.CreatedTick, Is.EqualTo(2));
+            Assert.That(reaction.ExpireTick, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementStage_EnemyChaseBlockedReaction_ReevaluatesNextTickWithoutRetryingBlockedDirection()
+        {
+            var blockedAnchorCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var verticalCandidate = new SurfaceCell(FaceId.Floor, 11, 5);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 13, 5)),
+                    CreateEnemy(61, sourceCell, enemyLocomotionCooldownTicks: 3),
+                    CreateBox(201, blockedAnchorCell),
+                },
+                new BoardBounds(new Vector2Int(10, 3), new Vector2Int(14, 5)));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+            writeContext.SetEnemyJumpState(61, CreateCooldownJumpState());
+            var pipeline = CreatePipeline(worldState);
+
+            var blockedResult = pipeline.RunTick(new TickInput(2));
+            Assert.That(
+                blockedResult.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("PendingEnemyBlockedReactionSet", StringComparison.Ordinal) &&
+                    entry.Contains("E=61", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetPendingEnemyBlockedReaction(61, out _), Is.True);
+
+            var reevaluateResult = pipeline.RunTick(new TickInput(3));
+            var reevaluateSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(reevaluateSnapshot.TryGetPendingEnemyBlockedReaction(61, out _), Is.False);
+            Assert.That(
+                reevaluateResult.Trace.Text,
+                Does.Contain("PendingEnemyBlockedReactionConsumed|E=61|Direction=Right"));
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("KinematicAnchorCommitted", StringComparison.Ordinal) &&
+                    entry.Contains("To=Floor(12,4)", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("MoveCommitted", StringComparison.Ordinal) &&
+                    entry.Contains("To=Floor(12,4)", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(reevaluateSnapshot.TryGetEntity(61, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(reevaluateSnapshot.TryGetUnitKinematicPose(61, out var pose), Is.True);
+            Assert.That(pose.IsSettledAtAnchor, Is.False);
+            Assert.That(pose.State.velocity.X.RawValue, Is.EqualTo(0));
+            Assert.That(pose.State.velocity.Y.RawValue, Is.GreaterThan(0));
+            Assert.That(pose.AnchorCell, Is.EqualTo(sourceCell));
+            Assert.That(verticalCandidate, Is.EqualTo(new SurfaceCell(FaceId.Floor, sourceCell.x, sourceCell.y + 1)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void MovementStage_EnemyChaseBlockedReaction_NoCandidateStaysWithoutReverseFallback()
+        {
+            var blockedAnchorCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, 13, 4)),
+                CreateEnemy(61, sourceCell, enemyLocomotionCooldownTicks: 3),
+                CreateBox(201, blockedAnchorCell),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+            writeContext.SetEnemyJumpState(61, CreateCooldownJumpState());
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(2));
+            var reevaluateResult = pipeline.RunTick(new TickInput(3));
+            var reevaluateSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(reevaluateSnapshot.TryGetPendingEnemyBlockedReaction(61, out _), Is.False);
+            Assert.That(reevaluateSnapshot.TryGetEntity(61, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(0));
+            Assert.That(reevaluateSnapshot.TryGetUnitKinematicPose(61, out var pose), Is.False);
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("KinematicPoseCommitted", StringComparison.Ordinal) &&
+                    entry.Contains("E=61", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("MoveCommitted", StringComparison.Ordinal) &&
+                    entry.Contains("E=61", StringComparison.Ordinal) &&
+                    entry.Contains("To=Floor(10,4)", StringComparison.Ordinal)),
+                Is.False);
         }
 
         private static bool HasClosedBlockedKinematicContinuation(TickResult result)
@@ -93,9 +201,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static WorldState CreateWorldState(EntityState[] entities)
         {
+            return CreateWorldState(
+                entities,
+                new BoardBounds(new Vector2Int(10, 4), new Vector2Int(14, 4)));
+        }
+
+        private static WorldState CreateWorldState(EntityState[] entities, BoardBounds boardBounds)
+        {
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
-                new BoardBounds(new Vector2Int(10, 4), new Vector2Int(14, 4)),
+                boardBounds,
                 GameplayTerrainData.Empty);
         }
 
@@ -115,7 +230,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
-        private static EntityState CreateEnemy(int entityId, SurfaceCell position)
+        private static EntityState CreateEnemy(
+            int entityId,
+            SurfaceCell position,
+            int enemyLocomotionCooldownTicks = 0)
         {
             return new EntityState
             {
@@ -128,6 +246,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 aiMode = EnemyAiMode.Chase,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
+                enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
         }
 
