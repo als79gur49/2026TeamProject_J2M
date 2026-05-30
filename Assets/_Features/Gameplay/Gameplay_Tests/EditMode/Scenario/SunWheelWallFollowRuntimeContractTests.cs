@@ -397,6 +397,90 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void SunWheel_LeftHand_UShape_FollowsHandRuleAcrossTicks()
+        {
+            var source = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 2, 1)),
+                CreateWall(91, new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateWall(92, new SurfaceCell(FaceId.Floor, -1, 0)),
+                CreateWall(93, new SurfaceCell(FaceId.Floor, -2, 1)),
+                CreateWall(94, new SurfaceCell(FaceId.Floor, -2, 2)),
+                CreateWall(95, new SurfaceCell(FaceId.Floor, -1, 3)),
+                CreateWall(96, new SurfaceCell(FaceId.Floor, 0, 2)),
+                CreateEnemy(source, Direction.Up),
+            });
+            var pipeline = CreatePipeline(worldState, LoadSunWheelProfile());
+            var tickIndex = 1;
+
+            tickIndex = RunUntilSunWheelStep(
+                pipeline,
+                worldState,
+                tickIndex,
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Direction.Left);
+            tickIndex = RunUntilSunWheelStep(
+                pipeline,
+                worldState,
+                tickIndex,
+                new SurfaceCell(FaceId.Floor, -1, 1),
+                Direction.Left);
+            tickIndex = RunUntilSunWheelStep(
+                pipeline,
+                worldState,
+                tickIndex,
+                new SurfaceCell(FaceId.Floor, -1, 2),
+                Direction.Up);
+            RunUntilSunWheelStep(
+                pipeline,
+                worldState,
+                tickIndex,
+                new SurfaceCell(FaceId.Floor, -1, 1),
+                Direction.Down);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SunWheel_LeftHand_Serpentine_FollowsHandRuleAcrossTurns()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateEnemy(new SurfaceCell(FaceId.Floor, -2, 3), Direction.Up),
+            });
+            var pipeline = CreatePipeline(worldState, LoadSunWheelProfile());
+            var tickIndex = 1;
+            var expectedSteps = new[]
+            {
+                (Cell: new SurfaceCell(FaceId.Floor, -2, 4), Facing: Direction.Up),
+                (Cell: new SurfaceCell(FaceId.Floor, -1, 4), Facing: Direction.Right),
+                (Cell: new SurfaceCell(FaceId.Floor, 0, 4), Facing: Direction.Right),
+                (Cell: new SurfaceCell(FaceId.Floor, 1, 4), Facing: Direction.Right),
+                (Cell: new SurfaceCell(FaceId.Floor, 2, 4), Facing: Direction.Right),
+                (Cell: new SurfaceCell(FaceId.Floor, 3, 4), Facing: Direction.Right),
+                (Cell: new SurfaceCell(FaceId.Floor, 4, 4), Facing: Direction.Right),
+                (Cell: new SurfaceCell(FaceId.Floor, 4, 3), Facing: Direction.Down),
+                (Cell: new SurfaceCell(FaceId.Floor, 4, 2), Facing: Direction.Down),
+                (Cell: new SurfaceCell(FaceId.Floor, 4, 1), Facing: Direction.Down),
+                (Cell: new SurfaceCell(FaceId.Floor, 4, 0), Facing: Direction.Down),
+                (Cell: new SurfaceCell(FaceId.Floor, 4, -1), Facing: Direction.Down),
+                (Cell: new SurfaceCell(FaceId.Floor, 4, -2), Facing: Direction.Down),
+                (Cell: new SurfaceCell(FaceId.Floor, 3, -2), Facing: Direction.Left),
+            };
+
+            foreach (var expectedStep in expectedSteps)
+            {
+                tickIndex = RunUntilSunWheelStep(
+                    pipeline,
+                    worldState,
+                    tickIndex,
+                    expectedStep.Cell,
+                    expectedStep.Facing);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SunWheel_BoardEdgeOnlyStraight_LeftHand_MovesForward()
         {
             var source = new SurfaceCell(FaceId.Floor, -2, 0);
@@ -463,6 +547,44 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(intent.CommandKind, Is.EqualTo(MovementCommandKind.Move));
             Assert.That(intent.Destination, Is.EqualTo(destination));
+        }
+
+        private static int RunUntilSunWheelStep(
+            TickPipeline pipeline,
+            WorldState worldState,
+            int startTick,
+            SurfaceCell expectedCell,
+            Direction expectedFacing,
+            int maxTicks = 80)
+        {
+            TickResult result = null;
+            var sawExpectedIntent = false;
+
+            for (var tick = startTick; tick < startTick + maxTicks; tick++)
+            {
+                result = pipeline.RunTick(new TickInput(tick));
+                var intents = result.MovementPhaseResult.RawIntents
+                    .Where(intent => intent.SourceId == EnemyId)
+                    .ToArray();
+                if (intents.Length > 0)
+                {
+                    Assert.That(intents, Has.Length.EqualTo(1), result.Trace.Text);
+                    Assert.That(intents[0].CommandKind, Is.EqualTo(MovementCommandKind.Move), result.Trace.Text);
+                    Assert.That(intents[0].Destination, Is.EqualTo(expectedCell.PlanarPosition), result.Trace.Text);
+                    sawExpectedIntent = true;
+                }
+
+                var enemy = GetEntity(worldState, EnemyId);
+                if (enemy.position == expectedCell)
+                {
+                    Assert.That(sawExpectedIntent, Is.True, result.Trace.Text);
+                    Assert.That(enemy.facing, Is.EqualTo(expectedFacing), result.Trace.Text);
+                    return tick + 1;
+                }
+            }
+
+            Assert.Fail($"SunWheel WallFollow did not reach {expectedCell} within {maxTicks} ticks. Last trace: {result?.Trace.Text}");
+            return startTick + maxTicks;
         }
 
         private static WorldState CreateWallFollowWorld(IEnumerable<TileFeatureState> initialTileFeatures = null)
