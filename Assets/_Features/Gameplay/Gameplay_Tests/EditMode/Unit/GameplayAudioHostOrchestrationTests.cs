@@ -331,6 +331,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayAudioDeferredQueue_SameRequest_EnqueuedOnce_AndPlayedOnceAfterUnlock()
+        {
+            var mapBundle = CreateGameplayAudioMap();
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+            var controller = new GameplayAudioPresentationController(new GameplayPresentationStateStore());
+            try
+            {
+                controller.AttachRuntime(playbackPort, mapBundle.Map);
+                controller.SetPlaybackGateState(GameplayAudioPlaybackGateState.TopologyLocked);
+                controller.ReplacePendingPlan(
+                    new[] { CreateRequest(GameplayAudioSemanticId.PlayerDamage, ownerEntityId: 10) },
+                    tickIndex: 7);
+                controller.PlayPlannedAudio();
+                controller.ReplacePendingPlan(
+                    new[] { CreateRequest(GameplayAudioSemanticId.PlayerDamage, ownerEntityId: 10) },
+                    tickIndex: 7);
+                controller.PlayPlannedAudio();
+
+                Assert.That(controller.PendingRequestCount, Is.Zero);
+                Assert.That(controller.DeferredRequestCount, Is.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+
+                controller.SetPlaybackGateState(GameplayAudioPlaybackGateState.Open);
+                controller.Update(0f);
+                controller.Update(0f);
+
+                Assert.That(controller.DeferredRequestCount, Is.Zero);
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[]
+                {
+                    "PlayerDamage",
+                }));
+            }
+            finally
+            {
+                mapBundle.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayAudioPendingTimers_TopologyTransition_DoNotAdvanceWhileLocked_AndResumeAfterUnlock()
+        {
+            var mapBundle = CreateGameplayAudioMap();
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+            var controller = new GameplayAudioPresentationController(new GameplayPresentationStateStore());
+            try
+            {
+                controller.AttachRuntime(playbackPort, mapBundle.Map);
+                controller.SetPlaybackGateState(GameplayAudioPlaybackGateState.TopologyLocked);
+                controller.ReplacePendingPlan(
+                    new[] { CreateRequest(GameplayAudioSemanticId.PlayerDamage, ownerEntityId: 10, delaySeconds: 0.2f) },
+                    tickIndex: 8);
+
+                controller.Update(1f);
+                Assert.That(controller.PendingRequestCount, Is.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+
+                controller.SetPlaybackGateState(GameplayAudioPlaybackGateState.Open);
+                controller.Update(0.19f);
+                Assert.That(controller.PendingRequestCount, Is.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+
+                controller.Update(0.02f);
+                Assert.That(controller.PendingRequestCount, Is.Zero);
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[]
+                {
+                    "PlayerDamage",
+                }));
+            }
+            finally
+            {
+                mapBundle.Dispose();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplaySceneHost_Initialize_RequiresCoLocatedAudioRuntimeInstaller_WhenGameplayAudioMapIsAssigned()
         {
@@ -596,12 +673,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StageObjectiveTickResult.NoObjective);
         }
 
-        private static GameplayAudioRequest CreateRequest(GameplayAudioSemanticId semanticId, int? ownerEntityId)
+        private static GameplayAudioRequest CreateRequest(
+            GameplayAudioSemanticId semanticId,
+            int? ownerEntityId,
+            float delaySeconds = 0f)
         {
             return new GameplayAudioRequest(
                 semanticId,
                 ownerEntityId,
-                new AudioPlaybackContext(debugTag: GameplayAudioSemanticCatalog.Format(semanticId)));
+                new AudioPlaybackContext(debugTag: GameplayAudioSemanticCatalog.Format(semanticId)),
+                delaySeconds);
         }
 
         private static EntityState CreateUnit(int entityId, UnitRole unitRole, SurfaceCell cell)

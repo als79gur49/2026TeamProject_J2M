@@ -321,6 +321,8 @@
 - Attack:
   - raw attack input, `ImpactReservation`, delayed effect handoff를 소비한다.
   - reservation을 attack damage로 전개한다.
+  - `PendingCellImpact` due tick과 topology transition이 같은 tick에 발생하면 movement/topology commit 이후의 attack snapshot을 기준으로 no-arrival 정책을 판정한다. `ForwardCellProjectile` pending impact는 already-fired projectile이므로 release 이후 source current cell, source facing, source alive/occupying/current Bottom participant state, target occupant, player anchor, presentation anchor representability는 arrival를 무효화하지 않는다. 이 값들은 diagnostics, hit/damage resolution, 또는 presentation fallback에만 쓰인다.
+  - Current no-arrival policy for `PendingCellImpact` is limited to explicit cancel/expire records, topology policy expiration, or structurally invalid target policy. The current implementation records topology policy expiration at due-time with `LaunchTopology != CurrentTopology -> ExpiredTopologyInvalid`, and records structurally invalid target policy with inactive target face -> `CancelledTargetInvalid`; both create no arrival, VFX, or SFX. Future work may move topology expiration recording to the topology transition commit point.
   - resolve는 current Push/Flip impact-disposition plan에서 `Stay / FollowThrough / DestroySelf` 중 하나를 닫는다.
 - Cleanup:
   - `hp <= 0` 또는 `markedForDeath` removal을 확정한다.

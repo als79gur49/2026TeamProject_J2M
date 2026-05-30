@@ -93,6 +93,64 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BlackEyeForwardCellProjectile_BackTransitionBeforeDueImpact_CancelsPendingImpact()
+        {
+            var observation = RunTransitionBeforeDueImpact(
+                new CubeTopologyState(FaceId.Back),
+                new SurfaceCell(FaceId.Floor, 4, 0));
+
+            AssertCancelledTransitionImpact(observation);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEyeForwardCellProjectile_FrontTransitionBeforeDueImpact_CancelsPendingImpact()
+        {
+            var observation = RunTransitionBeforeDueImpact(
+                new CubeTopologyState(FaceId.Front),
+                new SurfaceCell(FaceId.Floor, 4, 4));
+
+            AssertCancelledTransitionImpact(observation);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEyeForwardCellProjectile_BackAndFrontTransition_HaveSymmetricPendingImpactCancellation()
+        {
+            var back = RunTransitionBeforeDueImpact(
+                new CubeTopologyState(FaceId.Back),
+                new SurfaceCell(FaceId.Floor, 4, 0));
+            var front = RunTransitionBeforeDueImpact(
+                new CubeTopologyState(FaceId.Front),
+                new SurfaceCell(FaceId.Floor, 4, 4));
+
+            Assert.That(back.Resolution.ResultKind, Is.EqualTo(front.Resolution.ResultKind));
+            Assert.That(back.PlayerAfter.hp, Is.EqualTo(front.PlayerAfter.hp));
+            Assert.That(back.ImpactTick.PresentationData.ForwardCellImpactSignals.Count, Is.EqualTo(front.ImpactTick.PresentationData.ForwardCellImpactSignals.Count));
+            Assert.That(back.PendingImpactCountAfter, Is.EqualTo(front.PendingImpactCountAfter));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEyeForwardCellProjectile_NoTransition_HitsTargetNormally()
+        {
+            var worldState = CreateCombatWorld(
+                new SurfaceCell(FaceId.Floor, 4, 0),
+                boardBounds: new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var observation = ReleaseForwardCellProjectile(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            var impactTick = pipeline.RunTick(new TickInput(observation.Impact.ImpactTick));
+            var resolution = impactTick.AttackPhaseResult.PendingCellImpactResolutions.Single();
+
+            Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.Hit));
+            Assert.That(GetEntity(worldState, PlayerId).hp, Is.LessThan(3));
+            Assert.That(impactTick.PresentationData.ForwardCellImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(impactTick.PresentationData.ForwardCellProjectileArrivalSignals, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BlackEye_DoesNotMoveDuringWindupExecuteRecover()
         {
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
@@ -965,6 +1023,49 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 afterOccupancy);
         }
 
+        private static TransitionBeforeDueImpactObservation RunTransitionBeforeDueImpact(
+            CubeTopologyState topologyBeforeImpact,
+            SurfaceCell playerCellBeforeTransition)
+        {
+            var worldState = CreateCombatWorld(
+                new SurfaceCell(FaceId.Floor, 4, 0),
+                boardBounds: new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var release = ReleaseForwardCellProjectile(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            for (var tickIndex = release.Impact.ReleaseTick + 1; tickIndex < release.Impact.ImpactTick; tickIndex++)
+            {
+                pipeline.RunTick(new TickInput(tickIndex));
+            }
+
+            worldState.CreateWriteContext().MoveEntity(PlayerId, playerCellBeforeTransition);
+            worldState.CreateWriteContext().SetTopology(topologyBeforeImpact);
+            var impactTick = pipeline.RunTick(new TickInput(release.Impact.ImpactTick));
+            var resolution = impactTick.AttackPhaseResult.PendingCellImpactResolutions.Single();
+
+            return new TransitionBeforeDueImpactObservation(
+                release.Impact,
+                impactTick,
+                resolution,
+                GetEntity(worldState, PlayerId),
+                worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId));
+        }
+
+        private static void AssertCancelledTransitionImpact(in TransitionBeforeDueImpactObservation observation)
+        {
+            var impactId = observation.Impact.ImpactId;
+            Assert.That(observation.Resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.ExpiredTopologyInvalid));
+            Assert.That(observation.PlayerAfter.hp, Is.EqualTo(3));
+            Assert.That(observation.PendingImpactCountAfter, Is.Zero);
+            Assert.That(observation.ImpactTick.PresentationData.ForwardCellImpactSignals, Is.Empty);
+            Assert.That(observation.ImpactTick.PresentationData.ForwardCellProjectileArrivalSignals, Is.Empty);
+            Assert.That(
+                observation.ImpactTick.EventLog.Any(entry => entry.StartsWith("PendingCellImpactExpired|") &&
+                                                             entry.Contains($"Impact={impactId}") &&
+                                                             entry.Contains("ExpiredTopologyInvalid")),
+                Is.True);
+        }
+
         private static TargetMoveDuringWindupObservation ReleaseForwardCellProjectileAfterTargetMove(
             SurfaceCell initialTargetCell,
             SurfaceCell movedTargetCell,
@@ -1328,6 +1429,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             public string BeforeOccupancy { get; }
 
             public string AfterOccupancy { get; }
+        }
+
+        private readonly struct TransitionBeforeDueImpactObservation
+        {
+            public TransitionBeforeDueImpactObservation(
+                in PendingCellImpact impact,
+                TickResult impactTick,
+                in PendingCellImpactResolutionRecord resolution,
+                in EntityState playerAfter,
+                int pendingImpactCountAfter)
+            {
+                Impact = impact;
+                ImpactTick = impactTick;
+                Resolution = resolution;
+                PlayerAfter = playerAfter;
+                PendingImpactCountAfter = pendingImpactCountAfter;
+            }
+
+            public PendingCellImpact Impact { get; }
+
+            public TickResult ImpactTick { get; }
+
+            public PendingCellImpactResolutionRecord Resolution { get; }
+
+            public EntityState PlayerAfter { get; }
+
+            public int PendingImpactCountAfter { get; }
         }
 
         private readonly struct TargetMoveDuringWindupObservation

@@ -59,6 +59,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationTrackState _trackState = new();
         private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
+        private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry = new();
         private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
@@ -91,6 +92,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplaySfxArbitratingPlaybackPort _arbitratingGameplayAudioPlaybackPort;
         private TickResult _lastPresentedResult;
         private int _topologyTransitionEpoch;
+        private bool _isPresentationPaused;
 
         public GameplayTickPresentationCoordinator()
         {
@@ -151,6 +153,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsInitialized => _isInitialized;
 
+        public bool IsPresentationPaused => _isPresentationPaused;
+
         public bool IsPresentationActive => CurrentPresentationPhase != GameplayPresentationPhase.Idle;
 
         public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
@@ -178,6 +182,11 @@ namespace Game.Feature.Gameplay.Host
             _currentTileFeatureVisualStates;
 
         internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
+
+        internal int DeferredGameplayAudioRequestCount =>
+            _audioPresentationController.DeferredRequestCount +
+            _actionAudioPresentationController.DeferredRequestCount +
+            _enemyAudioPresentationController.DeferredRequestCount;
 
         internal int PendingMoonBlockEmergenceRequestCount =>
             _moonBlockEmergencePresentationController.PendingRequestCount;
@@ -319,6 +328,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
             _enemyAudioPresentationController.ResetSession();
+            SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState.Open);
             _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
@@ -336,6 +346,7 @@ namespace Game.Feature.Gameplay.Host
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
+            _presentationPauseRegistry.Clear();
             _summonedEnemyPresentationResolver.Initialize(
                 boardRoot != null ? boardRoot.EntityRoot : viewBinder.SearchRoot,
                 viewBinder.ViewRegistry,
@@ -375,6 +386,12 @@ namespace Game.Feature.Gameplay.Host
                 outputCameraExtension.ConfigureOutputCamera(
                     _outputCamera,
                     _viewBinder != null ? _viewBinder.SearchRoot : null);
+            }
+
+            if (_isPresentationPaused &&
+                extension is IGameplayPresentationPausable pausable)
+            {
+                pausable.SetPresentationPaused(true);
             }
         }
 
@@ -429,6 +446,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            RegisterCommittedViewPauseTargets();
             _gravityFieldVisualPresentationController.RefreshContinuousStates(_currentGravityFieldVisualStates);
             if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
             {
@@ -462,6 +480,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.RefreshBoardSurfaceTransition(
                 result.PresentationData,
                 _stateStore.CommittedTopology);
+            RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
                 _topologyAudioRequestPlanner.BuildRequests(result));
             _planner.RefreshTracks(
@@ -488,7 +507,7 @@ namespace Game.Feature.Gameplay.Host
             try
             {
                 _audioPresentationController.PlayPlannedAudio();
-                _actionAudioPresentationController.PlayPlannedAudio();
+                _actionAudioPresentationController.PlayPlannedAudio(result.TickIndex);
                 _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
                 _blockAudioPresentationController.PlayPlannedAudio();
                 _playerLocomotionAudioPresentationController.PlayPlannedAudio();
@@ -526,6 +545,7 @@ namespace Game.Feature.Gameplay.Host
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
             _enemyAudioPresentationController.ResetSession();
+            SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState.Open);
             _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
             _playerLocomotionAudioPresentationController.ResetSession();
@@ -557,6 +577,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _viewBinder,
                 TopologyCommitted);
+            RegisterCommittedViewPauseTargets();
             _topologyTransitionController.CompleteInitialTopology(topology);
             _animationSync.ApplyInitialEnemyPresentation(
                 entities,
@@ -581,10 +602,21 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (_isPresentationPaused)
+            {
+                return;
+            }
+
             var hadActiveBoardRotationTween = _topologyTransitionController.HasActiveBoardRotationTween;
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
-            _audioPresentationController.Update(deltaTime);
-            _enemyAudioPresentationController.Update(_lastPresentedTickIndex, deltaTime);
+            RefreshGameplayAudioPlaybackGate();
+            var gameplayAudioDeltaTime =
+                hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween
+                    ? 0f
+                    : deltaTime;
+            _audioPresentationController.Update(gameplayAudioDeltaTime);
+            _actionAudioPresentationController.Update();
+            _enemyAudioPresentationController.Update(_lastPresentedTickIndex, gameplayAudioDeltaTime);
             _blockAudioPresentationController.Update(deltaTime);
             _playerLocomotionAudioPresentationController.Update(deltaTime);
             _tileFeatureAudioPresentationController.Update(deltaTime);
@@ -603,6 +635,18 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.AdvanceDeathPresentationCleanups(deltaTime);
             _exitPresentationController.AdvanceContactDelayedEntityExits(deltaTime);
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            if (_isPresentationPaused == paused)
+            {
+                return;
+            }
+
+            _isPresentationPaused = paused;
+            _presentationPauseRegistry.SetPresentationPaused(paused);
+            SetPresentationPausedOnExtensions(paused);
         }
 
         internal void AttachGameplayAudioRuntime(
@@ -669,6 +713,16 @@ namespace Game.Feature.Gameplay.Host
         internal void AttachTileFeatureVisualRegistry(ITileFeatureVisualRegistry registry)
         {
             _tileFeatureVisualPresentationController.AttachRegistry(registry);
+            if (registry is TileFeatureVisualRegistry concreteRegistry &&
+                concreteRegistry.SearchRoot != null)
+            {
+                RegisterPresentationPauseRoot(concreteRegistry.SearchRoot.gameObject);
+            }
+        }
+
+        internal void RegisterPresentationPauseRoot(GameObject root)
+        {
+            _presentationPauseRegistry.RegisterRoot(root);
         }
 
         internal void AttachTileFeatureVisualPoseSynchronizer(TileFeatureVisualPoseSynchronizer synchronizer)
@@ -749,9 +803,26 @@ namespace Game.Feature.Gameplay.Host
                 gameplayAudioRequests,
                 enemyAudioRequests);
 
-            _audioPresentationController.ReplacePendingPlan(filteredGameplayAudioRequests);
-            _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
-            _enemyAudioPresentationController.ReplacePendingPlan(enemyAudioRequests);
+            _audioPresentationController.ReplacePendingPlan(filteredGameplayAudioRequests, result.TickIndex);
+            _actionAudioPresentationController.ReplacePendingPlan(
+                _actionAudioRequestPlanner.BuildRequests(result),
+                result.TickIndex);
+            _enemyAudioPresentationController.ReplacePendingPlan(enemyAudioRequests, result.TickIndex);
+        }
+
+        private void RefreshGameplayAudioPlaybackGate()
+        {
+            SetGameplayAudioPlaybackGate(
+                _topologyTransitionController.HasActiveBoardRotationTween
+                    ? GameplayAudioPlaybackGateState.TopologyLocked
+                    : GameplayAudioPlaybackGateState.Open);
+        }
+
+        private void SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState gateState)
+        {
+            _audioPresentationController.SetPlaybackGateState(gateState);
+            _actionAudioPresentationController.SetPlaybackGateState(gateState);
+            _enemyAudioPresentationController.SetPlaybackGateState(gateState);
         }
 
         private IReadOnlyList<GameplayAudioRequest> SuppressLethalEnemyDamageRequests(
@@ -1006,11 +1077,33 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void RegisterCommittedViewPauseTargets()
+        {
+            foreach (var pair in _stateStore.ViewsByEntityId)
+            {
+                if (pair.Value != null)
+                {
+                    _presentationPauseRegistry.RegisterRoot(pair.Value.gameObject);
+                }
+            }
+        }
+
         private void UpdateExtensions(float deltaTime)
         {
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.UpdatePresentation(deltaTime);
+            }
+        }
+
+        private void SetPresentationPausedOnExtensions(bool paused)
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPresentationPausable pausable)
+                {
+                    pausable.SetPresentationPaused(paused);
+                }
             }
         }
 

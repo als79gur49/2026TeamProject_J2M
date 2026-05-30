@@ -93,6 +93,100 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_GameplayPause_FreezesVisualProgressUntilResume()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.25f);
+            var pausedProgress = host.Presenter.CurrentTopologyTransitionVisualState.Progress01;
+
+            InvokePauseService(host, "Pause");
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.Progress01, Is.EqualTo(pausedProgress).Within(0.0001f));
+
+            InvokePauseService(host, "Resume");
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_PauseResume_KeepsPresentationLockedUntilTransitionCompletes()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+
+            InvokePauseService(host, "Pause");
+            InvokePauseService(host, "Resume");
+
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.True);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_GameplayPauseDoesNotCompleteWhilePaused()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+            InvokePauseService(host, "Pause");
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 2f);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.True);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator TopologyTransition_ResumeCompletesAndReleasesPresentationLock()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+            InvokePauseService(host, "Pause");
+            InvokePauseService(host, "Resume");
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         [Category("Full")]
         public IEnumerator RespawnTopologyReset_UsesExistingTopologyTransitionInputLock()
         {
@@ -459,6 +553,137 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(snapshot.TryGetEntity(30, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplayInputHost_BoxSlidePauseService_FreezesWorldPresentationUntilResume()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                },
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 1));
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            InvokeInputHostBufferUiPush(host.InputHost, Direction.Right);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds * 0.5f);
+            var pausedPosition = GetViewPosition(host, entityId: 30);
+
+            InvokePauseService(host, "Pause");
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+            Assert.That(host.Presenter.IsPresentationPaused, Is.True);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(pausedPosition));
+
+            InvokePauseService(host, "Resume");
+            Assert.That(host.Presenter.IsPresentationPaused, Is.False);
+            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
+
+            AssertViewMatchesProjectedState(host, entityId: 30);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator PauseService_AstretonAirborne_DoesNotAdvanceEnemyJumpState()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, -2, 0)),
+                CreateAirborneEnemy(entityId: 40, position: sourceCell),
+            });
+            SeedAirborneJumpState(host, 40, sourceCell, landingCell, landingTick: 30);
+            var beforeTickIndex = host.TickRunner.NextTickIndex;
+            var beforeState = GetEnemyJumpState(host, 40);
+            var beforeEnemy = GetEntity(host, 40);
+
+            InvokePauseService(host, "Pause");
+
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 10f), Is.Zero);
+            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(beforeTickIndex));
+            var afterState = GetEnemyJumpState(host, 40);
+            var afterEnemy = GetEntity(host, 40);
+            Assert.That(afterState.phase, Is.EqualTo(beforeState.phase));
+            Assert.That(afterState.sequence, Is.EqualTo(beforeState.sequence));
+            Assert.That(afterState.sourceCell, Is.EqualTo(beforeState.sourceCell));
+            Assert.That(afterState.lockedTargetCell, Is.EqualTo(beforeState.lockedTargetCell));
+            Assert.That(afterState.landingTick, Is.EqualTo(beforeState.landingTick));
+            Assert.That(afterEnemy.position, Is.EqualTo(beforeEnemy.position));
+            Assert.That(afterEnemy.boardPresence, Is.EqualTo(beforeEnemy.boardPresence));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator PauseService_AstretonAirborne_DoesNotAdvanceDeterminismHash()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, -2, 0)),
+                CreateAirborneEnemy(entityId: 40, position: sourceCell),
+            });
+            SeedAirborneJumpState(host, 40, sourceCell, landingCell, landingTick: 30);
+            var baselineTick = host.InputHost.RunSingleTick();
+            Assert.That(baselineTick, Is.Not.Null);
+            var beforeTickIndex = host.TickRunner.NextTickIndex;
+            var beforeHash = baselineTick.DeterminismHash;
+            var beforeLastResult = host.TickRunner.LastResult;
+
+            InvokePauseService(host, "Pause");
+            host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 10f);
+            var blockedTick = host.InputHost.RunSingleTick();
+
+            Assert.That(blockedTick, Is.Null);
+            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(beforeTickIndex));
+            Assert.That(host.TickRunner.LastResult, Is.SameAs(beforeLastResult));
+            Assert.That(host.TickRunner.LastResult.DeterminismHash, Is.EqualTo(beforeHash));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator PauseService_AstretonAirborne_DoesNotCreateNewTickResult()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var landingCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, -2, 0)),
+                CreateAirborneEnemy(entityId: 40, position: sourceCell),
+            });
+            SeedAirborneJumpState(host, 40, sourceCell, landingCell, landingTick: 30);
+            var tickCompletedCount = 0;
+            host.InputHost.TickCompleted += _ => tickCompletedCount++;
+
+            InvokePauseService(host, "Pause");
+            var singleTick = host.InputHost.RunSingleTick();
+            var advancedTickCount = host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 10f);
+
+            Assert.That(singleTick, Is.Null);
+            Assert.That(advancedTickCount, Is.Zero);
+            Assert.That(tickCompletedCount, Is.Zero);
 
             yield return DestroyHost(host);
         }
@@ -1385,6 +1610,57 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
         }
 
+        private static EntityState CreateAirborneEnemy(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 3,
+                maxHp = 3,
+                teamId = 2,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Enemy,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                aiMode = EnemyAiMode.Chase,
+                boardPresence = EntityBoardPresence.Detached,
+            };
+        }
+
+        private static void SeedAirborneJumpState(
+            GameplaySceneHost host,
+            int entityId,
+            SurfaceCell sourceCell,
+            SurfaceCell landingCell,
+            int landingTick)
+        {
+            InvokeWorldWriteContextMethod(
+                host.WorldState,
+                "SetEnemyJumpState",
+                entityId,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = landingCell,
+                    landingTick = landingTick,
+                });
+        }
+
+        private static EnemyJumpRuntimeState GetEnemyJumpState(GameplaySceneHost host, int entityId)
+        {
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEnemyJumpState(entityId, out var state), Is.True);
+            return state;
+        }
+
+        private static EntityState GetEntity(GameplaySceneHost host, int entityId)
+        {
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(entityId, out var entity), Is.True);
+            return entity;
+        }
+
         private static EntityState CreateWall(int entityId, Vector2Int position)
         {
             return CreateWall(entityId, SurfaceCell.FromPlanar(position));
@@ -1527,6 +1803,22 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
             return view.transform.position;
+        }
+
+        private static void InvokePauseService(GameplaySceneHost host, string methodName)
+        {
+            var uiAccess = (object)host.UiAccess;
+            Assert.That(uiAccess, Is.Not.Null);
+            var pauseServiceProperty = uiAccess
+                .GetType()
+                .GetProperty("PauseService", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(pauseServiceProperty, Is.Not.Null);
+
+            var pauseService = pauseServiceProperty.GetValue(uiAccess);
+            Assert.That(pauseService, Is.Not.Null);
+            var method = pauseService.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(pauseService, Array.Empty<object>());
         }
 
         private static GameplayEntityView LoadPlayerS1ViewPrefab()

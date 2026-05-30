@@ -45,6 +45,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
+        public bool IsPresentationPaused => _presentationCoordinator.IsPresentationPaused;
+
         public float LastStageClearPlayerPresentationDelaySeconds =>
             _presentationCoordinator.LastStageClearPlayerPresentationDelaySeconds;
 
@@ -184,6 +186,11 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachTileFeatureVisualPoseSynchronizer(synchronizer);
         }
 
+        internal void RegisterPresentationPauseRoot(GameObject root)
+        {
+            _presentationCoordinator.RegisterPresentationPauseRoot(root);
+        }
+
         public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.AttachPresentationExtension(extension);
@@ -223,6 +230,8 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
 
+        internal int DeferredGameplayAudioRequestCount => _presentationCoordinator.DeferredGameplayAudioRequestCount;
+
         internal int PendingMoonBlockEmergenceRequestCount =>
             _presentationCoordinator.PendingMoonBlockEmergenceRequestCount;
 
@@ -249,11 +258,27 @@ namespace Game.Feature.Gameplay.Host
 
         public void UpdatePresentation(float deltaTime)
         {
+            if (deltaTime < 0f)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            if (_presentationCoordinator.IsPresentationPaused)
+            {
+                return;
+            }
+
             _presentationCoordinator.UpdatePresentation(deltaTime);
             SyncViewCameraRuntime();
             RefreshTopologyTransitionPostFx();
             NotifyPresentationStateChangedIfNeeded();
             PresentationAdvanced?.Invoke(deltaTime);
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            _presentationCoordinator.SetPresentationPaused(paused);
+            NotifyPresentationStateChangedIfNeeded();
         }
 
         private void RefreshTopologyTransitionPostFx()

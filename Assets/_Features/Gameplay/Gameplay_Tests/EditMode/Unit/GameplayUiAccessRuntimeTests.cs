@@ -413,6 +413,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(pausedSession.IsPaused, Is.True);
                 Assert.That(pausedSession.CanAcceptGameplayCommands, Is.False);
                 Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                Assert.That(host.Presenter.IsPresentationPaused, Is.True);
 
                 pauseService.Resume();
 
@@ -420,8 +421,127 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var snapshotAfter = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
 
                 Assert.That(resumedTick, Is.Not.Null);
+                Assert.That(host.Presenter.IsPresentationPaused, Is.False);
                 Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
                 Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PauseService_PauseTwiceResumeOnce_RemainsSimulationAndPresentationPaused()
+        {
+            var hostObject = new GameObject(nameof(PauseService_PauseTwiceResumeOnce_RemainsSimulationAndPresentationPaused));
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }));
+
+                host.UiAccess.PauseService.Pause();
+                host.UiAccess.PauseService.Pause();
+                host.UiAccess.PauseService.Resume();
+
+                Assert.That(host.UiAccess.PauseService.IsPaused, Is.True);
+                Assert.That(host.InputHost.IsSimulationPaused, Is.True);
+                Assert.That(host.Presenter.IsPresentationPaused, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PauseService_PauseOnceResumeTwice_DoesNotErroneouslyResumeOrUnderflow()
+        {
+            var hostObject = new GameObject(nameof(PauseService_PauseOnceResumeTwice_DoesNotErroneouslyResumeOrUnderflow));
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }));
+                var pauseService = (Game.Feature.Gameplay.Host.UIAccess.GameplayHostPauseService)host.UiAccess.PauseService;
+
+                pauseService.Pause();
+                pauseService.Resume();
+                pauseService.Resume();
+
+                Assert.That(pauseService.IsPaused, Is.False);
+                Assert.That(pauseService.PauseDepth, Is.Zero);
+                Assert.That(host.InputHost.IsSimulationPaused, Is.False);
+                Assert.That(host.Presenter.IsPresentationPaused, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PauseService_OnlyZeroDepthResumesPresenterAndVfx()
+        {
+            var hostObject = new GameObject(nameof(PauseService_OnlyZeroDepthResumesPresenterAndVfx));
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }));
+
+                host.UiAccess.PauseService.Pause();
+                host.UiAccess.PauseService.Pause();
+                host.UiAccess.PauseService.Resume();
+                Assert.That(host.Presenter.IsPresentationPaused, Is.True);
+
+                host.UiAccess.PauseService.Resume();
+                Assert.That(host.Presenter.IsPresentationPaused, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PauseService_RepeatedPauseResume_BalancedDepthTransitionsOnlyApplyOnEdges()
+        {
+            var hostObject = new GameObject(nameof(PauseService_RepeatedPauseResume_BalancedDepthTransitionsOnlyApplyOnEdges));
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }));
+                var changedStates = new List<bool>();
+                host.UiAccess.PauseService.PauseChanged += changedStates.Add;
+
+                host.UiAccess.PauseService.Pause();
+                host.UiAccess.PauseService.Pause();
+                host.UiAccess.PauseService.Resume();
+                host.UiAccess.PauseService.Resume();
+
+                Assert.That(changedStates, Is.EqualTo(new[] { true, false }));
+                Assert.That(host.UiAccess.PauseService.IsPaused, Is.False);
+                Assert.That(host.InputHost.IsSimulationPaused, Is.False);
+                Assert.That(host.Presenter.IsPresentationPaused, Is.False);
             }
             finally
             {

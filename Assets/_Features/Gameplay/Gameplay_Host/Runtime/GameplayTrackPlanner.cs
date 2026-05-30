@@ -1245,6 +1245,7 @@ namespace Game.Feature.Gameplay.Host
                     arcHeightWorld: 0f));
 
             _trackState.JumpTracks[signal.EntityId] = jumpTrack;
+            _trackState.ActiveAirborneJumpTrackKeys.Remove(signal.EntityId);
             _trackState.JumpLandingCompletionHoldEntityIds.Add(signal.EntityId);
             _trackState.VisibilityTracks.Remove(signal.EntityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(signal.EntityId);
@@ -1438,6 +1439,7 @@ namespace Game.Feature.Gameplay.Host
             jumpTrack = null;
             localPose = default;
             _trackState.JumpTracks.TryGetValue(signal.EntityId, out var existingTrack);
+            var key = EnemyAirbornePresentationKey.FromSignal(signal);
 
             if (!signal.StartedAirborneThisTick &&
                 !signal.RetryThisTick &&
@@ -1445,9 +1447,30 @@ namespace Game.Feature.Gameplay.Host
                 existingTrack.HasClip &&
                 _stateStore.JumpDetachedVisibilityStates.TryGetValue(signal.EntityId, out var existingState))
             {
+                if (!_trackState.ActiveAirborneJumpTrackKeys.TryGetValue(signal.EntityId, out var activeKey) ||
+                    activeKey != key)
+                {
+                    _trackState.ActiveAirborneJumpTrackKeys[signal.EntityId] = key;
+                }
+
                 jumpTrack = existingTrack;
                 localPose = existingState.LocalPose;
                 return true;
+            }
+
+            if (!signal.StartedAirborneThisTick &&
+                !signal.RetryThisTick &&
+                _trackState.CompletedAirborneJumpTrackKeys.Contains(key))
+            {
+                return false;
+            }
+
+            if (!signal.StartedAirborneThisTick &&
+                !signal.RetryThisTick &&
+                _trackState.ActiveAirborneJumpTrackKeys.TryGetValue(signal.EntityId, out var existingKey) &&
+                existingKey == key)
+            {
+                return false;
             }
 
             if (!signal.StartedAirborneThisTick &&
@@ -1476,6 +1499,8 @@ namespace Game.Feature.Gameplay.Host
                     _motionTimingResolver.ResolveJumpDurationSeconds(signal, timingProfile),
                     _motionTimingResolver.ResolveJumpArcHeightWorld(signal.EntityId, projector),
                     ResolveJumpMotionPresentation(signal.EntityId)));
+            _trackState.ActiveAirborneJumpTrackKeys[signal.EntityId] = key;
+            _trackState.CompletedAirborneJumpTrackKeys.Remove(key);
             localPose = startPose;
             return true;
         }

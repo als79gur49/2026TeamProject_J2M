@@ -1,3 +1,5 @@
+using System;
+
 namespace Game.Feature.Gameplay.Vfx
 {
     public enum VfxLifetimeState
@@ -11,5 +13,14 @@ namespace Game.Feature.Gameplay.Vfx
         ReleasedToPool = 6,
         HardCleanup = 7,
         PresentationSuspended = 8,
+    }
+
+    [Flags]
+    public enum VfxPresentationSuspendReason
+    {
+        None = 0,
+        Visibility = 1 << 0,
+        TopologyTransition = 1 << 1,
+        GameplayPause = 1 << 2,
     }
 }

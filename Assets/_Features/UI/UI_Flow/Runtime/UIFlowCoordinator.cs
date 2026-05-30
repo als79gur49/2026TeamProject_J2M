@@ -84,7 +84,7 @@ namespace Game.Feature.UI.Flow
 
         public bool RequestPausePopup()
         {
-            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, RequestPausePopupCore);
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => RequestPausePopupCore());
         }
 
         public bool RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload payload)
@@ -190,7 +190,7 @@ namespace Game.Feature.UI.Flow
                     if (!PushScreenCore(BuildSettingsRequest(), preservePauseReturnMode: true))
                     {
                         ClearPauseReturnMode();
-                        RequestPausePopupCore();
+                        RequestPausePopupCore(acquirePauseOwnership: false);
                     }
 
                     break;
@@ -200,7 +200,7 @@ namespace Game.Feature.UI.Flow
                     if (!PushScreenCore(BuildObjectiveStatusRequest(), preservePauseReturnMode: true))
                     {
                         ClearPauseReturnMode();
-                        RequestPausePopupCore();
+                        RequestPausePopupCore(acquirePauseOwnership: false);
                     }
 
                     break;
@@ -414,7 +414,7 @@ namespace Game.Feature.UI.Flow
             {
                 if (_pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack &&
                     _screenController.CurrentScreenId == ScreenId.Gameplay &&
-                    RequestPausePopupCore())
+                    RequestPausePopupCore(acquirePauseOwnership: false))
                 {
                     ClearPauseReturnMode();
                 }
@@ -435,7 +435,7 @@ namespace Game.Feature.UI.Flow
             return _popupController.HandleBackdropClicked();
         }
 
-        private bool RequestPausePopupCore()
+        private bool RequestPausePopupCore(bool acquirePauseOwnership = true)
         {
             if (_popupController.Contains(PopupId.Pause))
             {
@@ -452,7 +452,11 @@ namespace Game.Feature.UI.Flow
                 return false;
             }
 
-            _pauseService.Pause();
+            if (acquirePauseOwnership)
+            {
+                _pauseService.Pause();
+            }
+
             return true;
         }
 

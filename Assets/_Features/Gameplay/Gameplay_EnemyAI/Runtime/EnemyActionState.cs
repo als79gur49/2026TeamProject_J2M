@@ -89,7 +89,9 @@ namespace Game.Feature.Gameplay.Entities
             int impactId,
             int ownerId,
             int sourceEnemyId,
+            SurfaceCell sourceCell,
             SurfaceCell targetCell,
+            CubeTopologyState launchTopology,
             Direction direction,
             int damage,
             int createdTick,
@@ -124,7 +126,9 @@ namespace Game.Feature.Gameplay.Entities
             ImpactId = impactId;
             OwnerId = ownerId;
             SourceEnemyId = sourceEnemyId;
+            SourceCell = sourceCell;
             TargetCell = targetCell;
+            LaunchTopology = launchTopology;
             Direction = direction;
             Damage = damage;
             CreatedTick = createdTick;
@@ -138,7 +142,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public int SourceEnemyId { get; }
 
+        public SurfaceCell SourceCell { get; }
+
         public SurfaceCell TargetCell { get; }
+
+        public CubeTopologyState LaunchTopology { get; }
 
         public Direction Direction { get; }
 
@@ -155,7 +163,9 @@ namespace Game.Feature.Gameplay.Entities
             return ImpactId == other.ImpactId &&
                    OwnerId == other.OwnerId &&
                    SourceEnemyId == other.SourceEnemyId &&
+                   SourceCell.Equals(other.SourceCell) &&
                    TargetCell.Equals(other.TargetCell) &&
+                   LaunchTopology.Equals(other.LaunchTopology) &&
                    Direction == other.Direction &&
                    Damage == other.Damage &&
                    CreatedTick == other.CreatedTick &&
@@ -175,7 +185,9 @@ namespace Game.Feature.Gameplay.Entities
                 var hashCode = ImpactId;
                 hashCode = (hashCode * 397) ^ OwnerId;
                 hashCode = (hashCode * 397) ^ SourceEnemyId;
+                hashCode = (hashCode * 397) ^ SourceCell.GetHashCode();
                 hashCode = (hashCode * 397) ^ TargetCell.GetHashCode();
+                hashCode = (hashCode * 397) ^ LaunchTopology.GetHashCode();
                 hashCode = (hashCode * 397) ^ (int)Direction;
                 hashCode = (hashCode * 397) ^ Damage;
                 hashCode = (hashCode * 397) ^ CreatedTick;

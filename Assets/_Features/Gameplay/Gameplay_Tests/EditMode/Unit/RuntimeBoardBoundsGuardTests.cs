@@ -3117,7 +3117,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     presenter.CurrentTopologyTransitionVisualState.AngularVelocityNormalized,
                     Is.EqualTo(0f).Within(0.001f));
 
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+                var topologyDuration = presenter.CurrentTopologyTransitionVisualState.DurationSeconds;
+                presenter.UpdatePresentation(topologyDuration * 0.25f);
+                var pausedProgress = presenter.CurrentTopologyTransitionVisualState.Progress01;
+
+                presenter.SetPresentationPaused(true);
+                presenter.UpdatePresentation(topologyDuration);
+
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.True);
+                Assert.That(
+                    presenter.CurrentTopologyTransitionVisualState.Progress01,
+                    Is.EqualTo(pausedProgress).Within(0.001f));
+
+                presenter.SetPresentationPaused(false);
+                presenter.UpdatePresentation(topologyDuration);
 
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
                 Assert.That(presenter.IsPresentationActive, Is.False);

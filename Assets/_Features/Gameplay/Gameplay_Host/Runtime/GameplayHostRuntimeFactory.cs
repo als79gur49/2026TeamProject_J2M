@@ -241,7 +241,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.MoveDeadzone,
                 configuration.DirectionChangeConsumesDelay,
                 configuration.AutoAdvanceTicks);
-            var pauseService = new GameplayHostPauseService(inputHost);
+            var pauseService = new GameplayHostPauseService(inputHost, presenter);
             var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, tickRunner, inputHost, presenter, pauseService);
             var presentationBarrierTracker = new GameplayPresentationBarrierTracker();
             var presentationFeed = new GameplayHostPresentationFeed(

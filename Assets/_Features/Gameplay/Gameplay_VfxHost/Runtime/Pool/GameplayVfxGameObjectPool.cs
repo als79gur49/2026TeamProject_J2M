@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx.Host
@@ -18,6 +19,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly Dictionary<GameplayVfxCueId, int> releaseToPoolCountByCue = new();
         private IVfxPrefabProvider prefabProvider;
         private int nextHandleId;
+        private VfxPresentationSuspendReason stickyRuntimeSuspendReasons;
 
         public GameplayVfxGameObjectPool(
             GameplayVfxRuntimeRoot root,
@@ -93,6 +95,17 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in ResolvedVfxPlaybackCommand command,
             in ParameterizedMotionVfxCommand motionCommand)
         {
+            return PlayParameterizedMotion(
+                command,
+                motionCommand,
+                VfxRendererInactiveVisualSnapshotSet.Empty);
+        }
+
+        internal IVfxPlaybackHandle PlayParameterizedMotion(
+            in ResolvedVfxPlaybackCommand command,
+            in ParameterizedMotionVfxCommand motionCommand,
+            in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
+        {
             command.Policy.ValidateOrThrow();
             if (command.CueId != motionCommand.CueId)
             {
@@ -150,9 +163,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var instance = Lease(prefab, prefabInstanceId);
             var now = timeProvider.TimeSeconds;
             var handle = new GameplayVfxPlaybackHandle(++nextHandleId, command, instance, now, timeProvider);
-            instance.ActivateParameterizedMotion(prefabInstanceId, handle, root.OneShotRoot, motionCommand, cloneSourceProvider);
+            instance.ActivateParameterizedMotion(
+                prefabInstanceId,
+                handle,
+                root.OneShotRoot,
+                motionCommand,
+                cloneSourceProvider,
+                sourceVisualSnapshot);
             handle.MarkSpawned();
             handle.MarkActive();
+            ApplyStickySuspendReasons(handle);
             activeHandles.Add(handle);
             activeParameterizedMotions[handle] = motionCommand;
             return handle;
@@ -189,7 +209,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                             handle.CueId,
                             handle.TopologyStopMode))
                     {
-                        handle.SuspendPresentation();
+                        handle.SuspendPresentation(VfxPresentationSuspendReason.TopologyTransition);
                     }
 
                     continue;
@@ -202,6 +222,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void HardCleanupAll()
         {
+            stickyRuntimeSuspendReasons = VfxPresentationSuspendReason.None;
             foreach (var handle in activeHandles.ToArray())
             {
                 handle?.HardCleanup();
@@ -254,6 +275,53 @@ namespace Game.Feature.Gameplay.Vfx.Host
             CleanupStoredInstancesForFamily(family);
         }
 
+        public void SuspendActivePresentation(VfxPresentationSuspendReason reason)
+        {
+            if (reason == VfxPresentationSuspendReason.None)
+            {
+                return;
+            }
+
+            stickyRuntimeSuspendReasons |= reason;
+
+            foreach (var handle in activeHandles.ToArray())
+            {
+                if (handle == null || handle.IsTerminal)
+                {
+                    activeHandles.Remove(handle);
+                    continue;
+                }
+
+                handle.SuspendPresentation(reason);
+            }
+        }
+
+        public void ResumeActivePresentation(VfxPresentationSuspendReason reason)
+        {
+            if (reason == VfxPresentationSuspendReason.None)
+            {
+                return;
+            }
+
+            stickyRuntimeSuspendReasons &= ~reason;
+
+            foreach (var handle in activeHandles.ToArray())
+            {
+                if (handle == null || handle.IsTerminal)
+                {
+                    activeHandles.Remove(handle);
+                    continue;
+                }
+
+                if (reason == VfxPresentationSuspendReason.GameplayPause)
+                {
+                    handle.ShiftPresentationClock(handle.ConsumeGameplayPauseSuspendDurationSeconds());
+                }
+
+                handle.ResumePresentation(reason);
+            }
+        }
+
         public void Advance(float deltaSeconds)
         {
             var now = timeProvider.TimeSeconds;
@@ -279,12 +347,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 MissingPrefabCount++;
                 LogPoolDiagnostic(nameof(Play), "MissingPrefab", command);
+                LogForwardCellImpactPoolPlay(command, null, null, null, poolPlayCalled: false, handleCreated: false, "MissingPrefab");
                 return null;
             }
 
             if (IsOverConcurrentLimit(command.Policy))
             {
                 DroppedByLimitCount++;
+                LogForwardCellImpactPoolPlay(command, prefab, null, null, poolPlayCalled: false, handleCreated: false, "ConcurrentLimit");
                 return null;
             }
 
@@ -302,8 +372,86 @@ namespace Game.Feature.Gameplay.Vfx.Host
             instance.Activate(prefabInstanceId, handle, parent, command.Anchor);
             handle.MarkSpawned();
             handle.MarkActive();
+            ApplyStickySuspendReasons(handle);
             activeHandles.Add(handle);
+            LogForwardCellImpactPoolPlay(command, prefab, handle, instance, poolPlayCalled: true, handleCreated: true, string.Empty);
             return handle;
+        }
+
+        private static void LogForwardCellImpactPoolPlay(
+            in ResolvedVfxPlaybackCommand command,
+            GameObject prefab,
+            GameplayVfxPlaybackHandle handle,
+            GameplayVfxPooledInstance instance,
+            bool poolPlayCalled,
+            bool handleCreated,
+            string skipReason)
+        {
+            if (command.CueId != GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))
+            {
+                return;
+            }
+
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                command.Request.SourceEntityId,
+                command.Request.Anchor.Cell,
+                command.Request.TickIndex,
+                command.Request.SequenceId,
+                command.Request.SequenceId);
+            ForwardCellProjectileDebugLog.MarkPool(shotKey, poolPlayCalled, handleCreated);
+            ForwardCellProjectileDebugLog.Log(
+                "VFX_POOL_PLAY",
+                $"Tick={command.Request.TickIndex} Shot={shotKey} Cue=ForwardCellImpact " +
+                $"PoolPlayCalled={poolPlayCalled} HandleCreated={handleCreated} " +
+                $"HandleId={(handle != null ? handle.HandleId : 0)} " +
+                $"PooledInstanceId={(instance?.GameObject != null ? instance.GameObject.GetInstanceID() : 0)} " +
+                $"PrefabName={(prefab != null ? prefab.name : "None")} " +
+                $"InstanceName={(instance?.GameObject != null ? instance.GameObject.name : "None")} " +
+                $"ParentPath={BuildTransformPath(instance?.Transform?.parent)} " +
+                $"ActiveSelf={(instance?.GameObject != null && instance.GameObject.activeSelf)} " +
+                $"ActiveInHierarchy={(instance?.GameObject != null && instance.GameObject.activeInHierarchy)} " +
+                $"SkipReason={skipReason}");
+            ForwardCellProjectileDebugLog.LogSummary(shotKey);
+        }
+
+        private static string BuildTransformPath(Transform transform)
+        {
+            if (transform == null)
+            {
+                return "None";
+            }
+
+            var names = new Stack<string>();
+            var current = transform;
+            while (current != null)
+            {
+                names.Push(current.name);
+                current = current.parent;
+            }
+
+            return string.Join("/", names);
+        }
+
+        private void ApplyStickySuspendReasons(GameplayVfxPlaybackHandle handle)
+        {
+            if (handle == null || stickyRuntimeSuspendReasons == VfxPresentationSuspendReason.None)
+            {
+                return;
+            }
+
+            ApplyStickySuspendReason(handle, VfxPresentationSuspendReason.Visibility);
+            ApplyStickySuspendReason(handle, VfxPresentationSuspendReason.TopologyTransition);
+            ApplyStickySuspendReason(handle, VfxPresentationSuspendReason.GameplayPause);
+        }
+
+        private void ApplyStickySuspendReason(
+            GameplayVfxPlaybackHandle handle,
+            VfxPresentationSuspendReason reason)
+        {
+            if ((stickyRuntimeSuspendReasons & reason) == reason)
+            {
+                handle.SuspendPresentation(reason);
+            }
         }
 
         private bool IsOverConcurrentLimit(VfxBindingRuntimePolicy policy)

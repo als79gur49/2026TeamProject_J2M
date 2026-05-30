@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -20,6 +21,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
+        private const string JumperLandingTargetBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingTarget_Binding.asset";
         private const string JumperJumpStartBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperJumpStart_Binding.asset";
         private const string CombinedGameplayShowcaseScenePath =
@@ -621,6 +624,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void JumperLandingTargetVfx_GameplayPauseResumePause_PreservesTailParticles()
+        {
+            var owner = new GameObject(nameof(JumperLandingTargetVfx_GameplayPauseResumePause_PreservesTailParticles));
+            GameplayVfxGameObjectPool pool = null;
+            try
+            {
+                var binding = LoadActualJumperLandingTargetBinding();
+                var root = GameplayVfxRuntimeRoot.CreateUnder(owner.transform);
+                pool = new GameplayVfxGameObjectPool(root, new SinglePrefabProvider(binding.Prefab));
+                var handle = pool.StartPersistent(CreateActualJumperLandingTargetCommand(binding.BuildRuntimePolicy()));
+                Assert.That(handle, Is.Not.Null);
+
+                var marker = root.PersistentRoot.GetChild(0);
+                var particles = marker.GetComponentsInChildren<ParticleSystem>(includeInactive: true);
+                Assert.That(particles, Is.Not.Empty);
+                var countsBeforePause = SeedStoppedResidualParticles(particles, out var seededParticles);
+
+                pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+                pool.ResumeActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+                pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+
+                AssertParticleCounts(seededParticles, countsBeforePause);
+            }
+            finally
+            {
+                pool?.HardCleanupAll();
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void JumperLandingTargetVfx_GameplayPauseResumePause_KeepsSamePersistentHandle()
+        {
+            var owner = new GameObject(nameof(JumperLandingTargetVfx_GameplayPauseResumePause_KeepsSamePersistentHandle));
+            GameplayVfxGameObjectPool pool = null;
+            try
+            {
+                var binding = LoadActualJumperLandingTargetBinding();
+                var root = GameplayVfxRuntimeRoot.CreateUnder(owner.transform);
+                pool = new GameplayVfxGameObjectPool(root, new SinglePrefabProvider(binding.Prefab));
+                var registry = new VfxPersistentHandleRegistry();
+                var runner = new VfxLifetimeRunner();
+                var command = CreateActualJumperLandingTargetCommand(binding.BuildRuntimePolicy());
+                var handle = (GameplayVfxPlaybackHandle)registry.GetOrStart(command, pool, runner);
+                Assert.That(handle, Is.Not.Null);
+                var handleId = handle.HandleId;
+                var instance = handle.Instance.GameObject;
+                var instanceId = instance.GetInstanceID();
+
+                pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+                pool.ResumeActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+                pool.SuspendActivePresentation(VfxPresentationSuspendReason.GameplayPause);
+                var current = (GameplayVfxPlaybackHandle)registry.GetOrStart(command, pool, runner);
+
+                Assert.That(current, Is.SameAs(handle));
+                Assert.That(current.HandleId, Is.EqualTo(handleId));
+                Assert.That(current.Instance.GameObject, Is.SameAs(instance));
+                Assert.That(current.Instance.GameObject.GetInstanceID(), Is.EqualTo(instanceId));
+                Assert.That(root.PersistentRoot.childCount, Is.EqualTo(1));
+                Assert.That(pool.ActiveCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                pool?.HardCleanupAll();
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void ProductionRuntime_FlagOnWithActualBinding_PlaysMarkerOnTargetCell()
         {
@@ -1095,6 +1169,125 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(binding, "defaultLifetimeSeconds", 0f);
             SetField(binding, "tailSeconds", 0f);
             return binding;
+        }
+
+        private static VfxBindingDefinitionAsset LoadActualJumperLandingTargetBinding()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(JumperLandingTargetBindingPath);
+            Assert.That(binding, Is.Not.Null, JumperLandingTargetBindingPath);
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)));
+            Assert.That(binding.Prefab, Is.Not.Null);
+            Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.Loop));
+            Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.StopEmittingThenRelease));
+            return binding;
+        }
+
+        private static ResolvedVfxPlaybackCommand CreateActualJumperLandingTargetCommand(
+            VfxBindingRuntimePolicy policy)
+        {
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+            var targetCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var persistentKey = new VfxPersistentKey(
+                cueId,
+                VfxAnchorKind.Cell,
+                entityId: 40,
+                cell: targetCell,
+                hasCell: true,
+                activationSequence: 3);
+            var request = new GameplayVfxRequest(
+                tickIndex: 12,
+                sequenceId: 1,
+                presentationSeed: 40,
+                sourceEntityId: 40,
+                cueId,
+                VfxAnchor.ForCell(targetCell, topology),
+                VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: true,
+                persistentKey,
+                topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt);
+            var anchor = VfxResolvedAnchor.ForCell(
+                targetCell,
+                topology,
+                VfxAnchorSlot.CellFloor,
+                Vector3.zero,
+                Quaternion.identity);
+            return new ResolvedVfxPlaybackCommand(request, policy, anchor);
+        }
+
+        private static int[] SeedStoppedResidualParticles(
+            ParticleSystem[] particleSystems,
+            out ParticleSystem[] seededParticleSystems)
+        {
+            var seededParticles = new List<ParticleSystem>(particleSystems.Length);
+            var counts = new List<int>(particleSystems.Length);
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                var count = TrySeedStoppedResidualParticles(particleSystems[i], i + 3);
+                if (count > 0)
+                {
+                    seededParticles.Add(particleSystems[i]);
+                    counts.Add(count);
+                }
+            }
+
+            Assert.That(seededParticles, Is.Not.Empty);
+            seededParticleSystems = seededParticles.ToArray();
+            return counts.ToArray();
+        }
+
+        private static int TrySeedStoppedResidualParticles(ParticleSystem particleSystem, int count)
+        {
+            Assert.That(particleSystem, Is.Not.Null);
+            particleSystem.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+            particleSystem.Clear(false);
+            var main = particleSystem.main;
+            main.loop = false;
+            main.duration = 0.1f;
+            main.startLifetime = 30f;
+            main.maxParticles = Math.Max(main.maxParticles, count);
+            particleSystem.Play(false);
+            particleSystem.Emit(
+                new ParticleSystem.EmitParams
+                {
+                    applyShapeToPosition = false,
+                    position = Vector3.zero,
+                    startColor = Color.white,
+                    startLifetime = 30f,
+                    startSize = 0.1f
+                },
+                count);
+            particleSystem.Pause(false);
+            Assert.That(particleSystem.isPlaying, Is.False);
+            Assert.That(particleSystem.isEmitting, Is.False);
+            return particleSystem.particleCount;
+        }
+
+        private static void AssertParticleCounts(ParticleSystem[] particles, int[] expectedCounts)
+        {
+            Assert.That(particles.Length, Is.EqualTo(expectedCounts.Length));
+            for (var i = 0; i < particles.Length; i++)
+            {
+                Assert.That(particles[i].particleCount, Is.EqualTo(expectedCounts[i]));
+                Assert.That(particles[i].isPlaying, Is.False);
+                Assert.That(particles[i].isEmitting, Is.False);
+            }
+        }
+
+        private sealed class SinglePrefabProvider : IVfxPrefabProvider
+        {
+            private readonly GameObject prefab;
+
+            public SinglePrefabProvider(GameObject prefab)
+            {
+                this.prefab = prefab;
+            }
+
+            public bool TryResolvePrefab(in ResolvedVfxPlaybackCommand command, out GameObject resolvedPrefab)
+            {
+                resolvedPrefab = prefab;
+                return resolvedPrefab != null;
+            }
         }
 
         private static void EnsureModelRoot(GameObject prefab)

@@ -10,7 +10,8 @@ namespace Game.Feature.Gameplay.Host
         MonoBehaviour,
         IGravityFieldActivatedVisualTarget,
         IGravityFieldExpiredVisualTarget,
-        IGravityFieldContinuousVisualTarget
+        IGravityFieldContinuousVisualTarget,
+        IGameplayPresentationPausable
     {
         [SerializeField] private GameObject activeVisualRoot;
         [SerializeField] private GameObject chargingVisualRoot;
@@ -40,6 +41,7 @@ namespace Game.Feature.Gameplay.Host
         private float _debugLastProgress01;
         private int _debugLastAreaCellCount;
         private int _debugVisibleAreaSlotCount;
+        private bool _isGameplayPresentationPaused;
 
         public int DebugApplyContinuousStateCount => _debugApplyContinuousStateCount;
 
@@ -67,7 +69,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _debugPlayActivatedCount++;
             SetAnimatorTrigger(activatedTriggerName);
-            PlayParticles(activatedParticles);
+            PlayParticlesRespectingPause(activatedParticles);
             activatedPlayed?.Invoke();
         }
 
@@ -75,7 +77,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _debugPlayExpiredCount++;
             SetAnimatorTrigger(expiredTriggerName);
-            PlayParticles(expiredParticles);
+            PlayParticlesRespectingPause(expiredParticles);
             expiredPlayed?.Invoke();
         }
 
@@ -151,7 +153,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (isActive)
             {
-                PlayParticles(activeAuraParticles);
+                PlayParticlesRespectingPause(activeAuraParticles);
                 return;
             }
 
@@ -169,11 +171,22 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static void PlayParticles(ParticleSystem particles)
+        public void SetPresentationPaused(bool paused)
         {
-            if (particles != null)
+            _isGameplayPresentationPaused = paused;
+        }
+
+        private void PlayParticlesRespectingPause(ParticleSystem particles)
+        {
+            if (particles == null)
             {
-                particles.Play(withChildren: true);
+                return;
+            }
+
+            particles.Play(withChildren: true);
+            if (_isGameplayPresentationPaused)
+            {
+                particles.Pause(withChildren: true);
             }
         }
 

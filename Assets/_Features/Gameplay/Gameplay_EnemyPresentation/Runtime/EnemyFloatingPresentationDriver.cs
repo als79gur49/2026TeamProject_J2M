@@ -17,7 +17,8 @@ namespace Game.Feature.Gameplay.Host
 
         private Vector3 _baseLocalPosition;
         private bool _hasBaseLocalPosition;
-        private bool _isSuspended;
+        private bool _isGameplayPresentationPaused;
+        private bool _isSemanticSuspended;
         private float _elapsedSeconds;
 
         public Transform Target => target;
@@ -32,7 +33,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Vector3 CurrentOffset { get; private set; }
 
-        public bool IsSuspended => _isSuspended;
+        public bool IsSuspended => _isSemanticSuspended || _isGameplayPresentationPaused;
 
         private void Reset()
         {
@@ -72,7 +73,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (_isSuspended)
+            if (IsSuspended)
             {
                 RestoreBaseLocalPosition();
                 return;
@@ -100,9 +101,9 @@ namespace Game.Feature.Gameplay.Host
 
         public void SetSuspended(bool suspended)
         {
-            if (_isSuspended == suspended)
+            if (_isSemanticSuspended == suspended)
             {
-                if (_isSuspended)
+                if (IsSuspended)
                 {
                     RestoreBaseLocalPosition();
                 }
@@ -110,14 +111,34 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            _isSuspended = suspended;
-            if (_isSuspended)
+            _isSemanticSuspended = suspended;
+            if (IsSuspended)
             {
                 RestoreBaseLocalPosition();
                 return;
             }
 
             CaptureBaseLocalPosition();
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            if (_isGameplayPresentationPaused == paused)
+            {
+                return;
+            }
+
+            _isGameplayPresentationPaused = paused;
+            if (_isGameplayPresentationPaused)
+            {
+                RestoreBaseLocalPosition();
+                return;
+            }
+
+            if (!_isSemanticSuspended)
+            {
+                CaptureBaseLocalPosition();
+            }
         }
 
         public void CaptureBaseLocalPosition()

@@ -70,21 +70,60 @@ namespace Game.Feature.Gameplay.Loop
         public bool ConsumesReceiverCooldown { get; }
     }
 
+    public enum PendingCellImpactResolutionKind
+    {
+        // Hit/Miss are valid arrivals. Cancelled/Expired are no-arrival outcomes and must not create impact VFX/SFX.
+        Hit = 0,
+        Miss = 1,
+        CancelledSourceInvalid = 2,
+        // Current due-time target structural policy: inactive target face only.
+        CancelledTargetInvalid = 3,
+        // Current topology policy: LaunchTopology != CurrentTopology expires the already-fired projectile.
+        ExpiredTopologyInvalid = 4,
+    }
+
+    public static class PendingCellImpactResolutionKindExtensions
+    {
+        public static bool IsValidArrival(this PendingCellImpactResolutionKind kind)
+        {
+            return kind is PendingCellImpactResolutionKind.Hit
+                or PendingCellImpactResolutionKind.Miss;
+        }
+
+        public static bool IsActualHit(this PendingCellImpactResolutionKind kind)
+        {
+            return kind == PendingCellImpactResolutionKind.Hit;
+        }
+    }
+
     public readonly struct PendingCellImpactResolutionRecord
     {
         public PendingCellImpactResolutionRecord(
             PendingCellImpact impact,
             bool hit,
             int targetEntityId)
+            : this(
+                impact,
+                hit ? PendingCellImpactResolutionKind.Hit : PendingCellImpactResolutionKind.Miss,
+                targetEntityId)
+        {
+        }
+
+        public PendingCellImpactResolutionRecord(
+            PendingCellImpact impact,
+            PendingCellImpactResolutionKind resultKind,
+            int targetEntityId = 0)
         {
             Impact = impact;
-            Hit = hit;
+            ResultKind = resultKind;
             TargetEntityId = targetEntityId;
         }
 
         public PendingCellImpact Impact { get; }
 
-        public bool Hit { get; }
+        public PendingCellImpactResolutionKind ResultKind { get; }
+
+        public bool Hit => ResultKind.IsActualHit();
 
         public int TargetEntityId { get; }
     }
