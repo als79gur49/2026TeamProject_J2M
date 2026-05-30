@@ -232,15 +232,43 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7748634310960027050, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
       value: 
-      objectReference: {fileID: 2100000, guid: 1a09878082cddb840a48e1393f0dafce, type: 2}
+      objectReference: {fileID: 2100000, guid: 15a72e1f9d025224ea8cc6d2182a5e0d, type: 2}
+    - target: {fileID: -4701080630099933933, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -1394455478313574698, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
       propertyPath: m_Name
       value: Escape_Edit
       objectReference: {fileID: 0}
+    - target: {fileID: 1460785254174114440, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1844003061472186870, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3820208226809619247, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6401335764443020502, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6465659277411725679, guid: 9fae8a57cbb480447976fb3ae70fdee1, type: 3}
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
@@ -274,7 +302,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage:
+  m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
