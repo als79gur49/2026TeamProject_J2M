@@ -58,6 +58,16 @@ namespace Game.Feature.Gameplay.BoardState
             _port.RemovePendingCellImpact(impactId);
         }
 
+        public void SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction)
+        {
+            _port.SetPendingEnemyBlockedReaction(entityId, reaction);
+        }
+
+        public void ClearPendingEnemyBlockedReaction(int entityId)
+        {
+            _port.ClearPendingEnemyBlockedReaction(entityId);
+        }
+
         public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
         {
             _port.SetEnemyPatrolState(entityId, state);

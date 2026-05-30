@@ -17,6 +17,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
         void AddPendingCellImpact(PendingCellImpact impact);
         void RemovePendingCellImpact(int impactId);
+        void SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction);
+        void ClearPendingEnemyBlockedReaction(int entityId);
         void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
         void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);

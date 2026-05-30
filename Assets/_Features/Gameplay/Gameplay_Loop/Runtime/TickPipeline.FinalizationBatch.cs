@@ -69,6 +69,8 @@ namespace Game.Feature.Gameplay.Loop
         RemovePendingCellImpact = 30,
         SetEnemyGravityFieldAuraFieldState = 31,
         RemoveEnemyGravityFieldAuraFieldState = 32,
+        SetPendingEnemyBlockedReaction = 33,
+        ClearPendingEnemyBlockedReaction = 34,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -234,6 +236,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
             EnemyGravityFieldAuraFieldState enemyGravityFieldAuraFieldState = default,
+            PendingEnemyBlockedReaction pendingEnemyBlockedReaction = default,
             GravityFieldPhase gravityFieldPhase = default,
             int gravityFieldTimerTicks = 0,
             UnitKinematicRuntimeState unitKinematicState = default,
@@ -277,6 +280,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
             EnemyGravityFieldAuraFieldState = enemyGravityFieldAuraFieldState;
+            PendingEnemyBlockedReaction = pendingEnemyBlockedReaction;
             GravityFieldPhase = gravityFieldPhase;
             GravityFieldTimerTicks = gravityFieldTimerTicks;
             UnitKinematicState = unitKinematicState;
@@ -353,6 +357,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyGravityFieldAuraFieldState EnemyGravityFieldAuraFieldState { get; }
 
+        public PendingEnemyBlockedReaction PendingEnemyBlockedReaction { get; }
+
         public GravityFieldPhase GravityFieldPhase { get; }
 
         public int GravityFieldTimerTicks { get; }
@@ -408,6 +414,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
                 EnemyGravityFieldAuraFieldState,
+                PendingEnemyBlockedReaction,
                 GravityFieldPhase,
                 GravityFieldTimerTicks,
                 UnitKinematicState,
@@ -701,6 +708,34 @@ namespace Game.Feature.Gameplay.Loop
                 entityId: fieldId);
         }
 
+        public static FinalizationOperation SetPendingEnemyBlockedReaction(
+            long sequence,
+            int entityId,
+            PendingEnemyBlockedReaction reaction,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetPendingEnemyBlockedReaction,
+                metadata,
+                entityId: entityId,
+                pendingEnemyBlockedReaction: reaction);
+        }
+
+        public static FinalizationOperation ClearPendingEnemyBlockedReaction(
+            long sequence,
+            int entityId,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.ClearPendingEnemyBlockedReaction,
+                metadata,
+                entityId: entityId);
+        }
+
         public static FinalizationOperation SetGravityFieldState(
             long sequence,
             int entityId,
@@ -953,6 +988,19 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.RemoveEnemyGravityFieldAuraFieldState(_nextSequence++, fieldId, metadata));
+        }
+
+        public void SetPendingEnemyBlockedReaction(
+            int entityId,
+            PendingEnemyBlockedReaction reaction,
+            FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetPendingEnemyBlockedReaction(_nextSequence++, entityId, reaction, metadata));
+        }
+
+        public void ClearPendingEnemyBlockedReaction(int entityId, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.ClearPendingEnemyBlockedReaction(_nextSequence++, entityId, metadata));
         }
 
         public void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks, FinalizationOperationMetadata metadata = default)
@@ -1208,6 +1256,16 @@ namespace Game.Feature.Gameplay.Loop
                         writeContext.RemoveEnemyGravityFieldAuraFieldState(operation.EntityId);
                         break;
 
+                    case FinalizationOperationKind.SetPendingEnemyBlockedReaction:
+                        ((IPreMovementStateCommitContext)writeContext).SetPendingEnemyBlockedReaction(
+                            operation.EntityId,
+                            operation.PendingEnemyBlockedReaction);
+                        break;
+
+                    case FinalizationOperationKind.ClearPendingEnemyBlockedReaction:
+                        ((IPreMovementStateCommitContext)writeContext).ClearPendingEnemyBlockedReaction(operation.EntityId);
+                        break;
+
                     case FinalizationOperationKind.SetGravityFieldState:
                         ((IPreMovementStateCommitContext)writeContext).SetGravityFieldState(
                             operation.EntityId,
@@ -1437,6 +1495,16 @@ namespace Game.Feature.Gameplay.Loop
         public void RemoveEnemyGravityFieldAuraFieldState(int fieldId)
         {
             _batch.RemoveEnemyGravityFieldAuraFieldState(fieldId);
+        }
+
+        public void SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction)
+        {
+            _batch.SetPendingEnemyBlockedReaction(entityId, reaction);
+        }
+
+        public void ClearPendingEnemyBlockedReaction(int entityId)
+        {
+            _batch.ClearPendingEnemyBlockedReaction(entityId);
         }
 
         public void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state)

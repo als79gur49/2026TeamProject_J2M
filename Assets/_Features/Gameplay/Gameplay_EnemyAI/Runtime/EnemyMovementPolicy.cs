@@ -189,7 +189,8 @@ namespace Game.Feature.Gameplay.Entities
             in EnemyAiCommonSettings commonSettings,
             in ChaseSettings settings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            out RawMovementIntent intent);
+            out RawMovementIntent intent,
+            Direction? excludedDirection = null);
     }
 
     public sealed class ForwardPatrolStrategy : IPatrolStrategy
@@ -387,7 +388,8 @@ namespace Game.Feature.Gameplay.Entities
             in EnemyAiCommonSettings commonSettings,
             in ChaseSettings settings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            out RawMovementIntent intent)
+            out RawMovementIntent intent,
+            Direction? excludedDirection = null)
         {
             if (snapshot == null)
             {
@@ -396,7 +398,7 @@ namespace Game.Feature.Gameplay.Entities
 
             intent = default;
 
-            if (!TryChooseChaseStep(snapshot, source, target, settings, tileFeatureDefinitions, out var delta))
+            if (!TryChooseChaseStep(snapshot, source, target, settings, tileFeatureDefinitions, excludedDirection, out var delta))
             {
                 return false;
             }
@@ -416,6 +418,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState target,
             in ChaseSettings settings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            Direction? excludedDirection,
             out Vector2Int delta)
         {
             delta = Vector2Int.zero;
@@ -451,6 +454,7 @@ namespace Game.Feature.Gameplay.Entities
                 settings.TrySecondaryAxisWhenBlocked,
                 target.position,
                 tileFeatureDefinitions,
+                excludedDirection,
                 out delta);
         }
 
@@ -463,6 +467,7 @@ namespace Game.Feature.Gameplay.Entities
             bool includeSecondaryAxis,
             SurfaceCell targetCell,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            Direction? excludedDirection,
             out Vector2Int delta)
         {
             delta = Vector2Int.zero;
@@ -472,10 +477,10 @@ namespace Game.Feature.Gameplay.Entities
             var primaryAxis = tryHorizontalFirst ? ChaseCandidateAxis.Horizontal : ChaseCandidateAxis.Vertical;
             var secondaryAxis = tryHorizontalFirst ? ChaseCandidateAxis.Vertical : ChaseCandidateAxis.Horizontal;
             var legalCandidates = new List<ChaseStepCandidate>(2);
-            AddLegalCandidate(snapshot, source, primary, primaryAxis, tileFeatureDefinitions, legalCandidates);
+            AddLegalCandidate(snapshot, source, primary, primaryAxis, tileFeatureDefinitions, excludedDirection, legalCandidates);
             if (includeSecondaryAxis)
             {
-                AddLegalCandidate(snapshot, source, secondary, secondaryAxis, tileFeatureDefinitions, legalCandidates);
+                AddLegalCandidate(snapshot, source, secondary, secondaryAxis, tileFeatureDefinitions, excludedDirection, legalCandidates);
             }
 
             if (legalCandidates.Count == 0)
@@ -507,6 +512,7 @@ namespace Game.Feature.Gameplay.Entities
                     targetCell,
                     candidate.Axis,
                     tileFeatureDefinitions,
+                    excludedDirection,
                     out delta);
             }
 
@@ -519,9 +525,11 @@ namespace Game.Feature.Gameplay.Entities
             Vector2Int? candidate,
             ChaseCandidateAxis axis,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            Direction? excludedDirection,
             List<ChaseStepCandidate> legalCandidates)
         {
-            if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidate, tileFeatureDefinitions, out var delta))
+            if (EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidate, tileFeatureDefinitions, out var delta) &&
+                !IsExcludedDirection(delta, excludedDirection))
             {
                 legalCandidates.Add(new ChaseStepCandidate(delta, axis));
             }
@@ -533,6 +541,7 @@ namespace Game.Feature.Gameplay.Entities
             SurfaceCell targetCell,
             ChaseCandidateAxis blockedAxis,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            Direction? excludedDirection,
             out Vector2Int delta)
         {
             delta = Vector2Int.zero;
@@ -545,6 +554,7 @@ namespace Game.Feature.Gameplay.Entities
                 var direction = LocalAvoidanceDirectionOrder[i];
                 if (!IsPerpendicularAvoidanceDirection(blockedAxis, direction) ||
                     !EnemyMovementStrategyShared.TryResolveDelta(direction, out var candidateDelta) ||
+                    IsExcludedDirection(candidateDelta, excludedDirection) ||
                     !EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, candidateDelta, tileFeatureDefinitions) ||
                     EvaluateCandidateRisk(snapshot, tileFeatureDefinitions, source, candidateDelta) != TileApproachRisk.Neutral)
                 {
@@ -567,6 +577,13 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return hasSelection;
+        }
+
+        private static bool IsExcludedDirection(Vector2Int delta, Direction? excludedDirection)
+        {
+            return excludedDirection.HasValue &&
+                   EnemyMovementStrategyShared.TryResolveDelta(excludedDirection.Value, out var excludedDelta) &&
+                   delta == excludedDelta;
         }
 
         private static bool IsPerpendicularAvoidanceDirection(
