@@ -72,6 +72,8 @@ namespace Game.Feature.Gameplay.Entities
         private readonly bool _usesChargeStateResolver;
         private readonly List<EntityState> _sharedCellUnits = new();
         private IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions = Array.Empty<TileFeatureRuntimeDefinition>();
+        private int _pendingChaseBlockedReactionDecisionTick = -1;
+        private Direction _pendingChaseBlockedDirectionToAvoid = Direction.None;
 
         public EnemyLogic(int entityId)
             : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
@@ -312,6 +314,13 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            var consumedPendingChaseBlockedReaction = TryPreparePendingChaseBlockedReaction(
+                snapshot,
+                source,
+                input.TickIndex,
+                writeContext,
+                updates);
+
             if (source.enemyAttackCooldownTicks > 0)
             {
                 var nextAttackCooldown = source.enemyAttackCooldownTicks - 1;
@@ -325,10 +334,18 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.enemyLocomotionCooldownTicks > 0)
             {
-                var nextCooldown = source.enemyLocomotionCooldownTicks - 1;
-                writeContext.SetEnemyLocomotionCooldown(_entityId, nextCooldown);
-                updates.Add(
-                    $"EnemyLocomotionCooldownUpdated|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To={nextCooldown}");
+                if (consumedPendingChaseBlockedReaction)
+                {
+                    updates.Add(
+                        $"EnemyLocomotionCooldownClearedByBlockedReaction|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To=0");
+                }
+                else
+                {
+                    var nextCooldown = source.enemyLocomotionCooldownTicks - 1;
+                    writeContext.SetEnemyLocomotionCooldown(_entityId, nextCooldown);
+                    updates.Add(
+                        $"EnemyLocomotionCooldownUpdated|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To={nextCooldown}");
+                }
             }
 
             if (suppressMovementThisTick)
@@ -467,6 +484,94 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source);
+        }
+
+        private bool TryPreparePendingChaseBlockedReaction(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (!snapshot.TryGetPendingEnemyBlockedReaction(_entityId, out var reaction))
+            {
+                return false;
+            }
+
+            if (reaction.IsExpiredBeforeDecision(tickIndex))
+            {
+                writeContext.ClearPendingEnemyBlockedReaction(_entityId);
+                updates.Add(
+                    $"PendingEnemyBlockedReactionCleared|E={_entityId}|Reason=Expired|Created={reaction.CreatedTick}|Expire={reaction.ExpireTick}|Tick={tickIndex}");
+                return false;
+            }
+
+            if (reaction.Kind != EnemyBlockedReactionKind.KinematicContinuationTargetBlocked ||
+                reaction.EnemyEntityId != _entityId ||
+                reaction.ModeAtBlock != EnemyAiMode.Chase ||
+                source.aiMode != EnemyAiMode.Chase)
+            {
+                writeContext.ClearPendingEnemyBlockedReaction(_entityId);
+                updates.Add(
+                    $"PendingEnemyBlockedReactionCleared|E={_entityId}|Reason=ModeMismatch|CurrentMode={source.aiMode}|BlockMode={reaction.ModeAtBlock}");
+                return false;
+            }
+
+            if (source.position != reaction.SourceCell)
+            {
+                writeContext.ClearPendingEnemyBlockedReaction(_entityId);
+                updates.Add(
+                    $"PendingEnemyBlockedReactionCleared|E={_entityId}|Reason=SourceMismatch|Current={source.position}|ReactionSource={reaction.SourceCell}");
+                return false;
+            }
+
+            if (!DirectionUtility.IsCardinal(reaction.BlockedDirection) ||
+                !IsSettledForBlockedReactionDecision(snapshot, source))
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyActionState(_entityId, out var actionState) &&
+                actionState.IsActive)
+            {
+                writeContext.ClearPendingEnemyBlockedReaction(_entityId);
+                updates.Add(
+                    $"PendingEnemyBlockedReactionCleared|E={_entityId}|Reason=ActionActive|Kind={actionState.kind}");
+                return false;
+            }
+
+            if (ShouldSuppressAutonomousMovementAndFacing(snapshot, source, tickIndex))
+            {
+                return false;
+            }
+
+            _pendingChaseBlockedReactionDecisionTick = tickIndex;
+            _pendingChaseBlockedDirectionToAvoid = reaction.BlockedDirection;
+            writeContext.SetEnemyLocomotionCooldown(_entityId, 0);
+            writeContext.ClearPendingEnemyBlockedReaction(_entityId);
+            updates.Add(
+                $"PendingEnemyBlockedReactionConsumed|E={_entityId}|Direction={reaction.BlockedDirection}|Source={reaction.SourceCell}|BlockedTarget={reaction.BlockedTargetCell}|Tick={tickIndex}");
+            return true;
+        }
+
+        private static bool IsSettledForBlockedReactionDecision(WorldSnapshot snapshot, in EntityState source)
+        {
+            return !snapshot.TryGetUnitKinematicPose(source.entityId, out var pose) ||
+                   !pose.HasAuthoritativeState ||
+                   pose.IsSettledAtAnchor;
+        }
+
+        private bool TryGetChaseBlockedDirectionToAvoid(int tickIndex, out Direction direction)
+        {
+            if (_pendingChaseBlockedReactionDecisionTick == tickIndex &&
+                DirectionUtility.IsCardinal(_pendingChaseBlockedDirectionToAvoid))
+            {
+                direction = _pendingChaseBlockedDirectionToAvoid;
+                return true;
+            }
+
+            direction = Direction.None;
+            return false;
         }
 
         private bool ShouldSuppressMovementForJump(WorldSnapshot snapshot, int tickIndex)
@@ -2453,6 +2558,9 @@ namespace Game.Feature.Gameplay.Entities
                     return default;
 
                 case EnemyAiMode.Chase:
+                    var excludedChaseDirection = TryGetChaseBlockedDirectionToAvoid(tickIndex, out var blockedDirectionToAvoid)
+                        ? blockedDirectionToAvoid
+                        : (Direction?)null;
                     if (!_detectionStrategy.TryFindTarget(
                             snapshot,
                             source,
@@ -2487,7 +2595,8 @@ namespace Game.Feature.Gameplay.Entities
                             _commonSettings,
                             _chaseSettings,
                             _tileFeatureDefinitions,
-                            out var chaseIntent))
+                            out var chaseIntent,
+                            excludedChaseDirection))
                     {
                         return CreateGroundLocomotionResolution(snapshot, source, chaseIntent);
                     }
@@ -2496,6 +2605,7 @@ namespace Game.Feature.Gameplay.Entities
                             snapshot,
                             source,
                             chaseTarget,
+                            excludedChaseDirection,
                             out var windupApproachIntent))
                     {
                         return CreateGroundLocomotionResolution(snapshot, source, windupApproachIntent);
@@ -2532,6 +2642,7 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
+            Direction? excludedDirection,
             out RawMovementIntent intent)
         {
             intent = default;
@@ -2557,7 +2668,8 @@ namespace Game.Feature.Gameplay.Entities
                 _commonSettings,
                 approachSettings,
                 _tileFeatureDefinitions,
-                out intent);
+                out intent,
+                excludedDirection);
         }
 
         private GroundLocomotionResolution CreateGroundLocomotionResolution(

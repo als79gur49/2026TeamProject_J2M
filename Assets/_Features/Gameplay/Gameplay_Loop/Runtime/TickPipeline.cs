@@ -1609,6 +1609,7 @@ namespace Game.Feature.Gameplay.Loop
             var cleanupPhaseResult = _cleanupProcessor.Process(snapshot, writeContext, tickIndex);
             cleanupPhaseResult = ExpireBoxInteractionLocks(snapshot, writeContext, tickIndex, cleanupPhaseResult);
             cleanupPhaseResult = ExpireEnemyGravityFieldAuraFields(snapshot, writeContext, tickIndex, cleanupPhaseResult);
+            cleanupPhaseResult = ExpirePendingEnemyBlockedReactions(snapshot, writeContext, tickIndex, cleanupPhaseResult);
             phaseTrace.Add("Cleanup:Exit");
             completedPhases.Add(TickPhase.Cleanup);
 
@@ -1640,6 +1641,51 @@ namespace Game.Feature.Gameplay.Loop
                 writeContext.RemoveBoxInteractionLockState(entry.EntityId);
                 expiredEventLogEntries.Add(
                     $"BoxInteractionLockExpired|Box={entry.EntityId}|Expires={entry.State.ExpiresTickExclusive}|Tick={tickIndex}");
+            }
+
+            if (expiredEventLogEntries.Count == 0)
+            {
+                return cleanupPhaseResult;
+            }
+
+            var eventLogEntries = new List<string>(cleanupPhaseResult.EventLogEntries.Count + expiredEventLogEntries.Count);
+            AddRange(eventLogEntries, cleanupPhaseResult.EventLogEntries);
+            AddRange(eventLogEntries, expiredEventLogEntries);
+
+            return new CleanupPhaseResult(
+                cleanupPhaseResult.RemovedEntityIds,
+                cleanupPhaseResult.TimerChanges,
+                cleanupPhaseResult.StateTransitions,
+                eventLogEntries,
+                cleanupPhaseResult.RemovedUnitKinematicPoses,
+                cleanupPhaseResult.RemovedUnitContinuousLocomotionPoses);
+        }
+
+        private static CleanupPhaseResult ExpirePendingEnemyBlockedReactions(
+            WorldSnapshot snapshot,
+            ICleanupCommitContext writeContext,
+            int tickIndex,
+            CleanupPhaseResult cleanupPhaseResult)
+        {
+            var expiredEventLogEntries = new List<string>();
+            var removedEntityIdsThisTick = cleanupPhaseResult.RemovedEntityIds.Count > 0
+                ? new HashSet<int>(cleanupPhaseResult.RemovedEntityIds)
+                : null;
+            var reactionEntries = new List<PendingEnemyBlockedReactionSnapshotEntry>();
+            snapshot.EnumeratePendingEnemyBlockedReactionsOrdered(reactionEntries);
+
+            for (var i = 0; i < reactionEntries.Count; i++)
+            {
+                var entry = reactionEntries[i];
+                if ((removedEntityIdsThisTick != null && removedEntityIdsThisTick.Contains(entry.EntityId)) ||
+                    !entry.Reaction.ShouldCleanupAtEndOfTick(tickIndex))
+                {
+                    continue;
+                }
+
+                writeContext.ClearPendingEnemyBlockedReaction(entry.EntityId);
+                expiredEventLogEntries.Add(
+                    $"PendingEnemyBlockedReactionExpired|E={entry.EntityId}|Created={entry.Reaction.CreatedTick}|Expire={entry.Reaction.ExpireTick}|Tick={tickIndex}");
             }
 
             if (expiredEventLogEntries.Count == 0)
@@ -4187,10 +4233,35 @@ namespace Game.Feature.Gameplay.Loop
                         pose,
                         outcome.ResolvedAnchorCell,
                         anchorCommitLegality));
+                    var pendingBlockedReactionWrites =
+                        TryCreatePendingEnemyBlockedReactionWrite(
+                            snapshot,
+                            entity,
+                            pose,
+                            outcome.ResolvedAnchorCell,
+                            facing,
+                            anchorCommitLegality,
+                            tickIndex,
+                            out var pendingBlockedReactionWrite)
+                            ? new[] { pendingBlockedReactionWrite }
+                            : null;
                     outcome = CreateBlockedKinematicMotionOutcome(
                         entityId,
                         pose,
                         KinematicSweepRejectionReason.TraversalBlocked);
+                    payload = CreateKinematicMovementPayload(
+                        _idAllocator.AllocateGroupId(),
+                        _idAllocator.AllocateIntentId(),
+                        entityId,
+                        priority: 100,
+                        outcome: outcome,
+                        facing: facing,
+                        writeFacing: true,
+                        executionBoundaryKind: MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
+                        boundaryReason: ResolveEnemyKinematicContinuationBoundaryReason(continuationGlideKind),
+                        pendingEnemyBlockedReactionWrites: pendingBlockedReactionWrites);
+
+                    return true;
                 }
             }
 
@@ -4389,7 +4460,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
-                jumpState.IsActive)
+                BlocksOrdinaryEnemyKinematicLocomotionForJump(jumpState.phase))
             {
                 return false;
             }
@@ -4492,6 +4563,96 @@ namespace Game.Feature.Gameplay.Loop
                 return true;
             }
 
+            return false;
+        }
+
+        private static bool TryCreatePendingEnemyBlockedReactionWrite(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            UnitKinematicPose pose,
+            SurfaceCell blockedTargetCell,
+            Direction blockedDirection,
+            LegalityResult anchorCommitLegality,
+            int tickIndex,
+            out PendingEnemyBlockedReactionWritePayload write)
+        {
+            write = default;
+            if (snapshot == null ||
+                pose.Mode != MotionMode.Voluntary ||
+                entity.aiMode != EnemyAiMode.Chase ||
+                !DirectionUtility.IsCardinal(blockedDirection) ||
+                !IsEnemyLogicParticipant(entity) ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity))
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
+                jumpState.IsActive)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyGlideState(entity.entityId, out var glideState) &&
+                glideState.HasAuthoritativeRecord)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetEnemyChargeState(entity.entityId, out var chargeState) &&
+                chargeState.IsActive)
+            {
+                return false;
+            }
+
+            if (snapshot.TryGetPhasedState(entity.entityId, out var phasedState) &&
+                phasedState.IsActive)
+            {
+                return false;
+            }
+
+            if (!TryFindSolidBoxOrWallBlocker(anchorCommitLegality, out var blocker))
+            {
+                return false;
+            }
+
+            var reaction = new PendingEnemyBlockedReaction(
+                entity.entityId,
+                EnemyBlockedReactionKind.KinematicContinuationTargetBlocked,
+                entity.aiMode,
+                pose.AnchorCell,
+                blockedTargetCell,
+                blockedDirection,
+                blocker.Kind,
+                blocker.SolidKind,
+                blocker.EntityType,
+                blocker.EntityId > 0 ? blocker.EntityId : (int?)null,
+                tickIndex,
+                tickIndex + 1);
+            write = new PendingEnemyBlockedReactionWritePayload(entity.entityId, reaction);
+            return true;
+        }
+
+        private static bool TryFindSolidBoxOrWallBlocker(
+            LegalityResult legality,
+            out LegalityBlocker blocker)
+        {
+            var blockers = legality.Blockers;
+            for (var i = 0; i < blockers.Count; i++)
+            {
+                var candidate = blockers[i];
+                if (candidate.Kind != LegalityBlockerKind.Solid ||
+                    (candidate.SolidKind != SolidKind.Box &&
+                     candidate.SolidKind != SolidKind.Wall))
+                {
+                    continue;
+                }
+
+                blocker = candidate;
+                return true;
+            }
+
+            blocker = default;
             return false;
         }
 
@@ -5546,7 +5707,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<ExecutionLockWritePayload> executionLockWrites = null,
             IReadOnlyList<PlayerControlWritePayload> playerControlWrites = null,
             MovementExecutionBoundaryKind executionBoundaryKind = MovementExecutionBoundaryKind.UnitOrdinaryLocomotion,
-            string boundaryReason = "KinematicUnitLocomotion")
+            string boundaryReason = "KinematicUnitLocomotion",
+            IReadOnlyList<PendingEnemyBlockedReactionWritePayload> pendingEnemyBlockedReactionWrites = null)
         {
             var destinationCell = outcome.AnchorChanged
                 ? outcome.ResolvedAnchorCell
@@ -5589,7 +5751,8 @@ namespace Game.Feature.Gameplay.Loop
                 deferredImpactPayload: default,
                 kinematicMotionOutcomes: new[] { outcome },
                 executionBoundaryKind: executionBoundaryKind,
-                boundaryReason: boundaryReason);
+                boundaryReason: boundaryReason,
+                pendingEnemyBlockedReactionWrites: pendingEnemyBlockedReactionWrites);
         }
 
         private static MovementActionPlanPayload CreatePlayerControlStateOnlyMovementPayload(
@@ -5675,7 +5838,8 @@ namespace Game.Feature.Gameplay.Loop
                 payload.DeferredImpactPayload,
                 payload.KinematicMotionOutcomes,
                 payload.ExecutionBoundaryKind,
-                payload.BoundaryReason);
+                payload.BoundaryReason,
+                payload.PendingEnemyBlockedReactionWrites);
         }
 
         private static void MergeMovementActionPlanPayloads(
@@ -8873,6 +9037,17 @@ namespace Game.Feature.Gameplay.Loop
                         kinematicMetadata);
                     commitEvents.Add(
                         $"KinematicPoseCommitted|G={actionPlanId}|I={payload.IntentId}|E={kinematicOutcome.EntityId}|Anchor={FormatCell(kinematicOutcome.ResolvedAnchorCell)}|Offset={kinematicOutcome.ResolvedLocalOffset}|Mode={kinematicOutcome.ResolvedState.mode}|Blocked={(kinematicOutcome.Blocked ? 1 : 0)}|RejectedBy={kinematicOutcome.RejectedBy}");
+                }
+
+                for (var blockedReactionIndex = 0; blockedReactionIndex < payload.PendingEnemyBlockedReactionWrites.Count; blockedReactionIndex++)
+                {
+                    var reactionWrite = payload.PendingEnemyBlockedReactionWrites[blockedReactionIndex];
+                    batch.SetPendingEnemyBlockedReaction(
+                        reactionWrite.EntityId,
+                        reactionWrite.Reaction,
+                        CreateMovementMetadata(payload, baseResolution, blockedReactionIndex));
+                    commitEvents.Add(
+                        $"PendingEnemyBlockedReactionSet|G={actionPlanId}|I={payload.IntentId}|E={reactionWrite.EntityId}|Source={FormatCell(reactionWrite.Reaction.SourceCell)}|BlockedTarget={FormatCell(reactionWrite.Reaction.BlockedTargetCell)}|Direction={reactionWrite.Reaction.BlockedDirection}|BlockerKind={reactionWrite.Reaction.BlockerKind}|SolidKind={reactionWrite.Reaction.BlockerSolidKind}|BlockerEntityType={reactionWrite.Reaction.BlockerEntityType}|BlockerEntityId={reactionWrite.Reaction.BlockerEntityId.GetValueOrDefault(0)}|Created={reactionWrite.Reaction.CreatedTick}|Expire={reactionWrite.Reaction.ExpireTick}");
                 }
 
                 if (hasDestroySelfDisposition)
