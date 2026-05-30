@@ -172,6 +172,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyWallFollow_SunWheelProfile_InactiveBarricadeDoesNotBlockWallFollowDestination()
+        {
+            var barricade = CreateTileFeature(106, WallFollowDestination, TileFeatureKind.Barricade);
+            var definitions = CreateInactiveDefinitions(barricade);
+            var worldState = CreateWallFollowWorld(initialTileFeatures: new[] { barricade });
+
+            var tick = RunUntilEntityAt(
+                CreatePipeline(worldState, LoadSunWheelProfile(), definitions),
+                worldState,
+                startTick: 1,
+                WallFollowDestination);
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(WallFollowDestination));
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(WallFollowDestination, out _), Is.False);
+            Assert.That(
+                tick.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("TileFeature", StringComparison.Ordinal)),
+                Is.False);
+            AssertNoGhostOrUnitSolidOverlap(worldState, WallFollowSource, WallFollowDestination);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyWallFollow_SunWheelProfile_MoonBlockGeneratorFeatureAloneDoesNotBlock_GeneratedSolidCandidateMayFallback_CurrentPolicy()
         {
             var generator = CreateTileFeature(101, WallFollowDestination, TileFeatureKind.MoonBlockGenerator, boundEntityId: 50);
@@ -411,10 +433,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TileFeatureRuntimeDefinition[] CreateActiveDefinitions(params TileFeatureState[] tileFeatures)
         {
+            return CreateDefinitions(TileFeatureActivationRule.Always, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateInactiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.InactiveFaceOnly, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateDefinitions(
+            TileFeatureActivationRule activationRule,
+            params TileFeatureState[] tileFeatures)
+        {
             return tileFeatures
                 .Select(tileFeature => new TileFeatureRuntimeDefinition(
                     tileFeature.TileId,
-                    TileFeatureActivationRule.Always,
+                    activationRule,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
                     boundEntityId: tileFeature.Charges,

@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests
             using var scope = new TestAssetScope();
             var map = scope.CreateMap();
             var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
-            SetEntries(map, (PlayerLocomotionAudioCue.WalkStep, scope.CreateBinding(definition)));
+            SetEntries(map, CreateRequiredEntries(scope, definition));
             var playbackPort = new FakeGameplayAudioPlaybackPort();
             var controller = new PlayerLocomotionAudioPresentationController(new GameplayPresentationStateStore());
             controller.AttachRuntime(playbackPort, map);
@@ -71,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests
             using var scope = new TestAssetScope();
             var map = scope.CreateMap();
             var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
-            SetEntries(map, (PlayerLocomotionAudioCue.WalkStep, scope.CreateBinding(definition)));
+            SetEntries(map, CreateRequiredEntries(scope, definition));
             var playbackPort = new FakeGameplayAudioPlaybackPort();
             var controller = new PlayerLocomotionAudioPresentationController(new GameplayPresentationStateStore());
             controller.AttachRuntime(playbackPort, map);
@@ -118,7 +118,7 @@ namespace Game.Feature.Gameplay.Tests
             using var scope = new TestAssetScope();
             var map = scope.CreateMap();
             var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
-            SetEntries(map, (PlayerLocomotionAudioCue.WalkStep, scope.CreateBinding(definition)));
+            SetEntries(map, CreateRequiredEntries(scope, definition));
             var playbackPort = new FakeGameplayAudioPlaybackPort();
             var controller = new PlayerLocomotionAudioPresentationController(new GameplayPresentationStateStore());
             controller.AttachRuntime(playbackPort, map);
@@ -217,6 +217,271 @@ namespace Game.Feature.Gameplay.Tests
             Assert.That(exception.Message, Does.Contain("only allows one-shot definitions"));
         }
 
+        [TestCase(FaceId.Floor, FaceId.Back)]
+        [TestCase(FaceId.Front, FaceId.Floor)]
+        [TestCase(FaceId.Ceiling, FaceId.Front)]
+        [TestCase(FaceId.Back, FaceId.Ceiling)]
+        public void Planner_BuildsTopologyTransitionBlockedCue_ForVisualBottomToBackBlockedSignal(
+            FaceId sourceBottomFace,
+            FaceId visualBackFace)
+        {
+            var planner = new PlayerLocomotionAudioRequestPlanner();
+            var signal = CreateBlockedSignal(
+                originFace: sourceBottomFace,
+                candidateFace: visualBackFace,
+                sourceBottomFace: sourceBottomFace,
+                requiredBottomFace: visualBackFace);
+
+            var requests = planner.BuildRequests(
+                CreateTickResult(
+                    1,
+                    playerTopologyTransitionBlockedSignals: new[] { signal }));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+            Assert.That(requests[0].Cue, Is.EqualTo(PlayerLocomotionAudioCue.TopologyTransitionBlocked));
+            Assert.That(requests[0].OwnerEntityId, Is.EqualTo(signal.EntityId));
+            Assert.That(requests[0].DelaySeconds, Is.Zero);
+            Assert.That(requests[0].Context.DebugTag, Is.EqualTo("TopologyTransitionBlocked"));
+        }
+
+        [Test]
+        public void Planner_DoesNotBuildTopologyTransitionBlockedCue_ForBottomToFrontBlockedSignal()
+        {
+            var planner = new PlayerLocomotionAudioRequestPlanner();
+            var signal = CreateBlockedSignal(
+                direction: Direction.Up,
+                candidateFace: FaceId.Front,
+                requiredBottomFace: FaceId.Front,
+                rotationKind: CubeRotationKind.Forward);
+
+            var requests = planner.BuildRequests(
+                CreateTickResult(
+                    1,
+                    playerTopologyTransitionBlockedSignals: new[] { signal }));
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        public void Planner_DoesNotBuildTopologyTransitionBlockedCue_ForBackwardRotationToNonVisualBackDestination()
+        {
+            var planner = new PlayerLocomotionAudioRequestPlanner();
+            var signal = CreateBlockedSignal(
+                candidateFace: FaceId.Ceiling,
+                sourceBottomFace: FaceId.Front,
+                requiredBottomFace: FaceId.Ceiling);
+
+            var requests = planner.BuildRequests(
+                CreateTickResult(
+                    1,
+                    playerTopologyTransitionBlockedSignals: new[] { signal }));
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        public void Planner_DoesNotBuildTopologyTransitionBlockedCue_ForBoardEdgeOnlySignal()
+        {
+            var planner = new PlayerLocomotionAudioRequestPlanner();
+            var signal = CreateBlockedSignal(primaryBlockerKind: TickTraversalBlockerKind.BoardEdge);
+
+            var requests = planner.BuildRequests(
+                CreateTickResult(
+                    1,
+                    playerTopologyTransitionBlockedSignals: new[] { signal }));
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        public void Planner_DedupesTopologyTransitionBlockedSignals_InSameTick()
+        {
+            var planner = new PlayerLocomotionAudioRequestPlanner();
+            var signal = CreateBlockedSignal();
+
+            var requests = planner.BuildRequests(
+                CreateTickResult(
+                    1,
+                    playerTopologyTransitionBlockedSignals: new[] { signal, signal }));
+
+            Assert.That(requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void Planner_DedupeDoesNotPersistAcrossBuildRequestsCalls()
+        {
+            var planner = new PlayerLocomotionAudioRequestPlanner();
+            var signal = CreateBlockedSignal();
+
+            var firstRequests = planner.BuildRequests(
+                CreateTickResult(
+                    1,
+                    playerTopologyTransitionBlockedSignals: new[] { signal }));
+            var secondRequests = planner.BuildRequests(
+                CreateTickResult(
+                    2,
+                    playerTopologyTransitionBlockedSignals: new[] { signal }));
+
+            Assert.That(firstRequests, Has.Count.EqualTo(1));
+            Assert.That(secondRequests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void Planner_DoesNotBuildTopologyTransitionBlockedCue_WhenNoBlockedSignalExists()
+        {
+            var planner = new PlayerLocomotionAudioRequestPlanner();
+
+            var requests = planner.BuildRequests(CreateTickResult(1));
+
+            Assert.That(requests, Is.Empty);
+        }
+
+        [Test]
+        public void Controller_TopologyTransitionBlockedCue_UsesCooldown_ForHeldInputSpam()
+        {
+            using var scope = new TestAssetScope();
+            var clock = new FakeClock();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(map, CreateRequiredEntries(scope, definition));
+            var playbackPort = new FakeGameplayAudioPlaybackPort();
+            var controller = new PlayerLocomotionAudioPresentationController(
+                new GameplayPresentationStateStore(),
+                clock.Now);
+            controller.AttachRuntime(playbackPort, map);
+            var signal = CreateBlockedSignal();
+
+            controller.RefreshSignals(
+                CreateTickResult(1, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            controller.RefreshSignals(
+                CreateTickResult(2, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            controller.RefreshSignals(
+                CreateTickResult(3, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.Play2DCalls, Is.EqualTo(1));
+            Assert.That(playbackPort.LastDefinition, Is.SameAs(definition));
+            Assert.That(playbackPort.LastContext.DebugTag, Is.EqualTo("TopologyTransitionBlocked"));
+        }
+
+        [Test]
+        public void Controller_TopologyTransitionBlockedCooldown_Expires()
+        {
+            using var scope = new TestAssetScope();
+            var clock = new FakeClock();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(map, CreateRequiredEntries(scope, definition));
+            var playbackPort = new FakeGameplayAudioPlaybackPort();
+            var controller = new PlayerLocomotionAudioPresentationController(
+                new GameplayPresentationStateStore(),
+                clock.Now);
+            controller.AttachRuntime(playbackPort, map);
+            var signal = CreateBlockedSignal();
+
+            controller.RefreshSignals(
+                CreateTickResult(1, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            clock.Advance(0.15d);
+            controller.RefreshSignals(
+                CreateTickResult(2, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            clock.Advance(0.151d);
+            controller.RefreshSignals(
+                CreateTickResult(3, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.Play2DCalls, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Controller_TopologyTransitionBlockedCooldown_ClearOnResetAllowsReplay()
+        {
+            using var scope = new TestAssetScope();
+            var clock = new FakeClock();
+            var map = scope.CreateMap();
+            var definition = scope.CreateDefinition(AudioCategory.Sfx, loop: false);
+            SetEntries(map, CreateRequiredEntries(scope, definition));
+            var playbackPort = new FakeGameplayAudioPlaybackPort();
+            var controller = new PlayerLocomotionAudioPresentationController(
+                new GameplayPresentationStateStore(),
+                clock.Now);
+            controller.AttachRuntime(playbackPort, map);
+            var signal = CreateBlockedSignal();
+
+            controller.RefreshSignals(
+                CreateTickResult(1, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+            controller.ResetSession();
+            controller.RefreshSignals(
+                CreateTickResult(2, playerTopologyTransitionBlockedSignals: new[] { signal }),
+                stepIntervalSeconds: 0.2f);
+            controller.PlayPlannedAudio();
+
+            Assert.That(playbackPort.Play2DCalls, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Map_RejectsMissingTopologyTransitionBlockedBinding_WhenRequired()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            SetEntries(
+                map,
+                (PlayerLocomotionAudioCue.WalkStep,
+                    scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))));
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => map.ValidateRequiredCuesOrThrow(PlayerLocomotionAudioCueCatalog.RequiredOneShotV1));
+
+            Assert.That(exception.Message, Does.Contain("TopologyTransitionBlocked"));
+        }
+
+        [Test]
+        public void Map_RejectsLoopingTopologyTransitionBlockedDefinition()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            SetEntries(
+                map,
+                (PlayerLocomotionAudioCue.WalkStep,
+                    scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
+                (PlayerLocomotionAudioCue.TopologyTransitionBlocked,
+                    scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: true))));
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => map.ValidateRequiredCuesOrThrow(PlayerLocomotionAudioCueCatalog.RequiredOneShotV1));
+
+            Assert.That(exception.Message, Does.Contain("only allows one-shot definitions"));
+        }
+
+        [Test]
+        public void Map_RejectsUiCategoryTopologyTransitionBlockedDefinition()
+        {
+            using var scope = new TestAssetScope();
+            var map = scope.CreateMap();
+            SetEntries(
+                map,
+                (PlayerLocomotionAudioCue.WalkStep,
+                    scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))),
+                (PlayerLocomotionAudioCue.TopologyTransitionBlocked,
+                    scope.CreateBinding(scope.CreateDefinition(AudioCategory.Ui, loop: false))));
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => map.ValidateRequiredCuesOrThrow(PlayerLocomotionAudioCueCatalog.RequiredOneShotV1));
+
+            Assert.That(exception.Message, Does.Contain("category"));
+        }
+
         private static TickPlayerLocomotionPresentationSignal CreateWalkLoopSignal(int entityId)
         {
             return new TickPlayerLocomotionPresentationSignal(
@@ -251,6 +516,7 @@ namespace Game.Feature.Gameplay.Tests
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickPlayerDeathPresentationSignal> playerDeathSignals = null,
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
             IEnumerable<TickVisibilityChange> visibilityChanges = null,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals = null,
             IEnumerable<EntityState> finalEntities = null)
@@ -273,7 +539,8 @@ namespace Game.Feature.Gameplay.Tests
                 Array.Empty<TickImpactTransientPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
                 playerDeathHoldSignals: playerDeathHoldSignals,
-                playerOutcomeSignals: playerOutcomeSignals);
+                playerOutcomeSignals: playerOutcomeSignals,
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals);
 
             return new TickResult(
                 tickIndex,
@@ -307,6 +574,37 @@ namespace Game.Feature.Gameplay.Tests
             SetSerializedField(typeof(PlayerLocomotionAudioMap), map, "entries", array);
         }
 
+        private static (PlayerLocomotionAudioCue cue, AudioBinding binding)[] CreateRequiredEntries(
+            TestAssetScope scope,
+            AudioDefinition sharedDefinition)
+        {
+            return new[]
+            {
+                (PlayerLocomotionAudioCue.WalkStep, scope.CreateBinding(sharedDefinition)),
+                (PlayerLocomotionAudioCue.TopologyTransitionBlocked, scope.CreateBinding(sharedDefinition)),
+            };
+        }
+
+        private static TickPlayerTopologyTransitionBlockedSignal CreateBlockedSignal(
+            Direction direction = Direction.Down,
+            FaceId originFace = FaceId.Floor,
+            FaceId candidateFace = FaceId.Back,
+            FaceId sourceBottomFace = FaceId.Floor,
+            FaceId requiredBottomFace = FaceId.Back,
+            CubeRotationKind rotationKind = CubeRotationKind.Backward,
+            TickTraversalBlockerKind primaryBlockerKind = TickTraversalBlockerKind.Terrain)
+        {
+            return new TickPlayerTopologyTransitionBlockedSignal(
+                entityId: 10,
+                direction: direction,
+                originCell: new SurfaceCell(originFace, 0, 0),
+                candidateCell: new SurfaceCell(candidateFace, 0, 1),
+                sourceTopology: new CubeTopologyState(sourceBottomFace),
+                requiredTopology: new CubeTopologyState(requiredBottomFace),
+                rotationKind: rotationKind,
+                primaryBlockerKind: primaryBlockerKind);
+        }
+
         private static void SetSerializedField(Type declaringType, object target, string fieldName, object value)
         {
             var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -336,6 +634,21 @@ namespace Game.Feature.Gameplay.Tests
                 in AudioPlaybackContext context)
             {
                 Play2D(definition, context);
+            }
+        }
+
+        private sealed class FakeClock
+        {
+            private double _now;
+
+            public double Now()
+            {
+                return _now;
+            }
+
+            public void Advance(double seconds)
+            {
+                _now += seconds;
             }
         }
 

@@ -2630,6 +2630,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void GameplayBoardSurfaceRenderer_ActiveFaceCover_FollowsDestinationActiveFacesAcrossTopologyTransitions()
+        {
+            var rootObject = new GameObject(
+                "GameplayBoardSurfaceRenderer_ActiveFaceCover_FollowsDestinationActiveFacesAcrossTopologyTransitions");
+            var coverPrefab = CreateActiveFaceCoverPrefab("ActiveFaceCoverPrefab");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
+                var floorTopology = new CubeTopologyState(FaceId.Floor);
+                var frontTopology = new CubeTopologyState(FaceId.Front);
+
+                renderer.Initialize(
+                    boardBounds,
+                    1f,
+                    floorTopology,
+                    activeFaceCoverPrefab: coverPrefab);
+
+                AssertActiveFaceCoverTiling(AssertActiveFaceCover(renderer, "ActiveBottomCover_Floor"), 2f, 2f);
+                AssertActiveFaceCoverTiling(AssertActiveFaceCover(renderer, "ActiveFrontCover_Front"), 2f, 2f);
+                Assert.That(renderer.ActiveFaceCoverRoot.childCount, Is.EqualTo(2));
+
+                renderer.BeginTopologyTransition(floorTopology, frontTopology);
+
+                Assert.That(renderer.ActiveFaceCoverRoot.Find("ActiveBottomCover_Floor"), Is.Null);
+                AssertActiveFaceCoverTiling(AssertActiveFaceCover(renderer, "ActiveBottomCover_Front"), 2f, 2f);
+                AssertActiveFaceCoverTiling(AssertActiveFaceCover(renderer, "ActiveFrontCover_Ceiling"), 2f, 2f);
+                Assert.That(renderer.ActiveFaceCoverRoot.childCount, Is.EqualTo(2));
+
+                renderer.CompleteTopologyTransition(frontTopology);
+
+                AssertActiveFaceCover(renderer, "ActiveBottomCover_Front");
+                AssertActiveFaceCover(renderer, "ActiveFrontCover_Ceiling");
+                Assert.That(renderer.ActiveFaceCoverRoot.childCount, Is.EqualTo(2));
+
+                renderer.BeginTopologyTransition(frontTopology, floorTopology);
+
+                Assert.That(renderer.ActiveFaceCoverRoot.Find("ActiveFrontCover_Ceiling"), Is.Null);
+                AssertActiveFaceCover(renderer, "ActiveBottomCover_Floor");
+                AssertActiveFaceCover(renderer, "ActiveFrontCover_Front");
+                Assert.That(renderer.ActiveFaceCoverRoot.childCount, Is.EqualTo(2));
+
+                renderer.CompleteTopologyTransition(floorTopology);
+
+                AssertActiveFaceCover(renderer, "ActiveBottomCover_Floor");
+                AssertActiveFaceCover(renderer, "ActiveFrontCover_Front");
+                Assert.That(renderer.ActiveFaceCoverRoot.childCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(coverPrefab);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchDestinationVisibleSurfacePoses()
         {
             var rootObject = new GameObject("GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchDestinationVisibleSurfacePoses");
@@ -7561,6 +7619,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var tile = TryFindSurfaceTile(renderer, tileName);
             Assert.That(tile, Is.Not.Null, $"Expected board surface tile '{tileName}' to exist.");
             return tile;
+        }
+
+        private static GameObject CreateActiveFaceCoverPrefab(string name)
+        {
+            var coverObject = new GameObject(name);
+            CreateActiveFaceCoverVisual(coverObject.transform, "VisualBottom");
+            CreateActiveFaceCoverVisual(coverObject.transform, "VisualFront");
+            CreateActiveFaceCoverVisual(coverObject.transform, "VisualBack");
+            return coverObject;
+        }
+
+        private static void CreateActiveFaceCoverVisual(Transform parent, string name)
+        {
+            var coverObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            coverObject.name = name;
+            coverObject.transform.SetParent(parent, worldPositionStays: false);
+            var collider = coverObject.GetComponent<Collider>();
+            if (collider != null)
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+        }
+
+        private static GameObject AssertActiveFaceCover(
+            GameplayBoardSurfaceRenderer renderer,
+            string coverName)
+        {
+            Assert.That(renderer, Is.Not.Null);
+            var cover = renderer.ActiveFaceCoverRoot.Find(coverName);
+            Assert.That(cover, Is.Not.Null, $"Expected active face cover '{coverName}' to exist.");
+            Assert.That(cover.gameObject.activeSelf, Is.True);
+            return cover.gameObject;
+        }
+
+        private static void AssertActiveFaceCoverTiling(GameObject cover, float expectedXTiling, float expectedYTiling)
+        {
+            AssertActiveFaceCoverVisualTiling(cover, "VisualBottom", expectedXTiling, expectedYTiling);
+            AssertActiveFaceCoverVisualTiling(cover, "VisualFront", expectedXTiling, 1f);
+            AssertActiveFaceCoverVisualTiling(cover, "VisualBack", expectedXTiling, 1f);
+        }
+
+        private static void AssertActiveFaceCoverVisualTiling(
+            GameObject cover,
+            string visualName,
+            float expectedXTiling,
+            float expectedYTiling)
+        {
+            var visual = cover.transform.Find(visualName);
+            Assert.That(visual, Is.Not.Null, $"Expected active face cover visual '{visualName}' to exist.");
+            var visualRenderer = visual.GetComponent<Renderer>();
+            Assert.That(visualRenderer, Is.Not.Null);
+
+            var propertyBlock = new MaterialPropertyBlock();
+            visualRenderer.GetPropertyBlock(propertyBlock);
+            AssertScaleOffset(propertyBlock.GetVector(Shader.PropertyToID("_BaseMap_ST")), expectedXTiling, expectedYTiling);
+            AssertScaleOffset(propertyBlock.GetVector(Shader.PropertyToID("_MainTex_ST")), expectedXTiling, expectedYTiling);
+        }
+
+        private static void AssertScaleOffset(Vector4 actual, float expectedXTiling, float expectedYTiling)
+        {
+            Assert.That(actual.x, Is.EqualTo(expectedXTiling).Within(0.0001f));
+            Assert.That(actual.y, Is.EqualTo(expectedYTiling).Within(0.0001f));
+            Assert.That(actual.z, Is.Zero);
+            Assert.That(actual.w, Is.Zero);
         }
 
         private sealed class SurfaceTileLifecycleProbe : MonoBehaviour

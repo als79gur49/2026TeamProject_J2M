@@ -28,16 +28,6 @@ namespace Game.Feature.Gameplay.BoardState
                     context.Actor.EntityId,
                     out var blocker))
             {
-                if (context.Actor.GlideState.IsActive)
-                {
-                    return LegalityResult.Allowed(
-                        LegalityDomain.Traversal,
-                        context.CandidateCell,
-                        context.EvaluationTopology,
-                        context.ReservationStatus,
-                        context.TransitionRequirement);
-                }
-
                 if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
                 {
                     return LegalityResult.Blocked(
@@ -45,6 +35,16 @@ namespace Game.Feature.Gameplay.BoardState
                         context.CandidateCell,
                         context.EvaluationTopology,
                         RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                        context.ReservationStatus,
+                        context.TransitionRequirement);
+                }
+
+                if (context.Actor.GlideState.IsActive)
+                {
+                    return LegalityResult.Allowed(
+                        LegalityDomain.Traversal,
+                        context.CandidateCell,
+                        context.EvaluationTopology,
                         context.ReservationStatus,
                         context.TransitionRequirement);
                 }
@@ -60,16 +60,6 @@ namespace Game.Feature.Gameplay.BoardState
             var blockers = RuntimeLegalityBlockerFactory.Create(context.Snapshot.EntitiesById, blocker);
             if (ModifierQuery.IgnoresTraversalBlocker(capabilities, blockers[0]))
             {
-                if (context.Actor.GlideState.IsActive)
-                {
-                    return LegalityResult.Allowed(
-                        LegalityDomain.Traversal,
-                        context.CandidateCell,
-                        context.EvaluationTopology,
-                        context.ReservationStatus,
-                        context.TransitionRequirement);
-                }
-
                 if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
                 {
                     return LegalityResult.Blocked(
@@ -77,6 +67,16 @@ namespace Game.Feature.Gameplay.BoardState
                         context.CandidateCell,
                         context.EvaluationTopology,
                         RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                        context.ReservationStatus,
+                        context.TransitionRequirement);
+                }
+
+                if (context.Actor.GlideState.IsActive)
+                {
+                    return LegalityResult.Allowed(
+                        LegalityDomain.Traversal,
+                        context.CandidateCell,
+                        context.EvaluationTopology,
                         context.ReservationStatus,
                         context.TransitionRequirement);
                 }
@@ -134,7 +134,8 @@ namespace Game.Feature.Gameplay.BoardState
         public static LegalityResult EvaluateChargeSolidOnlyStopCell(
             WorldSnapshot snapshot,
             SurfaceCell cell,
-            ReservationStatus reservationStatus = ReservationStatus.None)
+            ReservationStatus reservationStatus = ReservationStatus.None,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (snapshot == null)
             {
@@ -168,6 +169,22 @@ namespace Game.Feature.Gameplay.BoardState
                     cell,
                     snapshot.Topology,
                     RuntimeLegalityBlockerFactory.Create(solidSemantic.Entity),
+                    reservationStatus);
+            }
+
+            if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                    snapshot,
+                    tileFeatureDefinitions,
+                    cell,
+                    TileFeatureBlockerSubject.Unit,
+                    TileFeatureMovementKind.GroundStep,
+                    out var barricade))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Traversal,
+                    cell,
+                    snapshot.Topology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(barricade),
                     reservationStatus);
             }
 
@@ -205,7 +222,8 @@ namespace Game.Feature.Gameplay.BoardState
                 context.CandidateCell,
                 TileFeatureBlockerSubject.Unit,
                 movementKind,
-                out tileFeatureBlocker);
+                out tileFeatureBlocker,
+                context.EvaluationTopology);
         }
     }
 }

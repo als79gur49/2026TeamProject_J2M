@@ -1,7 +1,6 @@
 using System;
 using Game.Feature.DemoStageControl;
 using Game.Feature.DemoStageControl.UI;
-using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -14,28 +13,19 @@ namespace Game.Feature.UI.Composition
     {
         private readonly PopupPrefabCatalog _popupPrefabCatalog;
         private readonly PopupLayerView _popupLayerView;
-        private readonly DebugCommandAccess _debugCommandAccess;
-        private readonly Action<DebugCommandResult> _debugStageResultRequested;
         private readonly IDemoStageControlCommandPort _demoStageControlCommandPort;
         private readonly IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
-        private readonly Func<bool> _isDebugCommandsRuntimeEnabled;
 
         public GameplayPopupRuntimeFactory(
             PopupLayerView popupLayerView,
             PopupPrefabCatalog popupPrefabCatalog,
-            DebugCommandAccess debugCommandAccess = null,
-            Action<DebugCommandResult> debugStageResultRequested = null,
             IDemoStageControlCommandPort demoStageControlCommandPort = null,
-            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null,
-            Func<bool> isDebugCommandsRuntimeEnabled = null)
+            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null)
         {
             _popupLayerView = popupLayerView ?? throw new ArgumentNullException(nameof(popupLayerView));
             _popupPrefabCatalog = popupPrefabCatalog ?? throw new ArgumentNullException(nameof(popupPrefabCatalog));
-            _debugCommandAccess = debugCommandAccess ?? DebugCommandAccess.Disabled;
-            _debugStageResultRequested = debugStageResultRequested;
             _demoStageControlCommandPort = demoStageControlCommandPort;
             _demoGameplayOverrideCommandPort = demoGameplayOverrideCommandPort;
-            _isDebugCommandsRuntimeEnabled = isDebugCommandsRuntimeEnabled ?? IsDebugCommandsRuntimeEnabled;
         }
 
         public PopupRuntimeFactoryResult Create(PopupRequest request)
@@ -60,43 +50,9 @@ namespace Game.Feature.UI.Composition
                 case PopupId.DemoStageControl:
                     return CreateDemoStageControlPopup(ExpectPayload<DemoStageControlPanelPayload>(request.Payload));
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-                case PopupId.DebugCommands:
-                    return CreateDebugCommandsPopup(ExpectPayload<DebugCommandsPopupPayload>(request.Payload));
-#endif
-
                 default:
                     throw new InvalidOperationException($"Unsupported popup id: {request.PopupId}");
             }
-        }
-
-        internal static DebugCommandsPopupPayload BuildDebugCommandsPayload(
-            DebugCommandAvailabilitySnapshot availability,
-            string lastCommandMessage)
-        {
-            return new DebugCommandsPopupPayload(
-                "Debug Commands",
-                availability.IsDebugBuildEnabled ? "Debug build: enabled" : "Debug build: disabled",
-                availability.CurrentStageId.IsValid
-                    ? $"Current StageId: {availability.CurrentStageId.Value}"
-                    : "Current StageId: none",
-                BuildNextStageStatusText(availability),
-                availability.IsPresentationLocked ? "Topology/Presentation lock: active" : "Topology/Presentation lock: clear",
-                availability.CanForceClearResultOnly ? "Force Clear Result Only: available" : $"Force Clear Result Only: unavailable ({availability.ReasonText})",
-                lastCommandMessage,
-                availability.CanGoNextStage,
-                availability.CanForceClearResultOnly);
-        }
-
-        private static string BuildNextStageStatusText(DebugCommandAvailabilitySnapshot availability)
-        {
-            var nextStageText = availability.NextStageId.IsValid
-                ? $"Next StageId: {availability.NextStageId.Value}"
-                : "Next StageId: No next stage";
-
-            return availability.CanGoNextStage || string.IsNullOrWhiteSpace(availability.ReasonText)
-                ? nextStageText
-                : $"{nextStageText} (unavailable: {availability.ReasonText})";
         }
 
         private PopupRuntimeFactoryResult CreatePausePopup(PausePopupPayload payload)
@@ -245,40 +201,6 @@ namespace Game.Feature.UI.Composition
                     () => DestroyObject(view.gameObject)));
         }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        private PopupRuntimeFactoryResult CreateDebugCommandsPopup(DebugCommandsPopupPayload payload)
-        {
-            if (!_isDebugCommandsRuntimeEnabled() || !_debugCommandAccess.IsEnabled)
-            {
-                throw new InvalidOperationException("Debug commands popup is disabled for this runtime.");
-            }
-
-            var presenter = new DebugCommandsPopupPresenter();
-            presenter.Apply(payload);
-
-            var viewRoot = new GameObject(nameof(DebugCommandsPopupView), typeof(RectTransform));
-            viewRoot.transform.SetParent(_popupLayerView.ContentRoot, false);
-            var view = viewRoot.AddComponent<DebugCommandsPopupView>();
-            view.Bind(presenter.ViewModel);
-            view.IsVisible = true;
-
-            return new PopupRuntimeFactoryResult(
-                new PopupPolicy(
-                    PopupPolicyClass.ModalBlocking,
-                    PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Close,
-                    PopupBackdropMode.Consume,
-                    showsDim: true,
-                    blocksLowerLayers: true),
-                new DebugCommandsPopupRuntime(
-                    view,
-                    presenter,
-                    _debugCommandAccess,
-                    _debugStageResultRequested,
-                    () => DestroyObject(view.gameObject)));
-        }
-#endif
-
         private TView InstantiatePopupPrefab<TView>(TView prefab, PopupId popupId)
             where TView : Component, IPopupView
         {
@@ -337,88 +259,6 @@ namespace Game.Feature.UI.Composition
 
             UnityEngine.Object.DestroyImmediate(unityObject);
         }
-
-        private static bool IsDebugCommandsRuntimeEnabled()
-        {
-            return DebugCommandBuildGate.IsRuntimeEnabled(
-                UnityEngine.Application.isEditor,
-                UnityEngine.Debug.isDebugBuild);
-        }
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        private sealed class DebugCommandsPopupRuntime : IPopupRuntime, IUiNavigationTargetProvider
-        {
-            private readonly DebugCommandAccess _debugCommandAccess;
-            private readonly Action<DebugCommandResult> _debugStageResultRequested;
-            private readonly Action _dispose;
-            private readonly DebugCommandsPopupPresenter _presenter;
-            private readonly DebugCommandsPopupView _view;
-
-            public DebugCommandsPopupRuntime(
-                DebugCommandsPopupView view,
-                DebugCommandsPopupPresenter presenter,
-                DebugCommandAccess debugCommandAccess,
-                Action<DebugCommandResult> debugStageResultRequested,
-                Action dispose)
-            {
-                _view = view ?? throw new ArgumentNullException(nameof(view));
-                _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-                _debugCommandAccess = debugCommandAccess ?? DebugCommandAccess.Disabled;
-                _debugStageResultRequested = debugStageResultRequested;
-                _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
-                _view.NextStageRequested += HandleNextStageRequested;
-                _view.ForceClearResultOnlyRequested += HandleForceClearResultOnlyRequested;
-            }
-
-            public event Action<PopupCompletionKind> CompletionRequested
-            {
-                add => _view.CompletionRequested += value;
-                remove => _view.CompletionRequested -= value;
-            }
-
-            public void Dispose()
-            {
-                _view.NextStageRequested -= HandleNextStageRequested;
-                _view.ForceClearResultOnlyRequested -= HandleForceClearResultOnlyRequested;
-                _view.Bind(null);
-                _dispose();
-            }
-
-            public void SetIsTopmost(bool isTopmost)
-            {
-                _view.SetIsTopmost(isTopmost);
-            }
-
-            public bool TryGetNavigationTarget(out IUiNavigationTarget target)
-            {
-                target = _view;
-                return target != null;
-            }
-
-            private void HandleNextStageRequested()
-            {
-                var result = _debugCommandAccess.StageCommandPort.GoToNextStage();
-                Refresh(result.Message);
-            }
-
-            private void HandleForceClearResultOnlyRequested()
-            {
-                var result = _debugCommandAccess.StageCommandPort.ForceClearResultOnly();
-                Refresh(result.Message);
-                if (result.IsSuccess && result.StageResultReadModel != null)
-                {
-                    _debugStageResultRequested?.Invoke(result);
-                }
-            }
-
-            private void Refresh(string lastCommandMessage)
-            {
-                _presenter.Apply(BuildDebugCommandsPayload(
-                    _debugCommandAccess.StageCommandPort.GetAvailability(),
-                    lastCommandMessage));
-            }
-        }
-#endif
 
         private sealed class PopupRuntime<TView> : IPopupRuntime, IUiNavigationTargetProvider where TView : Component, IPopupView
         {

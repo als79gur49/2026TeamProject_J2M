@@ -8,7 +8,6 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Host.UIAccess;
-using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
@@ -203,7 +202,10 @@ namespace Game.Feature.Gameplay.Host
                 configuration.BoardTilePaintOverrides,
                 configuration.BoardTileOverlayCatalog,
                 configuration.BoardTileOverlayOverrides,
-                configuration.SuppressedBaseTileCells);
+                configuration.SuppressedBaseTileCells,
+                configuration.BoardPresentationProfile != null
+                    ? configuration.BoardPresentationProfile.ActiveFaceCoverPrefab
+                    : null);
 
             var viewCameraTarget = boardRoot.CameraTargetRoot;
             var startupPlan = GameplayCameraStartupPlanComposer.Compose(
@@ -263,11 +265,7 @@ namespace Game.Feature.Gameplay.Host
                 presentationFeed,
                 pauseService,
                 demoGameplayOverrideRuntime,
-                new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
-                CreateDebugCommandAccess(
-                    configuration.StageContentEntry,
-                    presentationFeed,
-                    configuration.DebugStageLaunchConstraint));
+                new GameplayHostDemoStageControlCompletionBridge(presentationFeed));
 
             return new GameplayHostRuntimeContext(
                 boardRoot,
@@ -287,26 +285,6 @@ namespace Game.Feature.Gameplay.Host
                 presentedInitialEntities,
                 uiAccess,
                 playerRespawnTiming.RespawnDelayTicks);
-        }
-
-        private static DebugCommandAccess CreateDebugCommandAccess(
-            StageContentEntry stageContentEntry,
-            GameplayHostPresentationFeed presentationFeed,
-            IDebugStageLaunchConstraint launchConstraint)
-        {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (!DebugCommandBuildGate.IsRuntimeEnabled(UnityEngine.Application.isEditor, UnityEngine.Debug.isDebugBuild))
-            {
-                return DebugCommandAccess.Disabled;
-            }
-
-            var resolver = new CampaignDebugStageNavigationResolver(
-                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
-            return DebugCommandAccess.Enabled(
-                new GameplayHostDebugStageCommandPort(stageContentEntry, presentationFeed, resolver, launchConstraint));
-#else
-            return DebugCommandAccess.Disabled;
-#endif
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(

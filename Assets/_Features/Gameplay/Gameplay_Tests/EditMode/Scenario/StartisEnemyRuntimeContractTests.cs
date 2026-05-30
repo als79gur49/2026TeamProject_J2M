@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
@@ -229,6 +231,180 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void Startis_ForwardMovement_ActivatedBarricadeBlocksOwnCell()
+        {
+            var profile = CreateForwardPassiveContactProfile();
+            try
+            {
+                var source = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+                var barricade = CreateTileFeature(100, destination, TileFeatureKind.Barricade);
+                var definitions = CreateActiveDefinitions(barricade);
+                var worldState = CreateWorldState(
+                    new[]
+                    {
+                        CreateUnit(PlayerId, 1, new SurfaceCell(FaceId.Floor, 3, 0), UnitRole.Player),
+                        CreateUnit(EnemyId, 2, source, UnitRole.Enemy, EnemyAiMode.Patrol),
+                    },
+                    initialTileFeatures: new[] { barricade });
+
+                var tick = CreatePipeline(worldState, profile, definitions).RunTick(new TickInput(1));
+
+                Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(source));
+                Assert.That(tick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == EnemyId), Is.Empty);
+                Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
+                Assert.That(CountUnitsAt(worldState.CreateSnapshot(), destination, EnemyId), Is.Zero);
+                Assert.That(
+                    EnemyMovementStrategyShared.CanTraverseStep(
+                        worldState.CreateSnapshot(),
+                        GetEntity(worldState, EnemyId),
+                        destination.PlanarPosition - source.PlanarPosition,
+                        definitions),
+                    Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Startis_ForwardMovement_InactiveBarricadeDoesNotBlock()
+        {
+            var profile = CreateForwardPassiveContactProfile();
+            try
+            {
+                var source = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+                var barricade = CreateTileFeature(101, destination, TileFeatureKind.Barricade);
+                var definitions = CreateInactiveDefinitions(barricade);
+                var worldState = CreateWorldState(
+                    new[]
+                    {
+                        CreateUnit(PlayerId, 1, new SurfaceCell(FaceId.Floor, 3, 0), UnitRole.Player),
+                        CreateUnit(EnemyId, 2, source, UnitRole.Enemy, EnemyAiMode.Patrol),
+                    },
+                    initialTileFeatures: new[] { barricade });
+
+                var canTraverseInactiveBarricade = EnemyMovementStrategyShared.CanTraverseStep(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, EnemyId),
+                    destination.PlanarPosition - source.PlanarPosition,
+                    definitions);
+
+                var tick = CreatePipeline(worldState, profile, definitions).RunTick(new TickInput(1));
+
+                Assert.That(
+                    canTraverseInactiveBarricade,
+                    Is.True,
+                    "Inactive Barricade must not make ordinary unit traversal return false.");
+                Assert.That(
+                    tick.MovementPhaseResult.RawIntents.Any(intent =>
+                        intent.SourceId == EnemyId &&
+                        intent.Destination == destination.PlanarPosition),
+                    Is.True);
+                Assert.That(
+                    tick.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("TileFeature", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Startis_ForwardMovement_ActivatedDestroyTileDoesNotHardBlock()
+        {
+            var profile = CreateForwardPassiveContactProfile();
+            try
+            {
+                var source = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+                var destroyTile = CreateTileFeature(102, destination, TileFeatureKind.Destroy);
+                var definitions = CreateActiveDefinitions(destroyTile);
+                var worldState = CreateWorldState(
+                    new[]
+                    {
+                        CreateUnit(PlayerId, 1, new SurfaceCell(FaceId.Floor, 3, 0), UnitRole.Player),
+                        CreateUnit(EnemyId, 2, source, UnitRole.Enemy, EnemyAiMode.Patrol),
+                    },
+                    initialTileFeatures: new[] { destroyTile });
+                var canTraverseDestroyTile = EnemyMovementStrategyShared.CanTraverseStep(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, EnemyId),
+                    destination.PlanarPosition - source.PlanarPosition,
+                    definitions);
+
+                var tick = CreatePipeline(worldState, profile, definitions).RunTick(new TickInput(1));
+
+                Assert.That(
+                    canTraverseDestroyTile,
+                    Is.True,
+                    "DestroyTile must not make ordinary unit traversal return false as a hard TileFeature blocker.");
+                Assert.That(
+                    tick.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("TileFeature", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Startis_ForwardMovement_SamePlanarOtherFaceActivatedBarricadeIgnored()
+        {
+            var profile = CreateForwardPassiveContactProfile();
+            try
+            {
+                var source = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+                var otherFaceBarricade = CreateTileFeature(103, new SurfaceCell(FaceId.Front, 1, 0), TileFeatureKind.Barricade);
+                var definitions = CreateActiveDefinitions(otherFaceBarricade);
+                var worldState = CreateWorldState(
+                    new[]
+                    {
+                        CreateUnit(PlayerId, 1, new SurfaceCell(FaceId.Floor, 3, 0), UnitRole.Player),
+                        CreateUnit(EnemyId, 2, source, UnitRole.Enemy, EnemyAiMode.Patrol),
+                    },
+                    initialTileFeatures: new[] { otherFaceBarricade });
+
+                var canTraverseFloorDestination = EnemyMovementStrategyShared.CanTraverseStep(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, EnemyId),
+                    destination.PlanarPosition - source.PlanarPosition,
+                    definitions);
+
+                var tick = CreatePipeline(worldState, profile, definitions).RunTick(new TickInput(1));
+
+                Assert.That(
+                    canTraverseFloorDestination,
+                    Is.True,
+                    "Same planar other-face Barricade must not make Floor traversal return false.");
+                Assert.That(
+                    tick.MovementPhaseResult.RawIntents.Any(intent =>
+                        intent.SourceId == EnemyId &&
+                        intent.Destination == destination.PlanarPosition),
+                    Is.True);
+                Assert.That(
+                    tick.MovementPhaseResult.RejectedReasons.Any(reason => reason.Contains("TileFeature", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
         [TestCase("Dead")]
         [TestCase("MarkedForDeath")]
         [TestCase("Detached")]
@@ -282,19 +458,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 PatrolStrategyKind = PatrolStrategyKind.Forward,
                 PatrolSettings = new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                DetectionStrategyKind = DetectionStrategyKind.None,
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = true,
             });
         }
 
-        private static TickPipeline CreatePipeline(WorldState worldState, EnemyAiProfile profile)
+        private static TickPipeline CreatePipeline(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+
+            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
                     new EnemyLogic(EnemyId, profile),
-                });
+                },
+                timingProfile,
+                playerTiming,
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static void RunTicks(TickPipeline pipeline, int startTick, int endTickInclusive)
@@ -308,13 +496,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(
             EntityState[] initialEntities,
             GameplayTerrainData terrainData = null,
-            CubeTopologyState? topology = null)
+            CubeTopologyState? topology = null,
+            IEnumerable<TileFeatureState> initialTileFeatures = null)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
                 terrainData ?? GameplayTerrainData.Empty,
-                topology ?? new CubeTopologyState(FaceId.Floor));
+                topology ?? new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                initialTileFeatures);
         }
 
         private static EntityState CreateUnit(
@@ -349,6 +540,73 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
             return entity;
+        }
+
+        private static int CountUnitsAt(WorldSnapshot snapshot, SurfaceCell cell, int entityId)
+        {
+            var units = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, units);
+            return units.Count(unit => unit.entityId == entityId);
+        }
+
+        private static void RunUntilEntityAt(
+            TickPipeline pipeline,
+            WorldState worldState,
+            int startTick,
+            SurfaceCell destination)
+        {
+            for (var tick = startTick; tick < startTick + 32; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick));
+                if (GetEntity(worldState, EnemyId).position == destination)
+                {
+                    return;
+                }
+            }
+
+            Assert.Fail($"Startis did not reach {destination}.");
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateActiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.Always, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateInactiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.InactiveFaceOnly, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateDefinitions(
+            TileFeatureActivationRule activationRule,
+            params TileFeatureState[] tileFeatures)
+        {
+            return tileFeatures
+                .Select(tileFeature => new TileFeatureRuntimeDefinition(
+                    tileFeature.TileId,
+                    activationRule,
+                    Direction2D.None,
+                    TileFeatureBoxSelector.None,
+                    boundEntityId: tileFeature.Charges,
+                    presentationKey: string.Empty))
+                .ToArray();
         }
 
         private static void AssertActionInactiveOrMissing(WorldState worldState)

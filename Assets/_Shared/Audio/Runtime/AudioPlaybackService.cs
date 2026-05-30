@@ -8,6 +8,8 @@ namespace Game.Shared.Audio
     {
         public AudioLivePlaybackDebugSnapshot(
             AudioChannel leafChannel,
+            AudioPlaybackPauseGroup? pauseGroup,
+            AudioPauseReason activePauseReasons,
             float baseClipVolume,
             float fadeMultiplier,
             AudioSource source,
@@ -15,6 +17,8 @@ namespace Game.Shared.Audio
             bool isControllerValid)
         {
             LeafChannel = leafChannel;
+            PauseGroup = pauseGroup;
+            ActivePauseReasons = activePauseReasons;
             BaseClipVolume = baseClipVolume;
             FadeMultiplier = fadeMultiplier;
             Source = source;
@@ -23,6 +27,10 @@ namespace Game.Shared.Audio
         }
 
         public AudioChannel LeafChannel { get; }
+
+        public AudioPlaybackPauseGroup? PauseGroup { get; }
+
+        public AudioPauseReason ActivePauseReasons { get; }
 
         public float BaseClipVolume { get; }
 
@@ -37,7 +45,10 @@ namespace Game.Shared.Audio
 
     internal sealed class AudioPlaybackService
     {
+        private const float SilentVolumeEpsilon = 0.0001f;
+
         private readonly List<AudioSourcePlaybackController> activeControllers = new();
+        private readonly Dictionary<AudioPlaybackPauseGroup, AudioPauseReason> activeGroupPauseReasons = new();
         private readonly Dictionary<AudioSourcePlaybackController, AudioLivePlaybackRecord> livePlaybacks = new();
 
         private AttachedAudioRegistry attachedRegistry;
@@ -140,6 +151,36 @@ namespace Game.Shared.Audio
         public void Stop(AudioPlaybackHandle handle)
         {
             handle?.Stop();
+        }
+
+        public void PauseGroup(AudioPlaybackPauseGroup group, AudioPauseReason reason)
+        {
+            if (reason == AudioPauseReason.None)
+            {
+                return;
+            }
+
+            SetActiveGroupPauseReasons(group, GetActivePauseReasons(group) | reason);
+            ApplyPauseReasonToLivePlaybacks(group, reason, addReason: true);
+        }
+
+        public void ResumeGroup(AudioPlaybackPauseGroup group, AudioPauseReason reason)
+        {
+            if (reason == AudioPauseReason.None)
+            {
+                return;
+            }
+
+            SetActiveGroupPauseReasons(group, GetActivePauseReasons(group) & ~reason);
+            ApplyPauseReasonToLivePlaybacks(group, reason, addReason: false);
+        }
+
+        public bool IsGroupPaused(AudioPlaybackPauseGroup group, AudioPauseReason reason)
+        {
+            var activeReasons = GetActivePauseReasons(group);
+            return reason == AudioPauseReason.None
+                ? activeReasons != AudioPauseReason.None
+                : (activeReasons & reason) == reason;
         }
 
         public void StopBgm(AudioBgmStopRequest request, AudioMixingService mixingService)
@@ -436,6 +477,7 @@ namespace Game.Shared.Audio
 
             activeControllers.Clear();
             livePlaybacks.Clear();
+            activeGroupPauseReasons.Clear();
             attachedRegistry?.Dispose();
         }
 
@@ -449,6 +491,8 @@ namespace Game.Shared.Audio
                 var record = pair.Value;
                 snapshots[index++] = new AudioLivePlaybackDebugSnapshot(
                     record.LeafChannel,
+                    record.PauseGroup,
+                    record.ActivePauseReasons,
                     record.BaseClipVolume,
                     record.FadeMultiplier,
                     record.Source,
@@ -481,6 +525,17 @@ namespace Game.Shared.Audio
             var leafChannel = AudioDefinitionCategoryRules.ToLeafChannel(
                 playbackData.Category,
                 $"AudioDefinition '{definition.name}'");
+            var fadeMultiplier = Mathf.Clamp01(initialFadeMultiplier);
+            var finalVolume = mixingService.ResolvePlaybackVolume(leafChannel, playbackData.Volume) * fadeMultiplier;
+
+            if (!attachedKey.HasValue &&
+                !useBgmLane &&
+                playbackData.Category != AudioCategory.Bgm &&
+                !playbackData.Loop &&
+                finalVolume <= SilentVolumeEpsilon)
+            {
+                return AudioPlaybackHandle.Invalid;
+            }
 
             var source = useBgmLane
                 ? bgmSource
@@ -494,8 +549,6 @@ namespace Game.Shared.Audio
                 return AudioPlaybackHandle.Invalid;
             }
 
-            var fadeMultiplier = Mathf.Clamp01(initialFadeMultiplier);
-            var finalVolume = mixingService.ResolvePlaybackVolume(leafChannel, playbackData.Volume) * fadeMultiplier;
             ConfigureSource(source, playbackData, finalVolume);
             source.Play();
 
@@ -523,11 +576,23 @@ namespace Game.Shared.Audio
             float baseClipVolume,
             float fadeMultiplier)
         {
-            livePlaybacks[controller] = new AudioLivePlaybackRecord(
+            var pauseGroup = ResolvePauseGroup(leafChannel);
+            var activePauseReasons = pauseGroup.HasValue
+                ? GetActivePauseReasons(pauseGroup.Value)
+                : AudioPauseReason.None;
+            var record = new AudioLivePlaybackRecord(
                 controller,
                 leafChannel,
+                pauseGroup,
+                activePauseReasons,
                 baseClipVolume,
                 fadeMultiplier);
+            livePlaybacks[controller] = record;
+
+            if (activePauseReasons != AudioPauseReason.None)
+            {
+                controller.Pause();
+            }
         }
 
         private void UnregisterLivePlayback(AudioSourcePlaybackController controller)
@@ -538,6 +603,71 @@ namespace Game.Shared.Audio
             }
 
             livePlaybacks.Remove(controller);
+        }
+
+        private void ApplyPauseReasonToLivePlaybacks(
+            AudioPlaybackPauseGroup group,
+            AudioPauseReason reason,
+            bool addReason)
+        {
+            PruneStaleLivePlaybacks();
+            var controllers = new List<AudioSourcePlaybackController>(livePlaybacks.Keys);
+            for (var i = 0; i < controllers.Count; i++)
+            {
+                var controller = controllers[i];
+                if (!livePlaybacks.TryGetValue(controller, out var record) ||
+                    !record.PauseGroup.HasValue ||
+                    record.PauseGroup.Value != group)
+                {
+                    continue;
+                }
+
+                var previousReasons = record.ActivePauseReasons;
+                var nextReasons = addReason
+                    ? previousReasons | reason
+                    : previousReasons & ~reason;
+                if (previousReasons == nextReasons)
+                {
+                    continue;
+                }
+
+                record.ActivePauseReasons = nextReasons;
+                if (previousReasons == AudioPauseReason.None &&
+                    nextReasons != AudioPauseReason.None)
+                {
+                    record.Controller.Pause();
+                }
+                else if (previousReasons != AudioPauseReason.None &&
+                         nextReasons == AudioPauseReason.None)
+                {
+                    record.Controller.Resume();
+                }
+            }
+        }
+
+        private AudioPauseReason GetActivePauseReasons(AudioPlaybackPauseGroup group)
+        {
+            return activeGroupPauseReasons.TryGetValue(group, out var reasons)
+                ? reasons
+                : AudioPauseReason.None;
+        }
+
+        private void SetActiveGroupPauseReasons(AudioPlaybackPauseGroup group, AudioPauseReason reasons)
+        {
+            if (reasons == AudioPauseReason.None)
+            {
+                activeGroupPauseReasons.Remove(group);
+                return;
+            }
+
+            activeGroupPauseReasons[group] = reasons;
+        }
+
+        private static AudioPlaybackPauseGroup? ResolvePauseGroup(AudioChannel leafChannel)
+        {
+            return leafChannel == AudioChannel.Sfx
+                ? AudioPlaybackPauseGroup.GameplayPresentation
+                : null;
         }
 
         private void PruneStaleLivePlaybacks()
@@ -598,11 +728,15 @@ namespace Game.Shared.Audio
             public AudioLivePlaybackRecord(
                 AudioSourcePlaybackController controller,
                 AudioChannel leafChannel,
+                AudioPlaybackPauseGroup? pauseGroup,
+                AudioPauseReason activePauseReasons,
                 float baseClipVolume,
                 float fadeMultiplier)
             {
                 Controller = controller;
                 LeafChannel = leafChannel;
+                PauseGroup = pauseGroup;
+                ActivePauseReasons = activePauseReasons;
                 BaseClipVolume = baseClipVolume;
                 FadeMultiplier = Mathf.Clamp01(fadeMultiplier);
             }
@@ -610,6 +744,10 @@ namespace Game.Shared.Audio
             public AudioSourcePlaybackController Controller { get; }
 
             public AudioChannel LeafChannel { get; }
+
+            public AudioPlaybackPauseGroup? PauseGroup { get; }
+
+            public AudioPauseReason ActivePauseReasons { get; set; }
 
             public float BaseClipVolume { get; }
 
@@ -1106,14 +1244,14 @@ namespace Game.Shared.Audio
 
             public void Resume()
             {
-                if (!IsValid || !paused)
+                if (!IsAlive || !paused)
                 {
                     return;
                 }
 
-                Source.UnPause();
                 accumulatedPausedDuration += Time.realtimeSinceStartupAsDouble - pausedAtRealtime;
                 paused = false;
+                Source.UnPause();
             }
 
             public void SetVolume(float volume)

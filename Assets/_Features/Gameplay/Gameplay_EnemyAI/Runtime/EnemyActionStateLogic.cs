@@ -6,13 +6,14 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    internal sealed class EnemyActionStateLogic : IEnemyActionStateLogic, IEntityLogicSourceBinding
+    internal sealed class EnemyActionStateLogic : IEnemyActionStateLogic, IEntityLogicSourceBinding, ITileFeatureDefinitionContextReceiver
     {
         private readonly int _entityId;
         private readonly EnemyAiCommonSettings _commonSettings;
         private readonly DetectionSettings _detectionSettings;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly EnemyCombatCapabilityRuntime _combatCapability;
+        private IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions = Array.Empty<TileFeatureRuntimeDefinition>();
 
         public EnemyActionStateLogic(int entityId)
             : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
@@ -44,6 +45,11 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public int ControlledEntityId => _entityId;
+
+        public void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            _tileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
+        }
 
         public void CommitEnemyActionState(
             WorldSnapshot snapshot,
@@ -272,6 +278,7 @@ namespace Game.Feature.Gameplay.Entities
                     _combatCapability.AttackDecisionStrategy,
                     _combatCapability.AttackDecisionSettings,
                     _combatCapability.WindupForwardCellProjectileSettings,
+                    _tileFeatureDefinitions,
                     out var targetCell);
                 if (result.CanStart)
                 {

@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Flow.Audio;
+using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -218,6 +221,119 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiFlowInstaller_PausePopupResume_UpdatesGameplayPresentationAudioPauseGroup()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_PausePopupResume_UpdatesGameplayPresentationAudioPauseGroup");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(CreatePortsWithValidStage());
+                var pauseService = rootObject.GetComponent<AudioRuntimeInstaller>().AudioPlaybackPauseService;
+
+                installer.HudView.ClickPause();
+                Assert.That(
+                    pauseService.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause),
+                    Is.True);
+
+                installer.PausePopupView.ClickResume();
+                Assert.That(
+                    pauseService.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause),
+                    Is.False);
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_PauseSettingsBack_KeepsGameplayPresentationAudioPaused()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_PauseSettingsBack_KeepsGameplayPresentationAudioPaused");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(CreatePortsWithValidStage());
+                var pauseService = rootObject.GetComponent<AudioRuntimeInstaller>().AudioPlaybackPauseService;
+
+                installer.HudView.ClickPause();
+                installer.PausePopupView.ClickSettings();
+                installer.SettingsScreenView.ClickBack();
+
+                Assert.That(installer.PausePopupView, Is.Not.Null);
+                Assert.That(
+                    pauseService.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_PauseRetry_SuppressesGameplayPresentationAudioResume()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_PauseRetry_SuppressesGameplayPresentationAudioResume");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                var pause = new FakeGameplayPauseService();
+                installer.Install(CreatePortsWithValidStage(pauseService: pause));
+                var pauseService = rootObject.GetComponent<AudioRuntimeInstaller>().AudioPlaybackPauseService;
+
+                installer.HudView.ClickPause();
+                installer.PausePopupView.ClickRetry();
+
+                Assert.That(pause.IsPaused, Is.False);
+                Assert.That(
+                    pauseService.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_PauseMainMenu_SuppressesGameplayPresentationAudioResume()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_PauseMainMenu_SuppressesGameplayPresentationAudioResume");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                var pause = new FakeGameplayPauseService();
+                installer.Install(CreatePortsWithValidStage(pauseService: pause));
+                var pauseService = rootObject.GetComponent<AudioRuntimeInstaller>().AudioPlaybackPauseService;
+
+                installer.HudView.ClickPause();
+                installer.PausePopupView.ClickMainMenu();
+
+                Assert.That(pause.IsPaused, Is.False);
+                Assert.That(
+                    pauseService.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayUiFlowInstaller_PauseSettingsBackRestore_UsesFreshPausePopup_AndResumesOnlyOnResume()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -416,6 +532,16 @@ namespace Game.Feature.UI.Tests
                 DestroyEventSystemIfPresent();
                 Object.DestroyImmediate(rootObject);
             }
+        }
+
+        private static GameplayUiFlowPorts CreatePortsWithValidStage(FakeGameplayPauseService pauseService = null)
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false),
+                new GameplayStageReadModel(StageId.CreateOrThrow("ui-audio-pause-test"), "UI Audio Pause Test"));
+            return UiTestPortFactory.CreatePorts(queryFacade: queryFacade, pauseService: pauseService);
         }
 
         private static void DestroyEventSystemIfPresent()

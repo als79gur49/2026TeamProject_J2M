@@ -354,6 +354,7 @@ namespace Game.Feature.Gameplay.Loop
             BindTileFeatureDefinitionContext(entityLogicsForTick.AiStateLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick.PreMovementStateLogics);
             BindTileFeatureDefinitionContext(entityLogicsForTick.MovementLogics);
+            BindTileFeatureDefinitionContext(entityLogicsForTick.EnemyActionStateLogics);
         }
 
         private void BindTileFeatureDefinitionContext<TLogic>(IReadOnlyList<TLogic> logics)
@@ -725,6 +726,8 @@ namespace Game.Feature.Gameplay.Loop
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
             var expansionIntents = sortedIntents;
             var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
+            var playerTopologyTransitionBlockedSignals =
+                new List<TickPlayerTopologyTransitionBlockedSignal>();
             if (_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion)
             {
                 var free2DBatch = new FinalizationBatch();
@@ -735,7 +738,8 @@ namespace Game.Feature.Gameplay.Loop
                     input.TickIndex,
                     rejectedReasons,
                     free2DBatch,
-                    consumedPlayerActionAttemptEntityIds);
+                    consumedPlayerActionAttemptEntityIds,
+                    playerTopologyTransitionBlockedSignals);
                 planFinalizationBatch.MergeFrom(free2DBatch);
                 CaptureTopologyActivationPreviousSnapshot(
                     ref topologyActivationPreviousSnapshot,
@@ -809,7 +813,8 @@ namespace Game.Feature.Gameplay.Loop
                 barricadeBlockFacts,
                 forbiddenLegacyUnitOrdinaryIntentIds,
                 _tileFeatureDefinitions,
-                boxSlideStops);
+                boxSlideStops,
+                playerTopologyTransitionBlockedSignals);
             if (preExpansionRejectedReasons.Count > 0)
             {
                 rejectedReasons.InsertRange(0, preExpansionRejectedReasons);
@@ -857,6 +862,7 @@ namespace Game.Feature.Gameplay.Loop
                 frontFaceShieldBlockExports,
                 barricadeBlockFacts,
                 boxSlideStops,
+                playerTopologyTransitionBlockedSignals,
                 movementDebugEvents,
                 nextContestId,
                 aiPhaseResult,
@@ -1462,6 +1468,7 @@ namespace Game.Feature.Gameplay.Loop
                     planPhaseResult.BoxSlideStops,
                     movementResolutionRecords,
                     planPhaseResult.MovementActionPlanPayloads),
+                planPhaseResult.PlayerTopologyTransitionBlockedSignals,
                 planPhaseResult.MovementDebugEvents);
 
             AddRange(attackCommitEvents, utilityResolveResult.EventLogEntries);
@@ -2200,7 +2207,8 @@ namespace Game.Feature.Gameplay.Loop
             int tickIndex,
             List<string> rejectedReasons,
             FinalizationBatch batch,
-            HashSet<int> consumedPlayerActionAttemptEntityIds)
+            HashSet<int> consumedPlayerActionAttemptEntityIds,
+            List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals)
         {
             var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
             var consumedFree2DIntentIds = new HashSet<int>();
@@ -2247,7 +2255,8 @@ namespace Game.Feature.Gameplay.Loop
                             playerCommand,
                             intent,
                             rejectedReasons,
-                            batch)
+                            batch,
+                            playerTopologyTransitionBlockedSignals)
                         : PlayerFree2DNativeTopologyDisposition.NotCandidate;
                     if (nativeTopologyDisposition == PlayerFree2DNativeTopologyDisposition.Materialized)
                     {
@@ -2349,7 +2358,8 @@ namespace Game.Feature.Gameplay.Loop
             PlayerTickCommand playerCommand,
             MoveIntent intent,
             List<string> rejectedReasons,
-            FinalizationBatch batch)
+            FinalizationBatch batch,
+            List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals)
         {
             if (intent == null ||
                 intent.CommandKind != Movement.MovementCommandKind.Move ||
@@ -2402,20 +2412,15 @@ namespace Game.Feature.Gameplay.Loop
                         $"MovementRejected|Stage=Plan|Source={entity.entityId}|I={intent.IntentId}|Reason=Free2DTopologyNativeRejected|RejectedBy={transition.RejectReason}|Anchor={FormatCell(entity.position)}");
                 }
 
+                AddPlayerFree2DTopologyTransitionBlockedSignalIfNeeded(
+                    playerTopologyTransitionBlockedSignals,
+                    snapshot.Topology,
+                    directionDelta,
+                    transition);
+
                 return IsPlayerFree2DNativeTopologyTargetRejected(transition.RejectReason)
                     ? PlayerFree2DNativeTopologyDisposition.TargetRejected
                     : PlayerFree2DNativeTopologyDisposition.NotCandidate;
-            }
-
-            if (TileFeatureAccessQueries.IsActiveDestroyTile(
-                    snapshot,
-                    _tileFeatureDefinitions,
-                    transition.TargetAnchor,
-                    transition.UpdatedTopology))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Free2DTopology|Source={entity.entityId}|I={intent.IntentId}|Reason=PlayerVoluntaryDestroyTileEntryBlocked|Cell={FormatCell(transition.TargetAnchor)}");
-                return PlayerFree2DNativeTopologyDisposition.AccessBlocked;
             }
 
             var movementMetadata = new FinalizationOperationMetadata(
@@ -2466,6 +2471,130 @@ namespace Game.Feature.Gameplay.Loop
             rejectedReasons.Add(
                 $"Free2DTopologyNativeTransition|Stage=Plan|E={entity.entityId}|I={intent.IntentId}|Rot={transition.RotationKind}|From={FormatCell(transition.SourceAnchor)}|To={FormatCell(transition.TargetAnchor)}|SourceOffset={transition.SourceLocalOffset}|TargetOffset={transition.TargetLocalOffset}");
             return PlayerFree2DNativeTopologyDisposition.Materialized;
+        }
+
+        private static void AddPlayerFree2DTopologyTransitionBlockedSignalIfNeeded(
+            List<TickPlayerTopologyTransitionBlockedSignal> signals,
+            CubeTopologyState sourceTopology,
+            Vector2Int directionDelta,
+            in Free2DTopologyTransitionResult transition,
+            TickTraversalBlockerKind explicitBlockerKind = TickTraversalBlockerKind.None)
+        {
+            if (signals == null ||
+                transition.EntityId <= 0 ||
+                transition.RotationKind == CubeRotationKind.None ||
+                !TryResolveMoveDirection(directionDelta, out var direction))
+            {
+                return;
+            }
+
+            var primaryBlockerKind = explicitBlockerKind == TickTraversalBlockerKind.None
+                ? ResolveFree2DTopologyBlockedSignalKind(transition)
+                : explicitBlockerKind;
+            if (primaryBlockerKind == TickTraversalBlockerKind.None ||
+                primaryBlockerKind == TickTraversalBlockerKind.BoardEdge)
+            {
+                return;
+            }
+
+            signals.Add(
+                new TickPlayerTopologyTransitionBlockedSignal(
+                    transition.EntityId,
+                    direction,
+                    transition.SourceAnchor,
+                    transition.TargetAnchor,
+                    sourceTopology,
+                    transition.UpdatedTopology,
+                    transition.RotationKind,
+                    primaryBlockerKind));
+        }
+
+        private static bool TryResolveMoveDirection(Vector2Int directionDelta, out Direction direction)
+        {
+            if (directionDelta == Vector2Int.up)
+            {
+                direction = Direction.Up;
+                return true;
+            }
+
+            if (directionDelta == Vector2Int.down)
+            {
+                direction = Direction.Down;
+                return true;
+            }
+
+            if (directionDelta == Vector2Int.left)
+            {
+                direction = Direction.Left;
+                return true;
+            }
+
+            if (directionDelta == Vector2Int.right)
+            {
+                direction = Direction.Right;
+                return true;
+            }
+
+            direction = Direction.None;
+            return false;
+        }
+
+        private static TickTraversalBlockerKind ResolveFree2DTopologyBlockedSignalKind(
+            in Free2DTopologyTransitionResult transition)
+        {
+            if (TryResolvePrimaryNonBoardEdgeBlockerKind(
+                    transition.TargetLegality.Blockers,
+                    out var blockerKind))
+            {
+                return blockerKind;
+            }
+
+            return transition.RejectReason switch
+            {
+                Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTerrain => TickTraversalBlockerKind.Terrain,
+                Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid => TickTraversalBlockerKind.Solid,
+                Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit => TickTraversalBlockerKind.Unit,
+                Free2DTopologyTransitionRejectReason.TargetFaceBlockedByReservation => TickTraversalBlockerKind.Reservation,
+                Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature => TickTraversalBlockerKind.TileFeature,
+                _ => TickTraversalBlockerKind.None,
+            };
+        }
+
+        private static bool TryResolvePrimaryNonBoardEdgeBlockerKind(
+            IReadOnlyList<LegalityBlocker> blockers,
+            out TickTraversalBlockerKind primaryBlockerKind)
+        {
+            if (blockers != null)
+            {
+                for (var i = 0; i < blockers.Count; i++)
+                {
+                    var blockerKind = blockers[i].Kind;
+                    if (blockerKind == LegalityBlockerKind.BoardEdge)
+                    {
+                        continue;
+                    }
+
+                    primaryBlockerKind = ToTickTraversalBlockerKind(blockerKind);
+                    return primaryBlockerKind != TickTraversalBlockerKind.None;
+                }
+            }
+
+            primaryBlockerKind = TickTraversalBlockerKind.None;
+            return false;
+        }
+
+        private static TickTraversalBlockerKind ToTickTraversalBlockerKind(LegalityBlockerKind blockerKind)
+        {
+            return blockerKind switch
+            {
+                LegalityBlockerKind.BoardEdge => TickTraversalBlockerKind.BoardEdge,
+                LegalityBlockerKind.Terrain => TickTraversalBlockerKind.Terrain,
+                LegalityBlockerKind.Solid => TickTraversalBlockerKind.Solid,
+                LegalityBlockerKind.Unit => TickTraversalBlockerKind.Unit,
+                LegalityBlockerKind.Reservation => TickTraversalBlockerKind.Reservation,
+                LegalityBlockerKind.TileFeature => TickTraversalBlockerKind.TileFeature,
+                _ => TickTraversalBlockerKind.None,
+            };
         }
 
         private static bool ShouldRecordPlayerFree2DNativeTopologyReject(Free2DTopologyTransitionRejectReason reason)
@@ -2812,12 +2941,15 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
+            var blocksActiveDestroyTileForEntity = TileFeatureHazardQueries.IsDestroyTileLethalForUnit(entity);
+
             bool BlocksPlayerVoluntaryFree2DDestroyTile(
                 SurfaceCell candidateCell,
                 CubeTopologyState evaluationTopology,
                 out ContinuousLocomotionRejectionReason rejectedBy)
             {
-                if (TileFeatureAccessQueries.IsActiveDestroyTile(
+                if (blocksActiveDestroyTileForEntity &&
+                    TileFeatureAccessQueries.IsActiveDestroyTile(
                         snapshot,
                         _tileFeatureDefinitions,
                         candidateCell,
@@ -3891,7 +4023,11 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             handledByKinematic = true;
-            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, entity, delta))
+            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(
+                    snapshot,
+                    entity,
+                    delta,
+                    _tileFeatureDefinitions))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyChargeKinematicTraversalBlocked|Anchor={FormatCell(entity.position)}");
@@ -8329,7 +8465,8 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationOperationMetadata metadata,
             out TileEffectBoxMovementFamily family)
         {
-            if (metadata.LocalActionIndex == 1)
+            if (metadata.LocalActionIndex == 1 &&
+                metadata.MovementSemanticKind != MovementSemanticKind.Flip)
             {
                 family = default;
                 return false;

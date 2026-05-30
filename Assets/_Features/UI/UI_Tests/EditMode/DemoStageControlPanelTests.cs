@@ -159,16 +159,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void DemoStageControlPanel_DoesNotDependOnDebugCommandsPopup()
+        public void DemoStageControlPanel_DoesNotDependOnLegacyDeveloperPopup()
         {
             var sources = string.Join(
                 Environment.NewLine,
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelModels.cs"),
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelRuntime.cs"),
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelView.cs"));
+            var removedPopupName = "Debug" + "Commands";
+            var removedAccessName = "Debug" + "CommandAccess";
 
-            Assert.That(sources, Does.Not.Contain("DebugCommands"));
-            Assert.That(sources, Does.Not.Contain("DebugCommandAccess"));
+            Assert.That(sources, Does.Not.Contain(removedPopupName));
+            Assert.That(sources, Does.Not.Contain(removedAccessName));
         }
 
         private DemoStageControlPanelView CreateView()

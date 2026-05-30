@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.Host
         private RendererCacheEntry[] _rendererEntries = Array.Empty<RendererCacheEntry>();
         private ParticleSystem[] _childParticleSystems = Array.Empty<ParticleSystem>();
         private TrailRenderer[] _childTrailRenderers = Array.Empty<TrailRenderer>();
+        private readonly HashSet<ParticleSystem> _managedParticleSystems = new();
         private bool _isInactiveTarget;
         private bool _isGameplayPresentationPaused;
         private bool _inactiveGateEnabled;
@@ -276,13 +278,16 @@ namespace Game.Feature.Gameplay.Host
         private void StopAndClearChildEffects()
         {
             CacheChildEffects();
+            CollectManagedParticleSystems();
+
             for (var i = 0; i < _childParticleSystems.Length; i++)
             {
                 var particleSystem = _childParticleSystems[i];
-                if (particleSystem != null)
+                if (particleSystem != null &&
+                    !_managedParticleSystems.Contains(particleSystem))
                 {
                     particleSystem.Stop(
-                        withChildren: true,
+                        withChildren: false,
                         ParticleSystemStopBehavior.StopEmittingAndClear);
                 }
             }
@@ -293,6 +298,20 @@ namespace Game.Feature.Gameplay.Host
                 if (trailRenderer != null)
                 {
                     trailRenderer.Clear();
+                }
+            }
+        }
+
+        private void CollectManagedParticleSystems()
+        {
+            _managedParticleSystems.Clear();
+
+            var behaviours = GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is IEnemyPresentationParticleEffectOwner owner)
+                {
+                    owner.CollectManagedParticleSystems(_managedParticleSystems);
                 }
             }
         }

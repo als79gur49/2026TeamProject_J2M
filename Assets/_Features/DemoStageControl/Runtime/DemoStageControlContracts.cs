@@ -47,17 +47,21 @@ namespace Game.Feature.DemoStageControl
     {
         public DemoStageControlGameplayContext(
             IStageCatalogProvider stageCatalogProvider,
-            IDemoStageControlCampaignBridge campaignBridge)
+            IDemoStageControlCampaignBridge campaignBridge,
+            CampaignStageSequenceResolver sequenceResolver)
         {
             StageCatalogProvider = stageCatalogProvider;
             CampaignBridge = campaignBridge;
+            SequenceResolver = sequenceResolver;
         }
 
         public IStageCatalogProvider StageCatalogProvider { get; }
 
         public IDemoStageControlCampaignBridge CampaignBridge { get; }
 
-        public bool IsValid => StageCatalogProvider != null && CampaignBridge != null;
+        public CampaignStageSequenceResolver SequenceResolver { get; }
+
+        public bool IsValid => StageCatalogProvider != null && CampaignBridge != null && SequenceResolver != null;
     }
 
     public enum DemoStageControlOpenKey

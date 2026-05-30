@@ -113,6 +113,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void DemoStageControl_GetStages_UsesCampaignSequenceOrder_AndExcludesCatalogExtras()
+        {
+            var first = CreateEntry("stage-0-1", displayName: "Presentation 0-1");
+            var second = CreateEntry("stage-0-2", displayName: "Presentation 0-2");
+            var extra = CreateEntry("tutorial-scene", displayName: "Tutorial Scene");
+            var service = CreateService(new[] { second, extra, first }, out _, out _);
+
+            var stages = service.GetStages();
+
+            Assert.That(stages, Has.Count.EqualTo(2));
+            Assert.That(stages[0].StageId, Is.EqualTo(first.StageId));
+            Assert.That(stages[0].DisplayName, Is.EqualTo("Presentation 0-1"));
+            Assert.That(stages[1].StageId, Is.EqualTo(second.StageId));
+            Assert.That(stages[1].DisplayName, Is.EqualTo("Presentation 0-2"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DemoStageControl_StartStage_RejectsCatalogStageOutsideCampaignSequence()
+        {
+            var first = CreateEntry("stage-0-1");
+            var extra = CreateEntry("tutorial-scene");
+            var service = CreateService(new[] { first, extra }, out var saveStore, out var router);
+
+            var result = service.StartStage(extra.StageId);
+
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Message, Does.Contain("not part of the campaign sequence"));
+            Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(first.StageId));
+            Assert.That(router.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DemoStageControlCampaignBridge_TrySetActiveStage_RejectsStageOutsideSequence()
+        {
+            var first = CreateEntry("stage-0-1");
+            var extra = CreateEntry("tutorial-scene");
+            var saveStore = new SaveSlotStore(_saveSlotKey);
+            var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
+            activeSlotProvider.SetActiveSlot(1);
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = first.StageId,
+                CurrentLevelGroupId = "level-0",
+                RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                StageCompletionProfileSnapshot = new StageCompletionProfileSnapshot(),
+            });
+            var bridge = new DemoStageControlCampaignBridge(
+                saveStore,
+                activeSlotProvider,
+                CreateCanonicalSequenceResolver());
+
+            var result = bridge.TrySetActiveStage(extra, out var message);
+
+            Assert.That(result, Is.False);
+            Assert.That(message, Does.Contain("not part of the campaign sequence"));
+            Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(first.StageId));
+        }
+
+        [Test]
         public void DemoStageControl_ForceClear_EmitsTerminalClearOnce()
         {
             var tracker = new StageSessionTracker();
@@ -142,11 +205,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoStageControl_ServiceDoesNotReferenceDebugCommandsOrCompletionCommitter()
+        public void DemoStageControl_ServiceDoesNotReferenceLegacyDeveloperCommandsOrCompletionCommitter()
         {
             var source = File.ReadAllText("Assets/_Features/DemoStageControl/Runtime/DemoStageControlService.cs");
+            var removedCommandPrefix = "Debug" + "Command";
 
-            Assert.That(source, Does.Not.Contain("DebugCommand"));
+            Assert.That(source, Does.Not.Contain(removedCommandPrefix));
             Assert.That(source, Does.Not.Contain("StageCompletionCommitter"));
             Assert.That(source, Does.Not.Contain("ObjectiveTracker"));
             Assert.That(source, Does.Not.Contain("SceneManager.LoadScene"));
@@ -179,7 +243,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoGameplayOverride_DoesNotUseDebugCommands()
+        public void DemoGameplayOverride_DoesNotUseLegacyDeveloperCommands()
         {
             var sources = string.Join(
                 Environment.NewLine,
@@ -187,10 +251,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelModels.cs"),
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelRuntime.cs"),
                 File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelView.cs"));
+            var removedPopupName = "Debug" + "Commands";
+            var removedAccessName = "Debug" + "CommandAccess";
+            var removedBuildGateName = "Debug" + "CommandBuildGate";
 
-            Assert.That(sources, Does.Not.Contain("DebugCommands"));
-            Assert.That(sources, Does.Not.Contain("DebugCommandAccess"));
-            Assert.That(sources, Does.Not.Contain("DebugCommandBuildGate"));
+            Assert.That(sources, Does.Not.Contain(removedPopupName));
+            Assert.That(sources, Does.Not.Contain(removedAccessName));
+            Assert.That(sources, Does.Not.Contain(removedBuildGateName));
         }
 
         [Test]
@@ -266,8 +333,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<StageContentEntry> entries,
             out SaveSlotStore saveStore,
             out RecordingStageLaunchRouter router,
-            IDemoStageControlLaunchBridge launchBridge = null)
+            IDemoStageControlLaunchBridge launchBridge = null,
+            CampaignStageSequenceResolver sequenceResolver = null)
         {
+            if (sequenceResolver == null)
+            {
+                sequenceResolver = CreateCanonicalSequenceResolver();
+            }
+
             var provider = new TestStageCatalogProvider(entries);
             saveStore = new SaveSlotStore(_saveSlotKey);
             var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
@@ -283,11 +356,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var campaignBridge = new DemoStageControlCampaignBridge(
                 saveStore,
                 activeSlotProvider,
-                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
+                sequenceResolver);
             router = new RecordingStageLaunchRouter();
             return new DemoStageControlService(
                 DemoStageControlSettings.EnabledByDefault(),
                 provider,
+                sequenceResolver,
                 campaignBridge,
                 launchBridge ?? new DemoStageControlLaunchBridge(router, () => false),
                 new RecordingCompletionBridge());
@@ -296,14 +370,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private StageContentEntry CreateEntry(
             string rawStageId,
             StageProgressionDefinition progressionDefinition = null,
-            StageRewardDefinition rewardDefinition = null)
+            StageRewardDefinition rewardDefinition = null,
+            string displayName = null)
         {
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();
             _createdObjects.Add(entry);
             entry.AssignStageId(StageId.CreateOrThrow(rawStageId));
             entry.AssignProgressionDefinition(progressionDefinition);
             entry.AssignRewardDefinition(rewardDefinition);
+            if (displayName != null)
+            {
+                var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+                _createdObjects.Add(presentationDefinition);
+                SetPrivateField(presentationDefinition, "displayName", displayName);
+                entry.AssignPresentationDefinition(presentationDefinition);
+            }
+
             return entry;
+        }
+
+        private static CampaignStageSequenceResolver CreateCanonicalSequenceResolver()
+        {
+            return new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
         }
 
         private StageProgressionDefinition CreateLockedProgressionDefinition()

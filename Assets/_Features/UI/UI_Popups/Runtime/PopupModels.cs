@@ -190,49 +190,6 @@ namespace Game.Feature.UI.Popups
         public string CloseLabel { get; }
     }
 
-    public sealed class DebugCommandsPopupPayload : IPopupPayload
-    {
-        public DebugCommandsPopupPayload(
-            string titleText,
-            string debugBuildStatusText,
-            string currentStageText,
-            string nextStageText,
-            string lockStatusText,
-            string forceClearAvailabilityText,
-            string lastCommandMessage,
-            bool canGoNextStage,
-            bool canForceClearResultOnly)
-        {
-            TitleText = titleText ?? string.Empty;
-            DebugBuildStatusText = debugBuildStatusText ?? string.Empty;
-            CurrentStageText = currentStageText ?? string.Empty;
-            NextStageText = nextStageText ?? string.Empty;
-            LockStatusText = lockStatusText ?? string.Empty;
-            ForceClearAvailabilityText = forceClearAvailabilityText ?? string.Empty;
-            LastCommandMessage = lastCommandMessage ?? string.Empty;
-            CanGoNextStage = canGoNextStage;
-            CanForceClearResultOnly = canForceClearResultOnly;
-        }
-
-        public string TitleText { get; }
-
-        public string DebugBuildStatusText { get; }
-
-        public string CurrentStageText { get; }
-
-        public string NextStageText { get; }
-
-        public string LockStatusText { get; }
-
-        public string ForceClearAvailabilityText { get; }
-
-        public string LastCommandMessage { get; }
-
-        public bool CanGoNextStage { get; }
-
-        public bool CanForceClearResultOnly { get; }
-    }
-
     public sealed class PausePopupViewModel
     {
         public event Action Changed;
@@ -373,51 +330,4 @@ namespace Game.Feature.UI.Popups
         }
     }
 
-    public sealed class DebugCommandsPopupViewModel
-    {
-        public event Action Changed;
-
-        public string TitleText { get; private set; } = string.Empty;
-
-        public string DebugBuildStatusText { get; private set; } = string.Empty;
-
-        public string CurrentStageText { get; private set; } = string.Empty;
-
-        public string NextStageText { get; private set; } = string.Empty;
-
-        public string LockStatusText { get; private set; } = string.Empty;
-
-        public string ForceClearAvailabilityText { get; private set; } = string.Empty;
-
-        public string LastCommandMessage { get; private set; } = string.Empty;
-
-        public string NextStageLabel { get; private set; } = "Next Stage";
-
-        public string ForceClearResultOnlyLabel { get; private set; } = "Force Clear Result Only - NO SAVE / NO REWARD";
-
-        public string CloseLabel { get; private set; } = "Close";
-
-        public bool CanGoNextStage { get; private set; }
-
-        public bool CanForceClearResultOnly { get; private set; }
-
-        public void SetContent(DebugCommandsPopupPayload payload)
-        {
-            if (payload == null)
-            {
-                throw new ArgumentNullException(nameof(payload));
-            }
-
-            TitleText = payload.TitleText;
-            DebugBuildStatusText = payload.DebugBuildStatusText;
-            CurrentStageText = payload.CurrentStageText;
-            NextStageText = payload.NextStageText;
-            LockStatusText = payload.LockStatusText;
-            ForceClearAvailabilityText = payload.ForceClearAvailabilityText;
-            LastCommandMessage = payload.LastCommandMessage;
-            CanGoNextStage = payload.CanGoNextStage;
-            CanForceClearResultOnly = payload.CanForceClearResultOnly;
-            Changed?.Invoke();
-        }
-    }
 }

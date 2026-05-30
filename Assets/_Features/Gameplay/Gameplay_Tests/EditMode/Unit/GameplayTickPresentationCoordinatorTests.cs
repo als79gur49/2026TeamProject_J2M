@@ -9229,6 +9229,261 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void EnemySemanticParticleEffectController_StopResumePolicy_StopsAndResumesManagedParticle()
+        {
+            var rootObject = new GameObject(nameof(EnemySemanticParticleEffectController_StopResumePolicy_StopsAndResumesManagedParticle));
+
+            try
+            {
+                var particles = AddParticleSystem(rootObject, "ManagedParticles");
+                particles.Play(withChildren: true);
+                particles.Emit(5);
+                var controller = AddSemanticParticleController(
+                    rootObject,
+                    particles,
+                    EnemyPresentationEffectInactivePolicy.StopOnInactiveResumeOnNormal);
+
+                Assert.That(particles.isPlaying, Is.True);
+                Assert.That(particles.particleCount, Is.GreaterThan(0));
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                Assert.That(particles.isPlaying, Is.False);
+                Assert.That(particles.particleCount, Is.Zero);
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+
+                Assert.That(particles.isPlaying, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemySemanticParticleEffectController_StopDoNotResumePolicy_DoesNotPlayOnNormal()
+        {
+            var rootObject = new GameObject(nameof(EnemySemanticParticleEffectController_StopDoNotResumePolicy_DoesNotPlayOnNormal));
+
+            try
+            {
+                var particles = AddParticleSystem(rootObject, "ManagedParticles");
+                particles.Play(withChildren: true);
+                particles.Emit(5);
+                var controller = AddSemanticParticleController(
+                    rootObject,
+                    particles,
+                    EnemyPresentationEffectInactivePolicy.StopOnInactiveDoNotResume);
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+
+                Assert.That(particles.isPlaying, Is.False);
+                Assert.That(particles.particleCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemySemanticParticleEffectController_IgnorePolicy_DoesNotStopOrClearManagedParticle()
+        {
+            var rootObject = new GameObject(nameof(EnemySemanticParticleEffectController_IgnorePolicy_DoesNotStopOrClearManagedParticle));
+
+            try
+            {
+                var particles = AddParticleSystem(rootObject, "ManagedParticles");
+                particles.Play(withChildren: true);
+                particles.Emit(5);
+                var controller = AddSemanticParticleController(
+                    rootObject,
+                    particles,
+                    EnemyPresentationEffectInactivePolicy.IgnoreInactiveSemantic);
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                Assert.That(particles.isPlaying, Is.True);
+                Assert.That(particles.particleCount, Is.GreaterThan(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemySemanticParticleEffectController_HideRendererOnlyPolicy_PreservesPlaybackAndRestoresRenderer()
+        {
+            var rootObject = new GameObject(nameof(EnemySemanticParticleEffectController_HideRendererOnlyPolicy_PreservesPlaybackAndRestoresRenderer));
+
+            try
+            {
+                var particles = AddParticleSystem(rootObject, "ManagedParticles");
+                var renderer = particles.GetComponent<ParticleSystemRenderer>();
+                particles.Play(withChildren: true);
+                var controller = AddSemanticParticleController(
+                    rootObject,
+                    particles,
+                    EnemyPresentationEffectInactivePolicy.HideRendererOnly,
+                    renderer);
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                Assert.That(particles.isPlaying, Is.True);
+                Assert.That(renderer.enabled, Is.False);
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+
+                Assert.That(particles.isPlaying, Is.True);
+                Assert.That(renderer.enabled, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyInactiveVisualController_FrontFaceInactive_DoesNotLegacyStopManagedParticles()
+        {
+            var rootObject = new GameObject(nameof(EnemyInactiveVisualController_FrontFaceInactive_DoesNotLegacyStopManagedParticles));
+
+            try
+            {
+                var inactiveController = rootObject.AddComponent<EnemyInactiveVisualController>();
+                var managedParticles = AddParticleSystem(rootObject, "ManagedParticles");
+                managedParticles.Play(withChildren: true);
+                managedParticles.Emit(5);
+                AddSemanticParticleController(
+                    rootObject,
+                    managedParticles,
+                    EnemyPresentationEffectInactivePolicy.IgnoreInactiveSemantic);
+
+                var legacyParticles = AddParticleSystem(rootObject, "LegacyParticles");
+                legacyParticles.Play(withChildren: true);
+                legacyParticles.Emit(5);
+
+                inactiveController.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                Assert.That(managedParticles.isPlaying, Is.True);
+                Assert.That(managedParticles.particleCount, Is.GreaterThan(0));
+                Assert.That(legacyParticles.isPlaying, Is.False);
+                Assert.That(legacyParticles.particleCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemySemanticParticleEffectController_RepeatedApply_IsIdempotent()
+        {
+            var rootObject = new GameObject(nameof(EnemySemanticParticleEffectController_RepeatedApply_IsIdempotent));
+
+            try
+            {
+                var resumeParticles = AddParticleSystem(rootObject, "ResumeParticles");
+                resumeParticles.Play(withChildren: true);
+                resumeParticles.Emit(5);
+                var noResumeParticles = AddParticleSystem(rootObject, "NoResumeParticles");
+                noResumeParticles.Play(withChildren: true);
+                noResumeParticles.Emit(5);
+                var hiddenParticles = AddParticleSystem(rootObject, "HiddenParticles");
+                hiddenParticles.Play(withChildren: true);
+                var hiddenRenderer = hiddenParticles.GetComponent<ParticleSystemRenderer>();
+                var controller = rootObject.AddComponent<EnemySemanticParticleEffectController>();
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    controller,
+                    "bindings",
+                    new[]
+                    {
+                        new EnemySemanticParticleEffectBinding(
+                            resumeParticles,
+                            EnemyPresentationEffectInactivePolicy.StopOnInactiveResumeOnNormal),
+                        new EnemySemanticParticleEffectBinding(
+                            noResumeParticles,
+                            EnemyPresentationEffectInactivePolicy.StopOnInactiveDoNotResume),
+                        new EnemySemanticParticleEffectBinding(
+                            hiddenParticles,
+                            EnemyPresentationEffectInactivePolicy.HideRendererOnly,
+                            hiddenRenderer),
+                    });
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                Assert.That(resumeParticles.isPlaying, Is.False);
+                Assert.That(noResumeParticles.isPlaying, Is.False);
+                Assert.That(hiddenParticles.isPlaying, Is.True);
+                Assert.That(hiddenRenderer.enabled, Is.False);
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+
+                Assert.That(resumeParticles.isPlaying, Is.True);
+                Assert.That(noResumeParticles.isPlaying, Is.False);
+                Assert.That(hiddenParticles.isPlaying, Is.True);
+                Assert.That(hiddenRenderer.enabled, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemySemanticParticleEffectRuntime_DoesNotDependOnSecBotOrGlowChildNames()
+        {
+            var semanticControllerSource = File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_EnemyPresentation/Runtime/EnemySemanticParticleEffectController.cs");
+            var inactiveControllerSource = File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_EnemyPresentation/Runtime/EnemyInactiveVisualController.cs");
+
+            Assert.That(semanticControllerSource, Does.Not.Contain("SecBot"));
+            Assert.That(semanticControllerSource, Does.Not.Contain("Glow (1)"));
+            Assert.That(inactiveControllerSource, Does.Not.Contain("SecBot"));
+            Assert.That(inactiveControllerSource, Does.Not.Contain("Glow (1)"));
+        }
+
+        private static ParticleSystem AddParticleSystem(GameObject rootObject, string name)
+        {
+            var particleObject = new GameObject(name);
+            particleObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            return particleObject.AddComponent<ParticleSystem>();
+        }
+
+        private static EnemySemanticParticleEffectController AddSemanticParticleController(
+            GameObject rootObject,
+            ParticleSystem particles,
+            EnemyPresentationEffectInactivePolicy policy,
+            ParticleSystemRenderer renderer = null)
+        {
+            var controller = rootObject.AddComponent<EnemySemanticParticleEffectController>();
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                controller,
+                "bindings",
+                new[]
+                {
+                    new EnemySemanticParticleEffectBinding(
+                        particles,
+                        policy,
+                        renderer),
+                });
+            return controller;
+        }
+
+        [Test]
         [Category("Core")]
         public void EnemyInactiveVisualController_ConfigureSettings_AppliesInactiveTintAndStrengths()
         {

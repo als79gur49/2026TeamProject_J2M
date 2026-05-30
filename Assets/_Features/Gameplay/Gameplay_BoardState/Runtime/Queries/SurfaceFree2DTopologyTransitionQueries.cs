@@ -41,7 +41,8 @@ namespace Game.Feature.Gameplay.BoardState
             int targetResidualX,
             int targetResidualY,
             Free2DTopologyTransitionRejectReason rejectReason,
-            LegalityResult targetLegality = default)
+            LegalityResult targetLegality = default,
+            SurfaceContactProjectionResult sourceContactProjection = default)
         {
             Success = success;
             EntityId = entityId;
@@ -57,6 +58,7 @@ namespace Game.Feature.Gameplay.BoardState
             TargetResidualY = targetResidualY;
             RejectReason = rejectReason;
             TargetLegality = targetLegality;
+            SourceContactProjection = sourceContactProjection;
         }
 
         public bool Success { get; }
@@ -86,6 +88,251 @@ namespace Game.Feature.Gameplay.BoardState
         public Free2DTopologyTransitionRejectReason RejectReason { get; }
 
         public LegalityResult TargetLegality { get; }
+
+        public SurfaceContactProjectionResult SourceContactProjection { get; }
+    }
+
+    [Flags]
+    internal enum SurfaceContactProjectionAxes
+    {
+        None = 0,
+        X = 1,
+        Y = 2,
+    }
+
+    internal enum SurfaceContactProjectionSide
+    {
+        None = 0,
+        PositiveX = 1,
+        NegativeX = 2,
+        PositiveY = 3,
+        NegativeY = 4,
+    }
+
+    internal readonly struct SurfaceContactProjectionContact
+    {
+        public SurfaceContactProjectionContact(
+            SurfaceContactProjectionSide side,
+            SurfaceCell cell,
+            LegalityResult legality)
+        {
+            Side = side;
+            Cell = cell;
+            Legality = legality;
+        }
+
+        public SurfaceContactProjectionSide Side { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public LegalityResult Legality { get; }
+    }
+
+    internal readonly struct SurfaceContactProjectionResult
+    {
+        private static readonly IReadOnlyList<SurfaceContactProjectionContact> EmptyContacts =
+            Array.Empty<SurfaceContactProjectionContact>();
+
+        public SurfaceContactProjectionResult(
+            KinematicOffset2 originalLocalOffset,
+            KinematicOffset2 projectedLocalOffset,
+            bool clampedPositiveX,
+            bool clampedNegativeX,
+            bool clampedPositiveY,
+            bool clampedNegativeY,
+            IReadOnlyList<SurfaceContactProjectionContact> contacts = null)
+        {
+            OriginalLocalOffset = originalLocalOffset;
+            ProjectedLocalOffset = projectedLocalOffset;
+            ClampedPositiveX = clampedPositiveX;
+            ClampedNegativeX = clampedNegativeX;
+            ClampedPositiveY = clampedPositiveY;
+            ClampedNegativeY = clampedNegativeY;
+            Contacts = contacts ?? EmptyContacts;
+        }
+
+        public KinematicOffset2 OriginalLocalOffset { get; }
+
+        public KinematicOffset2 ProjectedLocalOffset { get; }
+
+        public bool ClampedPositiveX { get; }
+
+        public bool ClampedNegativeX { get; }
+
+        public bool ClampedPositiveY { get; }
+
+        public bool ClampedNegativeY { get; }
+
+        public IReadOnlyList<SurfaceContactProjectionContact> Contacts { get; }
+    }
+
+    internal static class SurfaceContinuousContactProjectionQueries
+    {
+        public static SurfaceContactProjectionResult ProjectLocalOffsetAgainstSourceFaceBlockers(
+            WorldSnapshot snapshot,
+            in LegalityActorRef actor,
+            SurfaceCell sourceAnchor,
+            KinematicOffset2 sourceLocalOffset,
+            int radiusUnits,
+            CubeTopologyState evaluationTopology,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            SurfaceContactProjectionAxes axes)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            var radius = NormalizeCollisionRadiusUnits(radiusUnits);
+            if (radius <= 0 ||
+                axes == SurfaceContactProjectionAxes.None)
+            {
+                return new SurfaceContactProjectionResult(
+                    sourceLocalOffset,
+                    sourceLocalOffset,
+                    clampedPositiveX: false,
+                    clampedNegativeX: false,
+                    clampedPositiveY: false,
+                    clampedNegativeY: false);
+            }
+
+            var projectedX = sourceLocalOffset.X.RawValue;
+            var projectedY = sourceLocalOffset.Y.RawValue;
+            var clampedPositiveX = false;
+            var clampedNegativeX = false;
+            var clampedPositiveY = false;
+            var clampedNegativeY = false;
+            List<SurfaceContactProjectionContact> contacts = null;
+
+            if ((axes & SurfaceContactProjectionAxes.X) != 0)
+            {
+                if (projectedX + radius > KinematicFixed.HalfCellUnits &&
+                    IsSourceFaceContactBlocked(
+                        snapshot,
+                        actor,
+                        sourceAnchor,
+                        sourceAnchor + Vector2Int.right,
+                        evaluationTopology,
+                        tileFeatureDefinitions,
+                        out var legality))
+                {
+                    projectedX = GetPositiveBlockedClamp(radius);
+                    clampedPositiveX = true;
+                    AddContact(ref contacts, SurfaceContactProjectionSide.PositiveX, legality.Cell, legality);
+                }
+
+                if (projectedX - radius < KinematicFixed.MinLocalOffset &&
+                    IsSourceFaceContactBlocked(
+                        snapshot,
+                        actor,
+                        sourceAnchor,
+                        sourceAnchor + Vector2Int.left,
+                        evaluationTopology,
+                        tileFeatureDefinitions,
+                        out legality))
+                {
+                    projectedX = GetNegativeBlockedClamp(radius);
+                    clampedNegativeX = true;
+                    AddContact(ref contacts, SurfaceContactProjectionSide.NegativeX, legality.Cell, legality);
+                }
+            }
+
+            if ((axes & SurfaceContactProjectionAxes.Y) != 0)
+            {
+                if (projectedY + radius > KinematicFixed.HalfCellUnits &&
+                    IsSourceFaceContactBlocked(
+                        snapshot,
+                        actor,
+                        sourceAnchor,
+                        sourceAnchor + Vector2Int.up,
+                        evaluationTopology,
+                        tileFeatureDefinitions,
+                        out var legality))
+                {
+                    projectedY = GetPositiveBlockedClamp(radius);
+                    clampedPositiveY = true;
+                    AddContact(ref contacts, SurfaceContactProjectionSide.PositiveY, legality.Cell, legality);
+                }
+
+                if (projectedY - radius < KinematicFixed.MinLocalOffset &&
+                    IsSourceFaceContactBlocked(
+                        snapshot,
+                        actor,
+                        sourceAnchor,
+                        sourceAnchor + Vector2Int.down,
+                        evaluationTopology,
+                        tileFeatureDefinitions,
+                        out legality))
+                {
+                    projectedY = GetNegativeBlockedClamp(radius);
+                    clampedNegativeY = true;
+                    AddContact(ref contacts, SurfaceContactProjectionSide.NegativeY, legality.Cell, legality);
+                }
+            }
+
+            return new SurfaceContactProjectionResult(
+                sourceLocalOffset,
+                new KinematicOffset2(
+                    KinematicFixed.FromRaw(projectedX),
+                    KinematicFixed.FromRaw(projectedY)),
+                clampedPositiveX,
+                clampedNegativeX,
+                clampedPositiveY,
+                clampedNegativeY,
+                contacts);
+        }
+
+        private static bool IsSourceFaceContactBlocked(
+            WorldSnapshot snapshot,
+            in LegalityActorRef actor,
+            SurfaceCell sourceAnchor,
+            SurfaceCell contactCell,
+            CubeTopologyState evaluationTopology,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            out LegalityResult legality)
+        {
+            legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                new TraverseContext(
+                    snapshot,
+                    actor,
+                    sourceAnchor,
+                    contactCell,
+                    evaluationTopology,
+                    TransitionRequirement.None,
+                    tileFeatureDefinitions: tileFeatureDefinitions));
+            return legality.Verdict != LegalityVerdict.Allowed;
+        }
+
+        private static void AddContact(
+            ref List<SurfaceContactProjectionContact> contacts,
+            SurfaceContactProjectionSide side,
+            SurfaceCell cell,
+            LegalityResult legality)
+        {
+            if (contacts == null)
+            {
+                contacts = new List<SurfaceContactProjectionContact>();
+            }
+
+            contacts.Add(new SurfaceContactProjectionContact(side, cell, legality));
+        }
+
+        private static int NormalizeCollisionRadiusUnits(int radiusUnits)
+        {
+            return Math.Max(0, Math.Min(KinematicFixed.HalfCellUnits - 1, radiusUnits));
+        }
+
+        private static int GetPositiveBlockedClamp(int radiusUnits)
+        {
+            return Math.Min(
+                KinematicFixed.MaxPositiveLocalOffset,
+                KinematicFixed.HalfCellUnits - radiusUnits);
+        }
+
+        private static int GetNegativeBlockedClamp(int radiusUnits)
+        {
+            return KinematicFixed.MinLocalOffset + radiusUnits;
+        }
     }
 
     internal static class SurfaceFree2DTopologyTransitionQueries
@@ -134,18 +381,35 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
+            var sourceContactProjection =
+                SurfaceContinuousContactProjectionQueries.ProjectLocalOffsetAgainstSourceFaceBlockers(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, entity),
+                    entity.position,
+                    pose.LocalOffset,
+                    collisionRadiusUnits,
+                    snapshot.Topology,
+                    tileFeatureDefinitions,
+                    ResolveSourceContactProjectionAxes(directionDelta));
+
             if (!SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
                     snapshot.Topology,
                     snapshot.BoardBounds,
                     entity.position,
                     directionDelta,
-                    pose.LocalOffset,
+                    sourceContactProjection.ProjectedLocalOffset,
                     velocityDelta,
                     collisionRadiusUnits,
                     out var remapRejectReason,
                     out var remap))
             {
-                result = CreateRejected(entityId, entity.position, pose.LocalOffset, velocityDelta, remapRejectReason);
+                result = CreateRejected(
+                    entityId,
+                    entity.position,
+                    pose.LocalOffset,
+                    velocityDelta,
+                    remapRejectReason,
+                    sourceContactProjection);
                 return false;
             }
 
@@ -169,7 +433,40 @@ namespace Game.Feature.Gameplay.BoardState
                     remap.TargetVelocity,
                     0,
                     0,
-                    directOccupancyRejectReason);
+                    directOccupancyRejectReason,
+                    sourceContactProjection: sourceContactProjection);
+                return false;
+            }
+
+            if (TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
+                    snapshot,
+                    remap.TargetAnchor,
+                    out var topologyTransitionBlocker))
+            {
+                var topologyTransitionBlockerLegality = LegalityResult.Blocked(
+                    LegalityDomain.Traversal,
+                    remap.TargetAnchor,
+                    remap.UpdatedTopology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(topologyTransitionBlocker),
+                    transitionRequirement: TransitionRequirement.TopologyUpdate(
+                        remap.RotationKind,
+                        remap.UpdatedTopology));
+                result = new Free2DTopologyTransitionResult(
+                    false,
+                    entityId,
+                    entity.position,
+                    pose.LocalOffset,
+                    velocityDelta,
+                    remap.TargetAnchor,
+                    remap.UpdatedTopology,
+                    remap.RotationKind,
+                    remap.TargetLocalOffset,
+                    remap.TargetVelocity,
+                    0,
+                    0,
+                    Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature,
+                    topologyTransitionBlockerLegality,
+                    sourceContactProjection);
                 return false;
             }
 
@@ -198,7 +495,8 @@ namespace Game.Feature.Gameplay.BoardState
                     0,
                     0,
                     ResolveRejectReason(targetLegality),
-                    targetLegality);
+                    targetLegality,
+                    sourceContactProjection);
                 return false;
             }
 
@@ -214,7 +512,13 @@ namespace Game.Feature.Gameplay.BoardState
                 remap.RotationKind != rotationKind ||
                 !remap.UpdatedTopology.Equals(updatedTopology))
             {
-                result = CreateRejected(entityId, entity.position, pose.LocalOffset, velocityDelta, Free2DTopologyTransitionRejectReason.TopologyTransitionUnavailable);
+                result = CreateRejected(
+                    entityId,
+                    entity.position,
+                    pose.LocalOffset,
+                    velocityDelta,
+                    Free2DTopologyTransitionRejectReason.TopologyTransitionUnavailable,
+                    sourceContactProjection);
                 return false;
             }
 
@@ -244,7 +548,8 @@ namespace Game.Feature.Gameplay.BoardState
                     0,
                     0,
                     footprintRejectReason,
-                    targetLegality);
+                    targetLegality,
+                    sourceContactProjection);
                 return false;
             }
 
@@ -261,7 +566,8 @@ namespace Game.Feature.Gameplay.BoardState
                 remap.TargetVelocity,
                 0,
                 0,
-                Free2DTopologyTransitionRejectReason.None);
+                Free2DTopologyTransitionRejectReason.None,
+                sourceContactProjection: sourceContactProjection);
             return true;
         }
 
@@ -270,7 +576,8 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell sourceAnchor,
             KinematicOffset2 sourceLocalOffset,
             KinematicVelocity2 sourceVelocity,
-            Free2DTopologyTransitionRejectReason reason)
+            Free2DTopologyTransitionRejectReason reason,
+            SurfaceContactProjectionResult sourceContactProjection = default)
         {
             return new Free2DTopologyTransitionResult(
                 false,
@@ -285,7 +592,15 @@ namespace Game.Feature.Gameplay.BoardState
                 KinematicVelocity2.Zero,
                 0,
                 0,
-                reason);
+                reason,
+                sourceContactProjection: sourceContactProjection);
+        }
+
+        private static SurfaceContactProjectionAxes ResolveSourceContactProjectionAxes(Vector2Int directionDelta)
+        {
+            return directionDelta.y != 0
+                ? SurfaceContactProjectionAxes.X
+                : SurfaceContactProjectionAxes.None;
         }
 
         private static bool TryResolveDirectTargetOccupancyBlocker(

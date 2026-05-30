@@ -217,7 +217,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyCharge_RocketFaceProfile_ActivatedBarricadeFeatureAloneDoesNotStopCharge_CurrentPolicy()
+        public void EnemyCharge_RocketFaceProfile_ActivatedBarricadeStopsActiveChargeAndThenRecovers()
         {
             var destination = new SurfaceCell(FaceId.Floor, 1, 0);
             var barricade = CreateTileFeature(103, destination, TileFeatureKind.Barricade);
@@ -231,10 +231,60 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             SeedActiveCharge(worldState, remainingActiveSteps: 2);
             var pipeline = CreatePipeline(worldState, LoadRocketFaceProfile(), CreateActiveDefinitions(barricade));
 
-            RunUntilChargeStepSettles(pipeline, worldState, startTick: 1, destination);
+            var tick = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == EnemyId), Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
+            Assert.That(GetChargeState(worldState).phase, Is.EqualTo(EnemyChargePhase.Recover));
+            Assert.That(GetChargeState(worldState).recoverRemainingTicks, Is.GreaterThan(0));
+            Assert.That(tick.Trace.Text, Does.Contain("ChargeBlocked").Or.Contain("EnemyChargeKinematicTraversalBlocked"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_RocketFaceProfile_InactiveBarricadeDoesNotStopActiveCharge()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var barricade = CreateTileFeature(104, destination, TileFeatureKind.Barricade);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(new SurfaceCell(FaceId.Floor, 4, 0)),
+                    CreateEnemy(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right, EnemyAiMode.Charge),
+                },
+                initialTileFeatures: new[] { barricade });
+            SeedActiveCharge(worldState, remainingActiveSteps: 2);
+            var pipeline = CreatePipeline(worldState, LoadRocketFaceProfile(), CreateInactiveDefinitions(barricade));
+            var tick = 1;
+
+            RunUntilChargeStepSettles(pipeline, worldState, ref tick, destination);
 
             Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(destination));
             Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
+            Assert.That(GetChargeState(worldState).phase, Is.EqualTo(EnemyChargePhase.Active));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCharge_RocketFaceProfile_SamePlanarOtherFaceActivatedBarricadeDoesNotStopCharge()
+        {
+            var destination = new SurfaceCell(FaceId.Floor, 1, 0);
+            var otherFaceBarricade = CreateTileFeature(105, new SurfaceCell(FaceId.Front, 1, 0), TileFeatureKind.Barricade);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(new SurfaceCell(FaceId.Floor, 4, 0)),
+                    CreateEnemy(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right, EnemyAiMode.Charge),
+                },
+                initialTileFeatures: new[] { otherFaceBarricade });
+            SeedActiveCharge(worldState, remainingActiveSteps: 2);
+            var pipeline = CreatePipeline(worldState, LoadRocketFaceProfile(), CreateActiveDefinitions(otherFaceBarricade));
+            var tick = 1;
+
+            RunUntilChargeStepSettles(pipeline, worldState, ref tick, destination);
+
+            Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(destination));
             Assert.That(GetChargeState(worldState).phase, Is.EqualTo(EnemyChargePhase.Active));
         }
 
@@ -546,10 +596,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TileFeatureRuntimeDefinition[] CreateActiveDefinitions(params TileFeatureState[] tileFeatures)
         {
+            return CreateDefinitions(TileFeatureActivationRule.Always, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateInactiveDefinitions(params TileFeatureState[] tileFeatures)
+        {
+            return CreateDefinitions(TileFeatureActivationRule.InactiveFaceOnly, tileFeatures);
+        }
+
+        private static TileFeatureRuntimeDefinition[] CreateDefinitions(
+            TileFeatureActivationRule activationRule,
+            params TileFeatureState[] tileFeatures)
+        {
             return tileFeatures
                 .Select(tileFeature => new TileFeatureRuntimeDefinition(
                     tileFeature.TileId,
-                    TileFeatureActivationRule.Always,
+                    activationRule,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
                     boundEntityId: tileFeature.Charges,

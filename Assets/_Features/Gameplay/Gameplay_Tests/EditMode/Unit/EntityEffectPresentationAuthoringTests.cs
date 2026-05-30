@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string PlayerPrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
         private const string StartisPrefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Startis.prefab";
         private const string BlackEyePrefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_BlackEye.prefab";
+        private const string SecBotPrefabPath = StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_SecBot.prefab";
 
         [Test]
         [Category("Full")]
@@ -217,6 +218,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(driver.Amplitude, Is.GreaterThan(0f));
             Assert.That(driver.FrequencyHz, Is.GreaterThan(0f));
             Assert.That(driver.PhaseOffsetSeconds, Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void SecBotPrefab_AuthorsSemanticParticleEffectResumePolicy()
+        {
+            var view = LoadGameplayPrefab(SecBotPrefabPath);
+            var controller = view.GetComponent<EnemySemanticParticleEffectController>();
+
+            Assert.That(controller, Is.Not.Null, $"Missing {nameof(EnemySemanticParticleEffectController)} on '{SecBotPrefabPath}'.");
+            Assert.That(controller.gameObject, Is.SameAs(view.gameObject));
+
+            var serializedObject = new SerializedObject(controller);
+            var bindings = serializedObject.FindProperty("bindings");
+            Assert.That(bindings, Is.Not.Null);
+            Assert.That(bindings.arraySize, Is.GreaterThan(0));
+
+            var hasResumePolicyBinding = false;
+            for (var i = 0; i < bindings.arraySize; i++)
+            {
+                var binding = bindings.GetArrayElementAtIndex(i);
+                var particles = binding.FindPropertyRelative("particleSystem").objectReferenceValue as ParticleSystem;
+                var policy = binding.FindPropertyRelative("policy").enumValueIndex;
+                var includeChildren = binding.FindPropertyRelative("includeChildren").boolValue;
+                var clearOnInactive = binding.FindPropertyRelative("clearOnInactive").boolValue;
+                var restoreRendererOnNormal = binding.FindPropertyRelative("restoreRendererOnNormal").boolValue;
+
+                if (particles == null ||
+                    policy != (int)EnemyPresentationEffectInactivePolicy.StopOnInactiveResumeOnNormal)
+                {
+                    continue;
+                }
+
+                hasResumePolicyBinding = true;
+                Assert.That(includeChildren, Is.True);
+                Assert.That(clearOnInactive, Is.True);
+                Assert.That(restoreRendererOnNormal, Is.True);
+            }
+
+            Assert.That(hasResumePolicyBinding, Is.True);
         }
 
         [Test]

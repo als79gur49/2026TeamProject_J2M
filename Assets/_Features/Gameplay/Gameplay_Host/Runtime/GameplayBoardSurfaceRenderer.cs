@@ -49,15 +49,23 @@ namespace Game.Feature.Gameplay.Host
     {
         private const string VisibleTilePoolObjectName = "VisibleTilePool";
         private const string TransitionTilePoolObjectName = "TransitionTilePool";
+        private const string ActiveFaceCoverRootObjectName = "ActiveFaceCoverRoot";
+        private const string ActiveFaceCoverVisualBottomObjectName = "VisualBottom";
+        private const string ActiveFaceCoverVisualFrontObjectName = "VisualFront";
+        private const string ActiveFaceCoverVisualBackObjectName = "VisualBack";
         private const string TileOverlayRootObjectName = "BoardTileOverlays";
         private const float OverlayLocalZ = 0.515f;
         private const float OverlayLocalZStep = 0.006f;
         private const float OverlayLocalScale = 0.92f;
+        private const float ActiveFaceCoverSurfaceOffset = 0.01f;
+        private static readonly int BaseMapScaleOffsetPropertyId = Shader.PropertyToID("_BaseMap_ST");
+        private static readonly int MainTexScaleOffsetPropertyId = Shader.PropertyToID("_MainTex_ST");
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
         [SerializeField] private bool renderDecorativeFaces = false;
         [SerializeField] private Transform visibleTilePoolRoot;
         [SerializeField] private Transform transitionTilePoolRoot;
+        [SerializeField] private Transform activeFaceCoverRoot;
 
         private readonly List<Material> _ownedMaterials = new();
         private readonly List<SurfaceTileView> _steadyActiveTiles = new();
@@ -66,6 +74,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<BoardTilePoolKey, List<SurfaceTileView>> _steadyTilePools = new();
         private readonly Dictionary<BoardTilePoolKey, List<SurfaceTileView>> _transitionTilePools = new();
         private readonly Dictionary<SurfaceCell, TileVisualHandle> _tileVisualHandles = new();
+        private readonly ActiveFaceCoverView[] _activeFaceCoverViews = new ActiveFaceCoverView[2];
 
         private BoardBounds _boardBounds;
         private float _cellSize;
@@ -78,12 +87,14 @@ namespace Game.Feature.Gameplay.Host
         private BoardTileOverlayCatalog _boardTileOverlayCatalog;
         private BoardTileOverlayOverride[] _boardTileOverlayOverrides =
             Array.Empty<BoardTileOverlayOverride>();
+        private GameObject _activeFaceCoverPrefab;
         private Dictionary<SurfaceCell, string> _boardTilePresentationOverrideLookup = new();
         private Dictionary<SurfaceCell, string> _boardTilePaintOverrideLookup = new();
         private Dictionary<SurfaceCell, List<BoardTileOverlayOverride>> _boardTileOverlayOverrideLookup = new();
         private HashSet<SurfaceCell> _suppressedBaseTileCells = new();
         private MaterialPropertyBlock _stylePropertyBlock;
         private MaterialPropertyBlock _overlayPropertyBlock;
+        private MaterialPropertyBlock _activeFaceCoverPropertyBlock;
         private Material _activeBottomFaceMaterial;
         private Material _activeFrontFaceMaterial;
         private Material _decorativeBackFaceMaterial;
@@ -113,10 +124,13 @@ namespace Game.Feature.Gameplay.Host
 
         public Transform TransitionTilePoolRoot => transitionTilePoolRoot != null ? transitionTilePoolRoot : EnsureTransitionTilePoolRoot();
 
+        public Transform ActiveFaceCoverRoot => activeFaceCoverRoot != null ? activeFaceCoverRoot : EnsureActiveFaceCoverRoot();
+
         private void Awake()
         {
             EnsureVisibleTilePoolRoot();
             EnsureTransitionTilePoolRoot();
+            EnsureActiveFaceCoverRoot();
         }
 
         private void OnDestroy()
@@ -154,7 +168,8 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
             BoardTileOverlayCatalog boardTileOverlayCatalog = null,
             IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides = null,
-            IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
+            IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null,
+            GameObject activeFaceCoverPrefab = null)
         {
             if (!boardBounds.IsBounded)
             {
@@ -192,6 +207,12 @@ namespace Game.Feature.Gameplay.Host
             _boardTileOverlayOverrides = CloneBoardTileOverlayOverrides(boardTileOverlayOverrides);
             _boardTileOverlayOverrideLookup =
                 BuildBoardTileOverlayOverrideLookup(_boardTileOverlayOverrides);
+            if (_activeFaceCoverPrefab != activeFaceCoverPrefab)
+            {
+                DestroyActiveFaceCovers();
+                _activeFaceCoverPrefab = activeFaceCoverPrefab;
+            }
+
             if (_boardTileOverlayCatalog == null && _boardTileOverlayOverrides.Length > 0)
             {
                 UnityEngine.Debug.LogWarning(
@@ -203,6 +224,7 @@ namespace Game.Feature.Gameplay.Host
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             EnsureVisibleTilePoolRoot();
             EnsureTransitionTilePoolRoot();
+            EnsureActiveFaceCoverRoot();
             EnsureMaterials(sharedTileTexture);
             _isInitialized = true;
             RefreshTopology(topology);
@@ -279,6 +301,7 @@ namespace Game.Feature.Gameplay.Host
                 tileIndex);
 
             TransitionTileCount = tileIndex;
+            RefreshActiveFaceCoversForTransition(sourceTopology, destinationTopology);
         }
 
         public void UpdateTopologyTransition(float progress)
@@ -399,6 +422,7 @@ namespace Game.Feature.Gameplay.Host
 
             SteadyTileCount = tileIndex;
             _areSteadyTilesVisible = true;
+            RefreshActiveFaceCoversForSteady(topology);
         }
 
         private Transform EnsureVisibleTilePoolRoot()
@@ -451,6 +475,32 @@ namespace Game.Feature.Gameplay.Host
             transitionTilePoolRoot.localRotation = Quaternion.identity;
             transitionTilePoolRoot.localScale = Vector3.one;
             return transitionTilePoolRoot;
+        }
+
+        private Transform EnsureActiveFaceCoverRoot()
+        {
+            if (activeFaceCoverRoot == null)
+            {
+                var existingChild = transform.Find(ActiveFaceCoverRootObjectName);
+                if (existingChild == null)
+                {
+                    var coverRootObject = new GameObject(ActiveFaceCoverRootObjectName);
+                    existingChild = coverRootObject.transform;
+                    existingChild.SetParent(transform, worldPositionStays: false);
+                }
+                else if (existingChild.parent != transform)
+                {
+                    existingChild.SetParent(transform, worldPositionStays: false);
+                }
+
+                activeFaceCoverRoot = existingChild;
+            }
+
+            activeFaceCoverRoot.name = ActiveFaceCoverRootObjectName;
+            activeFaceCoverRoot.localPosition = Vector3.zero;
+            activeFaceCoverRoot.localRotation = Quaternion.identity;
+            activeFaceCoverRoot.localScale = Vector3.one;
+            return activeFaceCoverRoot;
         }
 
         private void EnsureInitialized()
@@ -1466,6 +1516,250 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        private void RefreshActiveFaceCoversForSteady(CubeTopologyState topology)
+        {
+            if (_activeFaceCoverPrefab == null)
+            {
+                SetActiveFaceCoversActive(false);
+                return;
+            }
+
+            RefreshActiveFaceCover(
+                index: 0,
+                SurfaceTileRole.ActiveBottom,
+                topology.BottomFace,
+                ResolveActiveFaceCoverPoseForSteady);
+            RefreshActiveFaceCover(
+                index: 1,
+                SurfaceTileRole.ActiveFront,
+                topology.FrontFace,
+                ResolveActiveFaceCoverPoseForSteady);
+
+            bool ResolveActiveFaceCoverPoseForSteady(
+                FaceId face,
+                out GameplayEntityPose pose,
+                out Vector3 scale)
+            {
+                return TryResolveActiveFaceCoverPose(
+                    face,
+                    (SurfaceCell cell, out ProjectedCellPose projectedPose) =>
+                        _projector.TryProjectSurfaceCell(cell, topology, out projectedPose),
+                    out pose,
+                    out scale);
+            }
+        }
+
+        private void RefreshActiveFaceCoversForTransition(
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology)
+        {
+            if (_activeFaceCoverPrefab == null)
+            {
+                SetActiveFaceCoversActive(false);
+                return;
+            }
+
+            RefreshActiveFaceCover(
+                index: 0,
+                SurfaceTileRole.ActiveBottom,
+                destinationTopology.BottomFace,
+                ResolveActiveFaceCoverPoseForTransition);
+            RefreshActiveFaceCover(
+                index: 1,
+                SurfaceTileRole.ActiveFront,
+                destinationTopology.FrontFace,
+                ResolveActiveFaceCoverPoseForTransition);
+
+            bool ResolveActiveFaceCoverPoseForTransition(
+                FaceId face,
+                out GameplayEntityPose pose,
+                out Vector3 scale)
+            {
+                return TryResolveActiveFaceCoverPose(
+                    face,
+                    (SurfaceCell cell, out ProjectedCellPose projectedPose) =>
+                        _projector.TryProjectTransitionSurfaceCell(
+                            cell,
+                            sourceTopology,
+                            destinationTopology,
+                            out projectedPose),
+                    out pose,
+                    out scale);
+            }
+        }
+
+        private delegate bool ActiveFaceCoverProjector(
+            SurfaceCell cell,
+            out ProjectedCellPose projectedPose);
+
+        private bool TryResolveActiveFaceCoverPose(
+            FaceId face,
+            ActiveFaceCoverProjector projector,
+            out GameplayEntityPose pose,
+            out Vector3 scale)
+        {
+            var minCell = new SurfaceCell(
+                face,
+                _boardBounds.MinInclusive.x,
+                _boardBounds.MinInclusive.y);
+            var maxCell = new SurfaceCell(
+                face,
+                _boardBounds.MaxInclusive.x,
+                _boardBounds.MaxInclusive.y);
+
+            if (!projector(minCell, out var minPose) ||
+                !projector(maxCell, out var maxPose))
+            {
+                pose = default;
+                scale = default;
+                return false;
+            }
+
+            var surfaceCenter = (minPose.LocalPosition + maxPose.LocalPosition) * 0.5f;
+            var coverOffset = _projector.SurfaceTileThickness + ActiveFaceCoverSurfaceOffset;
+            pose = new GameplayEntityPose(
+                surfaceCenter - (minPose.Normal * coverOffset),
+                minPose.LocalRotation);
+            scale = new Vector3(
+                _projector.Width * _cellSize,
+                _projector.Height * _cellSize,
+                1f);
+            return true;
+        }
+
+        private void RefreshActiveFaceCover(
+            int index,
+            SurfaceTileRole role,
+            FaceId face,
+            ActiveFaceCoverPoseResolver poseResolver)
+        {
+            var cover = EnsureActiveFaceCoverView(index, role);
+            if (cover == null ||
+                !poseResolver(face, out var pose, out var scale))
+            {
+                cover?.SetActive(false);
+                return;
+            }
+
+            cover.GameObject.name = $"{role}Cover_{face}";
+            cover.Transform.localPosition = pose.Position;
+            cover.Transform.localRotation = pose.Rotation;
+            cover.Transform.localScale = scale;
+            ApplyActiveFaceCoverTiling(cover, scale);
+            cover.SetActive(true);
+        }
+
+        private delegate bool ActiveFaceCoverPoseResolver(
+            FaceId face,
+            out GameplayEntityPose pose,
+            out Vector3 scale);
+
+        private ActiveFaceCoverView EnsureActiveFaceCoverView(int index, SurfaceTileRole role)
+        {
+            if (_activeFaceCoverPrefab == null ||
+                index < 0 ||
+                index >= _activeFaceCoverViews.Length)
+            {
+                return null;
+            }
+
+            var existing = _activeFaceCoverViews[index];
+            if (existing != null &&
+                existing.GameObject != null)
+            {
+                return existing;
+            }
+
+            var coverObject = Instantiate(_activeFaceCoverPrefab, ActiveFaceCoverRoot);
+            coverObject.name = $"{role}Cover";
+            coverObject.transform.SetParent(ActiveFaceCoverRoot, worldPositionStays: false);
+            coverObject.transform.localPosition = Vector3.zero;
+            coverObject.transform.localRotation = Quaternion.identity;
+            coverObject.transform.localScale = Vector3.one;
+            existing = new ActiveFaceCoverView(
+                coverObject,
+                coverObject.transform,
+                ResolveActiveFaceCoverVisualRenderer(coverObject, ActiveFaceCoverVisualBottomObjectName),
+                ResolveActiveFaceCoverVisualRenderer(coverObject, ActiveFaceCoverVisualFrontObjectName),
+                ResolveActiveFaceCoverVisualRenderer(coverObject, ActiveFaceCoverVisualBackObjectName));
+            _activeFaceCoverViews[index] = existing;
+            return existing;
+        }
+
+        private void ApplyActiveFaceCoverTiling(ActiveFaceCoverView cover, Vector3 scale)
+        {
+            if (cover == null)
+            {
+                return;
+            }
+
+            ApplyActiveFaceCoverRendererTiling(cover.VisualBottomRenderer, scale.x, scale.y);
+            ApplyActiveFaceCoverRendererTiling(cover.VisualFrontRenderer, scale.x, 1f);
+            ApplyActiveFaceCoverRendererTiling(cover.VisualBackRenderer, scale.x, 1f);
+        }
+
+        private void ApplyActiveFaceCoverRendererTiling(Renderer renderer, float xTiling, float yTiling)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            _activeFaceCoverPropertyBlock ??= new MaterialPropertyBlock();
+            _activeFaceCoverPropertyBlock.Clear();
+            renderer.GetPropertyBlock(_activeFaceCoverPropertyBlock);
+
+            var scaleOffset = new Vector4(xTiling, yTiling, 0f, 0f);
+            _activeFaceCoverPropertyBlock.SetVector(BaseMapScaleOffsetPropertyId, scaleOffset);
+            _activeFaceCoverPropertyBlock.SetVector(MainTexScaleOffsetPropertyId, scaleOffset);
+            renderer.SetPropertyBlock(_activeFaceCoverPropertyBlock);
+            _activeFaceCoverPropertyBlock.Clear();
+        }
+
+        private static Renderer ResolveActiveFaceCoverVisualRenderer(GameObject coverObject, string childName)
+        {
+            if (coverObject == null)
+            {
+                return null;
+            }
+
+            var child = coverObject.transform.Find(childName);
+            return child != null ? child.GetComponent<Renderer>() : null;
+        }
+
+        private void SetActiveFaceCoversActive(bool isActive)
+        {
+            for (var i = 0; i < _activeFaceCoverViews.Length; i++)
+            {
+                _activeFaceCoverViews[i]?.SetActive(isActive);
+            }
+        }
+
+        private void DestroyActiveFaceCovers()
+        {
+            for (var i = 0; i < _activeFaceCoverViews.Length; i++)
+            {
+                var cover = _activeFaceCoverViews[i];
+                if (cover == null ||
+                    cover.GameObject == null)
+                {
+                    _activeFaceCoverViews[i] = null;
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(cover.GameObject);
+                }
+                else
+                {
+                    DestroyImmediate(cover.GameObject);
+                }
+
+                _activeFaceCoverViews[i] = null;
+            }
+        }
+
         private void DestroyAllTilePools()
         {
             ClearTileVisualHandles();
@@ -1750,6 +2044,42 @@ namespace Game.Feature.Gameplay.Host
             public BoardTileOverlayCatalogEntry Entry { get; }
 
             public int AuthoredIndex { get; }
+        }
+
+        private sealed class ActiveFaceCoverView
+        {
+            public ActiveFaceCoverView(
+                GameObject gameObject,
+                Transform transform,
+                Renderer visualBottomRenderer,
+                Renderer visualFrontRenderer,
+                Renderer visualBackRenderer)
+            {
+                GameObject = gameObject;
+                Transform = transform;
+                VisualBottomRenderer = visualBottomRenderer;
+                VisualFrontRenderer = visualFrontRenderer;
+                VisualBackRenderer = visualBackRenderer;
+            }
+
+            public GameObject GameObject { get; }
+
+            public Transform Transform { get; }
+
+            public Renderer VisualBottomRenderer { get; }
+
+            public Renderer VisualFrontRenderer { get; }
+
+            public Renderer VisualBackRenderer { get; }
+
+            public void SetActive(bool isActive)
+            {
+                if (GameObject != null &&
+                    GameObject.activeSelf != isActive)
+                {
+                    GameObject.SetActive(isActive);
+                }
+            }
         }
 
         private sealed class SurfaceTileView

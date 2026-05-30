@@ -8,10 +8,13 @@ namespace Game.Feature.Stages
     public sealed class BoardPresentationProfile : ScriptableObject
     {
         [SerializeField] private GameObject boardRootPrefab;
+        [SerializeField] private GameObject activeFaceCoverPrefab;
         [SerializeField] private BoardTileStyleCatalog defaultBoardTileStyleCatalog;
         [SerializeField] private BoardTileOverlayCatalog defaultBoardTileOverlayCatalog;
 
         public GameObject BoardRootPrefab => boardRootPrefab;
+
+        public GameObject ActiveFaceCoverPrefab => activeFaceCoverPrefab;
 
         public BoardTileStyleCatalog DefaultBoardTileStyleCatalog => defaultBoardTileStyleCatalog;
 

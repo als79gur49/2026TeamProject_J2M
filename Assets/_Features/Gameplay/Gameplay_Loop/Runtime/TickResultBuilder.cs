@@ -742,6 +742,8 @@ namespace Game.Feature.Gameplay.Loop
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
             var playerOutcomeSignals = new List<TickPlayerOutcomePresentationSignal>();
+            var playerTopologyTransitionBlockedSignals =
+                new List<TickPlayerTopologyTransitionBlockedSignal>();
             var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
@@ -782,6 +784,9 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerDeathPresentation(context, playerDeathSignals);
             BuildPlayerDeathHoldPresentation(context, playerDeathHoldSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
+            BuildPlayerTopologyTransitionBlockedPresentation(
+                context,
+                playerTopologyTransitionBlockedSignals);
             BuildPlayerOutcomePresentation(context, playerOutcomeSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
@@ -843,6 +848,7 @@ namespace Game.Feature.Gameplay.Loop
                           playerDeathHoldSignals.Count == 0 &&
                           playerDeathSignals.Count == 0 &&
                           playerLocomotionSignals.Count == 0 &&
+                          playerTopologyTransitionBlockedSignals.Count == 0 &&
                           playerOutcomeSignals.Count == 0 &&
                           summonedEnemyPresentationBindings.Count == 0 &&
                           visibilityChanges.Count == 0 &&
@@ -905,13 +911,25 @@ namespace Game.Feature.Gameplay.Loop
                     forwardCellProjectileClearSignals,
                     entitySpawnSignals,
                     playerOutcomeSignals,
-                    enemyUtilityPhaseStates);
+                    enemyUtilityPhaseStates,
+                    playerTopologyTransitionBlockedSignals);
             LogForwardCellProjectilePresentationFinal(
                 context,
                 forwardCellImpactSignals,
                 forwardCellProjectileArrivalSignals,
                 presentationData);
             return presentationData;
+        }
+
+        private static void BuildPlayerTopologyTransitionBlockedPresentation(
+            in TickPresentationBuildContext context,
+            ICollection<TickPlayerTopologyTransitionBlockedSignal> signals)
+        {
+            var movementSignals = context.MovementPhaseResult.PlayerTopologyTransitionBlockedSignals;
+            for (var i = 0; i < movementSignals.Count; i++)
+            {
+                signals.Add(movementSignals[i]);
+            }
         }
 
         private static void BuildForwardCellProjectilePresentation(

@@ -47,6 +47,12 @@ namespace Game.Feature.DemoStageControl
             }
 
             var stageId = entry.StageId;
+            if (!_sequenceResolver.Contains(stageId))
+            {
+                message = $"Stage '{stageId.Value}' is not part of the campaign sequence.";
+                return false;
+            }
+
             var levelGroupId = ResolveLevelGroupId(entry);
             _saveSlotStore.UpdateSlot(
                 slotNumber,

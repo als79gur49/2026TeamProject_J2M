@@ -3,7 +3,6 @@ using System.Reflection;
 using Game.Feature.DemoStageControl;
 using Game.Feature.DemoStageControl.UI;
 using Game.Feature.Gameplay.Host;
-using Game.Feature.Gameplay.UIAccess.DebugCommands;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -51,13 +50,13 @@ namespace Game.Feature.UI.Composition
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
+        private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private UiNavigationInputRouter _navigationInputRouter;
         private IUiAudioPort _uiAudioPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
-        private DebugCommandAccess _debugCommandAccess = DebugCommandAccess.Disabled;
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
 
@@ -148,13 +147,6 @@ namespace Game.Feature.UI.Composition
             {
                 return;
             }
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (KeyboardBridge.WasF10PressedThisFrame())
-            {
-                TryToggleDebugCommandsPopup();
-            }
-#endif
         }
 
         public void Install(GameplaySceneHost sceneHost)
@@ -169,7 +161,6 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
-            _debugCommandAccess = sceneHost.UiAccess.DebugCommandAccess ?? DebugCommandAccess.Disabled;
             _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
             _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
             Install(new GameplayUiFlowPorts(
@@ -201,6 +192,7 @@ namespace Game.Feature.UI.Composition
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
             _uiAudioPort = CreateUiAudioPort();
             var uiAudioPort = _uiAudioPort;
+            var audioPauseService = CreateAudioPlaybackPauseService();
             if (UnityEngine.Application.isPlaying)
             {
                 SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(uiAudioPort);
@@ -213,10 +205,12 @@ namespace Game.Feature.UI.Composition
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
                 _popupPrefabCatalog,
-                _debugCommandAccess,
-                HandleDebugStageResultRequested,
                 _demoStageControlCommandPort,
                 _demoGameplayOverrideCommandPort));
+            _gameplayPauseAudioBridge = new GameplayPauseAudioBridge(
+                Ports.GameplayPauseService,
+                audioPauseService,
+                PopupController);
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay);
@@ -268,7 +262,6 @@ namespace Game.Feature.UI.Composition
                 uiAudioPort,
                 new CurrentSceneStageLaunchRouter(gameObject.scene.name),
                 CreateMainMenuReturnRouter());
-            _debugCommandAccess.BindStageLaunchGateway(new CurrentSceneStageLaunchRouter(gameObject.scene.name));
             _stageResultAutoNextDriver = new StageResultAutoNextDriver(
                 ScreenController,
                 PopupController,
@@ -294,6 +287,7 @@ namespace Game.Feature.UI.Composition
             _diagnosticsTracker?.Dispose();
             Coordinator?.Dispose();
             _stageResultAutoNextDriver?.Dispose();
+            _gameplayPauseAudioBridge?.Dispose();
             ScreenController?.Dispose();
             PopupController?.Dispose();
             HudController?.Dispose();
@@ -397,6 +391,18 @@ namespace Game.Feature.UI.Composition
             }
 
             return new UiAudioPortAdapter(audioRuntimeInstaller.AudioService, _uiAudioCueMap);
+        }
+
+        private IAudioPlaybackPauseService CreateAudioPlaybackPauseService()
+        {
+            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
+            audioRuntimeInstaller.Install();
+            if (audioRuntimeInstaller.AudioPlaybackPauseService == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            return audioRuntimeInstaller.AudioPlaybackPauseService;
         }
 
         private IDisplaySettingsPort CreateDisplaySettingsPort()
@@ -622,39 +628,6 @@ namespace Game.Feature.UI.Composition
             Coordinator.HandlePopupBackdropClicked();
         }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        private void TryToggleDebugCommandsPopup()
-        {
-            if (!DebugCommandBuildGate.IsRuntimeEnabled(UnityEngine.Application.isEditor, UnityEngine.Debug.isDebugBuild) ||
-                _debugCommandAccess == null ||
-                !_debugCommandAccess.IsEnabled ||
-                PopupController == null ||
-                Coordinator == null)
-            {
-                return;
-            }
-
-            if (PopupController.TopPopup.HasValue)
-            {
-                if (PopupController.TopPopup.Value.PopupId == PopupId.DebugCommands)
-                {
-                    Coordinator.HandleBackRequested();
-                }
-
-                return;
-            }
-
-            var availability = _debugCommandAccess.StageCommandPort.GetAvailability();
-            if (!availability.CanOpenPanel)
-            {
-                return;
-            }
-
-            Coordinator.RequestDebugCommandsPopup(
-                GameplayPopupRuntimeFactory.BuildDebugCommandsPayload(availability, string.Empty));
-        }
-#endif
-
         private bool TryToggleDemoStageControlPanel()
         {
             if (_demoStageControlSettings == null ||
@@ -712,6 +685,7 @@ namespace Game.Feature.UI.Composition
             return new DemoStageControlService(
                 _demoStageControlSettings ?? DemoStageControlSettings.EnabledByDefault(),
                 context.StageCatalogProvider,
+                context.SequenceResolver,
                 context.CampaignBridge,
                 new DemoStageControlLaunchBridge(launchRouter, () => launchRouter.IsLaunchInProgress),
                 sceneHost.UiAccess.DemoStageControlCompletionBridge);
@@ -743,18 +717,6 @@ namespace Game.Feature.UI.Composition
             }
 
             return null;
-        }
-
-        private void HandleDebugStageResultRequested(DebugCommandResult result)
-        {
-            if (result.StageResultReadModel == null || Coordinator == null)
-            {
-                return;
-            }
-
-            Coordinator.RequestDebugStageResultOnly(
-                result.StageResultReadModel,
-                result.StageNavigationRequest);
         }
 
         private void SyncViews()

@@ -194,6 +194,7 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<FrontFaceShieldBlockPresentationExport>(),
             Array.Empty<BarricadeBlockFact>(),
             Array.Empty<BoxSlideStopResult>(),
+            Array.Empty<TickPlayerTopologyTransitionBlockedSignal>(),
             Array.Empty<string>());
 
         private readonly ReadOnlyCollection<BarricadeBlockFact> _barricadeBlockFacts;
@@ -203,6 +204,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<FrontFaceShieldBlockPresentationExport> _frontFaceShieldBlockExports;
         private readonly ReadOnlyCollection<FrontFaceShieldSourcePresentationExport> _frontFaceShieldSourceExports;
         private readonly ReadOnlyCollection<ImpactDispositionResolutionRecord> _impactDispositionRecords;
+        private readonly ReadOnlyCollection<TickPlayerTopologyTransitionBlockedSignal> _playerTopologyTransitionBlockedSignals;
         private readonly ReadOnlyCollection<RawMovementIntent> _rawIntents;
         private readonly ReadOnlyCollection<string> _rejectedReasons;
         private readonly ReadOnlyCollection<ResolutionRecord> _resolutionRecords;
@@ -221,6 +223,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
             IEnumerable<BarricadeBlockFact> barricadeBlockFacts = null,
             IEnumerable<BoxSlideStopResult> boxSlideStops = null,
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
             IEnumerable<string> debugEvents = null)
         {
             if (rawIntents == null)
@@ -280,6 +283,11 @@ namespace Game.Feature.Gameplay.Loop
             _boxSlideStops = new ReadOnlyCollection<BoxSlideStopResult>(
                 new List<BoxSlideStopResult>(
                     boxSlideStops ?? Array.Empty<BoxSlideStopResult>()));
+            _playerTopologyTransitionBlockedSignals =
+                new ReadOnlyCollection<TickPlayerTopologyTransitionBlockedSignal>(
+                    new List<TickPlayerTopologyTransitionBlockedSignal>(
+                        playerTopologyTransitionBlockedSignals ??
+                        Array.Empty<TickPlayerTopologyTransitionBlockedSignal>()));
         }
 
         public IReadOnlyList<RawMovementIntent> RawIntents => _rawIntents;
@@ -309,5 +317,8 @@ namespace Game.Feature.Gameplay.Loop
         internal IReadOnlyList<BarricadeBlockFact> BarricadeBlockFacts => _barricadeBlockFacts;
 
         internal IReadOnlyList<BoxSlideStopResult> BoxSlideStops => _boxSlideStops;
+
+        internal IReadOnlyList<TickPlayerTopologyTransitionBlockedSignal> PlayerTopologyTransitionBlockedSignals =>
+            _playerTopologyTransitionBlockedSignals;
     }
 }

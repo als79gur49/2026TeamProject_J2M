@@ -113,7 +113,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void MovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsBlocked()
+        public void PlayerMovementExpander_AirPlayerTraversalMoveIntoActiveDestroyTile_IsAllowed()
         {
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var player = CreateUnit(
@@ -151,12 +151,94 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Source=10",
                     "Reason=PlayerVoluntaryDestroyTileEntryBlocked",
                     "Cell=(1,0)"),
-                Is.True);
-            Assert.That(expandedCandidates, Is.Empty);
+                Is.False);
+            Assert.That(expandedCandidates, Is.Not.Empty);
             Assert.That(CreateSnapshot(worldState).TryGetEntity(10, out var finalPlayer), Is.True);
             Assert.That(finalPlayer.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(finalPlayer.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
             Assert.That(finalPlayer.hp, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovementExpander_ActivatedBarricadeBlocksMoveIntent()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateBarricade(100, barricadeCell) });
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: new HashSet<int> { 10 },
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    rejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=BlockedDestination",
+                    "Cell=(1,0)",
+                    "LegalityBlockerKinds=TileFeature"),
+                Is.True);
+            Assert.That(expandedCandidates, Is.Empty);
+            Assert.That(CreateSnapshot(worldState).TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovementExpander_InactiveBarricadeAllowsMoveIntent()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
+                new[] { CreateBarricade(100, barricadeCell) });
+            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(
+                CreateSnapshot(worldState),
+                tickIndex: 1,
+                sortedIntents: new[] { intent },
+                playerTraversalSourceIds: new HashSet<int> { 10 },
+                frontFaceSupportContributors: null,
+                buffer: expandedCandidates,
+                rejectedReasons: rejectedReasons,
+                tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            Assert.That(
+                rejectedReasons.Any(reason =>
+                    reason.Contains("LegalityBlockerKinds=TileFeature", StringComparison.Ordinal) ||
+                    reason.Contains("Reason=BlockedDestination", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(expandedCandidates, Is.Not.Empty);
+            Assert.That(CreateSnapshot(worldState).TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
         }
 
         [Test]
@@ -353,7 +435,86 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerMovement_TopologyResolvedDestinationActiveDestroyTile_IsBlocked()
+        public void PlayerMovement_TopologyTransition_TargetInactiveDestroyTilePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateDestroyTile,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_TargetActiveDestroyTilePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateDestroyTile,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_TargetInactiveBarricadePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateBarricade,
+                TileFeatureActivationRule.FrontFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_TargetActiveBarricadePresence_BlocksTransition()
+        {
+            AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+                CreateBarricade,
+                TileFeatureActivationRule.BottomFaceOnly);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerMovement_TopologyTransition_UnrelatedTileFeaturePresence_DoesNotBlockTransition()
+        {
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new[]
+                {
+                    CreateDestroyTile(100, new SurfaceCell(FaceId.Front, 1, 0)),
+                    CreateBarricade(101, new SurfaceCell(FaceId.Back, 0, 0)),
+                });
+            var pipeline = CreatePlayerTileFeaturePipeline(
+                worldState,
+                new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly),
+                    CreateTileFeatureDefinition(101, TileFeatureActivationRule.BottomFaceOnly),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "TopologyCommitted|G=1|I=1|Rotation=Forward|Bottom=Front|Front=Ceiling",
+                    "MoveCommitted|G=1|I=1|E=10|To=Front(0,0)|Facing=Up",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                reason.Contains("Reason=BlockedDestination", StringComparison.Ordinal) &&
+                reason.Contains("LegalityBlockerKinds=TileFeature", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
+            Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+        }
+
+        private static void AssertPlayerTopologyTransitionTargetTileFeaturePresenceBlocks(
+            Func<int, SurfaceCell, TileFeatureState> createTileFeature,
+            TileFeatureActivationRule activationRule)
         {
             var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1));
             player.unitRole = UnitRole.Player;
@@ -364,10 +525,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     player,
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new[] { CreateDestroyTile(100, resolvedDestination) });
+                new[] { createTileFeature(100, resolvedDestination) });
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
-                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+                new[] { CreateTileFeatureDefinition(100, activationRule) });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
@@ -378,11 +539,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "MovementRejected",
                     "Stage=Expand",
                     "Source=10",
-                    "Reason=PlayerVoluntaryDestroyTileEntryBlocked",
-                    "Cell=Front(0,0)"),
+                    "Reason=BlockedDestination",
+                    "Cell=Front(0,0)",
+                    "LegalityBlockerKinds=TileFeature"),
                 Is.True);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("TopologyCommitted", StringComparison.Ordinal)), Is.False);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted", StringComparison.Ordinal)), Is.False);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals[0].PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.TileFeature));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
             Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
@@ -3309,7 +3473,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 GameplayTerrainData.Empty);
@@ -3332,6 +3496,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.MovementPhaseResult.CommitEvents);
             Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
         }
 
         [Test]
@@ -3647,7 +3813,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new GameplayTerrainData(new[] { new Vector2Int(0, 0) }));
@@ -3671,7 +3837,117 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Reason=BlockedDestination",
                     "Cell=Front(0,0)"),
                 Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            var signal = result.PresentationData.PlayerTopologyTransitionBlockedSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(10));
+            Assert.That(signal.Direction, Is.EqualTo(Direction.Up));
+            Assert.That(signal.OriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(signal.CandidateCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(signal.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(signal.RequiredTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(signal.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Terrain));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Movement_MoveAcrossBottomBottomEdge_FailsWhenRotatedBackDestinationTerrainBlocked()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new GameplayTerrainData(new[] { new Vector2Int(0, 1) }));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "I=1",
+                    "Reason=BlockedDestination",
+                    "Cell=Back(0,1)"),
+                Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            var signal = result.PresentationData.PlayerTopologyTransitionBlockedSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(10));
+            Assert.That(signal.Direction, Is.EqualTo(Direction.Down));
+            Assert.That(signal.OriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(signal.CandidateCell, Is.EqualTo(new SurfaceCell(FaceId.Back, 0, 1)));
+            Assert.That(signal.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(signal.RequiredTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
+            Assert.That(signal.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
+            Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Terrain));
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Movement_SameFaceBlockedMove_DoesNotEmitTopologyTransitionBlockedSignal()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new GameplayTerrainData(new[]
+                {
+                    new TerrainCellState(
+                        new SurfaceCell(FaceId.Floor, 1, 0),
+                        TerrainKind.Generic,
+                        TerrainFlags.BlocksGroundTraversal),
+                }));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Movement_BoardEdgeOnlyReject_DoesNotEmitTopologyTransitionBlockedSignal()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 0)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.False);
         }
 
         [Test]
@@ -5695,6 +5971,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tileId,
                 cell,
                 kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureState CreateBarricade(int tileId, SurfaceCell cell)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
                 TileFeatureFlags.None,
                 sourceEntityId: 0,
                 ownerEntityId: 0,

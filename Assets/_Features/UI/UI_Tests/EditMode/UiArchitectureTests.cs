@@ -68,30 +68,84 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void DebugCommandAccess_IsCompositionOnly()
+        public void LegacyDeveloperCommandAccess_IsRemoved()
         {
             var applicationSource = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/GameplayUiFlowPorts.cs");
             var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
             var popupFactorySource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+            var removedAccessType = "Debug" + "CommandAccess";
+            var removedBuildGate = "Debug" + "CommandBuildGate";
 
-            Assert.That(applicationSource, Does.Not.Contain("DebugCommandAccess"));
-            Assert.That(installerSource, Does.Contain("DebugCommandAccess"));
-            Assert.That(popupFactorySource, Does.Contain("DebugCommandAccess"));
+            Assert.That(applicationSource, Does.Not.Contain(removedAccessType));
+            Assert.That(installerSource, Does.Not.Contain(removedAccessType));
+            Assert.That(popupFactorySource, Does.Not.Contain(removedAccessType));
+            Assert.That(installerSource, Does.Not.Contain(removedBuildGate));
+            Assert.That(popupFactorySource, Does.Not.Contain(removedBuildGate));
             Assert.That(installerSource, Does.Not.Contain("SceneManager.LoadScene"));
             Assert.That(popupFactorySource, Does.Not.Contain("SceneManager.LoadScene"));
         }
 
         [Test]
-        public void DebugPanelToggle_DoesNotConflictWithDiagnosticsKeys()
+        public void DemoStageControlPanelToggle_DoesNotConflictWithDiagnosticsKeys()
         {
             var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var removedToggle = "TryToggle" + "Debug" + "CommandsPopup();";
 
             Assert.That(installerSource, Does.Contain("WasF3PressedThisFrame()"));
             Assert.That(installerSource, Does.Contain("WasF4PressedThisFrame()"));
             Assert.That(installerSource, Does.Contain("WasF10PressedThisFrame()"));
             Assert.That(installerSource, Does.Contain("ToggleVisibility();"));
             Assert.That(installerSource, Does.Contain("ToggleExpanded();"));
-            Assert.That(installerSource, Does.Contain("TryToggleDebugCommandsPopup();"));
+            Assert.That(installerSource, Does.Contain("TryToggleDemoStageControlPanel()"));
+            Assert.That(installerSource, Does.Not.Contain(removedToggle));
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_F10_OpensOnlyDemoStageControl()
+        {
+            var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var removedPopupId = "PopupId." + "Debug" + "Commands";
+            var removedRequest = "Request" + "Debug" + "CommandsPopup";
+
+            Assert.That(installerSource, Does.Contain("WasDemoStageControlOpenKeyPressed() && TryToggleDemoStageControlPanel()"));
+            Assert.That(installerSource, Does.Contain("KeyboardBridge.WasF10PressedThisFrame()"));
+            Assert.That(installerSource, Does.Contain("Coordinator.RequestDemoStageControlPopup"));
+            Assert.That(installerSource, Does.Not.Contain(removedPopupId));
+            Assert.That(installerSource, Does.Not.Contain(removedRequest));
+        }
+
+        [Test]
+        public void DemoStageControl_SettingsDisabled_OpenKeyNoOp()
+        {
+            var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+
+            Assert.That(installerSource, Does.Contain("!_demoStageControlSettings.Enabled"));
+            Assert.That(installerSource, Does.Contain("return false;"));
+            Assert.That(installerSource, Does.Contain("return settings.OpenKey == DemoStageControlOpenKey.BackQuote"));
+        }
+
+        [Test]
+        public void DemoStageControl_DoesNotUseLegacyDeveloperBuildGate()
+        {
+            var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var hostFactorySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");
+            var removedBuildGate = "Debug" + "CommandBuildGate";
+
+            Assert.That(installerSource, Does.Not.Contain(removedBuildGate));
+            Assert.That(hostFactorySource, Does.Not.Contain(removedBuildGate));
+        }
+
+        [Test]
+        public void PopupCatalog_DoesNotContainLegacyDeveloperPopup()
+        {
+            var popupIdSource = ReadRepoFile("Assets/_Features/UI/UI_Flow/Runtime/PopupId.cs");
+            var popupFactorySource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+            var popupCatalogAsset = ReadRepoFile("Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset");
+            var removedPopupName = "Debug" + "Commands";
+
+            Assert.That(popupIdSource, Does.Not.Contain(removedPopupName));
+            Assert.That(popupFactorySource, Does.Not.Contain(removedPopupName));
+            Assert.That(popupCatalogAsset, Does.Not.Contain(removedPopupName));
         }
 
         [Test]
@@ -795,8 +849,6 @@ namespace Game.Feature.UI.Tests
                     "OpenObjectiveStatusScreen()",
                     "OpenSettingsScreen()",
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
-                    "RequestDebugCommandsPopup(DebugCommandsPopupPayload)",
-                    "RequestDebugStageResultOnly(StageCompletionReadModel, StageNavigationRequest)",
                     "RequestDemoStageControlPopup(IPopupPayload)",
                     "RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload)",
                     "RequestPausePopup()",
@@ -1265,6 +1317,49 @@ namespace Game.Feature.UI.Tests
                     "Assets/_Features/UI/UI_Popups/Runtime",
                 },
                 forbiddenTokens);
+        }
+
+        [Test]
+        public void UiApplicationFlowViewModelsAndViews_DoNotReferenceSharedAudioPauseService()
+        {
+            AssertRuntimeSourcesDoNotContain(
+                new[]
+                {
+                    "Assets/_Features/UI/UI_Application/Runtime",
+                    "Assets/_Features/UI/UI_Flow/Runtime",
+                    "Assets/_Features/UI/UI_HUD/Runtime",
+                    "Assets/_Features/UI/UI_Screens/Runtime",
+                    "Assets/_Features/UI/UI_Popups/Runtime",
+                },
+                new[]
+                {
+                    "IAudioPlaybackPauseService",
+                    "AudioPlaybackPauseGroup",
+                    "AudioPauseReason",
+                });
+        }
+
+        [Test]
+        public void UiComposition_GameplayPauseAudioBridge_IsOnlyUiRuntimeBridgeForAudioPauseGroup()
+        {
+            var compositionSources = ReadRuntimeSources(new[] { "Assets/_Features/UI/UI_Composition/Runtime" });
+            var bridgeSource = compositionSources.Single(source => source.RelativePath.EndsWith("GameplayPauseAudioBridge.cs", StringComparison.Ordinal));
+            var sourcesReferencingPauseService = compositionSources
+                .Where(source => source.Source.Contains("IAudioPlaybackPauseService"))
+                .Select(source => source.RelativePath)
+                .OrderBy(path => path)
+                .ToArray();
+
+            Assert.That(
+                sourcesReferencingPauseService,
+                Is.EqualTo(new[]
+                {
+                    "Assets/_Features/UI/UI_Composition/Runtime/GameplayPauseAudioBridge.cs",
+                    "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
+                }));
+            Assert.That(bridgeSource.Source, Does.Contain("PauseChanged"));
+            Assert.That(bridgeSource.Source, Does.Contain("AudioPlaybackPauseGroup.GameplayPresentation"));
+            Assert.That(bridgeSource.Source, Does.Contain("AudioPauseReason.GameplayPause"));
         }
 
         [Test]

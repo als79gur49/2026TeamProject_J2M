@@ -51,9 +51,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void RuntimeTraversalLegalityPolicy_EvaluateDestination_WithRotation_ExportsTopologyUpdateRequirement()
         {
-            var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()).CreateSnapshot();
             var updatedTopology = new CubeTopologyState(FaceId.Back);
+            var destinationCell = new SurfaceCell(updatedTopology.BottomFace, 0, 0);
 
             var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                 snapshot,
@@ -72,6 +72,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(legality.TransitionRequirement.Kind, Is.EqualTo(TransitionRequirementKind.TopologyUpdate));
             Assert.That(legality.TransitionRequirement.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
             Assert.That(legality.TransitionRequirement.UpdatedTopology, Is.EqualTo(updatedTopology));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_TopologyTransitionTerrainBlocked_PreservesRequirementAndBlocker()
+        {
+            var originCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Back, 0, 1);
+            var unit = CreateUnit(10, originCell);
+            var updatedTopology = new CubeTopologyState(FaceId.Back);
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    new GameplayTerrainData(new[]
+                    {
+                        new TerrainCellState(
+                            destinationCell,
+                            TerrainKind.Generic,
+                            TerrainFlags.BlocksGroundTraversal),
+                    }),
+                    new CubeTopologyState(FaceId.Floor))
+                .CreateSnapshot();
+
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                EntityType.Unit,
+                destinationCell,
+                ignoredEntityId: unit.entityId,
+                evaluatedTopology: updatedTopology,
+                rotationKind: CubeRotationKind.Backward,
+                updatedTopology: updatedTopology);
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legality.TransitionRequirement.Kind, Is.EqualTo(TransitionRequirementKind.TopologyUpdate));
+            Assert.That(legality.TransitionRequirement.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
+            Assert.That(legality.TransitionRequirement.UpdatedTopology, Is.EqualTo(updatedTopology));
+            Assert.That(legality.Blockers.Count, Is.EqualTo(1));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Terrain));
         }
 
         [Test]

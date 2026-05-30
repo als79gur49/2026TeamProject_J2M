@@ -1021,6 +1021,67 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyUtilitySummon_AirArchetype_ActivatedDestroyTileCandidateIsNeutral()
+        {
+            var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destroyTile = CreateTileFeature(100, forwardCell, TileFeatureKind.Destroy);
+            var airSummonedProfile = CreateUtilityProfile();
+            var airSummonedArchetype = CreateEnemyUnitArchetypeAsset(
+                "AirMinionDestroyTile",
+                airSummonedProfile,
+                hp: 1,
+                initialAiMode: EnemyAiMode.Patrol,
+                unitMobilityKind: UnitMobilityKind.Air);
+            var profile = CreateUtilitySummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                summonedArchetype: airSummonedArchetype,
+                windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = GameplayCompositionRoot.CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor),
+                new[] { destroyTile });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(
+                    profile,
+                    worldState,
+                    out defaultProfile,
+                    out archetypeCatalog,
+                    airSummonedArchetype,
+                    new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
+                pipeline.RunTick(new TickInput(1));
+                var commitTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out var child), Is.True);
+                Assert.That(child.position, Is.EqualTo(forwardCell));
+                Assert.That(child.unitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
+                Assert.That(child.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(child.markedForDeath, Is.False);
+                Assert.That(commitTick.PresentationData.TileEvents.Any(tileEvent =>
+                    tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered &&
+                    tileEvent.TargetEntityId == child.entityId), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                UnityEngine.Object.DestroyImmediate(airSummonedArchetype);
+                DestroyProfile(airSummonedProfile);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyUtilitySummon_SourceKilledAfterTrigger_DoesNotSpawn()
         {
@@ -1602,6 +1663,313 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(cooldownStartTick.PresentationData.EnemyUtilityCooldownSignals.Single().Kind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
                 Assert.That(cooldownStartTick.PresentationData.EnemyUtilityCooldownSignals.Single().CooldownTicksRemaining, Is.EqualTo(4));
                 Assert.That(cooldownTick.PresentationData.EnemyUtilityCooldownSignals.Single().CooldownTicksRemaining, Is.EqualTo(2));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        public enum EnemyGravityFieldAuraSourceInvalidation
+        {
+            RemoveSource,
+            MarkSourceForDeath,
+            KillSource,
+            DetachSource,
+            MoveSourceOffBottom,
+        }
+
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.RemoveSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.MarkSourceForDeath)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.KillSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.DetachSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.MoveSourceOffBottom)]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_SourceInvalidAfterEmit_ContinuesLockingFromStoredOrigin(
+            EnemyGravityFieldAuraSourceInvalidation invalidation)
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+                var fieldId = EnemyGravityFieldAuraFieldIds.Compute(40, sourceEffectIndex: 0, activationSequence: 1);
+                var emittedSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(emittedSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out _), Is.True);
+                Assert.That(emittedSnapshot.TryGetActiveBoxInteractionLockState(20, 3, out var emittedLock), Is.True);
+                Assert.That(emittedLock.ExpiresTickExclusive, Is.EqualTo(4));
+
+                InvalidateEnemyGravityFieldAuraSource(worldState, invalidation);
+                var invalidTick = pipeline.RunTick(new TickInput(4));
+                var invalidSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(
+                    invalidSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out var sustainedField),
+                    Is.True,
+                    invalidation.ToString());
+                Assert.That(sustainedField.OriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)), invalidation.ToString());
+                Assert.That(
+                    invalidSnapshot.TryGetActiveBoxInteractionLockState(20, 4, out var sustainedLock),
+                    Is.True,
+                    invalidation.ToString());
+                Assert.That(sustainedLock.ExpiresTickExclusive, Is.EqualTo(5), invalidation.ToString());
+                Assert.That(invalidTick.Trace.Text, Does.Not.Contain("EnemyGravityFieldAuraFieldSourceInvalid"), invalidation.ToString());
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [TestCase]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_SourceRemovedAfterEmit_ContinuesLockingFromOriginCell()
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+                var fieldId = EnemyGravityFieldAuraFieldIds.Compute(40, sourceEffectIndex: 0, activationSequence: 1);
+
+                worldState.CreateWriteContext().RemoveEntity(40);
+                pipeline.RunTick(new TickInput(4));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out _), Is.False);
+                Assert.That(snapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out var fieldState), Is.True);
+                Assert.That(fieldState.OriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(snapshot.TryGetActiveBoxInteractionLockState(20, 4, out var lockState), Is.True);
+                Assert.That(lockState.SourceEntityId, Is.EqualTo(40));
+                Assert.That(lockState.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.EnemyGravityFieldAura));
+                Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(5));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [TestCase]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_SourceKilledAfterEmit_ContinuesUntilFieldDurationExpires()
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+                var fieldId = EnemyGravityFieldAuraFieldIds.Compute(40, sourceEffectIndex: 0, activationSequence: 1);
+
+                worldState.CreateWriteContext().ApplyDamage(40, 99);
+                pipeline.RunTick(new TickInput(4));
+                var activeSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(activeSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out var activeField), Is.True);
+                Assert.That(activeField.ExpiresTickExclusive, Is.EqualTo(6));
+                Assert.That(activeSnapshot.TryGetActiveBoxInteractionLockState(20, 4, out var renewedLock), Is.True);
+                Assert.That(renewedLock.ExpiresTickExclusive, Is.EqualTo(5));
+
+                pipeline.RunTick(new TickInput(5));
+                var lastActiveSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(lastActiveSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out _), Is.True);
+                Assert.That(lastActiveSnapshot.TryGetActiveBoxInteractionLockState(20, 5, out var lastRenewedLock), Is.True);
+                Assert.That(lastRenewedLock.ExpiresTickExclusive, Is.EqualTo(6));
+
+                var expiryTick = pipeline.RunTick(new TickInput(6));
+                var expiredSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(expiredSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out _), Is.False);
+                Assert.That(expiredSnapshot.TryGetActiveBoxInteractionLockState(20, 6, out _), Is.False);
+                Assert.That(expiryTick.Trace.Text, Does.Contain("EnemyGravityFieldAuraFieldExpired"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.RemoveSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.MarkSourceForDeath)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.KillSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.DetachSource)]
+        [TestCase(EnemyGravityFieldAuraSourceInvalidation.MoveSourceOffBottom)]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_SourceInvalidBeforeEmit_DoesNotCreateField(
+            EnemyGravityFieldAuraSourceInvalidation invalidation)
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+
+                InvalidateEnemyGravityFieldAuraSource(worldState, invalidation);
+                var emitTick = pipeline.RunTick(new TickInput(3));
+                var snapshot = worldState.CreateSnapshot();
+                var fieldId = EnemyGravityFieldAuraFieldIds.Compute(40, sourceEffectIndex: 0, activationSequence: 1);
+
+                Assert.That(snapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out _), Is.False, invalidation.ToString());
+                Assert.That(snapshot.TryGetActiveBoxInteractionLockState(20, 3, out _), Is.False, invalidation.ToString());
+                Assert.That(emitTick.Trace.Text, Does.Not.Contain("Kind=GravityFieldAura|Tick=3"), invalidation.ToString());
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [TestCase]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_EmittedFieldUsesStoredOriginCellAfterSourceMovesOrDies()
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 21, position: new Vector2Int(5, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+                var fieldId = EnemyGravityFieldAuraFieldIds.Compute(40, sourceEffectIndex: 0, activationSequence: 1);
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 4, 0));
+                pipeline.RunTick(new TickInput(4));
+                var movedSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(movedSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out var fieldState), Is.True);
+                Assert.That(fieldState.OriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(movedSnapshot.TryGetActiveBoxInteractionLockState(20, 4, out _), Is.True);
+                Assert.That(movedSnapshot.TryGetActiveBoxInteractionLockState(21, 4, out _), Is.False);
+
+                worldState.CreateWriteContext().RemoveEntity(40);
+                pipeline.RunTick(new TickInput(5));
+                var removedSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(removedSnapshot.TryGetEnemyGravityFieldAuraFieldState(fieldId, out var removedSourceField), Is.True);
+                Assert.That(removedSourceField.OriginCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(removedSnapshot.TryGetActiveBoxInteractionLockState(20, 5, out _), Is.True);
+                Assert.That(removedSnapshot.TryGetActiveBoxInteractionLockState(21, 5, out _), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyGravityFieldAura_StaticGravityField_TargetEligibilityParity()
+        {
+            // Parity here means target eligibility and lock semantics, not source lifetime semantics.
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var auraTargets = CreateGravityFieldParityTargets();
+            var auraWorldState = CreateWorldState(auraTargets.Concat(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            }));
+            var staticWorldState = CreateWorldState(CreateGravityFieldParityTargets().Concat(new[]
+            {
+                CreateStaticGravityFieldEmitter(90, new SurfaceCell(FaceId.Floor, 0, 0)),
+            }));
+            staticWorldState.CreateWriteContext().SetGravityFieldState(90, GravityFieldPhase.Active, timerTicks: 2);
+
+            try
+            {
+                var auraPipeline = CreateEnemyPipeline(auraWorldState, profile);
+                auraPipeline.RunTick(new TickInput(1));
+                auraPipeline.RunTick(new TickInput(2));
+                auraPipeline.RunTick(new TickInput(3));
+
+                GameplayCompositionRoot.CreateTickPipeline(staticWorldState).RunTick(new TickInput(3));
+
+                var auraSnapshot = auraWorldState.CreateSnapshot();
+                var staticSnapshot = staticWorldState.CreateSnapshot();
+                Assert.That(ActiveLockTargetIds(auraSnapshot, tickIndex: 3, 20, 21, 22, 23, 24, 25).ToArray(), Is.EqualTo(new[] { 20 }));
+                Assert.That(ActiveLockTargetIds(staticSnapshot, tickIndex: 3, 20, 21, 22, 23, 24, 25).ToArray(), Is.EqualTo(new[] { 20 }));
+                Assert.That(auraSnapshot.TryGetActiveBoxInteractionLockState(20, 3, out var auraLock), Is.True);
+                Assert.That(staticSnapshot.TryGetActiveBoxInteractionLockState(20, 3, out var staticLock), Is.True);
+                Assert.That(auraLock.ExpiresTickExclusive, Is.EqualTo(staticLock.ExpiresTickExclusive));
+                Assert.That(auraLock.BlocksPush, Is.EqualTo(staticLock.BlocksPush));
+                Assert.That(auraLock.BlocksFlip, Is.EqualTo(staticLock.BlocksFlip));
+                Assert.That(auraLock.BlocksDestroy, Is.EqualTo(staticLock.BlocksDestroy));
+                Assert.That(auraLock.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.EnemyGravityFieldAura));
+                Assert.That(staticLock.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.GravityField));
             }
             finally
             {
@@ -7557,6 +7925,94 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return effect;
         }
 
+        private static void InvalidateEnemyGravityFieldAuraSource(
+            WorldState worldState,
+            EnemyGravityFieldAuraSourceInvalidation invalidation)
+        {
+            var writeContext = worldState.CreateWriteContext();
+            switch (invalidation)
+            {
+                case EnemyGravityFieldAuraSourceInvalidation.RemoveSource:
+                    writeContext.RemoveEntity(40);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.MarkSourceForDeath:
+                    ((IAttackCommitContext)writeContext).MarkDestroy(40);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.KillSource:
+                    writeContext.ApplyDamage(40, 99);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.DetachSource:
+                    writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+                    break;
+                case EnemyGravityFieldAuraSourceInvalidation.MoveSourceOffBottom:
+                    writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(invalidation), invalidation, null);
+            }
+        }
+
+        private static IReadOnlyList<EntityState> CreateGravityFieldParityTargets()
+        {
+            var dead = CreateBox(entityId: 21, position: new Vector2Int(0, 1), capabilities: BoxCapabilities.Push);
+            dead.hp = 0;
+            var marked = CreateBox(entityId: 22, position: new Vector2Int(0, -1), capabilities: BoxCapabilities.Push);
+            marked.markedForDeath = true;
+            var detached = CreateBox(entityId: 23, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Push);
+            detached.boardPresence = EntityBoardPresence.Detached;
+            var sliding = CreateBox(
+                entityId: 24,
+                position: new Vector2Int(1, 1),
+                capabilities: BoxCapabilities.Push,
+                state: EntityPhaseState.Sliding);
+            var otherFace = CreateBox(entityId: 25, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push);
+            otherFace.position = new SurfaceCell(FaceId.Back, 1, 0);
+
+            return new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                dead,
+                marked,
+                detached,
+                sliding,
+                otherFace,
+            };
+        }
+
+        private static EntityState CreateStaticGravityFieldEmitter(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                boxCapabilities = BoxCapabilities.Push,
+                boxArchetype = BoxArchetype.GravityField,
+                gravityFieldPhase = GravityFieldPhase.Active,
+                gravityFieldTimerTicks = 2,
+            };
+        }
+
+        private static List<int> ActiveLockTargetIds(WorldSnapshot snapshot, int tickIndex, params int[] entityIds)
+        {
+            var result = new List<int>();
+            for (var i = 0; i < entityIds.Length; i++)
+            {
+                if (snapshot.TryGetActiveBoxInteractionLockState(entityIds[i], tickIndex, out _))
+                {
+                    result.Add(entityIds[i]);
+                }
+            }
+
+            return result;
+        }
+
         private static float TicksToSeconds(int ticks)
         {
             return ticks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
@@ -8807,10 +9263,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldState worldState,
             out EnemyAiProfile defaultProfile,
             out EnemyUnitArchetypeCatalog archetypeCatalog,
-            EnemyUnitArchetypeAsset summonedArchetype = null)
+            EnemyUnitArchetypeAsset summonedArchetype = null,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return CreateSharedSummonBootstrapper(summonerProfile, out defaultProfile, out archetypeCatalog, summonedArchetype)
-                .CreateTickPipeline(worldState);
+            var bootstrapper = CreateSharedSummonBootstrapper(
+                summonerProfile,
+                out defaultProfile,
+                out archetypeCatalog,
+                summonedArchetype);
+            if (tileFeatureDefinitions == null)
+            {
+                return bootstrapper.CreateTickPipeline(worldState);
+            }
+
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return bootstrapper.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    timingProfile.SimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
+                tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
         private static EnemyUnitArchetypeAsset CreateEnemyUnitArchetypeAsset(
@@ -8834,6 +9308,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             catalog.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(catalog, "entries", entries ?? Array.Empty<EnemyUnitArchetypeAsset>());
             return catalog;
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static EnemyUnitArchetypeAsset GetSharedSummonedArchetype()

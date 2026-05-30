@@ -164,6 +164,7 @@ namespace Game.Feature.Gameplay.Loop
             List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
             List<BarricadeBlockFact> barricadeBlockFacts,
             List<BoxSlideStopResult> boxSlideStops,
+            List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals,
             List<string> movementDebugEvents,
             int nextContestId,
             EnemyAiPhaseResult enemyAiPhaseResult,
@@ -196,6 +197,8 @@ namespace Game.Feature.Gameplay.Loop
             FrontFaceShieldBlockExports = frontFaceShieldBlockExports ?? throw new ArgumentNullException(nameof(frontFaceShieldBlockExports));
             BarricadeBlockFacts = barricadeBlockFacts ?? throw new ArgumentNullException(nameof(barricadeBlockFacts));
             BoxSlideStops = boxSlideStops ?? throw new ArgumentNullException(nameof(boxSlideStops));
+            PlayerTopologyTransitionBlockedSignals = playerTopologyTransitionBlockedSignals ??
+                throw new ArgumentNullException(nameof(playerTopologyTransitionBlockedSignals));
             MovementDebugEvents = movementDebugEvents ?? throw new ArgumentNullException(nameof(movementDebugEvents));
             NextContestId = nextContestId;
             EnemyAiPhaseResult = enemyAiPhaseResult ?? throw new ArgumentNullException(nameof(enemyAiPhaseResult));
@@ -248,6 +251,8 @@ namespace Game.Feature.Gameplay.Loop
         public List<BarricadeBlockFact> BarricadeBlockFacts { get; }
 
         public List<BoxSlideStopResult> BoxSlideStops { get; }
+
+        public List<TickPlayerTopologyTransitionBlockedSignal> PlayerTopologyTransitionBlockedSignals { get; }
 
         public List<string> MovementDebugEvents { get; }
 
@@ -459,6 +464,7 @@ namespace Game.Feature.Gameplay.Loop
 
             ResolveActiveEnemyGravityFieldAuraFields(
                 projectedSnapshot,
+                batch,
                 tickIndex,
                 plannedStatesByBoxEntityId,
                 eventLogEntries);
@@ -676,6 +682,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void ResolveActiveEnemyGravityFieldAuraFields(
             WorldSnapshot snapshot,
+            FinalizationBatch batch,
             int tickIndex,
             IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
             List<string> eventLogEntries)
@@ -802,6 +809,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (!TrySelectCandidateCell(
                         snapshot,
                         source,
+                        unitMobilityKind,
                         summonRuntime,
                         reservedSpawnCells,
                         tileFeatureDefinitions,
@@ -862,12 +870,14 @@ namespace Game.Feature.Gameplay.Loop
         private static bool TrySelectCandidateCell(
             WorldSnapshot snapshot,
             in EntityState source,
+            UnitMobilityKind summonedUnitMobilityKind,
             in SummonMinionRuntime summonRuntime,
             ISet<SurfaceCell> reservedSpawnCells,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out SurfaceCell spawnCell)
         {
             var candidateOffsets = BuildCandidateOffsets(source.facing);
+            var riskActor = CreateSummonedPlacementRiskActor(source, summonedUnitMobilityKind);
             var hasRiskCandidate = false;
             var riskCandidate = default(SurfaceCell);
             for (var i = 0; i < candidateOffsets.Count; i++)
@@ -915,7 +925,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (TileFeatureHazardQueries.EvaluateTileApproachRisk(
                         snapshot,
                         tileFeatureDefinitions,
-                        source,
+                        riskActor,
                         candidateCell) != TileApproachRisk.Neutral)
                 {
                     if (!hasRiskCandidate)
@@ -939,6 +949,20 @@ namespace Game.Feature.Gameplay.Loop
 
             spawnCell = default;
             return false;
+        }
+
+        private static EntityState CreateSummonedPlacementRiskActor(
+            in EntityState source,
+            UnitMobilityKind summonedUnitMobilityKind)
+        {
+            var riskActor = source;
+            riskActor.entityId = 0;
+            riskActor.type = EntityType.Unit;
+            riskActor.unitMobilityKind = summonedUnitMobilityKind;
+            riskActor.boardPresence = EntityBoardPresence.Occupying;
+            riskActor.hp = Math.Max(1, riskActor.hp);
+            riskActor.markedForDeath = false;
+            return riskActor;
         }
 
         private static List<Vector2Int> BuildCandidateOffsets(Direction facing)

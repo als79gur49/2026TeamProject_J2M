@@ -203,8 +203,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_UsesAudioSourceOutput_AndBlocksLowerInput()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var root = new GameObject(nameof(CinematicVideoOverlayView_UsesAudioSourceOutput_AndBlocksLowerInput), typeof(RectTransform));
             try
             {
@@ -552,8 +551,7 @@ namespace Game.Feature.UI.Tests
             float height,
             float expectedAspect)
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var root = new GameObject(nameof(CinematicVideoOverlayView_AutoResolvedViewport_UsesResolvedViewportAspect), typeof(RectTransform));
             try
             {
@@ -635,8 +633,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_AutoResolvedViewport_UsesSixteenByNineWhenAllSourcesAreInvalid()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var root = new GameObject(nameof(CinematicVideoOverlayView_AutoResolvedViewport_UsesSixteenByNineWhenAllSourcesAreInvalid), typeof(RectTransform));
             try
             {
@@ -665,8 +662,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_SettingsSelectedAspect_IsOnlyUsedForExplicitMode()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var root = new GameObject(nameof(CinematicVideoOverlayView_SettingsSelectedAspect_IsOnlyUsedForExplicitMode), typeof(RectTransform));
             try
             {
@@ -701,8 +697,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_InvalidSettingsSelectedAspect_FallsBackToAutoViewport()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var root = new GameObject(nameof(CinematicVideoOverlayView_InvalidSettingsSelectedAspect_FallsBackToAutoViewport), typeof(RectTransform));
             try
             {
@@ -730,8 +725,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_VideoClipAspect_UsesClipMetadataOnlyWhenExplicit()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var root = new GameObject(nameof(CinematicVideoOverlayView_VideoClipAspect_UsesClipMetadataOnlyWhenExplicit), typeof(RectTransform));
             try
             {
@@ -763,8 +757,7 @@ namespace Game.Feature.UI.Tests
             bool contentFitterEnabled,
             AspectRatioFitter.AspectMode expectedAspectMode)
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var root = new GameObject(nameof(CinematicVideoOverlayView_ScaleMode_ConfiguresContentLayout), typeof(RectTransform));
             try
             {
@@ -807,8 +800,7 @@ namespace Game.Feature.UI.Tests
             float expectedUvWidth,
             float expectedUvHeight)
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var canvas = CreateCanvasRoot(viewportWidth, viewportHeight, out var root, nameof(CinematicVideoOverlayView_CropToFillViewport_CropsSourceUvInsideFullViewport));
             try
             {
@@ -841,8 +833,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_CropToFillViewport_UsesSourceAspectRenderTexture()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_CropToFillViewport_UsesSourceAspectRenderTexture));
             try
             {
@@ -874,8 +865,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_StretchToViewport_OnlyWhenExplicit_UsesFullViewportRect()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_StretchToViewport_OnlyWhenExplicit_UsesFullViewportRect));
             try
             {
@@ -904,8 +894,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_FitInsideViewport_ExplicitMode_AllowsPillarbox()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_FitInsideViewport_ExplicitMode_AllowsPillarbox));
             try
             {
@@ -936,8 +925,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CinematicVideoOverlayView_AutoResolvedViewport_RecomputesAfterViewportResize()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = LoadTestClip();
             var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_AutoResolvedViewport_RecomputesAfterViewportResize));
             try
             {
@@ -1062,8 +1050,8 @@ namespace Game.Feature.UI.Tests
 
         private static VideoClip LoadTestClip()
         {
-            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/0516.mp4");
-            Assert.That(clip, Is.Not.Null, "0516.mp4 must remain importable as a VideoClip.");
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/3DM/VQ 인트로.mp4");
+            Assert.That(clip, Is.Not.Null, "VQ 인트로.mp4 must remain importable as a VideoClip.");
             return clip;
         }
 

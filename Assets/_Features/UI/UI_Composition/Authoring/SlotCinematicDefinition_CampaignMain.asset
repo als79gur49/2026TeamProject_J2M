@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SlotCinematicDefinition_CampaignMain
   m_EditorClassIdentifier: 
   _introClip: {fileID: 32900000, guid: 662eaa3ae9395c9409bd1426e9f4c3b7, type: 3}
-  _outroClip: {fileID: 32900000, guid: 662eaa3ae9395c9409bd1426e9f4c3b7, type: 3}
+  _outroClip: {fileID: 32900000, guid: d4c53ef983a8c794da36537950ff6196, type: 3}
   _skipEnabled: 1
   _aspectSource: 0
   _scaleMode: 0

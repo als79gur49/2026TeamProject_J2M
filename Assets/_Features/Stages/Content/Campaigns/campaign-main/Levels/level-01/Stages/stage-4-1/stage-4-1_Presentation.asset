@@ -37,10 +37,6 @@ MonoBehaviour:
     PresentationId: astreton
   - EntityId: 323
     PresentationId: j_peter
-  - EntityId: 342
-    PresentationId: startis
-  - EntityId: 343
-    PresentationId: startis
   - EntityId: 344
     PresentationId: dr_saturn
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
@@ -318,6 +314,8 @@ MonoBehaviour:
   boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
+  worldGuideCatalog: {fileID: 0}
+  worldGuideInstructions: []
   resultTitle: Stage Cleared
   resultSummaryText: 
   resultDetailText: 

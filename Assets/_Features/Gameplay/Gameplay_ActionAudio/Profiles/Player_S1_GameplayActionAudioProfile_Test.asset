@@ -16,113 +16,137 @@ MonoBehaviour:
   - Action: 0
     Moment: 0
     Binding:
-      definition: {fileID: 11400000, guid: c2619ac114064b639a9ab2d906a81741, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 1
     IsOptional: 0
   - Action: 0
     Moment: 2
     Binding:
-      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
-    IsOptional: 0
+      rid: -2
+    IsOptional: 1
   - Action: 0
     Moment: 3
     Binding:
-      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
-    IsOptional: 0
+      rid: -2
+    IsOptional: 1
   - Action: 0
     Moment: 4
     Binding:
-      definition: {fileID: 11400000, guid: c6ef4d5d4942c614d8bde53eac9accac, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
-    IsOptional: 0
+      rid: -2
+    IsOptional: 1
   - Action: 0
     Moment: 6
     Binding:
-      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 2
     IsOptional: 0
   - Action: 0
     Moment: 7
     Binding:
-      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 3
     IsOptional: 0
   - Action: 0
     Moment: 8
     Binding:
-      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 4
     IsOptional: 0
   - Action: 1
     Moment: 0
     Binding:
-      definition: {fileID: 11400000, guid: f41d4a196a0d43eab3e4cf7374718cce, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 5
     IsOptional: 0
   - Action: 1
     Moment: 4
     Binding:
-      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 6
     IsOptional: 0
   - Action: 1
     Moment: 6
     Binding:
-      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 7
     IsOptional: 0
   - Action: 1
     Moment: 7
     Binding:
-      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 8
     IsOptional: 0
   - Action: 1
     Moment: 8
     Binding:
-      definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
-      attachmentSlot:
-        id: 
-      policy:
-        rid: -2
+      rid: 9
     IsOptional: 0
   references:
     version: 2
     RefIds:
     - rid: -2
       type: {class: , ns: , asm: }
+    - rid: 1
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: c2619ac114064b639a9ab2d906a81741, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 2
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 3
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 4
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 5
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: f41d4a196a0d43eab3e4cf7374718cce, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 6
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 7
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 8
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
+    - rid: 9
+      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
+      data:
+        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
+        attachmentSlot:
+          id:
+        policy:
+          rid: -2
