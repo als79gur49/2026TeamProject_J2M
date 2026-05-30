@@ -1861,15 +1861,10 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             var impactCueId = GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact);
-            var impactSignals = presentationData.ForwardCellImpactSignals;
-            for (var i = 0; i < impactSignals.Count; i++)
+            var arrivalSignals = presentationData.ForwardCellProjectileArrivalSignals;
+            for (var i = 0; i < arrivalSignals.Count; i++)
             {
-                var signal = impactSignals[i];
-                if (!signal.Hit)
-                {
-                    continue;
-                }
-
+                var signal = arrivalSignals[i];
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,

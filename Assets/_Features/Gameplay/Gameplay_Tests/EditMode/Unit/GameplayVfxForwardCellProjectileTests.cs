@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
@@ -56,9 +57,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ForwardCellProjectile_ImpactSignalCreatesImpactVfx()
+        public void ForwardCellProjectile_ArrivalSignalCreatesImpactVfx()
         {
-            var data = CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) });
+            var data = CreatePresentationData(arrivalSignals: new[] { CreateArrivalSignal(PendingCellImpactResolutionKind.Hit, targetEntityId: 10) });
             var plan = PlanProjectile(data);
             var playerBuilder = new GameplayVfxRequestPlanBuilder();
 
@@ -74,14 +75,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ForwardCellProjectile_MissImpactSignalDoesNotCreateImpactVfx()
+        public void ForwardCellProjectile_MissArrivalCreatesImpactVfx()
         {
-            var data = CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: false) });
+            var data = CreatePresentationData(arrivalSignals: new[] { CreateArrivalSignal(PendingCellImpactResolutionKind.Miss) });
             var plan = PlanProjectile(data);
 
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            Assert.That(plan.Requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
+            Assert.That(plan.Requests[0].Anchor.Cell, Is.EqualTo(TargetCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_ProjectileImpactVfxAndSfx_ShareArrivalPolicy()
+        {
+            var audioPlanner = new EnemyAudioRequestPlanner();
+            var validArrivalKinds = new[]
+            {
+                PendingCellImpactResolutionKind.Hit,
+                PendingCellImpactResolutionKind.Miss,
+            };
+
+            for (var i = 0; i < validArrivalKinds.Length; i++)
+            {
+                var data = CreatePresentationData(arrivalSignals: new[] { CreateArrivalSignal(validArrivalKinds[i], targetEntityId: 10) });
+                var vfxPlan = PlanProjectile(data);
+                var audioRequests = audioPlanner.BuildRequests(CreateResult(data));
+
+                Assert.That(
+                    vfxPlan.Requests.Count(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
+                    Is.EqualTo(1));
+                Assert.That(
+                    audioRequests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact),
+                    Is.EqualTo(1));
+            }
+
+            var impactOnlyData = CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) });
+
+            Assert.That(PlanProjectile(impactOnlyData).Requests, Is.Empty);
             Assert.That(
-                plan.Requests.Any(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
-                Is.False);
+                audioPlanner.BuildRequests(CreateResult(impactOnlyData)).Select(request => request.Cue).ToArray(),
+                Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ForwardCellProjectile_ImpactSignalWithoutArrivalDoesNotCreateImpactVfx()
+        {
+            var data = CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) });
+            var plan = PlanProjectile(data);
+
+            Assert.That(plan.Requests, Is.Empty);
         }
 
         [Test]
@@ -90,7 +134,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var data = CreatePresentationData(
                 playerDamageSignals: new[] { new TickPlayerDamagePresentationSignal(10, true, 1) },
-                forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) });
+                forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) },
+                arrivalSignals: new[] { CreateArrivalSignal(PendingCellImpactResolutionKind.Hit, targetEntityId: 10) });
             var builder = new GameplayVfxRequestPlanBuilder();
 
             new ProjectileVfxRequestPlanner().Plan(
@@ -136,7 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(contextFactory.Create(CreatePresentationData(releaseSignals: new[] { CreateReleaseSignal() })));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
 
-                runtime.Present(contextFactory.Create(CreatePresentationData(forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) })));
+                runtime.Present(contextFactory.Create(CreatePresentationData(arrivalSignals: new[] { CreateArrivalSignal(PendingCellImpactResolutionKind.Hit, targetEntityId: 10) })));
                 Assert.That(runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
                 Assert.That(runtime.GetActiveVfxInstanceCount(ImpactCueId), Is.EqualTo(1));
             }
@@ -195,9 +240,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
             Assert.That(fixture.Runtime.GetReleaseToPoolCount(FlightCueId), Is.Zero);
 
-            Assert.DoesNotThrow(() => fixture.Present(CreatePresentationData(forwardCellImpactSignals: new[]
+            Assert.DoesNotThrow(() => fixture.Present(CreatePresentationData(arrivalSignals: new[]
             {
-                CreateImpactSignal(hit: true, targetEntityId: 10),
+                CreateArrivalSignal(PendingCellImpactResolutionKind.Hit, targetEntityId: 10),
             })));
             AssertActiveCarrierKeys(fixture.Runtime);
             Assert.That(fixture.Runtime.GetReleaseToPoolCount(FlightCueId), Is.EqualTo(1));
@@ -259,9 +304,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(MarkerCueId), Is.Zero);
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
 
-            fixture.Present(CreatePresentationData(forwardCellImpactSignals: new[]
+            fixture.Present(CreatePresentationData(arrivalSignals: new[]
             {
-                CreateImpactSignal(hit: true, targetEntityId: 10, presentationKey: keyA, impactId: keyA, ownerId: enemyA),
+                CreateArrivalSignal(PendingCellImpactResolutionKind.Hit, targetEntityId: 10, presentationKey: keyA, impactId: keyA, ownerId: enemyA),
             }));
             AssertActiveMarkerKeys(fixture.Runtime);
             AssertActiveCarrierKeys(fixture.Runtime);
@@ -687,6 +732,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPresentationData CreatePresentationData(
             TickPlayerDamagePresentationSignal[] playerDamageSignals = null,
             TickForwardCellImpactPresentationSignal[] forwardCellImpactSignals = null,
+            TickForwardCellProjectileArrivalPresentationSignal[] arrivalSignals = null,
             TickForwardCellProjectileWindupPresentationSignal[] windupSignals = null,
             TickForwardCellProjectileReleasePresentationSignal[] releaseSignals = null,
             TickForwardCellProjectileClearPresentationSignal[] clearSignals = null,
@@ -708,6 +754,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEntityExitPresentationSignal>(),
                 Array.Empty<FlipImpactPresentationSignal>(),
                 forwardCellImpactSignals: forwardCellImpactSignals,
+                forwardCellProjectileArrivalSignals: arrivalSignals,
                 forwardCellProjectileWindupSignals: windupSignals,
                 forwardCellProjectileReleaseSignals: releaseSignals,
                 forwardCellProjectileClearSignals: clearSignals);
@@ -777,6 +824,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetCell: targetCell ?? TargetCell,
                 direction: direction,
                 hit: hit,
+                targetEntityId: targetEntityId);
+        }
+
+        private static TickForwardCellProjectileArrivalPresentationSignal CreateArrivalSignal(
+            PendingCellImpactResolutionKind resolutionKind,
+            int targetEntityId = 0,
+            int presentationKey = 4000001,
+            int impactId = 4000001,
+            int ownerId = 40,
+            int sourceEnemyId = 0,
+            SurfaceCell? targetCell = null,
+            Direction direction = Direction.Right,
+            int impactTick = 13)
+        {
+            return new TickForwardCellProjectileArrivalPresentationSignal(
+                impactId: impactId,
+                presentationKey: presentationKey,
+                ownerId: ownerId,
+                sourceEnemyId: sourceEnemyId != 0 ? sourceEnemyId : ownerId,
+                targetCell: targetCell ?? TargetCell,
+                direction: direction,
+                impactTick: impactTick,
+                resolutionKind: resolutionKind,
                 targetEntityId: targetEntityId);
         }
 

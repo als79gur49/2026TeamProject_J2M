@@ -1364,6 +1364,12 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var impactResolution = attackPlanResult.PendingCellImpactResolutions[i];
                 attackStageBatch.RemovePendingCellImpact(impactResolution.Impact.ImpactId);
+                LogPendingCellImpactResolution(
+                    attackSnapshot,
+                    tickIndex,
+                    impactResolution,
+                    damageResolutions,
+                    pendingRemoved: true);
                 attackCommitEvents.Add(BuildPendingCellImpactCommitEvent(impactResolution));
             }
             var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
@@ -5666,6 +5672,23 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
+            for (var i = 0; i < due.Count; i++)
+            {
+                var impact = due[i];
+                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                    impact.SourceEnemyId,
+                    impact.TargetCell,
+                    impact.ImpactTick,
+                    impact.ImpactId);
+                ForwardCellProjectileDebugLog.MarkDue(shotKey);
+                ForwardCellProjectileDebugLog.Log(
+                    "DUE_COLLECT",
+                    $"Tick={tickIndex} Shot={shotKey} Source={impact.SourceEnemyId} " +
+                    $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
+                    $"ImpactTick={impact.ImpactTick} PendingCountBefore={entries.Count} " +
+                    $"DueCollected=true DueCount={due.Count}");
+            }
+
             return due;
         }
 
@@ -5738,22 +5761,35 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             in PendingCellImpact impact)
         {
-            if (!snapshot.TryGetEntity(impact.SourceEnemyId, out var source) ||
-                !EnemyParticipationPolicy.IsEnemyLogicEntity(source) ||
-                source.hp <= 0 ||
-                source.markedForDeath ||
-                source.boardPresence != EntityBoardPresence.Occupying ||
-                source.aiMode == EnemyAiMode.Dead ||
-                source.position.face != snapshot.Topology.BottomFace ||
-                !source.position.Equals(impact.SourceCell))
-            {
-                return new PendingCellImpactResolutionRecord(
-                    impact,
-                    PendingCellImpactResolutionKind.CancelledSourceInvalid);
-            }
+            var sourceExists = snapshot.TryGetEntity(impact.SourceEnemyId, out var source);
+            var sourceAlive = sourceExists && source.hp > 0 && !source.markedForDeath;
+            var sourceOccupying = sourceExists && source.boardPresence == EntityBoardPresence.Occupying;
+            var sourceCurrentBottomParticipant = sourceExists &&
+                                                 EnemyParticipationPolicy.IsEnemyLogicEntity(source) &&
+                                                 sourceAlive &&
+                                                 sourceOccupying &&
+                                                 source.aiMode != EnemyAiMode.Dead &&
+                                                 source.position.face == snapshot.Topology.BottomFace;
+            var sourceStillAtLaunchSourceCell = sourceExists && source.position.Equals(impact.SourceCell);
+            var launchTopologyEqualsCurrentTopology = impact.LaunchTopology.Equals(snapshot.Topology);
+            var targetTerrainValid = snapshot.TryGetTerrain(impact.TargetCell, out _);
+            var targetFaceActive = snapshot.Topology.IsFaceActive(impact.TargetCell.face);
 
             if (!impact.LaunchTopology.Equals(snapshot.Topology))
             {
+                LogPendingCellImpactValidation(
+                    snapshot,
+                    impact,
+                    sourceExists,
+                    sourceAlive,
+                    sourceOccupying,
+                    sourceCurrentBottomParticipant,
+                    sourceStillAtLaunchSourceCell,
+                    launchTopologyEqualsCurrentTopology,
+                    targetTerrainValid,
+                    targetFaceActive,
+                    PendingCellImpactResolutionKind.ExpiredTopologyInvalid,
+                    "TopologyInvalid");
                 return new PendingCellImpactResolutionRecord(
                     impact,
                     PendingCellImpactResolutionKind.ExpiredTopologyInvalid);
@@ -5761,12 +5797,163 @@ namespace Game.Feature.Gameplay.Loop
 
             if (!snapshot.Topology.IsFaceActive(impact.TargetCell.face))
             {
+                LogPendingCellImpactValidation(
+                    snapshot,
+                    impact,
+                    sourceExists,
+                    sourceAlive,
+                    sourceOccupying,
+                    sourceCurrentBottomParticipant,
+                    sourceStillAtLaunchSourceCell,
+                    launchTopologyEqualsCurrentTopology,
+                    targetTerrainValid,
+                    targetFaceActive,
+                    PendingCellImpactResolutionKind.CancelledTargetInvalid,
+                    "TargetFaceInactive");
                 return new PendingCellImpactResolutionRecord(
                     impact,
                     PendingCellImpactResolutionKind.CancelledTargetInvalid);
             }
 
+            LogPendingCellImpactValidation(
+                snapshot,
+                impact,
+                sourceExists,
+                sourceAlive,
+                sourceOccupying,
+                sourceCurrentBottomParticipant,
+                sourceStillAtLaunchSourceCell,
+                launchTopologyEqualsCurrentTopology,
+                targetTerrainValid,
+                targetFaceActive,
+                PendingCellImpactResolutionKind.Miss,
+                string.Empty);
             return null;
+        }
+
+        private static void LogPendingCellImpactValidation(
+            WorldSnapshot snapshot,
+            in PendingCellImpact impact,
+            bool sourceExists,
+            bool sourceAlive,
+            bool sourceOccupying,
+            bool sourceCurrentBottomParticipant,
+            bool sourceStillAtLaunchSourceCell,
+            bool launchTopologyEqualsCurrentTopology,
+            bool targetTerrainValid,
+            bool targetFaceActive,
+            PendingCellImpactResolutionKind validityResult,
+            string cancelReason)
+        {
+            var sourceCellCurrent = sourceExists && snapshot.TryGetEntity(impact.SourceEnemyId, out var source)
+                ? source.position
+                : default;
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                impact.SourceEnemyId,
+                impact.TargetCell,
+                impact.ImpactTick,
+                impact.ImpactId);
+            ForwardCellProjectileDebugLog.Log(
+                "DUE_VALIDATE",
+                $"Tick={impact.ImpactTick} Shot={shotKey} SourceExists={sourceExists} SourceAlive={sourceAlive} " +
+                $"SourceOccupying={sourceOccupying} SourceCellCurrent=({ForwardCellProjectileDebugLog.FormatCell(sourceCellCurrent)}) " +
+                $"SourceCellLaunch=({ForwardCellProjectileDebugLog.FormatCell(impact.SourceCell)}) " +
+                $"SourceStillAtLaunchSourceCell={sourceStillAtLaunchSourceCell} " +
+                $"SourceCurrentBottomParticipant={sourceCurrentBottomParticipant} " +
+                $"LaunchTopology={ForwardCellProjectileDebugLog.FormatTopology(impact.LaunchTopology)} " +
+                $"CurrentTopology={ForwardCellProjectileDebugLog.FormatTopology(snapshot.Topology)} " +
+                $"LaunchTopologyEqualsCurrentTopology={launchTopologyEqualsCurrentTopology} " +
+                $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
+                $"TargetTerrainValid={targetTerrainValid} TargetFaceActive={targetFaceActive} " +
+                $"TargetAnchorRepresentable={targetTerrainValid && targetFaceActive} " +
+                $"PlayerCombatAnchor={HasPlayerCombatAnchor(snapshot, impact.TargetCell)} " +
+                $"TargetCellOccupants=[{FormatTargetCellOccupants(snapshot, impact.TargetCell)}] " +
+                $"ValidityResult={(cancelReason.Length == 0 ? "Pass" : validityResult.ToString())} " +
+                $"CancelReason={cancelReason}");
+        }
+
+        private static void LogPendingCellImpactResolution(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            in PendingCellImpactResolutionRecord resolution,
+            IReadOnlyList<DamageResolutionRecord> damageResolutionRecords,
+            bool pendingRemoved)
+        {
+            var impact = resolution.Impact;
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                impact.SourceEnemyId,
+                impact.TargetCell,
+                impact.ImpactTick,
+                impact.ImpactId);
+            var damageGroupCreated = resolution.ResultKind == PendingCellImpactResolutionKind.Hit;
+            var hpChanged = false;
+            if (damageResolutionRecords != null)
+            {
+                for (var i = 0; i < damageResolutionRecords.Count; i++)
+                {
+                    var damage = damageResolutionRecords[i];
+                    if (damage.SourceKind == AttackSourceKind.ForwardCellImpact &&
+                        damage.TargetId == resolution.TargetEntityId &&
+                        damage.Accepted &&
+                        damage.Amount > 0)
+                    {
+                        hpChanged = true;
+                        break;
+                    }
+                }
+            }
+
+            ForwardCellProjectileDebugLog.MarkResolution(
+                shotKey,
+                resolution.ResultKind,
+                damageGroupCreated,
+                hpChanged,
+                pendingRemoved);
+            ForwardCellProjectileDebugLog.Log(
+                "DUE_RESOLVE",
+                $"Tick={tickIndex} Shot={shotKey} Resolution={resolution.ResultKind} " +
+                $"IsValidArrival={ForwardCellProjectileDebugLog.IsValidArrival(resolution.ResultKind)} " +
+                $"IsActualHit={ForwardCellProjectileDebugLog.IsActualHit(resolution.ResultKind)} " +
+                $"PlayerAnchor={HasPlayerCombatAnchor(snapshot, impact.TargetCell)} " +
+                $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
+                $"DamageGroup={damageGroupCreated} HpChanged={hpChanged} PendingRemoved={pendingRemoved}");
+        }
+
+        private static bool HasPlayerCombatAnchor(WorldSnapshot snapshot, SurfaceCell targetCell)
+        {
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (EntityRolePolicy.IsPlayerUnit(entity) &&
+                    entity.hp > 0 &&
+                    !entity.markedForDeath &&
+                    IsPlayerCurrentCombatAnchorCell(snapshot, entity, targetCell))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string FormatTargetCellOccupants(WorldSnapshot snapshot, SurfaceCell targetCell)
+        {
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            var occupants = new List<string>();
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity.boardPresence == EntityBoardPresence.Occupying &&
+                    entity.position.Equals(targetCell))
+                {
+                    occupants.Add($"{entity.entityId}:{entity.type}:hp={entity.hp}");
+                }
+            }
+
+            return occupants.Count == 0 ? string.Empty : string.Join(",", occupants);
         }
 
         private static string BuildPendingCellImpactCommitEvent(in PendingCellImpactResolutionRecord resolution)

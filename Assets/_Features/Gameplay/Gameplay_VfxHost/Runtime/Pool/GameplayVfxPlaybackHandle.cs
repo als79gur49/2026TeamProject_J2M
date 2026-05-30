@@ -14,6 +14,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             HandleId = handleId;
             CueId = command.CueId;
+            SequenceId = command.Request.SequenceId;
+            SourceEntityId = command.Request.SourceEntityId;
+            AnchorCell = command.Request.Anchor.Cell;
+            TickIndex = command.Request.TickIndex;
             PersistentKey = command.PersistentKey;
             IsPersistent = command.IsPersistent;
             Policy = command.Policy;
@@ -33,6 +37,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public int HandleId { get; }
 
         public GameplayVfxCueId CueId { get; }
+
+        internal int SequenceId { get; }
+
+        internal int SourceEntityId { get; }
+
+        internal Game.Feature.Gameplay.BoardState.SurfaceCell AnchorCell { get; }
+
+        internal int TickIndex { get; }
 
         public VfxPersistentKey PersistentKey { get; }
 

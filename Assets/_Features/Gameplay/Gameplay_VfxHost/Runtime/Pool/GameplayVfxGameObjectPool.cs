@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx.Host
@@ -346,12 +347,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 MissingPrefabCount++;
                 LogPoolDiagnostic(nameof(Play), "MissingPrefab", command);
+                LogForwardCellImpactPoolPlay(command, null, null, null, poolPlayCalled: false, handleCreated: false, "MissingPrefab");
                 return null;
             }
 
             if (IsOverConcurrentLimit(command.Policy))
             {
                 DroppedByLimitCount++;
+                LogForwardCellImpactPoolPlay(command, prefab, null, null, poolPlayCalled: false, handleCreated: false, "ConcurrentLimit");
                 return null;
             }
 
@@ -371,7 +374,62 @@ namespace Game.Feature.Gameplay.Vfx.Host
             handle.MarkActive();
             ApplyStickySuspendReasons(handle);
             activeHandles.Add(handle);
+            LogForwardCellImpactPoolPlay(command, prefab, handle, instance, poolPlayCalled: true, handleCreated: true, string.Empty);
             return handle;
+        }
+
+        private static void LogForwardCellImpactPoolPlay(
+            in ResolvedVfxPlaybackCommand command,
+            GameObject prefab,
+            GameplayVfxPlaybackHandle handle,
+            GameplayVfxPooledInstance instance,
+            bool poolPlayCalled,
+            bool handleCreated,
+            string skipReason)
+        {
+            if (command.CueId != GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))
+            {
+                return;
+            }
+
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                command.Request.SourceEntityId,
+                command.Request.Anchor.Cell,
+                command.Request.TickIndex,
+                command.Request.SequenceId,
+                command.Request.SequenceId);
+            ForwardCellProjectileDebugLog.MarkPool(shotKey, poolPlayCalled, handleCreated);
+            ForwardCellProjectileDebugLog.Log(
+                "VFX_POOL_PLAY",
+                $"Tick={command.Request.TickIndex} Shot={shotKey} Cue=ForwardCellImpact " +
+                $"PoolPlayCalled={poolPlayCalled} HandleCreated={handleCreated} " +
+                $"HandleId={(handle != null ? handle.HandleId : 0)} " +
+                $"PooledInstanceId={(instance?.GameObject != null ? instance.GameObject.GetInstanceID() : 0)} " +
+                $"PrefabName={(prefab != null ? prefab.name : "None")} " +
+                $"InstanceName={(instance?.GameObject != null ? instance.GameObject.name : "None")} " +
+                $"ParentPath={BuildTransformPath(instance?.Transform?.parent)} " +
+                $"ActiveSelf={(instance?.GameObject != null && instance.GameObject.activeSelf)} " +
+                $"ActiveInHierarchy={(instance?.GameObject != null && instance.GameObject.activeInHierarchy)} " +
+                $"SkipReason={skipReason}");
+            ForwardCellProjectileDebugLog.LogSummary(shotKey);
+        }
+
+        private static string BuildTransformPath(Transform transform)
+        {
+            if (transform == null)
+            {
+                return "None";
+            }
+
+            var names = new Stack<string>();
+            var current = transform;
+            while (current != null)
+            {
+                names.Push(current.name);
+                current = current.parent;
+            }
+
+            return string.Join("/", names);
         }
 
         private void ApplyStickySuspendReasons(GameplayVfxPlaybackHandle handle)

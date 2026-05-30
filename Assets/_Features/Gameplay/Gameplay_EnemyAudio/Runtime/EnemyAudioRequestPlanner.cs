@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
             BuildJumpRequests(result.PresentationData, requests);
             BuildGlideRequests(result.PresentationData, requests);
             BuildChargeRequests(result.PresentationData, requests);
-            BuildProjectileImpactRequests(result.PresentationData, requests);
+            BuildProjectileImpactRequests(result.PresentationData, result.TickIndex, requests);
             BuildDeathRequests(result.PresentationData, timingProfile, requests);
             BuildStationaryActiveRequests(result.FinalEntities, motionFactEntityIds, requests);
             return requests;
@@ -323,18 +323,138 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
         private static void BuildProjectileImpactRequests(
             TickPresentationData presentationData,
+            int tickIndex,
             ICollection<EnemyAudioRequest> requests)
         {
-            var signals = presentationData.ForwardCellImpactSignals;
-            for (var i = 0; i < signals.Count; i++)
+            var arrivalSignals = presentationData.ForwardCellProjectileArrivalSignals;
+            var emittedIdentities = new HashSet<EnemyAudioRequestIdentity>();
+            for (var i = 0; i < arrivalSignals.Count; i++)
             {
-                var signal = signals[i];
-                AddRequestIf(
+                var signal = arrivalSignals[i];
+                var identity = CreateProjectileImpactIdentity(signal);
+                var reason = ResolveProjectileImpactPlanReason(signal, emittedIdentities);
+                var requestCreated = reason == "ArrivalSignal";
+                if (requestCreated)
+                {
+                    emittedIdentities.Add(identity);
+                    AddRequest(
+                        signal.SourceEnemyId,
+                        EnemyAudioCue.ProjectileImpact,
+                        requests,
+                        identity: identity);
+                }
+
+                LogProjectileImpactAudioPlan(
+                    tickIndex,
+                    presentationData,
                     signal.SourceEnemyId,
-                    EnemyAudioCue.ProjectileImpact,
-                    signal.SourceEnemyId > 0 && signal.Hit,
-                    requests);
+                    signal.TargetCell,
+                    signal.ImpactTick,
+                    signal.ImpactId,
+                    signal.PresentationKey,
+                    requestCreated,
+                    reason);
             }
+
+            var impactSignals = presentationData.ForwardCellImpactSignals;
+            for (var i = 0; i < impactSignals.Count; i++)
+            {
+                var signal = impactSignals[i];
+                if (ContainsArrivalSignal(arrivalSignals, signal))
+                {
+                    continue;
+                }
+
+                LogProjectileImpactAudioPlan(
+                    tickIndex,
+                    presentationData,
+                    signal.SourceEnemyId,
+                    signal.TargetCell,
+                    0,
+                    signal.ImpactId,
+                    signal.PresentationKey,
+                    false,
+                    "NoArrivalSignal");
+            }
+        }
+
+        private static EnemyAudioRequestIdentity CreateProjectileImpactIdentity(
+            in TickForwardCellProjectileArrivalPresentationSignal signal)
+        {
+            return new EnemyAudioRequestIdentity(
+                true,
+                signal.SourceEnemyId,
+                signal.TargetCell,
+                signal.ImpactTick,
+                signal.ImpactId,
+                signal.PresentationKey);
+        }
+
+        private static string ResolveProjectileImpactPlanReason(
+            in TickForwardCellProjectileArrivalPresentationSignal signal,
+            ISet<EnemyAudioRequestIdentity> emittedIdentities)
+        {
+            if (signal.SourceEnemyId <= 0)
+            {
+                return "InvalidSource";
+            }
+
+            if (!signal.ResolutionKind.IsValidArrival())
+            {
+                return "InvalidArrival";
+            }
+
+            if (emittedIdentities.Contains(CreateProjectileImpactIdentity(signal)))
+            {
+                return "DuplicateArrival";
+            }
+
+            return "ArrivalSignal";
+        }
+
+        private static bool ContainsArrivalSignal(
+            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> arrivals,
+            in TickForwardCellImpactPresentationSignal impactSignal)
+        {
+            for (var i = 0; i < arrivals.Count; i++)
+            {
+                var arrival = arrivals[i];
+                if (arrival.ImpactId == impactSignal.ImpactId &&
+                    arrival.PresentationKey == impactSignal.PresentationKey &&
+                    arrival.SourceEnemyId == impactSignal.SourceEnemyId &&
+                    arrival.TargetCell.Equals(impactSignal.TargetCell))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void LogProjectileImpactAudioPlan(
+            int tickIndex,
+            TickPresentationData presentationData,
+            int sourceEnemyId,
+            SurfaceCell targetCell,
+            int impactTick,
+            int impactId,
+            int presentationKey,
+            bool requestCreated,
+            string reason)
+        {
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                sourceEnemyId,
+                targetCell,
+                impactTick,
+                impactId,
+                presentationKey);
+            ForwardCellProjectileDebugLog.Log(
+                "AUDIO_PLAN",
+                $"Tick={tickIndex} Shot={shotKey} " +
+                $"ArrivalSignals={presentationData.ForwardCellProjectileArrivalSignals.Count} " +
+                $"HitSignals={presentationData.ForwardCellImpactSignals.Count} " +
+                $"ProjectileImpactSfxRequestCreated={requestCreated} " +
+                $"Source=ArrivalSignal Cue=ProjectileImpact Reason={reason}");
         }
 
         private static void BuildDeathRequests(
@@ -410,7 +530,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
             int ownerEntityId,
             EnemyAudioCue cue,
             ICollection<EnemyAudioRequest> requests,
-            float delaySeconds = 0f)
+            float delaySeconds = 0f,
+            EnemyAudioRequestIdentity identity = default)
         {
             requests.Add(new EnemyAudioRequest(
                 ownerEntityId,
@@ -418,7 +539,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 new AudioPlaybackContext(
                     ownerEntityId: ownerEntityId,
                     debugTag: EnemyAudioCueCatalog.Format(cue)),
-                delaySeconds));
+                delaySeconds,
+                identity));
         }
     }
 }

@@ -1158,21 +1158,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAudioRequestPlanner_ForwardCellImpact_EmitsProjectileImpactCueForSourceEnemy()
+        public void ForwardCellProjectile_HitArrival_CreatesProjectileImpactSfx()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
-                forwardCellImpactSignals: new[]
+                forwardCellProjectileArrivalSignals: new[]
                 {
-                    new TickForwardCellImpactPresentationSignal(
-                        impactId: 100,
-                        presentationKey: 100,
-                        ownerId: 20,
-                        sourceEnemyId: 20,
-                        targetCell: targetCell,
-                        direction: Direction.Right,
-                        hit: true,
+                    CreateForwardCellProjectileArrivalSignal(
+                        targetCell,
+                        PendingCellImpactResolutionKind.Hit,
                         targetEntityId: 10),
                 }));
 
@@ -1185,21 +1180,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAudioRequestPlanner_ForwardCellImpactMiss_DoesNotEmitProjectileImpactCue()
+        public void ForwardCellProjectile_ProjectileImpactSfx_UsesArrivalSignalNotHitSignal()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
                 forwardCellImpactSignals: new[]
                 {
-                    new TickForwardCellImpactPresentationSignal(
-                        impactId: 100,
-                        presentationKey: 100,
+                    CreateForwardCellImpactSignal(
                         ownerId: 20,
                         sourceEnemyId: 20,
                         targetCell: targetCell,
-                        direction: Direction.Right,
-                        hit: false,
+                        hit: true,
                         targetEntityId: 0),
                 }));
 
@@ -1208,6 +1200,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 requests.Select(request => request.Cue).ToArray(),
                 Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_MissArrival_CreatesProjectileImpactSfx()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                forwardCellProjectileArrivalSignals: new[]
+                {
+                    CreateForwardCellProjectileArrivalSignal(
+                        targetCell,
+                        PendingCellImpactResolutionKind.Miss,
+                        targetEntityId: 0),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
+                Is.EqualTo(new[] { (20, EnemyAudioCue.ProjectileImpact) }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_CancelledSourceInvalid_DoesNotCreateProjectileImpactSfx()
+        {
+            AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+                PendingCellImpactResolutionKind.CancelledSourceInvalid);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_CancelledTargetInvalid_DoesNotCreateProjectileImpactSfx()
+        {
+            AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+                PendingCellImpactResolutionKind.CancelledTargetInvalid);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_ExpiredTopologyInvalid_DoesNotCreateProjectileImpactSfx()
+        {
+            AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+                PendingCellImpactResolutionKind.ExpiredTopologyInvalid);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_Hit_DoesNotDuplicateProjectileImpactSfx()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                forwardCellImpactSignals: new[]
+                {
+                    CreateForwardCellImpactSignal(
+                        ownerId: 20,
+                        sourceEnemyId: 20,
+                        targetCell: targetCell,
+                        hit: true,
+                        targetEntityId: 10),
+                },
+                forwardCellProjectileArrivalSignals: new[]
+                {
+                    CreateForwardCellProjectileArrivalSignal(
+                        targetCell,
+                        PendingCellImpactResolutionKind.Hit,
+                        targetEntityId: 10),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact),
+                Is.EqualTo(1));
         }
 
         [Test]
@@ -1232,6 +1301,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             sourceEnemyId: 20,
                             targetCell: targetCell,
                             hit: true,
+                            targetEntityId: 10),
+                    },
+                    forwardCellProjectileArrivalSignals: new[]
+                    {
+                        CreateForwardCellProjectileArrivalSignal(
+                            targetCell,
+                            PendingCellImpactResolutionKind.Hit,
                             targetEntityId: 10),
                     }),
                 new[]
@@ -1273,6 +1349,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             sourceEnemyId: 20,
                             targetCell: targetCell,
                             hit: true,
+                            targetEntityId: 10),
+                    },
+                    forwardCellProjectileArrivalSignals: new[]
+                    {
+                        CreateForwardCellProjectileArrivalSignal(
+                            targetCell,
+                            PendingCellImpactResolutionKind.Hit,
                             targetEntityId: 10),
                     }),
                 new[]
@@ -1932,6 +2015,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 hit: true,
                                 targetEntityId: player.entityId),
                         },
+                        forwardCellProjectileArrivalSignals: new[]
+                        {
+                            CreateForwardCellProjectileArrivalSignal(
+                                targetCell,
+                                PendingCellImpactResolutionKind.Hit,
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
+                                targetEntityId: player.entityId),
+                        },
                         playerDamageSignals: new[]
                         {
                             new TickPlayerDamagePresentationSignal(
@@ -1992,6 +2084,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 sourceEnemyId: enemy.entityId,
                                 targetCell: targetCell,
                                 hit: true,
+                                targetEntityId: player.entityId),
+                        },
+                        forwardCellProjectileArrivalSignals: new[]
+                        {
+                            CreateForwardCellProjectileArrivalSignal(
+                                targetCell,
+                                PendingCellImpactResolutionKind.Hit,
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
                                 targetEntityId: player.entityId),
                         },
                         playerDamageSignals: new[]
@@ -2059,6 +2160,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 targetCell: targetCell,
                                 hit: true,
                                 targetEntityId: 10),
+                        },
+                        forwardCellProjectileArrivalSignals: new[]
+                        {
+                            CreateForwardCellProjectileArrivalSignal(
+                                targetCell,
+                                PendingCellImpactResolutionKind.Hit,
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
+                                targetEntityId: 10),
                         }),
                     finalEntities: new[] { enemy },
                     finalTopology: destinationTopology));
@@ -2115,6 +2225,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 sourceEnemyId: enemy.entityId,
                                 targetCell: targetCell,
                                 hit: true,
+                                targetEntityId: player.entityId),
+                        },
+                        forwardCellProjectileArrivalSignals: new[]
+                        {
+                            CreateForwardCellProjectileArrivalSignal(
+                                targetCell,
+                                PendingCellImpactResolutionKind.Hit,
+                                ownerId: enemy.entityId,
+                                sourceEnemyId: enemy.entityId,
                                 targetEntityId: player.entityId),
                         }),
                     finalEntities: new[] { player, enemy }));
@@ -2191,13 +2310,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(CreateTickResult(
                     CreatePresentationData(
-                        forwardCellImpactSignals: new[]
+                        forwardCellProjectileArrivalSignals: new[]
                         {
-                            CreateForwardCellImpactSignal(
+                            CreateForwardCellProjectileArrivalSignal(
+                                targetCell,
+                                PendingCellImpactResolutionKind.Miss,
                                 ownerId: enemy.entityId,
                                 sourceEnemyId: enemy.entityId,
-                                targetCell: targetCell,
-                                hit: true,
                                 targetEntityId: 10),
                         }),
                     finalEntities: new[] { enemy }));
@@ -2421,6 +2540,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickVisibilityChange> visibilityChanges = null,
             IReadOnlyList<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings = null,
             IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
+            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals = null,
             IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
             IReadOnlyList<TickEnemyDamagePresentationSignal> enemyDamageSignals = null,
             IReadOnlyList<TickPlayerDamagePresentationSignal> playerDamageSignals = null,
@@ -2447,6 +2567,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 kinematicMotionTracks: kinematicMotionTracks ?? Array.Empty<TickKinematicMotionTrack>(),
                 enemyUtilitySignals: enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>(),
                 forwardCellImpactSignals: forwardCellImpactSignals ?? Array.Empty<TickForwardCellImpactPresentationSignal>(),
+                forwardCellProjectileArrivalSignals: forwardCellProjectileArrivalSignals ?? Array.Empty<TickForwardCellProjectileArrivalPresentationSignal>(),
                 enemyGlideSignals: enemyGlideSignals ?? Array.Empty<TickEnemyGlidePresentationSignal>());
         }
 
@@ -2550,6 +2671,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Direction.Right,
                 hit,
                 targetEntityId);
+        }
+
+        private static TickForwardCellProjectileArrivalPresentationSignal CreateForwardCellProjectileArrivalSignal(
+            SurfaceCell targetCell,
+            PendingCellImpactResolutionKind resolutionKind,
+            int ownerId = 20,
+            int sourceEnemyId = 20,
+            int targetEntityId = 0,
+            int impactId = 100,
+            int presentationKey = 100,
+            int impactTick = 12)
+        {
+            return new TickForwardCellProjectileArrivalPresentationSignal(
+                impactId,
+                presentationKey,
+                ownerId,
+                sourceEnemyId,
+                targetCell,
+                Direction.Right,
+                impactTick,
+                resolutionKind,
+                targetEntityId);
+        }
+
+        private static void AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+            PendingCellImpactResolutionKind resolutionKind)
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var planner = new EnemyAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(
+                forwardCellProjectileArrivalSignals: new[]
+                {
+                    CreateForwardCellProjectileArrivalSignal(targetCell, resolutionKind),
+                }));
+
+            var requests = planner.BuildRequests(result);
+
+            Assert.That(
+                requests.Select(request => request.Cue).ToArray(),
+                Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
         }
 
         private static TickEnemyActionPresentationSignal CreateEnemyActionStartedSignal(int entityId)

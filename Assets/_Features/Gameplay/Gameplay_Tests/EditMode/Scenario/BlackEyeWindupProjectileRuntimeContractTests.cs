@@ -144,6 +144,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.Hit));
             Assert.That(GetEntity(worldState, PlayerId).hp, Is.LessThan(3));
             Assert.That(impactTick.PresentationData.ForwardCellImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(impactTick.PresentationData.ForwardCellProjectileArrivalSignals, Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -962,14 +963,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static void AssertCancelledTransitionImpact(in TransitionBeforeDueImpactObservation observation)
         {
             var impactId = observation.Impact.ImpactId;
-            Assert.That(observation.Resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.CancelledSourceInvalid));
+            Assert.That(observation.Resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.ExpiredTopologyInvalid));
             Assert.That(observation.PlayerAfter.hp, Is.EqualTo(3));
             Assert.That(observation.PendingImpactCountAfter, Is.Zero);
             Assert.That(observation.ImpactTick.PresentationData.ForwardCellImpactSignals, Is.Empty);
+            Assert.That(observation.ImpactTick.PresentationData.ForwardCellProjectileArrivalSignals, Is.Empty);
             Assert.That(
-                observation.ImpactTick.EventLog.Any(entry => entry.StartsWith("PendingCellImpactCancelled|") &&
+                observation.ImpactTick.EventLog.Any(entry => entry.StartsWith("PendingCellImpactExpired|") &&
                                                              entry.Contains($"Impact={impactId}") &&
-                                                             entry.Contains("CancelledSourceInvalid")),
+                                                             entry.Contains("ExpiredTopologyInvalid")),
                 Is.True);
         }
 

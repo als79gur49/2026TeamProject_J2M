@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private readonly Dictionary<int, IVfxPlaybackHandle> markerHandlesByKey = new();
         private readonly Dictionary<int, ActiveFlight> activeFlightsByKey = new();
+        private readonly HashSet<string> seenImpactCommandKeys = new();
 
         public int MissingBindingCount { get; private set; }
 
@@ -62,6 +63,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             MissingAnchorCount = 0;
             MissingSourceFallbackCount = 0;
             PlayedThisTickCount = 0;
+            seenImpactCommandKeys.Clear();
         }
 
         public void HardCleanup(GameplayVfxGameObjectPool pool = null)
@@ -102,6 +104,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             var cellProjector = new GameplayVfxHostCellAnchorProjector(context.Projector);
+            ForwardCellProjectileDebugLog.Log(
+                "VFX_CONTROLLER_INPUT",
+                $"Tick={context.Result.TickIndex} ArrivalSignals={presentationData.ForwardCellProjectileArrivalSignals.Count} " +
+                $"HitSignals={presentationData.ForwardCellImpactSignals.Count} " +
+                $"ReleaseSignals={presentationData.ForwardCellProjectileReleaseSignals.Count}");
 
             var windupSignals = presentationData.ForwardCellProjectileWindupSignals;
             for (var i = 0; i < windupSignals.Count; i++)
@@ -121,18 +128,31 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     visibilityContext);
             }
 
-            var impactSignals = presentationData.ForwardCellImpactSignals;
-            for (var i = 0; i < impactSignals.Count; i++)
+            var arrivalSignals = presentationData.ForwardCellProjectileArrivalSignals;
+            for (var i = 0; i < arrivalSignals.Count; i++)
             {
-                if (!impactSignals[i].Hit)
-                {
-                    continue;
-                }
+                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                    arrivalSignals[i].SourceEnemyId,
+                    arrivalSignals[i].TargetCell,
+                    arrivalSignals[i].ImpactTick,
+                    arrivalSignals[i].ImpactId,
+                    arrivalSignals[i].PresentationKey);
+                ForwardCellProjectileDebugLog.Log(
+                    "VFX_CONTROLLER_INPUT",
+                    $"Tick={context.Result.TickIndex} Shot={shotKey} " +
+                    $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(arrivalSignals[i].TargetCell)}) " +
+                    $"ResolutionKind={arrivalSignals[i].ResolutionKind} " +
+                    $"ImpactId={arrivalSignals[i].ImpactId} PresentationKey={arrivalSignals[i].PresentationKey}");
+                ForwardCellProjectileDebugLog.MarkController(
+                    shotKey,
+                    arrivalSignalCount: arrivalSignals.Count,
+                    hitSignalCount: presentationData.ForwardCellImpactSignals.Count,
+                    releaseSignalCount: releaseSignals.Count);
 
                 PresentImpact(
                     context.Result.TickIndex,
                     context.Topology,
-                    impactSignals[i],
+                    arrivalSignals[i],
                     pool,
                     bindingResolver,
                     cellProjector,
@@ -254,6 +274,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (!bindingResolver.TryResolve(request, out var policy))
             {
                 MissingBindingCount++;
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: false, flightHandleCreated: false, "MissingBinding");
                 return;
             }
 
@@ -264,6 +285,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 visibilityContext);
             if (!sourceDecision.IsVisible)
             {
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: false, flightHandleCreated: false, $"SourceVisibility:{sourceDecision.BlockReason}");
                 return;
             }
 
@@ -281,6 +303,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 visibilityContext);
             if (!targetDecision.IsVisible)
             {
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: false, flightHandleCreated: false, $"TargetVisibility:{targetDecision.BlockReason}");
                 return;
             }
 
@@ -294,6 +317,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     out _))
             {
                 MissingAnchorCount++;
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: false, flightHandleCreated: false, "TargetFloorAnchorMissing");
                 return;
             }
 
@@ -307,6 +331,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     out var targetCenterLocalRotation))
             {
                 MissingAnchorCount++;
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: false, flightHandleCreated: false, "TargetCenterAnchorMissing");
                 return;
             }
 
@@ -339,6 +364,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 visibilityContext);
             if (!postDecision.IsVisible)
             {
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: false, flightHandleCreated: false, $"PostVisibility:{postDecision.BlockReason}");
                 return;
             }
 
@@ -365,13 +391,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     ResolveFlightDurationSeconds(signal, context.TimingProfile),
                     DefaultArcHeight);
                 PlayedThisTickCount++;
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: true, flightHandleCreated: true, string.Empty);
+            }
+            else
+            {
+                LogReleaseFlightVfx(context.Result.TickIndex, signal, flightCommandCreated: true, flightHandleCreated: false, "PoolReturnedNull");
             }
         }
 
         private void PresentImpact(
             int tickIndex,
             CubeTopologyState topology,
-            in TickForwardCellImpactPresentationSignal signal,
+            in TickForwardCellProjectileArrivalPresentationSignal signal,
             GameplayVfxGameObjectPool pool,
             IVfxBindingResolver bindingResolver,
             GameplayVfxHostCellAnchorProjector cellProjector,
@@ -391,15 +422,42 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 VfxTimingKind.ImmediateOnTickPresentation,
                 isPersistent: false,
                 persistentKey: VfxPersistentKey.None);
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                signal.SourceEnemyId,
+                signal.TargetCell,
+                signal.ImpactTick,
+                signal.ImpactId,
+                signal.PresentationKey);
+            var commandKey = signal.PresentationKey;
+            var dedupeKey = $"ForwardCellImpact|Src{signal.SourceEnemyId}|{ForwardCellProjectileDebugLog.FormatCell(signal.TargetCell)}|ImpactTick{signal.ImpactTick}|ImpactId{signal.ImpactId}|PresentationKey{signal.PresentationKey}";
+            var sameKeySeenPreviously = seenImpactCommandKeys.Contains(dedupeKey);
+            seenImpactCommandKeys.Add(dedupeKey);
+            ForwardCellProjectileDebugLog.MarkCommand(shotKey, commandCreated: true);
+            ForwardCellProjectileDebugLog.MarkDedupe(shotKey, skipped: false);
+            ForwardCellProjectileDebugLog.Log(
+                "VFX_IMPACT_COMMAND",
+                $"Tick={tickIndex} Shot={shotKey} CommandCreated=true Cue=ForwardCellImpact " +
+                $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(signal.TargetCell)}) Anchor=CellFloor " +
+                $"CommandKey={commandKey} SkipReason=");
+            ForwardCellProjectileDebugLog.Log(
+                "VFX_DEDUPE",
+                $"Tick={tickIndex} Shot={shotKey} Key={dedupeKey} " +
+                $"SameKeySeenPreviously={sameKeySeenPreviously} Skipped=false PreviousShotKey=");
 
             if (!TryResolveCommand(request, bindingResolver, cellProjector, visibilityContext, out var command))
             {
+                ForwardCellProjectileDebugLog.LogSummary(shotKey);
                 return;
             }
 
             if (pool.PlayTransient(command) != null)
             {
                 PlayedThisTickCount++;
+            }
+            else
+            {
+                ForwardCellProjectileDebugLog.MarkPool(shotKey, poolPlayCalled: true, handleCreated: false);
+                ForwardCellProjectileDebugLog.LogSummary(shotKey);
             }
         }
 
@@ -410,9 +468,29 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxVisibilityContext visibilityContext,
             out ResolvedVfxPlaybackCommand command)
         {
+            var isForwardCellImpact = request.CueId == GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact);
+            var shotKey = isForwardCellImpact
+                ? ForwardCellProjectileDebugLog.BuildShotKey(
+                    request.SourceEntityId,
+                    request.Anchor.Cell,
+                    request.TickIndex,
+                    request.SequenceId,
+                    request.SequenceId)
+                : string.Empty;
             if (!bindingResolver.TryResolve(request, out var policy))
             {
                 MissingBindingCount++;
+                if (isForwardCellImpact)
+                {
+                    ForwardCellProjectileDebugLog.MarkResolve(shotKey, bindingResolved: false, anchorResolved: false);
+                    ForwardCellProjectileDebugLog.Log(
+                        "VFX_RESOLVE",
+                        $"Tick={request.TickIndex} Shot={shotKey} Cue=ForwardCellImpact " +
+                        "BindingResolved=false Binding=None AnchorResolved=false " +
+                        $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(request.Anchor.Cell)}) " +
+                        "AnchorWorldPosition=(0,0,0) TargetFaceActive=false VisibilitySkipped=false " +
+                        "VisibilitySkipReason=MissingBinding SuppressedByPause=false SuppressedByTopology=false SuppressedByVisibility=false");
+                }
                 command = default;
                 return false;
             }
@@ -424,6 +502,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 visibilityContext);
             if (!preDecision.IsVisible)
             {
+                if (isForwardCellImpact)
+                {
+                    ForwardCellProjectileDebugLog.MarkResolve(shotKey, bindingResolved: true, anchorResolved: false);
+                    ForwardCellProjectileDebugLog.Log(
+                        "VFX_RESOLVE",
+                        $"Tick={request.TickIndex} Shot={shotKey} Cue=ForwardCellImpact " +
+                        $"BindingResolved=true Binding={policy.CueId}:{policy.StyleKey} AnchorResolved=false " +
+                        $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(request.Anchor.Cell)}) " +
+                        "AnchorWorldPosition=(0,0,0) TargetFaceActive=false VisibilitySkipped=true " +
+                        $"VisibilitySkipReason=PreAnchor:{preDecision.BlockReason} SuppressedByPause=false " +
+                        "SuppressedByTopology=false SuppressedByVisibility=true");
+                }
                 command = default;
                 return false;
             }
@@ -437,6 +527,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 !anchor.IsResolved)
             {
                 MissingAnchorCount++;
+                if (isForwardCellImpact)
+                {
+                    ForwardCellProjectileDebugLog.MarkResolve(shotKey, bindingResolved: true, anchorResolved: false);
+                    ForwardCellProjectileDebugLog.Log(
+                        "VFX_RESOLVE",
+                        $"Tick={request.TickIndex} Shot={shotKey} Cue=ForwardCellImpact " +
+                        $"BindingResolved=true Binding={policy.CueId}:{policy.StyleKey} AnchorResolved=false " +
+                        $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(request.Anchor.Cell)}) " +
+                        $"AnchorWorldPosition=(0,0,0) TargetFaceActive={request.Anchor.Topology.IsFaceActive(request.Anchor.Cell.face)} " +
+                        "VisibilitySkipped=false VisibilitySkipReason=MissingAnchor SuppressedByPause=false " +
+                        "SuppressedByTopology=false SuppressedByVisibility=false");
+                }
                 command = default;
                 return false;
             }
@@ -448,12 +550,57 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 visibilityContext);
             if (!postDecision.IsVisible)
             {
+                if (isForwardCellImpact)
+                {
+                    ForwardCellProjectileDebugLog.MarkResolve(shotKey, bindingResolved: true, anchorResolved: true);
+                    ForwardCellProjectileDebugLog.Log(
+                        "VFX_RESOLVE",
+                        $"Tick={request.TickIndex} Shot={shotKey} Cue=ForwardCellImpact " +
+                        $"BindingResolved=true Binding={policy.CueId}:{policy.StyleKey} AnchorResolved=true " +
+                        $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(request.Anchor.Cell)}) " +
+                        $"AnchorWorldPosition={anchor.LocalPosition} TargetFaceActive={request.Anchor.Topology.IsFaceActive(request.Anchor.Cell.face)} " +
+                        $"VisibilitySkipped=true VisibilitySkipReason=PostAnchor:{postDecision.BlockReason} " +
+                        "SuppressedByPause=false SuppressedByTopology=false SuppressedByVisibility=true");
+                }
                 command = default;
                 return false;
             }
 
             command = new ResolvedVfxPlaybackCommand(request, policy, anchor);
+            if (isForwardCellImpact)
+            {
+                ForwardCellProjectileDebugLog.MarkResolve(shotKey, bindingResolved: true, anchorResolved: true);
+                ForwardCellProjectileDebugLog.Log(
+                    "VFX_RESOLVE",
+                    $"Tick={request.TickIndex} Shot={shotKey} Cue=ForwardCellImpact " +
+                    $"BindingResolved=true Binding={policy.CueId}:{policy.StyleKey} AnchorResolved=true " +
+                    $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(request.Anchor.Cell)}) " +
+                    $"AnchorWorldPosition={anchor.LocalPosition} TargetFaceActive={request.Anchor.Topology.IsFaceActive(request.Anchor.Cell.face)} " +
+                    "VisibilitySkipped=false VisibilitySkipReason= SuppressedByPause=false " +
+                    "SuppressedByTopology=false SuppressedByVisibility=false");
+            }
             return true;
+        }
+
+        private static void LogReleaseFlightVfx(
+            int tickIndex,
+            in TickForwardCellProjectileReleasePresentationSignal signal,
+            bool flightCommandCreated,
+            bool flightHandleCreated,
+            string skipReason)
+        {
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                signal.SourceEnemyId,
+                signal.TargetCell,
+                signal.ImpactTick,
+                signal.PresentationKey,
+                signal.PresentationKey);
+            ForwardCellProjectileDebugLog.Log(
+                "RELEASE_FLIGHT_VFX",
+                $"Tick={tickIndex} Shot={shotKey} Source={signal.SourceEnemyId} " +
+                $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(signal.TargetCell)}) " +
+                $"FlightSignalCreated=true FlightCommandCreated={flightCommandCreated} " +
+                $"Cue=ForwardCellProjectileFlight FlightHandleCreated={flightHandleCreated} SkipReason={skipReason}");
         }
 
         private void PlayActiveOneShot(

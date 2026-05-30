@@ -48,13 +48,25 @@ namespace Game.Feature.Gameplay.Host
             int tickIndex,
             int semanticId,
             int ownerEntityId,
-            int orderIndex)
+            int orderIndex,
+            int targetFace = 0,
+            int targetX = 0,
+            int targetY = 0,
+            int eventTick = 0,
+            int eventId = 0,
+            int presentationKey = 0)
         {
             LaneId = laneId;
             TickIndex = tickIndex;
             SemanticId = semanticId;
             OwnerEntityId = ownerEntityId;
             OrderIndex = orderIndex;
+            TargetFace = targetFace;
+            TargetX = targetX;
+            TargetY = targetY;
+            EventTick = eventTick;
+            EventId = eventId;
+            PresentationKey = presentationKey;
         }
 
         public int LaneId { get; }
@@ -67,13 +79,31 @@ namespace Game.Feature.Gameplay.Host
 
         public int OrderIndex { get; }
 
+        public int TargetFace { get; }
+
+        public int TargetX { get; }
+
+        public int TargetY { get; }
+
+        public int EventTick { get; }
+
+        public int EventId { get; }
+
+        public int PresentationKey { get; }
+
         public bool Equals(GameplayAudioPlaybackRequestKey other)
         {
             return LaneId == other.LaneId &&
                    TickIndex == other.TickIndex &&
                    SemanticId == other.SemanticId &&
                    OwnerEntityId == other.OwnerEntityId &&
-                   OrderIndex == other.OrderIndex;
+                   OrderIndex == other.OrderIndex &&
+                   TargetFace == other.TargetFace &&
+                   TargetX == other.TargetX &&
+                   TargetY == other.TargetY &&
+                   EventTick == other.EventTick &&
+                   EventId == other.EventId &&
+                   PresentationKey == other.PresentationKey;
         }
 
         public override bool Equals(object obj)
@@ -90,6 +120,12 @@ namespace Game.Feature.Gameplay.Host
                 hash = (hash * 397) ^ SemanticId;
                 hash = (hash * 397) ^ OwnerEntityId;
                 hash = (hash * 397) ^ OrderIndex;
+                hash = (hash * 397) ^ TargetFace;
+                hash = (hash * 397) ^ TargetX;
+                hash = (hash * 397) ^ TargetY;
+                hash = (hash * 397) ^ EventTick;
+                hash = (hash * 397) ^ EventId;
+                hash = (hash * 397) ^ PresentationKey;
                 return hash;
             }
         }

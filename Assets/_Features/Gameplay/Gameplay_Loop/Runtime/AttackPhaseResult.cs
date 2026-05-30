@@ -79,6 +79,20 @@ namespace Game.Feature.Gameplay.Loop
         ExpiredTopologyInvalid = 4,
     }
 
+    public static class PendingCellImpactResolutionKindExtensions
+    {
+        public static bool IsValidArrival(this PendingCellImpactResolutionKind kind)
+        {
+            return kind is PendingCellImpactResolutionKind.Hit
+                or PendingCellImpactResolutionKind.Miss;
+        }
+
+        public static bool IsActualHit(this PendingCellImpactResolutionKind kind)
+        {
+            return kind == PendingCellImpactResolutionKind.Hit;
+        }
+    }
+
     public readonly struct PendingCellImpactResolutionRecord
     {
         public PendingCellImpactResolutionRecord(
@@ -106,7 +120,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public PendingCellImpactResolutionKind ResultKind { get; }
 
-        public bool Hit => ResultKind == PendingCellImpactResolutionKind.Hit;
+        public bool Hit => ResultKind.IsActualHit();
 
         public int TargetEntityId { get; }
     }

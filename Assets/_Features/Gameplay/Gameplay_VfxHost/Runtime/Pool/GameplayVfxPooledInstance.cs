@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Vfx.Host
@@ -61,6 +62,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.localScale = Vector3.one;
             GameObject.SetActive(true);
             RestartParticles();
+            LogForwardCellImpactParticlePlay();
         }
 
         public void Reanchor(in VfxResolvedAnchor anchor)
@@ -485,6 +487,53 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     particleSystem.Play(true);
                 }
             }
+        }
+
+        private void LogForwardCellImpactParticlePlay()
+        {
+            if (handle == null ||
+                handle.CueId != GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))
+            {
+                return;
+            }
+
+            var activeParticleSystems = 0;
+            var particleCount = 0;
+            var firstParticleSystemName = "None";
+            for (var i = 0; i < particleSystems.Length; i++)
+            {
+                var particleSystem = particleSystems[i];
+                if (particleSystem == null)
+                {
+                    continue;
+                }
+
+                if (firstParticleSystemName == "None")
+                {
+                    firstParticleSystemName = particleSystem.name;
+                }
+
+                if (particleSystem.isPlaying || particleSystem.isEmitting)
+                {
+                    activeParticleSystems++;
+                }
+
+                particleCount += particleSystem.particleCount;
+            }
+
+            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                handle.SourceEntityId,
+                handle.AnchorCell,
+                handle.TickIndex,
+                handle.SequenceId,
+                handle.SequenceId);
+            ForwardCellProjectileDebugLog.MarkParticle(shotKey);
+            ForwardCellProjectileDebugLog.Log(
+                "VFX_PARTICLE_PLAY",
+                $"Tick={handle.TickIndex} Shot={shotKey} PooledInstanceId={(GameObject != null ? GameObject.GetInstanceID() : 0)} " +
+                $"ParticleSystemCount={particleSystems.Length} PlayCalled=true ClearedBeforePlay=true " +
+                $"ActiveParticleSystems={activeParticleSystems} FirstParticleSystemName={firstParticleSystemName} " +
+                $"ParticleCountAfterPlay={particleCount} ImmediateReleaseCalled=false StopOrClearSameFrame=false");
         }
 
         private void ClearTrails()

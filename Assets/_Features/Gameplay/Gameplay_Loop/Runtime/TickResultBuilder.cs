@@ -728,6 +728,8 @@ namespace Game.Feature.Gameplay.Loop
             var forwardCellProjectileClearSignals =
                 new List<TickForwardCellProjectileClearPresentationSignal>();
             var forwardCellImpactSignals = new List<TickForwardCellImpactPresentationSignal>();
+            var forwardCellProjectileArrivalSignals =
+                new List<TickForwardCellProjectileArrivalPresentationSignal>();
             var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
             var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
             var summonWindupWarnings = new List<TickSummonWindupWarningSignal>();
@@ -788,7 +790,10 @@ namespace Game.Feature.Gameplay.Loop
                 forwardCellProjectileWindupSignals,
                 forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals);
-            BuildForwardCellImpactPresentation(context, forwardCellImpactSignals);
+            BuildForwardCellImpactPresentation(
+                context,
+                forwardCellImpactSignals,
+                forwardCellProjectileArrivalSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
             BuildEnemyGlidePresentation(context, enemyGlideSignals);
@@ -806,51 +811,53 @@ namespace Game.Feature.Gameplay.Loop
             var topologyMotion = BuildTopologyMotion(context, topologyFact);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, entityExitSignals, transitionVisibilityChanges);
 
-            return entityMotions.Count == 0 &&
-                   enemyActionSignals.Count == 0 &&
-                   enemyDamageSignals.Count == 0 &&
-                   enemyJumpSignals.Count == 0 &&
-                   enemyChargeSignals.Count == 0 &&
-                   enemyGlideSignals.Count == 0 &&
-                   enemyUtilitySignals.Count == 0 &&
-                   enemyUtilityPhaseStates.Count == 0 &&
-                   enemyUtilityCooldownSignals.Count == 0 &&
-                   enemyGravityFieldAuraVisualStates.Count == 0 &&
-                   forwardCellProjectileWindupSignals.Count == 0 &&
-                   forwardCellProjectileReleaseSignals.Count == 0 &&
-                   forwardCellProjectileClearSignals.Count == 0 &&
-                   forwardCellImpactSignals.Count == 0 &&
-                   frontFaceShieldSourceSignals.Count == 0 &&
-                   frontFaceShieldBlockSignals.Count == 0 &&
-                   summonWindupWarnings.Count == 0 &&
-                   frontFaceShieldWindupWarnings.Count == 0 &&
-                   entityExitSignals.Count == 0 &&
-                   impactTransientSignals.Count == 0 &&
-                   flipImpactSignals.Count == 0 &&
-                   flipFloorImpactSignals.Count == 0 &&
-                   boxSlideStopSignals.Count == 0 &&
-                   boxSlideStartSignals.Count == 0 &&
-                   playerActionSignals.Count == 0 &&
-                   playerActionAttemptSignals.Count == 0 &&
-                   playerFlipResultTurnSignals.Count == 0 &&
-                   playerDamageSignals.Count == 0 &&
-                   playerDeathHoldSignals.Count == 0 &&
-                   playerDeathSignals.Count == 0 &&
-                   playerLocomotionSignals.Count == 0 &&
-                   playerOutcomeSignals.Count == 0 &&
-                   summonedEnemyPresentationBindings.Count == 0 &&
-                   visibilityChanges.Count == 0 &&
-                   transitionVisibilityChanges.Count == 0 &&
-                   kinematicMotionTracks.Count == 0 &&
-                   continuousLocomotionTracks.Count == 0 &&
-                   entitySpawnSignals.Count == 0 &&
-                   tileEvents.Count == 0 &&
-                   tileFeatureVisualStates.Count == 0 &&
-                   tileFeatureVisibleVisualStates.Count == 0 &&
-                   gravityFieldEvents.Count == 0 &&
-                   gravityFieldVisualStates.Count == 0 &&
-                   tileFeatureActiveVisualStates.Count == 0 &&
-                   !topologyMotion.HasValue
+            var isEmpty = entityMotions.Count == 0 &&
+                          enemyActionSignals.Count == 0 &&
+                          enemyDamageSignals.Count == 0 &&
+                          enemyJumpSignals.Count == 0 &&
+                          enemyChargeSignals.Count == 0 &&
+                          enemyGlideSignals.Count == 0 &&
+                          enemyUtilitySignals.Count == 0 &&
+                          enemyUtilityPhaseStates.Count == 0 &&
+                          enemyUtilityCooldownSignals.Count == 0 &&
+                          enemyGravityFieldAuraVisualStates.Count == 0 &&
+                          forwardCellProjectileWindupSignals.Count == 0 &&
+                          forwardCellProjectileReleaseSignals.Count == 0 &&
+                          forwardCellProjectileClearSignals.Count == 0 &&
+                          forwardCellImpactSignals.Count == 0 &&
+                          forwardCellProjectileArrivalSignals.Count == 0 &&
+                          frontFaceShieldSourceSignals.Count == 0 &&
+                          frontFaceShieldBlockSignals.Count == 0 &&
+                          summonWindupWarnings.Count == 0 &&
+                          frontFaceShieldWindupWarnings.Count == 0 &&
+                          entityExitSignals.Count == 0 &&
+                          impactTransientSignals.Count == 0 &&
+                          flipImpactSignals.Count == 0 &&
+                          flipFloorImpactSignals.Count == 0 &&
+                          boxSlideStopSignals.Count == 0 &&
+                          boxSlideStartSignals.Count == 0 &&
+                          playerActionSignals.Count == 0 &&
+                          playerActionAttemptSignals.Count == 0 &&
+                          playerFlipResultTurnSignals.Count == 0 &&
+                          playerDamageSignals.Count == 0 &&
+                          playerDeathHoldSignals.Count == 0 &&
+                          playerDeathSignals.Count == 0 &&
+                          playerLocomotionSignals.Count == 0 &&
+                          playerOutcomeSignals.Count == 0 &&
+                          summonedEnemyPresentationBindings.Count == 0 &&
+                          visibilityChanges.Count == 0 &&
+                          transitionVisibilityChanges.Count == 0 &&
+                          kinematicMotionTracks.Count == 0 &&
+                          continuousLocomotionTracks.Count == 0 &&
+                          entitySpawnSignals.Count == 0 &&
+                          tileEvents.Count == 0 &&
+                          tileFeatureVisualStates.Count == 0 &&
+                          tileFeatureVisibleVisualStates.Count == 0 &&
+                          gravityFieldEvents.Count == 0 &&
+                          gravityFieldVisualStates.Count == 0 &&
+                          tileFeatureActiveVisualStates.Count == 0 &&
+                          !topologyMotion.HasValue;
+            var presentationData = isEmpty
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
                     entityMotions,
@@ -892,12 +899,19 @@ namespace Game.Feature.Gameplay.Loop
                     playerFlipResultTurnSignals,
                     flipFloorImpactSignals,
                     forwardCellImpactSignals,
+                    forwardCellProjectileArrivalSignals,
                     forwardCellProjectileWindupSignals,
                     forwardCellProjectileReleaseSignals,
                     forwardCellProjectileClearSignals,
                     entitySpawnSignals,
                     playerOutcomeSignals,
                     enemyUtilityPhaseStates);
+            LogForwardCellProjectilePresentationFinal(
+                context,
+                forwardCellImpactSignals,
+                forwardCellProjectileArrivalSignals,
+                presentationData);
+            return presentationData;
         }
 
         private static void BuildForwardCellProjectilePresentation(
@@ -977,23 +991,66 @@ namespace Game.Feature.Gameplay.Loop
                         impact.ReleaseTick,
                         impact.ImpactTick,
                         impact.ImpactTick - impact.ReleaseTick));
+                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                    impact.SourceEnemyId,
+                    impact.TargetCell,
+                    impact.ImpactTick,
+                    impact.ImpactId);
+                ForwardCellProjectileDebugLog.Log(
+                    "RELEASE_FLIGHT_VFX",
+                    $"Tick={context.CurrentTickIndex} Shot={shotKey} Source={impact.SourceEnemyId} " +
+                    $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
+                    "FlightSignalCreated=true FlightCommandCreated=false " +
+                    "Cue=ForwardCellProjectileFlight FlightHandleCreated=false");
             }
         }
 
         private static void BuildForwardCellImpactPresentation(
             in TickPresentationBuildContext context,
-            List<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals)
+            List<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals,
+            List<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals)
         {
             var resolutions = context.AttackPhaseResult.PendingCellImpactResolutions;
             for (var i = 0; i < resolutions.Count; i++)
             {
                 var resolution = resolutions[i];
-                if (resolution.ResultKind != PendingCellImpactResolutionKind.Hit)
+                var impact = resolution.Impact;
+                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                    impact.SourceEnemyId,
+                    impact.TargetCell,
+                    impact.ImpactTick,
+                    impact.ImpactId);
+                var hitSignalCreated = resolution.ResultKind.IsActualHit();
+                var arrivalSignalCreated = resolution.ResultKind.IsValidArrival();
+                ForwardCellProjectileDebugLog.Log(
+                    "PRESENTATION_BUILD",
+                    $"Tick={context.CurrentTickIndex} Shot={shotKey} Resolution={resolution.ResultKind} " +
+                    $"IsValidArrival={ForwardCellProjectileDebugLog.IsValidArrival(resolution.ResultKind)} " +
+                    $"IsActualHit={ForwardCellProjectileDebugLog.IsActualHit(resolution.ResultKind)} " +
+                    $"ForwardCellImpactSignalCreated={hitSignalCreated} ArrivalSignalCreated={arrivalSignalCreated} " +
+                    $"NoArrivalCarrierInCurrentCode=false TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
+                    $"ImpactId={impact.ImpactId} PresentationKey={impact.ImpactId}");
+
+                if (arrivalSignalCreated)
+                {
+                    forwardCellProjectileArrivalSignals.Add(
+                        new TickForwardCellProjectileArrivalPresentationSignal(
+                            impact.ImpactId,
+                            impact.ImpactId,
+                            impact.OwnerId,
+                            impact.SourceEnemyId,
+                            impact.TargetCell,
+                            impact.Direction,
+                            impact.ImpactTick,
+                            resolution.ResultKind,
+                            resolution.TargetEntityId));
+                }
+
+                if (!resolution.ResultKind.IsActualHit())
                 {
                     continue;
                 }
 
-                var impact = resolution.Impact;
                 forwardCellImpactSignals.Add(
                     new TickForwardCellImpactPresentationSignal(
                         impact.ImpactId,
@@ -1005,6 +1062,102 @@ namespace Game.Feature.Gameplay.Loop
                         resolution.Hit,
                         resolution.TargetEntityId));
             }
+        }
+
+        private static void LogForwardCellProjectilePresentationFinal(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals,
+            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals,
+            TickPresentationData presentationData)
+        {
+            var resolutions = context.AttackPhaseResult.PendingCellImpactResolutions;
+            for (var i = 0; i < resolutions.Count; i++)
+            {
+                var resolution = resolutions[i];
+                var impact = resolution.Impact;
+                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
+                    impact.SourceEnemyId,
+                    impact.TargetCell,
+                    impact.ImpactTick,
+                    impact.ImpactId);
+                var containsShotHitSignal = ContainsForwardCellImpactSignal(
+                    forwardCellImpactSignals,
+                    impact.ImpactId,
+                    impact.SourceEnemyId,
+                    impact.TargetCell);
+                var containsShotArrivalSignal = ContainsForwardCellProjectileArrivalSignal(
+                    forwardCellProjectileArrivalSignals,
+                    impact.ImpactId,
+                    impact.SourceEnemyId,
+                    impact.TargetCell);
+                ForwardCellProjectileDebugLog.MarkPresentation(
+                    shotKey,
+                    presentationData.ForwardCellImpactSignals.Count,
+                    presentationData.ForwardCellProjectileArrivalSignals.Count,
+                    containsShotHitSignal,
+                    containsShotArrivalSignal);
+                ForwardCellProjectileDebugLog.Log(
+                    "PRESENTATION_FINAL",
+                    $"Tick={context.CurrentTickIndex} Shot={shotKey} " +
+                    $"FinalForwardCellImpactSignalCount={presentationData.ForwardCellImpactSignals.Count} " +
+                    $"FinalArrivalSignalCount={presentationData.ForwardCellProjectileArrivalSignals.Count} " +
+                    $"ContainsShotArrivalSignal={containsShotArrivalSignal} " +
+                    $"ContainsShotHitSignal={containsShotHitSignal}");
+                if (!resolution.ResultKind.IsActualHit())
+                {
+                    ForwardCellProjectileDebugLog.LogSummary(shotKey);
+                }
+            }
+        }
+
+        private static bool ContainsForwardCellImpactSignal(
+            IReadOnlyList<TickForwardCellImpactPresentationSignal> signals,
+            int impactId,
+            int sourceEnemyId,
+            SurfaceCell targetCell)
+        {
+            if (signals == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.ImpactId == impactId &&
+                    signal.SourceEnemyId == sourceEnemyId &&
+                    signal.TargetCell.Equals(targetCell))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsForwardCellProjectileArrivalSignal(
+            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> signals,
+            int impactId,
+            int sourceEnemyId,
+            SurfaceCell targetCell)
+        {
+            if (signals == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.ImpactId == impactId &&
+                    signal.SourceEnemyId == sourceEnemyId &&
+                    signal.TargetCell.Equals(targetCell))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static int ComputeForwardCellProjectilePresentationKey(int ownerId, int actionSequence)

@@ -1833,6 +1833,49 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
     }
 
+    public readonly struct TickForwardCellProjectileArrivalPresentationSignal
+    {
+        public TickForwardCellProjectileArrivalPresentationSignal(
+            int impactId,
+            int presentationKey,
+            int ownerId,
+            int sourceEnemyId,
+            SurfaceCell targetCell,
+            Direction direction,
+            int impactTick,
+            PendingCellImpactResolutionKind resolutionKind,
+            int targetEntityId)
+        {
+            ImpactId = impactId;
+            PresentationKey = presentationKey != 0 ? presentationKey : impactId;
+            OwnerId = ownerId;
+            SourceEnemyId = sourceEnemyId;
+            TargetCell = targetCell;
+            Direction = direction;
+            ImpactTick = impactTick;
+            ResolutionKind = resolutionKind;
+            TargetEntityId = targetEntityId;
+        }
+
+        public int ImpactId { get; }
+
+        public int PresentationKey { get; }
+
+        public int OwnerId { get; }
+
+        public int SourceEnemyId { get; }
+
+        public SurfaceCell TargetCell { get; }
+
+        public Direction Direction { get; }
+
+        public int ImpactTick { get; }
+
+        public PendingCellImpactResolutionKind ResolutionKind { get; }
+
+        public int TargetEntityId { get; }
+    }
+
     public readonly struct TickForwardCellProjectileWindupPresentationSignal
     {
         public TickForwardCellProjectileWindupPresentationSignal(
@@ -2805,6 +2848,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickForwardCellProjectileReleasePresentationSignal> _forwardCellProjectileReleaseSignals;
         private readonly ReadOnlyCollection<TickForwardCellProjectileClearPresentationSignal> _forwardCellProjectileClearSignals;
         private readonly ReadOnlyCollection<TickForwardCellImpactPresentationSignal> _forwardCellImpactSignals;
+        private readonly ReadOnlyCollection<TickForwardCellProjectileArrivalPresentationSignal> _forwardCellProjectileArrivalSignals;
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickKinematicMotionTrack> _kinematicMotionTracks;
         private readonly ReadOnlyCollection<TickContinuousLocomotionTrack> _continuousLocomotionTracks;
@@ -3180,6 +3224,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
             IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
+            IEnumerable<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals = null,
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
@@ -3345,6 +3390,11 @@ namespace Game.Feature.Gameplay.Loop
             _forwardCellImpactSignals = new ReadOnlyCollection<TickForwardCellImpactPresentationSignal>(
                 new List<TickForwardCellImpactPresentationSignal>(
                     forwardCellImpactSignals ?? Array.Empty<TickForwardCellImpactPresentationSignal>()));
+            _forwardCellProjectileArrivalSignals =
+                new ReadOnlyCollection<TickForwardCellProjectileArrivalPresentationSignal>(
+                    new List<TickForwardCellProjectileArrivalPresentationSignal>(
+                        forwardCellProjectileArrivalSignals ??
+                        Array.Empty<TickForwardCellProjectileArrivalPresentationSignal>()));
             _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
                 new List<TickEntityExitPresentationSignal>(entityExitSignals));
             _boxSlideStopSignals = new ReadOnlyCollection<BoxSlideStopPresentationSignal>(
@@ -3405,6 +3455,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
             IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
+            IEnumerable<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals = null,
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
@@ -3441,6 +3492,7 @@ namespace Game.Feature.Gameplay.Loop
                 playerFlipResultTurnSignals: playerFlipResultTurnSignals,
                 flipFloorImpactSignals: flipFloorImpactSignals,
                 forwardCellImpactSignals: forwardCellImpactSignals,
+                forwardCellProjectileArrivalSignals: forwardCellProjectileArrivalSignals,
                 forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
@@ -3519,6 +3571,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
             IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
+            IEnumerable<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals = null,
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
@@ -3559,6 +3612,7 @@ namespace Game.Feature.Gameplay.Loop
                 playerFlipResultTurnSignals: playerFlipResultTurnSignals,
                 flipFloorImpactSignals: flipFloorImpactSignals,
                 forwardCellImpactSignals: forwardCellImpactSignals,
+                forwardCellProjectileArrivalSignals: forwardCellProjectileArrivalSignals,
                 forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
@@ -3615,6 +3669,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickPlayerFlipResultTurnSignal> playerFlipResultTurnSignals = null,
             IEnumerable<FlipFloorImpactPresentationSignal> flipFloorImpactSignals = null,
             IEnumerable<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals = null,
+            IEnumerable<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals = null,
             IEnumerable<TickForwardCellProjectileWindupPresentationSignal> forwardCellProjectileWindupSignals = null,
             IEnumerable<TickForwardCellProjectileReleasePresentationSignal> forwardCellProjectileReleaseSignals = null,
             IEnumerable<TickForwardCellProjectileClearPresentationSignal> forwardCellProjectileClearSignals = null,
@@ -3656,6 +3711,7 @@ namespace Game.Feature.Gameplay.Loop
                 playerFlipResultTurnSignals: playerFlipResultTurnSignals,
                 flipFloorImpactSignals: flipFloorImpactSignals,
                 forwardCellImpactSignals: forwardCellImpactSignals,
+                forwardCellProjectileArrivalSignals: forwardCellProjectileArrivalSignals,
                 forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
                 forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
                 forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
@@ -3761,6 +3817,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<TickForwardCellImpactPresentationSignal> ForwardCellImpactSignals =>
             _forwardCellImpactSignals;
+
+        public IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> ForwardCellProjectileArrivalSignals =>
+            _forwardCellProjectileArrivalSignals;
 
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
 
