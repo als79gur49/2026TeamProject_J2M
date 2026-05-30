@@ -1001,7 +1001,7 @@ MonoBehaviour:
     m_Value: 1
   outlineType:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 3
   outlineColor:
     m_OverrideState: 1
     m_Value: {r: 0, g: 0, b: 0, a: 1}
@@ -1036,13 +1036,13 @@ MonoBehaviour:
     m_Value: 0
   lightModes:
     m_OverrideState: 1
-    m_Value: 0000000000000000
+    m_Value: 01000000
   renderQueue:
     m_OverrideState: 1
     m_Value: 0
   maskIgnoreDepth:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 0
   useDepthNormals:
     m_OverrideState: 0
     m_Value: 0
