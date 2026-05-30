@@ -1028,7 +1028,7 @@ namespace Game.Feature.Gameplay.Loop
                     $"IsValidArrival={ForwardCellProjectileDebugLog.IsValidArrival(resolution.ResultKind)} " +
                     $"IsActualHit={ForwardCellProjectileDebugLog.IsActualHit(resolution.ResultKind)} " +
                     $"ForwardCellImpactSignalCreated={hitSignalCreated} ArrivalSignalCreated={arrivalSignalCreated} " +
-                    $"NoArrivalCarrierInCurrentCode=false TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
+                    $"ArrivalSignalPolicy=ValidArrivalOnly TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
                     $"ImpactId={impact.ImpactId} PresentationKey={impact.ImpactId}");
 
                 if (arrivalSignalCreated)

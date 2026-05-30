@@ -87,6 +87,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ForwardCellProjectile_MissArrival_CreatesImpactVfxAndProjectileImpactSfx()
+        {
+            var data = CreatePresentationData(arrivalSignals: new[] { CreateArrivalSignal(PendingCellImpactResolutionKind.Miss) });
+            var vfxPlan = PlanProjectile(data);
+            var audioRequests = new EnemyAudioRequestPlanner().BuildRequests(CreateResult(data));
+
+            Assert.That(
+                vfxPlan.Requests.Count(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
+                Is.EqualTo(1));
+            Assert.That(audioRequests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_HitArrival_CreatesImpactVfxAndProjectileImpactSfxAndHitSignal()
+        {
+            var data = CreatePresentationData(
+                forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) },
+                arrivalSignals: new[] { CreateArrivalSignal(PendingCellImpactResolutionKind.Hit, targetEntityId: 10) });
+            var vfxPlan = PlanProjectile(data);
+            var audioRequests = new EnemyAudioRequestPlanner().BuildRequests(CreateResult(data));
+
+            Assert.That(data.ForwardCellImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(
+                vfxPlan.Requests.Count(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
+                Is.EqualTo(1));
+            Assert.That(audioRequests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_ExpiredTopologyInvalid_CreatesNoImpactVfxOrSfx()
+        {
+            AssertInvalidForwardCellProjectileArrivalCreatesNoImpactVfxOrSfx(
+                PendingCellImpactResolutionKind.ExpiredTopologyInvalid);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ForwardCellProjectile_CancelledTargetInvalid_CreatesNoImpactVfxOrSfx()
+        {
+            AssertInvalidForwardCellProjectileArrivalCreatesNoImpactVfxOrSfx(
+                PendingCellImpactResolutionKind.CancelledTargetInvalid);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ForwardCellProjectile_ProjectileImpactVfxAndSfx_ShareArrivalPolicy()
         {
             var audioPlanner = new EnemyAudioRequestPlanner();
@@ -116,6 +163,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 audioPlanner.BuildRequests(CreateResult(impactOnlyData)).Select(request => request.Cue).ToArray(),
                 Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+        }
+
+        private static void AssertInvalidForwardCellProjectileArrivalCreatesNoImpactVfxOrSfx(
+            PendingCellImpactResolutionKind resolutionKind)
+        {
+            var data = CreatePresentationData(arrivalSignals: new[] { CreateArrivalSignal(resolutionKind) });
+            var vfxPlan = PlanProjectile(data);
+            var audioRequests = new EnemyAudioRequestPlanner().BuildRequests(CreateResult(data));
+
+            Assert.That(
+                vfxPlan.Requests.Select(request => request.CueId).ToArray(),
+                Has.No.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
+            Assert.That(audioRequests.Select(request => request.Cue).ToArray(), Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
         }
 
         [Test]

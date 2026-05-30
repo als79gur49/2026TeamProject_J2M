@@ -72,10 +72,13 @@ namespace Game.Feature.Gameplay.Loop
 
     public enum PendingCellImpactResolutionKind
     {
+        // Hit/Miss are valid arrivals. Cancelled/Expired are no-arrival outcomes and must not create impact VFX/SFX.
         Hit = 0,
         Miss = 1,
         CancelledSourceInvalid = 2,
+        // Current due-time target structural policy: inactive target face only.
         CancelledTargetInvalid = 3,
+        // Current topology policy: LaunchTopology != CurrentTopology expires the already-fired projectile.
         ExpiredTopologyInvalid = 4,
     }
 

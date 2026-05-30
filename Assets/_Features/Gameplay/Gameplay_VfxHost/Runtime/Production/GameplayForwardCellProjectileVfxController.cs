@@ -408,6 +408,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxHostCellAnchorProjector cellProjector,
             GameplayVfxVisibilityContext visibilityContext)
         {
+            if (!signal.ResolutionKind.IsValidArrival())
+            {
+                return;
+            }
+
             ReleaseMarker(signal.PresentationKey, pool);
             ReleaseFlight(signal.PresentationKey, pool);
 

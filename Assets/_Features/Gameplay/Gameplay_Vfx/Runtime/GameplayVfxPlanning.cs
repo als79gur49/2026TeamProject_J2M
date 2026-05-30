@@ -1865,6 +1865,11 @@ namespace Game.Feature.Gameplay.Vfx
             for (var i = 0; i < arrivalSignals.Count; i++)
             {
                 var signal = arrivalSignals[i];
+                if (!signal.ResolutionKind.IsValidArrival())
+                {
+                    continue;
+                }
+
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
