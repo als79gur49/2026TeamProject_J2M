@@ -65,6 +65,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("PendingCellImpacts").Append('\n');
             AppendPendingCellImpactLines(builder, GetOrderedPendingCellImpacts(finalSnapshot));
 
+            builder.Append("PendingEnemyBlockedReactions").Append('\n');
+            AppendPendingEnemyBlockedReactionLines(builder, GetOrderedPendingEnemyBlockedReactions(finalSnapshot));
+
             builder.Append("EnemyPatrols").Append('\n');
             AppendEnemyPatrolLines(builder, GetOrderedEnemyPatrolStates(finalSnapshot));
 
@@ -310,6 +313,13 @@ namespace Game.Feature.Gameplay.Loop
             var pendingCellImpacts = new List<PendingCellImpactSnapshotEntry>();
             finalSnapshot.EnumeratePendingCellImpactsOrdered(pendingCellImpacts);
             return pendingCellImpacts;
+        }
+
+        private static List<PendingEnemyBlockedReactionSnapshotEntry> GetOrderedPendingEnemyBlockedReactions(WorldSnapshot finalSnapshot)
+        {
+            var pendingReactions = new List<PendingEnemyBlockedReactionSnapshotEntry>();
+            finalSnapshot.EnumeratePendingEnemyBlockedReactionsOrdered(pendingReactions);
+            return pendingReactions;
         }
 
         private static List<SnapshotOccupancyEntry> GetOrderedProjectileOccupancy(WorldSnapshot finalSnapshot)
@@ -835,6 +845,41 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(impact.CreatedTick).Append('|')
                     .Append(impact.ReleaseTick).Append('|')
                     .Append(impact.ImpactTick).Append('\n');
+            }
+        }
+
+        private static void AppendPendingEnemyBlockedReactionLines(
+            StringBuilder builder,
+            IReadOnlyList<PendingEnemyBlockedReactionSnapshotEntry> pendingReactions)
+        {
+            if (pendingReactions.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < pendingReactions.Count; i++)
+            {
+                var entry = pendingReactions[i];
+                var reaction = entry.Reaction;
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(reaction.EnemyEntityId).Append('|')
+                    .Append((int)reaction.Kind).Append('|')
+                    .Append((int)reaction.ModeAtBlock).Append('|')
+                    .Append((int)reaction.SourceCell.face).Append('|')
+                    .Append(reaction.SourceCell.x).Append('|')
+                    .Append(reaction.SourceCell.y).Append('|')
+                    .Append((int)reaction.BlockedTargetCell.face).Append('|')
+                    .Append(reaction.BlockedTargetCell.x).Append('|')
+                    .Append(reaction.BlockedTargetCell.y).Append('|')
+                    .Append((int)reaction.BlockedDirection).Append('|')
+                    .Append((int)reaction.BlockerKind).Append('|')
+                    .Append(reaction.BlockerSolidKind.HasValue ? (int)reaction.BlockerSolidKind.Value : -1).Append('|')
+                    .Append(reaction.BlockerEntityType.HasValue ? (int)reaction.BlockerEntityType.Value : -1).Append('|')
+                    .Append(reaction.BlockerEntityId.GetValueOrDefault(0)).Append('|')
+                    .Append(reaction.CreatedTick).Append('|')
+                    .Append(reaction.ExpireTick).Append('\n');
             }
         }
 

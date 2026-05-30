@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, PendingCellImpact> _pendingCellImpactsById = new();
+        private readonly Dictionary<int, PendingEnemyBlockedReaction> _pendingEnemyBlockedReactionsByEntityId = new();
         private readonly Dictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId = new();
         private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
@@ -165,6 +166,7 @@ namespace Game.Feature.Gameplay.BoardState
                 CreateSnapshotOwnedTileFeatureIdsByCell(),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, PendingCellImpact>(_pendingCellImpactsById),
+                new Dictionary<int, PendingEnemyBlockedReaction>(_pendingEnemyBlockedReactionsByEntityId),
                 new Dictionary<int, EnemyPatrolRuntimeState>(_enemyPatrolStatesByEntityId),
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
@@ -196,6 +198,7 @@ namespace Game.Feature.Gameplay.BoardState
             snapshot.CopyTileFeatureIdsByCellTo(_tileFeatureIdsByCell);
             snapshot.CopyEnemyActionStatesByEntityIdTo(_enemyActionStatesByEntityId);
             snapshot.CopyPendingCellImpactsByIdTo(_pendingCellImpactsById);
+            snapshot.CopyPendingEnemyBlockedReactionsByEntityIdTo(_pendingEnemyBlockedReactionsByEntityId);
             snapshot.CopyEnemyPatrolStatesByEntityIdTo(_enemyPatrolStatesByEntityId);
             snapshot.CopyEnemyChargeStatesByEntityIdTo(_enemyChargeStatesByEntityId);
             snapshot.CopyEntityExecutionLockStatesByEntityIdTo(_executionLockStatesByEntityId);
@@ -273,6 +276,7 @@ namespace Game.Feature.Gameplay.BoardState
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
             _enemyActionStatesByEntityId.Remove(entityId);
+            _pendingEnemyBlockedReactionsByEntityId.Remove(entityId);
             _enemyPatrolStatesByEntityId.Remove(entityId);
             _enemyChargeStatesByEntityId.Remove(entityId);
             _executionLockStatesByEntityId.Remove(entityId);
@@ -483,6 +487,23 @@ namespace Game.Feature.Gameplay.BoardState
         private void RemovePendingCellImpact(int impactId)
         {
             _pendingCellImpactsById.Remove(impactId);
+        }
+
+        private void SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction)
+        {
+            if (!_entitiesById.ContainsKey(entityId) ||
+                reaction.EnemyEntityId != entityId ||
+                reaction.Kind == EnemyBlockedReactionKind.None)
+            {
+                return;
+            }
+
+            _pendingEnemyBlockedReactionsByEntityId[entityId] = reaction;
+        }
+
+        private void ClearPendingEnemyBlockedReaction(int entityId)
+        {
+            _pendingEnemyBlockedReactionsByEntityId.Remove(entityId);
         }
 
         private void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
@@ -1357,6 +1378,16 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.RemovePendingCellImpact(int impactId)
         {
             RemovePendingCellImpact(impactId);
+        }
+
+        void IWorldStateMutationPort.SetPendingEnemyBlockedReaction(int entityId, PendingEnemyBlockedReaction reaction)
+        {
+            SetPendingEnemyBlockedReaction(entityId, reaction);
+        }
+
+        void IWorldStateMutationPort.ClearPendingEnemyBlockedReaction(int entityId)
+        {
+            ClearPendingEnemyBlockedReaction(entityId);
         }
 
         void IWorldStateMutationPort.SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)

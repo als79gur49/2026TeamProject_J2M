@@ -582,6 +582,19 @@ namespace Game.Feature.Gameplay.Loop
         public int SourceEntityId { get; }
     }
 
+    internal readonly struct PendingEnemyBlockedReactionWritePayload
+    {
+        public PendingEnemyBlockedReactionWritePayload(int entityId, PendingEnemyBlockedReaction reaction)
+        {
+            EntityId = entityId;
+            Reaction = reaction;
+        }
+
+        public int EntityId { get; }
+
+        public PendingEnemyBlockedReaction Reaction { get; }
+    }
+
     internal sealed class MovementActionPlanPayload : ActionPlanPayload
     {
         public MovementActionPlanPayload(
@@ -616,7 +629,8 @@ namespace Game.Feature.Gameplay.Loop
             MovementDeferredImpactPayload deferredImpactPayload,
             IReadOnlyList<KinematicMotionOutcome> kinematicMotionOutcomes = null,
             MovementExecutionBoundaryKind executionBoundaryKind = MovementExecutionBoundaryKind.Unknown,
-            string boundaryReason = null)
+            string boundaryReason = null,
+            IReadOnlyList<PendingEnemyBlockedReactionWritePayload> pendingEnemyBlockedReactionWrites = null)
             : base(actionPlanId, intentId, sourceActorEntityId, priority, semanticKind)
         {
             MovementCandidateKind = movementCandidateKind;
@@ -646,6 +660,7 @@ namespace Game.Feature.Gameplay.Loop
             KinematicMotionOutcomes = kinematicMotionOutcomes ?? Array.Empty<KinematicMotionOutcome>();
             ExecutionBoundaryKind = executionBoundaryKind;
             BoundaryReason = boundaryReason ?? string.Empty;
+            PendingEnemyBlockedReactionWrites = pendingEnemyBlockedReactionWrites ?? Array.Empty<PendingEnemyBlockedReactionWritePayload>();
         }
 
         public MovementCandidateKind MovementCandidateKind { get; }
@@ -701,6 +716,8 @@ namespace Game.Feature.Gameplay.Loop
         public MovementExecutionBoundaryKind ExecutionBoundaryKind { get; }
 
         public string BoundaryReason { get; }
+
+        public IReadOnlyList<PendingEnemyBlockedReactionWritePayload> PendingEnemyBlockedReactionWrites { get; }
     }
 
 }

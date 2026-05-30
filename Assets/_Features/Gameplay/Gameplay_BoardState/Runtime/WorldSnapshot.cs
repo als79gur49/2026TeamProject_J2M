@@ -185,6 +185,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly BoardBounds _boardBounds;
         private readonly IReadOnlyDictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PendingCellImpact> _pendingCellImpactsById;
+        private readonly IReadOnlyDictionary<int, PendingEnemyBlockedReaction> _pendingEnemyBlockedReactionsByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
@@ -221,6 +222,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<SurfaceCell, SortedSet<int>> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, PendingCellImpact> pendingCellImpactsById,
+            Dictionary<int, PendingEnemyBlockedReaction> pendingEnemyBlockedReactionsByEntityId,
             Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
@@ -249,6 +251,7 @@ namespace Game.Feature.Gameplay.BoardState
                 CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
                 enemyActionStatesByEntityId,
                 pendingCellImpactsById,
+                pendingEnemyBlockedReactionsByEntityId,
                 enemyPatrolStatesByEntityId,
                 enemyChargeStatesByEntityId,
                 executionLockStatesByEntityId,
@@ -280,6 +283,7 @@ namespace Game.Feature.Gameplay.BoardState
             SnapshotOwnedCellIndex<SurfaceCell> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, PendingCellImpact> pendingCellImpactsById,
+            Dictionary<int, PendingEnemyBlockedReaction> pendingEnemyBlockedReactionsByEntityId,
             Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
@@ -309,6 +313,7 @@ namespace Game.Feature.Gameplay.BoardState
                 CreateReadonlySnapshotOwnedCellIndex(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
                 enemyActionStatesByEntityId,
                 pendingCellImpactsById,
+                pendingEnemyBlockedReactionsByEntityId,
                 enemyPatrolStatesByEntityId,
                 enemyChargeStatesByEntityId,
                 executionLockStatesByEntityId,
@@ -339,6 +344,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, PendingCellImpact> pendingCellImpactsById,
+            Dictionary<int, PendingEnemyBlockedReaction> pendingEnemyBlockedReactionsByEntityId,
             Dictionary<int, EnemyPatrolRuntimeState> enemyPatrolStatesByEntityId,
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
@@ -367,6 +373,7 @@ namespace Game.Feature.Gameplay.BoardState
             _tileFeatureIdsByCell = tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
             _pendingCellImpactsById = new ReadOnlyDictionary<int, PendingCellImpact>(pendingCellImpactsById ?? throw new ArgumentNullException(nameof(pendingCellImpactsById)));
+            _pendingEnemyBlockedReactionsByEntityId = new ReadOnlyDictionary<int, PendingEnemyBlockedReaction>(pendingEnemyBlockedReactionsByEntityId ?? throw new ArgumentNullException(nameof(pendingEnemyBlockedReactionsByEntityId)));
             _enemyPatrolStatesByEntityId = new ReadOnlyDictionary<int, EnemyPatrolRuntimeState>(enemyPatrolStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyPatrolStatesByEntityId)));
             _enemyChargeStatesByEntityId = new ReadOnlyDictionary<int, EnemyChargeRuntimeState>(enemyChargeStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyChargeStatesByEntityId)));
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
@@ -438,6 +445,11 @@ namespace Game.Feature.Gameplay.BoardState
         internal void CopyPendingCellImpactsByIdTo(Dictionary<int, PendingCellImpact> target)
         {
             CopyDictionaryTo(_pendingCellImpactsById, target);
+        }
+
+        internal void CopyPendingEnemyBlockedReactionsByEntityIdTo(Dictionary<int, PendingEnemyBlockedReaction> target)
+        {
+            CopyDictionaryTo(_pendingEnemyBlockedReactionsByEntityId, target);
         }
 
         internal void CopyEnemyPatrolStatesByEntityIdTo(Dictionary<int, EnemyPatrolRuntimeState> target)
@@ -601,6 +613,13 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return count;
+        }
+
+        internal bool TryGetPendingEnemyBlockedReaction(
+            int entityId,
+            out PendingEnemyBlockedReaction reaction)
+        {
+            return _pendingEnemyBlockedReactionsByEntityId.TryGetValue(entityId, out reaction);
         }
 
         public bool TryGetEnemyPatrolState(int entityId, out EnemyPatrolRuntimeState state)
@@ -1316,6 +1335,23 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             buffer.Sort(ComparePendingCellImpactEntries);
+        }
+
+        internal void EnumeratePendingEnemyBlockedReactionsOrdered(List<PendingEnemyBlockedReactionSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _pendingEnemyBlockedReactionsByEntityId)
+            {
+                buffer.Add(new PendingEnemyBlockedReactionSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
         }
 
         private static int ComparePendingCellImpactEntries(
