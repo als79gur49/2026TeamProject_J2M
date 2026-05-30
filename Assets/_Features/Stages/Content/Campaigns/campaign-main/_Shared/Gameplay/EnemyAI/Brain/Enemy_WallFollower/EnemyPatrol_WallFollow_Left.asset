@@ -16,3 +16,4 @@ MonoBehaviour:
   turnPreference: 0
   followWalls: 1
   followBoxes: 1
+  treatBoardEdgeAsObstacleBoundary: 1

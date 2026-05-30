@@ -2172,6 +2172,29 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_WallFollowerProfile_ProducesStableHashTrace_AndNoPatrolStateWrites()
+        {
+            var firstReplay = RunWallFollowPatrolReplaySequence();
+            var secondReplay = RunWallFollowPatrolReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
+            Assert.That(firstReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage()
         {
             var firstReplay = RunPassiveContactReplaySequence();

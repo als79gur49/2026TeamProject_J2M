@@ -190,7 +190,8 @@ namespace Game.Feature.Gameplay.Tests
                     PatrolBlockedMovementResponse.Stop,
                     turnPreference,
                     followWalls: true,
-                    followBoxes: true),
+                    followBoxes: true,
+                    treatBoardEdgeAsObstacleBoundary: true),
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = includePassiveContact,
@@ -372,6 +373,10 @@ namespace Game.Feature.Gameplay.Tests
                     SetSerializedField(patrol, "turnPreference", settings.TurnPreference);
                     SetSerializedField(patrol, "followWalls", settings.FollowWalls);
                     SetSerializedField(patrol, "followBoxes", settings.FollowBoxes);
+                    SetSerializedField(
+                        patrol,
+                        "treatBoardEdgeAsObstacleBoundary",
+                        settings.TreatBoardEdgeAsObstacleBoundary);
                     return patrol;
                 }
 
