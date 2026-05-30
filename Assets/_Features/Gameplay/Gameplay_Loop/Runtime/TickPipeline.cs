@@ -4588,7 +4588,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             if (snapshot.TryGetEnemyJumpState(entity.entityId, out var jumpState) &&
-                jumpState.IsActive)
+                BlocksEnemyBlockedReactionForJump(jumpState, tickIndex))
             {
                 return false;
             }
@@ -4631,6 +4631,15 @@ namespace Game.Feature.Gameplay.Loop
                 tickIndex + 1);
             write = new PendingEnemyBlockedReactionWritePayload(entity.entityId, reaction);
             return true;
+        }
+
+        private static bool BlocksEnemyBlockedReactionForJump(
+            in EnemyJumpRuntimeState jumpState,
+            int tickIndex)
+        {
+            return BlocksOrdinaryEnemyKinematicLocomotionForJump(jumpState.phase) ||
+                   (jumpState.phase == EnemyJumpPhase.Cooldown &&
+                    jumpState.landingTick == tickIndex);
         }
 
         private static bool TryFindSolidBoxOrWallBlocker(

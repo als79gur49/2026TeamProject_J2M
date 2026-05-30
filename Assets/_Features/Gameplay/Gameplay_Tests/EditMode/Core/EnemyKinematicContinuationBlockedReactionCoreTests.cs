@@ -3,6 +3,7 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
@@ -32,8 +33,15 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(snapshot.TryGetEntity(61, out var enemy), Is.True);
             Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(snapshot.TryGetPrimaryUnitAt(blockedCell, out var targetUnit), Is.False);
+            Assert.That(targetUnit.entityId, Is.Not.EqualTo(61));
             Assert.That(snapshot.TryGetUnitKinematicPose(61, out var pose), Is.True);
             Assert.That(pose.IsSettledAtAnchor, Is.True);
+            Assert.That(pose.State.localOffset.X.RawValue, Is.EqualTo(0));
+            Assert.That(pose.State.localOffset.Y.RawValue, Is.EqualTo(0));
+            Assert.That(pose.State.velocity.X.RawValue, Is.EqualTo(0));
+            Assert.That(pose.State.velocity.Y.RawValue, Is.EqualTo(0));
+            AssertNoMovementIntentFor(result, 61);
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("EnemyKinematicContinuationBlocked", StringComparison.Ordinal)),
@@ -71,12 +79,33 @@ namespace Game.Feature.Gameplay.Tests.Core
             var pipeline = CreatePipeline(worldState);
 
             pipeline.RunTick(new TickInput(2));
-            pipeline.RunTick(new TickInput(3));
+            var reevaluateResult = pipeline.RunTick(new TickInput(3));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetPendingEnemyBlockedReaction(61, out _), Is.False);
             Assert.That(snapshot.TryGetEntity(61, out var enemy), Is.True);
             Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(0));
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.RawIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == new Vector2Int(12, 4)),
+                Is.False);
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.SortedIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == new Vector2Int(12, 4)),
+                Is.False);
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.RawIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == new Vector2Int(11, 5)),
+                Is.True);
+            Assert.That(
+                reevaluateResult.MovementPhaseResult.SortedIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == new Vector2Int(11, 5)),
+                Is.True);
             Assert.That(snapshot.TryGetUnitKinematicPose(61, out var pose), Is.True);
             Assert.That(pose.State.velocity.X.RawValue, Is.EqualTo(0));
             Assert.That(pose.State.velocity.Y.RawValue, Is.GreaterThan(0));
@@ -93,6 +122,20 @@ namespace Game.Feature.Gameplay.Tests.Core
                     timingProfile.SimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+        }
+
+        private static void AssertNoMovementIntentFor(TickResult result, int entityId)
+        {
+            Assert.That(
+                result.MovementPhaseResult.RawIntents.Any(intent =>
+                    intent.SourceId == entityId &&
+                    intent.CommandKind == MovementCommandKind.Move),
+                Is.False);
+            Assert.That(
+                result.MovementPhaseResult.SortedIntents.Any(intent =>
+                    intent.SourceId == entityId &&
+                    intent.CommandKind == MovementCommandKind.Move),
+                Is.False);
         }
 
         private static WorldState CreateWorldState(EntityState[] entities)
