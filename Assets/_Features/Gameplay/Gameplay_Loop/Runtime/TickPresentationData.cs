@@ -2180,6 +2180,11 @@ namespace Game.Feature.Gameplay.Loop
 
     public readonly struct TickEnemyGravityFieldAuraVisualState
     {
+        private static readonly IReadOnlyList<int> EmptyLockedTargetEntityIds =
+            new ReadOnlyCollection<int>(new List<int>());
+
+        private readonly IReadOnlyList<int> _lockedTargetEntityIds;
+
         public TickEnemyGravityFieldAuraVisualState(
             int entityId,
             SurfaceCell cell,
@@ -2191,7 +2196,8 @@ namespace Game.Feature.Gameplay.Loop
             int effectIndex,
             int activationSequence,
             GravityFieldAreaFootprint areaFootprint,
-            bool startedThisTick)
+            bool startedThisTick,
+            IEnumerable<int> lockedTargetEntityIds = null)
         {
             EntityId = entityId;
             Cell = cell;
@@ -2204,6 +2210,7 @@ namespace Game.Feature.Gameplay.Loop
             ActivationSequence = Math.Max(0, activationSequence);
             AreaFootprint = areaFootprint;
             StartedThisTick = startedThisTick;
+            _lockedTargetEntityIds = BuildLockedTargetEntityIds(phase, lockedTargetEntityIds);
         }
 
         public int EntityId { get; }
@@ -2230,6 +2237,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public bool StartedThisTick { get; }
 
+        public IReadOnlyList<int> LockedTargetEntityIds =>
+            _lockedTargetEntityIds ?? EmptyLockedTargetEntityIds;
+
         private static float Clamp01(float value)
         {
             if (value <= 0f)
@@ -2238,6 +2248,33 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return value >= 1f ? 1f : value;
+        }
+
+        private static IReadOnlyList<int> BuildLockedTargetEntityIds(
+            EnemyUtilityEffectPhase phase,
+            IEnumerable<int> lockedTargetEntityIds)
+        {
+            if (phase != EnemyUtilityEffectPhase.Active)
+            {
+                return EmptyLockedTargetEntityIds;
+            }
+
+            var ids = new List<int>();
+            foreach (var targetEntityId in lockedTargetEntityIds ?? Array.Empty<int>())
+            {
+                if (targetEntityId > 0 && !ids.Contains(targetEntityId))
+                {
+                    ids.Add(targetEntityId);
+                }
+            }
+
+            if (ids.Count == 0)
+            {
+                return EmptyLockedTargetEntityIds;
+            }
+
+            ids.Sort();
+            return new ReadOnlyCollection<int>(ids);
         }
     }
 

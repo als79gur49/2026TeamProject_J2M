@@ -298,7 +298,8 @@ namespace Game.Feature.Gameplay.Loop
                 _gravityFieldActiveTicks,
                 resolvePhaseResult.GravityFieldLockedTargetFacts,
                 resolvePhaseResult.FinalizationBatch,
-                planPhaseResult.PlayerActionAttemptResolutions);
+                planPhaseResult.PlayerActionAttemptResolutions,
+                resolvePhaseResult.EnemyGravityFieldAuraLockedTargetFacts);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
@@ -873,7 +874,8 @@ namespace Game.Feature.Gameplay.Loop
                 planFinalizationBatch,
                 gravityFieldResult.PresentationEvents,
                 gravityFieldResult.LockedTargetFacts,
-                playerActionAttemptResolutions);
+                playerActionAttemptResolutions,
+                preMovementUtilityResolveResult.GravityFieldAuraLockedTargetFacts);
         }
 
         private static void CaptureTopologyActivationPreviousSnapshot(
@@ -1507,7 +1509,8 @@ namespace Game.Feature.Gameplay.Loop
                 resolutionRecords,
                 tilePresentationEvents,
                 planPhaseResult.GravityFieldPresentationEvents,
-                planPhaseResult.GravityFieldLockedTargetFacts);
+                planPhaseResult.GravityFieldLockedTargetFacts,
+                planPhaseResult.EnemyGravityFieldAuraLockedTargetFacts);
         }
 
         private void RunFinalizePhase(

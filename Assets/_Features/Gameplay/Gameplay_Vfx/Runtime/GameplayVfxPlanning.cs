@@ -713,6 +713,7 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             var gravityFieldAuraStates = presentationData.EnemyGravityFieldAuraVisualStates;
+            var emittedGravityFieldLockedTargetEntityIds = new HashSet<int>();
             for (var i = 0; i < gravityFieldAuraStates.Count; i++)
             {
                 var state = gravityFieldAuraStates[i];
@@ -731,6 +732,12 @@ namespace Game.Feature.Gameplay.Vfx
                 {
                     AddGravityFieldAuraActiveStartedRequest(context, builder, state);
                 }
+
+                AddGravityFieldAuraLockedTargetRequests(
+                    context,
+                    builder,
+                    state,
+                    emittedGravityFieldLockedTargetEntityIds);
             }
 
             var jumpSignals = presentationData.EnemyJumpSignals;
@@ -868,6 +875,89 @@ namespace Game.Feature.Gameplay.Vfx
                     timing: VfxTimingKind.ImmediateOnTickPresentation,
                     isPersistent: false,
                     persistentKey: VfxPersistentKey.None));
+        }
+
+        private static void AddGravityFieldAuraLockedTargetRequests(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            in TickEnemyGravityFieldAuraVisualState state,
+            HashSet<int> emittedTargetEntityIds)
+        {
+            if (state.Phase != EnemyUtilityEffectPhase.Active)
+            {
+                return;
+            }
+
+            var lockedTargets = state.LockedTargetEntityIds ?? Array.Empty<int>();
+            for (var targetIndex = 0; targetIndex < lockedTargets.Count; targetIndex++)
+            {
+                var targetEntityId = lockedTargets[targetIndex];
+                if (targetEntityId <= 0 ||
+                    !emittedTargetEntityIds.Add(targetEntityId))
+                {
+                    continue;
+                }
+
+                AddAggregateLockedTargetRequest(
+                    context,
+                    builder,
+                    sourceEntityId: state.EntityId,
+                    targetEntityId,
+                    fallbackCell: state.Cell,
+                    targetIndex);
+            }
+        }
+
+        internal static void AddAggregateLockedTargetRequest(
+            GameplayVfxPlanningContext context,
+            GameplayVfxRequestPlanBuilder builder,
+            int sourceEntityId,
+            int targetEntityId,
+            SurfaceCell fallbackCell,
+            int targetIndex)
+        {
+            var cueId = GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget);
+            var key = new VfxPersistentKey(
+                cueId,
+                VfxAnchorKind.Entity,
+                entityId: targetEntityId);
+            var sequenceId = ResolveAggregateLockedTargetSequenceId(
+                context.TickIndex,
+                sourceEntityId,
+                targetEntityId,
+                targetIndex);
+            builder.Add(
+                new GameplayVfxRequest(
+                    tickIndex: context.TickIndex,
+                    sequenceId: sequenceId,
+                    presentationSeed: sequenceId,
+                    sourceEntityId: sourceEntityId,
+                    cueId: cueId,
+                    anchor: VfxAnchor.ForEntity(
+                        targetEntityId,
+                        VfxAnchorSlot.EntityCenter,
+                        fallbackCell,
+                        context.Topology,
+                        hasFallbackCell: true),
+                    timing: VfxTimingKind.ImmediateOnTickPresentation,
+                    isPersistent: true,
+                    persistentKey: key));
+        }
+
+        private static int ResolveAggregateLockedTargetSequenceId(
+            int tickIndex,
+            int sourceEntityId,
+            int targetEntityId,
+            int targetIndex)
+        {
+            unchecked
+            {
+                var hash = tickIndex;
+                hash = (hash * 397) ^ sourceEntityId;
+                hash = (hash * 397) ^ targetEntityId;
+                hash = (hash * 397) ^ targetIndex;
+                return hash != 0 ? hash : targetIndex + 1;
+            }
         }
 
         private static int ResolveGravityFieldAuraSequenceId(
@@ -1611,6 +1701,7 @@ namespace Game.Feature.Gameplay.Vfx
             TickPresentationData presentationData)
         {
             var states = presentationData.GravityFieldVisualStates;
+            var emittedLockedTargetEntityIds = new HashSet<int>();
             for (var i = 0; i < states.Count; i++)
             {
                 var state = states[i];
@@ -1629,6 +1720,11 @@ namespace Game.Feature.Gameplay.Vfx
                 {
                     var targetEntityId = lockedTargets[targetIndex];
                     if (targetEntityId <= 0)
+                    {
+                        continue;
+                    }
+
+                    if (!emittedLockedTargetEntityIds.Add(targetEntityId))
                     {
                         continue;
                     }
@@ -1678,31 +1774,13 @@ namespace Game.Feature.Gameplay.Vfx
             int targetEntityId,
             int targetIndex)
         {
-            var cueId = GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget);
-            var key = new VfxPersistentKey(
-                cueId,
-                VfxAnchorKind.Entity,
-                entityId: targetEntityId,
-                cell: state.Cell,
-                hasCell: true,
-                effectIndex: state.EmitterEntityId);
-            var sequenceId = ResolveLockedTargetSequenceId(context.TickIndex, state, targetEntityId, targetIndex);
-            builder.Add(
-                new GameplayVfxRequest(
-                    tickIndex: context.TickIndex,
-                    sequenceId: sequenceId,
-                    presentationSeed: sequenceId,
-                    sourceEntityId: state.EmitterEntityId,
-                    cueId: cueId,
-                    anchor: VfxAnchor.ForEntity(
-                        targetEntityId,
-                        VfxAnchorSlot.EntityCenter,
-                        state.Cell,
-                        context.Topology,
-                        hasFallbackCell: true),
-                    timing: VfxTimingKind.ImmediateOnTickPresentation,
-                    isPersistent: true,
-                    persistentKey: key));
+            EnemyVfxRequestPlanner.AddAggregateLockedTargetRequest(
+                context,
+                builder,
+                state.EmitterEntityId,
+                targetEntityId,
+                state.Cell,
+                targetIndex);
         }
 
         private static bool TryResolveCue(

@@ -25,9 +25,17 @@ namespace Game.Feature.Gameplay.Vfx
     public sealed class GameplayVfxRequestPlanBuilder
     {
         private readonly List<GameplayVfxRequest> requests = new();
+        private readonly HashSet<VfxPersistentKey> persistentKeys = new();
 
         public void Add(GameplayVfxRequest request)
         {
+            if (request.IsPersistent &&
+                !request.PersistentKey.IsNone &&
+                !persistentKeys.Add(request.PersistentKey))
+            {
+                return;
+            }
+
             requests.Add(request);
         }
 
@@ -39,6 +47,7 @@ namespace Game.Feature.Gameplay.Vfx
         public void Clear()
         {
             requests.Clear();
+            persistentKeys.Clear();
         }
     }
 }

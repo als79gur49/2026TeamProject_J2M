@@ -579,7 +579,8 @@ namespace Game.Feature.Gameplay.Loop
             int gravityFieldActiveDurationTicks = 0,
             IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
             FinalizationBatch finalizationBatch = null,
-            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null)
+            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null,
+            IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> enemyGravityFieldAuraLockedTargetFacts = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -603,6 +604,8 @@ namespace Game.Feature.Gameplay.Loop
             GravityFieldEvents = gravityFieldEvents ?? Array.Empty<GravityFieldPresentationEvent>();
             GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
             PlayerActionAttemptResolutions = playerActionAttemptResolutions ?? Array.Empty<PlayerActionAttemptResolution>();
+            EnemyGravityFieldAuraLockedTargetFacts = enemyGravityFieldAuraLockedTargetFacts ??
+                                                     Array.Empty<EnemyGravityFieldAuraLockedTargetFact>();
             GravityFieldChargeDurationTicks = gravityFieldChargeDurationTicks > 0
                 ? gravityFieldChargeDurationTicks
                 : GameplayTimingProfile.SecondsToCeilTicks(
@@ -653,6 +656,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
 
         public IReadOnlyList<PlayerActionAttemptResolution> PlayerActionAttemptResolutions { get; }
+
+        public IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> EnemyGravityFieldAuraLockedTargetFacts { get; }
 
         public int GravityFieldChargeDurationTicks { get; }
 
@@ -1406,6 +1411,82 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return targetIdsByEmitterId;
+        }
+
+        private static Dictionary<SourceEffectActivationKey, List<int>> BuildEnemyGravityFieldAuraLockedTargetIdsBySource(
+            IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> facts)
+        {
+            var targetIdsBySource = new Dictionary<SourceEffectActivationKey, List<int>>();
+            for (var i = 0; i < facts.Count; i++)
+            {
+                var fact = facts[i];
+                if (fact.SourceEntityId <= 0 ||
+                    fact.TargetEntityId <= 0)
+                {
+                    continue;
+                }
+
+                var key = new SourceEffectActivationKey(
+                    fact.SourceEntityId,
+                    fact.SourceEffectIndex,
+                    fact.ActivationSequence);
+                if (!targetIdsBySource.TryGetValue(key, out var targetIds))
+                {
+                    targetIds = new List<int>();
+                    targetIdsBySource.Add(key, targetIds);
+                }
+
+                if (!targetIds.Contains(fact.TargetEntityId))
+                {
+                    targetIds.Add(fact.TargetEntityId);
+                }
+            }
+
+            foreach (var pair in targetIdsBySource)
+            {
+                pair.Value.Sort();
+            }
+
+            return targetIdsBySource;
+        }
+
+        private readonly struct SourceEffectActivationKey : IEquatable<SourceEffectActivationKey>
+        {
+            public SourceEffectActivationKey(int sourceEntityId, int sourceEffectIndex, int activationSequence)
+            {
+                SourceEntityId = sourceEntityId;
+                SourceEffectIndex = sourceEffectIndex;
+                ActivationSequence = activationSequence;
+            }
+
+            public int SourceEntityId { get; }
+
+            public int SourceEffectIndex { get; }
+
+            public int ActivationSequence { get; }
+
+            public bool Equals(SourceEffectActivationKey other)
+            {
+                return SourceEntityId == other.SourceEntityId &&
+                       SourceEffectIndex == other.SourceEffectIndex &&
+                       ActivationSequence == other.ActivationSequence;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is SourceEffectActivationKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = SourceEntityId;
+                    hash = (hash * 397) ^ SourceEffectIndex;
+                    hash = (hash * 397) ^ ActivationSequence;
+                    return hash;
+                }
+            }
         }
 
         private static int ResolveGravityFieldVisualDurationTicks(
@@ -2611,6 +2692,8 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             List<TickEnemyGravityFieldAuraVisualState> enemyGravityFieldAuraVisualStates)
         {
+            var lockedTargetIdsBySource = BuildEnemyGravityFieldAuraLockedTargetIdsBySource(
+                context.EnemyGravityFieldAuraLockedTargetFacts);
             var fieldEntries = new List<EnemyGravityFieldAuraFieldSnapshotEntry>();
             context.FinalAuthoritativeSnapshot.EnumerateEnemyGravityFieldAuraFieldStatesOrdered(fieldEntries);
             for (var i = 0; i < fieldEntries.Count; i++)
@@ -2624,6 +2707,18 @@ namespace Game.Feature.Gameplay.Loop
                 var activeDurationTicks = Math.Max(0, field.ExpiresTickExclusive - field.StartedTick);
                 var activeTimerTicks = Math.Max(0, field.ExpiresTickExclusive - context.CurrentTickIndex);
                 var startedThisTick = context.CurrentTickIndex == field.StartedTick;
+                var key = new SourceEffectActivationKey(
+                    field.SourceEntityId,
+                    field.SourceEffectIndex,
+                    field.ActivationSequence);
+                var fallbackKey = new SourceEffectActivationKey(
+                    field.SourceEntityId,
+                    field.SourceEffectIndex,
+                    activationSequence: 0);
+                IEnumerable<int> lockedTargetEntityIds = lockedTargetIdsBySource.TryGetValue(key, out var targetIds) ||
+                                                         lockedTargetIdsBySource.TryGetValue(fallbackKey, out targetIds)
+                    ? targetIds
+                    : Array.Empty<int>();
                 enemyGravityFieldAuraVisualStates.Add(
                     new TickEnemyGravityFieldAuraVisualState(
                         field.SourceEntityId,
@@ -2636,7 +2731,8 @@ namespace Game.Feature.Gameplay.Loop
                         field.SourceEffectIndex,
                         field.ActivationSequence,
                         BuildEnemyGravityFieldAuraFootprint(context, field.OriginCell, field.Radius),
-                        startedThisTick));
+                        startedThisTick,
+                        lockedTargetEntityIds));
             }
         }
 

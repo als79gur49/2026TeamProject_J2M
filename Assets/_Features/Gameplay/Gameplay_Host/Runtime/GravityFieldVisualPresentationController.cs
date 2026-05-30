@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host
@@ -11,10 +12,14 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _previousContinuousEntityIds = new();
         private readonly HashSet<LockedTargetPair> _currentLockedTargetPairs = new();
         private readonly HashSet<LockedTargetPair> _previousLockedTargetPairs = new();
+        private readonly HashSet<LockedTargetPair> _currentEnemyAuraLockedTargetPairs = new();
+        private readonly HashSet<LockedTargetPair> _previousEnemyAuraLockedTargetPairs = new();
         private readonly HashSet<IGravityFieldLockedTargetRevealVisualTarget> _lockedTargetRevealTargets = new();
         private readonly List<int> _previousContinuousEntityIdBuffer = new();
         private readonly List<LockedTargetPair> _previousLockedTargetPairBuffer = new();
+        private readonly List<LockedTargetPair> _previousEnemyAuraLockedTargetPairBuffer = new();
         private readonly List<IGravityFieldLockedTargetRevealVisualTarget> _lockedTargetRevealTargetBuffer = new();
+        private const int EnemyAuraLockedTargetSourceIdPrefix = 0x40000000;
         private Action<string> _diagnosticSink;
         private GameplayEntityViewRegistry _targetViewRegistry;
 
@@ -126,9 +131,52 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void RefreshEnemyGravityFieldAuraLockedTargets(IReadOnlyList<TickEnemyGravityFieldAuraVisualState> states)
+        {
+            if (states == null)
+            {
+                throw new ArgumentNullException(nameof(states));
+            }
+
+            _previousEnemyAuraLockedTargetPairBuffer.Clear();
+            foreach (var pair in _previousEnemyAuraLockedTargetPairs)
+            {
+                _previousEnemyAuraLockedTargetPairBuffer.Add(pair);
+            }
+
+            _currentEnemyAuraLockedTargetPairs.Clear();
+            for (var i = 0; i < states.Count; i++)
+            {
+                AddEnemyAuraLockedTargetPairs(states[i]);
+            }
+
+            foreach (var pair in _currentEnemyAuraLockedTargetPairs)
+            {
+                ApplyLockedTarget(pair);
+            }
+
+            for (var i = 0; i < _previousEnemyAuraLockedTargetPairBuffer.Count; i++)
+            {
+                var pair = _previousEnemyAuraLockedTargetPairBuffer[i];
+                if (_currentEnemyAuraLockedTargetPairs.Contains(pair))
+                {
+                    continue;
+                }
+
+                ClearLockedTarget(pair);
+            }
+
+            _previousEnemyAuraLockedTargetPairs.Clear();
+            foreach (var pair in _currentEnemyAuraLockedTargetPairs)
+            {
+                _previousEnemyAuraLockedTargetPairs.Add(pair);
+            }
+        }
+
         public void ClearTrackedContinuousStates()
         {
             RefreshContinuousStates(Array.Empty<GravityFieldVisualState>());
+            RefreshEnemyGravityFieldAuraLockedTargets(Array.Empty<TickEnemyGravityFieldAuraVisualState>());
             ResetTrackedLockedTargetReveals();
         }
 
@@ -282,6 +330,40 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _currentLockedTargetPairs.Add(new LockedTargetPair(state.EmitterEntityId, targetEntityId));
+            }
+        }
+
+        private void AddEnemyAuraLockedTargetPairs(TickEnemyGravityFieldAuraVisualState state)
+        {
+            if (state.EntityId <= 0 ||
+                state.Phase != EnemyUtilityEffectPhase.Active)
+            {
+                return;
+            }
+
+            var sourceId = ResolveEnemyAuraLockedTargetSourceId(state);
+            var lockedTargetEntityIds = state.LockedTargetEntityIds;
+            for (var i = 0; i < lockedTargetEntityIds.Count; i++)
+            {
+                var targetEntityId = lockedTargetEntityIds[i];
+                if (targetEntityId <= 0)
+                {
+                    continue;
+                }
+
+                _currentEnemyAuraLockedTargetPairs.Add(new LockedTargetPair(sourceId, targetEntityId));
+            }
+        }
+
+        private static int ResolveEnemyAuraLockedTargetSourceId(in TickEnemyGravityFieldAuraVisualState state)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 397) ^ state.EntityId;
+                hash = (hash * 397) ^ state.EffectIndex;
+                hash = (hash * 397) ^ state.ActivationSequence;
+                return EnemyAuraLockedTargetSourceIdPrefix | (hash & 0x3FFFFFFF);
             }
         }
 

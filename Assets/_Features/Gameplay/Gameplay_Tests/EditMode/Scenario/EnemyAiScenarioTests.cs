@@ -1979,6 +1979,100 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyGravityFieldAuraLockedTargetsAreExposedForPresentation()
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 3,
+                recoverTicks: 1);
+            var sliding = CreateBox(entityId: 24, position: new Vector2Int(0, -1), capabilities: BoxCapabilities.Push);
+            sliding.state = EntityPhaseState.Sliding;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 21, position: new Vector2Int(1, 1), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 22, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 23, position: new Vector2Int(-1, -1), capabilities: BoxCapabilities.Push),
+                sliding,
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var attackTick = pipeline.RunTick(new TickInput(3));
+                var visualState = attackTick.PresentationData.EnemyGravityFieldAuraVisualStates
+                    .Single(state => state.Phase == EnemyUtilityEffectPhase.Active);
+
+                Assert.That(visualState.LockedTargetEntityIds.ToArray(), Is.EqualTo(new[] { 20, 21, 23 }));
+                Assert.That(visualState.LockedTargetEntityIds, Is.Not.Contains(22));
+                Assert.That(visualState.LockedTargetEntityIds, Is.Not.Contains(24));
+                Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 3, out var lockState), Is.True);
+                Assert.That(lockState.SourceReason, Is.EqualTo(BoxInteractionLockSourceReason.EnemyGravityFieldAura));
+                Assert.That(lockState.BlocksPush, Is.True);
+                Assert.That(lockState.BlocksFlip, Is.True);
+                Assert.That(lockState.BlocksDestroy, Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyGravityFieldAuraVisualStateClearsTargetsWhenAuraExpires()
+        {
+            var profile = CreateUtilityGravityFieldAuraProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 4,
+                radius: 1,
+                windupTicks: 2,
+                durationTicks: 2,
+                recoverTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: SurfaceCell.FromPlanar(new Vector2Int(0, 0)), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var activeTick = pipeline.RunTick(new TickInput(3));
+                pipeline.RunTick(new TickInput(4));
+                var expiredTick = pipeline.RunTick(new TickInput(5));
+
+                Assert.That(
+                    activeTick.PresentationData.EnemyGravityFieldAuraVisualStates
+                        .Single(state => state.Phase == EnemyUtilityEffectPhase.Active)
+                        .LockedTargetEntityIds
+                        .ToArray(),
+                    Is.EqualTo(new[] { 20 }));
+                Assert.That(
+                    expiredTick.PresentationData.EnemyGravityFieldAuraVisualStates
+                        .SelectMany(state => state.LockedTargetEntityIds)
+                        .ToArray(),
+                    Is.Empty);
+                Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 5, out _), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyUtilityGravityFieldAura_SuppressesWindupAndRecover_ButFieldPersistsOnCell()
         {
             var profile = CreateMovingUtilityProfile(

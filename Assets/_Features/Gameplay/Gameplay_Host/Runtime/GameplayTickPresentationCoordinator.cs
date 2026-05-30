@@ -26,6 +26,8 @@ namespace Game.Feature.Gameplay.Host
             Array.Empty<GravityFieldPresentationRequest>();
         private static readonly IReadOnlyList<GravityFieldVisualState> EmptyGravityFieldVisualStates =
             Array.Empty<GravityFieldVisualState>();
+        private static readonly IReadOnlyList<TickEnemyGravityFieldAuraVisualState> EmptyEnemyGravityFieldAuraVisualStates =
+            Array.Empty<TickEnemyGravityFieldAuraVisualState>();
         private static readonly IReadOnlyList<TileFeatureVisualState> EmptyTileFeatureVisualStates =
             Array.Empty<TileFeatureVisualState>();
 
@@ -83,6 +85,8 @@ namespace Game.Feature.Gameplay.Host
             EmptyGravityFieldPresentationRequests;
         private IReadOnlyList<GravityFieldVisualState> _currentGravityFieldVisualStates =
             EmptyGravityFieldVisualStates;
+        private IReadOnlyList<TickEnemyGravityFieldAuraVisualState> _currentEnemyGravityFieldAuraVisualStates =
+            EmptyEnemyGravityFieldAuraVisualStates;
         private IReadOnlyList<TileFeatureVisualState> _currentTileFeatureVisualStates =
             EmptyTileFeatureVisualStates;
         private Action<string> _traceSink;
@@ -345,6 +349,7 @@ namespace Game.Feature.Gameplay.Host
             _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
+            _currentEnemyGravityFieldAuraVisualStates = EmptyEnemyGravityFieldAuraVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
             _presentationPauseRegistry.Clear();
             _summonedEnemyPresentationResolver.Initialize(
@@ -427,6 +432,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshGravityFieldPresentationRequests(result.PresentationData);
             RefreshTileFeatureVisualStates(result.PresentationData);
             RefreshGravityFieldVisualStates(result.PresentationData);
+            RefreshEnemyGravityFieldAuraVisualStates(result.PresentationData);
             SyncTileFeatureVisualPoseForTopologyMotionIfNeeded(result.PresentationData);
             _tileFeatureAudioPresentationController.ReplacePendingPlan(
                 _tileFeatureAudioRequestPlanner.BuildRequests(
@@ -448,6 +454,8 @@ namespace Game.Feature.Gameplay.Host
                 TopologyCommitted);
             RegisterCommittedViewPauseTargets();
             _gravityFieldVisualPresentationController.RefreshContinuousStates(_currentGravityFieldVisualStates);
+            _gravityFieldVisualPresentationController.RefreshEnemyGravityFieldAuraLockedTargets(
+                _currentEnemyGravityFieldAuraVisualStates);
             if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
             {
                 _topologyTransitionEpoch++;
@@ -566,6 +574,7 @@ namespace Game.Feature.Gameplay.Host
             _currentTilePresentationRequests = EmptyTilePresentationRequests;
             _currentGravityFieldPresentationRequests = EmptyGravityFieldPresentationRequests;
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
+            _currentEnemyGravityFieldAuraVisualStates = EmptyEnemyGravityFieldAuraVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
             _topologyTransitionController.Reset();
             _lastPresentedResult = null;
@@ -996,6 +1005,15 @@ namespace Game.Feature.Gameplay.Host
                 ? EmptyGravityFieldVisualStates
                 : new ReadOnlyCollection<GravityFieldVisualState>(
                     new List<GravityFieldVisualState>(visualStates));
+        }
+
+        private void RefreshEnemyGravityFieldAuraVisualStates(TickPresentationData presentationData)
+        {
+            var visualStates = presentationData.EnemyGravityFieldAuraVisualStates;
+            _currentEnemyGravityFieldAuraVisualStates = visualStates.Count == 0
+                ? EmptyEnemyGravityFieldAuraVisualStates
+                : new ReadOnlyCollection<TickEnemyGravityFieldAuraVisualState>(
+                    new List<TickEnemyGravityFieldAuraVisualState>(visualStates));
         }
 
         private void SyncTileFeatureVisualPoseForTopologyMotionIfNeeded(TickPresentationData presentationData)

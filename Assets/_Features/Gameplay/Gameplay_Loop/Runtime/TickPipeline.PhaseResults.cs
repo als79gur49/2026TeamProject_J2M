@@ -175,7 +175,8 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch planFinalizationBatch,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldPresentationEvents = null,
             IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
-            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null)
+            IReadOnlyList<PlayerActionAttemptResolution> playerActionAttemptResolutions = null,
+            IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> enemyGravityFieldAuraLockedTargetFacts = null)
         {
             RawIntents = rawIntents ?? throw new ArgumentNullException(nameof(rawIntents));
             SortedIntents = sortedIntents ?? throw new ArgumentNullException(nameof(sortedIntents));
@@ -210,6 +211,8 @@ namespace Game.Feature.Gameplay.Loop
             GravityFieldPresentationEvents = gravityFieldPresentationEvents ?? Array.Empty<GravityFieldPresentationEvent>();
             GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
             PlayerActionAttemptResolutions = playerActionAttemptResolutions ?? Array.Empty<PlayerActionAttemptResolution>();
+            EnemyGravityFieldAuraLockedTargetFacts = enemyGravityFieldAuraLockedTargetFacts ??
+                                                     Array.Empty<EnemyGravityFieldAuraLockedTargetFact>();
         }
 
         public List<RawMovementIntent> RawIntents { get; }
@@ -275,6 +278,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
 
         public IReadOnlyList<PlayerActionAttemptResolution> PlayerActionAttemptResolutions { get; }
+
+        public IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> EnemyGravityFieldAuraLockedTargetFacts { get; }
     }
 
     internal sealed class ResolvePhaseResult
@@ -290,7 +295,8 @@ namespace Game.Feature.Gameplay.Loop
             List<ResolutionRecord> resolutionRecords,
             IReadOnlyList<TilePresentationEvent> tilePresentationEvents = null,
             IReadOnlyList<GravityFieldPresentationEvent> gravityFieldPresentationEvents = null,
-            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null)
+            IReadOnlyList<GravityFieldLockedTargetFact> gravityFieldLockedTargetFacts = null,
+            IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> enemyGravityFieldAuraLockedTargetFacts = null)
         {
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
@@ -303,6 +309,8 @@ namespace Game.Feature.Gameplay.Loop
             TilePresentationEvents = tilePresentationEvents ?? Array.Empty<TilePresentationEvent>();
             GravityFieldPresentationEvents = gravityFieldPresentationEvents ?? Array.Empty<GravityFieldPresentationEvent>();
             GravityFieldLockedTargetFacts = gravityFieldLockedTargetFacts ?? Array.Empty<GravityFieldLockedTargetFact>();
+            EnemyGravityFieldAuraLockedTargetFacts = enemyGravityFieldAuraLockedTargetFacts ??
+                                                     Array.Empty<EnemyGravityFieldAuraLockedTargetFact>();
         }
 
         public MovementPhaseResult MovementPhaseResult { get; }
@@ -326,6 +334,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<GravityFieldPresentationEvent> GravityFieldPresentationEvents { get; }
 
         public IReadOnlyList<GravityFieldLockedTargetFact> GravityFieldLockedTargetFacts { get; }
+
+        public IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> EnemyGravityFieldAuraLockedTargetFacts { get; }
     }
 
     internal sealed class AttackPlanBuildResult
@@ -361,15 +371,53 @@ namespace Game.Feature.Gameplay.Loop
 
     internal sealed class EnemyUtilityResolveResult
     {
-        public EnemyUtilityResolveResult(FinalizationBatch batch, List<string> eventLogEntries)
+        public EnemyUtilityResolveResult(
+            FinalizationBatch batch,
+            List<string> eventLogEntries,
+            IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> gravityFieldAuraLockedTargetFacts = null)
         {
             Batch = batch ?? throw new ArgumentNullException(nameof(batch));
             EventLogEntries = eventLogEntries ?? throw new ArgumentNullException(nameof(eventLogEntries));
+            GravityFieldAuraLockedTargetFacts = gravityFieldAuraLockedTargetFacts ??
+                                                Array.Empty<EnemyGravityFieldAuraLockedTargetFact>();
         }
 
         public FinalizationBatch Batch { get; }
 
         public List<string> EventLogEntries { get; }
+
+        public IReadOnlyList<EnemyGravityFieldAuraLockedTargetFact> GravityFieldAuraLockedTargetFacts { get; }
+    }
+
+    internal readonly struct EnemyGravityFieldAuraLockedTargetFact
+    {
+        public EnemyGravityFieldAuraLockedTargetFact(
+            int sourceEntityId,
+            int sourceEffectIndex,
+            int activationSequence,
+            int targetEntityId,
+            SurfaceCell originCell,
+            SurfaceCell targetCell)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceEffectIndex = sourceEffectIndex;
+            ActivationSequence = activationSequence;
+            TargetEntityId = targetEntityId;
+            OriginCell = originCell;
+            TargetCell = targetCell;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int SourceEffectIndex { get; }
+
+        public int ActivationSequence { get; }
+
+        public int TargetEntityId { get; }
+
+        public SurfaceCell OriginCell { get; }
+
+        public SurfaceCell TargetCell { get; }
     }
 
     internal static class EnemyUtilityResolver
@@ -436,6 +484,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var batch = new FinalizationBatch();
             var eventLogEntries = new List<string>();
+            var gravityFieldAuraLockedTargetFacts = new List<EnemyGravityFieldAuraLockedTargetFact>();
             var plannedStatesByBoxEntityId = new Dictionary<int, BoxInteractionLockState>();
             for (var intentIndex = 0; intentIndex < triggerIntents.Count; intentIndex++)
             {
@@ -458,6 +507,7 @@ namespace Game.Feature.Gameplay.Loop
                         triggerIntent,
                         tickIndex,
                         plannedStatesByBoxEntityId,
+                        gravityFieldAuraLockedTargetFacts,
                         eventLogEntries);
                 }
             }
@@ -467,11 +517,12 @@ namespace Game.Feature.Gameplay.Loop
                 batch,
                 tickIndex,
                 plannedStatesByBoxEntityId,
+                gravityFieldAuraLockedTargetFacts,
                 eventLogEntries);
 
             if (plannedStatesByBoxEntityId.Count == 0)
             {
-                return new EnemyUtilityResolveResult(batch, eventLogEntries);
+                return new EnemyUtilityResolveResult(batch, eventLogEntries, gravityFieldAuraLockedTargetFacts);
             }
 
             var orderedBoxEntityIds = new List<int>(plannedStatesByBoxEntityId.Keys);
@@ -501,7 +552,7 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
-            return new EnemyUtilityResolveResult(batch, eventLogEntries);
+            return new EnemyUtilityResolveResult(batch, eventLogEntries, gravityFieldAuraLockedTargetFacts);
         }
 
         public static EnemyUtilityResolveResult ResolvePostAttackEffects(
@@ -626,6 +677,7 @@ namespace Game.Feature.Gameplay.Loop
             in EnemyUtilityTriggerIntent triggerIntent,
             int tickIndex,
             IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
+            List<EnemyGravityFieldAuraLockedTargetFact> lockedTargetFacts,
             List<string> eventLogEntries)
         {
             if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var source))
@@ -635,6 +687,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var targetEntityIds = new HashSet<int>();
+            var targetCellsByEntityId = new Dictionary<int, SurfaceCell>();
             var targetCellOffsets = BuildSquareOffsets(triggerIntent.EffectRuntime.GravityFieldAura.Radius);
             for (var offsetIndex = 0; offsetIndex < targetCellOffsets.Count; offsetIndex++)
             {
@@ -645,7 +698,10 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                targetEntityIds.Add(box.entityId);
+                if (targetEntityIds.Add(box.entityId))
+                {
+                    targetCellsByEntityId.Add(box.entityId, box.position);
+                }
             }
 
             if (targetEntityIds.Count == 0)
@@ -677,6 +733,13 @@ namespace Game.Feature.Gameplay.Loop
                         hasExistingPlannedState ? plannedState : existingState,
                         newState);
                 plannedStatesByBoxEntityId[boxEntityId] = mergedState;
+                lockedTargetFacts.Add(new EnemyGravityFieldAuraLockedTargetFact(
+                    triggerIntent.SourceEntityId,
+                    triggerIntent.EffectIndex,
+                    activationSequence: 0,
+                    boxEntityId,
+                    triggerIntent.OriginCell,
+                    targetCellsByEntityId.TryGetValue(boxEntityId, out var targetCell) ? targetCell : default));
             }
         }
 
@@ -685,6 +748,7 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch batch,
             int tickIndex,
             IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
+            List<EnemyGravityFieldAuraLockedTargetFact> lockedTargetFacts,
             List<string> eventLogEntries)
         {
             var fieldEntries = new List<EnemyGravityFieldAuraFieldSnapshotEntry>();
@@ -703,6 +767,7 @@ namespace Game.Feature.Gameplay.Loop
                     fieldEntry.State,
                     tickIndex,
                     plannedStatesByBoxEntityId,
+                    lockedTargetFacts,
                     eventLogEntries);
             }
         }
@@ -713,9 +778,11 @@ namespace Game.Feature.Gameplay.Loop
             in EnemyGravityFieldAuraFieldState fieldState,
             int tickIndex,
             IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
+            List<EnemyGravityFieldAuraLockedTargetFact> lockedTargetFacts,
             List<string> eventLogEntries)
         {
             var targetEntityIds = new HashSet<int>();
+            var targetCellsByEntityId = new Dictionary<int, SurfaceCell>();
             var targetCellOffsets = BuildSquareOffsets(fieldState.Radius);
             for (var offsetIndex = 0; offsetIndex < targetCellOffsets.Count; offsetIndex++)
             {
@@ -726,7 +793,10 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                targetEntityIds.Add(box.entityId);
+                if (targetEntityIds.Add(box.entityId))
+                {
+                    targetCellsByEntityId.Add(box.entityId, box.position);
+                }
             }
 
             if (targetEntityIds.Count == 0)
@@ -758,6 +828,13 @@ namespace Game.Feature.Gameplay.Loop
                         hasExistingPlannedState ? plannedState : existingState,
                         newState);
                 plannedStatesByBoxEntityId[boxEntityId] = mergedState;
+                lockedTargetFacts.Add(new EnemyGravityFieldAuraLockedTargetFact(
+                    fieldState.SourceEntityId,
+                    fieldState.SourceEffectIndex,
+                    fieldState.ActivationSequence,
+                    boxEntityId,
+                    fieldState.OriginCell,
+                    targetCellsByEntityId.TryGetValue(boxEntityId, out var targetCell) ? targetCell : default));
             }
         }
 

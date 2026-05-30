@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
 using NUnit.Framework;
@@ -581,6 +582,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(plan.Requests.Where(request => request.CueId == GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget)).Select(request => request.Anchor.EntityId).ToArray(), Is.EquivalentTo(new[] { 10, 11 }));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyGravityFieldAuraDoesNotCreateDuplicateLockedTargetCueWhenStaticGravityFieldAlsoLocksSameBox()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var staticCell = new SurfaceCell(FaceId.Floor, 4, 5);
+            var auraCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var data = CreatePresentationData(
+                gravityFieldVisualStates: new[]
+                {
+                    new GravityFieldVisualState(
+                        40,
+                        staticCell,
+                        GravityFieldPhase.Active,
+                        timerTicks: 2,
+                        durationTicks: 3,
+                        progress01: 0.66f,
+                        lockedTargetEntityIds: new[] { 10 }),
+                },
+                enemyGravityFieldAuraVisualStates: new[]
+                {
+                    new TickEnemyGravityFieldAuraVisualState(
+                        80,
+                        auraCell,
+                        EnemyUtilityEffectPhase.Active,
+                        radius: 1,
+                        timerTicks: 2,
+                        durationTicks: 3,
+                        progress01: 0.33f,
+                        effectIndex: 0,
+                        activationSequence: 1,
+                        areaFootprint: GravityFieldAreaFootprint.Empty,
+                        startedThisTick: false,
+                        lockedTargetEntityIds: new[] { 10 }),
+                });
+            var builder = new GameplayVfxRequestPlanBuilder();
+
+            new EnemyVfxRequestPlanner().Plan(new GameplayVfxPlanningContext(21, data, topology), builder);
+            new GravityFieldVfxRequestPlanner().Plan(new GameplayVfxPlanningContext(21, data, topology), builder);
+            var lockedTargetRequests = builder.Build().Requests
+                .Where(request => request.CueId == GameplayVfxCueId.From(GravityFieldVfxCue.LockedTarget))
+                .ToArray();
+
+            Assert.That(lockedTargetRequests, Has.Length.EqualTo(1));
+            Assert.That(lockedTargetRequests[0].Anchor.Kind, Is.EqualTo(VfxAnchorKind.Entity));
+            Assert.That(lockedTargetRequests[0].Anchor.EntityId, Is.EqualTo(10));
+            Assert.That(lockedTargetRequests[0].PersistentKey.EntityId, Is.EqualTo(10));
+            Assert.That(lockedTargetRequests[0].PersistentKey.HasCell, Is.False);
+        }
+
         private static GameplayVfxRequest CreateRequest(
             int tick,
             int sequence,
@@ -618,6 +669,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TilePresentationEvent[] tileEvents = null,
             GravityFieldPresentationEvent[] gravityFieldEvents = null,
             GravityFieldVisualState[] gravityFieldVisualStates = null,
+            TickEnemyGravityFieldAuraVisualState[] enemyGravityFieldAuraVisualStates = null,
             TileFeatureActiveVisualState[] tileFeatureActiveVisualStates = null,
             EntitySpawnPresentationSignal[] entitySpawnSignals = null)
         {
@@ -638,6 +690,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tileEvents: tileEvents,
                 gravityFieldEvents: gravityFieldEvents,
                 gravityFieldVisualStates: gravityFieldVisualStates,
+                enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
                 tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
                 entitySpawnSignals: entitySpawnSignals);
         }

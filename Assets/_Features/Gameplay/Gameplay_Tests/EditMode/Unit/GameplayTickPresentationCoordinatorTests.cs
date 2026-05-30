@@ -1867,6 +1867,122 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyGravityFieldAuraLockedTargetsUseSameTintAsGravityField()
+        {
+            var rootObject = new GameObject(nameof(EnemyGravityFieldAuraLockedTargetsUseSameTintAsGravityField));
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var source = CreateEnemyUnit(40, sourceCell);
+            var targetBox = CreateBox(20, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { source, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+                var target = targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                presenter.Present(CreateTickResult(
+                    1,
+                    new[] { source, targetBox },
+                    topology,
+                    CreateEnemyGravityFieldAuraPresentationData(
+                        new TickEnemyGravityFieldAuraVisualState(
+                            40,
+                            sourceCell,
+                            EnemyUtilityEffectPhase.Active,
+                            radius: 1,
+                            timerTicks: 2,
+                            durationTicks: 3,
+                            progress01: 0.33f,
+                            effectIndex: 0,
+                            activationSequence: 1,
+                            areaFootprint: GravityFieldAreaFootprint.Empty,
+                            startedThisTick: false,
+                            lockedTargetEntityIds: new[] { 20 }))));
+
+                Assert.That(target.ApplyLockedTargetCount, Is.EqualTo(1));
+                Assert.That(target.ClearLockedTargetCount, Is.Zero);
+
+                presenter.Present(CreateTickResult(
+                    2,
+                    new[] { source, targetBox },
+                    topology,
+                    CreateEnemyGravityFieldAuraPresentationData(
+                        new TickEnemyGravityFieldAuraVisualState(
+                            40,
+                            sourceCell,
+                            EnemyUtilityEffectPhase.Active,
+                            radius: 1,
+                            timerTicks: 1,
+                            durationTicks: 3,
+                            progress01: 0.66f,
+                            effectIndex: 0,
+                            activationSequence: 1,
+                            areaFootprint: GravityFieldAreaFootprint.Empty,
+                            startedThisTick: false,
+                            lockedTargetEntityIds: Array.Empty<int>()))));
+
+                Assert.That(target.ClearLockedTargetCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyGravityFieldAuraPresentationDoesNotMutateWorldState()
+        {
+            var rootObject = new GameObject(nameof(EnemyGravityFieldAuraPresentationDoesNotMutateWorldState));
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var source = CreateEnemyUnit(40, sourceCell);
+            var targetBox = CreateBox(20, targetCell);
+
+            try
+            {
+                var presenter = CreateInitializedPresenter(rootObject, out var topology);
+                presenter.PresentInitial(new[] { source, targetBox }, topology);
+                var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+                Assert.That(registry.TryGetView(20, out var targetView), Is.True);
+                targetView.gameObject.AddComponent<RecordingGravityFieldVisualTarget>();
+
+                using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+                {
+                    presenter.Present(CreateTickResult(
+                        1,
+                        new[] { source, targetBox },
+                        topology,
+                        CreateEnemyGravityFieldAuraPresentationData(
+                            new TickEnemyGravityFieldAuraVisualState(
+                                40,
+                                sourceCell,
+                                EnemyUtilityEffectPhase.Active,
+                                radius: 1,
+                                timerTicks: 2,
+                                durationTicks: 3,
+                                progress01: 0.33f,
+                                effectIndex: 0,
+                                activationSequence: 1,
+                                areaFootprint: GravityFieldAreaFootprint.Empty,
+                                startedThisTick: false,
+                                lockedTargetEntityIds: new[] { 20 }))));
+
+                    Assert.That(capture.Counts.WorldStateCreateSnapshotCount, Is.Zero);
+                    Assert.That(capture.Counts.ProjectedWorldMaterializedSnapshotCount, Is.Zero);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayTickViewPresenter_GravityFieldLockedTargets_MissingOnClearNoOpsWithDiagnostic()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_GravityFieldLockedTargets_MissingOnClearNoOpsWithDiagnostic));
@@ -10485,6 +10601,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return CreateGravityFieldPresentationData(
                 gravityFieldVisualStates,
                 Array.Empty<GravityFieldPresentationEvent>());
+        }
+
+        private static TickPresentationData CreateEnemyGravityFieldAuraPresentationData(
+            params TickEnemyGravityFieldAuraVisualState[] enemyGravityFieldAuraVisualStates)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates);
         }
 
         private static TickPresentationData CreateVisibilityPresentationData(
