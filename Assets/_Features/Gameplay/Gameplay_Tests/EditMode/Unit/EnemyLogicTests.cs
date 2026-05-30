@@ -836,6 +836,256 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void RandomWalkLeash_StrictCandidateExists_DoesNotUseRelaxedLeash()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 10,
+                backwardWeight: 1);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                Array.Empty<EntityState>(),
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                tickIndex: 9,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = homeCell,
+                    lastCommittedDirection = Direction.None,
+                });
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Left));
+            Assert.That(plan.SelectedDestination, Is.EqualTo(homeCell));
+            Assert.That(plan.SelectedPass, Is.EqualTo(RandomWalkLeashSelectionPass.StrictLeash));
+            Assert.That(plan.StrictCandidateCount, Is.EqualTo(1));
+            Assert.That(plan.RelaxedLeashCandidateCount, Is.EqualTo(1));
+            Assert.That(plan.CandidateMask, Is.EqualTo(GetCandidateMaskBit(Direction.Left)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RandomWalkLeash_StrictCandidatesEmpty_UsesRelaxedLeashCandidate()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 4);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 5, 4);
+            var selectedCell = new SurfaceCell(FaceId.Floor, 6, 4);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 5,
+                forwardWeight: 10,
+                backwardWeight: 1);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                new[] { CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 4, 4)) },
+                new BoardBounds(new Vector2Int(0, 4), new Vector2Int(6, 4)),
+                tickIndex: 9,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = homeCell,
+                    lastCommittedDirection = Direction.None,
+                });
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Right));
+            Assert.That(plan.SelectedDestination, Is.EqualTo(selectedCell));
+            Assert.That(GetPlanarDistanceForTest(plan.SelectedDestination, homeCell), Is.GreaterThan(settings.LeashRadius));
+            Assert.That(plan.SelectedPass, Is.EqualTo(RandomWalkLeashSelectionPass.RelaxedLeash));
+            Assert.That(plan.StrictCandidateCount, Is.EqualTo(0));
+            Assert.That(plan.RelaxedLeashCandidateCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RandomWalkLeash_RelaxedPass_DoesNotReviveTraversalBlockedCandidate()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 4);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 5, 4);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 5,
+                forwardWeight: 10,
+                sideWeight: 1,
+                backwardWeight: 1);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                new[]
+                {
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 4, 4)),
+                    CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, 6, 4)),
+                },
+                new BoardBounds(new Vector2Int(0, 4), new Vector2Int(6, 5)),
+                tickIndex: 9,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = homeCell,
+                    lastCommittedDirection = Direction.None,
+                });
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Up));
+            Assert.That(plan.SelectedDestination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 5, 5)));
+            Assert.That(plan.SelectedPass, Is.EqualTo(RandomWalkLeashSelectionPass.RelaxedLeash));
+            Assert.That(plan.StrictCandidateCount, Is.EqualTo(0));
+            Assert.That(plan.RelaxedLeashCandidateCount, Is.EqualTo(1));
+            Assert.That((plan.CandidateMask & GetCandidateMaskBit(Direction.Right)) == 0, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RandomWalkLeash_NoTraversalLegalCandidate_Stays()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 4);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 5, 4);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 5,
+                forwardWeight: 10,
+                sideWeight: 1,
+                backwardWeight: 1);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                new[]
+                {
+                    CreateWall(entityId: 30, position: new SurfaceCell(FaceId.Floor, 4, 4)),
+                    CreateWall(entityId: 31, position: new SurfaceCell(FaceId.Floor, 6, 4)),
+                    CreateWall(entityId: 32, position: new SurfaceCell(FaceId.Floor, 5, 5)),
+                    CreateWall(entityId: 33, position: new SurfaceCell(FaceId.Floor, 5, 3)),
+                },
+                new BoardBounds(new Vector2Int(0, 3), new Vector2Int(6, 5)),
+                tickIndex: 9,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = homeCell,
+                    lastCommittedDirection = Direction.None,
+                });
+
+            Assert.That(plan.HasDirection, Is.False);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.None));
+            Assert.That(plan.SelectedPass, Is.EqualTo(RandomWalkLeashSelectionPass.None));
+            Assert.That(plan.StrictCandidateCount, Is.EqualTo(0));
+            Assert.That(plan.RelaxedLeashCandidateCount, Is.EqualTo(0));
+            Assert.That(plan.CandidateMask, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RocketFaceRandomWalk_LeashBoundary_BoxedReturnPath_UsesRelaxedLeashInsteadOfStaying()
+        {
+            var homeCell = new SurfaceCell(FaceId.Front, 0, 4);
+            var sourceCell = new SurfaceCell(FaceId.Front, 5, 4);
+            var forwardDestroyTile = new SurfaceCell(FaceId.Front, 5, 5);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 5,
+                forwardWeight: 10,
+                sideWeight: 1,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Front, 4, 4)),
+                    CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Front, 6, 4)),
+                },
+                new BoardBounds(new Vector2Int(0, 3), new Vector2Int(6, 5)),
+                new[] { CreateDestroyTile(100, forwardDestroyTile) });
+            var source = GetEntity(worldState, 40);
+            var inactiveDestroyTileDefinitions = new[]
+            {
+                CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly),
+            };
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(
+                worldState.CreateSnapshot(),
+                source,
+                tickIndex: 9,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = homeCell,
+                    lastCommittedDirection = Direction.Up,
+                },
+                settings,
+                inactiveDestroyTileDefinitions);
+
+            Assert.That(EnemyMovementStrategyShared.CanTraverseStep(
+                    worldState.CreateSnapshot(),
+                    source,
+                    Vector2Int.up,
+                    inactiveDestroyTileDefinitions),
+                Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetPlacementBlocker(
+                    EntityType.Unit,
+                    forwardDestroyTile,
+                    source.entityId,
+                    out _),
+                Is.False);
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Up));
+            Assert.That(plan.SelectedDestination, Is.EqualTo(forwardDestroyTile));
+            Assert.That(plan.SelectedPass, Is.EqualTo(RandomWalkLeashSelectionPass.RelaxedLeash));
+            Assert.That(plan.StrictCandidateCount, Is.EqualTo(0));
+            Assert.That(plan.RelaxedLeashCandidateCount, Is.GreaterThan(0));
+            Assert.That((plan.CandidateMask & GetCandidateMaskBit(Direction.Left)) == 0, Is.True);
+            Assert.That((plan.CandidateMask & GetCandidateMaskBit(Direction.Right)) == 0, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RandomWalkLeash_ImmediateBackwardPolicy_IsNotChanged()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 4);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 5, 4);
+            var settings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 5,
+                forwardWeight: 10,
+                sideWeight: 1,
+                backwardWeight: 10,
+                preventImmediateBacktrack: true);
+            var plan = BuildRandomWalkPlan(
+                sourceCell,
+                homeCell,
+                settings,
+                new[]
+                {
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 4, 4)),
+                    CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, 6, 4)),
+                },
+                new BoardBounds(new Vector2Int(0, 3), new Vector2Int(6, 5)),
+                tickIndex: 9,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 3,
+                    homeCell = homeCell,
+                    lastCommittedDirection = Direction.Up,
+                });
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.SelectedPass, Is.EqualTo(RandomWalkLeashSelectionPass.RelaxedLeash));
+            Assert.That(plan.RelaxedLeashCandidateCount, Is.EqualTo(2));
+            Assert.That((plan.CandidateMask & GetCandidateMaskBit(Direction.Down)) == 0, Is.True);
+            Assert.That(plan.PlannedDirection, Is.Not.EqualTo(Direction.Down));
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyRandomWalkPatrolPlanner_OutsideLeash_NoPath_IsDeterministic()
         {
             var homeCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -923,8 +1173,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(reachablePlan.HasDirection, Is.True);
             Assert.That(reachablePlan.PlannedDirection, Is.EqualTo(Direction.Left));
-            Assert.That(cappedPlan.HasDirection, Is.False);
-            Assert.That(cappedPlan.PlannedDirection, Is.EqualTo(Direction.None));
+            Assert.That(cappedPlan.HasDirection, Is.True);
+            Assert.That(cappedPlan.PlannedDirection, Is.EqualTo(Direction.Left));
+            Assert.That(cappedPlan.SelectedPass, Is.EqualTo(RandomWalkLeashSelectionPass.RelaxedLeash));
         }
 
         [Test]
@@ -6720,10 +6971,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EntityState CreateBox(int entityId, Vector2Int position)
         {
+            return CreateBox(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateBox(int entityId, SurfaceCell position)
+        {
             return new EntityState
             {
                 entityId = entityId,
-                position = SurfaceCell.FromPlanar(position),
+                position = position,
                 hp = 1,
                 maxHp = 1,
                 teamId = 0,
