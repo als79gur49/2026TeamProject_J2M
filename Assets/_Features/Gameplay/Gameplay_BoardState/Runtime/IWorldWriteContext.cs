@@ -21,6 +21,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
 
         void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
+
+        void AddPoseMutation(EntityPoseMutationOperation operation);
     }
 
     public interface IPlayerControlCommitContext
@@ -97,6 +99,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state);
 
         void SetTopology(CubeTopologyState topology);
+
+        void AddPoseMutation(EntityPoseMutationOperation operation);
     }
 
     internal interface IAttackCommitContext : IPlayerDamageCommitContext
@@ -151,6 +155,8 @@ namespace Game.Feature.Gameplay.BoardState
         new void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
 
         new void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
+
+        new void AddPoseMutation(EntityPoseMutationOperation operation);
 
         new void RemoveBoxInteractionLockState(int entityId);
 

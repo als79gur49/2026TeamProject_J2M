@@ -130,7 +130,7 @@ namespace Game.Feature.Gameplay.Entities
                 workingAction.executionAttempted &&
                 workingAction.executeTick < tickIndex)
             {
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
                 workingAction = EnemyActionQueries.Clear(workingAction);
             }
 
@@ -138,7 +138,7 @@ namespace Game.Feature.Gameplay.Entities
                 workingAction.IsActive &&
                 workingAction.executionAttempted)
             {
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
                 workingAction = EnemyActionQueries.Clear(workingAction);
             }
 
@@ -159,7 +159,7 @@ namespace Game.Feature.Gameplay.Entities
                     return workingAction;
                 }
 
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
                 return EnemyActionQueries.Clear(workingAction);
             }
 
@@ -176,14 +176,21 @@ namespace Game.Feature.Gameplay.Entities
                             workingAction,
                             writeContext,
                             tickIndex);
-                        ReleaseCombatLocomotionHoldIfNeeded(snapshot, releasedAction, writeContext);
+                        ReleaseCombatLocomotionHoldIfNeeded(snapshot, releasedAction, writeContext, tickIndex);
                         return releasedAction;
                     }
 
                     var authoritativeFacing = EnemyActionQueries.ResolveAuthoritativeFacing(workingAction);
                     if (source.facing != authoritativeFacing)
                     {
-                        writeContext.SetFacing(_entityId, authoritativeFacing);
+                        writeContext.AddPoseMutation(
+                            CreateActionFacingMutation(
+                                source,
+                                authoritativeFacing,
+                                PoseMutationSource.CombatActionHold,
+                                tickIndex,
+                                workingAction.sequence,
+                                "ForwardCellProjectileHold"));
                     }
 
                     return workingAction;
@@ -200,14 +207,21 @@ namespace Game.Feature.Gameplay.Entities
                 {
                     if (source.facing != workingAction.direction)
                     {
-                        writeContext.SetFacing(_entityId, workingAction.direction);
+                        writeContext.AddPoseMutation(
+                            CreateActionFacingMutation(
+                                source,
+                                workingAction.direction,
+                                PoseMutationSource.CombatActionHold,
+                                tickIndex,
+                                workingAction.sequence,
+                                "CombatActionHold"));
                     }
 
                     return workingAction;
                 }
 
                 ApplyCancelFallback(snapshot, source, writeContext);
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext);
+                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
                 return EnemyActionQueries.Clear(workingAction);
             }
 
@@ -257,8 +271,15 @@ namespace Game.Feature.Gameplay.Entities
                 _combatCapability.AttackTimingSettings.WindupTicks,
                 startQuery.EnemyOrigin,
                 actionKind == EnemyActionKind.ForwardCellProjectile ? lockedTargetCell : null);
-            writeContext.SetFacing(_entityId, direction);
-            HoldCombatLocomotionAtCurrentPose(snapshot, source, writeContext);
+            writeContext.AddPoseMutation(
+                CreateActionFacingMutation(
+                    source,
+                    direction,
+                    PoseMutationSource.CombatActionStart,
+                    tickIndex,
+                    nextAction.sequence,
+                    "CombatActionStart"));
+            HoldCombatLocomotionAtCurrentPose(snapshot, source, writeContext, tickIndex, nextAction.sequence);
             return nextAction;
         }
 
@@ -307,7 +328,14 @@ namespace Game.Feature.Gameplay.Entities
             var authoritativeFacing = EnemyActionQueries.ResolveAuthoritativeFacing(action);
             if (source.facing != authoritativeFacing)
             {
-                writeContext.SetFacing(_entityId, authoritativeFacing);
+                writeContext.AddPoseMutation(
+                    CreateActionFacingMutation(
+                        source,
+                        authoritativeFacing,
+                        PoseMutationSource.CombatActionRelease,
+                        tickIndex,
+                        action.sequence,
+                        "ForwardCellProjectileRelease"));
             }
 
             if (!action.hasLockedForwardCellImpact)
@@ -382,6 +410,81 @@ namespace Game.Feature.Gameplay.Entities
             return settings.ResolveImpactDelayTicks(distanceCells);
         }
 
+        private EntityPoseMutationOperation CreateActionFacingMutation(
+            in EntityState source,
+            Direction facing,
+            PoseMutationSource poseSource,
+            int tickIndex,
+            int actionSequenceId,
+            string writer)
+        {
+            return new EntityPoseMutationOperation(
+                new EntityPoseMutationRequest
+                {
+                    EntityId = _entityId,
+                    Source = poseSource,
+                    Kind = PoseMutationKind.FacingOnly,
+                    FromCell = source.position,
+                    ToCell = source.position,
+                    PositionChanged = false,
+                    FacingBefore = source.facing,
+                    FacingAfter = facing,
+                    MovementDirection = Direction.None,
+                    MovementIntentExists = false,
+                    MovementAccepted = false,
+                    MovementSuppressed = false,
+                    HasExplicitActionFacing = true,
+                    HasExplicitSkillFacing = false,
+                    HasExplicitRotateAction = false,
+                    KinematicMutation = KinematicMutationKind.None,
+                    TickIndex = tickIndex,
+                    ActionSequenceId = actionSequenceId,
+                    Writer = writer,
+                    Reason = "ExplicitCombatActionFacing",
+                });
+        }
+
+        private EntityPoseMutationOperation CreateActionKinematicMutation(
+            in EntityState source,
+            UnitKinematicRuntimeState state,
+            PoseMutationSource poseSource,
+            KinematicMutationKind mutationKind,
+            int tickIndex,
+            int actionSequenceId,
+            string writer)
+        {
+            return new EntityPoseMutationOperation(
+                new EntityPoseMutationRequest
+                {
+                    EntityId = _entityId,
+                    Source = poseSource,
+                    Kind = PoseMutationKind.KinematicOnly,
+                    FromCell = source.position,
+                    ToCell = source.position,
+                    PositionChanged = false,
+                    FacingBefore = source.facing,
+                    FacingAfter = source.facing,
+                    MovementDirection = Direction.None,
+                    MovementIntentExists = false,
+                    MovementAccepted = false,
+                    MovementSuppressed = false,
+                    HasExplicitActionFacing = false,
+                    HasExplicitSkillFacing = false,
+                    HasExplicitRotateAction = false,
+                    KinematicMutation = mutationKind,
+                    KinematicDirection = Direction.None,
+                    HasKinematicDirection = false,
+                    KinematicDirectionKind = KinematicDirectionKind.None,
+                    KinematicFacingPolicy = KinematicFacingPolicy.PreserveFacing,
+                    ShouldUpdateFacing = false,
+                    TickIndex = tickIndex,
+                    ActionSequenceId = actionSequenceId,
+                    Writer = writer,
+                    Reason = "CombatLocomotionKinematic",
+                },
+                state);
+        }
+
         private static EnemyActionRuntimeState CommitAfterAttack(
             in EntityState source,
             in EnemyActionRuntimeState previousAction,
@@ -424,7 +527,9 @@ namespace Game.Feature.Gameplay.Entities
         private void HoldCombatLocomotionAtCurrentPose(
             WorldSnapshot snapshot,
             in EntityState source,
-            IEnemyActionCommitContext writeContext)
+            IEnemyActionCommitContext writeContext,
+            int tickIndex,
+            int actionSequenceId)
         {
             if (snapshot.TryGetUnitContinuousLocomotionPose(source.entityId, out var continuousPose) &&
                 continuousPose.HasAuthoritativeState &&
@@ -440,16 +545,23 @@ namespace Game.Feature.Gameplay.Entities
                 kinematicPose.HasAuthoritativeState &&
                 kinematicPose.Mode == MotionMode.Voluntary)
             {
-                writeContext.SetUnitKinematicState(
-                    source.entityId,
-                    UnitKinematicRuntimeState.CreateHeldFreeze(kinematicPose.State));
+                writeContext.AddPoseMutation(
+                    CreateActionKinematicMutation(
+                        source,
+                        UnitKinematicRuntimeState.CreateHeldFreeze(kinematicPose.State),
+                        PoseMutationSource.KinematicHold,
+                        KinematicMutationKind.Hold,
+                        tickIndex,
+                        actionSequenceId,
+                        "CombatLocomotionHold"));
             }
         }
 
         private void ReleaseCombatLocomotionHoldIfNeeded(
             WorldSnapshot snapshot,
             in EnemyActionRuntimeState actionState,
-            IEnemyActionCommitContext writeContext)
+            IEnemyActionCommitContext writeContext,
+            int tickIndex)
         {
             if (!actionState.hasLockedCombatAnchor ||
                 !snapshot.TryGetUnitKinematicPose(_entityId, out var pose) ||
@@ -460,9 +572,15 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            writeContext.SetUnitKinematicState(
-                _entityId,
-                UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(pose.State, velocity));
+            writeContext.AddPoseMutation(
+                CreateActionKinematicMutation(
+                    new EntityState { entityId = _entityId, position = pose.AnchorCell },
+                    UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(pose.State, velocity),
+                    PoseMutationSource.KinematicRelease,
+                    KinematicMutationKind.ReleaseHold,
+                    tickIndex,
+                    actionState.sequence,
+                    "CombatLocomotionRelease"));
         }
 
         private static bool TryResolveHeldResumeVelocity(

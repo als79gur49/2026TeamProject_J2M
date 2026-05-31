@@ -180,6 +180,172 @@ namespace Game.Feature.Gameplay.Loop
         public BoxSlideStopCause Cause { get; }
     }
 
+    internal readonly struct MovementPresentationRecord
+    {
+        public MovementPresentationRecord(
+            int entityId,
+            int tickIndex,
+            int operationId,
+            int movementIntentId,
+            int movementResolutionId,
+            SurfaceCell fromCell,
+            SurfaceCell toCell,
+            Direction movementDirection,
+            bool positionChanged,
+            bool wasAccepted,
+            string source,
+            bool usesSyntheticOperationId)
+        {
+            EntityId = entityId;
+            TickIndex = tickIndex;
+            OperationId = operationId;
+            MovementIntentId = movementIntentId;
+            MovementResolutionId = movementResolutionId;
+            FromCell = fromCell;
+            ToCell = toCell;
+            MovementDirection = movementDirection;
+            PositionChanged = positionChanged;
+            WasAccepted = wasAccepted;
+            Source = source ?? string.Empty;
+            UsesSyntheticOperationId = usesSyntheticOperationId;
+        }
+
+        public int EntityId { get; }
+
+        public int TickIndex { get; }
+
+        public int OperationId { get; }
+
+        public int MovementIntentId { get; }
+
+        public int MovementResolutionId { get; }
+
+        public SurfaceCell FromCell { get; }
+
+        public SurfaceCell ToCell { get; }
+
+        public Direction MovementDirection { get; }
+
+        public bool PositionChanged { get; }
+
+        public bool WasAccepted { get; }
+
+        public string Source { get; }
+
+        public bool UsesSyntheticOperationId { get; }
+    }
+
+    internal readonly struct KinematicPresentationRecord
+    {
+        public KinematicPresentationRecord(
+            int entityId,
+            int tickIndex,
+            int operationId,
+            int actionSequenceId,
+            MotionMode modeBefore,
+            MotionMode modeAfter,
+            SurfaceCell anchorCellBefore,
+            SurfaceCell anchorCellAfter,
+            KinematicOffset2 localOffsetBefore,
+            KinematicOffset2 localOffsetAfter,
+            KinematicVelocity2 velocityBefore,
+            KinematicVelocity2 velocityAfter,
+            ForcedMotionOp forcedMotionOpAfter,
+            bool hasAuthoritativeStateBefore,
+            bool hasAuthoritativeStateAfter,
+            bool isSettledAtAnchorBefore,
+            bool isSettledAtAnchorAfter,
+            KinematicMutationKind mutationKind,
+            string source,
+            string reason,
+            Direction kinematicDirection = Direction.None,
+            Direction facingBefore = Direction.None,
+            Direction facingAfter = Direction.None,
+            bool shouldUpdateFacing = false,
+            KinematicDirectionKind directionKind = KinematicDirectionKind.None,
+            KinematicFacingPolicy facingPolicy = KinematicFacingPolicy.PreserveFacing)
+        {
+            EntityId = entityId;
+            TickIndex = tickIndex;
+            OperationId = operationId;
+            ActionSequenceId = actionSequenceId;
+            ModeBefore = modeBefore;
+            ModeAfter = modeAfter;
+            AnchorCellBefore = anchorCellBefore;
+            AnchorCellAfter = anchorCellAfter;
+            LocalOffsetBefore = localOffsetBefore;
+            LocalOffsetAfter = localOffsetAfter;
+            VelocityBefore = velocityBefore;
+            VelocityAfter = velocityAfter;
+            ForcedMotionOpAfter = forcedMotionOpAfter;
+            HasAuthoritativeStateBefore = hasAuthoritativeStateBefore;
+            HasAuthoritativeStateAfter = hasAuthoritativeStateAfter;
+            IsSettledAtAnchorBefore = isSettledAtAnchorBefore;
+            IsSettledAtAnchorAfter = isSettledAtAnchorAfter;
+            MutationKind = mutationKind;
+            Source = source ?? string.Empty;
+            Reason = reason ?? string.Empty;
+            KinematicDirection = kinematicDirection;
+            FacingBefore = facingBefore;
+            FacingAfter = facingAfter;
+            ShouldUpdateFacing = shouldUpdateFacing;
+            DirectionKind = directionKind;
+            FacingPolicy = facingPolicy;
+        }
+
+        public int EntityId { get; }
+
+        public int TickIndex { get; }
+
+        public int OperationId { get; }
+
+        public int ActionSequenceId { get; }
+
+        public MotionMode ModeBefore { get; }
+
+        public MotionMode ModeAfter { get; }
+
+        public SurfaceCell AnchorCellBefore { get; }
+
+        public SurfaceCell AnchorCellAfter { get; }
+
+        public KinematicOffset2 LocalOffsetBefore { get; }
+
+        public KinematicOffset2 LocalOffsetAfter { get; }
+
+        public KinematicVelocity2 VelocityBefore { get; }
+
+        public KinematicVelocity2 VelocityAfter { get; }
+
+        public ForcedMotionOp ForcedMotionOpAfter { get; }
+
+        public bool HasAuthoritativeStateBefore { get; }
+
+        public bool HasAuthoritativeStateAfter { get; }
+
+        public bool IsSettledAtAnchorBefore { get; }
+
+        public bool IsSettledAtAnchorAfter { get; }
+
+        public KinematicMutationKind MutationKind { get; }
+
+        public string Source { get; }
+
+        public string Reason { get; }
+
+        public Direction KinematicDirection { get; }
+
+        public Direction FacingBefore { get; }
+
+        public Direction FacingAfter { get; }
+
+        public bool ShouldUpdateFacing { get; }
+
+        public KinematicDirectionKind DirectionKind { get; }
+
+        public KinematicFacingPolicy FacingPolicy { get; }
+    }
+
     internal sealed class MovementPhaseResult
     {
         public static readonly MovementPhaseResult Empty = new(
@@ -195,7 +361,9 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<BarricadeBlockFact>(),
             Array.Empty<BoxSlideStopResult>(),
             Array.Empty<TickPlayerTopologyTransitionBlockedSignal>(),
-            Array.Empty<string>());
+            Array.Empty<string>(),
+            Array.Empty<MovementPresentationRecord>(),
+            Array.Empty<KinematicPresentationRecord>());
 
         private readonly ReadOnlyCollection<BarricadeBlockFact> _barricadeBlockFacts;
         private readonly ReadOnlyCollection<BoxSlideStopResult> _boxSlideStops;
@@ -204,6 +372,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<FrontFaceShieldBlockPresentationExport> _frontFaceShieldBlockExports;
         private readonly ReadOnlyCollection<FrontFaceShieldSourcePresentationExport> _frontFaceShieldSourceExports;
         private readonly ReadOnlyCollection<ImpactDispositionResolutionRecord> _impactDispositionRecords;
+        private readonly ReadOnlyCollection<MovementPresentationRecord> _movementPresentationRecords;
+        private readonly ReadOnlyCollection<KinematicPresentationRecord> _kinematicPresentationRecords;
         private readonly ReadOnlyCollection<TickPlayerTopologyTransitionBlockedSignal> _playerTopologyTransitionBlockedSignals;
         private readonly ReadOnlyCollection<RawMovementIntent> _rawIntents;
         private readonly ReadOnlyCollection<string> _rejectedReasons;
@@ -224,7 +394,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<BarricadeBlockFact> barricadeBlockFacts = null,
             IEnumerable<BoxSlideStopResult> boxSlideStops = null,
             IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
-            IEnumerable<string> debugEvents = null)
+            IEnumerable<string> debugEvents = null,
+            IEnumerable<MovementPresentationRecord> movementPresentationRecords = null,
+            IEnumerable<KinematicPresentationRecord> kinematicPresentationRecords = null)
         {
             if (rawIntents == null)
             {
@@ -271,6 +443,12 @@ namespace Game.Feature.Gameplay.Loop
             _rejectedReasons = new ReadOnlyCollection<string>(new List<string>(rejectedReasons));
             _debugEvents = new ReadOnlyCollection<string>(
                 new List<string>(debugEvents ?? Array.Empty<string>()));
+            _movementPresentationRecords = new ReadOnlyCollection<MovementPresentationRecord>(
+                new List<MovementPresentationRecord>(
+                    movementPresentationRecords ?? Array.Empty<MovementPresentationRecord>()));
+            _kinematicPresentationRecords = new ReadOnlyCollection<KinematicPresentationRecord>(
+                new List<KinematicPresentationRecord>(
+                    kinematicPresentationRecords ?? Array.Empty<KinematicPresentationRecord>()));
             _frontFaceShieldSourceExports = new ReadOnlyCollection<FrontFaceShieldSourcePresentationExport>(
                 new List<FrontFaceShieldSourcePresentationExport>(
                     frontFaceShieldSourceExports ?? Array.Empty<FrontFaceShieldSourcePresentationExport>()));
@@ -307,6 +485,12 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> RejectedReasons => _rejectedReasons;
 
         public IReadOnlyList<string> DebugEvents => _debugEvents;
+
+        internal IReadOnlyList<MovementPresentationRecord> MovementPresentationRecords =>
+            _movementPresentationRecords;
+
+        internal IReadOnlyList<KinematicPresentationRecord> KinematicPresentationRecords =>
+            _kinematicPresentationRecords;
 
         internal IReadOnlyList<FrontFaceShieldSourcePresentationExport> FrontFaceShieldSourceExports =>
             _frontFaceShieldSourceExports;
