@@ -710,6 +710,17 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|MotionSeq=").Append(operation.UnitKinematicState.sequenceId);
                     break;
 
+                case FinalizationOperationKind.SetEntityLocomotionLeaseState:
+                    builder.Append("|LeaseId=").Append(operation.EntityLocomotionLeaseState.leaseId)
+                        .Append("|OwnerKind=").Append(operation.EntityLocomotionLeaseState.ownerKind)
+                        .Append("|LeaseState=").Append(operation.EntityLocomotionLeaseState.stateKind)
+                        .Append("|OwnerSeq=").Append(operation.EntityLocomotionLeaseState.ownerActionSequenceId)
+                        .Append("|Anchor=").Append(FormatCell(operation.EntityLocomotionLeaseState.anchorAtAcquire))
+                        .Append("|AcquiredTick=").Append(operation.EntityLocomotionLeaseState.acquiredTick)
+                        .Append("|LastReleaseTick=").Append(operation.EntityLocomotionLeaseState.lastReleaseTick)
+                        .Append("|LastReleaseReason=").Append(operation.EntityLocomotionLeaseState.lastReleaseReason);
+                    break;
+
                 case FinalizationOperationKind.SetTopology:
                     builder.Append("|Rotation=").Append(operation.Metadata.RotationKind)
                         .Append("|Bottom=").Append(operation.Topology.BottomFace)

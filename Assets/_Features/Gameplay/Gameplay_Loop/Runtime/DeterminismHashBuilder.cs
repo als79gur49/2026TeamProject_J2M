@@ -101,6 +101,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("UnitContinuousLocomotion").Append('\n');
             AppendUnitContinuousLocomotionLines(builder, GetOrderedUnitContinuousLocomotionStates(finalSnapshot));
 
+            builder.Append("EntityLocomotionLeases").Append('\n');
+            AppendEntityLocomotionLeaseLines(builder, GetOrderedEntityLocomotionLeaseStates(finalSnapshot));
+
             builder.Append("PhasedStates").Append('\n');
             AppendPhasedStateLines(builder, GetOrderedPhasedStates(finalSnapshot));
 
@@ -287,6 +290,13 @@ namespace Game.Feature.Gameplay.Loop
             return unitContinuousEntries;
         }
 
+        private static List<EntityLocomotionLeaseSnapshotEntry> GetOrderedEntityLocomotionLeaseStates(WorldSnapshot finalSnapshot)
+        {
+            var leaseEntries = new List<EntityLocomotionLeaseSnapshotEntry>();
+            finalSnapshot.EnumerateEntityLocomotionLeaseStatesOrdered(leaseEntries);
+            return leaseEntries;
+        }
+
         private static List<PlayerControlSnapshotEntry> GetOrderedPlayerControlStates(WorldSnapshot finalSnapshot)
         {
             var playerControlEntries = new List<PlayerControlSnapshotEntry>();
@@ -438,6 +448,53 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(state.sequenceId).Append('|')
                     .Append(state.subUnitRemainderX).Append('|')
                     .Append(state.subUnitRemainderY).Append('\n');
+            }
+        }
+
+        private static void AppendEntityLocomotionLeaseLines(
+            StringBuilder builder,
+            IReadOnlyList<EntityLocomotionLeaseSnapshotEntry> leaseEntries)
+        {
+            if (leaseEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < leaseEntries.Count; i++)
+            {
+                var entry = leaseEntries[i];
+                var state = entry.State;
+                var captured = state.capturedKinematic;
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(state.leaseId).Append('|')
+                    .Append(state.entityId).Append('|')
+                    .Append((int)state.ownerKind).Append('|')
+                    .Append((int)state.stateKind).Append('|')
+                    .Append(state.ownerActionSequenceId).Append('|')
+                    .Append((int)state.anchorAtAcquire.face).Append('|')
+                    .Append(state.anchorAtAcquire.x).Append('|')
+                    .Append(state.anchorAtAcquire.y).Append('|')
+                    .Append(state.acquiredTick).Append('|')
+                    .Append(state.lastReleaseTick).Append('|')
+                    .Append((int)state.lastReleaseReason).Append('|')
+                    .Append(captured.localOffset.X.RawValue).Append('|')
+                    .Append(captured.localOffset.Y.RawValue).Append('|')
+                    .Append(captured.velocity.X.RawValue).Append('|')
+                    .Append(captured.velocity.Y.RawValue).Append('|')
+                    .Append((int)captured.mode).Append('|')
+                    .Append((int)captured.forcedOp).Append('|')
+                    .Append(captured.remainingDistanceUnits).Append('|')
+                    .Append(captured.remainingTicks).Append('|')
+                    .Append(captured.speedScalePermille).Append('|')
+                    .Append(captured.sequenceId).Append('|')
+                    .Append(captured.elapsedTicks).Append('|')
+                    .Append(captured.totalTicks).Append('|')
+                    .Append(captured.commitTick).Append('|')
+                    .Append(captured.startedTick).Append('|')
+                    .Append(captured.stepDirectionX).Append('|')
+                    .Append(captured.stepDirectionY).Append('\n');
             }
         }
 

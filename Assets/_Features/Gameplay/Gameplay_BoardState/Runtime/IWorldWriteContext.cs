@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
 
+        void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state);
+
         void AddPoseMutation(EntityPoseMutationOperation operation);
     }
 
@@ -155,6 +157,8 @@ namespace Game.Feature.Gameplay.BoardState
         new void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
 
         new void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
+
+        new void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state);
 
         new void AddPoseMutation(EntityPoseMutationOperation operation);
 

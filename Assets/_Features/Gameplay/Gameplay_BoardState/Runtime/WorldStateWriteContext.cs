@@ -123,6 +123,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetUnitContinuousLocomotionState(entityId, state);
         }
 
+        public void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state)
+        {
+            _port.SetEntityLocomotionLeaseState(entityId, state);
+        }
+
         public void AddPoseMutation(EntityPoseMutationOperation operation)
         {
             var decision = EntityPoseMutationAuthority.Decide(operation.Request);

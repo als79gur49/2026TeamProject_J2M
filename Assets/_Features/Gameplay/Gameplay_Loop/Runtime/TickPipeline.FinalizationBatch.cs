@@ -72,6 +72,7 @@ namespace Game.Feature.Gameplay.Loop
         SetPendingEnemyBlockedReaction = 33,
         ClearPendingEnemyBlockedReaction = 34,
         PoseMutation = 35,
+        SetEntityLocomotionLeaseState = 36,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -242,6 +243,7 @@ namespace Game.Feature.Gameplay.Loop
             int gravityFieldTimerTicks = 0,
             UnitKinematicRuntimeState unitKinematicState = default,
             UnitContinuousLocomotionState unitContinuousLocomotionState = default,
+            EntityLocomotionLeaseState entityLocomotionLeaseState = default,
             PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
             bool hasSpawnedEntitySummonedState = false,
@@ -287,6 +289,7 @@ namespace Game.Feature.Gameplay.Loop
             GravityFieldTimerTicks = gravityFieldTimerTicks;
             UnitKinematicState = unitKinematicState;
             UnitContinuousLocomotionState = unitContinuousLocomotionState;
+            EntityLocomotionLeaseState = entityLocomotionLeaseState;
             PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
             HasSpawnedEntitySummonedState = hasSpawnedEntitySummonedState;
@@ -370,6 +373,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public UnitContinuousLocomotionState UnitContinuousLocomotionState { get; }
 
+        public EntityLocomotionLeaseState EntityLocomotionLeaseState { get; }
+
         public PhasedRuntimeState PhasedState { get; }
 
         public EntityState SpawnedEntity { get; }
@@ -424,6 +429,7 @@ namespace Game.Feature.Gameplay.Loop
                 GravityFieldTimerTicks,
                 UnitKinematicState,
                 UnitContinuousLocomotionState,
+                EntityLocomotionLeaseState,
                 PhasedState,
                 SpawnedEntity,
                 HasSpawnedEntitySummonedState,
@@ -789,6 +795,21 @@ namespace Game.Feature.Gameplay.Loop
                 unitContinuousLocomotionState: unitContinuousLocomotionState);
         }
 
+        public static FinalizationOperation SetEntityLocomotionLeaseState(
+            long sequence,
+            int entityId,
+            EntityLocomotionLeaseState entityLocomotionLeaseState,
+            FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEntityLocomotionLeaseState,
+                metadata,
+                entityId: entityId,
+                entityLocomotionLeaseState: entityLocomotionLeaseState);
+        }
+
         public static FinalizationOperation SetPhasedState(long sequence, int entityId, PhasedRuntimeState phasedState, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -879,6 +900,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly List<string> _movementPresentationDiagnostics = new();
         private readonly List<TileFeatureOperation> _tileFeatureOperations = new();
         private readonly List<string> _poseMutationDiagnostics = new();
+        private readonly List<string> _entityLocomotionLeaseDiagnostics = new();
         private long _nextSequence = 1;
 
         public IReadOnlyList<FinalizationOperation> Operations => _operations;
@@ -890,6 +912,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TileFeatureOperation> TileFeatureOperations => _tileFeatureOperations;
 
         public IReadOnlyList<string> PoseMutationDiagnostics => _poseMutationDiagnostics;
+
+        public IReadOnlyList<string> EntityLocomotionLeaseDiagnostics => _entityLocomotionLeaseDiagnostics;
 
         public void MoveEntity(int entityId, SurfaceCell destination, FinalizationOperationMetadata metadata = default)
         {
@@ -1083,6 +1107,12 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetUnitContinuousLocomotionState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state, FinalizationOperationMetadata metadata = default)
+        {
+            _entityLocomotionLeaseDiagnostics.Add(FormatEntityLocomotionLeaseDiagnostic(entityId, state));
+            _operations.Add(FinalizationOperation.SetEntityLocomotionLeaseState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetPhasedState(_nextSequence++, entityId, state, metadata));
@@ -1164,6 +1194,11 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < batch._movementPresentationDiagnostics.Count; i++)
             {
                 _movementPresentationDiagnostics.Add(batch._movementPresentationDiagnostics[i]);
+            }
+
+            for (var i = 0; i < batch._entityLocomotionLeaseDiagnostics.Count; i++)
+            {
+                _entityLocomotionLeaseDiagnostics.Add(batch._entityLocomotionLeaseDiagnostics[i]);
             }
 
             if (!includeTileFeatureOperations)
@@ -1361,6 +1396,10 @@ namespace Game.Feature.Gameplay.Loop
                         writeContext.SetUnitContinuousLocomotionState(operation.EntityId, operation.UnitContinuousLocomotionState);
                         break;
 
+                    case FinalizationOperationKind.SetEntityLocomotionLeaseState:
+                        writeContext.SetEntityLocomotionLeaseState(operation.EntityId, operation.EntityLocomotionLeaseState);
+                        break;
+
                     case FinalizationOperationKind.PoseMutation:
                         ApplyPoseMutation(writeContext, operation.PoseMutationOperation);
                         break;
@@ -1513,6 +1552,106 @@ namespace Game.Feature.Gameplay.Loop
                 $"|ShouldUpdateFacing={(request.ShouldUpdateFacing ? 1 : 0)}" +
                 $"|Allowed={(decision.Allowed ? 1 : 0)}" +
                 $"|RejectReason={decision.RejectReason}";
+        }
+
+        private static string FormatEntityLocomotionLeaseDiagnostic(
+            int entityId,
+            in EntityLocomotionLeaseState state)
+        {
+            var normalized = state.NormalizedForStorage();
+            var operation = ResolveLeaseDiagnosticOperation(normalized);
+            var policy = ResolveLeaseDiagnosticPolicy(normalized);
+            var tickIndex = operation == "Acquire"
+                ? normalized.acquiredTick
+                : normalized.lastReleaseTick;
+            var stateBefore = operation == "Acquire"
+                ? EntityLocomotionLeaseStateKind.None
+                : EntityLocomotionLeaseStateKind.HeldByOwner;
+            var kinematicModeBefore = operation == "Acquire"
+                ? normalized.capturedKinematic.mode
+                : MotionMode.Held;
+            var kinematicModeAfter = ResolveLeaseDiagnosticKinematicModeAfter(operation, policy);
+            var isSettledAtAnchor = kinematicModeAfter == MotionMode.Settled ||
+                                    kinematicModeAfter == MotionMode.LegacyDiscrete;
+            return Game.Feature.Gameplay.BoardState.EntityLocomotionLeaseDiagnostics.FormatOperation(
+                tickIndex,
+                entityId,
+                operation,
+                normalized.ownerKind,
+                normalized.ownerActionSequenceId,
+                normalized.leaseId,
+                stateBefore,
+                normalized.stateKind,
+                normalized.lastReleaseReason,
+                policy,
+                kinematicModeBefore,
+                kinematicModeAfter,
+                hasAuthoritativeState: true,
+                isSettledAtAnchor: isSettledAtAnchor,
+                lastReleaseTick: normalized.lastReleaseTick,
+                lastReleaseReason: normalized.lastReleaseReason);
+        }
+
+        private static string ResolveLeaseDiagnosticOperation(in EntityLocomotionLeaseState state)
+        {
+            if (state.stateKind == EntityLocomotionLeaseStateKind.HeldByOwner &&
+                state.lastReleaseTick == 0)
+            {
+                return "Acquire";
+            }
+
+            if (state.stateKind == EntityLocomotionLeaseStateKind.Orphaned)
+            {
+                return "OrphanedKinematicNotSettled";
+            }
+
+            return state.IsTerminal ? "Release" : "SkipRelease";
+        }
+
+        private static string ResolveLeaseDiagnosticPolicy(in EntityLocomotionLeaseState state)
+        {
+            if (!state.IsTerminal)
+            {
+                return string.Empty;
+            }
+
+            if (TryResolveLeaseDiagnosticResumeVelocity(state.capturedKinematic, out _))
+            {
+                return EntityLocomotionLeaseReleasePolicy.ResumeCapturedVoluntary.ToString();
+            }
+
+            return state.lastReleaseReason == EntityLocomotionLeaseReleaseReason.TopologyNonParticipant
+                ? EntityLocomotionLeaseReleasePolicy.ForceSettledAtCurrentAnchor.ToString()
+                : EntityLocomotionLeaseReleasePolicy.ClearStaleHold.ToString();
+        }
+
+        private static MotionMode ResolveLeaseDiagnosticKinematicModeAfter(string operation, string policy)
+        {
+            if (operation == "Acquire")
+            {
+                return MotionMode.Held;
+            }
+
+            return policy == EntityLocomotionLeaseReleasePolicy.ResumeCapturedVoluntary.ToString()
+                ? MotionMode.Voluntary
+                : MotionMode.Settled;
+        }
+
+        private static bool TryResolveLeaseDiagnosticResumeVelocity(
+            in UnitKinematicRuntimeState state,
+            out KinematicVelocity2 velocity)
+        {
+            velocity = default;
+            if (state.totalTicks <= 0 ||
+                (state.stepDirectionX == 0 && state.stepDirectionY == 0))
+            {
+                return false;
+            }
+
+            velocity = new KinematicVelocity2(
+                KinematicFixed.FromRaw(state.stepDirectionX * KinematicFixed.UnitsPerCell / state.totalTicks),
+                KinematicFixed.FromRaw(state.stepDirectionY * KinematicFixed.UnitsPerCell / state.totalTicks));
+            return true;
         }
 
         private static bool TryCreateMovementPresentationRecord(
@@ -1816,6 +1955,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state)
         {
             _batch.SetUnitContinuousLocomotionState(entityId, state);
+        }
+
+        public void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state)
+        {
+            _batch.SetEntityLocomotionLeaseState(entityId, state);
         }
 
         public void AddPoseMutation(EntityPoseMutationOperation operation)

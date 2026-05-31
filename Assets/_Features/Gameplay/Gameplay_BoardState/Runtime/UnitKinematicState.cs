@@ -441,4 +441,224 @@ namespace Game.Feature.Gameplay.BoardState
 
         public UnitKinematicRuntimeState State { get; }
     }
+
+    public enum EntityLocomotionLeaseOwnerKind
+    {
+        None = 0,
+        CombatAction = 1,
+        MovementSkill = 2,
+        UtilityState = 3,
+        SystemCleanup = 4,
+    }
+
+    public enum EntityLocomotionLeaseStateKind
+    {
+        None = 0,
+        HeldByOwner = 1,
+        ReleaseRequested = 2,
+        Settling = 3,
+        Completed = 4,
+        Orphaned = 5,
+    }
+
+    public enum EntityLocomotionLeaseReleaseReason
+    {
+        NormalComplete = 0,
+        TopologyNonParticipant = 1,
+        NoCombatCapability = 2,
+        SourceInactive = 3,
+        AiModeNonAttack = 4,
+        PostExecuteCleanup = 5,
+        AfterAttackClear = 6,
+        ActionLogicClear = 7,
+        EntityRemoved = 8,
+        StageReset = 9,
+    }
+
+    public enum EntityLocomotionLeaseReleasePolicy
+    {
+        ResumeCapturedVoluntary = 0,
+        SettleToAnchor = 1,
+        ForceSettledAtCurrentAnchor = 2,
+        ClearStaleHold = 3,
+        RemoveWithEntity = 4,
+    }
+
+    public struct EntityLocomotionLeaseState : IEquatable<EntityLocomotionLeaseState>
+    {
+        public int leaseId;
+        public int entityId;
+        public EntityLocomotionLeaseOwnerKind ownerKind;
+        public EntityLocomotionLeaseStateKind stateKind;
+        public int ownerActionSequenceId;
+        public UnitKinematicRuntimeState capturedKinematic;
+        public SurfaceCell anchorAtAcquire;
+        public int acquiredTick;
+        public int lastReleaseTick;
+        public EntityLocomotionLeaseReleaseReason lastReleaseReason;
+
+        public static EntityLocomotionLeaseState None => default;
+
+        public bool IsOmittable =>
+            leaseId <= 0 ||
+            entityId <= 0 ||
+            ownerKind == EntityLocomotionLeaseOwnerKind.None ||
+            stateKind == EntityLocomotionLeaseStateKind.None;
+
+        public bool IsTerminal =>
+            stateKind == EntityLocomotionLeaseStateKind.Completed ||
+            stateKind == EntityLocomotionLeaseStateKind.Orphaned;
+
+        public bool IsActive =>
+            stateKind == EntityLocomotionLeaseStateKind.HeldByOwner ||
+            stateKind == EntityLocomotionLeaseStateKind.ReleaseRequested ||
+            stateKind == EntityLocomotionLeaseStateKind.Settling;
+
+        public EntityLocomotionLeaseState NormalizedForStorage()
+        {
+            var normalized = this;
+            normalized.leaseId = Math.Max(0, normalized.leaseId);
+            normalized.entityId = Math.Max(0, normalized.entityId);
+            normalized.ownerActionSequenceId = Math.Max(0, normalized.ownerActionSequenceId);
+            normalized.capturedKinematic = normalized.capturedKinematic.NormalizedForStorage();
+            normalized.acquiredTick = Math.Max(0, normalized.acquiredTick);
+            normalized.lastReleaseTick = Math.Max(0, normalized.lastReleaseTick);
+            if (normalized.IsOmittable)
+            {
+                return default;
+            }
+
+            return normalized;
+        }
+
+        public bool Equals(EntityLocomotionLeaseState other)
+        {
+            return leaseId == other.leaseId &&
+                   entityId == other.entityId &&
+                   ownerKind == other.ownerKind &&
+                   stateKind == other.stateKind &&
+                   ownerActionSequenceId == other.ownerActionSequenceId &&
+                   capturedKinematic.Equals(other.capturedKinematic) &&
+                   anchorAtAcquire.Equals(other.anchorAtAcquire) &&
+                   acquiredTick == other.acquiredTick &&
+                   lastReleaseTick == other.lastReleaseTick &&
+                   lastReleaseReason == other.lastReleaseReason;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EntityLocomotionLeaseState other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = leaseId;
+                hashCode = (hashCode * 397) ^ entityId;
+                hashCode = (hashCode * 397) ^ (int)ownerKind;
+                hashCode = (hashCode * 397) ^ (int)stateKind;
+                hashCode = (hashCode * 397) ^ ownerActionSequenceId;
+                hashCode = (hashCode * 397) ^ capturedKinematic.GetHashCode();
+                hashCode = (hashCode * 397) ^ anchorAtAcquire.GetHashCode();
+                hashCode = (hashCode * 397) ^ acquiredTick;
+                hashCode = (hashCode * 397) ^ lastReleaseTick;
+                hashCode = (hashCode * 397) ^ (int)lastReleaseReason;
+                return hashCode;
+            }
+        }
+    }
+
+    internal readonly struct EntityLocomotionLeaseSnapshotEntry
+    {
+        public EntityLocomotionLeaseSnapshotEntry(int entityId, EntityLocomotionLeaseState state)
+        {
+            EntityId = entityId;
+            State = state.NormalizedForStorage();
+        }
+
+        public int EntityId { get; }
+
+        public EntityLocomotionLeaseState State { get; }
+    }
+
+    internal static class EntityLocomotionLeaseDiagnostics
+    {
+        private const string Prefix = "[EntityLocomotionLease]";
+
+        public static string FormatOperation(
+            int tickIndex,
+            int entityId,
+            string operation,
+            EntityLocomotionLeaseOwnerKind ownerKind,
+            int ownerSequence,
+            int leaseId,
+            EntityLocomotionLeaseStateKind stateBefore,
+            EntityLocomotionLeaseStateKind stateAfter,
+            EntityLocomotionLeaseReleaseReason reason,
+            string policy,
+            MotionMode kinematicModeBefore,
+            MotionMode kinematicModeAfter,
+            bool hasAuthoritativeState,
+            bool isSettledAtAnchor,
+            int lastReleaseTick,
+            EntityLocomotionLeaseReleaseReason lastReleaseReason)
+        {
+            return $"{Prefix} Tick={tickIndex} Entity={entityId} Operation={operation} OwnerKind={ownerKind} OwnerSeq={ownerSequence} LeaseId={leaseId} StateBefore={stateBefore} StateAfter={stateAfter} Reason={reason} Policy={policy ?? string.Empty} KinematicModeBefore={kinematicModeBefore} KinematicModeAfter={kinematicModeAfter} HasAuthoritativeState={hasAuthoritativeState} IsSettledAtAnchor={isSettledAtAnchor} LastReleaseTick={lastReleaseTick} LastReleaseReason={lastReleaseReason}";
+        }
+
+        public static string BuildKinematicNotSettledDiagnostic(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            int entityId,
+            string stage,
+            int intentId = 0)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
+                pose.IsSettledAtAnchor)
+            {
+                return string.Empty;
+            }
+
+            var hasLease = snapshot.TryGetEntityLocomotionLeaseState(entityId, out var lease);
+            var hasActiveLeaseLifecycle = hasLease && lease.IsActive;
+            var hasActiveKinematicSettleOperation = pose.Mode != MotionMode.Held &&
+                                                   pose.Mode != MotionMode.Settled &&
+                                                   pose.Mode != MotionMode.LegacyDiscrete;
+            if (hasActiveLeaseLifecycle || hasActiveKinematicSettleOperation)
+            {
+                return string.Empty;
+            }
+
+            var ownerKind = hasLease ? lease.ownerKind : EntityLocomotionLeaseOwnerKind.None;
+            var ownerSequence = hasLease ? lease.ownerActionSequenceId : 0;
+            var leaseId = hasLease ? lease.leaseId : 0;
+            var stateBefore = hasLease ? lease.stateKind : EntityLocomotionLeaseStateKind.None;
+            var lastReleaseTick = hasLease ? lease.lastReleaseTick : 0;
+            var lastReleaseReason = hasLease ? lease.lastReleaseReason : EntityLocomotionLeaseReleaseReason.NormalComplete;
+            return FormatOperation(
+                tickIndex,
+                entityId,
+                "OrphanedKinematicNotSettled",
+                ownerKind,
+                ownerSequence,
+                leaseId,
+                stateBefore,
+                EntityLocomotionLeaseStateKind.Orphaned,
+                lastReleaseReason,
+                stage,
+                pose.Mode,
+                pose.Mode,
+                pose.HasAuthoritativeState,
+                pose.IsSettledAtAnchor,
+                lastReleaseTick,
+                lastReleaseReason) +
+                (intentId > 0 ? $" Intent={intentId}" : string.Empty);
+        }
+    }
 }
