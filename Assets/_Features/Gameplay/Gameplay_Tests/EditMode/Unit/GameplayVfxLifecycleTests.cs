@@ -969,6 +969,105 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void CompletionVisibilityValidation_IncludesPersistentHandles_WithCompletionReplayPolicyNone()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(
+                pool,
+                registry,
+                policy: CreateJumperLandingTargetPolicy());
+            var request = CreateJumperLandingTargetRequest();
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+
+            var replayPlan = FilterPersistentOnly(new GameplayVfxRequestPlan(new[] { request }));
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext(isJumpTopologySuspended: true));
+            controller.ValidatePendingTopologyTransitionVisibility(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(replayPlan.Requests, Is.Empty);
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.PresentationSuspended));
+            Assert.That(handle.SuspendReasons.HasFlag(VfxPresentationSuspendReason.Visibility), Is.True);
+            Assert.That(handle.SuspendReasons.HasFlag(VfxPresentationSuspendReason.TopologyTransition), Is.False);
+            Assert.That(controller.LastVisibilityBlockReason, Is.EqualTo(GameplayVfxVisibilityBlockReason.JumpTopologySuspended));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologySuppressionEnd_DoesNotResumeVisibilityBlockedPersistentHandles()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(
+                pool,
+                registry,
+                policy: CreateJumperLandingTargetPolicy());
+            var request = CreateJumperLandingTargetRequest();
+
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext());
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            var handle = pool.CreatedHandles[0];
+            controller.SetVisibilityContext(CreateOwnerVisibilityContext(isJumpTopologySuspended: true));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            controller.ClearForTopologyTransitionStart(epoch: 1);
+            controller.SetTopologyTransitionStartSuppression(false, 0);
+
+            controller.ValidatePendingTopologyTransitionVisibility(new GameplayVfxRequestPlan(new[] { request }));
+
+            Assert.That(handle.State, Is.EqualTo(VfxLifetimeState.PresentationSuspended));
+            Assert.That(handle.SuspendReasons.HasFlag(VfxPresentationSuspendReason.Visibility), Is.True);
+            Assert.That(handle.SuspendReasons.HasFlag(VfxPresentationSuspendReason.TopologyTransition), Is.False);
+            Assert.That(handle.ActiveDangerVisualEnabled, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void JumperLandingTarget_WindupAndAirborne_DoNotShareIncorrectVisibilityContract()
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = sourceTopology.Rotate(CubeRotationKind.Backward);
+            var targetCell = new SurfaceCell(sourceTopology.BottomFace, 1, 1);
+            var windupRequest = CreateJumperLandingTargetRequest(
+                targetCell,
+                destinationTopology,
+                GameplayVfxJumpTargetPhase.Windup,
+                sourceTopology,
+                ownerSourceFace: sourceTopology.BottomFace);
+            var airborneRequest = CreateJumperLandingTargetRequest(
+                targetCell,
+                destinationTopology,
+                GameplayVfxJumpTargetPhase.Airborne,
+                sourceTopology,
+                ownerSourceFace: sourceTopology.BottomFace);
+            var policy = CreateJumperLandingTargetPolicy();
+
+            var windupDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                windupRequest,
+                policy,
+                CreateOwnerVisibilityContext());
+            var airborneDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                airborneRequest,
+                policy,
+                CreateOwnerVisibilityContext(isJumpTopologySuspended: true));
+
+            Assert.That(destinationTopology.IsFaceActive(targetCell.face), Is.True);
+            Assert.That(windupDecision.IsVisible, Is.False);
+            Assert.That(
+                windupDecision.BlockReason,
+                Is.EqualTo(GameplayVfxVisibilityBlockReason.JumpWindupSourceTopologyMismatch));
+            Assert.That(airborneDecision.IsVisible, Is.False);
+            Assert.That(
+                airborneDecision.BlockReason,
+                Is.EqualTo(GameplayVfxVisibilityBlockReason.JumpTopologySuspended));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TopologyTransitionCompletion_DoesNotReplayTransientOneShots()
         {
             var transient = CreateRequest(isPersistent: false);
@@ -1221,8 +1320,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayVfxRequest CreateJumperLandingTargetRequest()
         {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            return CreateJumperLandingTargetRequest(
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                topology,
+                GameplayVfxJumpTargetPhase.Windup,
+                topology,
+                FaceId.Floor);
+        }
+
+        private static GameplayVfxRequest CreateJumperLandingTargetRequest(
+            SurfaceCell cell,
+            CubeTopologyState anchorTopology,
+            GameplayVfxJumpTargetPhase phase,
+            CubeTopologyState requestSourceTopology,
+            FaceId ownerSourceFace)
+        {
             var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
-            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             return new GameplayVfxRequest(
                 tickIndex: 1,
                 sequenceId: 1,
@@ -1231,7 +1345,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueId: cueId,
                 anchor: VfxAnchor.ForCell(
                     cell,
-                    new CubeTopologyState(FaceId.Floor),
+                    anchorTopology,
                     VfxAnchorSlot.CellFloor),
                 timing: VfxTimingKind.ImmediateOnTickPresentation,
                 isPersistent: true,
@@ -1242,7 +1356,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     cell: cell,
                     hasCell: true,
                     activationSequence: 1),
-                topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt);
+                topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt,
+                jumpTargetVisibility: new GameplayVfxJumpTargetVisibilityMetadata(
+                    phase,
+                    requestSourceTopology,
+                    new SurfaceCell(ownerSourceFace, 1, 1),
+                    cell));
         }
 
         private static VfxBindingRuntimePolicy CreateJumperLandingTargetPolicy()
@@ -1457,7 +1576,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     handle.CueId,
                                     handle.TopologyStopMode))
                             {
-                                handle.SuspendPresentation();
+                                handle.SuspendPresentation(VfxPresentationSuspendReason.TopologyTransition);
                             }
 
                             continue;

@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay;
+using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Vfx
 {
@@ -29,6 +30,110 @@ namespace Game.Feature.Gameplay.Vfx
     {
         None = 0,
         SteadyStatePersistentLoop = 1,
+    }
+
+    public enum GameplayVfxJumpTargetPhase
+    {
+        None = 0,
+        Windup = 1,
+        Airborne = 2,
+    }
+
+    public readonly struct GameplayVfxJumpTargetVisibilityMetadata :
+        IEquatable<GameplayVfxJumpTargetVisibilityMetadata>,
+        IComparable<GameplayVfxJumpTargetVisibilityMetadata>
+    {
+        public GameplayVfxJumpTargetVisibilityMetadata(
+            GameplayVfxJumpTargetPhase phase,
+            CubeTopologyState requestSourceTopology,
+            SurfaceCell ownerSourceCell,
+            SurfaceCell targetCell)
+        {
+            Phase = phase;
+            RequestSourceTopology = requestSourceTopology;
+            OwnerSourceCell = ownerSourceCell;
+            TargetCell = targetCell;
+            HasValue = phase != GameplayVfxJumpTargetPhase.None;
+        }
+
+        public bool HasValue { get; }
+
+        public GameplayVfxJumpTargetPhase Phase { get; }
+
+        public CubeTopologyState RequestSourceTopology { get; }
+
+        public SurfaceCell OwnerSourceCell { get; }
+
+        public SurfaceCell TargetCell { get; }
+
+        public static GameplayVfxJumpTargetVisibilityMetadata None => default;
+
+        public int CompareTo(GameplayVfxJumpTargetVisibilityMetadata other)
+        {
+            var hasValueCompare = HasValue.CompareTo(other.HasValue);
+            if (hasValueCompare != 0)
+            {
+                return hasValueCompare;
+            }
+
+            var phaseCompare = Phase.CompareTo(other.Phase);
+            if (phaseCompare != 0)
+            {
+                return phaseCompare;
+            }
+
+            var topologyCompare = VfxOrdering.CompareTopology(RequestSourceTopology, other.RequestSourceTopology);
+            if (topologyCompare != 0)
+            {
+                return topologyCompare;
+            }
+
+            var ownerSourceCellCompare = VfxOrdering.CompareCell(OwnerSourceCell, other.OwnerSourceCell);
+            if (ownerSourceCellCompare != 0)
+            {
+                return ownerSourceCellCompare;
+            }
+
+            return VfxOrdering.CompareCell(TargetCell, other.TargetCell);
+        }
+
+        public bool Equals(GameplayVfxJumpTargetVisibilityMetadata other)
+        {
+            return HasValue == other.HasValue &&
+                   Phase == other.Phase &&
+                   RequestSourceTopology.Equals(other.RequestSourceTopology) &&
+                   OwnerSourceCell.Equals(other.OwnerSourceCell) &&
+                   TargetCell.Equals(other.TargetCell);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is GameplayVfxJumpTargetVisibilityMetadata other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = HasValue.GetHashCode();
+                hash = (hash * 397) ^ (int)Phase;
+                hash = (hash * 397) ^ RequestSourceTopology.GetHashCode();
+                hash = (hash * 397) ^ OwnerSourceCell.GetHashCode();
+                hash = (hash * 397) ^ TargetCell.GetHashCode();
+                return hash;
+            }
+        }
+
+        public override string ToString()
+        {
+            return
+                $"{nameof(GameplayVfxJumpTargetVisibilityMetadata)}(" +
+                $"{nameof(HasValue)}={HasValue}, " +
+                $"{nameof(Phase)}={Phase}, " +
+                $"{nameof(RequestSourceTopology)}={RequestSourceTopology}, " +
+                $"{nameof(OwnerSourceCell)}={OwnerSourceCell}, " +
+                $"{nameof(TargetCell)}={TargetCell})";
+        }
     }
 
     public static class GameplayVfxTopologyHelperExemptionPolicy
@@ -125,7 +230,8 @@ namespace Game.Feature.Gameplay.Vfx
             GameplayVfxTopologyStopMode topologyStopMode = GameplayVfxTopologyStopMode.Default,
             GameplayVfxTopologySpawnMode topologySpawnMode = GameplayVfxTopologySpawnMode.Default,
             GameplayVfxSoftSpawnPolicy softSpawnPolicy = default,
-            GameplayVfxCompletionReplayPolicy completionReplayPolicy = GameplayVfxCompletionReplayPolicy.None)
+            GameplayVfxCompletionReplayPolicy completionReplayPolicy = GameplayVfxCompletionReplayPolicy.None,
+            GameplayVfxJumpTargetVisibilityMetadata jumpTargetVisibility = default)
             : this(
                 tickIndex,
                 sequenceId,
@@ -142,7 +248,8 @@ namespace Game.Feature.Gameplay.Vfx
                 topologyStopMode,
                 topologySpawnMode,
                 softSpawnPolicy,
-                completionReplayPolicy)
+                completionReplayPolicy,
+                jumpTargetVisibility)
         {
         }
 
@@ -162,7 +269,8 @@ namespace Game.Feature.Gameplay.Vfx
             GameplayVfxTopologyStopMode topologyStopMode = GameplayVfxTopologyStopMode.Default,
             GameplayVfxTopologySpawnMode topologySpawnMode = GameplayVfxTopologySpawnMode.Default,
             GameplayVfxSoftSpawnPolicy softSpawnPolicy = default,
-            GameplayVfxCompletionReplayPolicy completionReplayPolicy = GameplayVfxCompletionReplayPolicy.None)
+            GameplayVfxCompletionReplayPolicy completionReplayPolicy = GameplayVfxCompletionReplayPolicy.None,
+            GameplayVfxJumpTargetVisibilityMetadata jumpTargetVisibility = default)
         {
             TickIndex = tickIndex;
             SequenceId = sequenceId;
@@ -180,6 +288,7 @@ namespace Game.Feature.Gameplay.Vfx
             TopologySpawnMode = topologySpawnMode;
             SoftSpawnPolicy = softSpawnPolicy;
             CompletionReplayPolicy = completionReplayPolicy;
+            JumpTargetVisibility = jumpTargetVisibility;
         }
 
         public int TickIndex { get; }
@@ -214,6 +323,8 @@ namespace Game.Feature.Gameplay.Vfx
 
         public GameplayVfxCompletionReplayPolicy CompletionReplayPolicy { get; }
 
+        public GameplayVfxJumpTargetVisibilityMetadata JumpTargetVisibility { get; }
+
         public GameplayVfxRequest WithTopologyLifecycle(
             GameplayVfxTopologyStopMode stopMode,
             GameplayVfxTopologySpawnMode spawnMode)
@@ -234,7 +345,8 @@ namespace Game.Feature.Gameplay.Vfx
                 stopMode,
                 spawnMode,
                 SoftSpawnPolicy,
-                CompletionReplayPolicy);
+                CompletionReplayPolicy,
+                JumpTargetVisibility);
         }
 
         public GameplayVfxRequest WithCompletionReplayPolicy(GameplayVfxCompletionReplayPolicy replayPolicy)
@@ -255,7 +367,8 @@ namespace Game.Feature.Gameplay.Vfx
                 TopologyStopMode,
                 TopologySpawnMode,
                 SoftSpawnPolicy,
-                replayPolicy);
+                replayPolicy,
+                JumpTargetVisibility);
         }
 
         public GameplayVfxRequest WithSoftSpawnDelay(float delaySeconds)
@@ -277,7 +390,8 @@ namespace Game.Feature.Gameplay.Vfx
                 TopologyStopMode,
                 GameplayVfxTopologySpawnMode.DeferUntilCompletionWithDelay,
                 policy,
-                CompletionReplayPolicy);
+                CompletionReplayPolicy,
+                JumpTargetVisibility);
         }
 
         public int CompareTo(GameplayVfxRequest other)
@@ -379,9 +493,15 @@ namespace Game.Feature.Gameplay.Vfx
             }
 
             var softSpawnDelayCompare = SoftSpawnPolicy.DelaySeconds.CompareTo(other.SoftSpawnPolicy.DelaySeconds);
-            return softSpawnDelayCompare != 0
-                ? softSpawnDelayCompare
-                : CompletionReplayPolicy.CompareTo(other.CompletionReplayPolicy);
+            if (softSpawnDelayCompare != 0)
+            {
+                return softSpawnDelayCompare;
+            }
+
+            var completionReplayCompare = CompletionReplayPolicy.CompareTo(other.CompletionReplayPolicy);
+            return completionReplayCompare != 0
+                ? completionReplayCompare
+                : JumpTargetVisibility.CompareTo(other.JumpTargetVisibility);
         }
 
         public bool Equals(GameplayVfxRequest other)
@@ -401,7 +521,8 @@ namespace Game.Feature.Gameplay.Vfx
                 && TopologyStopMode == other.TopologyStopMode
                 && TopologySpawnMode == other.TopologySpawnMode
                 && SoftSpawnPolicy.Equals(other.SoftSpawnPolicy)
-                && CompletionReplayPolicy == other.CompletionReplayPolicy;
+                && CompletionReplayPolicy == other.CompletionReplayPolicy
+                && JumpTargetVisibility.Equals(other.JumpTargetVisibility);
         }
 
         public override bool Equals(object obj)
@@ -429,6 +550,7 @@ namespace Game.Feature.Gameplay.Vfx
                 hash = (hash * 397) ^ (int)TopologySpawnMode;
                 hash = (hash * 397) ^ SoftSpawnPolicy.GetHashCode();
                 hash = (hash * 397) ^ (int)CompletionReplayPolicy;
+                hash = (hash * 397) ^ JumpTargetVisibility.GetHashCode();
                 return hash;
             }
         }
@@ -452,7 +574,8 @@ namespace Game.Feature.Gameplay.Vfx
                 $"{nameof(TopologyStopMode)}={TopologyStopMode}, " +
                 $"{nameof(TopologySpawnMode)}={TopologySpawnMode}, " +
                 $"{nameof(SoftSpawnPolicy)}={SoftSpawnPolicy.DelaySeconds}, " +
-                $"{nameof(CompletionReplayPolicy)}={CompletionReplayPolicy})";
+                $"{nameof(CompletionReplayPolicy)}={CompletionReplayPolicy}, " +
+                $"{nameof(JumpTargetVisibility)}={JumpTargetVisibility})";
         }
     }
 }

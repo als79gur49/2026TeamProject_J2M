@@ -557,6 +557,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int ActiveVfxInstanceCount => pool?.ActiveCount ?? 0;
 
+        public GameplayVfxVisibilityBlockReason LastVisibilityBlockReason =>
+            controller?.LastVisibilityBlockReason ?? GameplayVfxVisibilityBlockReason.None;
+
         internal int ActiveForwardCellProjectileMarkerCount =>
             forwardCellProjectileVfxController.ActiveMarkerCount;
 
@@ -1050,10 +1053,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 gravityFieldPlanner.Plan(planningContext, planBuilder);
             }
 
-            var plan = AddTopologyTransitionSoftSpawnDelay(FilterPersistentOnly(FilterByPlanningVisibility(
-                FilterByEnabledCues(planBuilder.Build()),
+            var enabledPlan = FilterByEnabledCues(planBuilder.Build());
+            var visibilityFilteredPlan = FilterByPlanningVisibility(
+                enabledPlan,
                 bindingResolver,
-                visibilityContext)));
+                visibilityContext);
+            var plan = AddTopologyTransitionSoftSpawnDelay(FilterPersistentOnly(visibilityFilteredPlan));
             if (plan.Requests.Count == 0 && controller == null)
             {
                 return;
@@ -1061,6 +1066,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             EnsureRuntime(context);
             controller.SetVisibilityContext(visibilityContext);
+            controller.ValidatePendingTopologyTransitionVisibility(enabledPlan);
             controller.Refresh(plan, GameplayVfxRefreshOptions.TopologyTransitionCompletion());
             LastPlannedRequestCount = plan.Requests.Count;
         }
@@ -1528,8 +1534,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             isTopologyTransitionVfxSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
             controller?.SetTopologyTransitionStartSuppression(false, 0);
-            controller?.ResumePresentation(VfxPresentationSuspendReason.TopologyTransition);
-            pool?.ResumeActivePresentation(VfxPresentationSuspendReason.TopologyTransition);
         }
 
         private static bool IsTopologyTransitionStart(in GameplayTickPresentationExtensionContext context)
@@ -1649,6 +1653,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return request.IsPersistent &&
                    request.CueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) &&
                    (blockReason == GameplayVfxVisibilityBlockReason.JumpTopologySuspended ||
+                    blockReason == GameplayVfxVisibilityBlockReason.JumpWindupSourceTopologyMismatch ||
                     blockReason == GameplayVfxVisibilityBlockReason.InactiveFace ||
                     blockReason == GameplayVfxVisibilityBlockReason.FrontFaceInactive ||
                     blockReason == GameplayVfxVisibilityBlockReason.EntityViewInactive ||

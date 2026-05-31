@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.Vfx
         CuePolicyDisallowsInactiveFace = 8,
         MissingSemanticState = 9,
         JumpTopologySuspended = 10,
+        JumpWindupSourceTopologyMismatch = 11,
     }
 
     public enum GameplayVfxVisibilityAllowReason
@@ -249,15 +250,46 @@ namespace Game.Feature.Gameplay.Vfx
             if (query.VisibilityMode == GameplayVfxVisibilityMode.ActiveGameplayFaceOnly ||
                 query.VisibilityMode == GameplayVfxVisibilityMode.EntitySemanticActiveOnly)
             {
-                if (TryResolveCell(query, out var cell, out var topology) &&
-                    !topology.IsFaceActive(cell.face))
+                if (TryResolveCell(query, out var cell, out var topology))
                 {
-                    return GameplayVfxVisibilityDecision.Block(
-                        GameplayVfxVisibilityBlockReason.InactiveFace);
+                    var sourceAnchoredDecision = EvaluateSourceAnchoredJumpTarget(query, topology);
+                    if (!sourceAnchoredDecision.IsVisible)
+                    {
+                        return sourceAnchoredDecision;
+                    }
+
+                    if (!topology.IsFaceActive(cell.face))
+                    {
+                        return GameplayVfxVisibilityDecision.Block(
+                            GameplayVfxVisibilityBlockReason.InactiveFace);
+                    }
                 }
             }
 
             return GameplayVfxVisibilityDecision.Allow();
+        }
+
+        private static GameplayVfxVisibilityDecision EvaluateSourceAnchoredJumpTarget(
+            in GameplayVfxVisibilityQuery query,
+            CubeTopologyState validationTopology)
+        {
+            if (!query.Request.CueId.Equals(GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)))
+            {
+                return GameplayVfxVisibilityDecision.Allow();
+            }
+
+            var metadata = query.Request.JumpTargetVisibility;
+            if (!metadata.HasValue ||
+                metadata.Phase != GameplayVfxJumpTargetPhase.Windup)
+            {
+                return GameplayVfxVisibilityDecision.Allow();
+            }
+
+            return metadata.OwnerSourceCell.face == validationTopology.BottomFace &&
+                   metadata.RequestSourceTopology.BottomFace == validationTopology.BottomFace
+                ? GameplayVfxVisibilityDecision.Allow()
+                : GameplayVfxVisibilityDecision.Block(
+                    GameplayVfxVisibilityBlockReason.JumpWindupSourceTopologyMismatch);
         }
 
         private static GameplayVfxVisibilityDecision EvaluateSourceEntity(
