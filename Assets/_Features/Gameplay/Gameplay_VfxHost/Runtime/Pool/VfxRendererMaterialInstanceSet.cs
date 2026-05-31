@@ -28,23 +28,38 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private readonly Material[][] originalSharedMaterials;
         private readonly bool restoreSharedMaterials;
+        private readonly bool disableRendererShadows;
+        private readonly ShadowCastingMode[] originalShadowCastingModes;
+        private readonly bool[] originalReceiveShadows;
         private readonly Material[][] runtimeMaterials;
         private readonly Renderer[] renderers;
         private bool hasRuntimeMaterials;
 
-        private VfxRendererMaterialInstanceSet(Renderer[] renderers, bool restoreSharedMaterials)
+        private VfxRendererMaterialInstanceSet(
+            Renderer[] renderers,
+            bool restoreSharedMaterials,
+            bool disableRendererShadows)
         {
             this.renderers = renderers ?? Array.Empty<Renderer>();
             this.restoreSharedMaterials = restoreSharedMaterials;
+            this.disableRendererShadows = disableRendererShadows;
             originalSharedMaterials = new Material[this.renderers.Length][];
+            originalShadowCastingModes = new ShadowCastingMode[this.renderers.Length];
+            originalReceiveShadows = new bool[this.renderers.Length];
             runtimeMaterials = new Material[this.renderers.Length][];
         }
 
         public Renderer[] Renderers => renderers;
 
-        public static VfxRendererMaterialInstanceSet Create(Renderer[] renderers, bool restoreSharedMaterials = true)
+        public static VfxRendererMaterialInstanceSet Create(
+            Renderer[] renderers,
+            bool restoreSharedMaterials = true,
+            bool disableRendererShadows = false)
         {
-            var set = new VfxRendererMaterialInstanceSet(renderers, restoreSharedMaterials);
+            var set = new VfxRendererMaterialInstanceSet(
+                renderers,
+                restoreSharedMaterials,
+                disableRendererShadows);
             set.EnsureRuntimeMaterials();
             return set;
         }
@@ -114,6 +129,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     renderer.sharedMaterials = originalSharedMaterials[rendererIndex] ?? Array.Empty<Material>();
                 }
 
+                if (disableRendererShadows && renderer != null)
+                {
+                    renderer.shadowCastingMode = originalShadowCastingModes[rendererIndex];
+                    renderer.receiveShadows = originalReceiveShadows[rendererIndex];
+                }
+
                 var materials = runtimeMaterials[rendererIndex];
                 if (materials == null)
                 {
@@ -147,6 +168,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
                 var sharedMaterials = renderer.sharedMaterials;
                 originalSharedMaterials[rendererIndex] = sharedMaterials;
+                originalShadowCastingModes[rendererIndex] = renderer.shadowCastingMode;
+                originalReceiveShadows[rendererIndex] = renderer.receiveShadows;
                 var clonedMaterials = new Material[sharedMaterials.Length];
                 for (var materialIndex = 0; materialIndex < sharedMaterials.Length; materialIndex++)
                 {
@@ -158,6 +181,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 renderer.sharedMaterials = clonedMaterials;
+                if (disableRendererShadows)
+                {
+                    renderer.shadowCastingMode = ShadowCastingMode.Off;
+                    renderer.receiveShadows = false;
+                }
+
                 runtimeMaterials[rendererIndex] = clonedMaterials;
             }
 

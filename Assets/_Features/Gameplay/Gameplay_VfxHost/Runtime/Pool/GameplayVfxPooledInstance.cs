@@ -382,10 +382,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             IGameplayVfxCloneSourceProvider cloneSourceProvider,
             in VfxRendererInactiveVisualSnapshotSet sourceVisualSnapshot)
         {
+            var disableRendererShadows = ShouldDisableParameterizedMotionShadows(command);
             if (TryCreateSourceClone(command, cloneSourceProvider, out var cloneRenderers, out var liveSourceSnapshot))
             {
                 HidePrefabVisuals();
-                activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(cloneRenderers);
+                activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(
+                    cloneRenderers,
+                    disableRendererShadows: disableRendererShadows);
                 activeMaterialInstances.ApplyInactiveVisualSnapshot(
                     sourceVisualSnapshot.HasEntries ? sourceVisualSnapshot : liveSourceSnapshot);
                 usingSourceClone = true;
@@ -395,13 +398,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (command.CloneMode == ParameterizedMotionVfxCloneMode.SourceCloneMotion)
             {
                 HidePrefabVisuals();
-                activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(Array.Empty<Renderer>());
+                activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(
+                    Array.Empty<Renderer>(),
+                    disableRendererShadows: disableRendererShadows);
                 usingSourceClone = true;
                 return;
             }
 
-            activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(prefabRenderers);
+            activeMaterialInstances = VfxRendererMaterialInstanceSet.Create(
+                prefabRenderers,
+                disableRendererShadows: disableRendererShadows);
             usingSourceClone = false;
+        }
+
+        private static bool ShouldDisableParameterizedMotionShadows(in ParameterizedMotionVfxCommand command)
+        {
+            return command.CueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion) &&
+                   command.FadeMode == ParameterizedMotionVfxFadeMode.LegacyEnemyDeath;
         }
 
         private bool TryCreateSourceClone(

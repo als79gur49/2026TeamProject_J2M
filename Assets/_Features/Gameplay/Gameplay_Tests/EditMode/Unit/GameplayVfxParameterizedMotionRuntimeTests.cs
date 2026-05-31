@@ -843,6 +843,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyDeathMotion_SourceCloneFade_DisablesRuntimeCloneShadowsOnly()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var sourceRenderer = sourceRoot.GetComponent<Renderer>();
+            sourceRenderer.shadowCastingMode = ShadowCastingMode.TwoSided;
+            sourceRenderer.receiveShadows = true;
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                var clone = fixture.Root.OneShotRoot.GetChild(0).Find("ParameterizedMotionCloneRoot");
+                var cloneRenderer = clone.GetComponentInChildren<Renderer>(includeInactive: true);
+
+                Assert.That(cloneRenderer.shadowCastingMode, Is.EqualTo(ShadowCastingMode.Off));
+                Assert.That(cloneRenderer.receiveShadows, Is.False);
+                Assert.That(sourceRenderer.shadowCastingMode, Is.EqualTo(ShadowCastingMode.TwoSided));
+                Assert.That(sourceRenderer.receiveShadows, Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyDeathMotion_UsesFallbackPrefab_WhenSourceViewIsUnavailable_IfPolicyAllows()
         {
             var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
@@ -896,6 +928,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 fixture.Destroy();
                 Destroy(prefabMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_FallbackPrefabFade_DisablesRuntimeInstanceShadowsOnly()
+        {
+            var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
+            var prefabRenderer = fixture.Prefab.GetComponentInChildren<Renderer>(includeInactive: true);
+            prefabRenderer.shadowCastingMode = ShadowCastingMode.TwoSided;
+            prefabRenderer.receiveShadows = true;
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+                var runtimeRenderer = instance.GetComponentInChildren<Renderer>(includeInactive: true);
+
+                Assert.That(instance.Find("ParameterizedMotionCloneRoot"), Is.Null);
+                Assert.That(runtimeRenderer.shadowCastingMode, Is.EqualTo(ShadowCastingMode.Off));
+                Assert.That(runtimeRenderer.receiveShadows, Is.False);
+                Assert.That(prefabRenderer.shadowCastingMode, Is.EqualTo(ShadowCastingMode.TwoSided));
+                Assert.That(prefabRenderer.receiveShadows, Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_FallbackPrefabFade_RestoresRuntimeShadowStateOnPoolRelease()
+        {
+            var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
+            var prefabRenderer = fixture.Prefab.GetComponentInChildren<Renderer>(includeInactive: true);
+            prefabRenderer.shadowCastingMode = ShadowCastingMode.TwoSided;
+            prefabRenderer.receiveShadows = true;
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+                var runtimeRenderer = instance.GetComponentInChildren<Renderer>(includeInactive: true);
+                Assert.That(runtimeRenderer.shadowCastingMode, Is.EqualTo(ShadowCastingMode.Off));
+                Assert.That(runtimeRenderer.receiveShadows, Is.False);
+
+                fixture.TimeProvider.TimeSeconds = 1f;
+                fixture.Pool.Advance(1f);
+                fixture.TimeProvider.TimeSeconds = 1.25f;
+                fixture.Pool.Advance(0.25f);
+
+                Assert.That(runtimeRenderer.shadowCastingMode, Is.EqualTo(ShadowCastingMode.TwoSided));
+                Assert.That(runtimeRenderer.receiveShadows, Is.True);
+                Assert.That(fixture.Pool.ActiveCount, Is.Zero);
+                Assert.That(fixture.Pool.PooledCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ParameterizedMotion_NonEnemyDeath_DoesNotDisableRuntimeShadows()
+        {
+            var fixture = CreatePoolFixture(tailSeconds: 0.2f);
+            var prefabRenderer = fixture.Prefab.GetComponentInChildren<Renderer>(includeInactive: true);
+            prefabRenderer.shadowCastingMode = ShadowCastingMode.TwoSided;
+            prefabRenderer.receiveShadows = true;
+            try
+            {
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateCommand());
+
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+                var runtimeRenderer = instance.GetComponentInChildren<Renderer>(includeInactive: true);
+
+                Assert.That(runtimeRenderer.shadowCastingMode, Is.EqualTo(ShadowCastingMode.TwoSided));
+                Assert.That(runtimeRenderer.receiveShadows, Is.True);
+            }
+            finally
+            {
+                fixture.Destroy();
             }
         }
 
