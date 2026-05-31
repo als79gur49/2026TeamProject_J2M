@@ -1025,6 +1025,11 @@ namespace Game.Feature.Gameplay.Loop
         Removed = 2,
     }
 
+    /// <summary>
+    /// Presentation interpolation carrier for kinematic locomotion, settle, release, and terminal kinematic state changes.
+    /// Locomotion tracks must carry KinematicDirection and PoseFacing from authoritative mutation metadata.
+    /// Views consume these fields and must not synthesize kinematic movement from EntityMotions or snapshot position diffs.
+    /// </summary>
     public readonly struct TickKinematicMotionTrack
     {
         public TickKinematicMotionTrack(

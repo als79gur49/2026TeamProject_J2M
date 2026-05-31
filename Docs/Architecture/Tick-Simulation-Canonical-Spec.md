@@ -8,6 +8,7 @@
 - Authoritative state and snapshot queries: `Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs`, `WorldSnapshot.cs`, `Queries/SnapshotReadQueries.cs`, `Queries/WorldPlacementPolicy.cs`
 - Movement / Attack / Cleanup: `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/*`, `Gameplay_Attack/Runtime/*`, `Gameplay_Cleanup/Runtime/CleanupProcessor.cs`
 - Presentation boundary: `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs`
+- Pose mutation contract: [Entity-Pose-Mutation-Authority-Contract.md](./Entity-Pose-Mutation-Authority-Contract.md)
 
 ## Vocabulary Boundary
 - Gameplay phase vocabulary:
@@ -207,6 +208,8 @@
 - `Finalize`만 `WorldState`를 mutate할 수 있다.
 - `Finalize`는 legality를 재평가하거나 target을 다시 고르지 않는다.
 - `Finalize`는 `FinalizationBatch.ApplyTo` 기반 apply-only stage다. `CanPlace`, `CanTraverse`, `CanSettle`, placement/traversal/settlement policy evaluation, target picking 같은 legality recheck를 추가하지 않는다.
+- Position/Facing/Kinematic authoritative pose mutation follows [Entity-Pose-Mutation-Authority-Contract.md](./Entity-Pose-Mutation-Authority-Contract.md). Enemy AI, movement, action, and kinematic writers must route gameplay pose mutation through `EntityPoseMutationAuthority`.
+- Discrete `EntityMotions` are valid only for accepted discrete `MovementCommit` presentation. General enemy locomotion is canonical through `KinematicPresentationRecord` / `TickKinematicMotionTrack`, not `EntityMotions` fallback.
 - semantic slice handoff는 오직 두 가지다.
   - 이전 slice `Finalize` 이후의 새 snapshot
   - 이전 slice가 publish한 finalized reservation output

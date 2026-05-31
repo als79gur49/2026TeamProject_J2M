@@ -180,6 +180,11 @@ namespace Game.Feature.Gameplay.Loop
         public BoxSlideStopCause Cause { get; }
     }
 
+    /// <summary>
+    /// Discrete movement presentation carrier.
+    /// Created only for accepted MovementCommit + PositionAndFacing + PositionChanged.
+    /// Do not use this as fallback for KinematicOnly, KinematicSettle, KinematicRelease, action facing, or rotate-only pose changes.
+    /// </summary>
     internal readonly struct MovementPresentationRecord
     {
         public MovementPresentationRecord(
@@ -235,6 +240,11 @@ namespace Game.Feature.Gameplay.Loop
         public bool UsesSyntheticOperationId { get; }
     }
 
+    /// <summary>
+    /// Kinematic movement/settle presentation carrier.
+    /// Kinematic locomotion carries KinematicDirection and PoseFacing; settle/release preserves facing.
+    /// This carrier must not be converted into discrete EntityMotions fallback.
+    /// </summary>
     internal readonly struct KinematicPresentationRecord
     {
         public KinematicPresentationRecord(

@@ -9,6 +9,11 @@ namespace System.Runtime.CompilerServices
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    /// <summary>
+    /// Structured source for authoritative pose mutation requests.
+    /// Movement probe, movement intent, and presentation-only sources are non-authoritative.
+    /// Kinematic locomotion sources must not fall back to discrete EntityMotions.
+    /// </summary>
     public enum PoseMutationSource
     {
         None = 0,
@@ -31,6 +36,10 @@ namespace Game.Feature.Gameplay.BoardState
         KinematicMovementSkill = 17,
     }
 
+    /// <summary>
+    /// Declares which authoritative pose lanes a request wants to mutate.
+    /// The authority validates this against the source before any WorldState write is applied.
+    /// </summary>
     public enum PoseMutationKind
     {
         None = 0,
@@ -71,6 +80,12 @@ namespace Game.Feature.Gameplay.BoardState
         InterruptFreeze = 7,
     }
 
+    /// <summary>
+    /// Authoritative Position/Facing/Kinematic mutation request.
+    /// This is not a presentation carrier; presentation records are produced only after the authority allows the request.
+    /// MovementCommit requests may produce discrete movement presentation only when accepted, unsuppressed,
+    /// position-changing, and direction-matched. KinematicOnly requests must not produce EntityMotions.
+    /// </summary>
     public readonly struct EntityPoseMutationRequest
     {
         public int EntityId { get; init; }
@@ -141,6 +156,11 @@ namespace Game.Feature.Gameplay.BoardState
         public UnitKinematicRuntimeState UnitKinematicState { get; init; }
     }
 
+    /// <summary>
+    /// Sole gameplay policy for authoritative Position/Facing/Kinematic mutation.
+    /// AI, movement, action, kinematic, and presentation lanes must submit structured requests here instead of
+    /// writing EntityState.position, EntityState.facing, or UnitKinematicState directly for gameplay pose purposes.
+    /// </summary>
     public static class EntityPoseMutationAuthority
     {
         public static EntityPoseMutationDecision Decide(in EntityPoseMutationRequest request)
@@ -294,6 +314,11 @@ namespace Game.Feature.Gameplay.BoardState
         }
     }
 
+    /// <summary>
+    /// Resolves gameplay kinematic direction from authoritative anchor movement.
+    /// This helper is used to populate kinematic locomotion metadata; callers must not infer gameplay direction
+    /// from visual transforms or use this as a fallback to discrete EntityMotions.
+    /// </summary>
     public static class KinematicDirectionResolver
     {
         public static bool TryResolveKinematicDirection(
