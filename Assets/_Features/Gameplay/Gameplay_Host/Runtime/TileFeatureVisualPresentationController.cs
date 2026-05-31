@@ -136,6 +136,22 @@ namespace Game.Feature.Gameplay.Host
             switch (visualState.TileFeatureKind)
             {
                 case TileFeatureKind.Destroy:
+                case TileFeatureKind.Slide:
+                    if (target is ITileFeatureActiveStateVisualTarget activeStateTarget)
+                    {
+                        activeStateTarget.SetTileFeatureActiveImmediate(
+                            visualState.TileFeatureKind,
+                            visualState.IsActive);
+                        return;
+                    }
+
+                    if (visualState.TileFeatureKind == TileFeatureKind.Slide)
+                    {
+                        _diagnosticSink?.Invoke(
+                            $"{nameof(TileFeatureVisualPresentationController)} unsupported Slide visual state target for tile {visualState.TileId}.");
+                        return;
+                    }
+
                     if (target is IDestroyTileActiveStateVisualTarget destroyTileTarget)
                     {
                         destroyTileTarget.SetDestroyTileActiveImmediate(visualState.IsActive);

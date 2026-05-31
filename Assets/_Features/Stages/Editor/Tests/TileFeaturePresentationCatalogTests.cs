@@ -703,6 +703,53 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void TileFeatureSlidePrefabs_ConfigureSlideInactiveVisualOverrides()
+        {
+            var prefabPaths = new[]
+            {
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Up.prefab",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right.prefab",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Down.prefab",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Left.prefab",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right_DirectVariant.prefab",
+            };
+
+            for (var i = 0; i < prefabPaths.Length; i++)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPaths[i]);
+                Assert.That(prefab, Is.Not.Null, prefabPaths[i]);
+                var targetView = prefab.GetComponent<TileFeatureVisualTargetView>();
+                Assert.That(targetView, Is.Not.Null, prefabPaths[i]);
+
+                var serialized = new SerializedObject(targetView);
+                var targets = serialized.FindProperty("slideTileInactiveMaterialTargets");
+
+                Assert.That(targets, Is.Not.Null, prefabPaths[i]);
+                Assert.That(targets.arraySize, Is.GreaterThan(0), prefabPaths[i]);
+                for (var targetIndex = 0; targetIndex < targets.arraySize; targetIndex++)
+                {
+                    var target = targets.GetArrayElementAtIndex(targetIndex);
+                    Assert.That(
+                        target.FindPropertyRelative("Renderer").objectReferenceValue,
+                        Is.Not.Null,
+                        prefabPaths[i]);
+                    Assert.That(
+                        target.FindPropertyRelative("MaterialIndex").intValue,
+                        Is.GreaterThanOrEqualTo(0),
+                        prefabPaths[i]);
+                    Assert.That(
+                        target.FindPropertyRelative("InactiveColor").colorValue,
+                        Is.Not.EqualTo(Color.white),
+                        prefabPaths[i]);
+                    Assert.That(
+                        target.FindPropertyRelative("InactiveMetallic").floatValue,
+                        Is.EqualTo(1f),
+                        prefabPaths[i]);
+                }
+            }
+        }
+
+        [Test]
         public void StageCatalogValidator_ReportsDuplicateTileFeatureCatalogKey()
         {
             var prefab = CreateValidPrefab("ValidatorDuplicateKeyPrefab");

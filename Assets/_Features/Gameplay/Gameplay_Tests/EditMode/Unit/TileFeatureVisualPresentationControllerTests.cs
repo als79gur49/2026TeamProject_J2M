@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -145,6 +146,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                ConfigureInactiveVisualOverride(
+                    target,
+                    TileFeatureKind.Destroy,
+                    targetRenderer,
+                    inactiveColor: Color.white,
+                    inactiveMetallic: 1f);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -654,6 +661,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                ConfigureInactiveVisualOverride(
+                    target,
+                    TileFeatureKind.Destroy,
+                    targetRenderer,
+                    inactiveColor: Color.white,
+                    inactiveMetallic: 1f);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -707,6 +720,190 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlideTileVisualState_WithSupportedTargetView_AppliesInactiveOverridesPerMaterialIndexAndClearsWhenActive()
+        {
+            var rootObject = new GameObject(nameof(SlideTileVisualState_WithSupportedTargetView_AppliesInactiveOverridesPerMaterialIndexAndClearsWhenActive));
+            var targetObject = new GameObject("SlideTileVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var rendererObject = new GameObject("SlideTileRenderer");
+            rendererObject.transform.SetParent(targetObject.transform, worldPositionStays: false);
+            var targetRenderer = rendererObject.AddComponent<MeshRenderer>();
+            var firstSharedMaterial = CreateSharedColorMaterial(Color.black);
+            var secondSharedMaterial = CreateSharedColorMaterial(Color.white);
+            targetRenderer.sharedMaterials = new[] { firstSharedMaterial, secondSharedMaterial };
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                ConfigureInactiveVisualTargets(
+                    target,
+                    TileFeatureKind.Slide,
+                    (targetRenderer, 0, Color.gray, 1f),
+                    (targetRenderer, 1, Color.cyan, 0.5f));
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Slide,
+                        isActive: false,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+
+                Assert.That(target.DebugSlideTileActive, Is.False);
+                AssertTileFeatureMaterialState(targetRenderer, Color.gray, 1f, materialIndex: 0);
+                AssertTileFeatureMaterialState(targetRenderer, Color.cyan, 0.5f, materialIndex: 1);
+                Assert.That(firstSharedMaterial.color, Is.EqualTo(Color.black));
+                Assert.That(secondSharedMaterial.color, Is.EqualTo(Color.white));
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Slide,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+
+                Assert.That(target.DebugSlideTileActive, Is.True);
+                AssertTileFeatureMaterialCleared(targetRenderer, Color.gray, 1f, materialIndex: 0);
+                AssertTileFeatureMaterialCleared(targetRenderer, Color.cyan, 0.5f, materialIndex: 1);
+                Assert.That(firstSharedMaterial.color, Is.EqualTo(Color.black));
+                Assert.That(secondSharedMaterial.color, Is.EqualTo(Color.white));
+                Assert.That(target.DebugDestroyTileActive, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(firstSharedMaterial);
+                Object.DestroyImmediate(secondSharedMaterial);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlideTileVisualState_WithEmptyTargetList_DoesNotApplyInactiveOverride()
+        {
+            var rootObject = new GameObject(nameof(SlideTileVisualState_WithEmptyTargetList_DoesNotApplyInactiveOverride));
+            var targetObject = new GameObject("SlideTileVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var rendererObject = new GameObject("SlideTileRenderer");
+            rendererObject.transform.SetParent(targetObject.transform, worldPositionStays: false);
+            var targetRenderer = rendererObject.AddComponent<MeshRenderer>();
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Slide,
+                        isActive: false,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
+
+                Assert.That(target.DebugSlideTileActive, Is.False);
+                AssertTileFeatureMaterialCleared(targetRenderer, Color.white, 1f);
+                Assert.That(target.DebugDestroyTileActive, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureActiveVisualStates_DispatchDestroyAndSlideThroughCommonActiveStatePath()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var slideCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var destroyTarget = new RecordingActiveStateTarget(100, destroyCell);
+            var slideTarget = new RecordingActiveStateTarget(101, slideCell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(destroyTarget, slideTarget));
+
+            controller.RefreshContinuousStates(new[]
+            {
+                new TileFeatureVisualState(
+                    100,
+                    destroyCell,
+                    TileFeatureKind.Destroy,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0),
+                new TileFeatureVisualState(
+                    101,
+                    slideCell,
+                    TileFeatureKind.Slide,
+                    isActive: false,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0),
+            });
+
+            Assert.That(destroyTarget.ActiveStateCalls, Is.EqualTo(1));
+            Assert.That(destroyTarget.LastActiveStateKind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(destroyTarget.LastActiveState, Is.True);
+            Assert.That(slideTarget.ActiveStateCalls, Is.EqualTo(1));
+            Assert.That(slideTarget.LastActiveStateKind, Is.EqualTo(TileFeatureKind.Slide));
+            Assert.That(slideTarget.LastActiveState, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlideTileVisualState_WithUnsupportedTarget_NoOpsWithOptionalDiagnostic()
+        {
+            var diagnostics = new List<string>();
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            controller.SetDiagnosticSink(diagnostics.Add);
+
+            controller.RefreshContinuousStates(new[]
+            {
+                new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Slide,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0),
+            });
+
+            Assert.That(target.PlayCount, Is.Zero);
+            Assert.That(diagnostics, Has.Count.EqualTo(1));
+            Assert.That(diagnostics[0], Does.Contain("unsupported Slide visual state"));
         }
 
         [Test]
@@ -1590,24 +1787,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertDestroyTileInactiveMaterial(Renderer targetRenderer)
         {
-            var propertyBlock = new MaterialPropertyBlock();
-            targetRenderer.GetPropertyBlock(propertyBlock);
-
-            Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.EqualTo(Color.white));
-            Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.EqualTo(Color.white));
-            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.EqualTo(Color.white));
-            Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.EqualTo(1f));
+            AssertTileFeatureMaterialState(targetRenderer, Color.white, 1f);
         }
 
         private static void AssertDestroyTileMaterialCleared(Renderer targetRenderer)
         {
-            var propertyBlock = new MaterialPropertyBlock();
-            targetRenderer.GetPropertyBlock(propertyBlock);
+            AssertTileFeatureMaterialCleared(targetRenderer, Color.white, 1f);
+        }
 
-            Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.Not.EqualTo(Color.white));
-            Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.Not.EqualTo(Color.white));
-            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.Not.EqualTo(Color.white));
-            Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.Not.EqualTo(1f));
+        private static void AssertTileFeatureMaterialState(
+            Renderer targetRenderer,
+            Color expectedColor,
+            float expectedMetallic,
+            int materialIndex = 0)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock, materialIndex);
+
+            Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.EqualTo(expectedColor));
+            Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.EqualTo(expectedColor));
+            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.EqualTo(expectedColor));
+            Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.EqualTo(expectedMetallic));
+        }
+
+        private static void AssertTileFeatureMaterialCleared(
+            Renderer targetRenderer,
+            Color inactiveColor,
+            float inactiveMetallic,
+            int materialIndex = 0)
+        {
+            var propertyBlock = new MaterialPropertyBlock();
+            targetRenderer.GetPropertyBlock(propertyBlock, materialIndex);
+
+            Assert.That(propertyBlock.GetColor(BaseColorPropertyId), Is.Not.EqualTo(inactiveColor));
+            Assert.That(propertyBlock.GetColor(ColorPropertyId), Is.Not.EqualTo(inactiveColor));
+            Assert.That(propertyBlock.GetColor(EmissionColorPropertyId), Is.Not.EqualTo(inactiveColor));
+            Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.Not.EqualTo(inactiveMetallic));
+        }
+
+        private static Material CreateSharedColorMaterial(Color color)
+        {
+            var material = new Material(Shader.Find("Unlit/Color") ?? Shader.Find("Universal Render Pipeline/Unlit"));
+            material.color = color;
+            return material;
+        }
+
+        private static void ConfigureInactiveVisualOverride(
+            TileFeatureVisualTargetView target,
+            TileFeatureKind kind,
+            Renderer targetRenderer,
+            Color inactiveColor,
+            float inactiveMetallic)
+        {
+            ConfigureInactiveVisualTargets(
+                target,
+                kind,
+                (targetRenderer, 0, inactiveColor, inactiveMetallic));
+        }
+
+        private static void ConfigureInactiveVisualTargets(
+            TileFeatureVisualTargetView target,
+            TileFeatureKind kind,
+            params (Renderer Renderer, int MaterialIndex, Color InactiveColor, float InactiveMetallic)[] targets)
+        {
+            var serialized = new SerializedObject(target);
+            var targetFieldName = kind == TileFeatureKind.Slide
+                ? "slideTileInactiveMaterialTargets"
+                : "destroyTileInactiveMaterialTargets";
+            var targetProperties = serialized.FindProperty(targetFieldName);
+            Assert.That(targetProperties, Is.Not.Null);
+            targetProperties.arraySize = targets.Length;
+            for (var i = 0; i < targets.Length; i++)
+            {
+                var targetProperty = targetProperties.GetArrayElementAtIndex(i);
+                targetProperty.FindPropertyRelative("Renderer").objectReferenceValue = targets[i].Renderer;
+                targetProperty.FindPropertyRelative("MaterialIndex").intValue = targets[i].MaterialIndex;
+                targetProperty.FindPropertyRelative("InactiveColor").colorValue = targets[i].InactiveColor;
+                targetProperty.FindPropertyRelative("InactiveMetallic").floatValue = targets[i].InactiveMetallic;
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static TilePresentationRequest CreateRequest(int tileId, SurfaceCell cell)
@@ -2056,6 +2315,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SlidePlayCount++;
                 LastDirection = direction;
                 LastTargetEntityId = targetEntityId;
+            }
+        }
+
+        private sealed class RecordingActiveStateTarget : ITileFeatureVisualTarget, ITileFeatureActiveStateVisualTarget
+        {
+            public RecordingActiveStateTarget(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public int TileId { get; }
+
+            public SurfaceCell Cell { get; }
+
+            public int ButtonPlayCount { get; private set; }
+
+            public int ActiveStateCalls { get; private set; }
+
+            public TileFeatureKind LastActiveStateKind { get; private set; }
+
+            public bool LastActiveState { get; private set; }
+
+            public void PlayButtonActivated()
+            {
+                ButtonPlayCount++;
+            }
+
+            public void SetTileFeatureActiveImmediate(TileFeatureKind kind, bool active)
+            {
+                ActiveStateCalls++;
+                LastActiveStateKind = kind;
+                LastActiveState = active;
             }
         }
 

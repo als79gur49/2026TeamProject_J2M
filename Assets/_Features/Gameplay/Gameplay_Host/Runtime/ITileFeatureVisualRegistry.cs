@@ -37,6 +37,11 @@ namespace Game.Feature.Gameplay.Host
         void SetDestroyTileActiveImmediate(bool active);
     }
 
+    public interface ITileFeatureActiveStateVisualTarget
+    {
+        void SetTileFeatureActiveImmediate(TileFeatureKind kind, bool active);
+    }
+
     public interface ISlideTileVisualTarget
     {
         void PlaySlideTileRedirected(Direction direction, int targetEntityId);

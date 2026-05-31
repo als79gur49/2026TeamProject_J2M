@@ -109,10 +109,12 @@ MonoBehaviour:
   moonBlockGeneratorBlockedUnitTriggerName: 
   moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
   moonBlockGeneratorBlockedPlacementTriggerName: 
-  destroyTileMaterialRenderers:
-  - {fileID: 3592744949869042028}
-  destroyTileInactiveColor: {r: 0.7411765, g: 0.7568628, b: 0.77647066, a: 1}
-  destroyTileInactiveMetallic: 1
+  destroyTileInactiveMaterialTargets:
+  - Renderer: {fileID: 3592744949869042028}
+    MaterialIndex: 0
+    InactiveColor: {r: 0.7411765, g: 0.7568628, b: 0.77647066, a: 1}
+    InactiveMetallic: 1
+  slideTileInactiveMaterialTargets: []
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}

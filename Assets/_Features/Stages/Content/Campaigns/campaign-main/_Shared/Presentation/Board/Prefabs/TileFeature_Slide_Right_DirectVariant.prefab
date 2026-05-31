@@ -77,9 +77,16 @@ MonoBehaviour:
   moonBlockGeneratorBlockedUnitTriggerName: 
   moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
   moonBlockGeneratorBlockedPlacementTriggerName: 
-  destroyTileMaterialRenderers: []
-  destroyTileInactiveColor: {r: 1, g: 1, b: 1, a: 1}
-  destroyTileInactiveMetallic: 1
+  destroyTileInactiveMaterialTargets: []
+  slideTileInactiveMaterialTargets:
+  - Renderer: {fileID: 6919220867324244704}
+    MaterialIndex: 0
+    InactiveColor: {r: 0.4745098, g: 0.48235294, b: 0.5019608, a: 1}
+    InactiveMetallic: 1
+  - Renderer: {fileID: 7604368002371067124}
+    MaterialIndex: 1
+    InactiveColor: {r: 0.7411765, g: 0.75294125, b: 0.7725491, a: 1}
+    InactiveMetallic: 1
   buttonActivatedParticles: {fileID: 0}
   destroyTileTriggeredParticles: {fileID: 0}
   slideTileRedirectedParticles: {fileID: 0}
@@ -241,6 +248,16 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a89d337ce60413044a4f647200c5a11f, type: 3}
+--- !u!23 &6919220867324244704 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2184161643810452112, guid: a89d337ce60413044a4f647200c5a11f, type: 3}
+  m_PrefabInstance: {fileID: 9100000000000000112}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &7604368002371067124 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: a89d337ce60413044a4f647200c5a11f, type: 3}
+  m_PrefabInstance: {fileID: 9100000000000000112}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &8773866069286938523 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a89d337ce60413044a4f647200c5a11f, type: 3}
