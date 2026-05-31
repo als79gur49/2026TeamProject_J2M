@@ -37,6 +37,22 @@ namespace Game.Feature.Gameplay.Entities
 
     internal static class EnemyPatrolDecisionPlanner
     {
+        public static bool TryResolveBlockedReactionFacingOverride(
+            PatrolStrategyKind patrolKind,
+            in PendingEnemyBlockedReaction reaction,
+            out Direction facing)
+        {
+            facing = Direction.None;
+            if (patrolKind != PatrolStrategyKind.Forward ||
+                !DirectionUtility.IsCardinal(reaction.BlockedDirection))
+            {
+                return false;
+            }
+
+            facing = ResolveOppositeDirection(reaction.BlockedDirection);
+            return facing != Direction.None;
+        }
+
         public static bool TryBuildProposal(
             WorldSnapshot snapshot,
             in EntityState source,

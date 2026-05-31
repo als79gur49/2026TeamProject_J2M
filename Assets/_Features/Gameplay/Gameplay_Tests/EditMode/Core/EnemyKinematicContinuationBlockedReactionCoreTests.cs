@@ -62,6 +62,214 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void EnemyKinematicContinuationBlocked_Patrol_SourceSettlesAndRecordsPendingReaction()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, 14, 4)),
+                CreateEnemy(61, sourceCell, aiMode: EnemyAiMode.Patrol),
+                CreateBox(201, blockedCell),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+
+            var result = CreatePipeline(worldState, CreateForwardPatrolRuntime()).RunTick(new TickInput(2));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(61, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(snapshot.TryGetPrimaryUnitAt(blockedCell, out var targetUnit), Is.False);
+            Assert.That(targetUnit.entityId, Is.Not.EqualTo(61));
+            Assert.That(snapshot.TryGetUnitKinematicPose(61, out var pose), Is.True);
+            Assert.That(pose.IsSettledAtAnchor, Is.True);
+            Assert.That(pose.State.localOffset.X.RawValue, Is.EqualTo(0));
+            Assert.That(pose.State.localOffset.Y.RawValue, Is.EqualTo(0));
+            Assert.That(pose.State.velocity.X.RawValue, Is.EqualTo(0));
+            Assert.That(pose.State.velocity.Y.RawValue, Is.EqualTo(0));
+            AssertNoMovementIntentFor(result, 61);
+            Assert.That(snapshot.TryGetPendingEnemyBlockedReaction(61, out var reaction), Is.True);
+            Assert.That(reaction.Kind, Is.EqualTo(EnemyBlockedReactionKind.KinematicContinuationTargetBlocked));
+            Assert.That(reaction.ModeAtBlock, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(reaction.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(reaction.BlockedTargetCell, Is.EqualTo(blockedCell));
+            Assert.That(reaction.BlockedDirection, Is.EqualTo(Direction.Right));
+            Assert.That(reaction.BlockerKind, Is.EqualTo(LegalityBlockerKind.Solid));
+            Assert.That(reaction.BlockerSolidKind, Is.EqualTo(SolidKind.Box));
+            Assert.That(reaction.BlockerEntityType, Is.EqualTo(EntityType.Box));
+            Assert.That(reaction.BlockerEntityId, Is.EqualTo(201));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyKinematicContinuationBlocked_Patrol_DoesNotCreateSameTickFallback()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var reverseCell = new SurfaceCell(FaceId.Floor, 10, 4);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 14, 4)),
+                    CreateEnemy(61, sourceCell, aiMode: EnemyAiMode.Patrol),
+                    CreateBox(201, blockedCell),
+                },
+                new BoardBounds(new Vector2Int(10, 4), new Vector2Int(14, 4)));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+
+            var result = CreatePipeline(worldState, CreateForwardPatrolRuntime()).RunTick(new TickInput(2));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(61, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(snapshot.TryGetPendingEnemyBlockedReaction(61, out _), Is.True);
+            Assert.That(
+                result.MovementPhaseResult.RawIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == reverseCell.PlanarPosition),
+                Is.False);
+            Assert.That(
+                result.MovementPhaseResult.SortedIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == reverseCell.PlanarPosition),
+                Is.False);
+            Assert.That(
+                result.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("MoveCommitted", StringComparison.Ordinal) &&
+                    entry.Contains("E=61", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPatrolBlockedReaction_Forward_ReversesNextTick()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var reverseCell = new SurfaceCell(FaceId.Floor, 10, 4);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 14, 4)),
+                    CreateEnemy(61, sourceCell, aiMode: EnemyAiMode.Patrol, enemyLocomotionCooldownTicks: 3),
+                    CreateBox(201, blockedCell),
+                },
+                new BoardBounds(new Vector2Int(10, 4), new Vector2Int(14, 4)));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+            var pipeline = CreatePipeline(worldState, CreateForwardPatrolRuntime());
+
+            pipeline.RunTick(new TickInput(2));
+            var reactionTick = pipeline.RunTick(new TickInput(3));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPendingEnemyBlockedReaction(61, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(61, out var enemy), Is.True);
+            Assert.That(enemy.position, Is.EqualTo(sourceCell));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(0));
+            Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(
+                reactionTick.MovementPhaseResult.RawIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == reverseCell.PlanarPosition),
+                Is.True);
+            Assert.That(
+                reactionTick.MovementPhaseResult.SortedIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.Destination == reverseCell.PlanarPosition),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPatrolBlockedReaction_RandomWalk_DoesNotForceReverseFacing()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayer(10, new SurfaceCell(FaceId.Floor, 14, 4)),
+                    CreateEnemy(61, sourceCell, aiMode: EnemyAiMode.Patrol, enemyLocomotionCooldownTicks: 3),
+                    CreateBox(201, blockedCell),
+                },
+                new BoardBounds(new Vector2Int(10, 3), new Vector2Int(14, 5)));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+            var pipeline = CreatePipeline(worldState, CreateRandomWalkPatrolRuntime());
+
+            pipeline.RunTick(new TickInput(2));
+            var reactionTick = pipeline.RunTick(new TickInput(3));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPendingEnemyBlockedReaction(61, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(61, out var enemy), Is.True);
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(0));
+            Assert.That(
+                reactionTick.EventLog.Any(entry =>
+                    entry.Contains("PendingEnemyBlockedReactionPatrolFacing", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                reactionTick.MovementPhaseResult.RawIntents.Any(intent =>
+                    intent.SourceId == 61 &&
+                    intent.CommandKind == MovementCommandKind.Move),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyKinematicContinuationBlocked_Patrol_SolidWallRecordsPendingReaction()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(10, new SurfaceCell(FaceId.Floor, 14, 4)),
+                CreateEnemy(61, sourceCell, aiMode: EnemyAiMode.Patrol),
+                CreateWall(301, blockedCell),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+
+            CreatePipeline(worldState, CreateForwardPatrolRuntime()).RunTick(new TickInput(2));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPendingEnemyBlockedReaction(61, out var reaction), Is.True);
+            Assert.That(reaction.ModeAtBlock, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(reaction.BlockerKind, Is.EqualTo(LegalityBlockerKind.Solid));
+            Assert.That(reaction.BlockerSolidKind, Is.EqualTo(SolidKind.Wall));
+            Assert.That(reaction.BlockerEntityType, Is.EqualTo(EntityType.None));
+            Assert.That(reaction.BlockerEntityId, Is.EqualTo(301));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyKinematicContinuationBlocked_Patrol_UnitBlockerDoesNotRecordPendingReaction()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
+            var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayer(70, blockedCell),
+                CreateEnemy(61, sourceCell, aiMode: EnemyAiMode.Patrol),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(61, CreateCommitTickKinematicContinuationState());
+
+            var result = CreatePipeline(worldState, CreateForwardPatrolRuntime()).RunTick(new TickInput(2));
+
+            Assert.That(worldState.CreateSnapshot().TryGetPendingEnemyBlockedReaction(61, out _), Is.False);
+            Assert.That(
+                result.MovementPhaseResult.CommitEvents.Any(entry =>
+                    entry.Contains("PendingEnemyBlockedReactionSet", StringComparison.Ordinal) &&
+                    entry.Contains("E=61", StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyChaseBlockedReaction_ReevaluatesNextTick_ExcludesBlockedDirection()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
@@ -124,6 +332,48 @@ namespace Game.Feature.Gameplay.Tests.Core
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
         }
 
+        private static TickPipeline CreatePipeline(WorldState worldState, EnemyAiRuntimeDefinition enemyAiRuntime)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[] { new EnemyLogic(61, enemyAiRuntime) },
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    timingProfile.SimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+        }
+
+        private static EnemyAiRuntimeDefinition CreateForwardPatrolRuntime()
+        {
+            return CreatePatrolRuntime(PatrolSettings.CreateDefault(), ForwardPatrolStrategy.Instance);
+        }
+
+        private static EnemyAiRuntimeDefinition CreateRandomWalkPatrolRuntime()
+        {
+            return CreatePatrolRuntime(PatrolSettings.CreateDefaultRandomWalk(), RandomWalkPatrolStrategy.Instance);
+        }
+
+        private static EnemyAiRuntimeDefinition CreatePatrolRuntime(
+            PatrolSettings patrolSettings,
+            IPatrolStrategy patrolStrategy)
+        {
+            return new EnemyAiRuntimeDefinition(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                patrolSettings,
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                patrolStrategy,
+                NoDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                NoAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
+        }
+
         private static void AssertNoMovementIntentFor(TickResult result, int entityId)
         {
             Assert.That(
@@ -172,7 +422,9 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static EntityState CreateEnemy(
             int entityId,
             SurfaceCell position,
-            int enemyLocomotionCooldownTicks = 0)
+            int enemyLocomotionCooldownTicks = 0,
+            EnemyAiMode aiMode = EnemyAiMode.Chase,
+            Direction facing = Direction.Right)
         {
             return new EntityState
             {
@@ -182,8 +434,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 maxHp = 3,
                 teamId = 2,
                 type = EntityType.Unit,
-                aiMode = EnemyAiMode.Chase,
-                facing = Direction.Right,
+                aiMode = aiMode,
+                facing = facing,
                 boardPresence = EntityBoardPresence.Occupying,
                 enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
@@ -199,6 +451,20 @@ namespace Game.Feature.Gameplay.Tests.Core
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.Box,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
                 boardPresence = EntityBoardPresence.Occupying,
             };
         }

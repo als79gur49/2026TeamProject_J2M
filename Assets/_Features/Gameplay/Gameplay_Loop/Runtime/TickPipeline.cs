@@ -4582,7 +4582,7 @@ namespace Game.Feature.Gameplay.Loop
             write = default;
             if (snapshot == null ||
                 pose.Mode != MotionMode.Voluntary ||
-                entity.aiMode != EnemyAiMode.Chase ||
+                !CanRecordPendingEnemyBlockedReactionForMode(entity.aiMode) ||
                 !DirectionUtility.IsCardinal(blockedDirection) ||
                 !IsEnemyLogicParticipant(entity) ||
                 !EnemyParticipationPolicy.IsControllableParticipant(snapshot, entity))
@@ -4634,6 +4634,12 @@ namespace Game.Feature.Gameplay.Loop
                 tickIndex + 1);
             write = new PendingEnemyBlockedReactionWritePayload(entity.entityId, reaction);
             return true;
+        }
+
+        private static bool CanRecordPendingEnemyBlockedReactionForMode(EnemyAiMode mode)
+        {
+            return mode == EnemyAiMode.Chase ||
+                   mode == EnemyAiMode.Patrol;
         }
 
         private static bool BlocksEnemyBlockedReactionForJump(

@@ -314,7 +314,7 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            var consumedPendingChaseBlockedReaction = TryPreparePendingChaseBlockedReaction(
+            var consumedPendingBlockedReaction = TryPreparePendingEnemyBlockedReaction(
                 snapshot,
                 source,
                 input.TickIndex,
@@ -334,7 +334,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.enemyLocomotionCooldownTicks > 0)
             {
-                if (consumedPendingChaseBlockedReaction)
+                if (consumedPendingBlockedReaction)
                 {
                     updates.Add(
                         $"EnemyLocomotionCooldownClearedByBlockedReaction|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To=0");
@@ -486,7 +486,7 @@ namespace Game.Feature.Gameplay.Entities
             return EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source);
         }
 
-        private bool TryPreparePendingChaseBlockedReaction(
+        private bool TryPreparePendingEnemyBlockedReaction(
             WorldSnapshot snapshot,
             in EntityState source,
             int tickIndex,
@@ -507,9 +507,17 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (reaction.Kind != EnemyBlockedReactionKind.KinematicContinuationTargetBlocked ||
-                reaction.EnemyEntityId != _entityId ||
-                reaction.ModeAtBlock != EnemyAiMode.Chase ||
-                source.aiMode != EnemyAiMode.Chase)
+                reaction.EnemyEntityId != _entityId)
+            {
+                writeContext.ClearPendingEnemyBlockedReaction(_entityId);
+                updates.Add(
+                    $"PendingEnemyBlockedReactionCleared|E={_entityId}|Reason=InvalidReaction|Kind={reaction.Kind}|ReactionEntity={reaction.EnemyEntityId}");
+                return false;
+            }
+
+            if (reaction.ModeAtBlock != source.aiMode ||
+                (source.aiMode != EnemyAiMode.Chase &&
+                 source.aiMode != EnemyAiMode.Patrol))
             {
                 writeContext.ClearPendingEnemyBlockedReaction(_entityId);
                 updates.Add(
@@ -545,12 +553,26 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            _pendingChaseBlockedReactionDecisionTick = tickIndex;
-            _pendingChaseBlockedDirectionToAvoid = reaction.BlockedDirection;
+            if (source.aiMode == EnemyAiMode.Chase)
+            {
+                _pendingChaseBlockedReactionDecisionTick = tickIndex;
+                _pendingChaseBlockedDirectionToAvoid = reaction.BlockedDirection;
+            }
+            else if (EnemyPatrolDecisionPlanner.TryResolveBlockedReactionFacingOverride(
+                         _patrolStrategyKind,
+                         reaction,
+                         out var patrolFacing) &&
+                     patrolFacing != source.facing)
+            {
+                writeContext.SetFacing(_entityId, patrolFacing);
+                updates.Add(
+                    $"PendingEnemyBlockedReactionPatrolFacing|E={_entityId}|From={source.facing}|To={patrolFacing}|Direction={reaction.BlockedDirection}");
+            }
+
             writeContext.SetEnemyLocomotionCooldown(_entityId, 0);
             writeContext.ClearPendingEnemyBlockedReaction(_entityId);
             updates.Add(
-                $"PendingEnemyBlockedReactionConsumed|E={_entityId}|Direction={reaction.BlockedDirection}|Source={reaction.SourceCell}|BlockedTarget={reaction.BlockedTargetCell}|Tick={tickIndex}");
+                $"PendingEnemyBlockedReactionConsumed|E={_entityId}|Mode={source.aiMode}|Direction={reaction.BlockedDirection}|Source={reaction.SourceCell}|BlockedTarget={reaction.BlockedTargetCell}|Tick={tickIndex}");
             return true;
         }
 
