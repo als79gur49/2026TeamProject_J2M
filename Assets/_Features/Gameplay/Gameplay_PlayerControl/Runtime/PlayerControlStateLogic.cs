@@ -216,6 +216,15 @@ namespace Game.Feature.Gameplay.PlayerControl
                 {
                     updates.Add(
                         $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=UnitKinematicNotSettled|Anchor={entity.position}");
+                    var diagnostic = EntityLocomotionLeaseDiagnostics.BuildKinematicNotSettledDiagnostic(
+                        snapshot,
+                        input.TickIndex,
+                        _entityId,
+                        "PreMovementPush");
+                    if (!string.IsNullOrEmpty(diagnostic))
+                    {
+                        updates.Add(diagnostic);
+                    }
                 }
             }
             else if (input.PlayerCommand.FlipPressed)
@@ -240,6 +249,15 @@ namespace Game.Feature.Gameplay.PlayerControl
                 {
                     updates.Add(
                         $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=UnitKinematicNotSettled|Anchor={entity.position}");
+                    var diagnostic = EntityLocomotionLeaseDiagnostics.BuildKinematicNotSettledDiagnostic(
+                        snapshot,
+                        input.TickIndex,
+                        _entityId,
+                        "PreMovementFlip");
+                    if (!string.IsNullOrEmpty(diagnostic))
+                    {
+                        updates.Add(diagnostic);
+                    }
                 }
             }
 

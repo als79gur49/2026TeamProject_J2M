@@ -123,6 +123,43 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetUnitContinuousLocomotionState(entityId, state);
         }
 
+        public void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state)
+        {
+            _port.SetEntityLocomotionLeaseState(entityId, state);
+        }
+
+        public void SetEntityLocomotionLeaseState(
+            int entityId,
+            EntityLocomotionLeaseState state,
+            EntityLocomotionLeaseDiagnosticContext diagnosticContext)
+        {
+            _port.SetEntityLocomotionLeaseState(entityId, state);
+        }
+
+        public void AddPoseMutation(EntityPoseMutationOperation operation)
+        {
+            var decision = EntityPoseMutationAuthority.Decide(operation.Request);
+            if (!decision.Allowed)
+            {
+                return;
+            }
+
+            if (decision.AppliesPosition)
+            {
+                _port.MoveEntityTo(operation.Request.EntityId, operation.Request.ToCell);
+            }
+
+            if (decision.AppliesFacing)
+            {
+                _port.SetFacing(operation.Request.EntityId, operation.Request.FacingAfter);
+            }
+
+            if (decision.AppliesKinematic)
+            {
+                _port.SetUnitKinematicState(operation.Request.EntityId, operation.UnitKinematicState);
+            }
+        }
+
         public void SetSummonedEntityState(int entityId, SummonedEntityState state)
         {
             _port.SetSummonedEntityState(entityId, state);

@@ -203,6 +203,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EnemyDefinitionBindingState> _enemyDefinitionBindingsByEntityId;
         private readonly IReadOnlyDictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId;
         private readonly IReadOnlyDictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, EntityLocomotionLeaseState> _entityLocomotionLeaseStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
@@ -239,6 +240,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            Dictionary<int, EntityLocomotionLeaseState> entityLocomotionLeaseStatesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
@@ -268,6 +270,7 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyDefinitionBindingsByEntityId,
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
+                entityLocomotionLeaseStatesByEntityId,
                 topology,
                 boardBounds,
                 terrainData)
@@ -300,6 +303,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            Dictionary<int, EntityLocomotionLeaseState> entityLocomotionLeaseStatesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
@@ -330,6 +334,7 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyDefinitionBindingsByEntityId,
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
+                entityLocomotionLeaseStatesByEntityId,
                 topology,
                 boardBounds,
                 terrainData);
@@ -361,6 +366,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyDefinitionBindingState> enemyDefinitionBindingsByEntityId,
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
+            Dictionary<int, EntityLocomotionLeaseState> entityLocomotionLeaseStatesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
@@ -390,6 +396,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyDefinitionBindingsByEntityId = new ReadOnlyDictionary<int, EnemyDefinitionBindingState>(enemyDefinitionBindingsByEntityId ?? throw new ArgumentNullException(nameof(enemyDefinitionBindingsByEntityId)));
             _unitKinematicStatesByEntityId = new ReadOnlyDictionary<int, UnitKinematicRuntimeState>(unitKinematicStatesByEntityId ?? throw new ArgumentNullException(nameof(unitKinematicStatesByEntityId)));
             _unitContinuousLocomotionStatesByEntityId = new ReadOnlyDictionary<int, UnitContinuousLocomotionState>(unitContinuousLocomotionStatesByEntityId ?? throw new ArgumentNullException(nameof(unitContinuousLocomotionStatesByEntityId)));
+            _entityLocomotionLeaseStatesByEntityId = new ReadOnlyDictionary<int, EntityLocomotionLeaseState>(entityLocomotionLeaseStatesByEntityId ?? throw new ArgumentNullException(nameof(entityLocomotionLeaseStatesByEntityId)));
             _topology = topology;
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
@@ -532,6 +539,11 @@ namespace Game.Feature.Gameplay.BoardState
             CopyDictionaryTo(_unitContinuousLocomotionStatesByEntityId, target);
         }
 
+        internal void CopyEntityLocomotionLeaseStatesByEntityIdTo(Dictionary<int, EntityLocomotionLeaseState> target)
+        {
+            CopyDictionaryTo(_entityLocomotionLeaseStatesByEntityId, target);
+        }
+
         public bool TryGetEntity(int entityId, out EntityState entity)
         {
             return _entitiesById.TryGetValue(entityId, out entity);
@@ -589,6 +601,11 @@ namespace Game.Feature.Gameplay.BoardState
         internal bool TryGetUnitContinuousLocomotionState(int entityId, out UnitContinuousLocomotionState state)
         {
             return _unitContinuousLocomotionStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetEntityLocomotionLeaseState(int entityId, out EntityLocomotionLeaseState state)
+        {
+            return _entityLocomotionLeaseStatesByEntityId.TryGetValue(entityId, out state);
         }
 
         public bool TryGetEnemyActionState(int entityId, out EnemyActionRuntimeState state)
@@ -1591,6 +1608,22 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _unitContinuousLocomotionStatesByEntityId)
             {
                 buffer.Add(new UnitContinuousLocomotionSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEntityLocomotionLeaseStatesOrdered(List<EntityLocomotionLeaseSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _entityLocomotionLeaseStatesByEntityId)
+            {
+                buffer.Add(new EntityLocomotionLeaseSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

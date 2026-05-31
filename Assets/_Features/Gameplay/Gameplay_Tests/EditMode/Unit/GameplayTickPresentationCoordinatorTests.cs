@@ -2598,9 +2598,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayTickViewPresenter_KinematicTrack_AppliesTickOneDestinationPoseImmediately()
+        public void GameplayTickViewPresenter_KinematicTrack_InterpolatesFromSourceToDestination()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_KinematicTrack_AppliesTickOneDestinationPoseImmediately");
+            var rootObject = new GameObject("GameplayTickViewPresenter_KinematicTrack_InterpolatesFromSourceToDestination");
 
             try
             {
@@ -2609,9 +2609,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
 
-                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
                 presenter.PresentInitial(
                     new[]
                     {
@@ -2639,9 +2640,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             new[] { kinematicTrack })));
 
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
+                var sourcePosition = GetProjectedKinematicEntityPosition(
+                    boardBounds,
+                    topology,
+                    sourceCell,
+                    EntityType.Unit,
+                    0,
+                    0);
+                var targetPosition = GetProjectedKinematicEntityPosition(
+                    boardBounds,
+                    topology,
+                    sourceCell,
+                    EntityType.Unit,
+                    1024,
+                    0);
                 AssertPositionApproximately(
                     view.transform.localPosition,
-                    GetProjectedKinematicEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit, 1024, 0));
+                    sourcePosition);
+                Assert.That(
+                    presenter.DebugLastKinematicTrackBuildDiagnostics.Any(diagnostic =>
+                        diagnostic.EntityId == 10 &&
+                        diagnostic.TrackCreated &&
+                        diagnostic.InterpolationActive),
+                    Is.True);
+
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds * 0.5f);
+
+                var halfwayPosition = view.transform.localPosition;
+                Assert.That(Vector3.Distance(halfwayPosition, sourcePosition), Is.GreaterThan(0.0001f));
+                Assert.That(Vector3.Distance(halfwayPosition, targetPosition), Is.GreaterThan(0.0001f));
+                Assert.That(
+                    presenter.DebugLastKinematicViewApplyDiagnostics.Any(diagnostic =>
+                        diagnostic.EntityId == 10 &&
+                        diagnostic.TrackActive &&
+                        !diagnostic.TeleportApplied),
+                    Is.True);
+
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds * 0.5f);
+
+                AssertPositionApproximately(view.transform.localPosition, targetPosition);
             }
             finally
             {

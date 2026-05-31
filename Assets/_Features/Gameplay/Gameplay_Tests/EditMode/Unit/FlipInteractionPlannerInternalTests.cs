@@ -314,6 +314,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Core")]
+        public void GameplayTrackPlanner_EntityMotion_CreatesMotionTrackWithOperationId()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_EntityMotion_CreatesMotionTrackWithOperationId");
+
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var motion = new TickEntityMotion(
+                    entityId: 10,
+                    motionKind: TickEntityMotionKind.Move,
+                    sourceCell: sourceCell,
+                    destinationCell: targetCell,
+                    operationId: 137,
+                    direction: Direction.Right);
+
+                planner.RefreshTracks(
+                    CreateTickResult(new TickPresentationData(new[] { motion })),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.LocalMotionTracks.TryGetValue(10, out var track), Is.True);
+                Assert.That(track.HasClips, Is.True);
+                Assert.That(track.LastOperationId, Is.EqualTo(137));
+                Assert.That(stateStore.LastMotionTrackBuildDiagnostics.Count, Is.EqualTo(1));
+                var diagnostic = stateStore.LastMotionTrackBuildDiagnostics[0];
+                Assert.That(diagnostic.TrackCreated, Is.True);
+                Assert.That(diagnostic.OperationId, Is.EqualTo(137));
+                Assert.That(diagnostic.SourceCell, Is.EqualTo(sourceCell));
+                Assert.That(diagnostic.TargetCell, Is.EqualTo(targetCell));
+                Assert.That(diagnostic.Direction, Is.EqualTo(Direction.Right));
+                Assert.That(diagnostic.DurationSeconds, Is.EqualTo(timingProfile.MoveMotionDurationSeconds));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static (GameplayTrackPlanner Planner, GameplayPresentationStateStore StateStore, GameplayPresentationTrackState TrackState, GameplayCubeProjector Projector, GameplayTimingProfile TimingProfile)
             CreatePlannerHarness(GameObject rootObject)
         {

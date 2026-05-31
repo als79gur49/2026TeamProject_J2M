@@ -51,6 +51,85 @@ namespace Game.Feature.Gameplay.Host
         public int SignatureUnchangedCount { get; }
     }
 
+    internal readonly struct KinematicViewApplyDiagnostic
+    {
+        public KinematicViewApplyDiagnostic(
+            int tickIndex,
+            int frameIndex,
+            int entityId,
+            int operationId,
+            bool trackActive,
+            Vector3 currentVisualPosition,
+            Vector3 targetVisualPosition,
+            KinematicOffset2 currentLocalOffset,
+            KinematicOffset2 targetLocalOffset,
+            Direction kinematicDirection,
+            Direction authoritativeFacing,
+            Direction poseFacing,
+            float currentVisualYaw,
+            float targetVisualYaw,
+            KinematicFacingPolicy policy,
+            bool mismatch,
+            bool teleportApplied,
+            string reason)
+        {
+            TickIndex = tickIndex;
+            FrameIndex = frameIndex;
+            EntityId = entityId;
+            OperationId = operationId;
+            TrackActive = trackActive;
+            CurrentVisualPosition = currentVisualPosition;
+            TargetVisualPosition = targetVisualPosition;
+            CurrentLocalOffset = currentLocalOffset;
+            TargetLocalOffset = targetLocalOffset;
+            KinematicDirection = kinematicDirection;
+            AuthoritativeFacing = authoritativeFacing;
+            PoseFacing = poseFacing;
+            CurrentVisualYaw = currentVisualYaw;
+            TargetVisualYaw = targetVisualYaw;
+            Policy = policy;
+            Mismatch = mismatch;
+            TeleportApplied = teleportApplied;
+            Reason = reason ?? string.Empty;
+        }
+
+        public int TickIndex { get; }
+
+        public int FrameIndex { get; }
+
+        public int EntityId { get; }
+
+        public int OperationId { get; }
+
+        public bool TrackActive { get; }
+
+        public Vector3 CurrentVisualPosition { get; }
+
+        public Vector3 TargetVisualPosition { get; }
+
+        public KinematicOffset2 CurrentLocalOffset { get; }
+
+        public KinematicOffset2 TargetLocalOffset { get; }
+
+        public Direction KinematicDirection { get; }
+
+        public Direction AuthoritativeFacing { get; }
+
+        public Direction PoseFacing { get; }
+
+        public float CurrentVisualYaw { get; }
+
+        public float TargetVisualYaw { get; }
+
+        public KinematicFacingPolicy Policy { get; }
+
+        public bool Mismatch { get; }
+
+        public bool TeleportApplied { get; }
+
+        public string Reason { get; }
+    }
+
     internal readonly struct EntityPresentationApplySignature : IEquatable<EntityPresentationApplySignature>
     {
         public EntityPresentationApplySignature(
@@ -230,6 +309,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
         private readonly Dictionary<int, EnemySemanticDriverCacheEntry> _enemySemanticDriversByEntityId = new();
+        private int _kinematicViewApplyFrameIndex;
 
         public GameplayEntityPresentationApplier(
             GameplayPresentationStateStore stateStore,
@@ -270,12 +350,14 @@ namespace Game.Feature.Gameplay.Host
             CleanupCompletedTopologyTransitionState(hasActiveBoardRotationTween);
 
             _trackState.CompletedMotionTrackIds.Clear();
+            _trackState.CompletedKinematicMotionTrackIds.Clear();
             _trackState.CompletedMotionVisualScaleEntityIds.Clear();
             _trackState.CompletedJumpTrackIds.Clear();
             _trackState.CompletedJumpWindupRotationTrackIds.Clear();
             _trackState.CompletedPlayerFlipResultTurnTrackIds.Clear();
             _trackState.CompletedVisibilityTrackIds.Clear();
             _trackState.VisibleEntityIds.Clear();
+            _stateStore.LastKinematicViewApplyDiagnostics.Clear();
             _stateStore.EnemyVisualFactsByEntityId.Clear();
             _stateStore.EnemyVisualSemanticStatesByEntityId.Clear();
             _stateStore.PresentedLocalPosesByEntityId.Clear();
@@ -302,12 +384,20 @@ namespace Game.Feature.Gameplay.Host
                 var hasKinematicPoseOverride = _trackState.KinematicPoseOverrides.TryGetValue(
                     entityId,
                     out var kinematicPoseOverride);
+                var hasActiveKinematicMotion = _trackState.KinematicMotionTracks.TryGetValue(
+                    entityId,
+                    out var kinematicMotionTrack) &&
+                    kinematicMotionTrack.HasClips;
                 var hasPlayerDeathHoldPose = _trackState.PlayerDeathHoldPoses.TryGetValue(
                     entityId,
                     out var playerDeathHoldPose);
                 if (!_poseResolver.TryResolveFallbackLocalPose(entityId, out var localPose))
                 {
-                    if (hasKinematicPoseOverride)
+                    if (hasActiveKinematicMotion)
+                    {
+                        localPose = kinematicMotionTrack.TailEndPose;
+                    }
+                    else if (hasKinematicPoseOverride)
                     {
                         localPose = kinematicPoseOverride.LocalPose;
                     }
@@ -322,9 +412,41 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var motionVisualScaleMultiplier = Vector3.one;
-                if (hasKinematicPoseOverride)
+                if (hasActiveKinematicMotion)
+                {
+                    var targetPose = kinematicMotionTrack.TailEndPose;
+                    var operationId = kinematicMotionTrack.LastOperationId;
+                    var wasTrackActive = kinematicMotionTrack.HasClips;
+                    localPose = kinematicMotionTrack.SampleAndAdvance(deltaTime, targetPose);
+                    if (!kinematicMotionTrack.HasClips)
+                    {
+                        _trackState.CompletedKinematicMotionTrackIds.Add(entityId);
+                    }
+
+                    RecordKinematicViewApply(
+                        entityId,
+                        operationId,
+                        trackActive: wasTrackActive,
+                        currentVisualPosition: localPose.Position,
+                        targetVisualPosition: targetPose.Position,
+                        currentVisualYaw: localPose.Rotation.eulerAngles.y,
+                        targetVisualYaw: targetPose.Rotation.eulerAngles.y,
+                        teleportApplied: false,
+                        reason: "Interpolated");
+                }
+                else if (hasKinematicPoseOverride)
                 {
                     localPose = kinematicPoseOverride.LocalPose;
+                    RecordKinematicViewApply(
+                        entityId,
+                        operationId: 0,
+                        trackActive: false,
+                        currentVisualPosition: localPose.Position,
+                        targetVisualPosition: localPose.Position,
+                        currentVisualYaw: localPose.Rotation.eulerAngles.y,
+                        targetVisualYaw: localPose.Rotation.eulerAngles.y,
+                        teleportApplied: false,
+                        reason: "PoseOverride");
                 }
                 else if (hasPlayerDeathHoldPose)
                 {
@@ -422,6 +544,7 @@ namespace Game.Feature.Gameplay.Host
                     _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
                 var isVisible = hasKinematicPoseOverride ||
+                                hasActiveKinematicMotion ||
                                 hasPlayerDeathHoldPose ||
                                 _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
                                 hasActiveLocalMotion ||
@@ -441,7 +564,8 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
-                var hasActiveMotion = hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
+                var hasActiveMotion = hasActiveKinematicMotion ||
+                                      hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
                                       hasActiveLocalMotion;
                 var enemyVisualFacts = BuildEnemyVisualPresentationFacts(
                     entityId,
@@ -481,6 +605,7 @@ namespace Game.Feature.Gameplay.Host
                         entityId,
                         hasActiveBoardRotationTween,
                         hasKinematicPoseOverride,
+                        hasActiveKinematicMotion,
                         hasPlayerDeathHoldPose,
                         hasActiveLocalMotion,
                         hasActiveOriginalViewMotion,
@@ -590,6 +715,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _animationSync.AdvanceEnemyAutonomousPresentationAfterSemantic(deltaTime);
+            CleanupCompletedKinematicMotionTracks();
             CleanupCompletedMotionTracks();
             CleanupCompletedOriginalViewMotionTracks();
             CleanupCompletedJumpTracks();
@@ -654,6 +780,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             foreach (var pair in _trackState.KinematicPoseOverrides)
+            {
+                AddProcessingEntityId(pair.Key);
+            }
+
+            foreach (var pair in _trackState.KinematicMotionTracks)
             {
                 AddProcessingEntityId(pair.Key);
             }
@@ -749,6 +880,97 @@ namespace Game.Feature.Gameplay.Host
             {
                 _trackState.LocalMotionTracks.Remove(_trackState.CompletedMotionTrackIds[i]);
             }
+        }
+
+        private void CleanupCompletedKinematicMotionTracks()
+        {
+            for (var i = 0; i < _trackState.CompletedKinematicMotionTrackIds.Count; i++)
+            {
+                var entityId = _trackState.CompletedKinematicMotionTrackIds[i];
+                _trackState.KinematicMotionTracks.Remove(entityId);
+                _trackState.KinematicMotionTrackCarriers.Remove(entityId);
+            }
+        }
+
+        private void RecordKinematicViewApply(
+            int entityId,
+            int operationId,
+            bool trackActive,
+            Vector3 currentVisualPosition,
+            Vector3 targetVisualPosition,
+            float currentVisualYaw,
+            float targetVisualYaw,
+            bool teleportApplied,
+            string reason)
+        {
+            var targetLocalOffset = KinematicOffset2.Zero;
+            var currentLocalOffset = KinematicOffset2.Zero;
+            var kinematicDirection = Direction.None;
+            var authoritativeFacing = Direction.None;
+            var poseFacing = Direction.None;
+            var policy = KinematicFacingPolicy.PreserveFacing;
+            var mismatch = false;
+            if (_trackState.KinematicMotionTrackCarriers.TryGetValue(entityId, out var carrier))
+            {
+                targetLocalOffset = carrier.DestinationLocalOffset;
+                currentLocalOffset = trackActive
+                    ? carrier.SourceLocalOffset
+                    : carrier.DestinationLocalOffset;
+                kinematicDirection = carrier.KinematicDirection;
+                authoritativeFacing = carrier.DestinationFacing ?? Direction.None;
+                poseFacing = carrier.PoseFacing;
+                policy = carrier.FacingPolicy;
+                mismatch = carrier.ShouldUpdateFacing &&
+                           (carrier.KinematicDirection != carrier.PoseFacing ||
+                            (authoritativeFacing != Direction.None && authoritativeFacing != carrier.KinematicDirection));
+                if (operationId == 0)
+                {
+                    operationId = carrier.OperationId;
+                }
+            }
+
+            var diagnostic = new KinematicViewApplyDiagnostic(
+                _stateStore.LastPresentedTickIndex,
+                frameIndex: ++_kinematicViewApplyFrameIndex,
+                entityId,
+                operationId,
+                trackActive,
+                currentVisualPosition,
+                targetVisualPosition,
+                currentLocalOffset,
+                targetLocalOffset,
+                kinematicDirection,
+                authoritativeFacing,
+                poseFacing,
+                currentVisualYaw,
+                targetVisualYaw,
+                policy,
+                mismatch,
+                teleportApplied,
+                reason);
+            _stateStore.LastKinematicViewApplyDiagnostics.Add(diagnostic);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            UnityEngine.Debug.Log(
+                "[KinematicViewApply]" +
+                $"Tick={diagnostic.TickIndex}" +
+                $"|Frame={diagnostic.FrameIndex}" +
+                $"|Entity={diagnostic.EntityId}" +
+                $"|OperationId={diagnostic.OperationId}" +
+                $"|TrackActive={(diagnostic.TrackActive ? 1 : 0)}" +
+                $"|CurrentVisualPosition={diagnostic.CurrentVisualPosition}" +
+                $"|TargetVisualPosition={diagnostic.TargetVisualPosition}" +
+                $"|CurrentLocalOffset={diagnostic.CurrentLocalOffset}" +
+                $"|TargetLocalOffset={diagnostic.TargetLocalOffset}" +
+                $"|KinematicDirection={diagnostic.KinematicDirection}" +
+                $"|AuthoritativeFacing={diagnostic.AuthoritativeFacing}" +
+                $"|PoseFacing={diagnostic.PoseFacing}" +
+                $"|CurrentVisualYaw={diagnostic.CurrentVisualYaw}" +
+                $"|TargetVisualYaw={diagnostic.TargetVisualYaw}" +
+                $"|Policy={diagnostic.Policy}" +
+                $"|Mismatch={(diagnostic.Mismatch ? 1 : 0)}" +
+                $"|TeleportApplied={(diagnostic.TeleportApplied ? 1 : 0)}" +
+                $"|Reason={diagnostic.Reason}");
+#endif
         }
 
         private void CleanupCompletedOriginalViewMotionTracks()
@@ -1133,6 +1355,12 @@ namespace Game.Feature.Gameplay.Host
                 return true;
             }
 
+            if (_trackState.KinematicMotionTracks.TryGetValue(entityId, out var kinematicMotionTrack) &&
+                kinematicMotionTrack.HasClips)
+            {
+                return true;
+            }
+
             return _trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack) &&
                    motionTrack.HasClips &&
                    motionTrack.TailMotionKind == TickEntityMotionKind.Move;
@@ -1169,6 +1397,7 @@ namespace Game.Feature.Gameplay.Host
             int entityId,
             bool hasActiveBoardRotationTween,
             bool hasKinematicPoseOverride,
+            bool hasActiveKinematicMotion,
             bool hasPlayerDeathHoldPose,
             bool hasActiveLocalMotion,
             bool hasActiveOriginalViewMotion,
@@ -1178,6 +1407,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return hasActiveBoardRotationTween ||
                    hasKinematicPoseOverride ||
+                   hasActiveKinematicMotion ||
                    hasPlayerDeathHoldPose ||
                    hasActiveLocalMotion ||
                    hasActiveOriginalViewMotion ||

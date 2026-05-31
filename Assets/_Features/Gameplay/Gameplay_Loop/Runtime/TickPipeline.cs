@@ -960,12 +960,14 @@ namespace Game.Feature.Gameplay.Loop
                 movementResolutionRecords);
             var movementCommitEvents = CreateMovementCommitEventBuffer(planPhaseResult.PreMovementStatePhaseResult.EventLogEntries);
             var movementStageBatch = MaterializeMovementOperations(
+                planSnapshot,
                 planPhaseResult.OrderedMovementActionPlanIds,
                 planPhaseResult.MovementActionPlanPayloads,
                 movementResolutionRecords,
                 impactDispositionRecords,
                 movementImpactReservations,
-                movementCommitEvents);
+                movementCommitEvents,
+                input.TickIndex);
 
             var finalizationBatch = new FinalizationBatch();
             finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
@@ -1075,12 +1077,14 @@ namespace Game.Feature.Gameplay.Loop
             {
                 movementCommitEvents = CreateMovementCommitEventBuffer(planPhaseResult.PreMovementStatePhaseResult.EventLogEntries);
                 movementStageBatch = MaterializeMovementOperations(
+                    planSnapshot,
                     planPhaseResult.OrderedMovementActionPlanIds,
                     planPhaseResult.MovementActionPlanPayloads,
                     movementResolutionRecords,
                     impactDispositionRecords,
                     movementImpactReservations,
-                    movementCommitEvents);
+                    movementCommitEvents,
+                    input.TickIndex);
 
                 finalizationBatch = new FinalizationBatch();
                 finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
@@ -1453,6 +1457,24 @@ namespace Game.Feature.Gameplay.Loop
             AddRange(movementResolvedOperations, jumpLandingResolveBatch.Operations);
             AddRange(movementResolvedOperations, phaseRelocationResolveBatch.Operations);
             AddRange(movementResolvedOperations, tileEffectResult.EntityOperations.Operations);
+            var movementPresentationRecords = new List<MovementPresentationRecord>();
+            AddRange(movementPresentationRecords, planPhaseResult.PlanFinalizationBatch.MovementPresentationRecords);
+            AddRange(movementPresentationRecords, movementStageBatch.MovementPresentationRecords);
+            AddRange(movementPresentationRecords, jumpLandingResolveBatch.MovementPresentationRecords);
+            AddRange(movementPresentationRecords, phaseRelocationResolveBatch.MovementPresentationRecords);
+            AddRange(movementPresentationRecords, tileEffectResult.EntityOperations.MovementPresentationRecords);
+            var movementDebugEvents = new List<string>(planPhaseResult.MovementDebugEvents);
+            AddRange(movementDebugEvents, planPhaseResult.PlanFinalizationBatch.MovementPresentationDiagnostics);
+            AddRange(movementDebugEvents, movementStageBatch.MovementPresentationDiagnostics);
+            AddRange(movementDebugEvents, jumpLandingResolveBatch.MovementPresentationDiagnostics);
+            AddRange(movementDebugEvents, phaseRelocationResolveBatch.MovementPresentationDiagnostics);
+            AddRange(movementDebugEvents, tileEffectResult.EntityOperations.MovementPresentationDiagnostics);
+            var kinematicPresentationRecords = BuildKinematicPresentationRecords(
+                tickIndex,
+                planSnapshot,
+                postMovementSnapshot,
+                movementResolvedOperations,
+                movementDebugEvents);
             AppendBoxInteractionLockBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
             AppendFrontFaceShieldBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
             var movementPhaseResult = new MovementPhaseResult(
@@ -1471,7 +1493,9 @@ namespace Game.Feature.Gameplay.Loop
                     movementResolutionRecords,
                     planPhaseResult.MovementActionPlanPayloads),
                 planPhaseResult.PlayerTopologyTransitionBlockedSignals,
-                planPhaseResult.MovementDebugEvents);
+                movementDebugEvents,
+                movementPresentationRecords,
+                kinematicPresentationRecords);
 
             AddRange(attackCommitEvents, utilityResolveResult.EventLogEntries);
             var attackResolvedOperations = new List<FinalizationOperation>(attackStageBatch.Operations.Count + utilityResolveResult.Batch.Operations.Count);
@@ -1521,6 +1545,8 @@ namespace Game.Feature.Gameplay.Loop
         {
             phaseTrace.Add("Finalize:Enter");
             finalizationBatch.ApplyTo(writeContext, _delayedAttackEffectQueue);
+            AddRange(phaseTrace, finalizationBatch.PoseMutationDiagnostics);
+            AddRange(phaseTrace, finalizationBatch.EntityLocomotionLeaseDiagnostics);
             phaseTrace.Add("Finalize:Exit");
             completedPhases.Add(TickPhase.Finalize);
         }
@@ -4848,6 +4874,13 @@ namespace Game.Feature.Gameplay.Loop
                    EnemyParticipationPolicy.IsEnemyLogicEntity(entity);
         }
 
+        private static bool IsKinematicLocomotionBoundary(MovementExecutionBoundaryKind boundaryKind)
+        {
+            return boundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion ||
+                   boundaryKind == MovementExecutionBoundaryKind.UnitSpecialLocomotion ||
+                   boundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit;
+        }
+
         private static IReadOnlyList<EnemyLocomotionWritePayload> CreateEnemyKinematicLocomotionWrites(
             in EntityState entity,
             MoveIntent intent)
@@ -8132,6 +8165,488 @@ namespace Game.Feature.Gameplay.Loop
                 boundaryReason: boundaryReasonOverride ?? payload.BoundaryReason);
         }
 
+        private static EntityPoseMutationRequest CreateMovementCommitPoseRequest(
+            MovementActionPlanPayload payload,
+            ResolutionRecord resolutionRecord,
+            int entityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            Direction facingAfterMove,
+            int tickIndex,
+            string writer)
+        {
+            var positionChanged = !sourceCell.Equals(destinationCell);
+            var movementDirection = ResolvePoseMovementDirection(sourceCell, destinationCell, facingAfterMove);
+            return new EntityPoseMutationRequest
+            {
+                EntityId = entityId,
+                Source = PoseMutationSource.MovementCommit,
+                Kind = PoseMutationKind.PositionAndFacing,
+                FromCell = sourceCell,
+                ToCell = destinationCell,
+                PositionChanged = positionChanged,
+                FacingBefore = Direction.None,
+                FacingAfter = facingAfterMove,
+                MovementDirection = movementDirection,
+                MovementIntentExists = payload.IntentId != 0,
+                MovementAccepted = resolutionRecord.Accepted,
+                MovementSuppressed = !resolutionRecord.Accepted,
+                HasExplicitActionFacing = false,
+                HasExplicitSkillFacing = false,
+                HasExplicitRotateAction = false,
+                KinematicMutation = KinematicMutationKind.None,
+                TickIndex = tickIndex,
+                MovementIntentId = payload.IntentId,
+                MovementResolutionId = resolutionRecord.ContestId,
+                Writer = writer,
+                Reason = payload.BoundaryReason,
+            };
+        }
+
+        private static EntityPoseMutationRequest CreateFacingOnlyMovementRejectRequest(
+            MovementActionPlanPayload payload,
+            ResolutionRecord resolutionRecord,
+            int entityId,
+            Direction facing,
+            int tickIndex,
+            string writer)
+        {
+            return new EntityPoseMutationRequest
+            {
+                EntityId = entityId,
+                Source = PoseMutationSource.MovementCommit,
+                Kind = PoseMutationKind.FacingOnly,
+                FromCell = payload.SourceCell,
+                ToCell = payload.SourceCell,
+                PositionChanged = false,
+                FacingBefore = Direction.None,
+                FacingAfter = facing,
+                MovementDirection = Direction.None,
+                MovementIntentExists = payload.IntentId != 0,
+                MovementAccepted = resolutionRecord.Accepted,
+                MovementSuppressed = !resolutionRecord.Accepted,
+                HasExplicitActionFacing = false,
+                HasExplicitSkillFacing = false,
+                HasExplicitRotateAction = false,
+                KinematicMutation = KinematicMutationKind.None,
+                TickIndex = tickIndex,
+                MovementIntentId = payload.IntentId,
+                MovementResolutionId = resolutionRecord.ContestId,
+                Writer = writer,
+                Reason = "MovementFacingResolutionIsNotExplicitRotate",
+            };
+        }
+
+        private static EntityPoseMutationRequest CreateKinematicPoseRequest(
+            WorldSnapshot snapshot,
+            MovementActionPlanPayload payload,
+            ResolutionRecord resolutionRecord,
+            int entityId,
+            SurfaceCell sourceCell,
+            SurfaceCell resolvedAnchorCell,
+            int tickIndex,
+            KinematicMutationKind mutationKind,
+            bool isKinematicLocomotion,
+            Direction kinematicDirection,
+            bool hasKinematicDirection,
+            KinematicDirectionKind directionKind,
+            string writer)
+        {
+            var facingBefore = snapshot.TryGetEntity(entityId, out var entity)
+                ? entity.facing
+                : Direction.None;
+            var shouldUpdateFacing = isKinematicLocomotion && hasKinematicDirection;
+            var source = isKinematicLocomotion
+                ? PoseMutationSource.KinematicLocomotion
+                : PoseMutationSource.KinematicSettle;
+            var kind = isKinematicLocomotion
+                ? PoseMutationKind.KinematicAndFacing
+                : PoseMutationKind.KinematicOnly;
+            var facingPolicy = isKinematicLocomotion
+                ? KinematicFacingPolicy.MatchKinematicDirection
+                : KinematicFacingPolicy.PreserveFacing;
+            var facingAfter = shouldUpdateFacing
+                ? kinematicDirection
+                : facingBefore;
+
+            return new EntityPoseMutationRequest
+            {
+                EntityId = entityId,
+                Source = source,
+                Kind = kind,
+                FromCell = sourceCell,
+                ToCell = resolvedAnchorCell,
+                PositionChanged = !sourceCell.Equals(resolvedAnchorCell),
+                FacingBefore = facingBefore,
+                FacingAfter = facingAfter,
+                MovementDirection = hasKinematicDirection ? kinematicDirection : Direction.None,
+                MovementIntentExists = payload.IntentId != 0,
+                MovementAccepted = resolutionRecord.Accepted,
+                MovementSuppressed = !resolutionRecord.Accepted,
+                HasExplicitActionFacing = false,
+                HasExplicitSkillFacing = false,
+                HasExplicitRotateAction = false,
+                KinematicMutation = mutationKind,
+                KinematicDirection = hasKinematicDirection ? kinematicDirection : Direction.None,
+                HasKinematicDirection = hasKinematicDirection,
+                KinematicDirectionKind = isKinematicLocomotion ? directionKind : KinematicDirectionKind.None,
+                KinematicFacingPolicy = facingPolicy,
+                ShouldUpdateFacing = shouldUpdateFacing,
+                TickIndex = tickIndex,
+                MovementIntentId = payload.IntentId,
+                MovementResolutionId = resolutionRecord.ContestId,
+                Writer = writer,
+                Reason = payload.BoundaryReason,
+            };
+        }
+
+        private static KinematicMutationKind ResolveKinematicMutationKind(in UnitKinematicRuntimeState state)
+        {
+            if (state.IsSettledZero || state.IsSettledAtAnchor)
+            {
+                return KinematicMutationKind.Settle;
+            }
+
+            return state.mode == MotionMode.Held
+                ? KinematicMutationKind.Hold
+                : KinematicMutationKind.ResumeVoluntary;
+        }
+
+        private static List<KinematicPresentationRecord> BuildKinematicPresentationRecords(
+            int tickIndex,
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot postMovementSnapshot,
+            IReadOnlyList<FinalizationOperation> operations,
+            List<string> diagnostics)
+        {
+            var records = new List<KinematicPresentationRecord>();
+            var recordKeys = new HashSet<string>();
+            if (operations == null)
+            {
+                return records;
+            }
+
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.PoseMutation)
+                {
+                    var mutation = operation.PoseMutationOperation;
+                    var request = mutation.Request;
+                    var decision = EntityPoseMutationAuthority.Decide(request);
+                    if (!IsKinematicPresentationPoseMutation(request))
+                    {
+                        continue;
+                    }
+
+                    if (!decision.Allowed)
+                    {
+                        diagnostics?.Add(FormatKinematicPresentationRecordDiagnostic(
+                            tickIndex,
+                            request.EntityId,
+                            request.OperationId,
+                            request.ActionSequenceId,
+                            request.Source.ToString(),
+                            request.KinematicMutation,
+                            created: false,
+                            reason: string.IsNullOrEmpty(decision.RejectReason)
+                                ? "RejectedByPoseAuthority"
+                                : decision.RejectReason));
+                        continue;
+                    }
+
+                    if (TryCreateKinematicPresentationRecord(
+                            tickIndex,
+                            preMovementSnapshot,
+                            postMovementSnapshot,
+                            request.EntityId,
+                            request.OperationId,
+                            request.ActionSequenceId,
+                            mutation.UnitKinematicState,
+                            request.KinematicMutation,
+                            request.Source.ToString(),
+                            request.Reason,
+                            request.KinematicDirection,
+                            request.FacingBefore,
+                            request.FacingAfter,
+                            request.ShouldUpdateFacing,
+                            request.KinematicDirectionKind,
+                            request.KinematicFacingPolicy,
+                            out var record,
+                            out var reason) &&
+                        recordKeys.Add(CreateKinematicPresentationRecordKey(record)))
+                    {
+                        records.Add(record);
+                        diagnostics?.Add(FormatKinematicPresentationRecordDiagnostic(record, created: true, "Created"));
+                    }
+                    else
+                    {
+                        diagnostics?.Add(FormatKinematicPresentationRecordDiagnostic(
+                            tickIndex,
+                            request.EntityId,
+                            request.OperationId,
+                            request.ActionSequenceId,
+                            request.Source.ToString(),
+                            request.KinematicMutation,
+                            created: false,
+                            reason));
+                    }
+
+                    continue;
+                }
+
+                if (operation.Kind != FinalizationOperationKind.SetUnitKinematicState)
+                {
+                    continue;
+                }
+
+                var operationId = unchecked((int)operation.Sequence);
+                var mutationKind = ResolveKinematicMutationKind(operation.UnitKinematicState);
+                if (TryCreateKinematicPresentationRecord(
+                        tickIndex,
+                        preMovementSnapshot,
+                        postMovementSnapshot,
+                        operation.EntityId,
+                        operationId,
+                        actionSequenceId: 0,
+                        operation.UnitKinematicState,
+                        mutationKind,
+                        "SetUnitKinematicState",
+                        operation.Metadata.BoundaryReason,
+                        Direction.None,
+                        Direction.None,
+                        Direction.None,
+                        shouldUpdateFacing: false,
+                        KinematicDirectionKind.None,
+                        KinematicFacingPolicy.PreserveFacing,
+                        out var setRecord,
+                        out var setReason) &&
+                    recordKeys.Add(CreateKinematicPresentationRecordKey(setRecord)))
+                {
+                    records.Add(setRecord);
+                    diagnostics?.Add(FormatKinematicPresentationRecordDiagnostic(setRecord, created: true, "Created"));
+                }
+                else
+                {
+                    diagnostics?.Add(FormatKinematicPresentationRecordDiagnostic(
+                        tickIndex,
+                        operation.EntityId,
+                        operationId,
+                        actionSequenceId: 0,
+                        "SetUnitKinematicState",
+                        mutationKind,
+                        created: false,
+                        setReason));
+                }
+            }
+
+            return records;
+        }
+
+        private static bool IsKinematicPresentationPoseMutation(in EntityPoseMutationRequest request)
+        {
+            return (request.Kind == PoseMutationKind.KinematicOnly &&
+                    (request.Source == PoseMutationSource.KinematicHold ||
+                     request.Source == PoseMutationSource.KinematicRelease ||
+                     request.Source == PoseMutationSource.KinematicSettle)) ||
+                   (request.Kind == PoseMutationKind.KinematicAndFacing &&
+                    (request.Source == PoseMutationSource.KinematicLocomotion ||
+                     request.Source == PoseMutationSource.KinematicMovementSkill));
+        }
+
+        private static bool TryCreateKinematicPresentationRecord(
+            int tickIndex,
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot postMovementSnapshot,
+            int entityId,
+            int operationId,
+            int actionSequenceId,
+            UnitKinematicRuntimeState stateAfter,
+            KinematicMutationKind mutationKind,
+            string source,
+            string reasonText,
+            Direction kinematicDirection,
+            Direction facingBefore,
+            Direction facingAfter,
+            bool shouldUpdateFacing,
+            KinematicDirectionKind directionKind,
+            KinematicFacingPolicy facingPolicy,
+            out KinematicPresentationRecord record,
+            out string reason)
+        {
+            record = default;
+            if (!TryResolveKinematicPresentationPose(preMovementSnapshot, entityId, out var beforePose) ||
+                !TryResolveKinematicPresentationPose(postMovementSnapshot, entityId, out var afterPose))
+            {
+                reason = "MissingEntityPose";
+                return false;
+            }
+
+            var afterState = afterPose.State;
+            if (!afterState.Equals(stateAfter.NormalizedForStorage()))
+            {
+                afterState = stateAfter.NormalizedForStorage();
+                afterPose = new UnitKinematicPose(afterPose.AnchorCell, afterState, !afterState.IsSettledZero);
+            }
+
+            if (!HasKinematicPresentationChange(beforePose, afterPose))
+            {
+                reason = "NoKinematicVisualChange";
+                return false;
+            }
+
+            record = new KinematicPresentationRecord(
+                entityId,
+                tickIndex,
+                operationId,
+                actionSequenceId,
+                beforePose.Mode,
+                afterPose.Mode,
+                beforePose.AnchorCell,
+                afterPose.AnchorCell,
+                beforePose.LocalOffset,
+                afterPose.LocalOffset,
+                beforePose.State.velocity,
+                afterPose.State.velocity,
+                afterPose.State.forcedOp,
+                beforePose.HasAuthoritativeState,
+                afterPose.HasAuthoritativeState,
+                beforePose.IsSettledAtAnchor,
+                afterPose.IsSettledAtAnchor,
+                mutationKind,
+                source,
+                reasonText,
+                kinematicDirection,
+                facingBefore,
+                facingAfter,
+                shouldUpdateFacing,
+                directionKind,
+                facingPolicy);
+            reason = "Created";
+            return true;
+        }
+
+        private static bool TryResolveKinematicPresentationPose(
+            WorldSnapshot snapshot,
+            int entityId,
+            out UnitKinematicPose pose)
+        {
+            if (snapshot.TryGetUnitKinematicPose(entityId, out pose))
+            {
+                return true;
+            }
+
+            if (snapshot.TryGetEntity(entityId, out var entity))
+            {
+                pose = new UnitKinematicPose(
+                    entity.position,
+                    UnitKinematicRuntimeState.SettledZero,
+                    hasAuthoritativeState: false);
+                return true;
+            }
+
+            pose = default;
+            return false;
+        }
+
+        private static bool HasKinematicPresentationChange(
+            in UnitKinematicPose beforePose,
+            in UnitKinematicPose afterPose)
+        {
+            return !beforePose.AnchorCell.Equals(afterPose.AnchorCell) ||
+                   !beforePose.LocalOffset.Equals(afterPose.LocalOffset) ||
+                   !beforePose.State.velocity.Equals(afterPose.State.velocity) ||
+                   beforePose.Mode != afterPose.Mode ||
+                   beforePose.HasAuthoritativeState != afterPose.HasAuthoritativeState ||
+                   beforePose.IsSettledAtAnchor != afterPose.IsSettledAtAnchor;
+        }
+
+        private static string CreateKinematicPresentationRecordKey(in KinematicPresentationRecord record)
+        {
+            return record.OperationId != 0
+                ? $"Operation:{record.OperationId}"
+                : $"Kinematic:{record.EntityId}:{record.Source}:{record.AnchorCellBefore}:{record.LocalOffsetBefore}:{record.AnchorCellAfter}:{record.LocalOffsetAfter}";
+        }
+
+        private static string FormatKinematicPresentationRecordDiagnostic(
+            in KinematicPresentationRecord record,
+            bool created,
+            string reason)
+        {
+            return
+                "[KinematicPresentationRecord]" +
+                $"Tick={record.TickIndex}" +
+                $"|Entity={record.EntityId}" +
+                $"|OperationId={record.OperationId}" +
+                $"|ActionSeq={record.ActionSequenceId}" +
+                $"|Source={record.Source}" +
+                $"|MutationKind={record.MutationKind}" +
+                $"|ModeBefore={record.ModeBefore}" +
+                $"|ModeAfter={record.ModeAfter}" +
+                $"|AnchorBefore={record.AnchorCellBefore}" +
+                $"|AnchorAfter={record.AnchorCellAfter}" +
+                $"|LocalOffsetBefore={record.LocalOffsetBefore}" +
+                $"|LocalOffsetAfter={record.LocalOffsetAfter}" +
+                $"|VelocityBefore={record.VelocityBefore}" +
+                $"|VelocityAfter={record.VelocityAfter}" +
+                $"|KinematicDirection={record.KinematicDirection}" +
+                $"|FacingBefore={record.FacingBefore}" +
+                $"|FacingAfter={record.FacingAfter}" +
+                $"|ShouldUpdateFacing={(record.ShouldUpdateFacing ? 1 : 0)}" +
+                $"|DirectionKind={record.DirectionKind}" +
+                $"|FacingPolicy={record.FacingPolicy}" +
+                $"|ForcedMotionOpAfter={record.ForcedMotionOpAfter}" +
+                $"|HasAuthoritativeStateBefore={(record.HasAuthoritativeStateBefore ? 1 : 0)}" +
+                $"|HasAuthoritativeStateAfter={(record.HasAuthoritativeStateAfter ? 1 : 0)}" +
+                $"|IsSettledAtAnchorBefore={(record.IsSettledAtAnchorBefore ? 1 : 0)}" +
+                $"|IsSettledAtAnchorAfter={(record.IsSettledAtAnchorAfter ? 1 : 0)}" +
+                $"|Created={(created ? 1 : 0)}" +
+                $"|Reason={reason}";
+        }
+
+        private static string FormatKinematicPresentationRecordDiagnostic(
+            int tickIndex,
+            int entityId,
+            int operationId,
+            int actionSequenceId,
+            string source,
+            KinematicMutationKind mutationKind,
+            bool created,
+            string reason)
+        {
+            return
+                "[KinematicPresentationRecord]" +
+                $"Tick={tickIndex}" +
+                $"|Entity={entityId}" +
+                $"|OperationId={operationId}" +
+                $"|ActionSeq={actionSequenceId}" +
+                $"|Source={source}" +
+                $"|MutationKind={mutationKind}" +
+                "|ModeBefore=None|ModeAfter=None|AnchorBefore=None|AnchorAfter=None" +
+                "|LocalOffsetBefore=None|LocalOffsetAfter=None|VelocityBefore=None|VelocityAfter=None|ForcedMotionOpAfter=None" +
+                "|KinematicDirection=None|FacingBefore=None|FacingAfter=None|ShouldUpdateFacing=0|DirectionKind=None|FacingPolicy=PreserveFacing" +
+                "|HasAuthoritativeStateBefore=0|HasAuthoritativeStateAfter=0" +
+                "|IsSettledAtAnchorBefore=0|IsSettledAtAnchorAfter=0" +
+                $"|Created={(created ? 1 : 0)}" +
+                $"|Reason={reason}";
+        }
+
+        private static Direction ResolvePoseMovementDirection(
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            Direction fallback)
+        {
+            if (sourceCell.face != destinationCell.face)
+            {
+                return fallback;
+            }
+
+            var delta = new Vector2Int(destinationCell.x - sourceCell.x, destinationCell.y - sourceCell.y);
+            return TryResolveMoveDirection(delta, out var direction)
+                ? direction
+                : fallback;
+        }
+
         private static FinalizationOperationMetadata CreateAttackMetadata(
             AttackActionPlanPayload payload,
             ResolutionRecord resolutionRecord,
@@ -8862,12 +9377,14 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private FinalizationBatch MaterializeMovementOperations(
+            WorldSnapshot planSnapshot,
             IReadOnlyList<int> orderedActionPlanIds,
             IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
             IReadOnlyList<ResolutionRecord> resolutionRecords,
             IReadOnlyList<ImpactDispositionResolutionRecord> impactDispositionRecords,
             IReadOnlyList<ImpactReservation> impactReservations,
-            List<string> commitEvents)
+            List<string> commitEvents,
+            int tickIndex)
         {
             var batch = new FinalizationBatch();
             var impactDispositionByActionPlanId = new Dictionary<int, ImpactDispositionResolutionRecord>(impactDispositionRecords.Count);
@@ -8963,7 +9480,17 @@ namespace Game.Feature.Gameplay.Loop
                 for (var facingIndex = 0; facingIndex < payload.FacingWrites.Count; facingIndex++)
                 {
                     var facingWrite = payload.FacingWrites[facingIndex];
-                    batch.SetFacing(facingWrite.EntityId, facingWrite.Facing, CreateMovementMetadata(payload, baseResolution, facingIndex));
+                    var metadata = CreateMovementMetadata(payload, baseResolution, facingIndex);
+                    batch.AddPoseMutation(
+                        new EntityPoseMutationOperation(
+                            CreateFacingOnlyMovementRejectRequest(
+                                payload,
+                                baseResolution,
+                                facingWrite.EntityId,
+                                facingWrite.Facing,
+                                tickIndex,
+                                "MovementFacingResolution")),
+                        metadata);
                     commitEvents.Add(
                         $"FacingCommitted|G={actionPlanId}|I={payload.IntentId}|E={facingWrite.EntityId}|Facing={facingWrite.Facing}");
                 }
@@ -8988,13 +9515,17 @@ namespace Game.Feature.Gameplay.Loop
                             $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={targetEntityId}|Presence={EntityBoardPresence.Detached}");
                     }
 
-                    batch.MoveEntity(
-                        payload.ImpactReservationPayload.SourceEntityId,
-                        payload.ImpactReservationPayload.ContingentDestinationCell,
-                        contingentMetadata);
-                    batch.SetFacing(
-                        payload.ImpactReservationPayload.SourceEntityId,
-                        payload.ImpactReservationPayload.ContingentFacing,
+                    batch.AddPoseMutation(
+                        new EntityPoseMutationOperation(
+                            CreateMovementCommitPoseRequest(
+                                payload,
+                                contingentResolution,
+                                payload.ImpactReservationPayload.SourceEntityId,
+                                payload.ImpactReservationPayload.ContingentSourceCell,
+                                payload.ImpactReservationPayload.ContingentDestinationCell,
+                                payload.ImpactReservationPayload.ContingentFacing,
+                                tickIndex,
+                                "ImpactFollowThroughMovementCommit")),
                         contingentMetadata);
                     commitEvents.Add(
                         $"MoveCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|To={FormatCell(payload.ImpactReservationPayload.ContingentDestinationCell)}|Facing={payload.ImpactReservationPayload.ContingentFacing}");
@@ -9014,8 +9545,19 @@ namespace Game.Feature.Gameplay.Loop
                     for (var moveIndex = 0; moveIndex < payload.MoveWrites.Count; moveIndex++)
                     {
                         var moveWrite = payload.MoveWrites[moveIndex];
-                        batch.MoveEntity(moveWrite.EntityId, moveWrite.DestinationCell, CreateMovementMetadata(payload, baseResolution, moveIndex));
-                        batch.SetFacing(moveWrite.EntityId, moveWrite.FacingAfterMove, CreateMovementMetadata(payload, baseResolution, moveIndex));
+                        var metadata = CreateMovementMetadata(payload, baseResolution, moveIndex);
+                        batch.AddPoseMutation(
+                            new EntityPoseMutationOperation(
+                                CreateMovementCommitPoseRequest(
+                                    payload,
+                                    baseResolution,
+                                    moveWrite.EntityId,
+                                    moveWrite.SourceCell,
+                                    moveWrite.DestinationCell,
+                                    moveWrite.FacingAfterMove,
+                                    tickIndex,
+                                    "MovementCommit")),
+                            metadata);
                         commitEvents.Add(
                             $"MoveCommitted|G={actionPlanId}|I={payload.IntentId}|E={moveWrite.EntityId}|To={FormatCell(moveWrite.DestinationCell)}|Facing={moveWrite.FacingAfterMove}");
                     }
@@ -9027,25 +9569,70 @@ namespace Game.Feature.Gameplay.Loop
                     var kinematicMetadata = CreateMovementMetadata(
                         payload,
                         baseResolution,
-                        kinematicIndex,
-                        executionBoundaryKindOverride: MovementExecutionBoundaryKind.LocomotionAnchorCommit,
-                        boundaryReasonOverride: ResolveKinematicAnchorCommitBoundaryReason(payload));
+                            kinematicIndex,
+                            executionBoundaryKindOverride: MovementExecutionBoundaryKind.LocomotionAnchorCommit,
+                            boundaryReasonOverride: ResolveKinematicAnchorCommitBoundaryReason(payload));
+                    var kinematicDirection = Direction.None;
+                    var kinematicDirectionKind = KinematicDirectionKind.None;
+                    var hasKinematicDirection = kinematicOutcome.AnchorChanged &&
+                        KinematicDirectionResolver.TryResolveKinematicDirection(
+                            kinematicOutcome.SourceAnchorCell,
+                            kinematicOutcome.ResolvedAnchorCell,
+                            planSnapshot.Topology,
+                            planSnapshot.BoardBounds,
+                            out kinematicDirection);
+                    if (hasKinematicDirection)
+                    {
+                        kinematicDirectionKind = KinematicDirectionKind.AnchorDelta;
+                    }
+                    else if (IsKinematicLocomotionBoundary(payload.ExecutionBoundaryKind) &&
+                             TryResolveFacing(kinematicOutcome.ResolvedVelocity, out kinematicDirection))
+                    {
+                        hasKinematicDirection = true;
+                        kinematicDirectionKind = KinematicDirectionKind.Velocity;
+                    }
+
+                    var isKinematicLocomotion = kinematicOutcome.AnchorChanged ||
+                                                (IsKinematicLocomotionBoundary(payload.ExecutionBoundaryKind) &&
+                                                 hasKinematicDirection);
                     if (kinematicOutcome.AnchorChanged)
                     {
                         // This materializes kinematic anchor commits as authoritative movement.
                         // Boundary reasons such as GlideActiveKinematicAnchorCommit are not
                         // presentation-only signals while they flow through this branch.
-                        batch.MoveEntity(
-                            kinematicOutcome.EntityId,
-                            kinematicOutcome.ResolvedAnchorCell,
-                            kinematicMetadata);
-                        commitEvents.Add(
-                            $"KinematicAnchorCommitted|G={actionPlanId}|I={payload.IntentId}|E={kinematicOutcome.EntityId}|From={FormatCell(kinematicOutcome.SourceAnchorCell)}|To={FormatCell(kinematicOutcome.ResolvedAnchorCell)}");
+                        if (hasKinematicDirection)
+                        {
+                            batch.MoveEntity(
+                                kinematicOutcome.EntityId,
+                                kinematicOutcome.ResolvedAnchorCell,
+                                kinematicMetadata);
+                            commitEvents.Add(
+                                $"KinematicAnchorCommitted|G={actionPlanId}|I={payload.IntentId}|E={kinematicOutcome.EntityId}|From={FormatCell(kinematicOutcome.SourceAnchorCell)}|To={FormatCell(kinematicOutcome.ResolvedAnchorCell)}|Direction={kinematicDirection}");
+                        }
+                        else
+                        {
+                            commitEvents.Add(
+                                $"KinematicAnchorRejected|G={actionPlanId}|I={payload.IntentId}|E={kinematicOutcome.EntityId}|From={FormatCell(kinematicOutcome.SourceAnchorCell)}|To={FormatCell(kinematicOutcome.ResolvedAnchorCell)}|Reason=MissingKinematicDirection");
+                        }
                     }
 
-                    batch.SetUnitKinematicState(
-                        kinematicOutcome.EntityId,
-                        kinematicOutcome.ResolvedState,
+                    batch.AddPoseMutation(
+                        new EntityPoseMutationOperation(
+                            CreateKinematicPoseRequest(
+                                planSnapshot,
+                                payload,
+                                baseResolution,
+                                kinematicOutcome.EntityId,
+                                kinematicOutcome.SourceAnchorCell,
+                                kinematicOutcome.ResolvedAnchorCell,
+                                tickIndex,
+                                ResolveKinematicMutationKind(kinematicOutcome.ResolvedState),
+                                isKinematicLocomotion,
+                                kinematicDirection,
+                                hasKinematicDirection,
+                                kinematicDirectionKind,
+                                "KinematicMotionOutcome"),
+                            kinematicOutcome.ResolvedState),
                         kinematicMetadata);
                     commitEvents.Add(
                         $"KinematicPoseCommitted|G={actionPlanId}|I={payload.IntentId}|E={kinematicOutcome.EntityId}|Anchor={FormatCell(kinematicOutcome.ResolvedAnchorCell)}|Offset={kinematicOutcome.ResolvedLocalOffset}|Mode={kinematicOutcome.ResolvedState.mode}|Blocked={(kinematicOutcome.Blocked ? 1 : 0)}|RejectedBy={kinematicOutcome.RejectedBy}");
@@ -9159,6 +9746,7 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
+            AddRange(commitEvents, batch.PoseMutationDiagnostics);
             return batch;
         }
 
