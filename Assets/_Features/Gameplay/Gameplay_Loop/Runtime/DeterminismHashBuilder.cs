@@ -479,6 +479,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(state.acquiredTick).Append('|')
                     .Append(state.lastReleaseTick).Append('|')
                     .Append((int)state.lastReleaseReason).Append('|')
+                    .Append((int)state.pendingReleaseReason).Append('|')
+                    .Append((int)state.finalReleaseReason).Append('|')
                     .Append(captured.localOffset.X.RawValue).Append('|')
                     .Append(captured.localOffset.Y.RawValue).Append('|')
                     .Append(captured.velocity.X.RawValue).Append('|')

@@ -128,6 +128,14 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEntityLocomotionLeaseState(entityId, state);
         }
 
+        public void SetEntityLocomotionLeaseState(
+            int entityId,
+            EntityLocomotionLeaseState state,
+            EntityLocomotionLeaseDiagnosticContext diagnosticContext)
+        {
+            _port.SetEntityLocomotionLeaseState(entityId, state);
+        }
+
         public void AddPoseMutation(EntityPoseMutationOperation operation)
         {
             var decision = EntityPoseMutationAuthority.Decide(operation.Request);

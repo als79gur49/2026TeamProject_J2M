@@ -85,7 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CombatAction_LocomotionLease_NormalComplete_Releases()
+        public void CombatAction_LocomotionLease_RecoverComplete_Releases()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
             var lease = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.HeldByOwner);
@@ -93,12 +93,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             lease.stateKind = EntityLocomotionLeaseStateKind.Completed;
             lease.lastReleaseTick = 11;
-            lease.lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete;
+            lease.lastReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
+            lease.finalReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
             worldState.CreateWriteContext().SetEntityLocomotionLeaseState(10, lease);
 
             Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out var released), Is.True);
             Assert.That(released.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.Completed));
-            Assert.That(released.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.NormalComplete));
+            Assert.That(released.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.RecoverComplete));
+            Assert.That(released.finalReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.RecoverComplete));
             Assert.That(released.lastReleaseTick, Is.EqualTo(11));
         }
 
@@ -109,7 +111,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
             var released = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.Completed);
             released.lastReleaseTick = 11;
-            released.lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete;
+            released.lastReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
+            released.finalReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
             var batch = new FinalizationBatch();
 
             batch.SetEntityLocomotionLeaseState(10, released);
@@ -139,6 +142,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(diagnostic, Does.Contain("Operation=OrphanedKinematicNotSettled"));
             Assert.That(diagnostic, Does.Contain("OwnerKind=None"));
             Assert.That(diagnostic, Does.Contain("Policy=UnitTest"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void KinematicNotSettled_DuringRecoverHeld_IsNotOrphaned()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetUnitKinematicState(
+                10,
+                UnitKinematicRuntimeState.CreateHeldFreeze(CreateOffsetState(localX: 1024, localY: 0)));
+            var lease = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.ReleaseRequested);
+            lease.pendingReleaseReason = EntityLocomotionLeaseReleaseReason.ExecuteComplete;
+            writeContext.SetEntityLocomotionLeaseState(10, lease);
+
+            var diagnostic = EntityLocomotionLeaseDiagnostics.BuildKinematicNotSettledDiagnostic(
+                worldState.CreateSnapshot(),
+                tickIndex: 3,
+                entityId: 10,
+                stage: "UnitTest",
+                intentId: 99);
+
+            Assert.That(diagnostic, Is.Empty);
         }
 
         [Test]
@@ -566,7 +592,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 anchorAtAcquire = new SurfaceCell(FaceId.Floor, 0, 0),
                 acquiredTick = 2,
                 lastReleaseTick = stateKind == EntityLocomotionLeaseStateKind.Completed ? 3 : 0,
-                lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete,
+                lastReleaseReason = stateKind == EntityLocomotionLeaseStateKind.Completed
+                    ? EntityLocomotionLeaseReleaseReason.RecoverComplete
+                    : EntityLocomotionLeaseReleaseReason.None,
+                finalReleaseReason = stateKind == EntityLocomotionLeaseStateKind.Completed
+                    ? EntityLocomotionLeaseReleaseReason.RecoverComplete
+                    : EntityLocomotionLeaseReleaseReason.None,
             };
         }
 

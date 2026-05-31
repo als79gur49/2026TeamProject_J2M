@@ -24,6 +24,11 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state);
 
+        void SetEntityLocomotionLeaseState(
+            int entityId,
+            EntityLocomotionLeaseState state,
+            EntityLocomotionLeaseDiagnosticContext diagnosticContext);
+
         void AddPoseMutation(EntityPoseMutationOperation operation);
     }
 
@@ -159,6 +164,11 @@ namespace Game.Feature.Gameplay.BoardState
         new void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
 
         new void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state);
+
+        new void SetEntityLocomotionLeaseState(
+            int entityId,
+            EntityLocomotionLeaseState state,
+            EntityLocomotionLeaseDiagnosticContext diagnosticContext);
 
         new void AddPoseMutation(EntityPoseMutationOperation operation);
 

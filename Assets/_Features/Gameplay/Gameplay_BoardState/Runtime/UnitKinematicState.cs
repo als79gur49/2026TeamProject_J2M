@@ -463,16 +463,19 @@ namespace Game.Feature.Gameplay.BoardState
 
     public enum EntityLocomotionLeaseReleaseReason
     {
-        NormalComplete = 0,
-        TopologyNonParticipant = 1,
-        NoCombatCapability = 2,
-        SourceInactive = 3,
-        AiModeNonAttack = 4,
-        PostExecuteCleanup = 5,
-        AfterAttackClear = 6,
-        ActionLogicClear = 7,
-        EntityRemoved = 8,
-        StageReset = 9,
+        None = 0,
+        ExecuteComplete = 1,
+        ForwardCellProjectileExecuteComplete = 2,
+        RecoverEntered = 3,
+        RecoverComplete = 4,
+        ActionTimelineComplete = 5,
+        TopologyNonParticipant = 6,
+        NoCombatCapability = 7,
+        SourceInactive = 8,
+        AiModeNonAttack = 9,
+        ActionLogicClear = 10,
+        EntityRemoved = 11,
+        StageReset = 12,
     }
 
     public enum EntityLocomotionLeaseReleasePolicy
@@ -496,6 +499,8 @@ namespace Game.Feature.Gameplay.BoardState
         public int acquiredTick;
         public int lastReleaseTick;
         public EntityLocomotionLeaseReleaseReason lastReleaseReason;
+        public EntityLocomotionLeaseReleaseReason pendingReleaseReason;
+        public EntityLocomotionLeaseReleaseReason finalReleaseReason;
 
         public static EntityLocomotionLeaseState None => default;
 
@@ -542,7 +547,9 @@ namespace Game.Feature.Gameplay.BoardState
                    anchorAtAcquire.Equals(other.anchorAtAcquire) &&
                    acquiredTick == other.acquiredTick &&
                    lastReleaseTick == other.lastReleaseTick &&
-                   lastReleaseReason == other.lastReleaseReason;
+                   lastReleaseReason == other.lastReleaseReason &&
+                   pendingReleaseReason == other.pendingReleaseReason &&
+                   finalReleaseReason == other.finalReleaseReason;
         }
 
         public override bool Equals(object obj)
@@ -564,9 +571,81 @@ namespace Game.Feature.Gameplay.BoardState
                 hashCode = (hashCode * 397) ^ acquiredTick;
                 hashCode = (hashCode * 397) ^ lastReleaseTick;
                 hashCode = (hashCode * 397) ^ (int)lastReleaseReason;
+                hashCode = (hashCode * 397) ^ (int)pendingReleaseReason;
+                hashCode = (hashCode * 397) ^ (int)finalReleaseReason;
                 return hashCode;
             }
         }
+    }
+
+    public readonly struct EntityLocomotionLeaseDiagnosticContext
+    {
+        public EntityLocomotionLeaseDiagnosticContext(
+            string operation,
+            EntityLocomotionLeaseStateKind stateBefore,
+            EntityLocomotionLeaseStateKind stateAfter,
+            EntityLocomotionLeaseReleaseReason reason,
+            EntityLocomotionLeaseReleaseReason pendingReleaseReason,
+            EntityLocomotionLeaseReleaseReason finalReleaseReason,
+            string policy,
+            int recoverRemainingTicks,
+            bool recoverComplete,
+            bool actualKinematicReleaseEmitted,
+            MotionMode kinematicModeBefore,
+            MotionMode kinematicModeAfter,
+            bool hasAuthoritativeState,
+            bool isSettledAtAnchor,
+            int tickIndex)
+        {
+            HasValue = true;
+            Operation = operation ?? string.Empty;
+            StateBefore = stateBefore;
+            StateAfter = stateAfter;
+            Reason = reason;
+            PendingReleaseReason = pendingReleaseReason;
+            FinalReleaseReason = finalReleaseReason;
+            Policy = policy ?? string.Empty;
+            RecoverRemainingTicks = Math.Max(0, recoverRemainingTicks);
+            RecoverComplete = recoverComplete;
+            ActualKinematicReleaseEmitted = actualKinematicReleaseEmitted;
+            KinematicModeBefore = kinematicModeBefore;
+            KinematicModeAfter = kinematicModeAfter;
+            HasAuthoritativeState = hasAuthoritativeState;
+            IsSettledAtAnchor = isSettledAtAnchor;
+            TickIndex = Math.Max(0, tickIndex);
+        }
+
+        public bool HasValue { get; }
+
+        public string Operation { get; }
+
+        public EntityLocomotionLeaseStateKind StateBefore { get; }
+
+        public EntityLocomotionLeaseStateKind StateAfter { get; }
+
+        public EntityLocomotionLeaseReleaseReason Reason { get; }
+
+        public EntityLocomotionLeaseReleaseReason PendingReleaseReason { get; }
+
+        public EntityLocomotionLeaseReleaseReason FinalReleaseReason { get; }
+
+        public string Policy { get; }
+
+        public int RecoverRemainingTicks { get; }
+
+        public bool RecoverComplete { get; }
+
+        public bool ActualKinematicReleaseEmitted { get; }
+
+        public MotionMode KinematicModeBefore { get; }
+
+        public MotionMode KinematicModeAfter { get; }
+
+        public bool HasAuthoritativeState { get; }
+
+        public bool IsSettledAtAnchor { get; }
+
+        public int TickIndex { get; }
     }
 
     internal readonly struct EntityLocomotionLeaseSnapshotEntry
@@ -596,7 +675,12 @@ namespace Game.Feature.Gameplay.BoardState
             EntityLocomotionLeaseStateKind stateBefore,
             EntityLocomotionLeaseStateKind stateAfter,
             EntityLocomotionLeaseReleaseReason reason,
+            EntityLocomotionLeaseReleaseReason pendingReleaseReason,
+            EntityLocomotionLeaseReleaseReason finalReleaseReason,
             string policy,
+            int recoverRemainingTicks,
+            bool recoverComplete,
+            bool actualKinematicReleaseEmitted,
             MotionMode kinematicModeBefore,
             MotionMode kinematicModeAfter,
             bool hasAuthoritativeState,
@@ -604,7 +688,7 @@ namespace Game.Feature.Gameplay.BoardState
             int lastReleaseTick,
             EntityLocomotionLeaseReleaseReason lastReleaseReason)
         {
-            return $"{Prefix} Tick={tickIndex} Entity={entityId} Operation={operation} OwnerKind={ownerKind} OwnerSeq={ownerSequence} LeaseId={leaseId} StateBefore={stateBefore} StateAfter={stateAfter} Reason={reason} Policy={policy ?? string.Empty} KinematicModeBefore={kinematicModeBefore} KinematicModeAfter={kinematicModeAfter} HasAuthoritativeState={hasAuthoritativeState} IsSettledAtAnchor={isSettledAtAnchor} LastReleaseTick={lastReleaseTick} LastReleaseReason={lastReleaseReason}";
+            return $"{Prefix} Tick={tickIndex} Entity={entityId} Operation={operation} OwnerKind={ownerKind} OwnerSeq={ownerSequence} LeaseId={leaseId} StateBefore={stateBefore} StateAfter={stateAfter} Reason={reason} PendingReleaseReason={pendingReleaseReason} FinalReleaseReason={finalReleaseReason} Policy={policy ?? string.Empty} RecoverRemainingTicks={recoverRemainingTicks} RecoverComplete={(recoverComplete ? 1 : 0)} ActualKinematicReleaseEmitted={(actualKinematicReleaseEmitted ? 1 : 0)} KinematicModeBefore={kinematicModeBefore} KinematicModeAfter={kinematicModeAfter} HasAuthoritativeState={hasAuthoritativeState} IsSettledAtAnchor={isSettledAtAnchor} LastReleaseTick={lastReleaseTick} LastReleaseReason={lastReleaseReason}";
         }
 
         public static string BuildKinematicNotSettledDiagnostic(
@@ -640,7 +724,9 @@ namespace Game.Feature.Gameplay.BoardState
             var leaseId = hasLease ? lease.leaseId : 0;
             var stateBefore = hasLease ? lease.stateKind : EntityLocomotionLeaseStateKind.None;
             var lastReleaseTick = hasLease ? lease.lastReleaseTick : 0;
-            var lastReleaseReason = hasLease ? lease.lastReleaseReason : EntityLocomotionLeaseReleaseReason.NormalComplete;
+            var lastReleaseReason = hasLease ? lease.lastReleaseReason : EntityLocomotionLeaseReleaseReason.None;
+            var pendingReleaseReason = hasLease ? lease.pendingReleaseReason : EntityLocomotionLeaseReleaseReason.None;
+            var finalReleaseReason = hasLease ? lease.finalReleaseReason : EntityLocomotionLeaseReleaseReason.None;
             return FormatOperation(
                 tickIndex,
                 entityId,
@@ -651,7 +737,12 @@ namespace Game.Feature.Gameplay.BoardState
                 stateBefore,
                 EntityLocomotionLeaseStateKind.Orphaned,
                 lastReleaseReason,
+                pendingReleaseReason,
+                finalReleaseReason,
                 stage,
+                0,
+                false,
+                false,
                 pose.Mode,
                 pose.Mode,
                 pose.HasAuthoritativeState,

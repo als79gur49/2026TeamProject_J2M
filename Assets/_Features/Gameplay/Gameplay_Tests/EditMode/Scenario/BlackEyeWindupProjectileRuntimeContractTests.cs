@@ -329,7 +329,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(lease.ownerActionSequenceId, Is.EqualTo(originalAction.sequence));
             Assert.That(lease.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.Completed));
             Assert.That(lease.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.TopologyNonParticipant));
-            Assert.That(suspendedTick.PhaseTrace, Has.Some.Contains("Operation=Release").And.Contains("Reason=TopologyNonParticipant"));
+            Assert.That(suspendedTick.PhaseTrace, Has.Some.Contains("Operation=TerminateImmediate").And.Contains("Reason=TopologyNonParticipant"));
             Assert.That(snapshot.TryGetUnitKinematicPose(EnemyId, out var pose), Is.True);
             Assert.That(pose.Mode, Is.Not.EqualTo(MotionMode.Held));
         }
@@ -394,7 +394,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void CombatAction_LocomotionLease_NormalComplete_Releases()
+        public void BlackEye_FCP_Execute_EntersRecover_WithoutReleasingHeld()
         {
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
             SeedEnemyVoluntaryKinematic(worldState);
@@ -405,11 +405,105 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var executeTick = pipeline.RunTick(new TickInput(action.executeTick));
             var snapshot = worldState.CreateSnapshot();
 
+            Assert.That(snapshot.CountPendingCellImpactsForOwner(EnemyId), Is.EqualTo(1));
+            Assert.That(GetEntity(worldState, EnemyId).aiMode, Is.EqualTo(EnemyAiMode.Recover));
             Assert.That(snapshot.TryGetEntityLocomotionLeaseState(EnemyId, out var lease), Is.True);
             Assert.That(lease.ownerActionSequenceId, Is.EqualTo(action.sequence));
+            Assert.That(lease.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.ReleaseRequested));
+            Assert.That(lease.pendingReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.ForwardCellProjectileExecuteComplete));
+            Assert.That(lease.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.None));
+            Assert.That(snapshot.TryGetUnitKinematicPose(EnemyId, out var pose), Is.True);
+            Assert.That(pose.Mode, Is.EqualTo(MotionMode.Held));
+            Assert.That(executeTick.PhaseTrace, Has.Some.Contains("Operation=RequestRelease").And.Contains("ActualKinematicReleaseEmitted=0"));
+            Assert.That(executeTick.PhaseTrace, Has.None.Contains("Operation=FinalizeRelease"));
+            Assert.That(executeTick.PhaseTrace, Has.None.Contains("Source=KinematicRelease"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_FCP_RecoverActive_KeepsHeld()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var action = GetEnemyActionState(worldState);
+            pipeline.RunTick(new TickInput(action.executeTick));
+            var recoverTick = pipeline.RunTick(new TickInput(action.executeTick + 1));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(GetEntity(worldState, EnemyId).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(snapshot.TryGetEntityLocomotionLeaseState(EnemyId, out var lease), Is.True);
+            Assert.That(lease.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.ReleaseRequested));
+            Assert.That(snapshot.TryGetUnitKinematicPose(EnemyId, out var pose), Is.True);
+            Assert.That(pose.Mode, Is.EqualTo(MotionMode.Held));
+            AssertNoEnemyMovement(recoverTick);
+            AssertNoOrphanedKinematicNotSettled(recoverTick);
+            Assert.That(recoverTick.PhaseTrace, Has.None.Contains("Operation=FinalizeRelease"));
+            Assert.That(recoverTick.PhaseTrace, Has.None.Contains("Source=KinematicRelease"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_FCP_RecoverComplete_ReleasesHeldAndResumesCapturedKinematic()
+        {
+            var profile = LoadProfile();
+            var recoverTicks = ResolveRecoverTicks(profile);
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var action = GetEnemyActionState(worldState);
+            pipeline.RunTick(new TickInput(action.executeTick));
+            for (var offset = 1; offset <= recoverTicks; offset++)
+            {
+                var activeRecoverTick = pipeline.RunTick(new TickInput(action.executeTick + offset));
+                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicPose(EnemyId, out var activePose), Is.True);
+                Assert.That(activePose.Mode, Is.EqualTo(MotionMode.Held), $"Unexpected release at tick {activeRecoverTick.TickIndex}");
+            }
+
+            var recoverCompleteTick = pipeline.RunTick(new TickInput(action.executeTick + recoverTicks + 1));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(GetEntity(worldState, EnemyId).aiMode, Is.Not.EqualTo(EnemyAiMode.Recover));
+            Assert.That(snapshot.TryGetEntityLocomotionLeaseState(EnemyId, out var lease), Is.True);
             Assert.That(lease.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.Completed));
-            Assert.That(lease.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.NormalComplete));
-            Assert.That(executeTick.PhaseTrace, Has.Some.Contains("Operation=Release").And.Contains("Reason=NormalComplete"));
+            Assert.That(lease.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.RecoverComplete));
+            Assert.That(lease.finalReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.RecoverComplete));
+            Assert.That(snapshot.TryGetUnitKinematicPose(EnemyId, out var pose), Is.True);
+            Assert.That(pose.Mode, Is.EqualTo(MotionMode.Voluntary));
+            Assert.That(recoverCompleteTick.PhaseTrace, Has.Some.Contains("Operation=FinalizeRelease").And.Contains("Reason=RecoverComplete"));
+            Assert.That(recoverCompleteTick.PhaseTrace, Has.Some.Contains("ActualKinematicReleaseEmitted=1"));
+            Assert.That(recoverCompleteTick.PhaseTrace, Has.Some.Contains("Source=KinematicRelease"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NormalRecover_DoesNotUseForwardCellProjectilePostExecuteCleanupAsActualRelease()
+        {
+            var profile = LoadProfile();
+            var recoverTicks = ResolveRecoverTicks(profile);
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var action = GetEnemyActionState(worldState);
+            var executeTick = pipeline.RunTick(new TickInput(action.executeTick));
+            TickResult finalTick = executeTick;
+            for (var offset = 1; offset <= recoverTicks + 1; offset++)
+            {
+                finalTick = pipeline.RunTick(new TickInput(action.executeTick + offset));
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntityLocomotionLeaseState(EnemyId, out var lease), Is.True);
+            Assert.That(lease.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.RecoverComplete));
+            Assert.That(executeTick.PhaseTrace, Has.Some.Contains("Operation=RequestRelease"));
+            Assert.That(finalTick.PhaseTrace, Has.Some.Contains("Operation=FinalizeRelease").And.Contains("Reason=RecoverComplete"));
+            Assert.That(finalTick.PhaseTrace, Has.None.Contains("PostExecuteCleanup"));
         }
 
         [Test]
@@ -1005,6 +1099,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(WindupProjectileProfilePath);
             Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{WindupProjectileProfilePath}'.");
             return profile;
+        }
+
+        private static int ResolveRecoverTicks(EnemyAiProfile profile)
+        {
+            return profile
+                .CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond)
+                .Core
+                .CommonSettings
+                .RecoverTicks;
         }
 
         private static WorldState CreateCombatWorld(

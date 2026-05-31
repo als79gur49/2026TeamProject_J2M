@@ -73,7 +73,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             var worldState = CreateWorldState(new[] { CreateEntity(10, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) });
             var released = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.Completed);
             released.lastReleaseTick = 11;
-            released.lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete;
+            released.lastReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
+            released.finalReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
             var batch = new FinalizationBatch();
 
             batch.SetEntityLocomotionLeaseState(10, released);
@@ -572,7 +573,12 @@ namespace Game.Feature.Gameplay.Tests.Core
                 anchorAtAcquire = new SurfaceCell(FaceId.Floor, 0, 0),
                 acquiredTick = 2,
                 lastReleaseTick = stateKind == EntityLocomotionLeaseStateKind.Completed ? 3 : 0,
-                lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete,
+                lastReleaseReason = stateKind == EntityLocomotionLeaseStateKind.Completed
+                    ? EntityLocomotionLeaseReleaseReason.RecoverComplete
+                    : EntityLocomotionLeaseReleaseReason.None,
+                finalReleaseReason = stateKind == EntityLocomotionLeaseStateKind.Completed
+                    ? EntityLocomotionLeaseReleaseReason.RecoverComplete
+                    : EntityLocomotionLeaseReleaseReason.None,
             };
         }
 

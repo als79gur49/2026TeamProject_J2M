@@ -718,7 +718,9 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|Anchor=").Append(FormatCell(operation.EntityLocomotionLeaseState.anchorAtAcquire))
                         .Append("|AcquiredTick=").Append(operation.EntityLocomotionLeaseState.acquiredTick)
                         .Append("|LastReleaseTick=").Append(operation.EntityLocomotionLeaseState.lastReleaseTick)
-                        .Append("|LastReleaseReason=").Append(operation.EntityLocomotionLeaseState.lastReleaseReason);
+                        .Append("|LastReleaseReason=").Append(operation.EntityLocomotionLeaseState.lastReleaseReason)
+                        .Append("|PendingReleaseReason=").Append(operation.EntityLocomotionLeaseState.pendingReleaseReason)
+                        .Append("|FinalReleaseReason=").Append(operation.EntityLocomotionLeaseState.finalReleaseReason);
                     break;
 
                 case FinalizationOperationKind.SetTopology:
