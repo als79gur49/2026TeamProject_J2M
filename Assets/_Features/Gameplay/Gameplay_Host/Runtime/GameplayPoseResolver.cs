@@ -106,7 +106,7 @@ namespace Game.Feature.Gameplay.Host
                 ? track.DestinationTopology ?? track.SourceTopology ?? _stateStore.CommittedTopology
                 : track.SourceTopology ?? track.DestinationTopology ?? _stateStore.CommittedTopology;
             var facing = useDestination
-                ? track.DestinationFacing ?? track.SourceFacing ?? Direction.Up
+                ? ResolveKinematicDestinationFacing(track)
                 : track.SourceFacing ?? track.DestinationFacing ?? Direction.Up;
 
             pose = default;
@@ -123,6 +123,16 @@ namespace Game.Feature.Gameplay.Host
                 facing,
                 projector.ResolveKinematicPresentationPlaneOffset(localOffset));
             return true;
+        }
+
+        private static Direction ResolveKinematicDestinationFacing(in TickKinematicMotionTrack track)
+        {
+            if (track.PoseFacing != Direction.None)
+            {
+                return track.PoseFacing;
+            }
+
+            return track.DestinationFacing ?? track.SourceFacing ?? Direction.Up;
         }
 
         public bool TryResolveContinuousLocomotionPose(

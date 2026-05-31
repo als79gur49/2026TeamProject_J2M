@@ -194,6 +194,12 @@ namespace Game.Feature.Gameplay.Host
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             _stateStore.LastEntityPresentationApplyDiagnostics;
 
+        internal IReadOnlyList<KinematicTrackBuildDiagnostic> DebugLastKinematicTrackBuildDiagnostics =>
+            _stateStore.LastKinematicTrackBuildDiagnostics;
+
+        internal IReadOnlyList<KinematicViewApplyDiagnostic> DebugLastKinematicViewApplyDiagnostics =>
+            _stateStore.LastKinematicViewApplyDiagnostics;
+
         internal GameplayEntityPresentationLifecycleDebugSnapshot DebugCaptureEntityPresentationLifecycle(
             int entityId,
             float timelineTimeSeconds = 0f)
@@ -490,6 +496,7 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _timingProfile);
             _lastPresentedTickIndex = result.TickIndex;
+            _stateStore.LastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
             _animationSync.ApplyTickPresentation(
                 result,

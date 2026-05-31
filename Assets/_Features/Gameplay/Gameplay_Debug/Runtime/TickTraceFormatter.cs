@@ -45,6 +45,11 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Movement.DebugEvents", movementPhaseResult.DebugEvents, FormatString);
             AppendSection(builder, "Movement.RejectedReasons", movementPhaseResult.RejectedReasons, FormatString);
             AppendSection(builder, "Movement.Resolutions", movementPhaseResult.ResolutionRecords, FormatResolutionRecord);
+            AppendSection(
+                builder,
+                "Movement.PresentationRecords",
+                movementPhaseResult.MovementPresentationRecords,
+                FormatMovementPresentationRecord);
             AppendSection(builder, "Movement.ResolvedOperations", movementPhaseResult.ResolvedOperations, FormatFinalizationOperation);
             AppendSection(builder, "Movement.CommitEvents", movementPhaseResult.CommitEvents, FormatString);
             AppendOccupancySection(builder, "Movement.OccupancyBefore", s0Snapshot);
@@ -530,6 +535,11 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatResolutionRecord(ResolutionRecord record)
         {
             return $"Contest={record.ContestId}|Kind={record.Kind}|Accepted={(record.Accepted ? 1 : 0)}|Source={record.SourceId}|Priority={record.Priority}|Plan={record.ActionPlanId}|Affected={record.AffectedEntityId}|Local={record.LocalActionIndex}";
+        }
+
+        private static string FormatMovementPresentationRecord(MovementPresentationRecord record)
+        {
+            return $"Entity={record.EntityId}|OperationId={record.OperationId}|SyntheticOperationId={(record.UsesSyntheticOperationId ? 1 : 0)}|MovementIntentId={record.MovementIntentId}|MovementResolutionId={record.MovementResolutionId}|From={FormatCell(record.FromCell)}|To={FormatCell(record.ToCell)}|Direction={record.MovementDirection}|PositionChanged={(record.PositionChanged ? 1 : 0)}|Accepted={(record.WasAccepted ? 1 : 0)}|Source={record.Source}";
         }
 
         private static string FormatFinalizationOperation(FinalizationOperation operation)

@@ -238,6 +238,12 @@ namespace Game.Feature.Gameplay.Host
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             _presentationCoordinator.DebugLastEntityPresentationApplyDiagnostics;
 
+        internal IReadOnlyList<KinematicTrackBuildDiagnostic> DebugLastKinematicTrackBuildDiagnostics =>
+            _presentationCoordinator.DebugLastKinematicTrackBuildDiagnostics;
+
+        internal IReadOnlyList<KinematicViewApplyDiagnostic> DebugLastKinematicViewApplyDiagnostics =>
+            _presentationCoordinator.DebugLastKinematicViewApplyDiagnostics;
+
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
             _presentationCoordinator.AttachCameraRig(viewCameraRig);
