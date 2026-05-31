@@ -675,6 +675,135 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ContactFacts_BoxActionPoseMutationIntoActiveDestroyTile_CreatesSemanticContact()
+        {
+            var cases = new[]
+            {
+                (Semantic: MovementSemanticKind.Push, LocalActionIndex: 0, SourceActorId: 10, SourceState: EntityPhaseState.Idle, Kind: TileEffectEntityContactKind.PushEnter, ContactSemantic: MovementSemanticKind.Push),
+                (Semantic: MovementSemanticKind.Slide, LocalActionIndex: 0, SourceActorId: 10, SourceState: EntityPhaseState.Idle, Kind: TileEffectEntityContactKind.PushEnter, ContactSemantic: MovementSemanticKind.Push),
+                (Semantic: MovementSemanticKind.Slide, LocalActionIndex: 0, SourceActorId: 20, SourceState: EntityPhaseState.Sliding, Kind: TileEffectEntityContactKind.SlideEnter, ContactSemantic: MovementSemanticKind.Slide),
+                (Semantic: MovementSemanticKind.Flip, LocalActionIndex: 0, SourceActorId: 10, SourceState: EntityPhaseState.Idle, Kind: TileEffectEntityContactKind.FlipLanding, ContactSemantic: MovementSemanticKind.Flip),
+                (Semantic: MovementSemanticKind.Flip, LocalActionIndex: 1, SourceActorId: 10, SourceState: EntityPhaseState.Idle, Kind: TileEffectEntityContactKind.ImpactFollowThrough, ContactSemantic: MovementSemanticKind.Flip),
+            };
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var fromCell = new SurfaceCell(FaceId.Floor, 0, i);
+                var destroyCell = new SurfaceCell(FaceId.Floor, 1, i);
+                var beforeSnapshot = CreateWorldState(
+                        new[] { CreateBox(20, fromCell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip, state: cases[i].SourceState) },
+                        Array.Empty<TileFeatureState>())
+                    .CreateSnapshot();
+                var finalSnapshot = CreateWorldState(
+                        new[] { CreateBox(20, destroyCell, boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip) },
+                        new[] { CreateTileFeature(10, destroyCell, TileFeatureKind.Destroy) })
+                    .CreateSnapshot();
+                var batch = new FinalizationBatch();
+                batch.AddPoseMutation(
+                    new EntityPoseMutationOperation(CreateMovementCommitRequest(20, fromCell, destroyCell, Direction.Right)),
+                    CreateMovementMetadata(
+                        cases[i].Semantic,
+                        localActionIndex: cases[i].LocalActionIndex,
+                        actionPlanId: 40 + i,
+                        intentId: 100 + i,
+                        sourceActorEntityId: cases[i].SourceActorId,
+                        movementExecutionBoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement));
+
+                var contacts = TickPipeline.BuildTileEffectEntityContacts(
+                    beforeSnapshot,
+                    finalSnapshot,
+                    new[] { CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly) },
+                    batch);
+
+                Assert.That(contacts, Has.Count.EqualTo(1), cases[i].Semantic.ToString());
+                Assert.That(contacts[0].ContactKind, Is.EqualTo(cases[i].Kind));
+                Assert.That(contacts[0].MovementSemanticKind, Is.EqualTo(cases[i].ContactSemantic));
+                Assert.That(contacts[0].EntityId, Is.EqualTo(20));
+                Assert.That(contacts[0].EntityType, Is.EqualTo(EntityType.Box));
+                Assert.That(contacts[0].FromCell, Is.EqualTo(fromCell));
+                Assert.That(contacts[0].DestinationCell, Is.EqualTo(destroyCell));
+                Assert.That(contacts[0].TileCell, Is.EqualTo(destroyCell));
+                Assert.That(contacts[0].ActionPlanId, Is.EqualTo(40 + i));
+                Assert.That(contacts[0].LocalActionIndex, Is.EqualTo(cases[i].LocalActionIndex));
+                Assert.That(contacts[0].IntentId, Is.EqualTo(100 + i));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ContactFacts_BoxActionPoseMutationIntoInactiveDestroyTile_CreatesNoContact()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var beforeSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, fromCell, boxCapabilities: BoxCapabilities.Push) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, destroyCell, boxCapabilities: BoxCapabilities.Push) },
+                    new[] { CreateTileFeature(10, destroyCell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+            var batch = new FinalizationBatch();
+            batch.AddPoseMutation(
+                new EntityPoseMutationOperation(CreateMovementCommitRequest(20, fromCell, destroyCell, Direction.Right)),
+                CreateMovementMetadata(
+                    MovementSemanticKind.Push,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(
+                beforeSnapshot,
+                finalSnapshot,
+                new[] { CreateDefinition(10, TileFeatureActivationRule.FrontFaceOnly) },
+                batch);
+
+            Assert.That(contacts, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ContactFacts_BoxActionPoseMutation_RequiresAcceptedMovementCommit()
+        {
+            var fromCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var beforeSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, fromCell, boxCapabilities: BoxCapabilities.Push) },
+                    Array.Empty<TileFeatureState>())
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    new[] { CreateBox(20, destroyCell, boxCapabilities: BoxCapabilities.Push) },
+                    new[] { CreateTileFeature(10, destroyCell, TileFeatureKind.Destroy) })
+                .CreateSnapshot();
+            var definitions = new[] { CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly) };
+
+            AssertBoxActionPoseMutationCreatesNoContact(
+                beforeSnapshot,
+                finalSnapshot,
+                definitions,
+                CreateMovementCommitRequest(20, fromCell, fromCell, Direction.None));
+            AssertBoxActionPoseMutationCreatesNoContact(
+                beforeSnapshot,
+                finalSnapshot,
+                definitions,
+                CreateMovementCommitRequest(20, fromCell, destroyCell, Direction.Right, accepted: false));
+            AssertBoxActionPoseMutationCreatesNoContact(
+                beforeSnapshot,
+                finalSnapshot,
+                definitions,
+                CreateMovementCommitRequest(20, fromCell, destroyCell, Direction.Right, suppressed: true));
+            AssertBoxActionPoseMutationCreatesNoContact(
+                beforeSnapshot,
+                finalSnapshot,
+                definitions,
+                CreateMovementCommitRequest(
+                    20,
+                    fromCell,
+                    destroyCell,
+                    Direction.Right,
+                    source: PoseMutationSource.PresentationOnly));
+        }
+
+        [Test]
+        [Category("Core")]
         public void ContactFacts_MovingUnitOrdinaryMove_CreatesMoveEnterContact()
         {
             var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -3796,6 +3925,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int localActionIndex = 0,
             int actionPlanId = 1,
             int intentId = 0,
+            int sourceActorEntityId = 10,
             MovementExecutionBoundaryKind movementExecutionBoundaryKind = MovementExecutionBoundaryKind.Unknown)
         {
             var semanticKind = movementSemanticKind switch
@@ -3810,12 +3940,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new FinalizationOperationMetadata(
                 TickPhase.Resolve,
                 semanticKind,
-                sourceActorEntityId: 10,
+                sourceActorEntityId: sourceActorEntityId,
                 actionPlanId: actionPlanId,
                 intentId: intentId,
                 localActionIndex: localActionIndex,
                 movementSemanticKind: movementSemanticKind,
                 movementExecutionBoundaryKind: movementExecutionBoundaryKind);
+        }
+
+        private static EntityPoseMutationRequest CreateMovementCommitRequest(
+            int entityId,
+            SurfaceCell fromCell,
+            SurfaceCell toCell,
+            Direction direction,
+            bool accepted = true,
+            bool suppressed = false,
+            PoseMutationSource source = PoseMutationSource.MovementCommit)
+        {
+            return new EntityPoseMutationRequest
+            {
+                EntityId = entityId,
+                Source = source,
+                Kind = PoseMutationKind.PositionAndFacing,
+                FromCell = fromCell,
+                ToCell = toCell,
+                PositionChanged = fromCell != toCell,
+                FacingBefore = Direction.None,
+                FacingAfter = direction,
+                MovementDirection = direction,
+                MovementIntentExists = true,
+                MovementAccepted = accepted,
+                MovementSuppressed = suppressed,
+                TickIndex = 1,
+                MovementIntentId = 1,
+                MovementResolutionId = 1,
+                Writer = "MovementCommit",
+                Reason = "BoxActionMovement",
+            };
+        }
+
+        private static void AssertBoxActionPoseMutationCreatesNoContact(
+            WorldSnapshot beforeSnapshot,
+            WorldSnapshot finalSnapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            EntityPoseMutationRequest request)
+        {
+            var batch = new FinalizationBatch();
+            batch.AddPoseMutation(
+                new EntityPoseMutationOperation(request),
+                CreateMovementMetadata(
+                    MovementSemanticKind.Push,
+                    movementExecutionBoundaryKind: MovementExecutionBoundaryKind.BoxActionMovement));
+
+            var contacts = TickPipeline.BuildTileEffectEntityContacts(
+                beforeSnapshot,
+                finalSnapshot,
+                definitions,
+                batch);
+
+            Assert.That(contacts, Is.Empty);
         }
 
         private static string RunDestroyTileHashScenario(bool includeDestroyTile)

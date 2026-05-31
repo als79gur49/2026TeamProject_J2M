@@ -1191,6 +1191,7 @@ namespace Game.Feature.Gameplay.Loop
             var tileEffectEntityContacts = BuildTileEffectEntityContacts(
                 planSnapshot,
                 postMovementSnapshot,
+                _tileFeatureDefinitions,
                 movementStageBatch,
                 jumpLandingResolveBatch,
                 phaseRelocationResolveBatch);
@@ -8775,12 +8776,26 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot destinationSnapshot,
             params FinalizationBatch[] batches)
         {
+            return BuildTileEffectEntityContacts(
+                sourceSnapshot,
+                destinationSnapshot,
+                null,
+                batches);
+        }
+
+        internal static List<TileEffectEntityContact> BuildTileEffectEntityContacts(
+            WorldSnapshot sourceSnapshot,
+            WorldSnapshot destinationSnapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            params FinalizationBatch[] batches)
+        {
             var contacts = new List<TileEffectEntityContact>();
             if (sourceSnapshot == null || destinationSnapshot == null || batches == null)
             {
                 return contacts;
             }
 
+            var contactKeys = new HashSet<string>();
             for (var batchIndex = 0; batchIndex < batches.Length; batchIndex++)
             {
                 var batch = batches[batchIndex];
@@ -8793,64 +8808,250 @@ namespace Game.Feature.Gameplay.Loop
                 for (var operationIndex = 0; operationIndex < operations.Count; operationIndex++)
                 {
                     var operation = operations[operationIndex];
-                    if (operation.Kind != FinalizationOperationKind.MoveEntity ||
-                        !destinationSnapshot.TryGetEntity(operation.EntityId, out var entity) ||
-                        entity.position != operation.Destination ||
-                        entity.boardPresence != EntityBoardPresence.Occupying ||
-                        entity.hp <= 0 ||
-                        entity.markedForDeath)
-                    {
-                        continue;
-                    }
-
                     var operationOrder = ((long)batchIndex << 32) | (uint)operationIndex;
-                    if (entity.type == EntityType.Box &&
-                        TryResolveTileEffectEntityBoxContactKind(operation.Metadata, out var boxKind))
+                    if (operation.Kind == FinalizationOperationKind.MoveEntity)
                     {
-                        var fromCell = sourceSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity)
-                            ? sourceEntity.position
-                            : operation.Destination;
-                        contacts.Add(new TileEffectEntityContact(
-                            operation.EntityId,
-                            entity.type,
-                            fromCell,
-                            operation.Destination,
-                            operation.Destination,
-                            boxKind,
-                            operation.Metadata.MovementSemanticKind,
+                        CollectTileEffectContactFromMoveEntityOperation(
+                            sourceSnapshot,
+                            destinationSnapshot,
+                            operation,
                             operationOrder,
-                            operation.Metadata.ActionPlanId,
-                            operation.Metadata.LocalActionIndex,
-                            operation.Metadata.IntentId,
-                            ResolveTileEffectContactVisualContactTime(operation.Metadata)));
+                            contacts,
+                            contactKeys);
                         continue;
                     }
 
-                    if (entity.type == EntityType.Unit &&
-                        IsTileEffectUnitMoveEnterContact(
-                            sourceSnapshot,
-                            operation,
-                            out var unitFromCell))
+                    if (operation.Kind == FinalizationOperationKind.PoseMutation)
                     {
-                        contacts.Add(new TileEffectEntityContact(
-                            operation.EntityId,
-                            entity.type,
-                            unitFromCell,
-                            operation.Destination,
-                            operation.Destination,
-                            TileEffectEntityContactKind.MoveEnter,
-                            operation.Metadata.MovementSemanticKind,
+                        CollectTileEffectContactFromBoxActionPoseMutationOperation(
+                            sourceSnapshot,
+                            destinationSnapshot,
+                            tileFeatureDefinitions,
+                            operation,
                             operationOrder,
-                            operation.Metadata.ActionPlanId,
-                            operation.Metadata.LocalActionIndex,
-                            operation.Metadata.IntentId,
-                            ResolveTileEffectContactVisualContactTime(operation.Metadata)));
+                            contacts,
+                            contactKeys);
                     }
                 }
             }
 
             contacts.Sort(CompareTileEffectEntityContacts);
             return contacts;
+        }
+
+        private static void CollectTileEffectContactFromMoveEntityOperation(
+            WorldSnapshot sourceSnapshot,
+            WorldSnapshot destinationSnapshot,
+            FinalizationOperation operation,
+            long operationOrder,
+            List<TileEffectEntityContact> contacts,
+            HashSet<string> contactKeys)
+        {
+            if (!destinationSnapshot.TryGetEntity(operation.EntityId, out var entity) ||
+                entity.position != operation.Destination ||
+                entity.boardPresence != EntityBoardPresence.Occupying ||
+                entity.hp <= 0 ||
+                entity.markedForDeath)
+            {
+                return;
+            }
+
+            if (entity.type == EntityType.Box &&
+                TryResolveTileEffectEntityBoxContactKind(operation.Metadata, out var boxKind))
+            {
+                var fromCell = sourceSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity)
+                    ? sourceEntity.position
+                    : operation.Destination;
+                TryAddTileEffectEntityContact(
+                    contacts,
+                    contactKeys,
+                    new TileEffectEntityContact(
+                        operation.EntityId,
+                        entity.type,
+                        fromCell,
+                        operation.Destination,
+                        operation.Destination,
+                        boxKind,
+                        operation.Metadata.MovementSemanticKind,
+                        operationOrder,
+                        operation.Metadata.ActionPlanId,
+                        operation.Metadata.LocalActionIndex,
+                        operation.Metadata.IntentId,
+                        ResolveTileEffectContactVisualContactTime(operation.Metadata)));
+                return;
+            }
+
+            if (entity.type == EntityType.Unit &&
+                IsTileEffectUnitMoveEnterContact(
+                    sourceSnapshot,
+                    operation,
+                    out var unitFromCell))
+            {
+                TryAddTileEffectEntityContact(
+                    contacts,
+                    contactKeys,
+                    new TileEffectEntityContact(
+                        operation.EntityId,
+                        entity.type,
+                        unitFromCell,
+                        operation.Destination,
+                        operation.Destination,
+                        TileEffectEntityContactKind.MoveEnter,
+                        operation.Metadata.MovementSemanticKind,
+                        operationOrder,
+                        operation.Metadata.ActionPlanId,
+                        operation.Metadata.LocalActionIndex,
+                        operation.Metadata.IntentId,
+                        ResolveTileEffectContactVisualContactTime(operation.Metadata)));
+            }
+        }
+
+        private static void CollectTileEffectContactFromBoxActionPoseMutationOperation(
+            WorldSnapshot sourceSnapshot,
+            WorldSnapshot destinationSnapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            FinalizationOperation operation,
+            long operationOrder,
+            List<TileEffectEntityContact> contacts,
+            HashSet<string> contactKeys)
+        {
+            if (operation.Metadata.MovementExecutionBoundaryKind != MovementExecutionBoundaryKind.BoxActionMovement ||
+                !IsAcceptedBoxActionMovementPoseMutation(operation.PoseMutationOperation, out var request) ||
+                !TryResolveBoxActionPoseMutationTileEffectContact(
+                    sourceSnapshot,
+                    operation.Metadata,
+                    request,
+                    out var boxKind,
+                    out var contactSemanticKind) ||
+                !destinationSnapshot.TryGetEntity(request.EntityId, out var entity) ||
+                entity.type != EntityType.Box ||
+                entity.position != request.ToCell ||
+                entity.boardPresence != EntityBoardPresence.Occupying ||
+                entity.hp <= 0 ||
+                entity.markedForDeath ||
+                !IsActiveDestroyTileAt(destinationSnapshot, tileFeatureDefinitions, request.ToCell))
+            {
+                return;
+            }
+
+            TryAddTileEffectEntityContact(
+                contacts,
+                contactKeys,
+                new TileEffectEntityContact(
+                    request.EntityId,
+                    entity.type,
+                    request.FromCell,
+                    request.ToCell,
+                    request.ToCell,
+                    boxKind,
+                    contactSemanticKind,
+                    operationOrder,
+                    operation.Metadata.ActionPlanId,
+                    operation.Metadata.LocalActionIndex,
+                    operation.Metadata.IntentId,
+                    ResolveTileEffectContactVisualContactTime(operation.Metadata)));
+        }
+
+        private static bool IsAcceptedBoxActionMovementPoseMutation(
+            EntityPoseMutationOperation mutation,
+            out EntityPoseMutationRequest request)
+        {
+            request = mutation.Request;
+            if (request.Source != PoseMutationSource.MovementCommit ||
+                request.Kind != PoseMutationKind.PositionAndFacing ||
+                !request.MovementAccepted ||
+                request.MovementSuppressed ||
+                !request.PositionChanged ||
+                request.FromCell == request.ToCell)
+            {
+                return false;
+            }
+
+            var decision = EntityPoseMutationAuthority.Decide(request);
+            return decision.Allowed && decision.AppliesPosition;
+        }
+
+        private static bool TryResolveBoxActionPoseMutationTileEffectContact(
+            WorldSnapshot sourceSnapshot,
+            FinalizationOperationMetadata metadata,
+            EntityPoseMutationRequest request,
+            out TileEffectEntityContactKind kind,
+            out MovementSemanticKind contactSemanticKind)
+        {
+            if (!TryResolveTileEffectEntityBoxContactKind(metadata, out kind))
+            {
+                contactSemanticKind = default;
+                return false;
+            }
+
+            contactSemanticKind = metadata.MovementSemanticKind;
+            if (kind == TileEffectEntityContactKind.SlideEnter &&
+                IsInitialPushBoxActionPoseMutation(sourceSnapshot, metadata, request))
+            {
+                kind = TileEffectEntityContactKind.PushEnter;
+                contactSemanticKind = MovementSemanticKind.Push;
+            }
+
+            return true;
+        }
+
+        private static bool IsInitialPushBoxActionPoseMutation(
+            WorldSnapshot sourceSnapshot,
+            FinalizationOperationMetadata metadata,
+            EntityPoseMutationRequest request)
+        {
+            return metadata.LocalActionIndex == 0 &&
+                   metadata.MovementSemanticKind == MovementSemanticKind.Slide &&
+                   metadata.SourceActorEntityId != request.EntityId &&
+                   sourceSnapshot != null &&
+                   sourceSnapshot.TryGetEntity(request.EntityId, out var sourceEntity) &&
+                   sourceEntity.type == EntityType.Box &&
+                   sourceEntity.state != EntityPhaseState.Sliding;
+        }
+
+        private static bool IsActiveDestroyTileAt(
+            WorldSnapshot snapshot,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            SurfaceCell cell)
+        {
+            if (tileFeatureDefinitions == null)
+            {
+                return false;
+            }
+
+            var tileFeaturesAtCell = new List<TileFeatureState>();
+            snapshot.EnumerateTileFeaturesAt(cell, tileFeaturesAtCell);
+            for (var i = 0; i < tileFeaturesAtCell.Count; i++)
+            {
+                var tileFeature = tileFeaturesAtCell[i];
+                if (tileFeature.Kind == TileFeatureKind.Destroy &&
+                    TryFindTileFeatureDefinition(tileFeatureDefinitions, tileFeature.TileId, out var definition) &&
+                    TileFeatureActivationQueries.IsActive(tileFeature, definition, snapshot.Topology))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryAddTileEffectEntityContact(
+            List<TileEffectEntityContact> contacts,
+            HashSet<string> contactKeys,
+            TileEffectEntityContact contact)
+        {
+            if (!contactKeys.Add(CreateTileEffectEntityContactKey(contact)))
+            {
+                return false;
+            }
+
+            contacts.Add(contact);
+            return true;
+        }
+
+        private static string CreateTileEffectEntityContactKey(TileEffectEntityContact contact)
+        {
+            return $"{contact.EntityId}:{contact.TileCell}:{contact.ContactKind}:{contact.MovementSemanticKind}:{contact.ActionPlanId}:{contact.LocalActionIndex}";
         }
 
         private static float ResolveTileEffectContactVisualContactTime(

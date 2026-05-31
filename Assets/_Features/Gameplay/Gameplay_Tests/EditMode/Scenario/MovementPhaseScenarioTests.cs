@@ -335,6 +335,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var boxMove = AssertBoxActionPoseMutation(
+                result,
+                20,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                destroyCell,
+                MovementSemanticKind.Slide);
 
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
@@ -343,8 +349,94 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
             Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.EntityExitSignals.Single().ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(result.PresentationData.PushSlidePresentationRecords.Single().OperationId, Is.EqualTo(boxMove.PoseMutationOperation.Request.OperationId));
+            AssertNoGenericMoveForOperation(result, boxMove);
             Assert.That(result.FinalEntities.Any(entity => entity.entityId == 20), Is.False);
             Assert.That(result.FinalEntities.Single(entity => entity.entityId == 10).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PushBoxIntoInactiveDestroyTile_UsesExistingInactivePolicy()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) },
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var boxMove = AssertBoxActionPoseMutation(
+                result,
+                20,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                destroyCell,
+                MovementSemanticKind.Slide);
+
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
+            Assert.That(result.PresentationData.EntityExitSignals, Is.Empty);
+            Assert.That(result.PresentationData.PushSlidePresentationRecords.Single().OperationId, Is.EqualTo(boxMove.PoseMutationOperation.Request.OperationId));
+            AssertNoGenericMoveForOperation(result, boxMove);
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(destroyCell));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AutoSlide_BoxEntersActiveDestroyTile_BoxIsDestroyed()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var player = CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0));
+            player.unitRole = UnitRole.Player;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+            var firstTickIndex = 1;
+            var slideTickIndex = NextDefaultBoxSlideTick(firstTickIndex);
+
+            var firstTick = pipeline.RunTick(new TickInput(firstTickIndex, PlayerTickCommand.Move(Direction.Right)));
+            var idleTicks = RunTicks(pipeline, firstTickIndex + 1, slideTickIndex - 1);
+            var slideTick = pipeline.RunTick(new TickInput(slideTickIndex));
+            var slideMove = AssertBoxActionPoseMutation(
+                slideTick,
+                20,
+                new SurfaceCell(FaceId.Floor, 2, 0),
+                destroyCell,
+                MovementSemanticKind.Slide);
+
+            Assert.That(firstTick.PresentationData.TileEvents, Is.Empty);
+            Assert.That(idleTicks.All(result => result.PresentationData.TileEvents.Count == 0), Is.True);
+            Assert.That(slideTick.PresentationData.TileEvents.Single().TargetEntityId, Is.EqualTo(20));
+            Assert.That(slideTick.PresentationData.EntityExitSignals.Single().ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(slideTick.PresentationData.PushSlidePresentationRecords.Single().OperationId, Is.EqualTo(slideMove.PoseMutationOperation.Request.OperationId));
+            AssertNoGenericMoveForOperation(slideTick, slideMove);
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
         }
 
         [Test]
@@ -371,9 +463,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
-            var sourceMove = result.MovementPhaseResult.ResolvedOperations.Single(operation =>
-                operation.Kind == FinalizationOperationKind.MoveEntity &&
-                operation.EntityId == 30);
+            var sourceMove = AssertBoxActionPoseMutation(
+                result,
+                30,
+                new SurfaceCell(FaceId.Floor, -1, 0),
+                destroyCell,
+                MovementSemanticKind.Flip);
 
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
@@ -396,6 +491,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 result.PresentationData.TileEvents[0].TimingAnchor.VisualContactNormalizedTime,
                 Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+            Assert.That(result.PresentationData.EntityExitSignals.Single().ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
+            Assert.That(result.PresentationData.BoxFlipPresentationRecords.Single().OperationId, Is.EqualTo(sourceMove.PoseMutationOperation.Request.OperationId));
+            AssertNoGenericMoveForOperation(result, sourceMove);
             Assert.That(result.FinalEntities.Any(entity => entity.entityId == 30), Is.False);
         }
 
@@ -802,8 +900,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .ToArray());
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.MoveEntity &&
-                    operation.EntityId == 30 &&
+                    operation.Kind == FinalizationOperationKind.PoseMutation &&
+                    operation.PoseMutationOperation.Request.EntityId == 30 &&
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.BoxActionMovement),
                 Is.True);
             Assert.That(result.Trace.Text, Does.Contain("Boundary=BoxActionMovement"));
@@ -828,10 +926,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+            AssertBoxActionPoseMutation(
                 result,
                 30,
-                MovementExecutionBoundaryKind.BoxActionMovement);
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new SurfaceCell(FaceId.Floor, 2, 0),
+                MovementSemanticKind.Slide);
             LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(
                 result.PresentationData.EntityMotions.Any(
@@ -860,10 +960,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+            AssertBoxActionPoseMutation(
                 result,
                 30,
-                MovementExecutionBoundaryKind.BoxActionMovement);
+                new SurfaceCell(FaceId.Floor, -1, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                MovementSemanticKind.Flip);
             LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(
                 result.PresentationData.EntityMotions.Any(
@@ -1939,16 +2041,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 resolvedOperations.Any(
-                    operation => operation.Kind == FinalizationOperationKind.MoveEntity &&
-                                 operation.EntityId == 20 &&
-                                 operation.Destination == new SurfaceCell(FaceId.Floor, 2, 0) &&
-                                 operation.Metadata.LocalActionIndex == 1),
-                Is.True);
-            Assert.That(
-                resolvedOperations.Any(
-                    operation => operation.Kind == FinalizationOperationKind.SetFacing &&
-                                 operation.EntityId == 20 &&
-                                 operation.Facing == Direction.Right &&
+                    operation => operation.Kind == FinalizationOperationKind.PoseMutation &&
+                                 operation.PoseMutationOperation.Request.EntityId == 20 &&
+                                 operation.PoseMutationOperation.Request.ToCell == new SurfaceCell(FaceId.Floor, 2, 0) &&
                                  operation.Metadata.LocalActionIndex == 1),
                 Is.True);
             Assert.That(
@@ -1980,12 +2075,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                              operation.EntityId == 30 &&
                              operation.Metadata.LocalActionIndex == 1);
             var moveIndex = orderedOperations.FindIndex(
-                operation => operation.Kind == FinalizationOperationKind.MoveEntity &&
-                             operation.EntityId == 20 &&
-                             operation.Metadata.LocalActionIndex == 1);
-            var boxFacingIndex = orderedOperations.FindIndex(
-                operation => operation.Kind == FinalizationOperationKind.SetFacing &&
-                             operation.EntityId == 20 &&
+                operation => operation.Kind == FinalizationOperationKind.PoseMutation &&
+                             operation.PoseMutationOperation.Request.EntityId == 20 &&
                              operation.Metadata.LocalActionIndex == 1);
             var stateIndex = orderedOperations.FindIndex(
                 operation => operation.Kind == FinalizationOperationKind.ApplyStateChange &&
@@ -1994,8 +2085,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(detachIndex, Is.GreaterThanOrEqualTo(0));
             Assert.That(moveIndex, Is.GreaterThan(detachIndex));
-            Assert.That(boxFacingIndex, Is.GreaterThan(moveIndex));
-            Assert.That(stateIndex, Is.GreaterThan(boxFacingIndex));
+            Assert.That(stateIndex, Is.GreaterThan(moveIndex));
             Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.PushLike));
             Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
             Assert.That(disposition.TargetDestroyed, Is.True);
@@ -2616,6 +2706,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         reservation.Damage))
                     .ToArray());
             CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
             Assert.That(result.PresentationData.EntityMotions, Is.Empty);
             Assert.That(result.PresentationData.EntityExitSignals.Select(signal => signal.ExitedEntityId).ToArray(), Is.EqualTo(new[] { 30 }));
             Assert.That(result.PresentationData.ImpactTransientSignals, Is.Empty);
@@ -2693,6 +2784,52 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(disposition.TargetDestroyed, Is.True);
             Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
             Assert.That(disposition.FollowThroughAccepted, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipFollowThrough_BoxLandsOnActiveDestroyTile_BoxIsDestroyed()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                    CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                    CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)),
+                new[] { CreateDestroyTile(100, destroyCell) });
+            var pipeline = CreateTileFeaturePipeline(
+                worldState,
+                new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var followThroughMove = AssertBoxActionPoseMutation(
+                result,
+                30,
+                new SurfaceCell(FaceId.Floor, -1, 0),
+                destroyCell,
+                MovementSemanticKind.Flip,
+                localActionIndex: 1);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(result.PresentationData.TileEvents.Single().TargetEntityId, Is.EqualTo(30));
+            Assert.That(result.PresentationData.TileEvents.Single().TimingAnchor.LocalActionIndex, Is.EqualTo(1));
+            Assert.That(result.PresentationData.EntityExitSignals.Any(signal =>
+                signal.ExitedEntityId == 30 &&
+                signal.ExitCause == TickEntityExitCause.BoxDestroy), Is.True);
+            Assert.That(result.PresentationData.BoxFlipPresentationRecords.Single().OperationId, Is.EqualTo(followThroughMove.PoseMutationOperation.Request.OperationId));
+            AssertNoGenericMoveForOperation(result, followThroughMove);
+            Assert.That(result.PresentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
+            Assert.That(CreateSnapshot(worldState).TryGetEntity(30, out _), Is.False);
         }
 
         [Test]
@@ -5154,10 +5291,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(2, 0)));
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+            AssertBoxActionPoseMutation(
                 result,
                 40,
-                MovementExecutionBoundaryKind.BoxActionMovement);
+                new SurfaceCell(FaceId.Floor, 3, 0),
+                new SurfaceCell(FaceId.Floor, 2, 0),
+                MovementSemanticKind.Slide);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Unknown),
@@ -5991,6 +6130,44 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 teamId: 0,
                 lifetimeTicks: 0,
                 charges: 0);
+        }
+
+        private static FinalizationOperation AssertBoxActionPoseMutation(
+            TickResult result,
+            int entityId,
+            SurfaceCell fromCell,
+            SurfaceCell toCell,
+            MovementSemanticKind movementSemanticKind,
+            int localActionIndex = 0)
+        {
+            var operation = result.MovementPhaseResult.ResolvedOperations.Single(candidate =>
+                candidate.Kind == FinalizationOperationKind.PoseMutation &&
+                candidate.PoseMutationOperation.Request.EntityId == entityId &&
+                candidate.PoseMutationOperation.Request.FromCell == fromCell &&
+                candidate.PoseMutationOperation.Request.ToCell == toCell &&
+                candidate.Metadata.MovementSemanticKind == movementSemanticKind &&
+                candidate.Metadata.LocalActionIndex == localActionIndex);
+            var request = operation.PoseMutationOperation.Request;
+            Assert.That(operation.Metadata.MovementExecutionBoundaryKind, Is.EqualTo(MovementExecutionBoundaryKind.BoxActionMovement));
+            Assert.That(request.Source, Is.EqualTo(PoseMutationSource.MovementCommit));
+            Assert.That(request.Kind, Is.EqualTo(PoseMutationKind.PositionAndFacing));
+            Assert.That(request.MovementAccepted, Is.True);
+            Assert.That(request.MovementSuppressed, Is.False);
+            Assert.That(request.PositionChanged, Is.True);
+            Assert.That(EntityPoseMutationAuthority.Decide(request).Allowed, Is.True);
+            return operation;
+        }
+
+        private static void AssertNoGenericMoveForOperation(
+            TickResult result,
+            FinalizationOperation operation)
+        {
+            var operationId = operation.PoseMutationOperation.Request.OperationId;
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(motion =>
+                    motion.OperationId == operationId &&
+                    motion.MotionKind == TickEntityMotionKind.Move),
+                Is.False);
         }
 
         private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
