@@ -81,7 +81,12 @@ namespace Game.Feature.Gameplay.Entities
             var hasPreviousAction = snapshot.TryGetEnemyActionState(_entityId, out var previousAction);
             if (_combatCapability == null)
             {
-                var clearedAction = EnemyActionQueries.Clear(previousAction);
+                var clearedAction = ClearActionWithFinalizer(
+                    snapshot,
+                    previousAction,
+                    writeContext,
+                    input.TickIndex,
+                    EntityLocomotionLeaseReleaseReason.NoCombatCapability);
                 if (ShouldWriteActionState(hasPreviousAction, previousAction, clearedAction))
                 {
                     writeContext.SetEnemyActionState(_entityId, clearedAction);
@@ -93,7 +98,12 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source))
             {
-                var clearedAction = EnemyActionQueries.Clear(previousAction);
+                var clearedAction = ClearActionWithFinalizer(
+                    snapshot,
+                    previousAction,
+                    writeContext,
+                    input.TickIndex,
+                    EntityLocomotionLeaseReleaseReason.TopologyNonParticipant);
                 if (ShouldWriteActionState(hasPreviousAction, previousAction, clearedAction))
                 {
                     writeContext.SetEnemyActionState(_entityId, clearedAction);
@@ -106,7 +116,7 @@ namespace Game.Feature.Gameplay.Entities
             var nextAction = stage switch
             {
                 EnemyActionStage.BeforeAttackCollection => CommitBeforeAttackCollection(snapshot, source, previousAction, writeContext, input.TickIndex),
-                EnemyActionStage.AfterAttack => CommitAfterAttack(source, previousAction, input.TickIndex),
+                EnemyActionStage.AfterAttack => CommitAfterAttack(snapshot, source, previousAction, writeContext, input.TickIndex),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy action stage."),
             };
 
@@ -130,16 +140,24 @@ namespace Game.Feature.Gameplay.Entities
                 workingAction.executionAttempted &&
                 workingAction.executeTick < tickIndex)
             {
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
-                workingAction = EnemyActionQueries.Clear(workingAction);
+                workingAction = ClearActionWithFinalizer(
+                    snapshot,
+                    workingAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.PostExecuteCleanup);
             }
 
             if (UsesReceiverOwnedContactCadence() &&
                 workingAction.IsActive &&
                 workingAction.executionAttempted)
             {
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
-                workingAction = EnemyActionQueries.Clear(workingAction);
+                workingAction = ClearActionWithFinalizer(
+                    snapshot,
+                    workingAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.PostExecuteCleanup);
             }
 
             if (source.hp <= 0 ||
@@ -147,7 +165,12 @@ namespace Game.Feature.Gameplay.Entities
                 source.boardPresence != EntityBoardPresence.Occupying ||
                 source.aiMode == EnemyAiMode.Dead)
             {
-                return EnemyActionQueries.Clear(workingAction);
+                return ClearActionWithFinalizer(
+                    snapshot,
+                    workingAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.SourceInactive);
             }
 
             if (source.aiMode != EnemyAiMode.Attack)
@@ -159,8 +182,12 @@ namespace Game.Feature.Gameplay.Entities
                     return workingAction;
                 }
 
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
-                return EnemyActionQueries.Clear(workingAction);
+                return ClearActionWithFinalizer(
+                    snapshot,
+                    workingAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.AiModeNonAttack);
             }
 
             if (workingAction.IsActive)
@@ -176,7 +203,12 @@ namespace Game.Feature.Gameplay.Entities
                             workingAction,
                             writeContext,
                             tickIndex);
-                        ReleaseCombatLocomotionHoldIfNeeded(snapshot, releasedAction, writeContext, tickIndex);
+                        ReleaseCombatLocomotionHoldIfNeeded(
+                            snapshot,
+                            releasedAction,
+                            writeContext,
+                            tickIndex,
+                            EntityLocomotionLeaseReleaseReason.NormalComplete);
                         return releasedAction;
                     }
 
@@ -221,8 +253,12 @@ namespace Game.Feature.Gameplay.Entities
                 }
 
                 ApplyCancelFallback(snapshot, source, writeContext);
-                ReleaseCombatLocomotionHoldIfNeeded(snapshot, workingAction, writeContext, tickIndex);
-                return EnemyActionQueries.Clear(workingAction);
+                return ClearActionWithFinalizer(
+                    snapshot,
+                    workingAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.ActionLogicClear);
             }
 
             if (!EnemyActionStateTargeting.TryResolveStartAction(
@@ -236,7 +272,12 @@ namespace Game.Feature.Gameplay.Entities
                     out var direction))
             {
                 ApplyCancelFallback(snapshot, source, writeContext);
-                return EnemyActionQueries.Clear(previousAction);
+                return ClearActionWithFinalizer(
+                    snapshot,
+                    previousAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.ActionLogicClear);
             }
 
             if (!CanStartCombatActionThisTick(snapshot, source, tickIndex))
@@ -256,7 +297,12 @@ namespace Game.Feature.Gameplay.Entities
                     ApplyCancelFallback(snapshot, source, writeContext);
                 }
 
-                return EnemyActionQueries.Clear(previousAction);
+                return ClearActionWithFinalizer(
+                    snapshot,
+                    previousAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.ActionLogicClear);
             }
 
             var actionKind = _combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile
@@ -485,9 +531,11 @@ namespace Game.Feature.Gameplay.Entities
                 state);
         }
 
-        private static EnemyActionRuntimeState CommitAfterAttack(
+        private EnemyActionRuntimeState CommitAfterAttack(
+            WorldSnapshot snapshot,
             in EntityState source,
             in EnemyActionRuntimeState previousAction,
+            IEnemyActionCommitContext writeContext,
             int tickIndex)
         {
             if (!previousAction.IsActive)
@@ -498,7 +546,12 @@ namespace Game.Feature.Gameplay.Entities
             if (source.hp <= 0 ||
                 source.markedForDeath)
             {
-                return EnemyActionQueries.Clear(previousAction);
+                return ClearActionWithFinalizer(
+                    snapshot,
+                    previousAction,
+                    writeContext,
+                    tickIndex,
+                    EntityLocomotionLeaseReleaseReason.AfterAttackClear);
             }
 
             return EnemyActionQueries.CanExecute(previousAction, tickIndex)
@@ -545,6 +598,14 @@ namespace Game.Feature.Gameplay.Entities
                 kinematicPose.HasAuthoritativeState &&
                 kinematicPose.Mode == MotionMode.Voluntary)
             {
+                writeContext.SetEntityLocomotionLeaseState(
+                    source.entityId,
+                    CreateCombatActionLease(
+                        source.entityId,
+                        actionSequenceId,
+                        kinematicPose.State,
+                        kinematicPose.AnchorCell,
+                        tickIndex));
                 writeContext.AddPoseMutation(
                     CreateActionKinematicMutation(
                         source,
@@ -561,26 +622,120 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EnemyActionRuntimeState actionState,
             IEnemyActionCommitContext writeContext,
-            int tickIndex)
+            int tickIndex,
+            EntityLocomotionLeaseReleaseReason reason)
         {
-            if (!actionState.hasLockedCombatAnchor ||
-                !snapshot.TryGetUnitKinematicPose(_entityId, out var pose) ||
-                !pose.HasAuthoritativeState ||
-                pose.Mode != MotionMode.Held ||
-                !TryResolveHeldResumeVelocity(pose.State, out var velocity))
+            ReleaseCombatLocomotionLeaseIfNeeded(snapshot, actionState, writeContext, tickIndex, reason);
+        }
+
+        private EnemyActionRuntimeState ClearActionWithFinalizer(
+            WorldSnapshot snapshot,
+            in EnemyActionRuntimeState actionState,
+            IEnemyActionCommitContext writeContext,
+            int tickIndex,
+            EntityLocomotionLeaseReleaseReason reason)
+        {
+            ReleaseCombatLocomotionLeaseIfNeeded(snapshot, actionState, writeContext, tickIndex, reason);
+            return EnemyActionQueries.Clear(actionState);
+        }
+
+        private void ReleaseCombatLocomotionLeaseIfNeeded(
+            WorldSnapshot snapshot,
+            in EnemyActionRuntimeState actionState,
+            IEnemyActionCommitContext writeContext,
+            int tickIndex,
+            EntityLocomotionLeaseReleaseReason reason)
+        {
+            if (!snapshot.TryGetEntityLocomotionLeaseState(_entityId, out var lease) ||
+                !lease.IsActive ||
+                lease.ownerKind != EntityLocomotionLeaseOwnerKind.CombatAction ||
+                lease.ownerActionSequenceId != actionState.sequence)
             {
                 return;
             }
 
-            writeContext.AddPoseMutation(
-                CreateActionKinematicMutation(
-                    new EntityState { entityId = _entityId, position = pose.AnchorCell },
-                    UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(pose.State, velocity),
-                    PoseMutationSource.KinematicRelease,
-                    KinematicMutationKind.ReleaseHold,
-                    tickIndex,
-                    actionState.sequence,
-                    "CombatLocomotionRelease"));
+            var hasHeldPose = snapshot.TryGetUnitKinematicPose(_entityId, out var pose) &&
+                              pose.HasAuthoritativeState &&
+                              pose.Mode == MotionMode.Held;
+            var policy = ResolveLeaseReleasePolicy(reason, lease, hasHeldPose, pose, out var velocity);
+            if (hasHeldPose)
+            {
+                var facing = snapshot.TryGetEntity(_entityId, out var entity)
+                    ? entity.facing
+                    : Direction.None;
+                var releasedState = policy == EntityLocomotionLeaseReleasePolicy.ResumeCapturedVoluntary
+                    ? UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(pose.State, velocity)
+                    : UnitKinematicRuntimeState.SettledZero;
+                var source = policy == EntityLocomotionLeaseReleasePolicy.ResumeCapturedVoluntary
+                    ? PoseMutationSource.KinematicRelease
+                    : PoseMutationSource.KinematicSettle;
+                var mutation = policy == EntityLocomotionLeaseReleasePolicy.ResumeCapturedVoluntary
+                    ? KinematicMutationKind.ReleaseHold
+                    : KinematicMutationKind.ForceSettledZero;
+                writeContext.AddPoseMutation(
+                    CreateActionKinematicMutation(
+                        new EntityState { entityId = _entityId, position = pose.AnchorCell, facing = facing },
+                        releasedState,
+                        source,
+                        mutation,
+                        tickIndex,
+                        actionState.sequence,
+                        policy == EntityLocomotionLeaseReleasePolicy.ResumeCapturedVoluntary
+                            ? "CombatLocomotionRelease"
+                            : "CombatLocomotionForceSettled"));
+            }
+
+            var completedLease = lease;
+            completedLease.stateKind = EntityLocomotionLeaseStateKind.Completed;
+            completedLease.lastReleaseTick = tickIndex;
+            completedLease.lastReleaseReason = reason;
+            writeContext.SetEntityLocomotionLeaseState(_entityId, completedLease);
+        }
+
+        private static EntityLocomotionLeaseState CreateCombatActionLease(
+            int entityId,
+            int actionSequenceId,
+            in UnitKinematicRuntimeState capturedKinematic,
+            SurfaceCell anchorAtAcquire,
+            int tickIndex)
+        {
+            return new EntityLocomotionLeaseState
+            {
+                leaseId = AllocateCombatActionLeaseId(entityId, actionSequenceId),
+                entityId = entityId,
+                ownerKind = EntityLocomotionLeaseOwnerKind.CombatAction,
+                stateKind = EntityLocomotionLeaseStateKind.HeldByOwner,
+                ownerActionSequenceId = actionSequenceId,
+                capturedKinematic = capturedKinematic,
+                anchorAtAcquire = anchorAtAcquire,
+                acquiredTick = tickIndex,
+                lastReleaseTick = 0,
+                lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete,
+            };
+        }
+
+        private static int AllocateCombatActionLeaseId(int entityId, int actionSequenceId)
+        {
+            return checked((entityId * 100000) + Math.Max(1, actionSequenceId));
+        }
+
+        private static EntityLocomotionLeaseReleasePolicy ResolveLeaseReleasePolicy(
+            EntityLocomotionLeaseReleaseReason reason,
+            in EntityLocomotionLeaseState lease,
+            bool hasHeldPose,
+            in UnitKinematicPose pose,
+            out KinematicVelocity2 velocity)
+        {
+            velocity = default;
+            if (hasHeldPose &&
+                TryResolveHeldResumeVelocity(lease.capturedKinematic, out velocity))
+            {
+                return EntityLocomotionLeaseReleasePolicy.ResumeCapturedVoluntary;
+            }
+
+            return reason == EntityLocomotionLeaseReleaseReason.TopologyNonParticipant
+                ? EntityLocomotionLeaseReleasePolicy.ForceSettledAtCurrentAnchor
+                : EntityLocomotionLeaseReleasePolicy.ClearStaleHold;
         }
 
         private static bool TryResolveHeldResumeVelocity(

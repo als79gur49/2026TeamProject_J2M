@@ -68,6 +68,108 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void CombatAction_LocomotionLease_DoubleRelease_IsIdempotent()
+        {
+            var worldState = CreateWorldState(new[] { CreateEntity(10, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) });
+            var released = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.Completed);
+            released.lastReleaseTick = 11;
+            released.lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete;
+            var batch = new FinalizationBatch();
+
+            batch.SetEntityLocomotionLeaseState(10, released);
+            batch.SetEntityLocomotionLeaseState(10, released);
+            batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
+
+            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out var stored), Is.True);
+            Assert.That(stored, Is.EqualTo(released.NormalizedForStorage()));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicNotSettled_WithoutLeaseOrSettle_IsDefect()
+        {
+            var worldState = CreateWorldState(new[] { CreateEntity(10, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) });
+            worldState.CreateWriteContext().SetUnitKinematicState(
+                10,
+                UnitKinematicRuntimeState.CreateHeldFreeze(CreateVoluntaryKinematic()));
+
+            var diagnostic = EntityLocomotionLeaseDiagnostics.BuildKinematicNotSettledDiagnostic(
+                worldState.CreateSnapshot(),
+                tickIndex: 3,
+                entityId: 10,
+                stage: "CoreTest",
+                intentId: 99);
+
+            Assert.That(diagnostic, Does.Contain("Operation=OrphanedKinematicNotSettled"));
+            Assert.That(diagnostic, Does.Contain("OwnerKind=None"));
+            Assert.That(diagnostic, Does.Contain("Policy=CoreTest"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Jump_UsesExistingSeparateContract_NotCombatLease()
+        {
+            var worldState = CreateWorldState(new[] { CreateEnemy(10, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) });
+
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                10,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Windup,
+                    sequence = 2,
+                    sourceCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                    lockedTargetCell = new SurfaceCell(FaceId.Floor, 1, 0),
+                    windupEndTick = 4,
+                    landingTick = 7,
+                });
+
+            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Charge_UsesExistingSeparateContract_NotCombatLease()
+        {
+            var worldState = CreateWorldState(new[] { CreateEnemy(10, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) });
+
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                10,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 3,
+                    lockedDirection = Direction.Right,
+                    remainingActiveSteps = 1,
+                });
+
+            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DrSaturn_Utility_DoesNotAcquireCombatLease()
+        {
+            var worldState = CreateWorldState(new[] { CreateEnemy(10, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right) });
+
+            worldState.CreateWriteContext().SetEnemyUtilityState(
+                10,
+                new EnemyUtilityRuntimeState(
+                    new[]
+                    {
+                        new EnemyUtilityEffectState
+                        {
+                            phase = EnemyUtilityEffectPhase.Windup,
+                            windupStartTick = 1,
+                            windupEndTick = 4,
+                            activationSequence = 8,
+                        },
+                    }));
+
+            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void KinematicSettle_SameAnchor_PreservesFacing()
         {
             var anchorCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -452,6 +554,47 @@ namespace Game.Feature.Gameplay.Tests.Core
             entity.teamId = 2;
             entity.aiMode = EnemyAiMode.Chase;
             return entity;
+        }
+
+        private static EntityLocomotionLeaseState CreateCombatLease(
+            int entityId,
+            int sequence,
+            EntityLocomotionLeaseStateKind stateKind)
+        {
+            return new EntityLocomotionLeaseState
+            {
+                leaseId = entityId * 100000 + sequence,
+                entityId = entityId,
+                ownerKind = EntityLocomotionLeaseOwnerKind.CombatAction,
+                stateKind = stateKind,
+                ownerActionSequenceId = sequence,
+                capturedKinematic = CreateVoluntaryKinematic(),
+                anchorAtAcquire = new SurfaceCell(FaceId.Floor, 0, 0),
+                acquiredTick = 2,
+                lastReleaseTick = stateKind == EntityLocomotionLeaseStateKind.Completed ? 3 : 0,
+                lastReleaseReason = EntityLocomotionLeaseReleaseReason.NormalComplete,
+            };
+        }
+
+        private static UnitKinematicRuntimeState CreateVoluntaryKinematic()
+        {
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = KinematicFixed.UnitsPerCell - 1024,
+                remainingTicks = 8,
+                speedScalePermille = 1000,
+                sequenceId = 5,
+                elapsedTicks = 2,
+                totalTicks = 10,
+                commitTick = 1,
+                startedTick = 0,
+                stepDirectionX = 1,
+                stepDirectionY = 0,
+            }.NormalizedForStorage();
         }
 
         private sealed class ScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding

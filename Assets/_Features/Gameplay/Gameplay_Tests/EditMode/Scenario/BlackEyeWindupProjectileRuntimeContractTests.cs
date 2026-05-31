@@ -291,6 +291,129 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BlackEye_Windup_AcquiresLocomotionLease_WhenKinematicMoving()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            var startTick = pipeline.RunTick(new TickInput(1));
+            var action = GetEnemyActionState(worldState);
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntityLocomotionLeaseState(EnemyId, out var lease), Is.True);
+            Assert.That(lease.ownerKind, Is.EqualTo(EntityLocomotionLeaseOwnerKind.CombatAction));
+            Assert.That(lease.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.HeldByOwner));
+            Assert.That(lease.ownerActionSequenceId, Is.EqualTo(action.sequence));
+            Assert.That(snapshot.TryGetUnitKinematicPose(EnemyId, out var pose), Is.True);
+            Assert.That(pose.Mode, Is.EqualTo(MotionMode.Held));
+            Assert.That(startTick.PhaseTrace, Has.Some.Contains("Operation=Acquire").And.Contains("OwnerKind=CombatAction"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_Windup_TopologyClear_TerminatesLocomotionLease()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var originalAction = GetEnemyActionState(worldState);
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            var suspendedTick = pipeline.RunTick(new TickInput(2));
+            var snapshot = worldState.CreateSnapshot();
+
+            AssertActionInactiveOrMissing(worldState);
+            Assert.That(snapshot.TryGetEntityLocomotionLeaseState(EnemyId, out var lease), Is.True);
+            Assert.That(lease.ownerActionSequenceId, Is.EqualTo(originalAction.sequence));
+            Assert.That(lease.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.Completed));
+            Assert.That(lease.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.TopologyNonParticipant));
+            Assert.That(suspendedTick.PhaseTrace, Has.Some.Contains("Operation=Release").And.Contains("Reason=TopologyNonParticipant"));
+            Assert.That(snapshot.TryGetUnitKinematicPose(EnemyId, out var pose), Is.True);
+            Assert.That(pose.Mode, Is.Not.EqualTo(MotionMode.Held));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_Windup_TopologyReturn_NoOrphanedKinematicNotSettled()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            var startTick = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            var suspendedTick = pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+            var returnTick = pipeline.RunTick(new TickInput(3));
+
+            AssertNoOrphanedKinematicNotSettled(startTick);
+            AssertNoOrphanedKinematicNotSettled(suspendedTick);
+            AssertNoOrphanedKinematicNotSettled(returnTick);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_Windup_TopologyReturn_MovementIntentEventuallyResumes()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+            var returnTick = pipeline.RunTick(new TickInput(3));
+
+            Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicPose(EnemyId, out var pose), Is.True);
+            Assert.That(pose.Mode, Is.Not.EqualTo(MotionMode.Held));
+            Assert.That(returnTick.MovementPhaseResult.RejectedReasons, Has.None.Contains("OrphanedKinematicNotSettled"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BlackEye_Windup_TopologyClear_DoesNotResumeOldAction()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var originalAction = GetEnemyActionState(worldState);
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            pipeline.RunTick(new TickInput(2));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Floor));
+            pipeline.RunTick(new TickInput(originalAction.executeTick + 1));
+            var restartedAction = GetEnemyActionState(worldState);
+
+            Assert.That(restartedAction.sequence, Is.GreaterThan(originalAction.sequence));
+            Assert.That(restartedAction.startTick, Is.EqualTo(originalAction.executeTick + 1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CombatAction_LocomotionLease_NormalComplete_Releases()
+        {
+            var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
+            SeedEnemyVoluntaryKinematic(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+            var action = GetEnemyActionState(worldState);
+            var executeTick = pipeline.RunTick(new TickInput(action.executeTick));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntityLocomotionLeaseState(EnemyId, out var lease), Is.True);
+            Assert.That(lease.ownerActionSequenceId, Is.EqualTo(action.sequence));
+            Assert.That(lease.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.Completed));
+            Assert.That(lease.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.NormalComplete));
+            Assert.That(executeTick.PhaseTrace, Has.Some.Contains("Operation=Release").And.Contains("Reason=NormalComplete"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BlackEye_DoesNotCreateStalePendingImpact_AfterTopologySuspension()
         {
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
@@ -995,6 +1118,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var impacts = new List<PendingCellImpactSnapshotEntry>();
             worldState.CreateSnapshot().EnumeratePendingCellImpactsOrdered(impacts);
             return impacts.Single().Impact;
+        }
+
+        private static void SeedEnemyVoluntaryKinematic(WorldState worldState)
+        {
+            worldState.CreateWriteContext().SetUnitKinematicState(
+                EnemyId,
+                new UnitKinematicRuntimeState
+                {
+                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
+                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
+                    mode = MotionMode.Voluntary,
+                    forcedOp = ForcedMotionOp.None,
+                    remainingDistanceUnits = KinematicFixed.UnitsPerCell - 512,
+                    remainingTicks = 14,
+                    speedScalePermille = 1000,
+                    sequenceId = 5,
+                    elapsedTicks = 2,
+                    totalTicks = 16,
+                    commitTick = 1,
+                    startedTick = 0,
+                    stepDirectionX = 1,
+                    stepDirectionY = 0,
+                });
+        }
+
+        private static void AssertNoOrphanedKinematicNotSettled(TickResult result)
+        {
+            Assert.That(result.Trace.Text, Does.Not.Contain("OrphanedKinematicNotSettled"), result.Trace.Text);
+            Assert.That(result.PhaseTrace, Has.None.Contains("OrphanedKinematicNotSettled"));
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.None.Contains("OrphanedKinematicNotSettled"));
         }
 
         private static ForwardCellProjectileReleaseObservation ReleaseForwardCellProjectile(

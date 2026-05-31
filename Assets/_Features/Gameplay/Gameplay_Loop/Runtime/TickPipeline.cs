@@ -1543,6 +1543,7 @@ namespace Game.Feature.Gameplay.Loop
             phaseTrace.Add("Finalize:Enter");
             finalizationBatch.ApplyTo(writeContext, _delayedAttackEffectQueue);
             AddRange(phaseTrace, finalizationBatch.PoseMutationDiagnostics);
+            AddRange(phaseTrace, finalizationBatch.EntityLocomotionLeaseDiagnostics);
             phaseTrace.Add("Finalize:Exit");
             completedPhases.Add(TickPhase.Finalize);
         }
