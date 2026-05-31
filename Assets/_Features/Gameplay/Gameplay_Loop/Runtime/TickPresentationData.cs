@@ -2757,6 +2757,131 @@ namespace Game.Feature.Gameplay.Loop
         DestroySelf = 4,
     }
 
+    public enum BoxFlipDisposition
+    {
+        None = 0,
+        Landing = 1,
+        FollowThrough = 2,
+    }
+
+    public readonly struct PushSlidePresentationRecord
+    {
+        public PushSlidePresentationRecord(
+            int boxEntityId,
+            int actorEntityId,
+            int operationId,
+            int movementIntentId,
+            int movementResolutionId,
+            SurfaceCell fromCell,
+            SurfaceCell toCell,
+            Direction direction,
+            int kineticInstigatorEntityId,
+            int kineticInstigatorTeamId,
+            int stateTimerTicks,
+            bool isInitialPush,
+            bool isAutoSlide,
+            string reason)
+        {
+            BoxEntityId = boxEntityId;
+            ActorEntityId = actorEntityId;
+            OperationId = operationId;
+            MovementIntentId = movementIntentId;
+            MovementResolutionId = movementResolutionId;
+            FromCell = fromCell;
+            ToCell = toCell;
+            Direction = direction;
+            KineticInstigatorEntityId = kineticInstigatorEntityId;
+            KineticInstigatorTeamId = kineticInstigatorTeamId;
+            StateTimerTicks = stateTimerTicks;
+            IsInitialPush = isInitialPush;
+            IsAutoSlide = isAutoSlide;
+            Reason = reason ?? string.Empty;
+        }
+
+        public int BoxEntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public int OperationId { get; }
+
+        public int MovementIntentId { get; }
+
+        public int MovementResolutionId { get; }
+
+        public SurfaceCell FromCell { get; }
+
+        public SurfaceCell ToCell { get; }
+
+        public Direction Direction { get; }
+
+        public int KineticInstigatorEntityId { get; }
+
+        public int KineticInstigatorTeamId { get; }
+
+        public int StateTimerTicks { get; }
+
+        public bool IsInitialPush { get; }
+
+        public bool IsAutoSlide { get; }
+
+        public string Reason { get; }
+    }
+
+    public readonly struct BoxFlipPresentationRecord
+    {
+        public BoxFlipPresentationRecord(
+            int boxEntityId,
+            int actorEntityId,
+            int operationId,
+            int movementIntentId,
+            int movementResolutionId,
+            SurfaceCell targetBoxCell,
+            SurfaceCell landingCell,
+            Direction flipDirection,
+            Direction facingBefore,
+            Direction facingAfter,
+            BoxFlipDisposition disposition,
+            string reason)
+        {
+            BoxEntityId = boxEntityId;
+            ActorEntityId = actorEntityId;
+            OperationId = operationId;
+            MovementIntentId = movementIntentId;
+            MovementResolutionId = movementResolutionId;
+            TargetBoxCell = targetBoxCell;
+            LandingCell = landingCell;
+            FlipDirection = flipDirection;
+            FacingBefore = facingBefore;
+            FacingAfter = facingAfter;
+            Disposition = disposition;
+            Reason = reason ?? string.Empty;
+        }
+
+        public int BoxEntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public int OperationId { get; }
+
+        public int MovementIntentId { get; }
+
+        public int MovementResolutionId { get; }
+
+        public SurfaceCell TargetBoxCell { get; }
+
+        public SurfaceCell LandingCell { get; }
+
+        public Direction FlipDirection { get; }
+
+        public Direction FacingBefore { get; }
+
+        public Direction FacingAfter { get; }
+
+        public BoxFlipDisposition Disposition { get; }
+
+        public string Reason { get; }
+    }
+
     public readonly struct FlipFloorImpactPresentationSignal
     {
         public FlipFloorImpactPresentationSignal(
@@ -2999,6 +3124,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEntityExitPresentationSignal> _entityExitSignals;
         private readonly ReadOnlyCollection<BoxSlideStopPresentationSignal> _boxSlideStopSignals;
         private readonly ReadOnlyCollection<BoxSlideStartPresentationSignal> _boxSlideStartSignals;
+        private readonly ReadOnlyCollection<PushSlidePresentationRecord> _pushSlidePresentationRecords;
+        private readonly ReadOnlyCollection<BoxFlipPresentationRecord> _boxFlipPresentationRecords;
         private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
         private readonly ReadOnlyCollection<FlipFloorImpactPresentationSignal> _flipFloorImpactSignals;
         private readonly ReadOnlyCollection<FlipImpactPresentationSignal> _flipImpactSignals;
@@ -3399,7 +3526,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<PushSlidePresentationRecord> pushSlidePresentationRecords = null,
+            IEnumerable<BoxFlipPresentationRecord> boxFlipPresentationRecords = null)
         {
             if (entityMotions == null)
             {
@@ -3577,6 +3706,12 @@ namespace Game.Feature.Gameplay.Loop
             _boxSlideStartSignals = new ReadOnlyCollection<BoxSlideStartPresentationSignal>(
                 new List<BoxSlideStartPresentationSignal>(
                     boxSlideStartSignals ?? Array.Empty<BoxSlideStartPresentationSignal>()));
+            _pushSlidePresentationRecords = new ReadOnlyCollection<PushSlidePresentationRecord>(
+                new List<PushSlidePresentationRecord>(
+                    pushSlidePresentationRecords ?? Array.Empty<PushSlidePresentationRecord>()));
+            _boxFlipPresentationRecords = new ReadOnlyCollection<BoxFlipPresentationRecord>(
+                new List<BoxFlipPresentationRecord>(
+                    boxFlipPresentationRecords ?? Array.Empty<BoxFlipPresentationRecord>()));
             _flipImpactSignals = new ReadOnlyCollection<FlipImpactPresentationSignal>(
                 new List<FlipImpactPresentationSignal>(flipImpactSignals));
             _flipFloorImpactSignals = new ReadOnlyCollection<FlipFloorImpactPresentationSignal>(
@@ -3636,7 +3771,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<PushSlidePresentationRecord> pushSlidePresentationRecords = null,
+            IEnumerable<BoxFlipPresentationRecord> boxFlipPresentationRecords = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3674,7 +3811,9 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                pushSlidePresentationRecords: pushSlidePresentationRecords,
+                boxFlipPresentationRecords: boxFlipPresentationRecords)
         {
         }
 
@@ -3754,7 +3893,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<PushSlidePresentationRecord> pushSlidePresentationRecords = null,
+            IEnumerable<BoxFlipPresentationRecord> boxFlipPresentationRecords = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3796,7 +3937,9 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                pushSlidePresentationRecords: pushSlidePresentationRecords,
+                boxFlipPresentationRecords: boxFlipPresentationRecords)
         {
             if (impactTransientSignals == null)
             {
@@ -3854,7 +3997,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<PushSlidePresentationRecord> pushSlidePresentationRecords = null,
+            IEnumerable<BoxFlipPresentationRecord> boxFlipPresentationRecords = null)
             : this(
                 entityMotions: entityMotions,
                 topologyMotion: topologyMotion,
@@ -3897,7 +4042,9 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                pushSlidePresentationRecords: pushSlidePresentationRecords,
+                boxFlipPresentationRecords: boxFlipPresentationRecords)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -4009,6 +4156,12 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<BoxSlideStopPresentationSignal> BoxSlideStopSignals => _boxSlideStopSignals;
 
         public IReadOnlyList<BoxSlideStartPresentationSignal> BoxSlideStartSignals => _boxSlideStartSignals;
+
+        public IReadOnlyList<PushSlidePresentationRecord> PushSlidePresentationRecords =>
+            _pushSlidePresentationRecords;
+
+        public IReadOnlyList<BoxFlipPresentationRecord> BoxFlipPresentationRecords =>
+            _boxFlipPresentationRecords;
 
         public IReadOnlyList<FlipImpactPresentationSignal> FlipImpactSignals => _flipImpactSignals;
 

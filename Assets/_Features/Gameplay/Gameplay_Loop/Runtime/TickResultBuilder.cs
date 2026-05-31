@@ -712,6 +712,8 @@ namespace Game.Feature.Gameplay.Loop
             var flipFloorImpactSignals = new List<FlipFloorImpactPresentationSignal>();
             var boxSlideStopSignals = new List<BoxSlideStopPresentationSignal>();
             var boxSlideStartSignals = new List<BoxSlideStartPresentationSignal>();
+            var pushSlidePresentationRecords = new List<PushSlidePresentationRecord>();
+            var boxFlipPresentationRecords = new List<BoxFlipPresentationRecord>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
@@ -767,11 +769,18 @@ namespace Game.Feature.Gameplay.Loop
             BuildTileFeatureActiveVisualStates(context, topologyFact, tileFeatureActiveVisualStates);
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
             BuildFlipImpactPresentation(context, flipImpactSignals);
-            BuildFlipFloorImpactPresentation(context, flipFloorImpactSignals);
             BuildBoxSlideStopPresentation(context, boxSlideStopSignals);
-            BuildBoxSlideStartPresentation(context, boxSlideStartSignals);
+            BuildBoxActionPresentationRecords(context, pushSlidePresentationRecords, boxFlipPresentationRecords);
+            BuildFlipFloorImpactPresentation(context, boxFlipPresentationRecords, flipFloorImpactSignals);
+            BuildBoxSlideStartPresentation(context, pushSlidePresentationRecords, boxSlideStartSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
-            BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
+            BuildMovementPresentation(
+                context,
+                entityMotions,
+                visibilityChanges,
+                exitOwnedEntityIds,
+                pushSlidePresentationRecords,
+                boxFlipPresentationRecords);
             BuildKinematicMotionPresentation(context, kinematicMotionTracks);
             BuildContinuousLocomotionPresentation(context, continuousLocomotionTracks);
             BuildAttackPresentation(context, visibilityChanges);
@@ -862,6 +871,8 @@ namespace Game.Feature.Gameplay.Loop
                           gravityFieldEvents.Count == 0 &&
                           gravityFieldVisualStates.Count == 0 &&
                           tileFeatureActiveVisualStates.Count == 0 &&
+                          pushSlidePresentationRecords.Count == 0 &&
+                          boxFlipPresentationRecords.Count == 0 &&
                           !topologyMotion.HasValue;
             var presentationData = isEmpty
                 ? TickPresentationData.Empty
@@ -912,7 +923,9 @@ namespace Game.Feature.Gameplay.Loop
                     entitySpawnSignals,
                     playerOutcomeSignals,
                     enemyUtilityPhaseStates,
-                    playerTopologyTransitionBlockedSignals);
+                    playerTopologyTransitionBlockedSignals,
+                    pushSlidePresentationRecords,
+                    boxFlipPresentationRecords);
             LogForwardCellProjectilePresentationFinal(
                 context,
                 forwardCellImpactSignals,
@@ -1218,8 +1231,28 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildBoxSlideStartPresentation(
             in TickPresentationBuildContext context,
+            IReadOnlyList<PushSlidePresentationRecord> pushSlidePresentationRecords,
             List<BoxSlideStartPresentationSignal> boxSlideStartSignals)
         {
+            var signaledKeys = new HashSet<string>();
+            for (var i = 0; i < pushSlidePresentationRecords.Count; i++)
+            {
+                var record = pushSlidePresentationRecords[i];
+                var key = $"Record:{record.OperationId}:{record.BoxEntityId}:{record.FromCell}:{record.ToCell}";
+                if (!signaledKeys.Add(key))
+                {
+                    continue;
+                }
+
+                boxSlideStartSignals.Add(
+                    new BoxSlideStartPresentationSignal(
+                        record.BoxEntityId,
+                        record.ActorEntityId,
+                        record.FromCell,
+                        record.ToCell,
+                        context.PreMovementSnapshot.Topology));
+            }
+
             var operations = context.MovementPhaseResult.ResolvedOperations;
             for (var i = 0; i < operations.Count; i++)
             {
@@ -1230,6 +1263,12 @@ namespace Game.Feature.Gameplay.Loop
                     operation.Metadata.SourceActorEntityId == operation.EntityId ||
                     !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
                     sourceEntity.type != EntityType.Box)
+                {
+                    continue;
+                }
+
+                var legacyKey = $"Legacy:{operation.EntityId}:{sourceEntity.position}:{operation.Destination}";
+                if (!signaledKeys.Add(legacyKey))
                 {
                     continue;
                 }
@@ -1265,6 +1304,302 @@ namespace Game.Feature.Gameplay.Loop
                         stop.Cause,
                         stop.StopperTileId));
             }
+        }
+
+        private static void BuildBoxActionPresentationRecords(
+            in TickPresentationBuildContext context,
+            List<PushSlidePresentationRecord> pushSlidePresentationRecords,
+            List<BoxFlipPresentationRecord> boxFlipPresentationRecords)
+        {
+            var emittedOperationIds = new HashSet<int>();
+            var records = context.MovementPhaseResult.MovementPresentationRecords;
+            for (var i = 0; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (!record.WasAccepted ||
+                    !record.PositionChanged ||
+                    record.Source != "MovementCommit" ||
+                    record.OperationId == 0 ||
+                    !TryFindPoseMutationOperationForRecord(context, record, out var operation) ||
+                    !emittedOperationIds.Add(record.OperationId))
+                {
+                    continue;
+                }
+
+                if (operation.Metadata.MovementExecutionBoundaryKind != MovementExecutionBoundaryKind.BoxActionMovement)
+                {
+                    continue;
+                }
+
+                switch (operation.Metadata.MovementSemanticKind)
+                {
+                    case MovementSemanticKind.Push:
+                    case MovementSemanticKind.Slide:
+                        if (!TryBuildPushSlidePresentationRecord(
+                            context,
+                            record,
+                            operation,
+                            pushSlidePresentationRecords))
+                        {
+                            LogBoxActionPresentationRecord(
+                                record.TickIndex,
+                                operation.Metadata.MovementSemanticKind == MovementSemanticKind.Slide
+                                    ? "AutoSlide"
+                                    : "Push",
+                                record.OperationId,
+                                record.EntityId,
+                                operation.Metadata.SourceActorEntityId,
+                                record.FromCell,
+                                record.ToCell,
+                                default,
+                                record.MovementDirection,
+                                BoxFlipDisposition.None,
+                                created: false,
+                                suppressedGenericMove: false,
+                                "BoxSlideMotion.Created=false");
+                        }
+                        break;
+                    case MovementSemanticKind.Flip:
+                        if (!TryBuildBoxFlipPresentationRecord(
+                            context,
+                            record,
+                            operation,
+                            boxFlipPresentationRecords))
+                        {
+                            LogBoxActionPresentationRecord(
+                                record.TickIndex,
+                                "Flip",
+                                record.OperationId,
+                                record.EntityId,
+                                operation.Metadata.SourceActorEntityId,
+                                record.FromCell,
+                                record.ToCell,
+                                record.ToCell,
+                                record.MovementDirection,
+                                BoxFlipDisposition.None,
+                                created: false,
+                                suppressedGenericMove: false,
+                                "BoxFlipMotion.Created=false");
+                        }
+                        break;
+                }
+            }
+        }
+
+        private static bool TryBuildPushSlidePresentationRecord(
+            in TickPresentationBuildContext context,
+            in MovementPresentationRecord movementRecord,
+            in FinalizationOperation operation,
+            List<PushSlidePresentationRecord> pushSlidePresentationRecords)
+        {
+            if (!context.PreMovementSnapshot.TryGetEntity(movementRecord.EntityId, out var sourceEntity) ||
+                !context.PostMovementSnapshot.TryGetEntity(movementRecord.EntityId, out var destinationEntity) ||
+                sourceEntity.type != EntityType.Box ||
+                destinationEntity.type != EntityType.Box ||
+                !HasBoxCapability(sourceEntity, BoxCapabilities.Push) ||
+                destinationEntity.boardPresence != EntityBoardPresence.Occupying)
+            {
+                return false;
+            }
+
+            var isAutoSlide = operation.Metadata.SourceActorEntityId == movementRecord.EntityId ||
+                              sourceEntity.state == EntityPhaseState.Sliding;
+            var actorEntityId = ResolveBoxActionActorEntityId(
+                operation.Metadata.SourceActorEntityId,
+                movementRecord.EntityId,
+                sourceEntity,
+                destinationEntity);
+            var kineticInstigatorEntityId = destinationEntity.kineticInstigatorEntityId != 0
+                ? destinationEntity.kineticInstigatorEntityId
+                : sourceEntity.kineticInstigatorEntityId;
+            var kineticInstigatorTeamId = destinationEntity.kineticInstigatorTeamId != 0
+                ? destinationEntity.kineticInstigatorTeamId
+                : sourceEntity.kineticInstigatorTeamId;
+
+            var record = new PushSlidePresentationRecord(
+                movementRecord.EntityId,
+                actorEntityId,
+                movementRecord.OperationId,
+                movementRecord.MovementIntentId,
+                movementRecord.MovementResolutionId,
+                movementRecord.FromCell,
+                movementRecord.ToCell,
+                movementRecord.MovementDirection,
+                kineticInstigatorEntityId,
+                kineticInstigatorTeamId,
+                destinationEntity.stateTimer,
+                isInitialPush: !isAutoSlide,
+                isAutoSlide: isAutoSlide,
+                reason: "Created");
+            pushSlidePresentationRecords.Add(record);
+            LogBoxActionPresentationRecord(
+                movementRecord.TickIndex,
+                isAutoSlide ? "AutoSlide" : "Push",
+                movementRecord.OperationId,
+                movementRecord.EntityId,
+                actorEntityId,
+                movementRecord.FromCell,
+                movementRecord.ToCell,
+                default,
+                movementRecord.MovementDirection,
+                BoxFlipDisposition.None,
+                created: true,
+                suppressedGenericMove: true,
+                "Created");
+            return true;
+        }
+
+        private static bool TryBuildBoxFlipPresentationRecord(
+            in TickPresentationBuildContext context,
+            in MovementPresentationRecord movementRecord,
+            in FinalizationOperation operation,
+            List<BoxFlipPresentationRecord> boxFlipPresentationRecords)
+        {
+            if (!context.PreMovementSnapshot.TryGetEntity(movementRecord.EntityId, out var sourceEntity) ||
+                !context.PostMovementSnapshot.TryGetEntity(movementRecord.EntityId, out var destinationEntity) ||
+                sourceEntity.type != EntityType.Box ||
+                destinationEntity.type != EntityType.Box ||
+                !HasBoxCapability(sourceEntity, BoxCapabilities.Flip) ||
+                destinationEntity.boardPresence != EntityBoardPresence.Occupying)
+            {
+                return false;
+            }
+
+            var disposition = ResolveBoxFlipDisposition(context, operation.Metadata.ActionPlanId);
+            var actorEntityId = ResolveBoxActionActorEntityId(
+                operation.Metadata.SourceActorEntityId,
+                movementRecord.EntityId,
+                sourceEntity,
+                destinationEntity);
+            var record = new BoxFlipPresentationRecord(
+                movementRecord.EntityId,
+                actorEntityId,
+                movementRecord.OperationId,
+                movementRecord.MovementIntentId,
+                movementRecord.MovementResolutionId,
+                movementRecord.FromCell,
+                movementRecord.ToCell,
+                movementRecord.MovementDirection,
+                sourceEntity.facing,
+                destinationEntity.facing,
+                disposition,
+                "Created");
+            boxFlipPresentationRecords.Add(record);
+            LogBoxActionPresentationRecord(
+                movementRecord.TickIndex,
+                "Flip",
+                movementRecord.OperationId,
+                movementRecord.EntityId,
+                actorEntityId,
+                movementRecord.FromCell,
+                movementRecord.ToCell,
+                movementRecord.ToCell,
+                movementRecord.MovementDirection,
+                disposition,
+                created: true,
+                suppressedGenericMove: true,
+                "Created");
+            return true;
+        }
+
+        private static bool TryFindPoseMutationOperationForRecord(
+            in TickPresentationBuildContext context,
+            in MovementPresentationRecord record,
+            out FinalizationOperation operation)
+        {
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var candidate = operations[i];
+                if (candidate.Kind == FinalizationOperationKind.PoseMutation &&
+                    candidate.PoseMutationOperation.Request.OperationId == record.OperationId)
+                {
+                    operation = candidate;
+                    return true;
+                }
+            }
+
+            operation = default;
+            return false;
+        }
+
+        private static int ResolveBoxActionActorEntityId(
+            int metadataActorEntityId,
+            int boxEntityId,
+            in EntityState sourceEntity,
+            in EntityState destinationEntity)
+        {
+            if (metadataActorEntityId > 0 && metadataActorEntityId != boxEntityId)
+            {
+                return metadataActorEntityId;
+            }
+
+            if (sourceEntity.kineticInstigatorEntityId > 0)
+            {
+                return sourceEntity.kineticInstigatorEntityId;
+            }
+
+            return destinationEntity.kineticInstigatorEntityId > 0
+                ? destinationEntity.kineticInstigatorEntityId
+                : metadataActorEntityId;
+        }
+
+        private static BoxFlipDisposition ResolveBoxFlipDisposition(
+            in TickPresentationBuildContext context,
+            int actionPlanId)
+        {
+            var records = context.MovementPhaseResult.ImpactDispositionRecords;
+            for (var i = 0; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record.ActionPlanId == actionPlanId &&
+                    record.PolicyKind == ImpactDispositionPolicyKind.Flip &&
+                    record.DispositionKind == ImpactDispositionKind.FollowThrough)
+                {
+                    return BoxFlipDisposition.FollowThrough;
+                }
+            }
+
+            return BoxFlipDisposition.Landing;
+        }
+
+        private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
+        {
+            return (entity.boxCapabilities & capability) == capability;
+        }
+
+        private static void LogBoxActionPresentationRecord(
+            int tickIndex,
+            string action,
+            int operationId,
+            int boxEntityId,
+            int actorEntityId,
+            SurfaceCell fromCell,
+            SurfaceCell toCell,
+            SurfaceCell landingCell,
+            Direction direction,
+            BoxFlipDisposition flipDisposition,
+            bool created,
+            bool suppressedGenericMove,
+            string reason)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            UnityEngine.Debug.Log(
+                "[BoxActionPresentationRecord]" +
+                $"Tick={tickIndex}" +
+                $"|OperationId={operationId}" +
+                $"|Action={action}" +
+                $"|BoxEntity={boxEntityId}" +
+                $"|ActorEntity={actorEntityId}" +
+                $"|FromCell={fromCell}" +
+                $"|ToCell={toCell}" +
+                $"|LandingCell={landingCell}" +
+                $"|Direction={direction}" +
+                $"|FlipDisposition={flipDisposition}" +
+                $"|Created={(created ? 1 : 0)}" +
+                $"|SuppressedGenericMove={(suppressedGenericMove ? 1 : 0)}" +
+                $"|Reason={reason}");
+#endif
         }
 
         private static void BuildTileFeatureActiveVisualStates(
@@ -2735,10 +3070,24 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             List<TickEntityMotion> entityMotions,
             List<TickVisibilityChange> visibilityChanges,
-            ISet<int> exitOwnedEntityIds)
+            ISet<int> exitOwnedEntityIds,
+            IReadOnlyList<PushSlidePresentationRecord> pushSlidePresentationRecords,
+            IReadOnlyList<BoxFlipPresentationRecord> boxFlipPresentationRecords)
         {
             var motionKeys = new HashSet<string>();
-            AppendMovementPresentationRecords(context, entityMotions, motionKeys);
+            var suppressedMovementRecordOperationIds = new HashSet<int>();
+            AppendBoxActionPresentationRecords(
+                context,
+                entityMotions,
+                motionKeys,
+                suppressedMovementRecordOperationIds,
+                pushSlidePresentationRecords,
+                boxFlipPresentationRecords);
+            AppendMovementPresentationRecords(
+                context,
+                entityMotions,
+                motionKeys,
+                suppressedMovementRecordOperationIds);
             var operations = context.MovementPhaseResult.ResolvedOperations;
             for (var i = 0; i < operations.Count; i++)
             {
@@ -2768,7 +3117,8 @@ namespace Game.Feature.Gameplay.Loop
         private static void AppendMovementPresentationRecords(
             in TickPresentationBuildContext context,
             List<TickEntityMotion> entityMotions,
-            ISet<string> motionKeys)
+            ISet<string> motionKeys,
+            ISet<int> suppressedOperationIds)
         {
             var records = context.MovementPhaseResult.MovementPresentationRecords;
             for (var i = 0; i < records.Count; i++)
@@ -2777,6 +3127,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (!record.WasAccepted ||
                     !record.PositionChanged ||
                     record.Source != "MovementCommit" ||
+                    suppressedOperationIds.Contains(record.OperationId) ||
                     !context.PostMovementSnapshot.TryGetEntity(record.EntityId, out var destinationEntity) ||
                     destinationEntity.boardPresence != EntityBoardPresence.Occupying)
                 {
@@ -2800,6 +3151,75 @@ namespace Game.Feature.Gameplay.Loop
                     destinationEntity.facing,
                     record.OperationId,
                     record.MovementDirection);
+                if (motionKeys.Add(CreateMotionPresentationKey(motion)))
+                {
+                    entityMotions.Add(motion);
+                }
+            }
+        }
+
+        private static void AppendBoxActionPresentationRecords(
+            in TickPresentationBuildContext context,
+            List<TickEntityMotion> entityMotions,
+            ISet<string> motionKeys,
+            ISet<int> suppressedOperationIds,
+            IReadOnlyList<PushSlidePresentationRecord> pushSlidePresentationRecords,
+            IReadOnlyList<BoxFlipPresentationRecord> boxFlipPresentationRecords)
+        {
+            for (var i = 0; i < pushSlidePresentationRecords.Count; i++)
+            {
+                var record = pushSlidePresentationRecords[i];
+                suppressedOperationIds.Add(record.OperationId);
+                if (!context.PostMovementSnapshot.TryGetEntity(record.BoxEntityId, out var destinationEntity) ||
+                    destinationEntity.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                Direction? sourceFacing = null;
+                if (context.PreMovementSnapshot.TryGetEntity(record.BoxEntityId, out var sourceEntity))
+                {
+                    sourceFacing = sourceEntity.facing;
+                }
+
+                var motion = new TickEntityMotion(
+                    record.BoxEntityId,
+                    TickEntityMotionKind.BoxSlide,
+                    record.FromCell,
+                    record.ToCell,
+                    context.PreMovementSnapshot.Topology,
+                    context.PostMovementSnapshot.Topology,
+                    sourceFacing,
+                    destinationEntity.facing,
+                    record.OperationId,
+                    record.Direction);
+                if (motionKeys.Add(CreateMotionPresentationKey(motion)))
+                {
+                    entityMotions.Add(motion);
+                }
+            }
+
+            for (var i = 0; i < boxFlipPresentationRecords.Count; i++)
+            {
+                var record = boxFlipPresentationRecords[i];
+                suppressedOperationIds.Add(record.OperationId);
+                if (!context.PostMovementSnapshot.TryGetEntity(record.BoxEntityId, out var destinationEntity) ||
+                    destinationEntity.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                var motion = new TickEntityMotion(
+                    record.BoxEntityId,
+                    TickEntityMotionKind.Flip,
+                    record.TargetBoxCell,
+                    record.LandingCell,
+                    context.PreMovementSnapshot.Topology,
+                    context.PostMovementSnapshot.Topology,
+                    record.FacingBefore,
+                    destinationEntity.facing,
+                    record.OperationId,
+                    record.FlipDirection);
                 if (motionKeys.Add(CreateMotionPresentationKey(motion)))
                 {
                     entityMotions.Add(motion);
@@ -3301,10 +3721,16 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void BuildFlipFloorImpactPresentation(
             in TickPresentationBuildContext context,
+            IReadOnlyList<BoxFlipPresentationRecord> boxFlipPresentationRecords,
             List<FlipFloorImpactPresentationSignal> flipFloorImpactSignals)
         {
             var signaledKeys = new HashSet<long>();
             BuildFlipFloorImpactPresentationFromDisposition(context, flipFloorImpactSignals, signaledKeys);
+            BuildFlipFloorImpactPresentationFromBoxFlipRecords(
+                context,
+                boxFlipPresentationRecords,
+                flipFloorImpactSignals,
+                signaledKeys);
             BuildFlipFloorImpactPresentationFromMovement(context, flipFloorImpactSignals, signaledKeys);
         }
 
@@ -3385,6 +3811,57 @@ namespace Game.Feature.Gameplay.Loop
                         destinationEntity.facing,
                         FlipFloorImpactPresentationKind.Landing));
             }
+        }
+
+        private static void BuildFlipFloorImpactPresentationFromBoxFlipRecords(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<BoxFlipPresentationRecord> boxFlipPresentationRecords,
+            List<FlipFloorImpactPresentationSignal> flipFloorImpactSignals,
+            HashSet<long> signaledKeys)
+        {
+            for (var i = 0; i < boxFlipPresentationRecords.Count; i++)
+            {
+                var record = boxFlipPresentationRecords[i];
+                var sourceActionPlanId = ResolveActionPlanIdForBoxFlipRecord(context, record);
+                var key = BuildFlipImpactSignalKey(sourceActionPlanId, record.BoxEntityId);
+                if (!signaledKeys.Add(key))
+                {
+                    continue;
+                }
+
+                flipFloorImpactSignals.Add(
+                    new FlipFloorImpactPresentationSignal(
+                        sourceActionPlanId,
+                        record.BoxEntityId,
+                        record.ActorEntityId,
+                        record.TargetBoxCell,
+                        record.LandingCell,
+                        context.PostMovementSnapshot.Topology,
+                        record.FacingBefore,
+                        record.FacingAfter,
+                        record.Disposition == BoxFlipDisposition.FollowThrough
+                            ? FlipFloorImpactPresentationKind.FollowThrough
+                            : FlipFloorImpactPresentationKind.Landing));
+            }
+        }
+
+        private static int ResolveActionPlanIdForBoxFlipRecord(
+            in TickPresentationBuildContext context,
+            in BoxFlipPresentationRecord record)
+        {
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.PoseMutation &&
+                    operation.PoseMutationOperation.Request.OperationId == record.OperationId &&
+                    operation.Metadata.ActionPlanId > 0)
+                {
+                    return operation.Metadata.ActionPlanId;
+                }
+            }
+
+            return record.OperationId;
         }
 
         private static void BuildImpactTransientPresentation(

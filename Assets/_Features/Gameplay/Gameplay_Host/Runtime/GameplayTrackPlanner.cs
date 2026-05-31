@@ -1117,6 +1117,7 @@ namespace Game.Feature.Gameplay.Host
                 reason);
             _stateStore.LastMotionTrackBuildDiagnostics.Add(diagnostic);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+            LogBoxActionMotionBuild(motion, diagnostic);
             if (diagnostic.OperationId != 0)
             {
                 UnityEngine.Debug.Log(
@@ -1133,6 +1134,51 @@ namespace Game.Feature.Gameplay.Host
             }
 #endif
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private static void LogBoxActionMotionBuild(
+            in TickEntityMotion motion,
+            in MotionTrackBuildDiagnostic diagnostic)
+        {
+            if (motion.MotionKind == TickEntityMotionKind.BoxSlide)
+            {
+                UnityEngine.Debug.Log(
+                    "[BoxSlideMotion]" +
+                    $"Tick={diagnostic.TickIndex}" +
+                    $"|OperationId={diagnostic.OperationId}" +
+                    $"|BoxEntity={diagnostic.EntityId}" +
+                    $"|FromCell={diagnostic.SourceCell}" +
+                    $"|ToCell={diagnostic.TargetCell}" +
+                    $"|Direction={diagnostic.Direction}" +
+                    "|StateTimerTicks=0" +
+                    $"|VisualDuration={diagnostic.DurationSeconds}" +
+                    $"|DriverInvoked={(diagnostic.TrackCreated ? 1 : 0)}" +
+                    $"|Reason={diagnostic.Reason}");
+                return;
+            }
+
+            if (motion.MotionKind != TickEntityMotionKind.Flip)
+            {
+                return;
+            }
+
+            UnityEngine.Debug.Log(
+                "[BoxFlipMotion]" +
+                $"Tick={diagnostic.TickIndex}" +
+                $"|OperationId={diagnostic.OperationId}" +
+                $"|BoxEntity={diagnostic.EntityId}" +
+                "|ActorEntity=0" +
+                $"|TargetBoxCell={diagnostic.SourceCell}" +
+                $"|LandingCell={diagnostic.TargetCell}" +
+                $"|FlipDirection={diagnostic.Direction}" +
+                $"|FacingBefore={motion.SourceFacing.GetValueOrDefault(Direction.None)}" +
+                $"|FacingAfter={motion.DestinationFacing.GetValueOrDefault(Direction.None)}" +
+                $"|DriverInvoked={(diagnostic.TrackCreated ? 1 : 0)}" +
+                $"|VisualRootOffsetAnimated={(diagnostic.TrackCreated ? 1 : 0)}" +
+                $"|VisualRootRotationAnimated={(diagnostic.TrackCreated ? 1 : 0)}" +
+                $"|Reason={diagnostic.Reason}");
+        }
+#endif
 
         private float ResolveMotionDurationSeconds(
             TickPresentationData presentationData,
