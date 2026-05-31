@@ -48,7 +48,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d61d20915b944faabca806869d9edba, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 0
   modelRoot: {fileID: 4001000000000010002}
@@ -62,7 +62,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1c4a2f7bf37431fa19e2d57c1d803aa, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
   moveMotionDurationSeconds: 0.8
 --- !u!114 &1141000000000010003
@@ -121,7 +121,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9385076df6dc49c98c945bd1e50d2edc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioAuthoring
   profile: {fileID: 11400000, guid: 5cb3acfea82942bcb882855094acd20e, type: 2}
 --- !u!114 &1141000000000010006
@@ -134,7 +134,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 24bfcd30fed846a0874867b6e5e248cf, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyPresentation::Game.Feature.Gameplay.Host.EnemySemanticParticleEffectController
   bindings:
   - particleSystem: {fileID: 4572113305727014883}
@@ -169,7 +169,7 @@ Transform:
   m_GameObject: {fileID: 1001000000000010002}
   serializedVersion: 2
   m_LocalRotation: {x: -1, y: 0, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0.1}
   m_LocalScale: {x: 0.4, y: 0.4, z: 0.4}
   m_ConstrainProportionsScale: 0
   m_Children:
