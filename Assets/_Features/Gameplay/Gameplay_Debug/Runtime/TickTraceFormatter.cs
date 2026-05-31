@@ -45,11 +45,6 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Movement.DebugEvents", movementPhaseResult.DebugEvents, FormatString);
             AppendSection(builder, "Movement.RejectedReasons", movementPhaseResult.RejectedReasons, FormatString);
             AppendSection(builder, "Movement.Resolutions", movementPhaseResult.ResolutionRecords, FormatResolutionRecord);
-            AppendSection(
-                builder,
-                "Movement.PresentationRecords",
-                movementPhaseResult.MovementPresentationRecords,
-                FormatMovementPresentationRecord);
             AppendSection(builder, "Movement.ResolvedOperations", movementPhaseResult.ResolvedOperations, FormatFinalizationOperation);
             AppendSection(builder, "Movement.CommitEvents", movementPhaseResult.CommitEvents, FormatString);
             AppendOccupancySection(builder, "Movement.OccupancyBefore", s0Snapshot);
@@ -537,11 +532,6 @@ namespace Game.Feature.Gameplay.Debug
             return $"Contest={record.ContestId}|Kind={record.Kind}|Accepted={(record.Accepted ? 1 : 0)}|Source={record.SourceId}|Priority={record.Priority}|Plan={record.ActionPlanId}|Affected={record.AffectedEntityId}|Local={record.LocalActionIndex}";
         }
 
-        private static string FormatMovementPresentationRecord(MovementPresentationRecord record)
-        {
-            return $"Entity={record.EntityId}|OperationId={record.OperationId}|SyntheticOperationId={(record.UsesSyntheticOperationId ? 1 : 0)}|MovementIntentId={record.MovementIntentId}|MovementResolutionId={record.MovementResolutionId}|From={FormatCell(record.FromCell)}|To={FormatCell(record.ToCell)}|Direction={record.MovementDirection}|PositionChanged={(record.PositionChanged ? 1 : 0)}|Accepted={(record.WasAccepted ? 1 : 0)}|Source={record.Source}";
-        }
-
         private static string FormatFinalizationOperation(FinalizationOperation operation)
         {
             var builder = new StringBuilder();
@@ -708,19 +698,6 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|RemainingTicks=").Append(operation.UnitKinematicState.remainingTicks)
                         .Append("|SpeedScale=").Append(operation.UnitKinematicState.speedScalePermille)
                         .Append("|MotionSeq=").Append(operation.UnitKinematicState.sequenceId);
-                    break;
-
-                case FinalizationOperationKind.SetEntityLocomotionLeaseState:
-                    builder.Append("|LeaseId=").Append(operation.EntityLocomotionLeaseState.leaseId)
-                        .Append("|OwnerKind=").Append(operation.EntityLocomotionLeaseState.ownerKind)
-                        .Append("|LeaseState=").Append(operation.EntityLocomotionLeaseState.stateKind)
-                        .Append("|OwnerSeq=").Append(operation.EntityLocomotionLeaseState.ownerActionSequenceId)
-                        .Append("|Anchor=").Append(FormatCell(operation.EntityLocomotionLeaseState.anchorAtAcquire))
-                        .Append("|AcquiredTick=").Append(operation.EntityLocomotionLeaseState.acquiredTick)
-                        .Append("|LastReleaseTick=").Append(operation.EntityLocomotionLeaseState.lastReleaseTick)
-                        .Append("|LastReleaseReason=").Append(operation.EntityLocomotionLeaseState.lastReleaseReason)
-                        .Append("|PendingReleaseReason=").Append(operation.EntityLocomotionLeaseState.pendingReleaseReason)
-                        .Append("|FinalReleaseReason=").Append(operation.EntityLocomotionLeaseState.finalReleaseReason);
                     break;
 
                 case FinalizationOperationKind.SetTopology:

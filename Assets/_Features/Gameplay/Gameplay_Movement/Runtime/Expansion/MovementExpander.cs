@@ -132,17 +132,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=UnitKinematicNotSettled|Anchor={FormatCell(entity.position)}");
-                    var diagnostic = EntityLocomotionLeaseDiagnostics.BuildKinematicNotSettledDiagnostic(
-                        snapshot,
-                        tickIndex,
-                        entity.entityId,
-                        "Expand",
-                        intent.IntentId);
-                    if (!string.IsNullOrEmpty(diagnostic))
-                    {
-                        rejectedReasons.Add(diagnostic);
-                    }
-
                     continue;
                 }
 

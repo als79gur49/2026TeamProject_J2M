@@ -15,9 +15,6 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, EnemyVisualSemanticState> _enemyVisualSemanticStatesByEntityId = new();
         private readonly Dictionary<int, EntityType> _entityTypesByEntityId = new();
         private readonly Dictionary<int, EntityPresentationApplySignature> _lastEnemyApplySignaturesByEntityId = new();
-        private readonly List<MotionTrackBuildDiagnostic> _lastMotionTrackBuildDiagnostics = new();
-        private readonly List<KinematicTrackBuildDiagnostic> _lastKinematicTrackBuildDiagnostics = new();
-        private readonly List<KinematicViewApplyDiagnostic> _lastKinematicViewApplyDiagnostics = new();
         private readonly Dictionary<int, UnitRole> _unitRolesByEntityId = new();
         private readonly Dictionary<int, JumpDetachedVisibilityState> _jumpDetachedVisibilityStates = new();
         private readonly HashSet<int> _processingEntityIds = new();
@@ -47,21 +44,10 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasAnyCommittedFrame { get; set; }
 
-        internal int LastPresentedTickIndex { get; set; }
-
         internal Dictionary<int, EntityPresentationApplySignature> LastEnemyApplySignaturesByEntityId =>
             _lastEnemyApplySignaturesByEntityId;
 
         internal EntityPresentationApplyDiagnostics LastEntityPresentationApplyDiagnostics { get; set; }
-
-        internal List<MotionTrackBuildDiagnostic> LastMotionTrackBuildDiagnostics =>
-            _lastMotionTrackBuildDiagnostics;
-
-        internal List<KinematicTrackBuildDiagnostic> LastKinematicTrackBuildDiagnostics =>
-            _lastKinematicTrackBuildDiagnostics;
-
-        internal List<KinematicViewApplyDiagnostic> LastKinematicViewApplyDiagnostics =>
-            _lastKinematicViewApplyDiagnostics;
 
         public Dictionary<int, JumpDetachedVisibilityState> JumpDetachedVisibilityStates => _jumpDetachedVisibilityStates;
 
@@ -85,9 +71,6 @@ namespace Game.Feature.Gameplay.Host
             _enemyVisualSemanticStatesByEntityId.Clear();
             _entityTypesByEntityId.Clear();
             _lastEnemyApplySignaturesByEntityId.Clear();
-            _lastMotionTrackBuildDiagnostics.Clear();
-            _lastKinematicTrackBuildDiagnostics.Clear();
-            _lastKinematicViewApplyDiagnostics.Clear();
             _unitRolesByEntityId.Clear();
             _jumpDetachedVisibilityStates.Clear();
             _presentedLocalPosesByEntityId.Clear();
@@ -96,7 +79,6 @@ namespace Game.Feature.Gameplay.Host
             _viewsByEntityId.Clear();
             _processingEntityIds.Clear();
             _processingEntityIdBuffer.Clear();
-            LastPresentedTickIndex = 0;
             LastEntityPresentationApplyDiagnostics = default;
         }
 

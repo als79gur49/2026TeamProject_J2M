@@ -9,124 +9,6 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
-    internal readonly struct MotionTrackBuildDiagnostic
-    {
-        public MotionTrackBuildDiagnostic(
-            int tickIndex,
-            int entityId,
-            int operationId,
-            SurfaceCell sourceCell,
-            SurfaceCell targetCell,
-            Direction direction,
-            bool trackCreated,
-            float durationSeconds,
-            string reason)
-        {
-            TickIndex = tickIndex;
-            EntityId = entityId;
-            OperationId = operationId;
-            SourceCell = sourceCell;
-            TargetCell = targetCell;
-            Direction = direction;
-            TrackCreated = trackCreated;
-            DurationSeconds = durationSeconds;
-            Reason = reason ?? string.Empty;
-        }
-
-        public int TickIndex { get; }
-
-        public int EntityId { get; }
-
-        public int OperationId { get; }
-
-        public SurfaceCell SourceCell { get; }
-
-        public SurfaceCell TargetCell { get; }
-
-        public Direction Direction { get; }
-
-        public bool TrackCreated { get; }
-
-        public float DurationSeconds { get; }
-
-        public string Reason { get; }
-    }
-
-    internal readonly struct KinematicTrackBuildDiagnostic
-    {
-        public KinematicTrackBuildDiagnostic(
-            int tickIndex,
-            int entityId,
-            int operationId,
-            bool trackCreated,
-            string trackKind,
-            SurfaceCell anchorBefore,
-            SurfaceCell anchorAfter,
-            KinematicOffset2 localOffsetBefore,
-            KinematicOffset2 localOffsetAfter,
-            KinematicDirectionKind directionKind,
-            KinematicFacingPolicy facingPolicy,
-            Direction kinematicDirection,
-            Direction poseFacing,
-            bool shouldUpdateFacing,
-            float durationSeconds,
-            bool interpolationActive,
-            string reason)
-        {
-            TickIndex = tickIndex;
-            EntityId = entityId;
-            OperationId = operationId;
-            TrackCreated = trackCreated;
-            TrackKind = trackKind ?? string.Empty;
-            AnchorBefore = anchorBefore;
-            AnchorAfter = anchorAfter;
-            LocalOffsetBefore = localOffsetBefore;
-            LocalOffsetAfter = localOffsetAfter;
-            DirectionKind = directionKind;
-            FacingPolicy = facingPolicy;
-            KinematicDirection = kinematicDirection;
-            PoseFacing = poseFacing;
-            ShouldUpdateFacing = shouldUpdateFacing;
-            DurationSeconds = durationSeconds;
-            InterpolationActive = interpolationActive;
-            Reason = reason ?? string.Empty;
-        }
-
-        public int TickIndex { get; }
-
-        public int EntityId { get; }
-
-        public int OperationId { get; }
-
-        public bool TrackCreated { get; }
-
-        public string TrackKind { get; }
-
-        public SurfaceCell AnchorBefore { get; }
-
-        public SurfaceCell AnchorAfter { get; }
-
-        public KinematicOffset2 LocalOffsetBefore { get; }
-
-        public KinematicOffset2 LocalOffsetAfter { get; }
-
-        public KinematicDirectionKind DirectionKind { get; }
-
-        public KinematicFacingPolicy FacingPolicy { get; }
-
-        public Direction KinematicDirection { get; }
-
-        public Direction PoseFacing { get; }
-
-        public bool ShouldUpdateFacing { get; }
-
-        public float DurationSeconds { get; }
-
-        public bool InterpolationActive { get; }
-
-        public string Reason { get; }
-    }
-
     internal sealed class GameplayTrackPlanner
     {
         internal const float FlipPeakPlayerHeightMultiplier = 1.4f;
@@ -205,15 +87,12 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var presentationData = result.PresentationData;
-            _stateStore.LastMotionTrackBuildDiagnostics.Clear();
-            _stateStore.LastKinematicTrackBuildDiagnostics.Clear();
             RefreshPresentationEventTargets(presentationData);
             var kinematicEntityIds = CollectKinematicEntityIds(presentationData);
             var flipImpactTimingSettings = _motionTimingResolver.ResolveFlipImpactTimingSettings(timingProfile);
-            RefreshKinematicTracks(result.TickIndex, presentationData, projector, timingProfile);
+            RefreshKinematicTracks(presentationData, projector);
             RefreshPlayerDeathHoldTracks(presentationData);
             RefreshMotionClips(
-                result.TickIndex,
                 presentationData,
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
@@ -671,11 +550,7 @@ namespace Game.Feature.Gameplay.Host
             return entityIds;
         }
 
-        private void RefreshKinematicTracks(
-            int tickIndex,
-            TickPresentationData presentationData,
-            GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile)
+        private void RefreshKinematicTracks(TickPresentationData presentationData, GameplayCubeProjector projector)
         {
             if (presentationData == null)
             {
@@ -696,65 +571,16 @@ namespace Game.Feature.Gameplay.Host
                 if (!_poseResolver.TryResolveKinematicLocalPose(
                         projector,
                         track,
-                        useDestination: false,
-                        out var sourcePose) ||
-                    !_poseResolver.TryResolveKinematicLocalPose(
-                        projector,
-                        track,
                         useDestination: true,
-                        out var destinationPose))
+                        out var localPose))
                 {
-                    RecordKinematicTrackBuild(
-                        tickIndex,
-                        track,
-                        trackCreated: false,
-                        trackKind: "Kinematic",
-                        durationSeconds: 0f,
-                        interpolationActive: false,
-                        reason: "PoseResolveFailed");
                     continue;
                 }
 
-                if (ShouldCreateKinematicInterpolationTrack(sourcePose, destinationPose, track))
-                {
-                    var durationSeconds = ResolveKinematicTrackDurationSeconds(track, timingProfile);
-                    var motionTrack = new MotionTrack();
-                    motionTrack.Append(
-                        MotionClip.Create(
-                            TickEntityMotionKind.Move,
-                            sourcePose,
-                            destinationPose,
-                            durationSeconds,
-                            interpolateRotation: true,
-                            flipPeakHeightWorld: 0f,
-                            operationId: track.OperationId));
-                    _trackState.KinematicMotionTracks[track.EntityId] = motionTrack;
-                    _trackState.KinematicMotionTrackCarriers[track.EntityId] = track;
-                    RecordKinematicTrackBuild(
-                        tickIndex,
-                        track,
-                        trackCreated: true,
-                        trackKind: ResolveKinematicTrackKind(track),
-                        durationSeconds,
-                        interpolationActive: true,
-                        reason: "Created");
-                    continue;
-                }
-
-                _trackState.KinematicMotionTracks.Remove(track.EntityId);
-                _trackState.KinematicMotionTrackCarriers.Remove(track.EntityId);
                 _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
-                    destinationPose,
+                    localPose,
                     track.MotionMode,
                     track.TerminalKind);
-                RecordKinematicTrackBuild(
-                    tickIndex,
-                    track,
-                    trackCreated: false,
-                    trackKind: ResolveKinematicTrackKind(track),
-                    durationSeconds: 0f,
-                    interpolationActive: false,
-                    reason: "NoVisualDelta");
             }
 
             for (var i = 0; i < presentationData.ContinuousLocomotionTracks.Count; i++)
@@ -765,148 +591,20 @@ namespace Game.Feature.Gameplay.Host
                 if (!_poseResolver.TryResolveContinuousLocomotionPose(
                         projector,
                         track,
-                        useDestination: false,
-                        out var sourcePose) ||
-                    !_poseResolver.TryResolveContinuousLocomotionPose(
-                        projector,
-                        track,
                         useDestination: true,
-                        out var destinationPose))
+                        out var localPose))
                 {
                     continue;
                 }
 
-                if (ShouldCreateKinematicInterpolationTrack(sourcePose, destinationPose, track.TerminalKind))
-                {
-                    var durationSeconds = ResolveKinematicTrackDurationSeconds(timingProfile);
-                    var motionTrack = new MotionTrack();
-                    motionTrack.Append(
-                        MotionClip.Create(
-                            TickEntityMotionKind.Move,
-                            sourcePose,
-                            destinationPose,
-                            durationSeconds,
-                            interpolateRotation: true,
-                            flipPeakHeightWorld: 0f));
-                    _trackState.KinematicMotionTracks[track.EntityId] = motionTrack;
-                    _trackState.KinematicMotionTrackCarriers.Remove(track.EntityId);
-                    continue;
-                }
-
-                _trackState.KinematicMotionTracks.Remove(track.EntityId);
-                _trackState.KinematicMotionTrackCarriers.Remove(track.EntityId);
                 _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
-                    destinationPose,
+                    localPose,
                     track.Mode == ContinuousLocomotionMode.Moving ||
                     track.Mode == ContinuousLocomotionMode.AlignToAnchor
                         ? MotionMode.Voluntary
                         : MotionMode.Held,
                     track.TerminalKind);
             }
-        }
-
-        private static bool ShouldCreateKinematicInterpolationTrack(
-            in GameplayEntityPose sourcePose,
-            in GameplayEntityPose destinationPose,
-            in TickKinematicMotionTrack track)
-        {
-            return track.TerminalKind == TickKinematicMotionTerminalKind.None &&
-                   ShouldCreateKinematicInterpolationTrack(sourcePose, destinationPose, track.TerminalKind);
-        }
-
-        private static bool ShouldCreateKinematicInterpolationTrack(
-            in GameplayEntityPose sourcePose,
-            in GameplayEntityPose destinationPose,
-            TickKinematicMotionTerminalKind terminalKind)
-        {
-            if (terminalKind != TickKinematicMotionTerminalKind.None)
-            {
-                return false;
-            }
-
-            return (destinationPose.Position - sourcePose.Position).sqrMagnitude > 0.000001f ||
-                   Quaternion.Angle(sourcePose.Rotation, destinationPose.Rotation) > 0.01f;
-        }
-
-        private static float ResolveKinematicTrackDurationSeconds(
-            TickKinematicMotionTrack track,
-            GameplayTimingProfile timingProfile)
-        {
-            if (timingProfile != null &&
-                track.TotalTicks > 0)
-            {
-                return Mathf.Max(track.TotalTicks / (float)timingProfile.SimulationTicksPerSecond, 0.0001f);
-            }
-
-            return ResolveKinematicTrackDurationSeconds(timingProfile);
-        }
-
-        private static float ResolveKinematicTrackDurationSeconds(GameplayTimingProfile timingProfile)
-        {
-            if (timingProfile == null)
-            {
-                return GameplayTimingProfile.DefaultMoveMotionDurationSeconds;
-            }
-
-            return Mathf.Max(timingProfile.MoveMotionDurationSeconds, 0.0001f);
-        }
-
-        private static string ResolveKinematicTrackKind(in TickKinematicMotionTrack track)
-        {
-            return !track.SourceAnchorCell.Equals(track.DestinationAnchorCell)
-                ? "Anchor"
-                : "LocalOffset";
-        }
-
-        private void RecordKinematicTrackBuild(
-            int tickIndex,
-            in TickKinematicMotionTrack track,
-            bool trackCreated,
-            string trackKind,
-            float durationSeconds,
-            bool interpolationActive,
-            string reason)
-        {
-            var diagnostic = new KinematicTrackBuildDiagnostic(
-                tickIndex,
-                track.EntityId,
-                track.OperationId,
-                trackCreated,
-                trackKind,
-                track.SourceAnchorCell,
-                track.DestinationAnchorCell,
-                track.SourceLocalOffset,
-                track.DestinationLocalOffset,
-                track.DirectionKind,
-                track.FacingPolicy,
-                track.KinematicDirection,
-                track.PoseFacing,
-                track.ShouldUpdateFacing,
-                durationSeconds,
-                interpolationActive,
-                reason);
-            _stateStore.LastKinematicTrackBuildDiagnostics.Add(diagnostic);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            UnityEngine.Debug.Log(
-                "[KinematicTrackBuild]" +
-                $"Tick={diagnostic.TickIndex}" +
-                $"|Entity={diagnostic.EntityId}" +
-                $"|OperationId={diagnostic.OperationId}" +
-                $"|TrackCreated={(diagnostic.TrackCreated ? 1 : 0)}" +
-                $"|TrackKind={diagnostic.TrackKind}" +
-                $"|AnchorBefore={diagnostic.AnchorBefore}" +
-                $"|AnchorAfter={diagnostic.AnchorAfter}" +
-                $"|LocalOffsetBefore={diagnostic.LocalOffsetBefore}" +
-                $"|LocalOffsetAfter={diagnostic.LocalOffsetAfter}" +
-                $"|DirectionKind={diagnostic.DirectionKind}" +
-                $"|FacingPolicy={diagnostic.FacingPolicy}" +
-                $"|KinematicDirection={diagnostic.KinematicDirection}" +
-                $"|PoseFacing={diagnostic.PoseFacing}" +
-                $"|ShouldUpdateFacing={(diagnostic.ShouldUpdateFacing ? 1 : 0)}" +
-                $"|Duration={diagnostic.DurationSeconds}" +
-                $"|InterpolationActive={(diagnostic.InterpolationActive ? 1 : 0)}" +
-                $"|Reason={diagnostic.Reason}");
-#endif
         }
 
         private void RefreshPlayerDeathHoldTracks(TickPresentationData presentationData)
@@ -970,7 +668,6 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private void RefreshMotionClips(
-            int tickIndex,
             TickPresentationData presentationData,
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology,
@@ -1029,12 +726,6 @@ namespace Game.Feature.Gameplay.Host
                 if (kinematicEntityIds != null &&
                     kinematicEntityIds.Contains(motion.EntityId))
                 {
-                    RecordMotionTrackBuild(
-                        tickIndex,
-                        motion,
-                        trackCreated: false,
-                        durationSeconds: 0f,
-                        "KinematicEntity");
                     continue;
                 }
 
@@ -1068,13 +759,12 @@ namespace Game.Feature.Gameplay.Host
                     _trackState.LocalMotionTracks[motion.EntityId] = track;
                 }
 
-                var durationSeconds = ResolveMotionDurationSeconds(presentationData, motion, timingProfile);
                 track.Append(
                     MotionClip.Create(
                         motion.MotionKind,
                         startLocalPose,
                         endLocalPose,
-                        durationSeconds,
+                        ResolveMotionDurationSeconds(presentationData, motion, timingProfile),
                         IsTopologyTransitionPresentation(presentationData.TopologyMotion),
                         ResolveFlipPeakHeightWorld(
                             presentationData,
@@ -1082,56 +772,13 @@ namespace Game.Feature.Gameplay.Host
                             startLocalPose,
                             endLocalPose,
                             projector,
-                            timingProfile),
-                        motion.OperationId));
-                RecordMotionTrackBuild(
-                    tickIndex,
-                    motion,
-                    trackCreated: true,
-                    durationSeconds,
-                    "Created");
+                            timingProfile)));
 
                 if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
                 {
                     _stateStore.RetainedLocalTargetPoses[motion.EntityId] = endLocalPose;
                 }
             }
-        }
-
-        private void RecordMotionTrackBuild(
-            int tickIndex,
-            in TickEntityMotion motion,
-            bool trackCreated,
-            float durationSeconds,
-            string reason)
-        {
-            var diagnostic = new MotionTrackBuildDiagnostic(
-                tickIndex,
-                motion.EntityId,
-                motion.OperationId,
-                motion.SourceCell,
-                motion.DestinationCell,
-                motion.Direction,
-                trackCreated,
-                durationSeconds,
-                reason);
-            _stateStore.LastMotionTrackBuildDiagnostics.Add(diagnostic);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (diagnostic.OperationId != 0)
-            {
-                UnityEngine.Debug.Log(
-                    "[MotionTrackBuild]" +
-                    $"Tick={diagnostic.TickIndex}" +
-                    $"|Entity={diagnostic.EntityId}" +
-                    $"|OperationId={diagnostic.OperationId}" +
-                    $"|SourceCell={diagnostic.SourceCell}" +
-                    $"|TargetCell={diagnostic.TargetCell}" +
-                    $"|Direction={diagnostic.Direction}" +
-                    $"|TrackCreated={(diagnostic.TrackCreated ? 1 : 0)}" +
-                    $"|Duration={diagnostic.DurationSeconds}" +
-                    $"|Reason={diagnostic.Reason}");
-            }
-#endif
         }
 
         private float ResolveMotionDurationSeconds(

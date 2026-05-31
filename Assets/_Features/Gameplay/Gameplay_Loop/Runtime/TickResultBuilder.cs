@@ -2833,15 +2833,13 @@ namespace Game.Feature.Gameplay.Loop
             List<TickVisibilityChange> visibilityChanges,
             ISet<int> exitOwnedEntityIds)
         {
-            var motionKeys = new HashSet<string>();
-            AppendMovementPresentationRecords(context, entityMotions, motionKeys);
             var operations = context.MovementPhaseResult.ResolvedOperations;
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
                 if (operation.Kind == FinalizationOperationKind.MoveEntity)
                 {
-                    AppendEntityMotion(context, operation, entityMotions, motionKeys);
+                    AppendEntityMotion(context, operation, entityMotions);
                     continue;
                 }
 
@@ -2857,48 +2855,6 @@ namespace Game.Feature.Gameplay.Loop
                             sourceEntity.position,
                             context.PreMovementSnapshot.Topology,
                             sourceEntity.facing));
-                }
-            }
-        }
-
-        private static void AppendMovementPresentationRecords(
-            in TickPresentationBuildContext context,
-            List<TickEntityMotion> entityMotions,
-            ISet<string> motionKeys)
-        {
-            var records = context.MovementPhaseResult.MovementPresentationRecords;
-            for (var i = 0; i < records.Count; i++)
-            {
-                var record = records[i];
-                if (!record.WasAccepted ||
-                    !record.PositionChanged ||
-                    record.Source != "MovementCommit" ||
-                    !context.PostMovementSnapshot.TryGetEntity(record.EntityId, out var destinationEntity) ||
-                    destinationEntity.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                Direction? sourceFacing = null;
-                if (context.PreMovementSnapshot.TryGetEntity(record.EntityId, out var sourceEntity))
-                {
-                    sourceFacing = sourceEntity.facing;
-                }
-
-                var motion = new TickEntityMotion(
-                    record.EntityId,
-                    TickEntityMotionKind.Move,
-                    record.FromCell,
-                    record.ToCell,
-                    context.PreMovementSnapshot.Topology,
-                    context.PostMovementSnapshot.Topology,
-                    sourceFacing,
-                    destinationEntity.facing,
-                    record.OperationId,
-                    record.MovementDirection);
-                if (motionKeys.Add(CreateMotionPresentationKey(motion)))
-                {
-                    entityMotions.Add(motion);
                 }
             }
         }
@@ -2931,57 +2887,10 @@ namespace Game.Feature.Gameplay.Loop
 
             var operations = context.MovementPhaseResult.ResolvedOperations;
             var movementKinematicEntityIds = new HashSet<int>();
-            var kinematicOperationIds = new HashSet<int>();
-            var records = context.MovementPhaseResult.KinematicPresentationRecords;
-            for (var i = 0; i < records.Count; i++)
-            {
-                var record = records[i];
-                if (terminalEntityIds.Contains(record.EntityId) ||
-                    !context.PreMovementSnapshot.TryGetEntity(record.EntityId, out var sourceEntity) ||
-                    !context.PostMovementSnapshot.TryGetEntity(record.EntityId, out var destinationEntity))
-                {
-                    continue;
-                }
-
-                kinematicMotionTracks.Add(
-                    new TickKinematicMotionTrack(
-                        record.EntityId,
-                        record.AnchorCellBefore,
-                        record.LocalOffsetBefore,
-                        record.AnchorCellAfter,
-                        record.LocalOffsetAfter,
-                        record.ModeAfter,
-                        record.ForcedMotionOpAfter,
-                        destinationEntity.type,
-                        context.PreMovementSnapshot.Topology,
-                        context.PostMovementSnapshot.Topology,
-                        sourceEntity.facing,
-                        destinationEntity.facing,
-                        startedTick: 0,
-                        elapsedTicks: 0,
-                        totalTicks: 0,
-                        operationId: record.OperationId,
-                        actionSequenceId: record.ActionSequenceId,
-                        mutationKind: record.MutationKind,
-                        source: record.Source,
-                        reason: record.Reason,
-                        kinematicDirection: record.KinematicDirection,
-                        poseFacing: record.FacingAfter,
-                        shouldUpdateFacing: record.ShouldUpdateFacing,
-                        directionKind: record.DirectionKind,
-                        facingPolicy: record.FacingPolicy));
-                movementKinematicEntityIds.Add(record.EntityId);
-                if (record.OperationId != 0)
-                {
-                    kinematicOperationIds.Add(record.OperationId);
-                }
-            }
-
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
                 if (operation.Kind != FinalizationOperationKind.SetUnitKinematicState ||
-                    kinematicOperationIds.Contains(unchecked((int)operation.Sequence)) ||
                     terminalEntityIds.Contains(operation.EntityId) ||
                     !context.PreMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var sourcePose) ||
                     !context.PostMovementSnapshot.TryGetUnitKinematicPose(operation.EntityId, out var destinationPose) ||
@@ -5425,7 +5334,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var excludedEntityIds = CollectTransitionVisibilityExcludedEntityIds(
-                context.MovementPhaseResult,
+                context.MovementPhaseResult.ResolvedOperations,
                 visibilityChanges,
                 entityExitSignals);
             var finalEntities = new List<EntityState>();
@@ -5461,8 +5370,7 @@ namespace Game.Feature.Gameplay.Loop
         private static void AppendEntityMotion(
             in TickPresentationBuildContext context,
             FinalizationOperation operation,
-            List<TickEntityMotion> entityMotions,
-            ISet<string> motionKeys)
+            List<TickEntityMotion> entityMotions)
         {
             if (operation.Kind != FinalizationOperationKind.MoveEntity ||
                 ShouldSuppressLegacyMotionForLocomotion(operation) ||
@@ -5478,50 +5386,16 @@ namespace Game.Feature.Gameplay.Loop
                 return;
             }
 
-            var motion = new TickEntityMotion(
-                operation.EntityId,
-                motionKind,
-                sourceEntity.position,
-                operation.Destination,
-                context.PreMovementSnapshot.Topology,
-                context.PostMovementSnapshot.Topology,
-                sourceEntity.facing,
-                destinationEntity.facing,
-                operationId: 0,
-                direction: ResolveMotionDirection(sourceEntity.position, operation.Destination, destinationEntity.facing));
-            if (motionKeys.Add(CreateMotionPresentationKey(motion)))
-            {
-                entityMotions.Add(motion);
-            }
-        }
-
-        private static string CreateMotionPresentationKey(in TickEntityMotion motion)
-        {
-            return motion.OperationId != 0
-                ? $"Operation:{motion.OperationId}"
-                : $"Motion:{motion.EntityId}:{motion.MotionKind}:{motion.SourceCell}:{motion.DestinationCell}";
-        }
-
-        private static Direction ResolveMotionDirection(
-            SurfaceCell sourceCell,
-            SurfaceCell destinationCell,
-            Direction fallback)
-        {
-            if (!sourceCell.face.Equals(destinationCell.face))
-            {
-                return fallback;
-            }
-
-            var dx = destinationCell.x - sourceCell.x;
-            var dy = destinationCell.y - sourceCell.y;
-            return (dx, dy) switch
-            {
-                (1, 0) => Direction.Right,
-                (-1, 0) => Direction.Left,
-                (0, 1) => Direction.Up,
-                (0, -1) => Direction.Down,
-                _ => fallback,
-            };
+            entityMotions.Add(
+                new TickEntityMotion(
+                    operation.EntityId,
+                    motionKind,
+                    sourceEntity.position,
+                    operation.Destination,
+                    context.PreMovementSnapshot.Topology,
+                    context.PostMovementSnapshot.Topology,
+                    sourceEntity.facing,
+                    destinationEntity.facing));
         }
 
         private static bool ShouldSuppressLegacyMotionForLocomotion(FinalizationOperation operation)
@@ -5563,19 +5437,6 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             int entityId)
         {
-            var records = context.MovementPhaseResult.MovementPresentationRecords;
-            for (var i = 0; i < records.Count; i++)
-            {
-                var record = records[i];
-                if (record.EntityId == entityId &&
-                    record.WasAccepted &&
-                    record.PositionChanged &&
-                    record.Source == "MovementCommit")
-                {
-                    return true;
-                }
-            }
-
             var operations = context.MovementPhaseResult.ResolvedOperations;
             for (var i = 0; i < operations.Count; i++)
             {
@@ -5606,19 +5467,12 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static HashSet<int> CollectTransitionVisibilityExcludedEntityIds(
-            MovementPhaseResult movementPhaseResult,
+            IReadOnlyList<FinalizationOperation> movementOperations,
             IReadOnlyList<TickVisibilityChange> visibilityChanges,
             IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals)
         {
             var excludedEntityIds = new HashSet<int>();
 
-            var movementRecords = movementPhaseResult.MovementPresentationRecords;
-            for (var i = 0; i < movementRecords.Count; i++)
-            {
-                excludedEntityIds.Add(movementRecords[i].EntityId);
-            }
-
-            var movementOperations = movementPhaseResult.ResolvedOperations;
             for (var i = 0; i < movementOperations.Count; i++)
             {
                 if (movementOperations[i].Kind == FinalizationOperationKind.MoveEntity)

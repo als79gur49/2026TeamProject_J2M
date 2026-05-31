@@ -8,8 +8,6 @@
   - gameplay authoritative boundary를 UI layer까지 확장한 canonical UI architecture spec
 - [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
   - Push/Flip 등 gameplay rule appendix
-- [Entity-Pose-Mutation-Authority-Contract.md](./Entity-Pose-Mutation-Authority-Contract.md)
-  - authoritative Position/Facing/Kinematic mutation contract and presentation carrier boundary
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
   - boundary/IR visibility 관련 현재 결정
 
@@ -18,8 +16,7 @@
 1. [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
 2. [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
 3. [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
-4. [Entity-Pose-Mutation-Authority-Contract.md](./Entity-Pose-Mutation-Authority-Contract.md)
-5. [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
+4. [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
 
 운영 가이드와 baseline은 별도 supporting truth-source다. 이 문서들은 canonical architecture spec을 대체하지 않지만, 현재 runner/governance/evidence 기준을 고정하는 active truth-source로 함께 읽어야 한다.
 
@@ -53,8 +50,6 @@
   - active decision record for terrain/occupancy vocabulary closure, boundary gate, and slice implementation gate
 - [ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md](./ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md)
   - active decision record for SurfaceCell-based TileFeature overlay ownership, occupancy/terrain separation, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
-- [ADR/ADR-007-Entity-Pose-Mutation-Authority.md](./ADR/ADR-007-Entity-Pose-Mutation-Authority.md)
-  - active decision record for authoritative Position/Facing/Kinematic mutation ownership, discrete movement carrier narrowing, and kinematic carrier separation
 - [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)
   - supporting truth for `EnemyLogic` patrol owner surface, `RandomWalk` special-case boundary, `Forward` readiness, and `WallFollow` out-of-scope note
 - [Gameplay-EnemyPatrol-Decision-Proposal-Contract.md](./Gameplay-EnemyPatrol-Decision-Proposal-Contract.md)

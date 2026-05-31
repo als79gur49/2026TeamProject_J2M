@@ -11,8 +11,6 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasClips => _clips.Count > 0;
 
-        public int LastOperationId { get; private set; }
-
         public TickEntityMotionKind TailMotionKind => _clips[_clips.Count - 1].MotionKind;
 
         public GameplayEntityPose TailEndPose => _clips[_clips.Count - 1].EndPose;
@@ -39,13 +37,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _clips.Add(clip);
-            LastOperationId = clip.OperationId;
         }
 
         public void Clear()
         {
             _clips.Clear();
-            LastOperationId = 0;
         }
 
         public void AlignToCommittedTargetPose(GameplayEntityPose committedTargetPose)
@@ -80,7 +76,6 @@ namespace Game.Feature.Gameplay.Host
             visualScaleMultiplier = Vector3.one;
             if (_clips.Count == 0)
             {
-                LastOperationId = 0;
                 return fallbackPose;
             }
 
@@ -102,7 +97,6 @@ namespace Game.Feature.Gameplay.Host
                 if (_clips.Count == 0)
                 {
                     visualScaleMultiplier = Vector3.one;
-                    LastOperationId = 0;
                     return fallbackPose;
                 }
 
@@ -128,8 +122,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose endPose,
             float durationSeconds,
             bool interpolateRotation,
-            float flipPeakHeightWorld,
-            int operationId)
+            float flipPeakHeightWorld)
         {
             _motionKind = motionKind;
             _interpolateRotation = interpolateRotation;
@@ -138,7 +131,6 @@ namespace Game.Feature.Gameplay.Host
             EndPose = endPose;
             DurationSeconds = durationSeconds;
             ElapsedSeconds = 0f;
-            OperationId = operationId;
         }
 
         public float DurationSeconds { get; }
@@ -151,8 +143,6 @@ namespace Game.Feature.Gameplay.Host
 
         public TickEntityMotionKind MotionKind => _motionKind;
 
-        public int OperationId { get; }
-
         public float RemainingSeconds => Mathf.Max(0f, DurationSeconds - ElapsedSeconds);
 
         public GameplayEntityPose StartPose { get; private set; }
@@ -163,8 +153,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose endPose,
             float durationSeconds,
             bool interpolateRotation,
-            float flipPeakHeightWorld,
-            int operationId = 0)
+            float flipPeakHeightWorld)
         {
             return new MotionClip(
                 motionKind,
@@ -172,8 +161,7 @@ namespace Game.Feature.Gameplay.Host
                 endPose,
                 Mathf.Max(durationSeconds, 0.0001f),
                 interpolateRotation,
-                flipPeakHeightWorld,
-                operationId);
+                flipPeakHeightWorld);
         }
 
         public float Advance(float deltaTime)
