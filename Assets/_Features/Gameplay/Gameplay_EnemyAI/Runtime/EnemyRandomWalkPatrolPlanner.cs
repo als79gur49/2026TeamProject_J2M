@@ -5,6 +5,13 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    internal enum RandomWalkLeashSelectionPass
+    {
+        None = 0,
+        StrictLeash = 1,
+        RelaxedLeash = 2,
+    }
+
     internal readonly struct EnemyRandomWalkPatrolPlan
     {
         public EnemyRandomWalkPatrolPlan(
@@ -12,13 +19,21 @@ namespace Game.Feature.Gameplay.Entities
             Direction plannedDirection,
             Direction plannedFacing,
             int candidateMask,
-            bool shouldInitializeState)
+            bool shouldInitializeState,
+            RandomWalkLeashSelectionPass selectedPass = RandomWalkLeashSelectionPass.None,
+            int strictCandidateCount = 0,
+            int relaxedLeashCandidateCount = 0,
+            SurfaceCell selectedDestination = default)
         {
             HasDirection = hasDirection;
             PlannedDirection = plannedDirection;
             PlannedFacing = plannedFacing;
             CandidateMask = candidateMask;
             ShouldInitializeState = shouldInitializeState;
+            SelectedPass = selectedPass;
+            StrictCandidateCount = strictCandidateCount;
+            RelaxedLeashCandidateCount = relaxedLeashCandidateCount;
+            SelectedDestination = selectedDestination;
         }
 
         public bool HasDirection { get; }
@@ -30,6 +45,14 @@ namespace Game.Feature.Gameplay.Entities
         public int CandidateMask { get; }
 
         public bool ShouldInitializeState { get; }
+
+        public RandomWalkLeashSelectionPass SelectedPass { get; }
+
+        public int StrictCandidateCount { get; }
+
+        public int RelaxedLeashCandidateCount { get; }
+
+        public SurfaceCell SelectedDestination { get; }
     }
 
     internal static class EnemyRandomWalkPatrolPlanner
@@ -77,7 +100,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (requireDistanceReduction)
             {
-                return TryBuildLeashReturnPlan(
+                if (TryBuildLeashReturnPlan(
                     snapshot,
                     source,
                     effectiveHomeCell,
@@ -86,23 +109,23 @@ namespace Game.Feature.Gameplay.Entities
                     patrolState.lastCommittedDirection,
                     shouldInitializeState,
                     tileFeatureDefinitions,
-                    out var leashReturnPlan)
-                    ? leashReturnPlan
-                    : new EnemyRandomWalkPatrolPlan(
-                        hasDirection: false,
-                        Direction.None,
-                        source.facing,
-                        candidateMask: 0,
-                        shouldInitializeState);
+                    out var leashReturnPlan))
+                {
+                    return leashReturnPlan;
+                }
             }
 
-            var traversableMask = 0;
-            var eligibleMask = 0;
-            var eligibleCandidateCount = 0;
-            var candidateCells = new SurfaceCell[DirectionOrder.Length];
-            var hasCandidateCell = new bool[DirectionOrder.Length];
+            var strictCandidateMask = 0;
+            var strictCandidateCount = 0;
+            var strictCandidateCells = new SurfaceCell[DirectionOrder.Length];
+            var hasStrictCandidateCell = new bool[DirectionOrder.Length];
+            var relaxedLeashCandidateMask = 0;
+            var relaxedLeashCandidateCount = 0;
+            var relaxedLeashCandidateCells = new SurfaceCell[DirectionOrder.Length];
+            var hasRelaxedLeashCandidateCell = new bool[DirectionOrder.Length];
             var oppositeDirection = ResolveOppositeDirection(patrolState.lastCommittedDirection);
-            var hasBacktrackCandidate = false;
+            var hasStrictBacktrackCandidate = false;
+            var hasRelaxedLeashBacktrackCandidate = false;
 
             for (var i = 0; i < DirectionOrder.Length; i++)
             {
@@ -121,44 +144,109 @@ namespace Game.Feature.Gameplay.Entities
                     continue;
                 }
 
-                traversableMask |= candidate.CandidateMaskBit;
                 var candidateDistanceToHome = GetPlanarDistance(candidate.DestinationCell, effectiveHomeCell);
-                if (requireDistanceReduction)
+                if (candidateDistanceToHome > patrolSettings.LeashRadius)
                 {
-                    if (candidateDistanceToHome >= currentDistanceToHome)
+                    relaxedLeashCandidateMask |= candidate.CandidateMaskBit;
+                    relaxedLeashCandidateCells[i] = candidate.DestinationCell;
+                    hasRelaxedLeashCandidateCell[i] = true;
+                    relaxedLeashCandidateCount++;
+                    if (candidate.Direction == oppositeDirection)
                     {
-                        continue;
+                        hasRelaxedLeashBacktrackCandidate = true;
                     }
-                }
-                else if (candidateDistanceToHome > patrolSettings.LeashRadius)
-                {
+
                     continue;
                 }
 
-                eligibleMask |= candidate.CandidateMaskBit;
-                candidateCells[i] = candidate.DestinationCell;
-                hasCandidateCell[i] = true;
-                eligibleCandidateCount++;
+                strictCandidateMask |= candidate.CandidateMaskBit;
+                strictCandidateCells[i] = candidate.DestinationCell;
+                hasStrictCandidateCell[i] = true;
+                strictCandidateCount++;
                 if (candidate.Direction == oppositeDirection)
                 {
-                    hasBacktrackCandidate = true;
+                    hasStrictBacktrackCandidate = true;
                 }
             }
 
-            if (eligibleCandidateCount == 0)
+            if (strictCandidateCount > 0)
             {
-                return new EnemyRandomWalkPatrolPlan(
-                    hasDirection: false,
-                    Direction.None,
-                    source.facing,
-                    candidateMask: traversableMask,
-                    shouldInitializeState);
+                return ChooseRandomWalkCandidate(
+                    snapshot,
+                    source,
+                    tickIndex,
+                    effectiveHomeCell,
+                    effectiveSequence,
+                    patrolSettings,
+                    tileFeatureDefinitions,
+                    strictCandidateMask,
+                    strictCandidateCount,
+                    strictCandidateCells,
+                    hasStrictCandidateCell,
+                    hasStrictBacktrackCandidate,
+                    oppositeDirection,
+                    shouldInitializeState,
+                    RandomWalkLeashSelectionPass.StrictLeash,
+                    strictCandidateCount,
+                    relaxedLeashCandidateCount);
             }
 
-            var finalCandidateMask = eligibleMask;
+            if (relaxedLeashCandidateCount > 0)
+            {
+                return ChooseRandomWalkCandidate(
+                    snapshot,
+                    source,
+                    tickIndex,
+                    effectiveHomeCell,
+                    effectiveSequence,
+                    patrolSettings,
+                    tileFeatureDefinitions,
+                    relaxedLeashCandidateMask,
+                    relaxedLeashCandidateCount,
+                    relaxedLeashCandidateCells,
+                    hasRelaxedLeashCandidateCell,
+                    hasRelaxedLeashBacktrackCandidate,
+                    oppositeDirection,
+                    shouldInitializeState,
+                    RandomWalkLeashSelectionPass.RelaxedLeash,
+                    strictCandidateCount,
+                    relaxedLeashCandidateCount);
+            }
+
+            return new EnemyRandomWalkPatrolPlan(
+                hasDirection: false,
+                Direction.None,
+                source.facing,
+                candidateMask: 0,
+                shouldInitializeState,
+                RandomWalkLeashSelectionPass.None,
+                strictCandidateCount,
+                relaxedLeashCandidateCount);
+        }
+
+        private static EnemyRandomWalkPatrolPlan ChooseRandomWalkCandidate(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex,
+            SurfaceCell effectiveHomeCell,
+            int effectiveSequence,
+            in PatrolSettings patrolSettings,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            int candidateMask,
+            int candidateCount,
+            SurfaceCell[] candidateCells,
+            bool[] hasCandidateCell,
+            bool hasBacktrackCandidate,
+            Direction oppositeDirection,
+            bool shouldInitializeState,
+            RandomWalkLeashSelectionPass selectedPass,
+            int strictCandidateCount,
+            int relaxedLeashCandidateCount)
+        {
+            var finalCandidateMask = candidateMask;
             if (patrolSettings.PreventImmediateBacktrack &&
                 hasBacktrackCandidate &&
-                eligibleCandidateCount > 1 &&
+                candidateCount > 1 &&
                 oppositeDirection != Direction.None)
             {
                 finalCandidateMask &= ~GetCandidateMaskBit(oppositeDirection);
@@ -207,7 +295,10 @@ namespace Game.Feature.Gameplay.Entities
                     Direction.None,
                     source.facing,
                     finalCandidateMask,
-                    shouldInitializeState);
+                    shouldInitializeState,
+                    selectedPass,
+                    strictCandidateCount,
+                    relaxedLeashCandidateCount);
             }
 
             var selection = (int)(BuildDeterministicSeed(source, tickIndex, effectiveHomeCell, effectiveSequence) % (uint)totalWeight);
@@ -232,7 +323,11 @@ namespace Game.Feature.Gameplay.Entities
                         direction,
                         direction,
                         finalCandidateMask,
-                        shouldInitializeState);
+                        shouldInitializeState,
+                        selectedPass,
+                        strictCandidateCount,
+                        relaxedLeashCandidateCount,
+                        candidateCells[i]);
                 }
 
                 selection -= candidateWeight;
@@ -243,7 +338,10 @@ namespace Game.Feature.Gameplay.Entities
                 Direction.None,
                 source.facing,
                 finalCandidateMask,
-                shouldInitializeState);
+                shouldInitializeState,
+                selectedPass,
+                strictCandidateCount,
+                relaxedLeashCandidateCount);
         }
 
         private readonly struct LeashReturnNode
