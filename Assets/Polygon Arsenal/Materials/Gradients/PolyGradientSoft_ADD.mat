@@ -69,7 +69,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - Intensity_SpriteShaderSoftADD: 0.1
+    - Intensity_SpriteShaderSoftADD: 0.4
     - PA_SSS_Intensity_: 0.17
     - PA_SSS_SPF_: 7.64
     - PA_SSS_SP_: 1
