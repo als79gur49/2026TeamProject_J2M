@@ -32,7 +32,6 @@ namespace Game.Feature.Gameplay.BoardState
         void SetGravityFieldState(int entityId, GravityFieldPhase phase, int timerTicks);
         void SetUnitKinematicState(int entityId, UnitKinematicRuntimeState state);
         void SetUnitContinuousLocomotionState(int entityId, UnitContinuousLocomotionState state);
-        void SetEntityLocomotionLeaseState(int entityId, EntityLocomotionLeaseState state);
         void RemoveBoxInteractionLockState(int entityId);
         void RemoveEnemyGravityFieldAuraFieldState(int fieldId);
         void SetPhasedState(int entityId, PhasedRuntimeState state);

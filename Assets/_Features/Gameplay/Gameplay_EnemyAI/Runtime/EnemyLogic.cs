@@ -195,8 +195,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (decision.Mode == source.aiMode && decision.Timer == source.aiStateTimer)
             {
-                if (stage != EnemyAiTransitionStage.BeforeMovement &&
-                    resolvedFacing.HasValue)
+                if (resolvedFacing.HasValue)
                 {
                     writeContext.SetFacing(source.entityId, resolvedFacing.Value);
                 }
@@ -211,8 +210,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             writeContext.ApplyEnemyAiState(source.entityId, decision.Mode, decision.Timer);
-            if (stage != EnemyAiTransitionStage.BeforeMovement &&
-                resolvedFacing.HasValue)
+            if (resolvedFacing.HasValue)
             {
                 writeContext.SetFacing(source.entityId, resolvedFacing.Value);
             }

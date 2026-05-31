@@ -85,153 +85,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CombatAction_LocomotionLease_RecoverComplete_Releases()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
-            var lease = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.HeldByOwner);
-            worldState.CreateWriteContext().SetEntityLocomotionLeaseState(10, lease);
-
-            lease.stateKind = EntityLocomotionLeaseStateKind.Completed;
-            lease.lastReleaseTick = 11;
-            lease.lastReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
-            lease.finalReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
-            worldState.CreateWriteContext().SetEntityLocomotionLeaseState(10, lease);
-
-            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out var released), Is.True);
-            Assert.That(released.stateKind, Is.EqualTo(EntityLocomotionLeaseStateKind.Completed));
-            Assert.That(released.lastReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.RecoverComplete));
-            Assert.That(released.finalReleaseReason, Is.EqualTo(EntityLocomotionLeaseReleaseReason.RecoverComplete));
-            Assert.That(released.lastReleaseTick, Is.EqualTo(11));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void CombatAction_LocomotionLease_DoubleRelease_IsIdempotent()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
-            var released = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.Completed);
-            released.lastReleaseTick = 11;
-            released.lastReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
-            released.finalReleaseReason = EntityLocomotionLeaseReleaseReason.RecoverComplete;
-            var batch = new FinalizationBatch();
-
-            batch.SetEntityLocomotionLeaseState(10, released);
-            batch.SetEntityLocomotionLeaseState(10, released);
-            batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
-
-            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out var stored), Is.True);
-            Assert.That(stored, Is.EqualTo(released.NormalizedForStorage()));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void KinematicNotSettled_WithoutLeaseOrSettle_IsDefect()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
-            worldState.CreateWriteContext().SetUnitKinematicState(
-                10,
-                UnitKinematicRuntimeState.CreateHeldFreeze(CreateOffsetState(localX: 1024, localY: 0)));
-
-            var diagnostic = EntityLocomotionLeaseDiagnostics.BuildKinematicNotSettledDiagnostic(
-                worldState.CreateSnapshot(),
-                tickIndex: 3,
-                entityId: 10,
-                stage: "UnitTest",
-                intentId: 99);
-
-            Assert.That(diagnostic, Does.Contain("Operation=OrphanedKinematicNotSettled"));
-            Assert.That(diagnostic, Does.Contain("OwnerKind=None"));
-            Assert.That(diagnostic, Does.Contain("Policy=UnitTest"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void KinematicNotSettled_DuringRecoverHeld_IsNotOrphaned()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
-            var writeContext = worldState.CreateWriteContext();
-            writeContext.SetUnitKinematicState(
-                10,
-                UnitKinematicRuntimeState.CreateHeldFreeze(CreateOffsetState(localX: 1024, localY: 0)));
-            var lease = CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.ReleaseRequested);
-            lease.pendingReleaseReason = EntityLocomotionLeaseReleaseReason.ExecuteComplete;
-            writeContext.SetEntityLocomotionLeaseState(10, lease);
-
-            var diagnostic = EntityLocomotionLeaseDiagnostics.BuildKinematicNotSettledDiagnostic(
-                worldState.CreateSnapshot(),
-                tickIndex: 3,
-                entityId: 10,
-                stage: "UnitTest",
-                intentId: 99);
-
-            Assert.That(diagnostic, Is.Empty);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Jump_UsesExistingSeparateContract_NotCombatLease()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
-
-            worldState.CreateWriteContext().SetEnemyJumpState(
-                10,
-                new EnemyJumpRuntimeState
-                {
-                    phase = EnemyJumpPhase.Windup,
-                    sequence = 2,
-                    sourceCell = new SurfaceCell(FaceId.Floor, 0, 0),
-                    lockedTargetCell = new SurfaceCell(FaceId.Floor, 1, 0),
-                    windupEndTick = 4,
-                    landingTick = 7,
-                });
-
-            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Charge_UsesExistingSeparateContract_NotCombatLease()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
-
-            worldState.CreateWriteContext().SetEnemyChargeState(
-                10,
-                new EnemyChargeRuntimeState
-                {
-                    phase = EnemyChargePhase.Active,
-                    sequence = 3,
-                    lockedDirection = Direction.Right,
-                    remainingActiveSteps = 1,
-                });
-
-            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void DrSaturn_Utility_DoesNotAcquireCombatLease()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
-
-            worldState.CreateWriteContext().SetEnemyUtilityState(
-                10,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            phase = EnemyUtilityEffectPhase.Windup,
-                            windupStartTick = 1,
-                            windupEndTick = 4,
-                            activationSequence = 8,
-                        },
-                    }));
-
-            Assert.That(worldState.CreateSnapshot().TryGetEntityLocomotionLeaseState(10, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
         public void UnitSpatialQuery_TryResolveSettledProbeCell_RejectsNonSettledPose()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
@@ -506,7 +359,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetUnitKinematicState(10, CreateOffsetState(localX: 1024, localY: 0));
-            writeContext.SetEntityLocomotionLeaseState(10, CreateCombatLease(10, sequence: 7, EntityLocomotionLeaseStateKind.HeldByOwner));
 
             writeContext.RemoveEntity(10);
 
@@ -514,7 +366,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(10, out _), Is.False);
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
             Assert.That(snapshot.TryGetUnitKinematicPose(10, out _), Is.False);
-            Assert.That(snapshot.TryGetEntityLocomotionLeaseState(10, out _), Is.False);
         }
 
         private static string BuildHash(WorldSnapshot snapshot)
@@ -574,31 +425,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stepDirectionX = stepX,
                 stepDirectionY = stepY,
             }.NormalizedForStorage();
-        }
-
-        private static EntityLocomotionLeaseState CreateCombatLease(
-            int entityId,
-            int sequence,
-            EntityLocomotionLeaseStateKind stateKind)
-        {
-            return new EntityLocomotionLeaseState
-            {
-                leaseId = entityId * 100000 + sequence,
-                entityId = entityId,
-                ownerKind = EntityLocomotionLeaseOwnerKind.CombatAction,
-                stateKind = stateKind,
-                ownerActionSequenceId = sequence,
-                capturedKinematic = CreateOffsetState(localX: 1024, localY: 0),
-                anchorAtAcquire = new SurfaceCell(FaceId.Floor, 0, 0),
-                acquiredTick = 2,
-                lastReleaseTick = stateKind == EntityLocomotionLeaseStateKind.Completed ? 3 : 0,
-                lastReleaseReason = stateKind == EntityLocomotionLeaseStateKind.Completed
-                    ? EntityLocomotionLeaseReleaseReason.RecoverComplete
-                    : EntityLocomotionLeaseReleaseReason.None,
-                finalReleaseReason = stateKind == EntityLocomotionLeaseStateKind.Completed
-                    ? EntityLocomotionLeaseReleaseReason.RecoverComplete
-                    : EntityLocomotionLeaseReleaseReason.None,
-            };
         }
 
         private static EntityState CreateUnit(int entityId)

@@ -934,56 +934,10 @@ namespace Game.Feature.Gameplay.Loop
             TickEntityMotionKind motionKind,
             SurfaceCell sourceCell,
             SurfaceCell destinationCell,
-            int operationId,
-            Direction direction)
-            : this(
-                entityId,
-                motionKind,
-                sourceCell,
-                destinationCell,
-                sourceTopology: null,
-                destinationTopology: null,
-                sourceFacing: null,
-                destinationFacing: null,
-                operationId,
-                direction)
-        {
-        }
-
-        public TickEntityMotion(
-            int entityId,
-            TickEntityMotionKind motionKind,
-            SurfaceCell sourceCell,
-            SurfaceCell destinationCell,
             CubeTopologyState? sourceTopology,
             CubeTopologyState? destinationTopology,
             Direction? sourceFacing,
             Direction? destinationFacing)
-            : this(
-                entityId,
-                motionKind,
-                sourceCell,
-                destinationCell,
-                sourceTopology,
-                destinationTopology,
-                sourceFacing,
-                destinationFacing,
-                operationId: 0,
-                direction: Direction.None)
-        {
-        }
-
-        public TickEntityMotion(
-            int entityId,
-            TickEntityMotionKind motionKind,
-            SurfaceCell sourceCell,
-            SurfaceCell destinationCell,
-            CubeTopologyState? sourceTopology,
-            CubeTopologyState? destinationTopology,
-            Direction? sourceFacing,
-            Direction? destinationFacing,
-            int operationId,
-            Direction direction)
         {
             EntityId = entityId;
             MotionKind = motionKind;
@@ -993,8 +947,6 @@ namespace Game.Feature.Gameplay.Loop
             DestinationTopology = destinationTopology;
             SourceFacing = sourceFacing;
             DestinationFacing = destinationFacing;
-            OperationId = operationId;
-            Direction = direction;
         }
 
         public int EntityId { get; }
@@ -1012,10 +964,6 @@ namespace Game.Feature.Gameplay.Loop
         public Direction? SourceFacing { get; }
 
         public Direction? DestinationFacing { get; }
-
-        public int OperationId { get; }
-
-        public Direction Direction { get; }
     }
 
     public enum TickKinematicMotionTerminalKind
@@ -1025,11 +973,6 @@ namespace Game.Feature.Gameplay.Loop
         Removed = 2,
     }
 
-    /// <summary>
-    /// Presentation interpolation carrier for kinematic locomotion, settle, release, and terminal kinematic state changes.
-    /// Locomotion tracks must carry KinematicDirection and PoseFacing from authoritative mutation metadata.
-    /// Views consume these fields and must not synthesize kinematic movement from EntityMotions or snapshot position diffs.
-    /// </summary>
     public readonly struct TickKinematicMotionTrack
     {
         public TickKinematicMotionTrack(
@@ -1043,17 +986,7 @@ namespace Game.Feature.Gameplay.Loop
             TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
             int startedTick = 0,
             int elapsedTicks = 0,
-            int totalTicks = 0,
-            int operationId = 0,
-            int actionSequenceId = 0,
-            KinematicMutationKind mutationKind = KinematicMutationKind.None,
-            string source = null,
-            string reason = null,
-            Direction kinematicDirection = Direction.None,
-            Direction poseFacing = Direction.None,
-            bool shouldUpdateFacing = false,
-            KinematicDirectionKind directionKind = KinematicDirectionKind.None,
-            KinematicFacingPolicy facingPolicy = KinematicFacingPolicy.PreserveFacing)
+            int totalTicks = 0)
             : this(
                 entityId,
                 sourceAnchorCell,
@@ -1070,17 +1003,7 @@ namespace Game.Feature.Gameplay.Loop
                 terminalKind: terminalKind,
                 startedTick: startedTick,
                 elapsedTicks: elapsedTicks,
-                totalTicks: totalTicks,
-                operationId: operationId,
-                actionSequenceId: actionSequenceId,
-                mutationKind: mutationKind,
-                source: source,
-                reason: reason,
-                kinematicDirection: kinematicDirection,
-                poseFacing: poseFacing,
-                shouldUpdateFacing: shouldUpdateFacing,
-                directionKind: directionKind,
-                facingPolicy: facingPolicy)
+                totalTicks: totalTicks)
         {
         }
 
@@ -1100,17 +1023,7 @@ namespace Game.Feature.Gameplay.Loop
             TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
             int startedTick = 0,
             int elapsedTicks = 0,
-            int totalTicks = 0,
-            int operationId = 0,
-            int actionSequenceId = 0,
-            KinematicMutationKind mutationKind = KinematicMutationKind.None,
-            string source = null,
-            string reason = null,
-            Direction kinematicDirection = Direction.None,
-            Direction poseFacing = Direction.None,
-            bool shouldUpdateFacing = false,
-            KinematicDirectionKind directionKind = KinematicDirectionKind.None,
-            KinematicFacingPolicy facingPolicy = KinematicFacingPolicy.PreserveFacing)
+            int totalTicks = 0)
         {
             EntityId = entityId;
             SourceAnchorCell = sourceAnchorCell;
@@ -1128,16 +1041,6 @@ namespace Game.Feature.Gameplay.Loop
             StartedTick = Math.Max(0, startedTick);
             ElapsedTicks = Math.Max(0, elapsedTicks);
             TotalTicks = Math.Max(0, totalTicks);
-            OperationId = operationId;
-            ActionSequenceId = actionSequenceId;
-            MutationKind = mutationKind;
-            Source = source ?? string.Empty;
-            Reason = reason ?? string.Empty;
-            KinematicDirection = kinematicDirection;
-            PoseFacing = poseFacing;
-            ShouldUpdateFacing = shouldUpdateFacing;
-            DirectionKind = directionKind;
-            FacingPolicy = facingPolicy;
         }
 
         public int EntityId { get; }
@@ -1171,26 +1074,6 @@ namespace Game.Feature.Gameplay.Loop
         public int ElapsedTicks { get; }
 
         public int TotalTicks { get; }
-
-        public int OperationId { get; }
-
-        public int ActionSequenceId { get; }
-
-        public KinematicMutationKind MutationKind { get; }
-
-        public string Source { get; }
-
-        public string Reason { get; }
-
-        public Direction KinematicDirection { get; }
-
-        public Direction PoseFacing { get; }
-
-        public bool ShouldUpdateFacing { get; }
-
-        public KinematicDirectionKind DirectionKind { get; }
-
-        public KinematicFacingPolicy FacingPolicy { get; }
     }
 
     public readonly struct TickContinuousLocomotionTrack

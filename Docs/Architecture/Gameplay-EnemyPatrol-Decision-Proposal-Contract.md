@@ -9,8 +9,6 @@
 - canonical patrol state 저장소는 계속 `EnemyPatrolRuntimeState` 하나다.
 - proposal layer는 `RawMovementIntent`를 만들지 않는다.
 - proposal layer는 cooldown, committed write, chase/attack/recover 전환을 소유하지 않는다.
-- enemy movement/facing authoritative writes must pass through [Entity-Pose-Mutation-Authority-Contract.md](./Entity-Pose-Mutation-Authority-Contract.md); proposal and probe code must not directly write facing.
-- ordinary enemy locomotion presentation is canonical through `KinematicPresentationRecord` / `TickKinematicMotionTrack`. Discrete `EntityMotions` are limited to accepted discrete `MovementCommit` presentation.
 - phase 3에서 supported simple kinds는 `Forward`, `RandomWalk` 두 개뿐이다.
 
 ## 2. Contract Shape

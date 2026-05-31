@@ -2,8 +2,6 @@
 
 이 문서는 canonical spec의 보조 문서다. 구조 vocabulary가 아니라 gameplay rule text를 기록한다.
 
-Pose mutation and presentation carrier ownership are defined in [Entity-Pose-Mutation-Authority-Contract.md](./Entity-Pose-Mutation-Authority-Contract.md). Enemy AI movement/facing writers must route authoritative Position/Facing/Kinematic mutation through `EntityPoseMutationAuthority`; general enemy locomotion is canonical through `KinematicPresentationRecord` / `TickKinematicMotionTrack`, while discrete `EntityMotions` are limited to accepted discrete `MovementCommit` presentation.
-
 ## Push
 - 관련 코드:
   - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs`

@@ -162,36 +162,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        [Category("Core")]
-        public void KinematicLocomotion_RightMove_FacesRight()
-        {
-            var tick = CreatePipeline(
-                    CreateWorldState(new[]
-                    {
-                        CreateUnit(
-                            40,
-                            2,
-                            new SurfaceCell(FaceId.Floor, 0, 0),
-                            aiMode: EnemyAiMode.Chase,
-                            facing: Direction.Left),
-                    }),
-                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
-                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
-                .RunTick(new TickInput(1));
-
-            var finalEnemy = tick.FinalEntities.Single(entity => entity.entityId == 40);
-            Assert.That(finalEnemy.facing, Is.EqualTo(Direction.Right));
-            Assert.That(
-                tick.PresentationData.KinematicMotionTracks.Any(track =>
-                    track.EntityId == 40 &&
-                    track.KinematicDirection == Direction.Right &&
-                    track.PoseFacing == Direction.Right &&
-                    track.ShouldUpdateFacing),
-                Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 40);
-        }
-
-        [Test]
         [Category("Extended")]
         public void MoveOwnership_ChargeKinematic_DoesNotEmitEntityMove()
         {

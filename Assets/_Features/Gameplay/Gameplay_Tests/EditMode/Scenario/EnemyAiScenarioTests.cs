@@ -565,6 +565,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var heldAnchorCell = GetEnemyActionState(worldState, 40).lockedCombatAnchor.AnchorCell;
                 var heldOffsetX = heldState.localOffset.X.RawValue;
                 var heldOffsetY = heldState.localOffset.Y.RawValue;
+                var expectedReleasedOffsetX = heldOffsetX + (heldState.stepDirectionX * KinematicFixed.UnitsPerCell / heldState.totalTicks);
+                var expectedReleasedOffsetY = heldOffsetY + (heldState.stepDirectionY * KinematicFixed.UnitsPerCell / heldState.totalTicks);
 
                 pipeline.RunTick(new TickInput(2));
                 pipeline.RunTick(new TickInput(3));
@@ -574,8 +576,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out var releasedState), Is.True);
                 Assert.That(releasedState.mode, Is.EqualTo(MotionMode.Voluntary));
-                Assert.That(releasedState.localOffset.X.RawValue, Is.EqualTo(heldOffsetX));
-                Assert.That(releasedState.localOffset.Y.RawValue, Is.EqualTo(heldOffsetY));
+                Assert.That(releasedState.localOffset.X.RawValue, Is.EqualTo(expectedReleasedOffsetX));
+                Assert.That(releasedState.localOffset.Y.RawValue, Is.EqualTo(expectedReleasedOffsetY));
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
                 Assert.That(enemy.position, Is.EqualTo(heldAnchorCell));
             }
