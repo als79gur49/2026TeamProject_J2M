@@ -417,6 +417,18 @@ namespace Game.Feature.Gameplay.Host
             extension.HardCleanup();
         }
 
+        public void ApplyStageTerminalPresentation(GameplayStageTerminalPresentationReason reason, TickResult terminalTickResult)
+        {
+            var context = new GameplayStageTerminalPresentationContext(reason, terminalTickResult);
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayStageTerminalPresentationExtension extension)
+                {
+                    extension.ApplyStageTerminalPresentation(context);
+                }
+            }
+        }
+
         public void Present(TickResult result)
         {
             if (result == null)

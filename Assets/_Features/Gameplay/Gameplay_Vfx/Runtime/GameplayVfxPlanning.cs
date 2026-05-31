@@ -747,6 +747,7 @@ namespace Game.Feature.Gameplay.Vfx
                 if (IsJumperLandingTargetCueSource(signal))
                 {
                     var cueId = GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget);
+                    var jumpTargetVisibility = CreateJumpTargetVisibilityMetadata(context, signal);
                     builder.Add(
                         new GameplayVfxRequest(
                             tickIndex: context.TickIndex,
@@ -768,7 +769,8 @@ namespace Game.Feature.Gameplay.Vfx
                                 cell: signal.PresentationTargetCell,
                                 hasCell: true,
                                 activationSequence: signal.Sequence),
-                            topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt));
+                            topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt,
+                            jumpTargetVisibility: jumpTargetVisibility));
                 }
 
                 if (IsJumperJumpStartCueSource(signal))
@@ -984,6 +986,35 @@ namespace Game.Feature.Gameplay.Vfx
                    signal.Phase == EnemyJumpPhase.Airborne ||
                    signal.StartedWindupThisTick ||
                    signal.Outcome == TickEnemyJumpPresentationOutcome.WindupStarted;
+        }
+
+        private static GameplayVfxJumpTargetVisibilityMetadata CreateJumpTargetVisibilityMetadata(
+            in GameplayVfxPlanningContext context,
+            in TickEnemyJumpPresentationSignal signal)
+        {
+            return new GameplayVfxJumpTargetVisibilityMetadata(
+                ResolveJumpTargetPhase(signal),
+                context.TopologyTransition.SourceTopology,
+                signal.SourceCell,
+                signal.PresentationTargetCell);
+        }
+
+        private static GameplayVfxJumpTargetPhase ResolveJumpTargetPhase(
+            in TickEnemyJumpPresentationSignal signal)
+        {
+            if (signal.Phase == EnemyJumpPhase.Airborne)
+            {
+                return GameplayVfxJumpTargetPhase.Airborne;
+            }
+
+            if (signal.Phase == EnemyJumpPhase.Windup ||
+                signal.StartedWindupThisTick ||
+                signal.Outcome == TickEnemyJumpPresentationOutcome.WindupStarted)
+            {
+                return GameplayVfxJumpTargetPhase.Windup;
+            }
+
+            return GameplayVfxJumpTargetPhase.None;
         }
 
         private static bool IsJumperJumpStartCueSource(in TickEnemyJumpPresentationSignal signal)

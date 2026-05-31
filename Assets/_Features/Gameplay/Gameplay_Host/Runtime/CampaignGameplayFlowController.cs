@@ -133,6 +133,9 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _host.InputHost.EnterTerminalHold();
+            _host.Presenter?.ApplyStageTerminalPresentation(
+                GameplayStageTerminalPresentationReason.PlayerDeathRetry,
+                result);
             _stageLaunchRouter.Launch(new StageNavigationRequest(
                 route.NextStageId,
                 StageNavigationKind.Retry,
@@ -174,6 +177,9 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _host.InputHost.EnterTerminalHold();
+            _host.Presenter?.ApplyStageTerminalPresentation(
+                GameplayStageTerminalPresentationReason.LevelFailed,
+                result);
             PublishLevelFailed(_pendingDeathRecovery.LevelFailedRoute);
             _pendingDeathRecovery = default;
         }

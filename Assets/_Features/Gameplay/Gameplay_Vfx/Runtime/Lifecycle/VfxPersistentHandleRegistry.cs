@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Vfx
         private readonly Dictionary<VfxPersistentKey, VfxStopPolicy> stopPolicies = new();
         private readonly Dictionary<VfxPersistentKey, GameplayVfxTopologyStopMode> topologyStopModes = new();
         private readonly HashSet<VfxPersistentKey> desiredKeys = new();
+        private readonly HashSet<VfxPersistentKey> pendingTopologyTransitionVisibilityValidationKeys = new();
 
         public int ActiveCount => activeHandles.Count;
 
@@ -21,6 +22,16 @@ namespace Game.Feature.Gameplay.Vfx
         public bool TryGet(VfxPersistentKey key, out IVfxPlaybackHandle handle)
         {
             return activeHandles.TryGetValue(key, out handle);
+        }
+
+        public bool IsPendingTopologyTransitionVisibilityValidation(VfxPersistentKey key)
+        {
+            return pendingTopologyTransitionVisibilityValidationKeys.Contains(key);
+        }
+
+        public void CompleteTopologyTransitionVisibilityValidation(VfxPersistentKey key)
+        {
+            pendingTopologyTransitionVisibilityValidationKeys.Remove(key);
         }
 
         public IVfxPlaybackHandle GetOrStart(
@@ -201,6 +212,38 @@ namespace Game.Feature.Gameplay.Vfx
             }
         }
 
+        public void StopAllForStageTerminal(IVfxPool pool)
+        {
+            if (pool == null)
+            {
+                throw new ArgumentNullException(nameof(pool));
+            }
+
+            foreach (var pair in activeHandles.ToArray())
+            {
+                var key = pair.Key;
+                var handle = pair.Value;
+                if (handle == null)
+                {
+                    RemoveActiveEntry(key);
+                    continue;
+                }
+
+                if (handle.State != VfxLifetimeState.HardCleanup &&
+                    handle.State != VfxLifetimeState.ReleasedToPool)
+                {
+                    handle.Stop(GameplayVfxStopMode.StopEmittingAndClear);
+                    pool.Release(handle);
+                    LastStopReason = "StageTerminal";
+                }
+
+                RemoveActiveEntry(key);
+            }
+
+            desiredKeys.Clear();
+            pendingTopologyTransitionVisibilityValidationKeys.Clear();
+        }
+
         public void ClearForTopologyTransitionStart(IVfxPool pool)
         {
             if (pool == null)
@@ -226,6 +269,7 @@ namespace Game.Feature.Gameplay.Vfx
                         stopMode))
                 {
                     handle.SuspendPresentation(VfxPresentationSuspendReason.TopologyTransition);
+                    pendingTopologyTransitionVisibilityValidationKeys.Add(key);
                     LastStopReason = "TopologyTransitionPresentationSuspend";
                     continue;
                 }
@@ -253,6 +297,7 @@ namespace Game.Feature.Gameplay.Vfx
                     activePolicies.Remove(pair.Key);
                     stopPolicies.Remove(pair.Key);
                     topologyStopModes.Remove(pair.Key);
+                    pendingTopologyTransitionVisibilityValidationKeys.Remove(pair.Key);
                 }
             }
         }
@@ -278,6 +323,7 @@ namespace Game.Feature.Gameplay.Vfx
             stopPolicies.Clear();
             topologyStopModes.Clear();
             desiredKeys.Clear();
+            pendingTopologyTransitionVisibilityValidationKeys.Clear();
         }
 
         public void HardCleanupFamily(IVfxPool pool, GameplayVfxFamily family)
@@ -332,6 +378,19 @@ namespace Game.Feature.Gameplay.Vfx
             }
         }
 
+        public bool ResumeIfActive(VfxPersistentKey key, VfxPresentationSuspendReason reason)
+        {
+            if (!activeHandles.TryGetValue(key, out var handle) ||
+                handle == null ||
+                handle.State != VfxLifetimeState.PresentationSuspended)
+            {
+                return false;
+            }
+
+            handle.ResumePresentation(reason);
+            return true;
+        }
+
         private bool IsSameBinding(VfxPersistentKey key, VfxBindingRuntimePolicy policy)
         {
             return activePolicies.TryGetValue(key, out var existingPolicy) &&
@@ -345,6 +404,7 @@ namespace Game.Feature.Gameplay.Vfx
             stopPolicies.Remove(key);
             topologyStopModes.Remove(key);
             desiredKeys.Remove(key);
+            pendingTopologyTransitionVisibilityValidationKeys.Remove(key);
         }
 
         private static bool IsReusable(IVfxPlaybackHandle handle)

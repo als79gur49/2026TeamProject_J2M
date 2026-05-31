@@ -658,6 +658,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CampaignDeath_RetryTerminalHold_NotifiesPresentationTerminalExtensions()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryTerminalHold_NotifiesPresentationTerminalExtensions));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-terminal-vfx-host");
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 2,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                var terminalExtension = new RecordingTerminalPresentationExtension();
+                presenter.AttachPresentationExtension(terminalExtension);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3, presenter: presenter);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    new FakeStageLaunchRouter());
+
+                GetHandleTickCompletedMethod().Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(terminalExtension.ApplyCount, Is.EqualTo(1));
+                Assert.That(terminalExtension.LastReason, Is.EqualTo(GameplayStageTerminalPresentationReason.PlayerDeathRetry));
+                Assert.That(terminalExtension.LastTickIndex, Is.EqualTo(50));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CampaignDeath_LevelFailedWaitsForDeathRecoveryHold()
         {
             var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedWaitsForDeathRecoveryHold));
@@ -703,6 +752,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
                 Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                presentationFeed.Dispose();
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_LevelFailedTerminalHold_NotifiesPresentationTerminalExtensions()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedTerminalHold_NotifiesPresentationTerminalExtensions));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-level-failed-terminal-vfx-host");
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 1,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                var terminalExtension = new RecordingTerminalPresentationExtension();
+                presenter.AttachPresentationExtension(terminalExtension);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3, presenter: presenter);
+                var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    activeSlotProvider,
+                    CreateResolver(),
+                    new FakeStageLaunchRouter());
+                SetPrivateField(controller, "_presentationFeed", presentationFeed);
+                var handleTickCompleted = GetHandleTickCompletedMethod();
+
+                handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
+
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
+                Assert.That(terminalExtension.ApplyCount, Is.EqualTo(1));
+                Assert.That(terminalExtension.LastReason, Is.EqualTo(GameplayStageTerminalPresentationReason.LevelFailed));
+                Assert.That(terminalExtension.LastTickIndex, Is.EqualTo(53));
                 presentationFeed.Dispose();
             }
             finally
@@ -1406,7 +1510,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplaySceneHost CreateHostWithInput(
             GameObject hostObject,
             int playerEntityId,
-            int respawnDelayTicks)
+            int respawnDelayTicks,
+            GameplayTickViewPresenter presenter = null)
         {
             var host = hostObject.AddComponent<GameplaySceneHost>();
             var inputHost = hostObject.AddComponent<GameplayInputHost>();
@@ -1420,7 +1525,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     null,
                     null,
                     inputHost,
-                    null,
+                    presenter,
                     GameplayTimingProfile.CreateDefault(),
                     null,
                     null,
@@ -1658,6 +1763,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 router = Router;
                 return true;
+            }
+        }
+
+        private sealed class RecordingTerminalPresentationExtension :
+            IGameplayTickPresentationExtension,
+            IGameplayStageTerminalPresentationExtension
+        {
+            public int ApplyCount { get; private set; }
+
+            public GameplayStageTerminalPresentationReason LastReason { get; private set; }
+
+            public int LastTickIndex { get; private set; }
+
+            public void ResetSession()
+            {
+            }
+
+            public void Present(in GameplayTickPresentationExtensionContext context)
+            {
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+            }
+
+            public void HardCleanup()
+            {
+            }
+
+            public void ApplyStageTerminalPresentation(in GameplayStageTerminalPresentationContext context)
+            {
+                ApplyCount++;
+                LastReason = context.Reason;
+                LastTickIndex = context.TerminalTickResult?.TickIndex ?? -1;
             }
         }
     }
