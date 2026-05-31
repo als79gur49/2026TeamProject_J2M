@@ -72,6 +72,43 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void EntityPoseMutationAuthority_MovementIntent_CannotMutatePose()
+        {
+            var request = CreateMovementCommitRequest(
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                Direction.Right,
+                Direction.Right,
+                PoseMutationSource.MovementIntent);
+
+            var decision = EntityPoseMutationAuthority.Decide(request);
+
+            Assert.That(decision.Allowed, Is.False);
+            Assert.That(decision.RejectReason, Is.EqualTo("NonAuthoritativePoseMutationSource"));
+            Assert.That(decision.AppliesPosition, Is.False);
+            Assert.That(decision.AppliesFacing, Is.False);
+            Assert.That(decision.AppliesKinematic, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityPoseMutationAuthority_PresentationOnly_CannotMutatePose()
+        {
+            var request = CreateMovementCommitRequest(
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                Direction.Right,
+                Direction.Right,
+                PoseMutationSource.PresentationOnly);
+
+            var decision = EntityPoseMutationAuthority.Decide(request);
+
+            Assert.That(decision.Allowed, Is.False);
+            Assert.That(decision.RejectReason, Is.EqualTo("NonAuthoritativePoseMutationSource"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void CombatActionStart_AllowsFacingOnly_WithExplicitMetadata()
         {
             var request = new EntityPoseMutationRequest
@@ -154,6 +191,45 @@ namespace Game.Feature.Gameplay.Tests.Core
         public void KinematicLocomotion_RejectsFacingDirectionMismatch()
         {
             var request = CreateKinematicLocomotionRequest(Direction.Right, Direction.Left);
+
+            var decision = EntityPoseMutationAuthority.Decide(request);
+
+            Assert.That(decision.Allowed, Is.False);
+            Assert.That(decision.RejectReason, Is.EqualTo("KinematicFacingMustMatchDirection"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityPoseMutationAuthority_KinematicRelease_CannotUpdateFacing()
+        {
+            var request = CreateKinematicCleanupRequest(PoseMutationSource.KinematicRelease, shouldUpdateFacing: true);
+
+            var decision = EntityPoseMutationAuthority.Decide(request);
+
+            Assert.That(decision.Allowed, Is.False);
+            Assert.That(decision.RejectReason, Is.EqualTo("KinematicCleanupMustPreserveFacing"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityPoseMutationAuthority_KinematicSettle_CannotUpdateFacing()
+        {
+            var request = CreateKinematicCleanupRequest(
+                PoseMutationSource.KinematicSettle,
+                shouldUpdateFacing: false,
+                facingPolicy: KinematicFacingPolicy.MatchKinematicDirection);
+
+            var decision = EntityPoseMutationAuthority.Decide(request);
+
+            Assert.That(decision.Allowed, Is.False);
+            Assert.That(decision.RejectReason, Is.EqualTo("KinematicCleanupMustPreserveFacing"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityPoseMutationAuthority_KinematicLocomotion_RequiresFacingMatch()
+        {
+            var request = CreateKinematicLocomotionRequest(Direction.Down, Direction.Up);
 
             var decision = EntityPoseMutationAuthority.Decide(request);
 
@@ -249,6 +325,59 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(batch.MovementPresentationRecords, Is.Empty);
             Assert.That(batch.MovementPresentationDiagnostics[0], Does.Contain("Created=0"));
             Assert.That(batch.MovementPresentationDiagnostics[0], Does.Contain("MovementCommitSuppressed"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityPoseMutation_LogRejectsMovementProbe()
+        {
+            var request = CreateMovementCommitRequest(
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                Direction.Right,
+                Direction.Right,
+                PoseMutationSource.MovementProbe);
+            var batch = new FinalizationBatch();
+
+            batch.AddPoseMutation(new EntityPoseMutationOperation(request));
+
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("[EntityPoseMutation]"));
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("Source=MovementProbe"));
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("Allowed=0"));
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("RejectReason=NonAuthoritativePoseMutationSource"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityPoseMutation_LogRejectsNoOpMovementCommit()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var request = CreateMovementCommitRequest(cell, cell, Direction.Right, Direction.Right);
+            var batch = new FinalizationBatch();
+
+            batch.AddPoseMutation(new EntityPoseMutationOperation(request));
+
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("Source=MovementCommit"));
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("PositionChanged=0"));
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("RejectReason=MovementCommitWithoutPositionChangeCannotMutateFacing"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityPoseMutation_LogRejectsFacingDirectionMismatch()
+        {
+            var request = CreateMovementCommitRequest(
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                Direction.Right,
+                Direction.Left);
+            var batch = new FinalizationBatch();
+
+            batch.AddPoseMutation(new EntityPoseMutationOperation(request));
+
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("MovementDirection=Right"));
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("FacingAfter=Left"));
+            Assert.That(batch.PoseMutationDiagnostics[0], Does.Contain("RejectReason=CommittedMovementFacingMustMatchMovementDirection"));
         }
 
         [Test]
@@ -398,6 +527,29 @@ namespace Game.Feature.Gameplay.Tests.Core
                 MovementIntentId = 17,
                 MovementResolutionId = 137,
                 Writer = "KinematicMotionOutcome",
+            };
+        }
+
+        private static EntityPoseMutationRequest CreateKinematicCleanupRequest(
+            PoseMutationSource source,
+            bool shouldUpdateFacing,
+            KinematicFacingPolicy facingPolicy = KinematicFacingPolicy.PreserveFacing)
+        {
+            return new EntityPoseMutationRequest
+            {
+                EntityId = 40,
+                Source = source,
+                Kind = PoseMutationKind.KinematicOnly,
+                FromCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                ToCell = new SurfaceCell(FaceId.Floor, 0, 0),
+                FacingBefore = Direction.Left,
+                FacingAfter = shouldUpdateFacing ? Direction.Right : Direction.Left,
+                KinematicMutation = source == PoseMutationSource.KinematicSettle
+                    ? KinematicMutationKind.Settle
+                    : KinematicMutationKind.ReleaseHold,
+                KinematicFacingPolicy = facingPolicy,
+                ShouldUpdateFacing = shouldUpdateFacing,
+                Writer = source.ToString(),
             };
         }
     }

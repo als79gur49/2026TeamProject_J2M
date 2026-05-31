@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -113,6 +114,153 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void KinematicPresentationRecord_CreatedForKinematicLocomotion()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var record = CreateLocomotionRecord(sourceCell, destinationCell, Direction.Right);
+
+            var presentationData = BuildKinematicPresentationData(
+                sourceCell,
+                destinationCell,
+                Direction.Left,
+                Direction.Right,
+                record);
+
+            Assert.That(presentationData.EntityMotions, Is.Empty);
+            var track = presentationData.KinematicMotionTracks.Single();
+            Assert.That(track.Source, Is.EqualTo("KinematicLocomotion"));
+            Assert.That(track.MutationKind, Is.EqualTo(KinematicMutationKind.ResumeVoluntary));
+            Assert.That(track.KinematicDirection, Is.EqualTo(Direction.Right));
+            Assert.That(track.PoseFacing, Is.EqualTo(Direction.Right));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicPresentationRecord_LocomotionPoseFacingMatchesDirection()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var record = CreateLocomotionRecord(sourceCell, destinationCell, Direction.Up);
+
+            var presentationData = BuildKinematicPresentationData(
+                sourceCell,
+                destinationCell,
+                Direction.Left,
+                Direction.Up,
+                record);
+
+            var track = presentationData.KinematicMotionTracks.Single();
+            Assert.That(track.KinematicDirection, Is.EqualTo(Direction.Up));
+            Assert.That(track.PoseFacing, Is.EqualTo(track.KinematicDirection));
+            Assert.That(track.ShouldUpdateFacing, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicPresentationRecord_ReleasePreservesFacing()
+        {
+            var anchorCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var record = CreateKinematicCleanupRecord(
+                KinematicMutationKind.ReleaseHold,
+                "KinematicRelease",
+                anchorCell,
+                Direction.Down);
+
+            var presentationData = BuildKinematicPresentationData(
+                anchorCell,
+                anchorCell,
+                Direction.Down,
+                Direction.Down,
+                record);
+
+            var track = presentationData.KinematicMotionTracks.Single();
+            Assert.That(track.PoseFacing, Is.EqualTo(Direction.Down));
+            Assert.That(track.ShouldUpdateFacing, Is.False);
+            Assert.That(track.FacingPolicy, Is.EqualTo(KinematicFacingPolicy.PreserveFacing));
+            Assert.That(presentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicLocomotion_CreatesTickKinematicMotionTrack()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var record = CreateLocomotionRecord(sourceCell, destinationCell, Direction.Right);
+
+            var presentationData = BuildKinematicPresentationData(
+                sourceCell,
+                destinationCell,
+                Direction.Left,
+                Direction.Right,
+                record);
+
+            Assert.That(presentationData.KinematicMotionTracks, Has.Count.EqualTo(1));
+            Assert.That(presentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicSettle_CreatesKinematicTrackWithoutEntityMotion()
+        {
+            var anchorCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var record = CreateKinematicCleanupRecord(
+                KinematicMutationKind.Settle,
+                "KinematicSettle",
+                anchorCell,
+                Direction.Left);
+
+            var presentationData = BuildKinematicPresentationData(
+                anchorCell,
+                anchorCell,
+                Direction.Left,
+                Direction.Left,
+                record);
+
+            Assert.That(presentationData.KinematicMotionTracks, Has.Count.EqualTo(1));
+            Assert.That(presentationData.KinematicMotionTracks[0].MutationKind, Is.EqualTo(KinematicMutationKind.Settle));
+            Assert.That(presentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicOnly_DoesNotCreateEntityMotions()
+        {
+            var anchorCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var record = CreateKinematicCleanupRecord(
+                KinematicMutationKind.ReleaseHold,
+                "KinematicRelease",
+                anchorCell,
+                Direction.Up);
+
+            var presentationData = BuildKinematicPresentationData(
+                anchorCell,
+                anchorCell,
+                Direction.Up,
+                Direction.Up,
+                record);
+
+            Assert.That(presentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicPresentationRecord_LogOnlyForKinematicMutation()
+        {
+            var source = File.ReadAllText(Path.GetFullPath(
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"));
+
+            Assert.That(source, Does.Contain("[KinematicPresentationRecord]"));
+            Assert.That(source, Does.Contain("KinematicDirection={record.KinematicDirection}"));
+            Assert.That(source, Does.Contain("FacingAfter={record.FacingAfter}"));
+            Assert.That(source, Does.Contain("FacingPolicy={record.FacingPolicy}"));
+            Assert.That(source, Does.Contain("Source == PoseMutationSource.KinematicLocomotion"));
+            Assert.That(source, Does.Contain("request.Kind == PoseMutationKind.KinematicAndFacing"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void KinematicLocomotion_RightMove_FacesRight()
         {
             var worldState = CreateWorldState(new[]
@@ -142,6 +290,75 @@ namespace Game.Feature.Gameplay.Tests.Core
                 tick.PresentationData.KinematicMotionTracks.Select(track =>
                     $"E={track.EntityId},Dir={track.KinematicDirection},Pose={track.PoseFacing},Update={track.ShouldUpdateFacing},Source={track.Source},Kind={track.MutationKind}"));
             return $"Events=[{string.Join(";", tick.EventLog)}] Tracks=[{tracks}]";
+        }
+
+        private static KinematicPresentationRecord CreateLocomotionRecord(
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            Direction direction)
+        {
+            return new KinematicPresentationRecord(
+                entityId: 10,
+                tickIndex: 1,
+                operationId: 241,
+                actionSequenceId: 0,
+                modeBefore: MotionMode.Voluntary,
+                modeAfter: MotionMode.Voluntary,
+                anchorCellBefore: sourceCell,
+                anchorCellAfter: destinationCell,
+                localOffsetBefore: KinematicOffset2.Zero,
+                localOffsetAfter: KinematicOffset2.Zero,
+                velocityBefore: KinematicVelocity2.Zero,
+                velocityAfter: KinematicVelocity2.Zero,
+                forcedMotionOpAfter: ForcedMotionOp.None,
+                hasAuthoritativeStateBefore: true,
+                hasAuthoritativeStateAfter: true,
+                isSettledAtAnchorBefore: false,
+                isSettledAtAnchorAfter: false,
+                mutationKind: KinematicMutationKind.ResumeVoluntary,
+                source: "KinematicLocomotion",
+                reason: "KinematicMotionOutcome",
+                kinematicDirection: direction,
+                facingBefore: Direction.Left,
+                facingAfter: direction,
+                shouldUpdateFacing: true,
+                directionKind: KinematicDirectionKind.AnchorDelta,
+                facingPolicy: KinematicFacingPolicy.MatchKinematicDirection);
+        }
+
+        private static KinematicPresentationRecord CreateKinematicCleanupRecord(
+            KinematicMutationKind mutationKind,
+            string source,
+            SurfaceCell anchorCell,
+            Direction facing)
+        {
+            return new KinematicPresentationRecord(
+                entityId: 10,
+                tickIndex: 1,
+                operationId: 242,
+                actionSequenceId: 0,
+                modeBefore: MotionMode.Voluntary,
+                modeAfter: mutationKind == KinematicMutationKind.Settle ? MotionMode.Settled : MotionMode.Voluntary,
+                anchorCellBefore: anchorCell,
+                anchorCellAfter: anchorCell,
+                localOffsetBefore: new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
+                localOffsetAfter: KinematicOffset2.Zero,
+                velocityBefore: new KinematicVelocity2(KinematicFixed.FromRaw(-512), KinematicFixed.Zero),
+                velocityAfter: KinematicVelocity2.Zero,
+                forcedMotionOpAfter: ForcedMotionOp.None,
+                hasAuthoritativeStateBefore: true,
+                hasAuthoritativeStateAfter: mutationKind != KinematicMutationKind.Settle,
+                isSettledAtAnchorBefore: false,
+                isSettledAtAnchorAfter: mutationKind == KinematicMutationKind.Settle,
+                mutationKind: mutationKind,
+                source: source,
+                reason: source,
+                kinematicDirection: Direction.None,
+                facingBefore: facing,
+                facingAfter: facing,
+                shouldUpdateFacing: false,
+                directionKind: KinematicDirectionKind.None,
+                facingPolicy: KinematicFacingPolicy.PreserveFacing);
         }
 
         private static TickPresentationData BuildKinematicPresentationData(
