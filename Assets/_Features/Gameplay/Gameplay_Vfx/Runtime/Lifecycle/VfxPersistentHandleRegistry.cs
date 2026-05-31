@@ -212,6 +212,38 @@ namespace Game.Feature.Gameplay.Vfx
             }
         }
 
+        public void StopAllForStageTerminal(IVfxPool pool)
+        {
+            if (pool == null)
+            {
+                throw new ArgumentNullException(nameof(pool));
+            }
+
+            foreach (var pair in activeHandles.ToArray())
+            {
+                var key = pair.Key;
+                var handle = pair.Value;
+                if (handle == null)
+                {
+                    RemoveActiveEntry(key);
+                    continue;
+                }
+
+                if (handle.State != VfxLifetimeState.HardCleanup &&
+                    handle.State != VfxLifetimeState.ReleasedToPool)
+                {
+                    handle.Stop(GameplayVfxStopMode.StopEmittingAndClear);
+                    pool.Release(handle);
+                    LastStopReason = "StageTerminal";
+                }
+
+                RemoveActiveEntry(key);
+            }
+
+            desiredKeys.Clear();
+            pendingTopologyTransitionVisibilityValidationKeys.Clear();
+        }
+
         public void ClearForTopologyTransitionStart(IVfxPool pool)
         {
             if (pool == null)

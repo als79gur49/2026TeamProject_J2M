@@ -201,6 +201,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.DetachPresentationExtension(extension);
         }
 
+        public void ApplyStageTerminalPresentation(
+            GameplayStageTerminalPresentationReason reason,
+            TickResult terminalTickResult)
+        {
+            _presentationCoordinator.ApplyStageTerminalPresentation(reason, terminalTickResult);
+        }
+
         internal void DebugRefreshGameplayAudioPlan(TickResult result)
         {
             _presentationCoordinator.DebugRefreshGameplayAudioPlan(result);

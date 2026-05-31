@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.Vfx
         FamilyProfilesReconfigured = 8,
         AllGameplayVfxDisabled = 9,
         ProjectorOrStateStoreChanged = 10,
+        StageTerminal = 11,
     }
 
     public enum GameplayVfxCleanupScope

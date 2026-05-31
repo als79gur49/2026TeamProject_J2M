@@ -68,6 +68,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerDeath_DoesNotCreatePlayerDamageOrDeathVfxUnlessExplicitlyAuthored()
+        {
+            var planner = new PlayerVfxRequestPlanner();
+            var builder = new GameplayVfxRequestPlanBuilder();
+            var presentationData = CreatePresentationData(
+                new[] { CreateDamageSignal() },
+                new[] { CreateDeathSignal() });
+
+            Assert.That(presentationData.PlayerDeathSignals, Has.Count.EqualTo(1));
+            Assert.That(presentationData.PlayerDeathSignals[0].DidDieThisTick, Is.True);
+
+            planner.Plan(
+                new GameplayVfxPlanningContext(
+                    12,
+                    presentationData,
+                    new CubeTopologyState(FaceId.Floor)),
+                builder);
+
+            var plan = builder.Build();
+            Assert.That(plan.Requests, Has.None.Matches<GameplayVfxRequest>(
+                request => request.CueId.Equals(GameplayVfxCueId.From(PlayerVfxCue.Damage))));
+            Assert.That(plan.Requests, Has.None.Matches<GameplayVfxRequest>(
+                request => request.CueId.Equals(GameplayVfxCueId.From(PlayerVfxCue.Death))));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ProductionRuntime_DamageMigrationFlag_DefaultsTrue()
         {
             var owner = new GameObject("DamageMigrationDefaultFlag");

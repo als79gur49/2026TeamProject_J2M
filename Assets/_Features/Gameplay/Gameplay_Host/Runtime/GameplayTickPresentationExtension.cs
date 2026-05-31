@@ -82,6 +82,33 @@ namespace Game.Feature.Gameplay.Host
         void SetPresentationPaused(bool paused);
     }
 
+    public enum GameplayStageTerminalPresentationReason
+    {
+        Unknown = 0,
+        PlayerDeathRetry = 1,
+        LevelFailed = 2,
+    }
+
+    public readonly struct GameplayStageTerminalPresentationContext
+    {
+        public GameplayStageTerminalPresentationContext(
+            GameplayStageTerminalPresentationReason reason,
+            TickResult terminalTickResult)
+        {
+            Reason = reason;
+            TerminalTickResult = terminalTickResult;
+        }
+
+        public GameplayStageTerminalPresentationReason Reason { get; }
+
+        public TickResult TerminalTickResult { get; }
+    }
+
+    public interface IGameplayStageTerminalPresentationExtension
+    {
+        void ApplyStageTerminalPresentation(in GameplayStageTerminalPresentationContext context);
+    }
+
     internal sealed class GameplayPresentationPauseRegistry
     {
         private readonly List<IGameplayPresentationPausable> pausableTargets = new();

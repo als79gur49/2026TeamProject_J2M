@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Vfx
         private IVfxBindingResolver bindingResolver;
         private GameplayVfxVisibilityContext visibilityContext;
         private bool topologyTransitionStartsSuppressed;
+        private bool stageTerminalSuppressed;
         private int topologyTransitionSuppressEpoch;
         private VfxPresentationSuspendReason stickySuspendReasons;
 
@@ -40,6 +41,10 @@ namespace Game.Feature.Gameplay.Vfx
 
         public GameplayVfxVisibilityBlockReason LastVisibilityBlockReason { get; private set; }
 
+        public bool IsStageTerminalSuppressed => stageTerminalSuppressed;
+
+        public int PendingDelayedRequestCount => delayedRequests.Count;
+
         public void ConfigureBindingResolver(IVfxBindingResolver resolver)
         {
             bindingResolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
@@ -58,6 +63,11 @@ namespace Game.Feature.Gameplay.Vfx
         public void Refresh(GameplayVfxRequestPlan plan, GameplayVfxRefreshOptions options)
         {
             persistentRegistry.ReleaseCompleted();
+            if (stageTerminalSuppressed)
+            {
+                delayedRequests.Clear();
+                return;
+            }
 
             persistentRegistry.BeginReconcile();
             var persistentDesiredKeys = CollectPersistentDesiredKeys(plan);
@@ -88,6 +98,18 @@ namespace Game.Feature.Gameplay.Vfx
             topologyTransitionStartsSuppressed = true;
             topologyTransitionSuppressEpoch = epoch;
             persistentRegistry.ClearForTopologyTransitionStart(pool);
+        }
+
+        public void BeginStageTerminalVfxSuppression()
+        {
+            delayedRequests.Clear();
+            stageTerminalSuppressed = true;
+            persistentRegistry.StopAllForStageTerminal(pool);
+        }
+
+        public void ClearStageTerminalVfxSuppression()
+        {
+            stageTerminalSuppressed = false;
         }
 
         public void ValidatePendingTopologyTransitionVisibility(GameplayVfxRequestPlan plan)
@@ -139,6 +161,7 @@ namespace Game.Feature.Gameplay.Vfx
         {
             delayedRequests.Clear();
             topologyTransitionStartsSuppressed = false;
+            stageTerminalSuppressed = false;
             topologyTransitionSuppressEpoch = 0;
             stickySuspendReasons = VfxPresentationSuspendReason.None;
             persistentRegistry.HardCleanupAll(pool);
@@ -164,6 +187,12 @@ namespace Game.Feature.Gameplay.Vfx
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
+            if (stageTerminalSuppressed)
+            {
+                delayedRequests.Clear();
+                return;
+            }
+
             for (var i = delayedRequests.Count - 1; i >= 0; i--)
             {
                 var scheduled = delayedRequests[i].Advance(deltaTime);
@@ -180,6 +209,11 @@ namespace Game.Feature.Gameplay.Vfx
 
         private void Process(in GameplayVfxRequest request, in GameplayVfxRefreshOptions options)
         {
+            if (stageTerminalSuppressed)
+            {
+                return;
+            }
+
             if (IsSuppressedByTopologyTransition(request, options))
             {
                 return;
@@ -233,6 +267,11 @@ namespace Game.Feature.Gameplay.Vfx
 
         private void ProcessNow(in GameplayVfxRequest request, in GameplayVfxRefreshOptions options)
         {
+            if (stageTerminalSuppressed)
+            {
+                return;
+            }
+
             if (IsSuppressedByTopologyTransition(request, options))
             {
                 return;

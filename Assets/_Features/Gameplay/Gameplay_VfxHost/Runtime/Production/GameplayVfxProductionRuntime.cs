@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable, IGameplayStageTerminalPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -104,6 +104,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private Transform localSpaceRoot;
         private bool isTopologyTransitionVfxSuppressed;
         private bool isPresentationPaused;
+        private bool isStageTerminalVfxSuppressed;
+        private GameplayStageTerminalPresentationReason stageTerminalSuppressionReason;
         private int topologyTransitionSuppressEpoch;
         private const float TopologyTransitionSoftSpawnDelaySeconds = 0.12f;
 
@@ -621,6 +623,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public bool IsRuntimeInitialized => controller != null;
 
+        public bool IsStageTerminalVfxSuppressed => isStageTerminalVfxSuppressed;
+
+        public GameplayStageTerminalPresentationReason StageTerminalSuppressionReason =>
+            stageTerminalSuppressionReason;
+
         public bool IsHostDefaultMapConfigured => hostDefaultCueMap != null;
 
         public int MapNotConfiguredCount => mapNotConfiguredCount;
@@ -641,6 +648,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public GameplayVfxCleanupScope LastCleanupScope { get; private set; }
 
         public int HardCleanupAllCount { get; private set; }
+
+        public int StageTerminalSuppressionCount { get; private set; }
 
         public int EnemyProfileFirstConfigureCount { get; private set; }
 
@@ -704,6 +713,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             isPresentationPaused = false;
             LastPlannedRequestCount = 0;
             isTopologyTransitionVfxSuppressed = false;
+            isStageTerminalVfxSuppressed = false;
+            stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
             flipDestroySelfMotionMissingBindingCount = 0;
             flipImpactStayTrailMissingBindingCount = 0;
@@ -750,6 +761,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void PresentInitial(in GameplayInitialPresentationExtensionContext context)
         {
+            isStageTerminalVfxSuppressed = false;
+            stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
+            controller?.ClearStageTerminalVfxSuppression();
             LastPlannedRequestCount = 0;
             lastInitialPlannedRequestCount = 0;
             lastInitialEntranceSpawnRequestCount = 0;
@@ -844,6 +858,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Present(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
+            if (isStageTerminalVfxSuppressed)
+            {
+                controller?.Refresh(GameplayVfxRequestPlan.Empty);
+                LogForwardCellProjectileProductionGate(
+                    context,
+                    controllerWillRun: false,
+                    "StageTerminalSuppressed");
+                return;
+            }
+
             if (IsTopologyTransitionStart(context))
             {
                 LogForwardCellProjectileProductionGate(
@@ -1017,6 +1041,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             LastPlannedRequestCount = 0;
             EndTopologyTransitionSuppression();
+            if (isStageTerminalVfxSuppressed)
+            {
+                controller?.Refresh(GameplayVfxRequestPlan.Empty);
+                return;
+            }
+
             if (!AnyGameplayVfxEnabled ||
                 context.Result == null ||
                 context.Result.PresentationData == null)
@@ -1078,6 +1108,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            if (isStageTerminalVfxSuppressed)
+            {
+                controller?.Update(deltaTime);
+                pool?.Advance(deltaTime);
+                return;
+            }
+
             if (isTopologyTransitionVfxSuppressed)
             {
                 return;
@@ -1092,6 +1129,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public void RefreshPresentationMotionVfx(in GameplayPresentationMotionVfxContext context)
         {
+            if (isStageTerminalVfxSuppressed)
+            {
+                motionFollowingVfxController.ClearForTopologyTransitionStart(pool);
+                return;
+            }
+
             if (isTopologyTransitionVfxSuppressed)
             {
                 motionFollowingVfxController.ClearForTopologyTransitionStart(pool);
@@ -1132,10 +1175,43 @@ namespace Game.Feature.Gameplay.Vfx.Host
             PlayReadyDelayedEnemyDeathMotionVfx();
         }
 
+        public void ApplyStageTerminalPresentation(in GameplayStageTerminalPresentationContext context)
+        {
+            ApplyStageTerminalVfxPolicy(context.Reason);
+        }
+
+        public void ApplyStageTerminalVfxPolicy(GameplayStageTerminalPresentationReason reason)
+        {
+            if (isStageTerminalVfxSuppressed &&
+                stageTerminalSuppressionReason == reason)
+            {
+                return;
+            }
+
+            isStageTerminalVfxSuppressed = true;
+            stageTerminalSuppressionReason = reason;
+            StageTerminalSuppressionCount++;
+            LastPlannedRequestCount = 0;
+            RecordCleanup(GameplayVfxCleanupReason.StageTerminal, GameplayVfxCleanupScope.AllFamilies);
+            controller?.BeginStageTerminalVfxSuppression();
+            motionFollowingVfxController.ClearForTopologyTransitionStart(pool);
+            forwardCellProjectileVfxController.ClearForTopologyTransitionStart(pool);
+            enemyMotionAttachedFollowerPlanner.Clear();
+            scheduledDelayedBoxDestroyExitVfxKeys.Clear();
+            pendingDelayedBoxDestroyExitVfx.Clear();
+            readyDelayedBoxDestroyExitVfx.Clear();
+            scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
+            pendingDelayedEnemyDeathMotionVfx.Clear();
+            readyDelayedEnemyDeathMotionVfx.Clear();
+            planBuilder.Clear();
+        }
+
         public void HardCleanup()
         {
             isPresentationPaused = false;
             isTopologyTransitionVfxSuppressed = false;
+            isStageTerminalVfxSuppressed = false;
+            stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
@@ -1221,6 +1297,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 bindingResolver,
                 new VfxPersistentHandleRegistry(),
                 new VfxLifetimeRunner());
+            if (isStageTerminalVfxSuppressed)
+            {
+                controller.BeginStageTerminalVfxSuppression();
+            }
+
             if (isPresentationPaused)
             {
                 controller.SuspendPresentation(VfxPresentationSuspendReason.GameplayPause);
@@ -1306,6 +1387,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             RecordCleanup(reason, GameplayVfxCleanupScope.AllFamilies);
             isTopologyTransitionVfxSuppressed = false;
+            isStageTerminalVfxSuppressed = false;
+            stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
