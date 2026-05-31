@@ -2521,6 +2521,40 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: wall_tutorial
+  - StableGuid: 2a1ff815c5d24e31859991fd9d75fb2e
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 1
+      x: 1
+      y: 2
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+    PresentationId: startis
+  - StableGuid: 4d1efc5357b04a9e814e3f3dea972050
+    DisplayName: Placement
+    Kind: 1
+    Cell:
+      face: 1
+      x: 1
+      y: 1
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+    PresentationId: startis
   tileFeatures:
   - TileId: 8
     Cell:
@@ -3885,6 +3919,14 @@ MonoBehaviour:
     LastKnownDisplayName: Placement
   - StableGuid: 4c2aab00cbdc457ebfb1c71846ba3dc4
     EntityId: 350
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 2a1ff815c5d24e31859991fd9d75fb2e
+    EntityId: 351
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 4d1efc5357b04a9e814e3f3dea972050
+    EntityId: 352
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0
