@@ -1,15 +1,30 @@
 using System;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     internal sealed class VfxRendererMaterialInstanceSet
     {
+        private const string RenderTypeTag = "RenderType";
+        private const string TransparentRenderType = "Transparent";
+        private const string SurfaceTypeTransparentKeyword = "_SURFACE_TYPE_TRANSPARENT";
+        private const string AlphaTestKeyword = "_ALPHATEST_ON";
+        private const string AlphaPremultiplyKeyword = "_ALPHAPREMULTIPLY_ON";
+        private const string AlphaModulateKeyword = "_ALPHAMODULATE_ON";
+
         private static readonly int InactiveBlendId = Shader.PropertyToID("_InactiveBlend");
         private static readonly int InactiveNoiseRevealId = Shader.PropertyToID("_InactiveNoiseReveal");
         private static readonly int DesaturateStrengthId = Shader.PropertyToID("_DesaturateStrength");
         private static readonly int EmissionSuppressionId = Shader.PropertyToID("_EmissionSuppression");
         private static readonly int InactiveTintId = Shader.PropertyToID("_InactiveTint");
+        private static readonly int SurfaceId = Shader.PropertyToID("_Surface");
+        private static readonly int BlendId = Shader.PropertyToID("_Blend");
+        private static readonly int SrcBlendId = Shader.PropertyToID("_SrcBlend");
+        private static readonly int DstBlendId = Shader.PropertyToID("_DstBlend");
+        private static readonly int SrcBlendAlphaId = Shader.PropertyToID("_SrcBlendAlpha");
+        private static readonly int DstBlendAlphaId = Shader.PropertyToID("_DstBlendAlpha");
+        private static readonly int ZWriteId = Shader.PropertyToID("_ZWrite");
 
         private readonly Material[][] originalSharedMaterials;
         private readonly bool restoreSharedMaterials;
@@ -201,22 +216,43 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            if (material.HasProperty("_Surface"))
+            SetFloatIfHasProperty(material, SurfaceId, 1f);
+            SetFloatIfHasProperty(material, BlendId, 0f);
+            SetFloatIfHasProperty(material, SrcBlendId, (float)BlendMode.SrcAlpha);
+            SetFloatIfHasProperty(material, DstBlendId, (float)BlendMode.OneMinusSrcAlpha);
+            SetFloatIfHasProperty(material, SrcBlendAlphaId, (float)BlendMode.One);
+            SetFloatIfHasProperty(material, DstBlendAlphaId, (float)BlendMode.OneMinusSrcAlpha);
+            SetFloatIfHasProperty(material, ZWriteId, 0f);
+
+            if (HasTransparentSurfaceContract(material))
             {
-                material.SetFloat("_Surface", 1f);
+                material.SetOverrideTag(RenderTypeTag, TransparentRenderType);
+                material.EnableKeyword(SurfaceTypeTransparentKeyword);
+                material.DisableKeyword(AlphaTestKeyword);
+                material.DisableKeyword(AlphaPremultiplyKeyword);
+                material.DisableKeyword(AlphaModulateKeyword);
             }
 
-            if (material.HasProperty("_Blend"))
-            {
-                material.SetFloat("_Blend", 0f);
-            }
+            material.renderQueue = (int)RenderQueue.Transparent;
+        }
 
-            if (material.HasProperty("_ZWrite"))
+        private static void SetFloatIfHasProperty(Material material, int propertyId, float value)
+        {
+            if (material.HasProperty(propertyId))
             {
-                material.SetFloat("_ZWrite", 0f);
+                material.SetFloat(propertyId, value);
             }
+        }
 
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        private static bool HasTransparentSurfaceContract(Material material)
+        {
+            return material.HasProperty(SurfaceId) ||
+                   material.HasProperty(BlendId) ||
+                   material.HasProperty(SrcBlendId) ||
+                   material.HasProperty(DstBlendId) ||
+                   material.HasProperty(SrcBlendAlphaId) ||
+                   material.HasProperty(DstBlendAlphaId) ||
+                   material.HasProperty(ZWriteId);
         }
 
         private static void SafeDestroy(UnityEngine.Object target)

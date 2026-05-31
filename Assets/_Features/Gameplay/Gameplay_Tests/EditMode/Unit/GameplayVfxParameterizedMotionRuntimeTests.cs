@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -808,6 +809,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyDeathMotion_SourceCloneFade_ConfiguresRuntimeMaterialForAlphaBlend()
+        {
+            var sourceProvider = CreateCloneSourceProvider(out var sourceRoot);
+            var sourceMaterial = CreateOpaqueCustomEnemyLitMaterial("EnemyDeathSourceCloneOpaque");
+            var fixture = CreateEnemyDeathMotionFixture(
+                tailSeconds: 0.2f,
+                cloneSourceProvider: sourceProvider);
+            try
+            {
+                sourceRoot.GetComponent<Renderer>().sharedMaterial = sourceMaterial;
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                fixture.TimeProvider.TimeSeconds = 0.9f;
+                fixture.Pool.Advance(0.9f);
+
+                var clone = fixture.Root.OneShotRoot.GetChild(0).Find("ParameterizedMotionCloneRoot");
+                var runtimeMaterial = clone.GetComponentInChildren<Renderer>(includeInactive: true).sharedMaterial;
+
+                Assert.That(runtimeMaterial, Is.Not.SameAs(sourceMaterial));
+                AssertTransparentAlphaBlendState(runtimeMaterial);
+                Assert.That(runtimeMaterial.GetColor("_BaseColor").a, Is.LessThan(0.3f));
+                AssertOpaqueCustomEnemyLitState(sourceMaterial);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(sourceMaterial, sourceRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyDeathMotion_UsesFallbackPrefab_WhenSourceViewIsUnavailable_IfPolicyAllows()
         {
             var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
@@ -827,6 +862,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyDeathMotion_FallbackPrefabFade_ConfiguresRuntimeMaterialForAlphaBlend()
+        {
+            var fixture = CreateEnemyDeathMotionFixture(tailSeconds: 0.2f);
+            var prefabMaterial = CreateOpaqueCustomEnemyLitMaterial("EnemyDeathFallbackOpaque");
+            try
+            {
+                fixture.Prefab.GetComponentInChildren<Renderer>(includeInactive: true).sharedMaterial = prefabMaterial;
+                fixture.Pool.PlayParameterizedMotion(
+                    fixture.PlaybackCommand,
+                    CreateEnemyDeathMotionCommand());
+
+                fixture.TimeProvider.TimeSeconds = 0.9f;
+                fixture.Pool.Advance(0.9f);
+
+                var instance = fixture.Root.OneShotRoot.GetChild(0);
+                var runtimeMaterial = instance
+                    .GetComponentInChildren<Renderer>(includeInactive: true)
+                    .sharedMaterial;
+
+                Assert.That(instance.Find("ParameterizedMotionCloneRoot"), Is.Null);
+                Assert.That(runtimeMaterial, Is.Not.SameAs(prefabMaterial));
+                AssertTransparentAlphaBlendState(runtimeMaterial);
+                Assert.That(runtimeMaterial.GetColor("_BaseColor").a, Is.LessThan(0.3f));
+                AssertOpaqueCustomEnemyLitState(prefabMaterial);
+            }
+            finally
+            {
+                fixture.Destroy();
+                Destroy(prefabMaterial);
             }
         }
 
@@ -1541,6 +1610,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
             sourceRoot.transform.localPosition = new Vector3(2f, 3f, 4f);
             sourceRoot.transform.localScale = new Vector3(1.5f, 1.25f, 0.75f);
             return new SingleCloneSourceProvider(sourceRoot.transform);
+        }
+
+        private static Material CreateOpaqueCustomEnemyLitMaterial(string name)
+        {
+            var shader = Shader.Find("Game/Enemy/CustomEnemyLit");
+            Assert.That(shader, Is.Not.Null, "Game/Enemy/CustomEnemyLit shader is required for enemy death fade material tests.");
+            var material = new Material(shader)
+            {
+                name = name,
+                renderQueue = (int)RenderQueue.Geometry,
+            };
+            material.SetOverrideTag("RenderType", "Opaque");
+            SetFloatIfHasProperty(material, "_Surface", 0f);
+            SetFloatIfHasProperty(material, "_Blend", 0f);
+            SetFloatIfHasProperty(material, "_SrcBlend", (float)BlendMode.One);
+            SetFloatIfHasProperty(material, "_DstBlend", (float)BlendMode.Zero);
+            SetFloatIfHasProperty(material, "_SrcBlendAlpha", (float)BlendMode.One);
+            SetFloatIfHasProperty(material, "_DstBlendAlpha", (float)BlendMode.Zero);
+            SetFloatIfHasProperty(material, "_ZWrite", 1f);
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", Color.white);
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                material.color = Color.white;
+            }
+
+            material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.EnableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.EnableKeyword("_ALPHAMODULATE_ON");
+            return material;
+        }
+
+        private static void AssertTransparentAlphaBlendState(Material material)
+        {
+            Assert.That(material, Is.Not.Null);
+            Assert.That(material.GetFloat("_Surface"), Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(material.GetFloat("_Blend"), Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(material.GetFloat("_SrcBlend"), Is.EqualTo((float)BlendMode.SrcAlpha).Within(0.0001f));
+            Assert.That(material.GetFloat("_DstBlend"), Is.EqualTo((float)BlendMode.OneMinusSrcAlpha).Within(0.0001f));
+            Assert.That(material.GetFloat("_SrcBlendAlpha"), Is.EqualTo((float)BlendMode.One).Within(0.0001f));
+            Assert.That(material.GetFloat("_DstBlendAlpha"), Is.EqualTo((float)BlendMode.OneMinusSrcAlpha).Within(0.0001f));
+            Assert.That(material.GetFloat("_ZWrite"), Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(material.renderQueue, Is.EqualTo((int)RenderQueue.Transparent));
+            Assert.That(material.GetTag("RenderType", false, string.Empty), Is.EqualTo("Transparent"));
+            Assert.That(material.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"), Is.True);
+            Assert.That(material.IsKeywordEnabled("_ALPHATEST_ON"), Is.False);
+            Assert.That(material.IsKeywordEnabled("_ALPHAPREMULTIPLY_ON"), Is.False);
+            Assert.That(material.IsKeywordEnabled("_ALPHAMODULATE_ON"), Is.False);
+        }
+
+        private static void AssertOpaqueCustomEnemyLitState(Material material)
+        {
+            Assert.That(material.GetFloat("_Surface"), Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(material.GetFloat("_SrcBlend"), Is.EqualTo((float)BlendMode.One).Within(0.0001f));
+            Assert.That(material.GetFloat("_DstBlend"), Is.EqualTo((float)BlendMode.Zero).Within(0.0001f));
+            Assert.That(material.GetFloat("_ZWrite"), Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(material.renderQueue, Is.EqualTo((int)RenderQueue.Geometry));
+            Assert.That(material.GetTag("RenderType", false, string.Empty), Is.EqualTo("Opaque"));
+            Assert.That(material.GetColor("_BaseColor").a, Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        private static void SetFloatIfHasProperty(Material material, string propertyName, float value)
+        {
+            if (material.HasProperty(propertyName))
+            {
+                material.SetFloat(propertyName, value);
+            }
         }
 
         internal static void Destroy(params Object[] unityObjects)
