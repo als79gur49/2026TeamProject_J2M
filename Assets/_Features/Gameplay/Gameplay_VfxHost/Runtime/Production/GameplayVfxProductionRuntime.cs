@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable, IGameplayStageTerminalPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayDestroyShrinkVfxSequenceStateProvider, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable, IGameplayStageTerminalPresentationExtension
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -59,6 +59,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private readonly HashSet<DelayedBoxDestroyExitVfxKey> scheduledDelayedBoxDestroyExitVfxKeys = new();
         private readonly List<DelayedBoxDestroyExitVfx> pendingDelayedBoxDestroyExitVfx = new();
         private readonly List<DelayedBoxDestroyExitVfx> readyDelayedBoxDestroyExitVfx = new();
+        private readonly Dictionary<DestroyShrinkVfxSequenceKey, DestroyShrinkVfxSequenceState> destroyShrinkStates = new();
+        private readonly Dictionary<DestroyShrinkVfxSequenceKey, float> activeDestroyShrinkRemainingSeconds = new();
         private readonly HashSet<DelayedEnemyDeathMotionVfxKey> scheduledDelayedEnemyDeathMotionVfxKeys = new();
         private readonly List<DelayedEnemyDeathMotionVfx> pendingDelayedEnemyDeathMotionVfx = new();
         private readonly List<DelayedEnemyDeathMotionVfx> readyDelayedEnemyDeathMotionVfx = new();
@@ -742,6 +744,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             scheduledDelayedBoxDestroyExitVfxKeys.Clear();
             pendingDelayedBoxDestroyExitVfx.Clear();
             readyDelayedBoxDestroyExitVfx.Clear();
+            destroyShrinkStates.Clear();
+            activeDestroyShrinkRemainingSeconds.Clear();
             scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
             pendingDelayedEnemyDeathMotionVfx.Clear();
             readyDelayedEnemyDeathMotionVfx.Clear();
@@ -1125,6 +1129,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
             forwardCellProjectileVfxController.Update(deltaTime, pool);
             controller?.Update(deltaTime);
             pool?.Advance(deltaTime);
+            AdvanceDestroyShrinkSequenceStates(deltaTime);
+        }
+
+        public DestroyShrinkVfxSequenceState GetDestroyShrinkState(int sourceEntityId, int sequenceId)
+        {
+            if (sourceEntityId <= 0 || sequenceId == 0)
+            {
+                return DestroyShrinkVfxSequenceState.None;
+            }
+
+            return destroyShrinkStates.TryGetValue(
+                new DestroyShrinkVfxSequenceKey(sourceEntityId, sequenceId),
+                out var state)
+                ? state
+                : DestroyShrinkVfxSequenceState.None;
         }
 
         public void RefreshPresentationMotionVfx(in GameplayPresentationMotionVfxContext context)
@@ -1200,6 +1219,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             scheduledDelayedBoxDestroyExitVfxKeys.Clear();
             pendingDelayedBoxDestroyExitVfx.Clear();
             readyDelayedBoxDestroyExitVfx.Clear();
+            destroyShrinkStates.Clear();
+            activeDestroyShrinkRemainingSeconds.Clear();
             scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
             pendingDelayedEnemyDeathMotionVfx.Clear();
             readyDelayedEnemyDeathMotionVfx.Clear();
@@ -1224,6 +1245,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             scheduledDelayedBoxDestroyExitVfxKeys.Clear();
             pendingDelayedBoxDestroyExitVfx.Clear();
             readyDelayedBoxDestroyExitVfx.Clear();
+            destroyShrinkStates.Clear();
+            activeDestroyShrinkRemainingSeconds.Clear();
             scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
             pendingDelayedEnemyDeathMotionVfx.Clear();
             readyDelayedEnemyDeathMotionVfx.Clear();
@@ -1606,6 +1629,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             scheduledDelayedBoxDestroyExitVfxKeys.Clear();
             pendingDelayedBoxDestroyExitVfx.Clear();
             readyDelayedBoxDestroyExitVfx.Clear();
+            destroyShrinkStates.Clear();
+            activeDestroyShrinkRemainingSeconds.Clear();
             scheduledDelayedEnemyDeathMotionVfxKeys.Clear();
             pendingDelayedEnemyDeathMotionVfx.Clear();
             readyDelayedEnemyDeathMotionVfx.Clear();
@@ -2384,6 +2409,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
+                if (playShrink)
+                {
+                    SetDestroyShrinkState(
+                        ResolveDestroyShrinkSequenceKey(context.Result.TickIndex, signal),
+                        DestroyShrinkVfxSequenceState.ScheduledDelay);
+                }
+
                 var delaySeconds = ResolveEntityMotionDelaySeconds(
                     presentationData,
                     signal.ExitedEntityId,
@@ -2567,6 +2599,56 @@ namespace Game.Feature.Gameplay.Vfx.Host
             };
         }
 
+        private static DestroyShrinkVfxSequenceKey ResolveDestroyShrinkSequenceKey(
+            int tickIndex,
+            in TickEntityExitPresentationSignal signal)
+        {
+            var sequenceId = signal.PresentationSeed != 0
+                ? signal.PresentationSeed
+                : BoxDestroyShrinkVfxCommandBuilder.ComputeSequenceId(tickIndex, signal);
+            return new DestroyShrinkVfxSequenceKey(signal.ExitedEntityId, sequenceId);
+        }
+
+        private void SetDestroyShrinkState(
+            DestroyShrinkVfxSequenceKey key,
+            DestroyShrinkVfxSequenceState state)
+        {
+            if (!key.IsValid)
+            {
+                return;
+            }
+
+            destroyShrinkStates[key] = state;
+        }
+
+        private void AdvanceDestroyShrinkSequenceStates(float deltaTime)
+        {
+            if (activeDestroyShrinkRemainingSeconds.Count == 0)
+            {
+                return;
+            }
+
+            var advanceSeconds = Mathf.Max(0f, deltaTime);
+            foreach (var key in new List<DestroyShrinkVfxSequenceKey>(activeDestroyShrinkRemainingSeconds.Keys))
+            {
+                var remainingSeconds = activeDestroyShrinkRemainingSeconds[key] - advanceSeconds;
+                if (remainingSeconds > 0.0001f)
+                {
+                    activeDestroyShrinkRemainingSeconds[key] = remainingSeconds;
+                    if (destroyShrinkStates.TryGetValue(key, out var state) &&
+                        state == DestroyShrinkVfxSequenceState.SourceCloneCaptured)
+                    {
+                        destroyShrinkStates[key] = DestroyShrinkVfxSequenceState.Playing;
+                    }
+
+                    continue;
+                }
+
+                activeDestroyShrinkRemainingSeconds.Remove(key);
+                destroyShrinkStates[key] = DestroyShrinkVfxSequenceState.Completed;
+            }
+        }
+
         private bool TryPlayBoxDestroyShrinkCommand(
             int tickIndex,
             in TickEntityExitPresentationSignal signal,
@@ -2606,7 +2688,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayParameterizedMotion(playbackCommand, command) != null;
+            var handle = pool.PlayParameterizedMotion(playbackCommand, command);
+            var key = new DestroyShrinkVfxSequenceKey(signal.ExitedEntityId, command.SequenceId);
+            if (handle == null)
+            {
+                SetDestroyShrinkState(key, DestroyShrinkVfxSequenceState.Failed);
+                activeDestroyShrinkRemainingSeconds.Remove(key);
+                return false;
+            }
+
+            SetDestroyShrinkState(key, DestroyShrinkVfxSequenceState.SourceCloneCaptured);
+            activeDestroyShrinkRemainingSeconds[key] = command.DurationSeconds;
+            return true;
         }
 
         private int PlayFlipDestroySelfMotionCommands(in GameplayTickPresentationExtensionContext context)
@@ -3034,6 +3127,37 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     tickIndex,
                     signal.ExitedEntityId,
                     signal.PresentationSeed);
+            }
+        }
+
+        private readonly struct DestroyShrinkVfxSequenceKey : IEquatable<DestroyShrinkVfxSequenceKey>
+        {
+            public DestroyShrinkVfxSequenceKey(int sourceEntityId, int sequenceId)
+            {
+                SourceEntityId = sourceEntityId;
+                SequenceId = sequenceId;
+            }
+
+            public int SourceEntityId { get; }
+
+            public int SequenceId { get; }
+
+            public bool IsValid => SourceEntityId > 0 && SequenceId != 0;
+
+            public bool Equals(DestroyShrinkVfxSequenceKey other)
+            {
+                return SourceEntityId == other.SourceEntityId &&
+                       SequenceId == other.SequenceId;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is DestroyShrinkVfxSequenceKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(SourceEntityId, SequenceId);
             }
         }
 

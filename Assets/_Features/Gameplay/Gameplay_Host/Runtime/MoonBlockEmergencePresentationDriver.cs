@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Host
         private float _elapsedSeconds;
         private bool _isPlaying;
         private bool _hasBaseState;
+        private bool _hasPreparedHiddenReady;
         private int _debugPlayCount;
 
         [SerializeField] private Ease ease = Ease.OutBack;
@@ -53,9 +54,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _modelRoot = _view.ModelRoot;
-            _baseLocalPosition = _modelRoot.localPosition;
-            _baseLocalScale = _modelRoot.localScale;
-            _hasBaseState = true;
+            if (!_hasPreparedHiddenReady)
+            {
+                _baseLocalPosition = _modelRoot.localPosition;
+                _baseLocalScale = _modelRoot.localScale;
+                _hasBaseState = true;
+            }
+
+            _hasPreparedHiddenReady = false;
             var delaySeconds = Mathf.Max(0f, launchDelaySeconds);
             var motionDurationSeconds = Mathf.Max(0.0001f, launchDurationSeconds);
             var liftDurationSeconds = motionDurationSeconds * 0.55f;
@@ -91,6 +97,33 @@ namespace Game.Feature.Gameplay.Host
                     .SetEase(Ease.OutQuad));
             _isPlaying = true;
             _debugPlayCount++;
+        }
+
+        public void PrepareHiddenReady()
+        {
+            if (_isPlaying)
+            {
+                return;
+            }
+
+            _view = _view != null ? _view : GetComponent<GameplayEntityView>();
+            if (_view == null)
+            {
+                return;
+            }
+
+            _modelRoot = _view.ModelRoot;
+            if (_modelRoot == null)
+            {
+                return;
+            }
+
+            _baseLocalPosition = _modelRoot.localPosition;
+            _baseLocalScale = _modelRoot.localScale;
+            _hasBaseState = true;
+            _hasPreparedHiddenReady = true;
+            _modelRoot.localPosition = _baseLocalPosition;
+            _modelRoot.localScale = Vector3.zero;
         }
 
         public void Advance(float deltaTime)

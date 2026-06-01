@@ -3460,7 +3460,9 @@ namespace Game.Feature.Gameplay.Loop
                             fact.SourceActorEntityId,
                             fact.ExitCause),
                         timing: fact.Timing,
-                        visualContactNormalizedTime: fact.VisualContactNormalizedTime));
+                        visualContactNormalizedTime: fact.VisualContactNormalizedTime,
+                        hasPresentationTargetCell: fact.HasExplicitAnchor,
+                        presentationTargetCell: fact.AnchorCell));
                 exitOwnedEntityIds.Add(fact.EntityId);
             }
         }

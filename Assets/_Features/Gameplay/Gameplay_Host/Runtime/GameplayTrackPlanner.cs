@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
         private readonly GameplayExitPresentationController _exitPresentationController;
+        private readonly MoonBlockDestructionPresentationController _moonBlockDestructionPresentationController;
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly PlayerDeathDisplacementPlanner _playerDeathDisplacementPlanner;
         private readonly GameplayPoseResolver _poseResolver;
@@ -29,6 +30,25 @@ namespace Game.Feature.Gameplay.Host
             GameplayPoseResolver poseResolver,
             GameplayExitPresentationController exitPresentationController,
             GameplayEntityPresentationApplier entityPresentationApplier)
+            : this(
+                stateStore,
+                trackState,
+                motionTimingResolver,
+                poseResolver,
+                exitPresentationController,
+                null,
+                entityPresentationApplier)
+        {
+        }
+
+        public GameplayTrackPlanner(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            GameplayMotionTimingResolver motionTimingResolver,
+            GameplayPoseResolver poseResolver,
+            GameplayExitPresentationController exitPresentationController,
+            MoonBlockDestructionPresentationController moonBlockDestructionPresentationController,
+            GameplayEntityPresentationApplier entityPresentationApplier)
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _trackState = trackState ?? throw new ArgumentNullException(nameof(trackState));
@@ -36,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
             _poseResolver = poseResolver ?? throw new ArgumentNullException(nameof(poseResolver));
             _exitPresentationController =
                 exitPresentationController ?? throw new ArgumentNullException(nameof(exitPresentationController));
+            _moonBlockDestructionPresentationController = moonBlockDestructionPresentationController;
             _entityPresentationApplier =
                 entityPresentationApplier ?? throw new ArgumentNullException(nameof(entityPresentationApplier));
             _playerDeathDisplacementPlanner = new PlayerDeathDisplacementPlanner(
@@ -1276,6 +1297,23 @@ namespace Game.Feature.Gameplay.Host
             TickTopologyMotion? topologyMotion,
             GameplayCubeProjector projector)
         {
+            if (_moonBlockDestructionPresentationController != null &&
+                _moonBlockDestructionPresentationController.TryGetDestructionMotionTarget(
+                    motion.EntityId,
+                    out var destructionTargetCell,
+                    out var destructionTopology,
+                    out var destructionFacing) &&
+                _poseResolver.TryResolveLocalPose(
+                    projector,
+                    motion.EntityId,
+                    destructionTargetCell,
+                    destructionTopology,
+                    destructionFacing == Direction.None ? Direction.Up : destructionFacing,
+                    out var destructionTargetPose))
+            {
+                return destructionTargetPose;
+            }
+
             if (_stateStore.CommittedLocalTargetPoses.TryGetValue(motion.EntityId, out var committedPose))
             {
                 return committedPose;

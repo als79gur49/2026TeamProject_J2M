@@ -524,6 +524,21 @@ namespace Game.Feature.Gameplay.Host
         void RefreshPresentationMotionVfx(in GameplayPresentationMotionVfxContext context);
     }
 
+    public enum DestroyShrinkVfxSequenceState
+    {
+        None = 0,
+        ScheduledDelay = 1,
+        SourceCloneCaptured = 2,
+        Playing = 3,
+        Completed = 4,
+        Failed = 5,
+    }
+
+    public interface IGameplayDestroyShrinkVfxSequenceStateProvider
+    {
+        DestroyShrinkVfxSequenceState GetDestroyShrinkState(int sourceEntityId, int sequenceId);
+    }
+
     public interface IGameplayTopologyTransitionCompletionPresentationExtension
     {
         void ReconcileTopologyTransitionCompleted(in GameplayTickPresentationExtensionContext context);

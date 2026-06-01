@@ -110,8 +110,37 @@ namespace Game.Feature.Gameplay.Host
                     request.TargetEntityId,
                     request.SpawnTick,
                     request.SpawnInteractionLockTicks);
-                _pendingByEntityId[emergenceRequest.EntityId] = emergenceRequest;
+                QueueRequest(emergenceRequest, currentTickIndex);
             }
+        }
+
+        public void QueueRequest(
+            in MoonBlockEmergencePresentationRequest request,
+            int currentTickIndex)
+        {
+            _currentTickIndex = currentTickIndex;
+            _allowImmediateRegisteredStart = false;
+            PruneExpiredPendingRequests(currentTickIndex);
+            if (request.EntityId <= 0)
+            {
+                return;
+            }
+
+            _pendingByEntityId[request.EntityId] = request;
+        }
+
+        public void PrepareHiddenReady(int entityId)
+        {
+            if (_viewRegistry == null ||
+                !_viewRegistry.TryGetView(entityId, out var view) ||
+                view == null)
+            {
+                return;
+            }
+
+            var driver = view.GetComponent<MoonBlockEmergencePresentationDriver>() ??
+                         view.gameObject.AddComponent<MoonBlockEmergencePresentationDriver>();
+            driver.PrepareHiddenReady();
         }
 
         public void StartReadyRequests(int currentTickIndex)
