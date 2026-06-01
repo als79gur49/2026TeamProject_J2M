@@ -876,6 +876,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void WindupForwardCellProjectile_NonSettledEnemy_BlocksWindupStart()
+        {
+            var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
+            worldState.CreateWriteContext().SetUnitKinematicState(EnemyId, CreateNonSettledKinematicState());
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(EnemyId, out var enemy), Is.True);
+            Assert.That(snapshot.TryGetEntity(PlayerId, out var player), Is.True);
+
+            var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                snapshot,
+                enemy,
+                player,
+                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
+                new AttackDecisionSettings(1),
+                WindupForwardCellProjectileSettings.CreateDefault(),
+                out _);
+
+            Assert.That(result.CanStart, Is.False);
+            Assert.That(result.ShouldApproach, Is.False);
+            Assert.That(result.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.NotSettledAtAnchor));
+
+            worldState.CreateWriteContext().SetUnitKinematicState(EnemyId, UnitKinematicRuntimeState.SettledZero);
+            snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(EnemyId, out enemy), Is.True);
+            Assert.That(snapshot.TryGetEntity(PlayerId, out player), Is.True);
+
+            var settledResult = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                snapshot,
+                enemy,
+                player,
+                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
+                new AttackDecisionSettings(1),
+                WindupForwardCellProjectileSettings.CreateDefault(),
+                out _);
+
+            Assert.That(settledResult.CanStart, Is.True);
+            Assert.That(settledResult.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.None));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void WindupForwardCellProjectile_DoesNotUseRendererTransform()
         {
             var root = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
@@ -996,6 +1037,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPipeline CreateEnemyPipeline(WorldState worldState, EnemyAiProfile profile)
         {
             return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+        }
+
+        private static UnitKinematicRuntimeState CreateNonSettledKinematicState()
+        {
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = new KinematicOffset2(
+                    KinematicFixed.FromRaw(KinematicFixed.UnitsPerCell / 4),
+                    KinematicFixed.Zero),
+                velocity = KinematicVelocity2.Zero,
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = KinematicFixed.UnitsPerCell / 4,
+                remainingTicks = 4,
+                speedScalePermille = 1000,
+                sequenceId = 1,
+                elapsedTicks = 1,
+                totalTicks = 4,
+                commitTick = 2,
+                startedTick = 0,
+                stepDirectionX = 1,
+                stepDirectionY = 0,
+            }.NormalizedForStorage();
         }
 
         private static WorldState CreateCombatWorld(SurfaceCell playerCell)

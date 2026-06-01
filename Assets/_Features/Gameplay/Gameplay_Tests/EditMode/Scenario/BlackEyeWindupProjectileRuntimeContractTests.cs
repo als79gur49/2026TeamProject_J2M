@@ -388,6 +388,32 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_NonSettledOwner_DoesNotStartWindup()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(targetCell);
+            worldState.CreateWriteContext().SetUnitKinematicState(EnemyId, CreateNonSettledKinematicState());
+            var pipeline = CreatePipeline(worldState);
+
+            var nonSettledTick = pipeline.RunTick(new TickInput(1));
+
+            AssertNoForwardCellProjectileStarted(worldState);
+            Assert.That(nonSettledTick.PresentationData.ForwardCellProjectileWindupSignals, Is.Empty);
+            Assert.That(nonSettledTick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+
+            worldState.CreateWriteContext().SetUnitKinematicState(EnemyId, UnitKinematicRuntimeState.SettledZero);
+            var settledTick = pipeline.RunTick(new TickInput(2));
+            var action = GetEnemyActionState(worldState);
+
+            Assert.That(action.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
+            Assert.That(action.executionAttempted, Is.False);
+            Assert.That(settledTick.PresentationData.ForwardCellProjectileWindupSignals, Has.Count.EqualTo(1));
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_BlockerPolicy_SolidBlocked_CurrentContract()
         {
             var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -1237,6 +1263,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             Assert.That(action.kind, Is.Not.EqualTo(EnemyActionKind.ForwardCellProjectile));
+        }
+
+        private static UnitKinematicRuntimeState CreateNonSettledKinematicState()
+        {
+            return new UnitKinematicRuntimeState
+            {
+                localOffset = new KinematicOffset2(
+                    KinematicFixed.FromRaw(KinematicFixed.UnitsPerCell / 4),
+                    KinematicFixed.Zero),
+                velocity = KinematicVelocity2.Zero,
+                mode = MotionMode.Voluntary,
+                forcedOp = ForcedMotionOp.None,
+                remainingDistanceUnits = KinematicFixed.UnitsPerCell / 4,
+                remainingTicks = 4,
+                speedScalePermille = 1000,
+                sequenceId = 1,
+                elapsedTicks = 1,
+                totalTicks = 4,
+                commitTick = 2,
+                startedTick = 0,
+                stepDirectionX = 1,
+                stepDirectionY = 0,
+            }.NormalizedForStorage();
         }
 
         private static TileFeatureState CreateTileFeature(

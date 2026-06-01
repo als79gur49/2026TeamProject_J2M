@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Entities
         InvalidForwardTargetCell = 7,
         ActivePendingImpactLimitReached = 8,
         ForwardPathBlockedByTileFeature = 9,
+        NotSettledAtAnchor = 10,
     }
 
     internal readonly struct WindupMeleeStartQueryResult
@@ -191,6 +192,11 @@ namespace Game.Feature.Gameplay.Entities
             if (!startQuery.CanStart)
             {
                 return startQuery;
+            }
+
+            if (!UnitSpatialQuery.IsSettledAtAnchor(snapshot, enemy.entityId))
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.NotSettledAtAnchor);
             }
 
             if (snapshot.CountPendingCellImpactsForOwner(enemy.entityId) >= settings.ActivePendingImpactLimitPerOwner)
