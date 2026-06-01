@@ -243,6 +243,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: SlideTile
       objectReference: {fileID: 0}
+    - target: {fileID: 2324661277940220157, guid: a89d337ce60413044a4f647200c5a11f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.0044
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
