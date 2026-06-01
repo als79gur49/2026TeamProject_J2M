@@ -2304,7 +2304,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MovementExpansion_FlipCanImpactActiveGliderSharingLandingCellWithSolid()
+        public void MovementExpansion_FlipLandingIgnoresOnlyActiveGlider()
+        {
+            var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.None),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip),
+                CreateUnit(40, teamId: 2, landingCell, EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1));
+
+            var groups = ExpandFlipIntoBox(worldState, out var rejected);
+
+            Assert.That(groups, Has.Count.EqualTo(1), string.Join("\n", rejected));
+            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            Assert.That(groups[0].Moves, Has.Count.EqualTo(1));
+            Assert.That(groups[0].Moves[0].EntityId, Is.EqualTo(20));
+            Assert.That(groups[0].Moves[0].DestinationCell, Is.EqualTo(landingCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpansion_FlipImpactSkipsActiveGliderSharingLandingCellWithSolid()
         {
             var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
             var worldState = CreateWorldState(new[]
@@ -2320,7 +2344,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 landingCell,
                 CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1, lockedStepX: -1, lockedStepY: 0));
 
-            AssertFlipCreatesImpactOnTarget(worldState, 40);
+            var groups = ExpandFlipIntoBox(worldState, out var rejected);
+
+            Assert.That(groups, Is.Empty);
+            Assert.That(rejected, Has.Some.Contains("Reason=FlipLandingBlocked"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementExpansion_FlipImpactFiltersOnlyActiveGliderFromStackedTargets()
+        {
+            var landingCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.None),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip),
+                CreateUnit(40, teamId: 2, landingCell, EnemyAiMode.Chase),
+                CreateUnit(50, teamId: 2, landingCell, EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(
+                40,
+                CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1));
+
+            var groups = ExpandFlipIntoBox(worldState, out var rejected);
+
+            Assert.That(groups, Has.Count.EqualTo(1), string.Join("\n", rejected));
+            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
+            CollectionAssert.AreEqual(new[] { 50 }, groups[0].ImpactTargetIds.ToArray());
         }
 
         [Test]
@@ -3076,10 +3126,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertFlipCreatesImpactOnTarget(WorldState worldState, int expectedImpactTargetId)
         {
+            var groups = ExpandFlipIntoBox(worldState, out var rejected);
+
+            Assert.That(groups, Has.Count.EqualTo(1), string.Join("\n", rejected));
+            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
+            Assert.That(groups[0].ImpactTargetId, Is.EqualTo(expectedImpactTargetId));
+        }
+
+        private static List<ActionGroup> ExpandFlipIntoBox(WorldState worldState, out List<string> rejected)
+        {
             var flipIntent = new FlipIntent(10, priority: 50, destination: new Vector2Int(1, 0));
             flipIntent.AssignIntentId(1);
             var groups = new List<ActionGroup>();
-            var rejected = new List<string>();
+            rejected = new List<string>();
 
             new MovementExpander().Expand(
                 worldState.CreateSnapshot(),
@@ -3087,9 +3146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 groups,
                 rejected);
 
-            Assert.That(groups, Has.Count.EqualTo(1), string.Join("\n", rejected));
-            Assert.That(groups[0].GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
-            Assert.That(groups[0].ImpactTargetId, Is.EqualTo(expectedImpactTargetId));
+            return groups;
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> entities)

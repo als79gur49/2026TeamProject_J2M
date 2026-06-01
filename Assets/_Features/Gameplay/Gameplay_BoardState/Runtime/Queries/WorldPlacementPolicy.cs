@@ -193,6 +193,39 @@ namespace Game.Feature.Gameplay.BoardState
                 out blocker);
         }
 
+        public static bool TryGetBoxFlipPlacementBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            SurfaceCell cell,
+            out SlideStopper blocker)
+        {
+            return TryGetPlacementBlockerCore(
+                entitiesById,
+                stackedUnitsByCell,
+                enemyJumpStatesByEntityId,
+                enemyGlideStatesByEntityId,
+                phasedStatesByEntityId,
+                solidOccupancyByCell,
+                projectileOccupancy,
+                boardBounds,
+                terrainData,
+                EntityType.Box,
+                cell,
+                ignoredEntityId: 0,
+                topology,
+                PlacementQueryMode.Gameplay,
+                PlacementGlideQueryMode.BoxFlip,
+                out blocker);
+        }
+
         public static bool TryGetRepresentablePlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
@@ -678,6 +711,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return glideQueryMode == PlacementGlideQueryMode.BoxSlide ||
+                   glideQueryMode == PlacementGlideQueryMode.BoxFlip ||
                    queryMode == PlacementQueryMode.Representable;
         }
 
@@ -757,6 +791,7 @@ namespace Game.Feature.Gameplay.BoardState
         {
             Normal = 0,
             BoxSlide = 1,
+            BoxFlip = 2,
         }
     }
 }

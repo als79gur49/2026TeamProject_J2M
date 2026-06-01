@@ -113,6 +113,41 @@ namespace Game.Feature.Gameplay.BoardState
                     reservationStatus));
         }
 
+        public static LegalityResult EvaluateBoxFlipLandingPlacement(SettlementContext context)
+        {
+            SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
+            SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
+
+            if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                    context.ReservationStatus);
+            }
+
+            if (context.OccupancySnapshot.TryGetBoxFlipPlacementBlocker(
+                    context.TerminalTopology,
+                    context.TerminalCell,
+                    out var blocker))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.Create(context.OccupancySnapshot.EntitiesById, blocker),
+                    context.ReservationStatus);
+            }
+
+            return LegalityResult.Allowed(
+                LegalityDomain.Settlement,
+                context.TerminalCell,
+                context.TerminalTopology,
+                context.ReservationStatus);
+        }
+
         public static LegalityResult EvaluateJumpLandingCell(
             SettlementContext context,
             JumpLandingEvidence evidence)
@@ -347,7 +382,10 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (TryGetSettlementBlockingOccupant(
                     context,
-                    shouldIgnoreOccupant: occupant => ContainsTargetId(evidence.TargetIds, occupant.entityId),
+                    shouldIgnoreOccupant: occupant =>
+                        ContainsTargetId(evidence.TargetIds, occupant.entityId) ||
+                        (evidence.IgnoreActiveGlideOccupants &&
+                         context.OccupancySnapshot.TryGetActiveEnemyGlideState(occupant.entityId, out _)),
                     shouldTreatAsBlockingOccupant: null,
                     out var blockingOccupant))
             {

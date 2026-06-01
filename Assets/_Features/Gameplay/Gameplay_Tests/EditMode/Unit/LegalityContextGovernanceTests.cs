@@ -83,6 +83,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "TargetId",
                     "TargetIds",
                     "DestroyResolutions",
+                    "IgnoreActiveGlideOccupants",
                 }));
         }
 

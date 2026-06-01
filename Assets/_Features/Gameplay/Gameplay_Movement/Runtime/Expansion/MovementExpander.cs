@@ -595,7 +595,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             var landingContext = CreateSettlementContext(snapshot, target, landingCell);
-            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(landingContext);
+            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateBoxFlipLandingPlacement(landingContext);
             if (landingLegality.Verdict == LegalityVerdict.Blocked)
             {
                 if (TryExpandBoxImpact(
@@ -606,7 +606,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         landingCell,
                         stopSliding: false,
                         assignKineticOwner: true,
-                        skipActiveGlideTargets: false,
+                        skipActiveGlideTargets: true,
                         buffer))
                 {
                     return;

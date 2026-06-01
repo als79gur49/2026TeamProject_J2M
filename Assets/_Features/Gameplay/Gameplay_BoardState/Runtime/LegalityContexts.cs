@@ -151,15 +151,17 @@ namespace Game.Feature.Gameplay.BoardState
         public ImpactFollowThroughEvidence(
             int attackSourceId,
             int targetId,
-            IReadOnlyList<DestroyResolutionRecord> destroyResolutions)
-            : this(attackSourceId, new[] { targetId }, destroyResolutions)
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            bool ignoreActiveGlideOccupants = false)
+            : this(attackSourceId, new[] { targetId }, destroyResolutions, ignoreActiveGlideOccupants)
         {
         }
 
         public ImpactFollowThroughEvidence(
             int attackSourceId,
             IReadOnlyList<int> targetIds,
-            IReadOnlyList<DestroyResolutionRecord> destroyResolutions)
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            bool ignoreActiveGlideOccupants = false)
         {
             if (targetIds == null)
             {
@@ -175,6 +177,7 @@ namespace Game.Feature.Gameplay.BoardState
             TargetIds = targetIds;
             TargetId = TargetIds.Count > 0 ? TargetIds[0] : 0;
             DestroyResolutions = destroyResolutions;
+            IgnoreActiveGlideOccupants = ignoreActiveGlideOccupants;
         }
 
         public int AttackSourceId { get; }
@@ -184,5 +187,7 @@ namespace Game.Feature.Gameplay.BoardState
         public IReadOnlyList<int> TargetIds { get; }
 
         public IReadOnlyList<DestroyResolutionRecord> DestroyResolutions { get; }
+
+        public bool IgnoreActiveGlideOccupants { get; }
     }
 }

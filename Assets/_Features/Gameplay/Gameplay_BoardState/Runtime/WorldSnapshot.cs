@@ -1042,6 +1042,26 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetPlacementBlocker(entityType, CreateDefaultQueryCell(cell), ignoredEntityId, out blocker);
         }
 
+        internal bool TryGetBoxFlipPlacementBlocker(
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out SlideStopper blocker)
+        {
+            return WorldPlacementPolicy.TryGetBoxFlipPlacementBlocker(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
+                _phasedStatesByEntityId,
+                _solidOccupancy,
+                _projectileOccupancy,
+                topology,
+                _boardBounds,
+                _terrainData,
+                cell,
+                out blocker);
+        }
+
         internal bool TryGetAuthoritativePlacementBlocker(
             EntityType entityType,
             SurfaceCell cell,

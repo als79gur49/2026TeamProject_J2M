@@ -54,6 +54,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_IgnoreActiveGlideOccupants_AllowsActiveGlider()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(20, sourceCell),
+                CreateUnit(30, destinationCell, hp: 1, teamId: 2),
+                CreateUnit(40, destinationCell, hp: 3, teamId: 1),
+            });
+            worldState.CreateWriteContext().SetEnemyGlideState(40, CreateActiveGlide());
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetResolvedSpatialState(20, out var actorSpatialState), Is.True);
+            var context = new SettlementContext(
+                snapshot,
+                new LegalityActorRef(20, EntityType.Unit, actorSpatialState),
+                destinationCell,
+                snapshot.Topology,
+                SpatialState.Anchored);
+            var destroyResolutions = new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) };
+
+            Assert.That(
+                RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                    context,
+                    new ImpactFollowThroughEvidence(10, 30, destroyResolutions)).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(
+                RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                    context,
+                    new ImpactFollowThroughEvidence(
+                        10,
+                        30,
+                        destroyResolutions,
+                        ignoreActiveGlideOccupants: true)).Verdict,
+                Is.EqualTo(LegalityVerdict.Allowed));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_DestroyRejected_ReturnsBlocked()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -114,7 +153,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldSnapshot CreateSnapshot(IEnumerable<EntityState> initialEntities)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities).CreateSnapshot();
+            return CreateWorldState(initialEntities).CreateSnapshot();
+        }
+
+        private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static EnemyGlideRuntimeState CreateActiveGlide()
+        {
+            return EnemyGlideRuntimeState.Create(
+                EnemyGlidePhase.Active,
+                sequence: 1,
+                windupUntilTickExclusive: 0,
+                activeUntilTickExclusive: 5,
+                recoveryUntilTickExclusive: 0,
+                cooldownUntilTickExclusive: 0,
+                windupTicks: 0,
+                durationTicks: 3,
+                recoveryTicks: 0,
+                cooldownTicks: 1,
+                glideMoveTicks: 2,
+                lastExitedTick: 0,
+                wantsRecover: false,
+                hasLockedStep: true,
+                lockedStepX: 1,
+                lockedStepY: 0);
         }
 
         private static MovementImpactReservationPayload CreateImpactReservationPayload(

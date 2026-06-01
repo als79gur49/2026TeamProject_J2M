@@ -10436,7 +10436,8 @@ namespace Game.Feature.Gameplay.Loop
                                 new ImpactFollowThroughEvidence(
                                     payload.ImpactReservationPayload.AttackSourceEntityId,
                                     payload.ImpactReservationPayload.TargetEntityIds,
-                                    destroyResolutions));
+                                    destroyResolutions,
+                                    ignoreActiveGlideOccupants: true));
                             followThroughAccepted = flipImpactLegality.Verdict == LegalityVerdict.Allowed;
                             if (followThroughAccepted)
                             {
