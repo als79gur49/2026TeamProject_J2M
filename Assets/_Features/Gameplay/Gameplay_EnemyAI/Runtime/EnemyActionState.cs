@@ -96,7 +96,8 @@ namespace Game.Feature.Gameplay.Entities
             int damage,
             int createdTick,
             int releaseTick,
-            int impactTick)
+            int impactTick,
+            int launchTopologyRevision = 0)
         {
             if (impactId <= 0)
             {
@@ -129,6 +130,7 @@ namespace Game.Feature.Gameplay.Entities
             SourceCell = sourceCell;
             TargetCell = targetCell;
             LaunchTopology = launchTopology;
+            LaunchTopologyRevision = launchTopologyRevision;
             Direction = direction;
             Damage = damage;
             CreatedTick = createdTick;
@@ -148,6 +150,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public CubeTopologyState LaunchTopology { get; }
 
+        public int LaunchTopologyRevision { get; }
+
         public Direction Direction { get; }
 
         public int Damage { get; }
@@ -166,6 +170,7 @@ namespace Game.Feature.Gameplay.Entities
                    SourceCell.Equals(other.SourceCell) &&
                    TargetCell.Equals(other.TargetCell) &&
                    LaunchTopology.Equals(other.LaunchTopology) &&
+                   LaunchTopologyRevision == other.LaunchTopologyRevision &&
                    Direction == other.Direction &&
                    Damage == other.Damage &&
                    CreatedTick == other.CreatedTick &&
@@ -188,6 +193,7 @@ namespace Game.Feature.Gameplay.Entities
                 hashCode = (hashCode * 397) ^ SourceCell.GetHashCode();
                 hashCode = (hashCode * 397) ^ TargetCell.GetHashCode();
                 hashCode = (hashCode * 397) ^ LaunchTopology.GetHashCode();
+                hashCode = (hashCode * 397) ^ LaunchTopologyRevision;
                 hashCode = (hashCode * 397) ^ (int)Direction;
                 hashCode = (hashCode * 397) ^ Damage;
                 hashCode = (hashCode * 397) ^ CreatedTick;

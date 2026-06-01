@@ -295,6 +295,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             Assert.That(actual.BoardBounds, Is.EqualTo(expected.BoardBounds));
             Assert.That(actual.Topology, Is.EqualTo(expected.Topology));
+            Assert.That(actual.TopologyRevision, Is.EqualTo(expected.TopologyRevision));
             CollectionAssert.AreEqual(Collect<TerrainCellState>(expected.EnumerateTerrainCellsOrdered), Collect<TerrainCellState>(actual.EnumerateTerrainCellsOrdered));
             CollectionAssert.AreEqual(Collect<EntityState>(expected.EnumerateEntitiesOrdered), Collect<EntityState>(actual.EnumerateEntitiesOrdered));
             CollectionAssert.AreEqual(Collect<TileFeatureState>(expected.EnumerateTileFeaturesOrdered), Collect<TileFeatureState>(actual.EnumerateTileFeaturesOrdered));

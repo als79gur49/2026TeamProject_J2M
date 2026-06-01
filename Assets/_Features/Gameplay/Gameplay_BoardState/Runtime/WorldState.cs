@@ -36,6 +36,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
+        private int _topologyRevision;
 
         internal WorldState()
             : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
@@ -90,7 +91,8 @@ namespace Game.Feature.Gameplay.BoardState
             TerrainData terrainData,
             CubeTopologyState topology,
             IEnumerable<TileFeatureState> initialTileFeatures,
-            IReadOnlyDictionary<int, EnemyGlideRuntimeState> initialEnemyGlideStatesByEntityId)
+            IReadOnlyDictionary<int, EnemyGlideRuntimeState> initialEnemyGlideStatesByEntityId,
+            int topologyRevision = 0)
         {
             if (initialEntities == null)
             {
@@ -100,6 +102,7 @@ namespace Game.Feature.Gameplay.BoardState
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
             _topology = topology;
+            _topologyRevision = topologyRevision;
             ValidateTerrainBounds();
             AddInitialTileFeatures(initialTileFeatures);
 
@@ -124,11 +127,13 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds,
             TerrainData terrainData,
             CubeTopologyState topology,
+            int topologyRevision,
             bool validateTerrainBounds)
         {
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
             _topology = topology;
+            _topologyRevision = topologyRevision;
             if (validateTerrainBounds)
             {
                 ValidateTerrainBounds();
@@ -146,6 +151,7 @@ namespace Game.Feature.Gameplay.BoardState
                 snapshot.BoardBounds,
                 snapshot.TerrainData,
                 snapshot.Topology,
+                snapshot.TopologyRevision,
                 validateTerrainBounds: false);
             worldState.RestoreFromSnapshotFast(snapshot);
             SnapshotMaterializationDiagnostics.RecordFastBaseSnapshotImport(
@@ -184,12 +190,14 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, UnitKinematicRuntimeState>(_unitKinematicStatesByEntityId),
                 new Dictionary<int, UnitContinuousLocomotionState>(_unitContinuousLocomotionStatesByEntityId),
                 _topology,
+                _topologyRevision,
                 _boardBounds,
                 _terrainData);
         }
 
         private void RestoreFromSnapshotFast(WorldSnapshot snapshot)
         {
+            _topologyRevision = snapshot.TopologyRevision;
             snapshot.CopyEntitiesByIdTo(_entitiesById);
             snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
             snapshot.CopySolidOccupancyTo(_solidOccupancy);
@@ -445,7 +453,13 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void SetTopology(CubeTopologyState topology)
         {
+            if (_topology.Equals(topology))
+            {
+                return;
+            }
+
             _topology = topology;
+            _topologyRevision++;
         }
 
         private void SetPlayerControlState(int entityId, PlayerControlState state)

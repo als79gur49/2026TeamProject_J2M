@@ -328,7 +328,8 @@ namespace Game.Feature.Gameplay.Entities
                 settings.Damage,
                 tickIndex,
                 tickIndex,
-                tickIndex + impactDelayTicks);
+                tickIndex + impactDelayTicks,
+                snapshot.TopologyRevision);
 
             writeContext.AddPendingCellImpact(impact);
             var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(

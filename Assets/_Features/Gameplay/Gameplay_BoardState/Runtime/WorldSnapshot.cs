@@ -210,6 +210,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
         private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
+        private readonly int _topologyRevision;
         private EntityState[] _orderedEntitiesCache;
         private TileFeatureState[] _orderedTileFeaturesCache;
 
@@ -240,6 +241,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
+            int topologyRevision,
             BoardBounds boardBounds,
             TerrainData terrainData)
             : this(
@@ -269,6 +271,7 @@ namespace Game.Feature.Gameplay.BoardState
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
                 topology,
+                topologyRevision,
                 boardBounds,
                 terrainData)
         {
@@ -301,6 +304,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
+            int topologyRevision,
             BoardBounds boardBounds,
             TerrainData terrainData)
         {
@@ -331,6 +335,7 @@ namespace Game.Feature.Gameplay.BoardState
                 unitKinematicStatesByEntityId,
                 unitContinuousLocomotionStatesByEntityId,
                 topology,
+                topologyRevision,
                 boardBounds,
                 terrainData);
         }
@@ -362,6 +367,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitKinematicRuntimeState> unitKinematicStatesByEntityId,
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
+            int topologyRevision,
             BoardBounds boardBounds,
             TerrainData terrainData)
         {
@@ -391,6 +397,7 @@ namespace Game.Feature.Gameplay.BoardState
             _unitKinematicStatesByEntityId = new ReadOnlyDictionary<int, UnitKinematicRuntimeState>(unitKinematicStatesByEntityId ?? throw new ArgumentNullException(nameof(unitKinematicStatesByEntityId)));
             _unitContinuousLocomotionStatesByEntityId = new ReadOnlyDictionary<int, UnitContinuousLocomotionState>(unitContinuousLocomotionStatesByEntityId ?? throw new ArgumentNullException(nameof(unitContinuousLocomotionStatesByEntityId)));
             _topology = topology;
+            _topologyRevision = topologyRevision;
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
         }
@@ -398,6 +405,8 @@ namespace Game.Feature.Gameplay.BoardState
         public BoardBounds BoardBounds => _boardBounds;
 
         public CubeTopologyState Topology => _topology;
+
+        public int TopologyRevision => _topologyRevision;
 
         internal TerrainData TerrainData => _terrainData;
 

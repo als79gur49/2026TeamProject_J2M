@@ -6094,6 +6094,19 @@ namespace Game.Feature.Gameplay.Loop
                     PendingCellImpactResolutionKind.ExpiredTopologyInvalid);
             }
 
+            if (!IsPendingCellImpactLaunchTopologyRevisionActive(snapshot, impact))
+            {
+                LogPendingCellImpactValidation(
+                    snapshot,
+                    impact,
+                    diagnostics,
+                    PendingCellImpactResolutionKind.ExpiredTopologyInvalid,
+                    "TopologyRevisionExpired");
+                return new PendingCellImpactResolutionRecord(
+                    impact,
+                    PendingCellImpactResolutionKind.ExpiredTopologyInvalid);
+            }
+
             if (IsPendingCellImpactTargetFaceInactive(snapshot, impact))
             {
                 LogPendingCellImpactValidation(
@@ -6123,6 +6136,13 @@ namespace Game.Feature.Gameplay.Loop
             return impact.LaunchTopology.Equals(snapshot.Topology);
         }
 
+        private static bool IsPendingCellImpactLaunchTopologyRevisionActive(
+            WorldSnapshot snapshot,
+            in PendingCellImpact impact)
+        {
+            return impact.LaunchTopologyRevision == snapshot.TopologyRevision;
+        }
+
         private static bool IsPendingCellImpactTargetFaceInactive(
             WorldSnapshot snapshot,
             in PendingCellImpact impact)
@@ -6146,6 +6166,8 @@ namespace Game.Feature.Gameplay.Loop
             var sourceStillAtLaunchSourceCell = sourceExists && source.position.Equals(impact.SourceCell);
             var sourceCellCurrent = sourceExists ? source.position : default;
             var launchTopologyEqualsCurrentTopology = impact.LaunchTopology.Equals(snapshot.Topology);
+            var launchTopologyRevisionEqualsCurrentRevision =
+                impact.LaunchTopologyRevision == snapshot.TopologyRevision;
             var targetTerrainValid = snapshot.TryGetTerrain(impact.TargetCell, out _);
             var targetFaceActive = snapshot.Topology.IsFaceActive(impact.TargetCell.face);
 
@@ -6157,6 +6179,7 @@ namespace Game.Feature.Gameplay.Loop
                 sourceStillAtLaunchSourceCell,
                 sourceCellCurrent,
                 launchTopologyEqualsCurrentTopology,
+                launchTopologyRevisionEqualsCurrentRevision,
                 targetTerrainValid,
                 targetFaceActive,
                 targetTerrainValid && targetFaceActive,
@@ -6182,6 +6205,8 @@ namespace Game.Feature.Gameplay.Loop
                 $"Tick={impact.ImpactTick} Shot={shotKey} Decision={decisionText} DecisionReason={decisionReason} " +
                 $"LaunchTopology={ForwardCellProjectileDebugLog.FormatTopology(impact.LaunchTopology)} " +
                 $"CurrentTopology={ForwardCellProjectileDebugLog.FormatTopology(snapshot.Topology)} " +
+                $"LaunchTopologyRevision={impact.LaunchTopologyRevision} " +
+                $"CurrentTopologyRevision={snapshot.TopologyRevision} " +
                 $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
                 $"Diagnostics.SourceExists={diagnostics.SourceExists} " +
                 $"Diagnostics.SourceAlive={diagnostics.SourceAlive} " +
@@ -6191,6 +6216,7 @@ namespace Game.Feature.Gameplay.Loop
                 $"Diagnostics.SourceStillAtLaunchSourceCell={diagnostics.SourceStillAtLaunchSourceCell} " +
                 $"Diagnostics.SourceCurrentBottomParticipant={diagnostics.SourceCurrentBottomParticipant} " +
                 $"Diagnostics.LaunchTopologyEqualsCurrentTopology={diagnostics.LaunchTopologyEqualsCurrentTopology} " +
+                $"Diagnostics.LaunchTopologyRevisionEqualsCurrentRevision={diagnostics.LaunchTopologyRevisionEqualsCurrentRevision} " +
                 $"Diagnostics.TargetTerrainValid={diagnostics.TargetTerrainValid} " +
                 $"Diagnostics.TargetFaceActive={diagnostics.TargetFaceActive} " +
                 $"Diagnostics.TargetAnchorRepresentable={diagnostics.TargetAnchorRepresentable} " +
@@ -6208,6 +6234,7 @@ namespace Game.Feature.Gameplay.Loop
                 bool sourceStillAtLaunchSourceCell,
                 SurfaceCell sourceCellCurrent,
                 bool launchTopologyEqualsCurrentTopology,
+                bool launchTopologyRevisionEqualsCurrentRevision,
                 bool targetTerrainValid,
                 bool targetFaceActive,
                 bool targetAnchorRepresentable,
@@ -6221,6 +6248,7 @@ namespace Game.Feature.Gameplay.Loop
                 SourceStillAtLaunchSourceCell = sourceStillAtLaunchSourceCell;
                 SourceCellCurrent = sourceCellCurrent;
                 LaunchTopologyEqualsCurrentTopology = launchTopologyEqualsCurrentTopology;
+                LaunchTopologyRevisionEqualsCurrentRevision = launchTopologyRevisionEqualsCurrentRevision;
                 TargetTerrainValid = targetTerrainValid;
                 TargetFaceActive = targetFaceActive;
                 TargetAnchorRepresentable = targetAnchorRepresentable;
@@ -6241,6 +6269,8 @@ namespace Game.Feature.Gameplay.Loop
             public SurfaceCell SourceCellCurrent { get; }
 
             public bool LaunchTopologyEqualsCurrentTopology { get; }
+
+            public bool LaunchTopologyRevisionEqualsCurrentRevision { get; }
 
             public bool TargetTerrainValid { get; }
 

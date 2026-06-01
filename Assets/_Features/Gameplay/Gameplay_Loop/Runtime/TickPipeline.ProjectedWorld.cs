@@ -313,7 +313,8 @@ namespace Game.Feature.Gameplay.Loop
                 snapshot.TerrainData,
                 snapshot.Topology,
                 tileFeatures,
-                enemyGlideStatesByEntityId);
+                enemyGlideStatesByEntityId,
+                snapshot.TopologyRevision);
             var writeContext = worldState.CreateWriteContext();
 
             for (var i = 0; i < entities.Count; i++)

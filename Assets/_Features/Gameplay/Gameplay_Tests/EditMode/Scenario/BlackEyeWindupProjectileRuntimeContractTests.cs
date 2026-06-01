@@ -132,20 +132,39 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEyeForwardCellProjectile_NoTransition_HitsTargetNormally()
+        public void BlackEyeForwardCellProjectile_TopologyTransitionRoundTripBeforeDueImpact_ExpiresPendingImpact()
+        {
+            var observation = RunTopologyRoundTripBeforeDueImpact(
+                intermediateTopology: new CubeTopologyState(FaceId.Front),
+                finalTopology: new CubeTopologyState(FaceId.Floor),
+                playerCellBeforeImpact: new SurfaceCell(FaceId.Floor, 4, 0));
+
+            AssertCancelledTransitionImpact(observation);
+            Assert.That(observation.Impact.LaunchTopology, Is.EqualTo(observation.ImpactTick.FinalTopology));
+        }
+
+        [TestCase(4, 0, PendingCellImpactResolutionKind.Hit, true)]
+        [TestCase(4, 1, PendingCellImpactResolutionKind.Miss, false)]
+        [Category("Extended")]
+        public void BlackEyeForwardCellProjectile_NoTransitionSameTopology_StillResolvesPendingImpact(
+            int playerX,
+            int playerY,
+            PendingCellImpactResolutionKind expectedResult,
+            bool expectDamage)
         {
             var worldState = CreateCombatWorld(
                 new SurfaceCell(FaceId.Floor, 4, 0),
                 boardBounds: new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
             var observation = ReleaseForwardCellProjectile(worldState);
             var pipeline = CreatePipeline(worldState);
+            worldState.CreateWriteContext().MoveEntity(PlayerId, new SurfaceCell(FaceId.Floor, playerX, playerY));
 
             var impactTick = pipeline.RunTick(new TickInput(observation.Impact.ImpactTick));
             var resolution = impactTick.AttackPhaseResult.PendingCellImpactResolutions.Single();
 
-            Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.Hit));
-            Assert.That(GetEntity(worldState, PlayerId).hp, Is.LessThan(3));
-            Assert.That(impactTick.PresentationData.ForwardCellImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(resolution.ResultKind, Is.EqualTo(expectedResult));
+            Assert.That(GetEntity(worldState, PlayerId).hp, expectDamage ? Is.LessThan(3) : Is.EqualTo(3));
+            Assert.That(impactTick.PresentationData.ForwardCellImpactSignals.Count, Is.EqualTo(expectDamage ? 1 : 0));
             Assert.That(impactTick.PresentationData.ForwardCellProjectileArrivalSignals, Has.Count.EqualTo(1));
         }
 
@@ -1066,6 +1085,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             worldState.CreateWriteContext().MoveEntity(PlayerId, playerCellBeforeTransition);
             worldState.CreateWriteContext().SetTopology(topologyBeforeImpact);
+            var impactTick = pipeline.RunTick(new TickInput(release.Impact.ImpactTick));
+            var resolution = impactTick.AttackPhaseResult.PendingCellImpactResolutions.Single();
+
+            return new TransitionBeforeDueImpactObservation(
+                release.Impact,
+                impactTick,
+                resolution,
+                GetEntity(worldState, PlayerId),
+                worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId));
+        }
+
+        private static TransitionBeforeDueImpactObservation RunTopologyRoundTripBeforeDueImpact(
+            CubeTopologyState intermediateTopology,
+            CubeTopologyState finalTopology,
+            SurfaceCell playerCellBeforeImpact)
+        {
+            var worldState = CreateCombatWorld(
+                new SurfaceCell(FaceId.Floor, 4, 0),
+                boardBounds: new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var release = ReleaseForwardCellProjectile(worldState);
+            var pipeline = CreatePipeline(worldState);
+
+            for (var tickIndex = release.Impact.ReleaseTick + 1; tickIndex < release.Impact.ImpactTick; tickIndex++)
+            {
+                pipeline.RunTick(new TickInput(tickIndex));
+            }
+
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.MoveEntity(PlayerId, playerCellBeforeImpact);
+            writeContext.SetTopology(intermediateTopology);
+            writeContext.SetTopology(finalTopology);
             var impactTick = pipeline.RunTick(new TickInput(release.Impact.ImpactTick));
             var resolution = impactTick.AttackPhaseResult.PendingCellImpactResolutions.Single();
 

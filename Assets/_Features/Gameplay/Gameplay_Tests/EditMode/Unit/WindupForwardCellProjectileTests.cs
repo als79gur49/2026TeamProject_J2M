@@ -696,6 +696,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PendingCellImpact_TopologyRoundTripBeforeResolve_ExpiresWithoutArrival()
+        {
+            var (result, worldState) = RunDirectPendingImpact(
+                playerCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                beforeImpact: state =>
+                {
+                    var writeContext = state.CreateWriteContext();
+                    writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+                    writeContext.SetTopology(new CubeTopologyState(FaceId.Floor));
+                });
+            var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
+
+            Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.ExpiredTopologyInvalid));
+            Assert.That(GetEntity(worldState, PlayerId).hp, Is.EqualTo(3));
+            Assert.That(result.PresentationData.ForwardCellImpactSignals, Is.Empty);
+            Assert.That(result.PresentationData.ForwardCellProjectileArrivalSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PendingCellImpact_TargetFaceInactive_CancelsWithoutArrival()
         {
             var (result, worldState) = RunDirectPendingImpact(

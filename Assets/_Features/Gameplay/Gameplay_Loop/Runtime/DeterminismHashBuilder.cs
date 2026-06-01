@@ -40,7 +40,9 @@ namespace Game.Feature.Gameplay.Loop
 
             builder.Append("Tick=").Append(tickIndex).Append('\n');
             builder.Append("Topology").Append('\n');
-            builder.Append(finalSnapshot.Topology.BottomFace).Append('|').Append(finalSnapshot.Topology.FrontFace).Append('\n');
+            builder.Append(finalSnapshot.Topology.BottomFace).Append('|')
+                .Append(finalSnapshot.Topology.FrontFace).Append('|')
+                .Append(finalSnapshot.TopologyRevision).Append('\n');
             builder.Append("BoardBounds").Append('\n');
             AppendBoardBounds(builder, finalSnapshot.BoardBounds);
 
@@ -840,6 +842,7 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(impact.TargetCell.y).Append('|')
                     .Append((int)impact.LaunchTopology.BottomFace).Append('|')
                     .Append((int)impact.LaunchTopology.FrontFace).Append('|')
+                    .Append(impact.LaunchTopologyRevision).Append('|')
                     .Append((int)impact.Direction).Append('|')
                     .Append(impact.Damage).Append('|')
                     .Append(impact.CreatedTick).Append('|')
