@@ -6488,6 +6488,164 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockDestroy_UsesDestroyTileTargetInsteadOfRespawnCommittedPose()
+        {
+            var rootObject = new GameObject(
+                nameof(GameplayTickViewPresenter_MoonBlockDestroy_UsesDestroyTileTargetInsteadOfRespawnCommittedPose));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destroyTileCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var generatorCell = new SurfaceCell(FaceId.Floor, 3, 0);
+                var vfxState = new RecordingDestroyShrinkVfxStateExtension();
+                vfxState.SetState(40, 9001, DestroyShrinkVfxSequenceState.ScheduledDelay);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.AttachPresentationExtension(vfxState);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateBox(40, sourceCell),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[] { CreateBox(40, generatorCell) },
+                        topology,
+                        CreateMoonBlockDestroyAndGeneratedPresentationData(
+                            entityId: 40,
+                            sourceCell,
+                            destroyTileCell,
+                            generatorCell,
+                            topology,
+                            presentationSeed: 9001)));
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds + 0.01f);
+
+                Assert.That(registry.TryGetView(40, out var moonBlockView), Is.True);
+                Assert.That(moonBlockView.gameObject.activeSelf, Is.True);
+                AssertPositionApproximately(
+                    moonBlockView.transform.localPosition,
+                    GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box));
+                Assert.That(
+                    Vector3.Distance(
+                        moonBlockView.transform.localPosition,
+                        GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box)),
+                    Is.GreaterThan(0.1f));
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockDestroy_StartsEmergenceOnlyAfterDestroyShrinkCompletes()
+        {
+            var rootObject = new GameObject(
+                nameof(GameplayTickViewPresenter_MoonBlockDestroy_StartsEmergenceOnlyAfterDestroyShrinkCompletes));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destroyTileCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var generatorCell = new SurfaceCell(FaceId.Floor, 3, 0);
+                var vfxState = new RecordingDestroyShrinkVfxStateExtension();
+                vfxState.SetState(40, 9002, DestroyShrinkVfxSequenceState.ScheduledDelay);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.AttachPresentationExtension(vfxState);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateBox(40, sourceCell),
+                    },
+                    topology);
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[] { CreateBox(40, generatorCell) },
+                        topology,
+                        CreateMoonBlockDestroyAndGeneratedPresentationData(
+                            entityId: 40,
+                            sourceCell,
+                            destroyTileCell,
+                            generatorCell,
+                            topology,
+                            presentationSeed: 9002)));
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds + 0.01f);
+
+                Assert.That(registry.TryGetView(40, out var moonBlockView), Is.True);
+                AssertPositionApproximately(
+                    moonBlockView.transform.localPosition,
+                    GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box));
+                Assert.That(moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>(), Is.Null);
+
+                vfxState.SetState(40, 9002, DestroyShrinkVfxSequenceState.SourceCloneCaptured);
+                presenter.UpdatePresentation(0f);
+
+                AssertPositionApproximately(
+                    moonBlockView.transform.localPosition,
+                    GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box));
+                AssertPositionApproximately(moonBlockView.ModelRoot.localScale, Vector3.zero);
+                var driver = moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(driver.IsPlaying, Is.False);
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+
+                vfxState.SetState(40, 9002, DestroyShrinkVfxSequenceState.Playing);
+                presenter.UpdatePresentation(0.01f);
+
+                Assert.That(driver.IsPlaying, Is.False);
+                AssertPositionApproximately(moonBlockView.ModelRoot.localScale, Vector3.zero);
+
+                vfxState.SetState(40, 9002, DestroyShrinkVfxSequenceState.Completed);
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.IsPlaying, Is.True);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(driver.DebugPlayCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickPresentationCoordinator_FlipDestroySelfImpactTransient_HidesAuthoritativeView_WithoutCommittedMove()
         {
@@ -10563,6 +10721,60 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tileEvents: tileEvents);
         }
 
+        private static TickPresentationData CreateMoonBlockDestroyAndGeneratedPresentationData(
+            int entityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destroyTileCell,
+            SurfaceCell generatorCell,
+            CubeTopologyState topology,
+            int presentationSeed)
+        {
+            return new TickPresentationData(
+                new[]
+                {
+                    new TickEntityMotion(
+                        entityId,
+                        TickEntityMotionKind.Push,
+                        sourceCell,
+                        destroyTileCell),
+                },
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        entityId,
+                        TickEntityExitCause.BoxDestroy,
+                        destroyTileCell,
+                        topology,
+                        Direction.Right,
+                        EntityType.Box,
+                        presentationSeed: presentationSeed,
+                        timing: EntityExitPresentationTiming.AfterEntityMotion,
+                        hasPresentationTargetCell: true,
+                        presentationTargetCell: destroyTileCell),
+                },
+                Array.Empty<TickImpactTransientPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                tileEvents: new[]
+                {
+                    CreateMoonBlockGeneratedTileEvent(
+                        100,
+                        generatorCell,
+                        entityId,
+                        spawnTick: 1),
+                });
+        }
+
         private static TickPresentationData CreateGravityFieldPresentationData(
             params GravityFieldPresentationEvent[] gravityFieldEvents)
         {
@@ -11684,6 +11896,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 LockedBoxOneShotCount++;
                 LastLockedBoxPayload = payload;
+            }
+        }
+
+        private sealed class RecordingDestroyShrinkVfxStateExtension :
+            IGameplayTickPresentationExtension,
+            IGameplayDestroyShrinkVfxSequenceStateProvider
+        {
+            private readonly Dictionary<(int SourceEntityId, int SequenceId), DestroyShrinkVfxSequenceState> _states = new();
+
+            public void SetState(
+                int sourceEntityId,
+                int sequenceId,
+                DestroyShrinkVfxSequenceState state)
+            {
+                _states[(sourceEntityId, sequenceId)] = state;
+            }
+
+            public DestroyShrinkVfxSequenceState GetDestroyShrinkState(int sourceEntityId, int sequenceId)
+            {
+                return _states.TryGetValue((sourceEntityId, sequenceId), out var state)
+                    ? state
+                    : DestroyShrinkVfxSequenceState.None;
+            }
+
+            public void ResetSession()
+            {
+            }
+
+            public void Present(in GameplayTickPresentationExtensionContext context)
+            {
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+            }
+
+            public void HardCleanup()
+            {
+                _states.Clear();
             }
         }
 

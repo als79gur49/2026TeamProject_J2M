@@ -2578,7 +2578,9 @@ namespace Game.Feature.Gameplay.Loop
             int? anchorEntityId = null,
             int presentationSeed = 0,
             EntityExitPresentationTiming timing = EntityExitPresentationTiming.Immediate,
-            float visualContactNormalizedTime = 0f)
+            float visualContactNormalizedTime = 0f,
+            bool hasPresentationTargetCell = false,
+            SurfaceCell presentationTargetCell = default)
         {
             ExitedEntityId = exitedEntityId;
             ExitCause = exitCause;
@@ -2591,6 +2593,10 @@ namespace Game.Feature.Gameplay.Loop
             PresentationSeed = presentationSeed;
             Timing = timing;
             VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+            HasPresentationTargetCell = hasPresentationTargetCell;
+            PresentationTargetCell = hasPresentationTargetCell
+                ? presentationTargetCell
+                : sourceCell;
         }
 
         public int ExitedEntityId { get; }
@@ -2614,6 +2620,10 @@ namespace Game.Feature.Gameplay.Loop
         public EntityExitPresentationTiming Timing { get; }
 
         public float VisualContactNormalizedTime { get; }
+
+        public bool HasPresentationTargetCell { get; }
+
+        public SurfaceCell PresentationTargetCell { get; }
 
         private static float ClampNormalized(float value)
         {

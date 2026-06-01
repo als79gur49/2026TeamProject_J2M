@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
         private GameplayTimingProfile _timingProfile;
+        private Func<int, bool> _shouldHoldDeferredExitCleanup;
 
         public GameplayExitPresentationController(
             GameplayAnimationSyncCoordinator animationSync,
@@ -61,6 +62,11 @@ namespace Game.Feature.Gameplay.Host
                    _deferredAfterEntityMotionExitIds.Contains(entityId) ||
                    _contactDelayedExitIds.Contains(entityId) ||
                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId);
+        }
+
+        public void SetDeferredExitCleanupHoldPredicate(Func<int, bool> predicate)
+        {
+            _shouldHoldDeferredExitCleanup = predicate;
         }
 
         internal bool HasPendingContactDelayedExit(int entityId)
@@ -246,6 +252,12 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                if (_shouldHoldDeferredExitCleanup != null &&
+                    _shouldHoldDeferredExitCleanup(entityId))
+                {
+                    continue;
+                }
+
                 _completedDeferredExitIds.Add(entityId);
             }
 
@@ -256,6 +268,12 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
                 ApplyImmediateExitCleanup(entityId, queueFlipInteractionReset: false);
             }
+        }
+
+        public void ReleaseDeferredAfterEntityMotionExitOwnership(int entityId)
+        {
+            _deferredAfterEntityMotionExitIds.Remove(entityId);
+            _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
         }
 
         private void ApplyDeferredAfterEntityMotionExitStart(int entityId)
