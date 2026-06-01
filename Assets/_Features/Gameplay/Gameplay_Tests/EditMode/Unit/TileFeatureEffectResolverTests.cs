@@ -2177,6 +2177,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void SlideTile_ImpactFollowThrough_RedirectsPushAndSlideButNotFlip()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var cases = new[]
+            {
+                new object[] { "PushFollowThrough", MovementSemanticKind.Push, true },
+                new object[] { "SlideFollowThrough", MovementSemanticKind.Slide, true },
+                new object[] { "FlipFollowThrough", MovementSemanticKind.Flip, false },
+            };
+
+            for (var i = 0; i < cases.Length; i++)
+            {
+                var name = (string)cases[i][0];
+                var semanticKind = (MovementSemanticKind)cases[i][1];
+                var shouldRedirect = (bool)cases[i][2];
+                var snapshot = CreateWorldState(
+                        new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding) },
+                        new[] { CreateTileFeature(100, cell, TileFeatureKind.Slide) })
+                    .CreateSnapshot();
+
+                var result = ResolveEntityContacts(
+                    snapshot,
+                    new[]
+                    {
+                        new TileEffectEntityContact(
+                            20,
+                            EntityType.Box,
+                            new SurfaceCell(FaceId.Front, 0, 1),
+                            cell,
+                            cell,
+                            TileEffectEntityContactKind.ImpactFollowThrough,
+                            semanticKind,
+                            operationOrder: 0,
+                            actionPlanId: 45,
+                            localActionIndex: 1,
+                            intentId: 100),
+                    },
+                    CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None));
+
+                if (!shouldRedirect)
+                {
+                    Assert.That(result.IsEmpty, Is.True, name);
+                    continue;
+                }
+
+                Assert.That(result.EntityOperations.Operations.Count, Is.EqualTo(1), name);
+                Assert.That(result.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetFacing), name);
+                Assert.That(result.EntityOperations.Operations[0].EntityId, Is.EqualTo(20), name);
+                Assert.That(result.EntityOperations.Operations[0].Facing, Is.EqualTo(Direction.Up), name);
+                Assert.That(result.TileEvents, Has.Count.EqualTo(1), name);
+                Assert.That(result.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.SlideTileRedirected), name);
+                Assert.That(result.TileEvents[0].TargetEntityId, Is.EqualTo(20), name);
+                Assert.That(result.TileEvents[0].Direction, Is.EqualTo(Direction.Up), name);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void SlideTile_DuplicateContacts_CreateSingleRedirect()
         {
             var cell = new SurfaceCell(FaceId.Front, 1, 1);
@@ -2400,6 +2458,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(secondFinalBox.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 2, 1)));
             Assert.That(secondFinalBox.facing, Is.EqualTo(Direction.Up));
             Assert.That(secondFinalBox.state, Is.EqualTo(EntityPhaseState.Sliding));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_Pipeline_SlidingBoxKillsEnemyOnSlideTile_RedirectsFacing()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var slideCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var slidingBox = CreateBox(20, sourceCell, state: EntityPhaseState.Sliding, facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, slideCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateTileFeature(100, slideCell, TileFeatureKind.Slide) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Right, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            var slideEvent = result.PresentationData.TileEvents[0];
+            Assert.That(slideEvent.EventKind, Is.EqualTo(TilePresentationEventKind.SlideTileRedirected));
+            Assert.That(slideEvent.TileId, Is.EqualTo(100));
+            Assert.That(slideEvent.Cell, Is.EqualTo(slideCell));
+            Assert.That(slideEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(slideEvent.Direction, Is.EqualTo(Direction.Right));
+            Assert.That(snapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(slideCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(boxAfter.facing, Is.EqualTo(Direction.Right));
+            Assert.That(snapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlideTile_Pipeline_SlidingBoxEnemySurvives_DoesNotRedirect()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var slideCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var slidingBox = CreateBox(20, sourceCell, state: EntityPhaseState.Sliding, facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, slideCell);
+            enemy.hp = 2;
+            enemy.maxHp = 2;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateTileFeature(100, slideCell, TileFeatureKind.Slide) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Right, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(
+                result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.SlideTileRedirected),
+                Is.False);
+            Assert.That(snapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(sourceCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(boxAfter.facing, Is.EqualTo(Direction.Up));
+            Assert.That(snapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.hp, Is.EqualTo(1));
         }
 
         [Test]

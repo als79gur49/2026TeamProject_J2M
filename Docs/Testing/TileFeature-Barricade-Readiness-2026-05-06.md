@@ -21,7 +21,7 @@
 - Button latch is documented as `TileFeatureFlags.Activated` runtime state. Authored initial Activated remains disallowed. Condition completion reads final snapshot state, not presentation events or requests.
 - MoonBlock identity remains `EntityType.Box + BoxArchetype.Moon`; `EntityType.MoonBlock` and `BoxCapabilities.Moon` remain forbidden.
 - DestroyTile remains movement-contact based and does not consume the tile feature. Stationary/spawn/topology/follow-through/flip landing false positives remain excluded by policy.
-- SlideTile remains facing-retarget only, FrontFaceOnly, cardinal direction, selector None, PushEnter/SlideEnter only, with DestroyTile winning.
+- SlideTile remains facing-retarget only, FrontFaceOnly, cardinal direction, selector None, PushEnter/SlideEnter plus Push/Slide ImpactFollowThrough, with DestroyTile winning.
 - Presentation events remain presentation-only. Request planner converts events to requests and does not decide gameplay.
 - Visual and audio consumers remain request-cache consumers, not authority readers.
 

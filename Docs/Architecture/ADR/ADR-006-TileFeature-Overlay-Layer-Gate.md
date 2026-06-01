@@ -121,8 +121,8 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - SlideTile activation rule is `FrontFaceOnly`.
 - SlideTile direction must be Up, Right, Down, or Left.
 - SlideTile selector must be `BoxSelector.None`.
-- SlideTile handles only `PushEnter` and `SlideEnter` contact kinds.
-- `FlipLanding` and `ImpactFollowThrough` are excluded from the MVP.
+- SlideTile handles `PushEnter`, `SlideEnter`, and Push/Slide `ImpactFollowThrough` contact kinds.
+- `FlipLanding` and Flip `ImpactFollowThrough` are excluded from the MVP.
 - SlideTile does not perform same-tick extra movement.
 - SlideTile retargets box facing only.
 - For sliding boxes, `EntityState.facing` is the authoritative continuation direction. SlideTile redirect changes facing, not position.

@@ -845,7 +845,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var contact = orderedContacts[i];
                 if (contact.EntityType != EntityType.Box ||
-                    !IsSlideRedirectContact(contact.ContactKind) ||
+                    !IsSlideRedirectContact(contact) ||
                     contact.EntityId <= 0 ||
                     (destroyedBoxIds != null && destroyedBoxIds.Contains(contact.EntityId)) ||
                     redirectedBoxIds.Contains(contact.EntityId) ||
@@ -1005,10 +1005,13 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool IsSlideRedirectContact(TileEffectEntityContactKind kind)
+        private static bool IsSlideRedirectContact(in TileEffectEntityContact contact)
         {
-            return kind == TileEffectEntityContactKind.PushEnter ||
-                   kind == TileEffectEntityContactKind.SlideEnter;
+            return contact.ContactKind == TileEffectEntityContactKind.PushEnter ||
+                   contact.ContactKind == TileEffectEntityContactKind.SlideEnter ||
+                   (contact.ContactKind == TileEffectEntityContactKind.ImpactFollowThrough &&
+                    (contact.MovementSemanticKind == MovementSemanticKind.Push ||
+                     contact.MovementSemanticKind == MovementSemanticKind.Slide));
         }
 
         private static bool TryResolveDirection(Direction2D direction, out Direction resolved)
