@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -9,7 +8,6 @@ using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -628,10 +626,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void PendingCellImpact_TargetAnchorRepresentableFalse_DoesNotInvalidateArrival()
         {
-            LogAssert.Expect(
-                LogType.Log,
-                new Regex(@"\[FCProjectile\]\[DUE_VALIDATE\].*Decision=Pass.*DecisionReason=None.*Diagnostics.TargetTerrainValid=False.*Diagnostics.TargetAnchorRepresentable=False"));
-
             var (result, _) = RunDirectPendingImpact(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
             var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
 
@@ -791,12 +785,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SourceStillAtLaunchSourceCellFalse_IsLoggedButDoesNotCancel()
+        public void SourceStillAtLaunchSourceCellFalse_DoesNotCancel()
         {
-            LogAssert.Expect(
-                LogType.Log,
-                new Regex(@"\[FCProjectile\]\[DUE_VALIDATE\].*Decision=Pass.*Diagnostics.SourceStillAtLaunchSourceCell=False"));
-
             var (result, _) = RunDirectPendingImpact(
                 playerCell: new SurfaceCell(FaceId.Floor, 1, 0),
                 beforeImpact: state => state.CreateWriteContext().MoveEntity(EnemyId, new SurfaceCell(FaceId.Floor, 0, 1)));
@@ -807,12 +797,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TargetAnchorRepresentableFalse_IsLoggedButDoesNotCancel()
+        public void TargetAnchorRepresentableFalse_DoesNotCancel()
         {
-            LogAssert.Expect(
-                LogType.Log,
-                new Regex(@"\[FCProjectile\]\[DUE_VALIDATE\].*Decision=Pass.*Diagnostics.TargetAnchorRepresentable=False"));
-
             var (result, _) = RunDirectPendingImpact(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
 
             Assert.That(result.AttackPhaseResult.PendingCellImpactResolutions.Single().ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.Hit));

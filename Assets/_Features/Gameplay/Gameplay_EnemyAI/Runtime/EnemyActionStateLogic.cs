@@ -332,26 +332,6 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot.TopologyRevision);
 
             writeContext.AddPendingCellImpact(impact);
-            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
-                impact.SourceEnemyId,
-                impact.TargetCell,
-                impact.ImpactTick,
-                impact.ImpactId);
-            ForwardCellProjectileDebugLog.MarkFired(
-                shotKey,
-                impact.SourceEnemyId,
-                impact.TargetCell,
-                impact.ImpactTick,
-                impact.ImpactId);
-            ForwardCellProjectileDebugLog.Log(
-                "RELEASE_PENDING_CREATED",
-                $"Tick={tickIndex} Shot={shotKey} Source={impact.SourceEnemyId} " +
-                $"SourceCell=({ForwardCellProjectileDebugLog.FormatCell(impact.SourceCell)}) " +
-                $"SourceFacing={source.facing} Dir={impact.Direction} " +
-                $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
-                $"ImpactTick={impact.ImpactTick} LaunchTopology={ForwardCellProjectileDebugLog.FormatTopology(impact.LaunchTopology)} " +
-                $"CreatedPending=true PendingCountAfterAdd={snapshot.CountPendingCellImpactsForOwner(impact.OwnerId) + 1} " +
-                $"Damage={impact.Damage}");
             if (settings.AttackCooldownTicks > 0)
             {
                 writeContext.SetEnemyAttackCooldown(

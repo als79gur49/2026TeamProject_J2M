@@ -169,14 +169,6 @@ namespace Game.Feature.Gameplay.Host
         {
             if (!TryResolveLiveOwner(request.OwnerEntityId, out var ownerView))
             {
-                LogProjectileImpactAudioPlay(
-                    request,
-                    tickIndex,
-                    bindingResolved: false,
-                    playbackCalled: false,
-                    ownerAttached: false,
-                    fallback2D: false,
-                    reason: "OwnerMissing");
                 return;
             }
 
@@ -190,14 +182,6 @@ namespace Game.Feature.Gameplay.Host
             if (authoring == null ||
                 !authoring.Profile.TryResolve(request.Cue, out var binding))
             {
-                LogProjectileImpactAudioPlay(
-                    request,
-                    tickIndex,
-                    bindingResolved: false,
-                    playbackCalled: false,
-                    ownerAttached: false,
-                    fallback2D: false,
-                    reason: "BindingMissing");
                 return;
             }
 
@@ -216,26 +200,10 @@ namespace Game.Feature.Gameplay.Host
             if (binding.HasAttachmentSlot)
             {
                 _playbackPort.PlayAttached(binding.Definition, ownerView, binding.AttachmentSlot, request.Context);
-                LogProjectileImpactAudioPlay(
-                    request,
-                    tickIndex,
-                    bindingResolved: true,
-                    playbackCalled: true,
-                    ownerAttached: true,
-                    fallback2D: false,
-                    reason: "PlayedAttached");
                 return;
             }
 
             _playbackPort.Play2D(binding.Definition, request.Context);
-            LogProjectileImpactAudioPlay(
-                request,
-                tickIndex,
-                bindingResolved: true,
-                playbackCalled: true,
-                ownerAttached: false,
-                fallback2D: true,
-                reason: "Played2D");
         }
 
         private void DrainDeferredRequests(int tickIndex)
@@ -339,39 +307,6 @@ namespace Game.Feature.Gameplay.Host
                 (int)request.Cue,
                 request.OwnerEntityId,
                 orderIndex);
-        }
-
-        private static void LogProjectileImpactAudioPlay(
-            in EnemyAudioRequest request,
-            int tickIndex,
-            bool bindingResolved,
-            bool playbackCalled,
-            bool ownerAttached,
-            bool fallback2D,
-            string reason)
-        {
-            if (request.Cue != EnemyAudioCue.ProjectileImpact)
-            {
-                return;
-            }
-
-            var identity = request.Identity;
-            var shotKey = identity.IsValid
-                ? ForwardCellProjectileDebugLog.BuildShotKey(
-                    identity.SourceEntityId,
-                    identity.TargetCell,
-                    identity.ImpactTick,
-                    identity.ImpactId,
-                    identity.PresentationKey)
-                : ForwardCellProjectileDebugLog.BuildShotKey(
-                    request.OwnerEntityId,
-                    default,
-                    tickIndex);
-            ForwardCellProjectileDebugLog.Log(
-                "AUDIO_PLAY",
-                $"Tick={tickIndex} Shot={shotKey} Cue=ProjectileImpact " +
-                $"BindingResolved={bindingResolved} PlaybackCalled={playbackCalled} " +
-                $"OwnerAttached={ownerAttached} Fallback2D={fallback2D} Reason={reason}");
         }
 
         private bool TryResolveLiveOwner(int ownerEntityId, out GameplayEntityView ownerView)

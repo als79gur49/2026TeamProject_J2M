@@ -918,11 +918,6 @@ namespace Game.Feature.Gameplay.Loop
                     playerOutcomeSignals,
                     enemyUtilityPhaseStates,
                     playerTopologyTransitionBlockedSignals);
-            LogForwardCellProjectilePresentationFinal(
-                context,
-                forwardCellImpactSignals,
-                forwardCellProjectileArrivalSignals,
-                presentationData);
             return presentationData;
         }
 
@@ -1014,17 +1009,6 @@ namespace Game.Feature.Gameplay.Loop
                         impact.ReleaseTick,
                         impact.ImpactTick,
                         impact.ImpactTick - impact.ReleaseTick));
-                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
-                    impact.SourceEnemyId,
-                    impact.TargetCell,
-                    impact.ImpactTick,
-                    impact.ImpactId);
-                ForwardCellProjectileDebugLog.Log(
-                    "RELEASE_FLIGHT_VFX",
-                    $"Tick={context.CurrentTickIndex} Shot={shotKey} Source={impact.SourceEnemyId} " +
-                    $"TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
-                    "FlightSignalCreated=true FlightCommandCreated=false " +
-                    "Cue=ForwardCellProjectileFlight FlightHandleCreated=false");
             }
         }
 
@@ -1038,21 +1022,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var resolution = resolutions[i];
                 var impact = resolution.Impact;
-                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
-                    impact.SourceEnemyId,
-                    impact.TargetCell,
-                    impact.ImpactTick,
-                    impact.ImpactId);
-                var hitSignalCreated = resolution.ResultKind.IsActualHit();
                 var arrivalSignalCreated = resolution.ResultKind.IsValidArrival();
-                ForwardCellProjectileDebugLog.Log(
-                    "PRESENTATION_BUILD",
-                    $"Tick={context.CurrentTickIndex} Shot={shotKey} Resolution={resolution.ResultKind} " +
-                    $"IsValidArrival={ForwardCellProjectileDebugLog.IsValidArrival(resolution.ResultKind)} " +
-                    $"IsActualHit={ForwardCellProjectileDebugLog.IsActualHit(resolution.ResultKind)} " +
-                    $"ForwardCellImpactSignalCreated={hitSignalCreated} ArrivalSignalCreated={arrivalSignalCreated} " +
-                    $"ArrivalSignalPolicy=ValidArrivalOnly TargetCell=({ForwardCellProjectileDebugLog.FormatCell(impact.TargetCell)}) " +
-                    $"ImpactId={impact.ImpactId} PresentationKey={impact.ImpactId}");
 
                 if (arrivalSignalCreated)
                 {
@@ -1085,102 +1055,6 @@ namespace Game.Feature.Gameplay.Loop
                         resolution.Hit,
                         resolution.TargetEntityId));
             }
-        }
-
-        private static void LogForwardCellProjectilePresentationFinal(
-            in TickPresentationBuildContext context,
-            IReadOnlyList<TickForwardCellImpactPresentationSignal> forwardCellImpactSignals,
-            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> forwardCellProjectileArrivalSignals,
-            TickPresentationData presentationData)
-        {
-            var resolutions = context.AttackPhaseResult.PendingCellImpactResolutions;
-            for (var i = 0; i < resolutions.Count; i++)
-            {
-                var resolution = resolutions[i];
-                var impact = resolution.Impact;
-                var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
-                    impact.SourceEnemyId,
-                    impact.TargetCell,
-                    impact.ImpactTick,
-                    impact.ImpactId);
-                var containsShotHitSignal = ContainsForwardCellImpactSignal(
-                    forwardCellImpactSignals,
-                    impact.ImpactId,
-                    impact.SourceEnemyId,
-                    impact.TargetCell);
-                var containsShotArrivalSignal = ContainsForwardCellProjectileArrivalSignal(
-                    forwardCellProjectileArrivalSignals,
-                    impact.ImpactId,
-                    impact.SourceEnemyId,
-                    impact.TargetCell);
-                ForwardCellProjectileDebugLog.MarkPresentation(
-                    shotKey,
-                    presentationData.ForwardCellImpactSignals.Count,
-                    presentationData.ForwardCellProjectileArrivalSignals.Count,
-                    containsShotHitSignal,
-                    containsShotArrivalSignal);
-                ForwardCellProjectileDebugLog.Log(
-                    "PRESENTATION_FINAL",
-                    $"Tick={context.CurrentTickIndex} Shot={shotKey} " +
-                    $"FinalForwardCellImpactSignalCount={presentationData.ForwardCellImpactSignals.Count} " +
-                    $"FinalArrivalSignalCount={presentationData.ForwardCellProjectileArrivalSignals.Count} " +
-                    $"ContainsShotArrivalSignal={containsShotArrivalSignal} " +
-                    $"ContainsShotHitSignal={containsShotHitSignal}");
-                if (!resolution.ResultKind.IsActualHit())
-                {
-                    ForwardCellProjectileDebugLog.LogSummary(shotKey);
-                }
-            }
-        }
-
-        private static bool ContainsForwardCellImpactSignal(
-            IReadOnlyList<TickForwardCellImpactPresentationSignal> signals,
-            int impactId,
-            int sourceEnemyId,
-            SurfaceCell targetCell)
-        {
-            if (signals == null)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < signals.Count; i++)
-            {
-                var signal = signals[i];
-                if (signal.ImpactId == impactId &&
-                    signal.SourceEnemyId == sourceEnemyId &&
-                    signal.TargetCell.Equals(targetCell))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool ContainsForwardCellProjectileArrivalSignal(
-            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> signals,
-            int impactId,
-            int sourceEnemyId,
-            SurfaceCell targetCell)
-        {
-            if (signals == null)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < signals.Count; i++)
-            {
-                var signal = signals[i];
-                if (signal.ImpactId == impactId &&
-                    signal.SourceEnemyId == sourceEnemyId &&
-                    signal.TargetCell.Equals(targetCell))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static int ComputeForwardCellProjectilePresentationKey(int ownerId, int actionSequence)

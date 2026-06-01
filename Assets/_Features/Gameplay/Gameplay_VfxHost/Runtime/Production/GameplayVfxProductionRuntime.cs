@@ -865,38 +865,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (isStageTerminalVfxSuppressed)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
-                LogForwardCellProjectileProductionGate(
-                    context,
-                    controllerWillRun: false,
-                    "StageTerminalSuppressed");
                 return;
             }
 
             if (IsTopologyTransitionStart(context))
             {
-                LogForwardCellProjectileProductionGate(
-                    context,
-                    controllerWillRun: false,
-                    "TopologyTransitionStart");
                 ClearGameplayVfxForTopologyTransitionStart(context.TopologyTransitionEpoch);
                 return;
             }
 
             if (isTopologyTransitionVfxSuppressed)
             {
-                LogForwardCellProjectileProductionGate(
-                    context,
-                    controllerWillRun: false,
-                    "TopologyTransitionSuppressed");
                 return;
             }
 
             if (!AnyGameplayVfxEnabled)
             {
-                LogForwardCellProjectileProductionGate(
-                    context,
-                    controllerWillRun: false,
-                    "AllGameplayVfxDisabled");
                 enemyMotionAttachedFollowerPlanner.Clear();
                 return;
             }
@@ -972,12 +956,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var shouldPlayForwardCellProjectile =
                 enableGameplayVfxForwardCellProjectile &&
                 HasForwardCellProjectileSignal(context.Result.PresentationData);
-            LogForwardCellProjectileProductionGate(
-                context,
-                shouldPlayForwardCellProjectile,
-                shouldPlayForwardCellProjectile
-                    ? ResolveForwardCellProjectileProductionGateReason(context.Result.PresentationData)
-                    : "GateFalse");
             if (plan.Requests.Count == 0 &&
                 !shouldPlayFlipDestroySelfMotion &&
                 !shouldPlayBoxSlideSolidStop &&
@@ -1021,10 +999,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             if (shouldPlayForwardCellProjectile)
             {
                 forwardCellProjectileVfxController.Present(context, pool, bindingResolver, visibilityContext);
-                LogForwardCellProjectileProductionGate(
-                    context,
-                    controllerWillRun: true,
-                    "ControllerExecuted");
             }
 
             var forwardCellProjectileCommandCount = shouldPlayForwardCellProjectile
@@ -2931,37 +2905,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     presentationData.ForwardCellProjectileReleaseSignals.Count > 0 ||
                     presentationData.ForwardCellProjectileClearSignals.Count > 0 ||
                     presentationData.ForwardCellProjectileArrivalSignals.Count > 0);
-        }
-
-        private static string ResolveForwardCellProjectileProductionGateReason(TickPresentationData presentationData)
-        {
-            if (presentationData != null &&
-                presentationData.ForwardCellProjectileArrivalSignals.Count > 0)
-            {
-                return "ArrivalSignalPresent";
-            }
-
-            return "ForwardCellSignalPresent";
-        }
-
-        private static void LogForwardCellProjectileProductionGate(
-            in GameplayTickPresentationExtensionContext context,
-            bool controllerWillRun,
-            string reason)
-        {
-            var presentationData = context.Result?.PresentationData;
-            if (presentationData == null)
-            {
-                return;
-            }
-
-            ForwardCellProjectileDebugLog.MarkProductionGateForTick(
-                context.Result.TickIndex,
-                arrivalSignalCount: presentationData.ForwardCellProjectileArrivalSignals.Count,
-                hitSignalCount: presentationData.ForwardCellImpactSignals.Count,
-                releaseSignalCount: presentationData.ForwardCellProjectileReleaseSignals.Count,
-                controllerWillRun,
-                reason);
         }
 
         private readonly struct ImpactTransientBreakInstanceKey : IEquatable<ImpactTransientBreakInstanceKey>

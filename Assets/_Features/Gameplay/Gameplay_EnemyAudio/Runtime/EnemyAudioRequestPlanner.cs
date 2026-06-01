@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
             BuildJumpRequests(result.PresentationData, requests);
             BuildGlideRequests(result.PresentationData, requests);
             BuildChargeRequests(result.PresentationData, requests);
-            BuildProjectileImpactRequests(result.PresentationData, result.TickIndex, requests);
+            BuildProjectileImpactRequests(result.PresentationData, requests);
             BuildDeathRequests(result.PresentationData, timingProfile, requests);
             BuildStationaryActiveRequests(result.FinalEntities, motionFactEntityIds, requests);
             return requests;
@@ -323,7 +323,6 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
         private static void BuildProjectileImpactRequests(
             TickPresentationData presentationData,
-            int tickIndex,
             ICollection<EnemyAudioRequest> requests)
         {
             var arrivalSignals = presentationData.ForwardCellProjectileArrivalSignals;
@@ -343,38 +342,6 @@ namespace Game.Feature.Gameplay.EnemyAudio
                         requests,
                         identity: identity);
                 }
-
-                LogProjectileImpactAudioPlan(
-                    tickIndex,
-                    presentationData,
-                    signal.SourceEnemyId,
-                    signal.TargetCell,
-                    signal.ImpactTick,
-                    signal.ImpactId,
-                    signal.PresentationKey,
-                    requestCreated,
-                    reason);
-            }
-
-            var impactSignals = presentationData.ForwardCellImpactSignals;
-            for (var i = 0; i < impactSignals.Count; i++)
-            {
-                var signal = impactSignals[i];
-                if (ContainsArrivalSignal(arrivalSignals, signal))
-                {
-                    continue;
-                }
-
-                LogProjectileImpactAudioPlan(
-                    tickIndex,
-                    presentationData,
-                    signal.SourceEnemyId,
-                    signal.TargetCell,
-                    0,
-                    signal.ImpactId,
-                    signal.PresentationKey,
-                    false,
-                    "NoArrivalSignal");
             }
         }
 
@@ -410,51 +377,6 @@ namespace Game.Feature.Gameplay.EnemyAudio
             }
 
             return "ArrivalSignal";
-        }
-
-        private static bool ContainsArrivalSignal(
-            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> arrivals,
-            in TickForwardCellImpactPresentationSignal impactSignal)
-        {
-            for (var i = 0; i < arrivals.Count; i++)
-            {
-                var arrival = arrivals[i];
-                if (arrival.ImpactId == impactSignal.ImpactId &&
-                    arrival.PresentationKey == impactSignal.PresentationKey &&
-                    arrival.SourceEnemyId == impactSignal.SourceEnemyId &&
-                    arrival.TargetCell.Equals(impactSignal.TargetCell))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static void LogProjectileImpactAudioPlan(
-            int tickIndex,
-            TickPresentationData presentationData,
-            int sourceEnemyId,
-            SurfaceCell targetCell,
-            int impactTick,
-            int impactId,
-            int presentationKey,
-            bool requestCreated,
-            string reason)
-        {
-            var shotKey = ForwardCellProjectileDebugLog.BuildShotKey(
-                sourceEnemyId,
-                targetCell,
-                impactTick,
-                impactId,
-                presentationKey);
-            ForwardCellProjectileDebugLog.Log(
-                "AUDIO_PLAN",
-                $"Tick={tickIndex} Shot={shotKey} " +
-                $"ArrivalSignals={presentationData.ForwardCellProjectileArrivalSignals.Count} " +
-                $"HitSignals={presentationData.ForwardCellImpactSignals.Count} " +
-                $"ProjectileImpactSfxRequestCreated={requestCreated} " +
-                $"Source=ArrivalSignal Cue=ProjectileImpact Reason={reason}");
         }
 
         private static void BuildDeathRequests(
