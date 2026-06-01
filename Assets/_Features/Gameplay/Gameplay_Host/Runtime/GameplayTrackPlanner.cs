@@ -127,6 +127,57 @@ namespace Game.Feature.Gameplay.Host
         public string Reason { get; }
     }
 
+    internal readonly struct KinematicTrackRebaseDiagnostic
+    {
+        public KinematicTrackRebaseDiagnostic(
+            int tickIndex,
+            int entityId,
+            int operationId,
+            SurfaceCell sourceAnchor,
+            SurfaceCell destinationAnchor,
+            KinematicOffset2 sourceLocalOffset,
+            KinematicOffset2 destinationLocalOffset,
+            float remainingSeconds,
+            Vector3 rebasedSourcePosition,
+            Vector3 destinationPosition,
+            string reason)
+        {
+            TickIndex = tickIndex;
+            EntityId = entityId;
+            OperationId = operationId;
+            SourceAnchor = sourceAnchor;
+            DestinationAnchor = destinationAnchor;
+            SourceLocalOffset = sourceLocalOffset;
+            DestinationLocalOffset = destinationLocalOffset;
+            RemainingSeconds = Mathf.Max(0f, remainingSeconds);
+            RebasedSourcePosition = rebasedSourcePosition;
+            DestinationPosition = destinationPosition;
+            Reason = reason ?? string.Empty;
+        }
+
+        public int TickIndex { get; }
+
+        public int EntityId { get; }
+
+        public int OperationId { get; }
+
+        public SurfaceCell SourceAnchor { get; }
+
+        public SurfaceCell DestinationAnchor { get; }
+
+        public KinematicOffset2 SourceLocalOffset { get; }
+
+        public KinematicOffset2 DestinationLocalOffset { get; }
+
+        public float RemainingSeconds { get; }
+
+        public Vector3 RebasedSourcePosition { get; }
+
+        public Vector3 DestinationPosition { get; }
+
+        public string Reason { get; }
+    }
+
     internal sealed class GameplayTrackPlanner
     {
         internal const float FlipPeakPlayerHeightMultiplier = 1.4f;
@@ -207,6 +258,7 @@ namespace Game.Feature.Gameplay.Host
             var presentationData = result.PresentationData;
             _stateStore.LastMotionTrackBuildDiagnostics.Clear();
             _stateStore.LastKinematicTrackBuildDiagnostics.Clear();
+            _stateStore.LastKinematicTrackRebaseDiagnostics.Clear();
             RefreshPresentationEventTargets(presentationData);
             var kinematicEntityIds = CollectKinematicEntityIds(presentationData);
             var flipImpactTimingSettings = _motionTimingResolver.ResolveFlipImpactTimingSettings(timingProfile);
@@ -691,6 +743,8 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.KinematicMotionTracks.Count; i++)
             {
                 var track = presentationData.KinematicMotionTracks[i];
+                MotionTrack existingKinematicTrack = null;
+                _trackState.KinematicMotionTracks.TryGetValue(track.EntityId, out existingKinematicTrack);
                 _trackState.LocalMotionTracks.Remove(track.EntityId);
                 _stateStore.RetainedLocalTargetPoses.Remove(track.EntityId);
                 if (!_poseResolver.TryResolveKinematicLocalPose(
@@ -715,9 +769,38 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                var shouldRebaseActiveKinematicTrack =
+                    ShouldRebaseActiveKinematicTrackOnPresentationBoundary(
+                        track,
+                        presentationData,
+                        existingKinematicTrack);
+                var rebasedSourcePose = sourcePose;
+                var rebaseRemainingSeconds = 0f;
+                var rebaseReason = string.Empty;
+                var rebased = shouldRebaseActiveKinematicTrack &&
+                              TryResolveKinematicRebaseSourcePose(
+                                  track.EntityId,
+                                  existingKinematicTrack,
+                                  out rebasedSourcePose,
+                                  out rebaseRemainingSeconds,
+                                  out rebaseReason);
+                if (rebased)
+                {
+                    sourcePose = rebasedSourcePose;
+                    RecordKinematicTrackRebase(
+                        tickIndex,
+                        track,
+                        rebaseRemainingSeconds,
+                        sourcePose,
+                        destinationPose,
+                        rebaseReason);
+                }
+
                 if (ShouldCreateKinematicInterpolationTrack(sourcePose, destinationPose, track))
                 {
-                    var durationSeconds = ResolveKinematicTrackDurationSeconds(track, timingProfile);
+                    var durationSeconds = rebased
+                        ? rebaseRemainingSeconds
+                        : ResolveKinematicTrackDurationSeconds(track, timingProfile);
                     var motionTrack = new MotionTrack();
                     motionTrack.Append(
                         MotionClip.Create(
@@ -803,6 +886,56 @@ namespace Game.Feature.Gameplay.Host
                         : MotionMode.Held,
                     track.TerminalKind);
             }
+        }
+
+        private static bool ShouldRebaseActiveKinematicTrackOnPresentationBoundary(
+            in TickKinematicMotionTrack track,
+            TickPresentationData presentationData,
+            MotionTrack existingTrack)
+        {
+            if (track.TerminalKind != TickKinematicMotionTerminalKind.None)
+            {
+                return false;
+            }
+
+            if (existingTrack == null ||
+                !existingTrack.HasClips)
+            {
+                return false;
+            }
+
+            // Future: allow rebase for explicit view re-enable / presentation discontinuity
+            // once the planner receives a boundary signal before RefreshKinematicTracks.
+            return presentationData.TopologyMotion.HasValue;
+        }
+
+        private bool TryResolveKinematicRebaseSourcePose(
+            int entityId,
+            MotionTrack existingTrack,
+            out GameplayEntityPose sourcePose,
+            out float remainingSeconds,
+            out string reason)
+        {
+            remainingSeconds = existingTrack != null
+                ? existingTrack.HeadRemainingSeconds
+                : 0f;
+
+            if (_stateStore.PresentedLocalPosesByEntityId.TryGetValue(entityId, out sourcePose))
+            {
+                reason = "PresentedPose";
+                return true;
+            }
+
+            if (existingTrack != null &&
+                existingTrack.TrySampleCurrentPose(out sourcePose))
+            {
+                reason = "ActiveTrackSample";
+                return true;
+            }
+
+            sourcePose = default;
+            reason = "MissingCurrentVisualPose";
+            return false;
         }
 
         private static bool ShouldCreateKinematicInterpolationTrack(
@@ -905,6 +1038,44 @@ namespace Game.Feature.Gameplay.Host
                 $"|ShouldUpdateFacing={(diagnostic.ShouldUpdateFacing ? 1 : 0)}" +
                 $"|Duration={diagnostic.DurationSeconds}" +
                 $"|InterpolationActive={(diagnostic.InterpolationActive ? 1 : 0)}" +
+                $"|Reason={diagnostic.Reason}");
+#endif
+        }
+
+        private void RecordKinematicTrackRebase(
+            int tickIndex,
+            in TickKinematicMotionTrack track,
+            float remainingSeconds,
+            in GameplayEntityPose sourcePose,
+            in GameplayEntityPose destinationPose,
+            string reason)
+        {
+            var diagnostic = new KinematicTrackRebaseDiagnostic(
+                tickIndex,
+                track.EntityId,
+                track.OperationId,
+                track.SourceAnchorCell,
+                track.DestinationAnchorCell,
+                track.SourceLocalOffset,
+                track.DestinationLocalOffset,
+                remainingSeconds,
+                sourcePose.Position,
+                destinationPose.Position,
+                reason);
+            _stateStore.LastKinematicTrackRebaseDiagnostics.Add(diagnostic);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            UnityEngine.Debug.Log(
+                "[KinematicTrackRebase]" +
+                $"Tick={diagnostic.TickIndex}" +
+                $"|Entity={diagnostic.EntityId}" +
+                $"|OperationId={diagnostic.OperationId}" +
+                $"|SourceAnchor={diagnostic.SourceAnchor}" +
+                $"|DestinationAnchor={diagnostic.DestinationAnchor}" +
+                $"|SourceLocalOffset={diagnostic.SourceLocalOffset}" +
+                $"|DestinationLocalOffset={diagnostic.DestinationLocalOffset}" +
+                $"|RemainingSeconds={diagnostic.RemainingSeconds}" +
+                $"|RebasedSourcePosition={diagnostic.RebasedSourcePosition}" +
+                $"|DestinationPosition={diagnostic.DestinationPosition}" +
                 $"|Reason={diagnostic.Reason}");
 #endif
         }

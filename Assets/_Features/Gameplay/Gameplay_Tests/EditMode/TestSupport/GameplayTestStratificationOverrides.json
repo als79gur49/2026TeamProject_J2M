@@ -3635,6 +3635,56 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.KinematicTrack_OrdinaryContinuation_DoesNotRebaseSourcePoseEveryTick",
+      "category": "Core",
+      "contracts": [
+        "kinematic_track_authoritative_carrier",
+        "presentation_source_pose_continuity"
+      ],
+      "reason": "Locked Core coverage that ordinary same-topology kinematic continuation uses authoritative carrier source and normal movement duration instead of rebasing from the current rendered pose every tick.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.KinematicTrack_TopologyReturn_RebasesSourcePoseFromCurrentRenderedPose",
+      "category": "Core",
+      "contracts": [
+        "kinematic_track_topology_return",
+        "presentation_source_pose_continuity"
+      ],
+      "reason": "Locked Core coverage that topology return rebases an active kinematic track from the current rendered pose instead of stale held/acquire/settle source pose.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.KinematicTrack_ViewReenable_PreservesProgressAcrossTopologyTransition",
+      "category": "Core",
+      "contracts": [
+        "kinematic_track_topology_return",
+        "view_reenable_progress_continuity"
+      ],
+      "reason": "Locked Core coverage that re-enabling an entity view during topology return preserves active kinematic progress without applying a teleport.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.KinematicTrack_OrdinarySettle_DoesNotTeleportAfterContinuation",
+      "category": "Core",
+      "contracts": [
+        "kinematic_track_authoritative_carrier",
+        "kinematic_locomotion_continuity"
+      ],
+      "reason": "Locked Core coverage that ordinary same-topology continuation does not accumulate presented-pose rebase drift before a settle or terminal pose handoff.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTickPresentationCoordinatorTests.KinematicTrack_TopologyBoundaryWrap_NormalizesLocalOffsetDelta",
+      "category": "Core",
+      "contracts": [
+        "kinematic_track_topology_boundary_wrap",
+        "presentation_local_offset_equivalence"
+      ],
+      "reason": "Locked Core coverage that adjacent-anchor local offset wrap resolves to an equivalent presentation pose instead of a full-cell visual jump.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.RocketFaceChargeRuntimeContractTests.EnemyCharge_RocketFaceProfile_ActivatedBarricadeStopsActiveChargeAndThenRecovers",
       "category": "Core",
       "contracts": [

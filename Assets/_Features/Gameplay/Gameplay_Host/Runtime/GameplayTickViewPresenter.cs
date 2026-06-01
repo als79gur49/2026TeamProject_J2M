@@ -241,6 +241,9 @@ namespace Game.Feature.Gameplay.Host
         internal IReadOnlyList<KinematicTrackBuildDiagnostic> DebugLastKinematicTrackBuildDiagnostics =>
             _presentationCoordinator.DebugLastKinematicTrackBuildDiagnostics;
 
+        internal IReadOnlyList<KinematicTrackRebaseDiagnostic> DebugLastKinematicTrackRebaseDiagnostics =>
+            _presentationCoordinator.DebugLastKinematicTrackRebaseDiagnostics;
+
         internal IReadOnlyList<KinematicViewApplyDiagnostic> DebugLastKinematicViewApplyDiagnostics =>
             _presentationCoordinator.DebugLastKinematicViewApplyDiagnostics;
 

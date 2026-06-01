@@ -2572,6 +2572,381 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void KinematicTrack_OrdinaryContinuation_DoesNotRebaseSourcePoseEveryTick()
+        {
+            var rootObject = new GameObject(nameof(KinematicTrack_OrdinaryContinuation_DoesNotRebaseSourcePoseEveryTick));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreatePlayerUnit(10, sourceCell) }, topology);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 0,
+                                    sourceCell,
+                                    destinationLocalX: 1024,
+                                    topology),
+                            })));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                var currentRenderedPosition = view.transform.localPosition;
+                var authoritativeSource = GetProjectedKinematicEntityPosition(
+                    boardBounds,
+                    topology,
+                    sourceCell,
+                    EntityType.Unit,
+                    1024,
+                    0);
+                Assert.That(Vector3.Distance(currentRenderedPosition, authoritativeSource), Is.GreaterThan(0.001f));
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 1024,
+                                    sourceCell,
+                                    destinationLocalX: 2048,
+                                    topology),
+                            })));
+
+                Assert.That(presenter.DebugLastKinematicTrackRebaseDiagnostics, Is.Empty);
+                AssertPositionApproximately(view.transform.localPosition, authoritativeSource);
+
+                var buildDiagnostic = presenter.DebugLastKinematicTrackBuildDiagnostics.Single(diagnostic =>
+                    diagnostic.EntityId == 10);
+                Assert.That(buildDiagnostic.TrackCreated, Is.True);
+                Assert.That(buildDiagnostic.DurationSeconds, Is.EqualTo(timingProfile.MoveMotionDurationSeconds).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicTrack_TopologyReturn_RebasesSourcePoseFromCurrentRenderedPose()
+        {
+            var rootObject = new GameObject(nameof(KinematicTrack_TopologyReturn_RebasesSourcePoseFromCurrentRenderedPose));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var floorTopology = new CubeTopologyState(FaceId.Floor);
+                var frontTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(binder, boardBounds, floorTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreatePlayerUnit(10, sourceCell) }, floorTopology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        floorTopology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 0,
+                                    sourceCell,
+                                    destinationLocalX: 1024,
+                                    floorTopology),
+                            })));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                var currentRenderedPosition = view.transform.localPosition;
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        floorTopology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 0,
+                                    sourceCell,
+                                    destinationLocalX: 2048,
+                                    floorTopology),
+                            },
+                            topologyMotion: new TickTopologyMotion(frontTopology, floorTopology, CubeRotationKind.Backward))));
+
+                AssertPositionApproximately(view.transform.localPosition, currentRenderedPosition);
+                var rebaseDiagnostic = presenter.DebugLastKinematicTrackRebaseDiagnostics.Single(diagnostic =>
+                    diagnostic.EntityId == 10);
+                Assert.That(rebaseDiagnostic.Reason, Is.EqualTo("PresentedPose"));
+                AssertPositionApproximately(rebaseDiagnostic.RebasedSourcePosition, currentRenderedPosition);
+                Assert.That(
+                    rebaseDiagnostic.RemainingSeconds,
+                    Is.EqualTo(timingProfile.MoveMotionDurationSeconds * 0.5f).Within(0.001f));
+
+                var buildDiagnostic = presenter.DebugLastKinematicTrackBuildDiagnostics.Single(diagnostic =>
+                    diagnostic.EntityId == 10);
+                Assert.That(buildDiagnostic.TrackCreated, Is.True);
+                Assert.That(buildDiagnostic.DurationSeconds, Is.EqualTo(rebaseDiagnostic.RemainingSeconds).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicTrack_ViewReenable_PreservesProgressAcrossTopologyTransition()
+        {
+            var rootObject = new GameObject(nameof(KinematicTrack_ViewReenable_PreservesProgressAcrossTopologyTransition));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var floorTopology = new CubeTopologyState(FaceId.Floor);
+                var frontTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(binder, boardBounds, floorTopology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreatePlayerUnit(10, sourceCell) }, floorTopology);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        floorTopology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 0,
+                                    sourceCell,
+                                    destinationLocalX: 1024,
+                                    floorTopology),
+                            })));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                var currentRenderedPosition = view.transform.localPosition;
+                view.SetVisible(false);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        floorTopology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 0,
+                                    sourceCell,
+                                    destinationLocalX: 2048,
+                                    floorTopology),
+                            },
+                            topologyMotion: new TickTopologyMotion(frontTopology, floorTopology, CubeRotationKind.Backward))));
+
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                AssertPositionApproximately(view.transform.localPosition, currentRenderedPosition);
+                Assert.That(
+                    presenter.DebugLastKinematicViewApplyDiagnostics.Any(diagnostic =>
+                        diagnostic.EntityId == 10 &&
+                        diagnostic.TrackActive &&
+                        !diagnostic.TeleportApplied &&
+                        diagnostic.Reason == "Interpolated"),
+                    Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicTrack_OrdinarySettle_DoesNotTeleportAfterContinuation()
+        {
+            var rootObject = new GameObject(nameof(KinematicTrack_OrdinarySettle_DoesNotTeleportAfterContinuation));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(new[] { CreatePlayerUnit(10, sourceCell) }, topology);
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 0,
+                                    sourceCell,
+                                    destinationLocalX: 1024,
+                                    topology),
+                            })));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds * 0.5f);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 1024,
+                                    sourceCell,
+                                    destinationLocalX: 2048,
+                                    topology),
+                            })));
+                Assert.That(presenter.DebugLastKinematicTrackRebaseDiagnostics, Is.Empty);
+                Assert.That(
+                    presenter.DebugLastKinematicViewApplyDiagnostics.Any(diagnostic =>
+                        diagnostic.EntityId == 10 &&
+                        diagnostic.TrackActive &&
+                        !diagnostic.TeleportApplied),
+                    Is.True);
+
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                var settledPosition = GetProjectedKinematicEntityPosition(
+                    boardBounds,
+                    topology,
+                    sourceCell,
+                    EntityType.Unit,
+                    2048,
+                    0);
+                AssertPositionApproximately(view.transform.localPosition, settledPosition);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 3,
+                        new[] { CreatePlayerUnit(10, sourceCell) },
+                        topology,
+                        CreateKinematicPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new[]
+                            {
+                                CreateKinematicTrack(
+                                    10,
+                                    sourceCell,
+                                    sourceLocalX: 2048,
+                                    sourceCell,
+                                    destinationLocalX: 2048,
+                                    topology,
+                                    terminalKind: TickKinematicMotionTerminalKind.Removed),
+                            })));
+
+                Assert.That(presenter.DebugLastKinematicTrackRebaseDiagnostics, Is.Empty);
+                AssertPositionApproximately(view.transform.localPosition, settledPosition);
+                Assert.That(
+                    presenter.DebugLastKinematicViewApplyDiagnostics.Any(diagnostic =>
+                        diagnostic.EntityId == 10 &&
+                        !diagnostic.TeleportApplied),
+                    Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void KinematicTrack_TopologyBoundaryWrap_NormalizesLocalOffsetDelta()
+        {
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+            var sourcePosition = GetProjectedKinematicEntityPosition(
+                boardBounds,
+                topology,
+                sourceCell,
+                EntityType.Unit,
+                localX: KinematicFixed.MaxPositiveLocalOffset,
+                localY: 0);
+            var destinationPosition = GetProjectedKinematicEntityPosition(
+                boardBounds,
+                topology,
+                destinationCell,
+                EntityType.Unit,
+                localX: KinematicFixed.MinLocalOffset,
+                localY: 0);
+
+            Assert.That(
+                Vector3.Distance(sourcePosition, destinationPosition),
+                Is.LessThan(0.001f),
+                "Adjacent-anchor local offset wrap should resolve to an equivalent presentation pose, not a full-cell visual jump.");
+        }
+
+        [Test]
+        [Category("Core")]
         public void GlidePresentation_ComposesWithActiveMove()
         {
             var rootObject = new GameObject("GlidePresentation_ComposesWithActiveMove");
@@ -10660,11 +11035,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TickEntityMotion> entityMotions,
             IReadOnlyList<TickKinematicMotionTrack> kinematicMotionTracks,
             IReadOnlyList<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
-            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null)
+            IReadOnlyList<TickEnemyGlidePresentationSignal> enemyGlideSignals = null,
+            TickTopologyMotion? topologyMotion = null)
         {
             return new TickPresentationData(
                 entityMotions,
-                topologyMotion: null,
+                topologyMotion: topologyMotion,
                 visibilityChanges: Array.Empty<TickVisibilityChange>(),
                 transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
                 playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),

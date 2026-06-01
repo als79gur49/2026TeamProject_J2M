@@ -31,6 +31,22 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public float HeadRemainingSeconds => _clips.Count > 0
+            ? _clips[0].RemainingSeconds
+            : 0f;
+
+        public bool TrySampleCurrentPose(out GameplayEntityPose pose)
+        {
+            if (_clips.Count == 0)
+            {
+                pose = default;
+                return false;
+            }
+
+            pose = _clips[0].Sample();
+            return true;
+        }
+
         public void Append(MotionClip clip)
         {
             if (clip == null)

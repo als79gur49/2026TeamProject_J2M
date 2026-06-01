@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, EntityPresentationApplySignature> _lastEnemyApplySignaturesByEntityId = new();
         private readonly List<MotionTrackBuildDiagnostic> _lastMotionTrackBuildDiagnostics = new();
         private readonly List<KinematicTrackBuildDiagnostic> _lastKinematicTrackBuildDiagnostics = new();
+        private readonly List<KinematicTrackRebaseDiagnostic> _lastKinematicTrackRebaseDiagnostics = new();
         private readonly List<KinematicViewApplyDiagnostic> _lastKinematicViewApplyDiagnostics = new();
         private readonly Dictionary<int, UnitRole> _unitRolesByEntityId = new();
         private readonly Dictionary<int, JumpDetachedVisibilityState> _jumpDetachedVisibilityStates = new();
@@ -60,6 +61,9 @@ namespace Game.Feature.Gameplay.Host
         internal List<KinematicTrackBuildDiagnostic> LastKinematicTrackBuildDiagnostics =>
             _lastKinematicTrackBuildDiagnostics;
 
+        internal List<KinematicTrackRebaseDiagnostic> LastKinematicTrackRebaseDiagnostics =>
+            _lastKinematicTrackRebaseDiagnostics;
+
         internal List<KinematicViewApplyDiagnostic> LastKinematicViewApplyDiagnostics =>
             _lastKinematicViewApplyDiagnostics;
 
@@ -87,6 +91,7 @@ namespace Game.Feature.Gameplay.Host
             _lastEnemyApplySignaturesByEntityId.Clear();
             _lastMotionTrackBuildDiagnostics.Clear();
             _lastKinematicTrackBuildDiagnostics.Clear();
+            _lastKinematicTrackRebaseDiagnostics.Clear();
             _lastKinematicViewApplyDiagnostics.Clear();
             _unitRolesByEntityId.Clear();
             _jumpDetachedVisibilityStates.Clear();
