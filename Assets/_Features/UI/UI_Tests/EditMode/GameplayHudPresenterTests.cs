@@ -499,6 +499,27 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void HUDRootPresenter_NonBlockingMoonBlockLocalPresentation_DoesNotDimShell()
+        {
+            var source = new ManualGameplayUiPresentationSource();
+            var playerStatusPresenter = new PlayerStatusPresenter();
+            var stageInfoPresenter = new StageInfoPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter();
+            using var rootPresenter = new HUDRootPresenter(
+                source,
+                stageInfoPresenter,
+                objectiveHudPresenter,
+                playerStatusPresenter);
+
+            source.PublishSnapshot(CreateSnapshot(
+                hasBlockingPresentation: false,
+                canAcceptGameplayCommands: true));
+
+            Assert.That(rootPresenter.ViewModel.IsDimmed, Is.False);
+            Assert.That(rootPresenter.ViewModel.IsGameplayReadOnly, Is.False);
+        }
+
+        [Test]
         public void ActionBarPresenter_UsesAuthoritativeRecoveryCountdown_AndHidesZero()
         {
             var presenter = new ActionBarPresenter();

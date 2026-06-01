@@ -6489,10 +6489,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayTickViewPresenter_MoonBlockDestroy_UsesDestroyTileTargetInsteadOfRespawnCommittedPose()
+        public void GameplayTickViewPresenter_MoonBlockDestroyRespawn_IsNonBlockingAndRebindsLiveViewToRespawnPose()
         {
             var rootObject = new GameObject(
-                nameof(GameplayTickViewPresenter_MoonBlockDestroy_UsesDestroyTileTargetInsteadOfRespawnCommittedPose));
+                nameof(GameplayTickViewPresenter_MoonBlockDestroyRespawn_IsNonBlockingAndRebindsLiveViewToRespawnPose));
 
             try
             {
@@ -6543,14 +6543,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(moonBlockView.gameObject.activeSelf, Is.True);
                 AssertPositionApproximately(
                     moonBlockView.transform.localPosition,
-                    GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box));
+                    GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box));
                 Assert.That(
                     Vector3.Distance(
                         moonBlockView.transform.localPosition,
-                        GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box)),
+                        GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box)),
                     Is.GreaterThan(0.1f));
-                Assert.That(presenter.HasBlockingPresentation, Is.True);
-                Assert.That(moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>(), Is.Null);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.EqualTo(1));
+                Assert.That(moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>(), Is.Not.Null);
             }
             finally
             {
@@ -6560,10 +6561,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayTickViewPresenter_MoonBlockDestroy_StartsEmergenceOnlyAfterDestroyShrinkCompletes()
+        public void GameplayTickViewPresenter_MoonBlockDestroy_UsesTokenGhostSourceWithoutBlockingLiveEmergence()
         {
             var rootObject = new GameObject(
-                nameof(GameplayTickViewPresenter_MoonBlockDestroy_StartsEmergenceOnlyAfterDestroyShrinkCompletes));
+                nameof(GameplayTickViewPresenter_MoonBlockDestroy_UsesTokenGhostSourceWithoutBlockingLiveEmergence));
 
             try
             {
@@ -6611,8 +6612,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(registry.TryGetView(40, out var moonBlockView), Is.True);
                 AssertPositionApproximately(
                     moonBlockView.transform.localPosition,
-                    GetProjectedEntityPosition(boardBounds, topology, destroyTileCell, EntityType.Box));
-                Assert.That(moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>(), Is.Null);
+                    GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box));
+                var driver = moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(driver.DebugPlayCount, Is.EqualTo(1));
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.EqualTo(1));
 
                 vfxState.SetState(40, 9002, DestroyShrinkVfxSequenceState.SourceCloneCaptured);
                 presenter.UpdatePresentation(0f);
@@ -6620,24 +6625,142 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssertPositionApproximately(
                     moonBlockView.transform.localPosition,
                     GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box));
-                AssertPositionApproximately(moonBlockView.ModelRoot.localScale, Vector3.zero);
-                var driver = moonBlockView.GetComponent<MoonBlockEmergencePresentationDriver>();
-                Assert.That(driver, Is.Not.Null);
-                Assert.That(driver.IsPlaying, Is.False);
-                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.EqualTo(0));
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
 
                 vfxState.SetState(40, 9002, DestroyShrinkVfxSequenceState.Playing);
                 presenter.UpdatePresentation(0.01f);
 
-                Assert.That(driver.IsPlaying, Is.False);
-                AssertPositionApproximately(moonBlockView.ModelRoot.localScale, Vector3.zero);
+                AssertPositionApproximately(
+                    moonBlockView.transform.localPosition,
+                    GetProjectedEntityPosition(boardBounds, topology, generatorCell, EntityType.Box));
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.EqualTo(0));
 
                 vfxState.SetState(40, 9002, DestroyShrinkVfxSequenceState.Completed);
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(driver.IsPlaying, Is.True);
                 Assert.That(presenter.HasBlockingPresentation, Is.False);
-                Assert.That(driver.DebugPlayCount, Is.EqualTo(1));
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_MoonBlockDestroyGhost_CleansUpOnViewUnregister()
+        {
+            var rootObject = new GameObject(
+                nameof(GameplayTickViewPresenter_MoonBlockDestroyGhost_CleansUpOnViewUnregister));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destroyTileCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var generatorCell = new SurfaceCell(FaceId.Floor, 3, 0);
+                var vfxState = new RecordingDestroyShrinkVfxStateExtension();
+                vfxState.SetState(40, 9003, DestroyShrinkVfxSequenceState.ScheduledDelay);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.AttachPresentationExtension(vfxState);
+                presenter.PresentInitial(new[] { CreateBox(40, sourceCell) }, topology);
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[] { CreateBox(40, generatorCell) },
+                        topology,
+                        CreateMoonBlockDestroyAndGeneratedPresentationData(
+                            entityId: 40,
+                            sourceCell,
+                            destroyTileCell,
+                            generatorCell,
+                            topology,
+                            presentationSeed: 9003)));
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds + 0.01f);
+
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.EqualTo(1));
+
+                Assert.That(registry.Unregister(40), Is.True);
+
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.Zero);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayTickViewPresenter_TopologyTransitionClearsMoonBlockGhostAndKeepsTopologyBlocking()
+        {
+            var rootObject = new GameObject(
+                nameof(GameplayTickViewPresenter_TopologyTransitionClearsMoonBlockGhostAndKeepsTopologyBlocking));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destroyTileCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var generatorCell = new SurfaceCell(FaceId.Floor, 3, 0);
+                var vfxState = new RecordingDestroyShrinkVfxStateExtension();
+                vfxState.SetState(40, 9100, DestroyShrinkVfxSequenceState.ScheduledDelay);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    sourceTopology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.AttachPresentationExtension(vfxState);
+                presenter.PresentInitial(new[] { CreateBox(40, sourceCell) }, sourceTopology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        1,
+                        new[] { CreateBox(40, generatorCell) },
+                        destinationTopology,
+                        CreateMoonBlockDestroyAndGeneratedPresentationData(
+                            entityId: 40,
+                            sourceCell,
+                            destroyTileCell,
+                            generatorCell,
+                            sourceTopology,
+                            presentationSeed: 9100,
+                            topologyMotion: new TickTopologyMotion(
+                                sourceTopology,
+                                destinationTopology,
+                                CubeRotationKind.Forward))));
+
+                Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.Zero);
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(registry.TryGetView(40, out var moonBlockView), Is.True);
+                AssertPositionApproximately(
+                    moonBlockView.transform.localPosition,
+                    GetProjectedEntityPosition(boardBounds, destinationTopology, generatorCell, EntityType.Box));
             }
             finally
             {
@@ -10727,7 +10850,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell destroyTileCell,
             SurfaceCell generatorCell,
             CubeTopologyState topology,
-            int presentationSeed)
+            int presentationSeed,
+            TickTopologyMotion? topologyMotion = null)
         {
             return new TickPresentationData(
                 new[]
@@ -10738,7 +10862,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         sourceCell,
                         destroyTileCell),
                 },
-                topologyMotion: null,
+                topologyMotion: topologyMotion,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),

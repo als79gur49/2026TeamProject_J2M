@@ -1877,9 +1877,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 this.modelRoot = modelRoot;
             }
 
-            public bool TryResolveCloneSource(int sourceEntityId, out GameplayVfxCloneSource source)
+            public bool TryResolveCloneSource(GameplayVfxCloneSourceKey key, out GameplayVfxCloneSource source)
             {
-                if (sourceEntityId == 30 && modelRoot != null)
+                if (key.SourceEntityId == 30 && modelRoot != null)
                 {
                     source = new GameplayVfxCloneSource(modelRoot);
                     return true;

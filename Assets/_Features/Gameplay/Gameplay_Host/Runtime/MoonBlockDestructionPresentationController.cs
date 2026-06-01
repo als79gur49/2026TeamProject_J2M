@@ -9,12 +9,17 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class MoonBlockDestructionPresentationController
     {
+        private const float SequenceTimeoutSeconds = 5f;
+        private const string GhostRootPrefix = "MoonBlockDestructionGhost";
+        private const string GhostModelRootName = "ModelRoot";
+
         private readonly Dictionary<int, ActiveMoonBlockDestructionSequence> _activeByEntityId = new();
         private readonly List<int> _completedEntityIds = new();
         private readonly Func<int, int, DestroyShrinkVfxSequenceState> _resolveDestroyShrinkState;
         private readonly GameplayExitPresentationController _exitPresentationController;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
+        private GameplayEntityViewRegistry _viewRegistry;
 
         public MoonBlockDestructionPresentationController(
             GameplayPresentationStateStore stateStore,
@@ -30,12 +35,52 @@ namespace Game.Feature.Gameplay.Host
                 resolveDestroyShrinkState ?? ((_, _) => DestroyShrinkVfxSequenceState.None);
         }
 
-        public bool HasActiveBlockingSequence => _activeByEntityId.Count > 0;
+        public int ActiveGhostCount
+        {
+            get
+            {
+                var count = 0;
+                foreach (var pair in _activeByEntityId)
+                {
+                    if (pair.Value.GhostRoot != null)
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+        }
 
         public void ResetSession()
         {
-            _activeByEntityId.Clear();
+            CleanupAllSequences();
             _completedEntityIds.Clear();
+        }
+
+        public void ConfigureViewRegistry(GameplayEntityViewRegistry viewRegistry)
+        {
+            if (ReferenceEquals(_viewRegistry, viewRegistry))
+            {
+                return;
+            }
+
+            if (_viewRegistry != null)
+            {
+                _viewRegistry.ViewUnregistered -= HandleViewUnregistered;
+            }
+
+            _viewRegistry = viewRegistry;
+            if (_viewRegistry != null)
+            {
+                _viewRegistry.ViewUnregistered += HandleViewUnregistered;
+            }
+        }
+
+        public void Dispose()
+        {
+            ConfigureViewRegistry(null);
+            ResetSession();
         }
 
         public void RefreshSequences(
@@ -62,13 +107,20 @@ namespace Game.Feature.Gameplay.Host
                 var sequenceId = signal.PresentationSeed != 0
                     ? signal.PresentationSeed
                     : ComputeDestroyShrinkSequenceId(tickIndex, signal);
-                _activeByEntityId[signal.ExitedEntityId] = new ActiveMoonBlockDestructionSequence(
+                if (_activeByEntityId.TryGetValue(signal.ExitedEntityId, out var existing))
+                {
+                    CleanupSequence(existing);
+                }
+
+                var sequence = new ActiveMoonBlockDestructionSequence(
                     signal.ExitedEntityId,
                     sequenceId,
                     tickIndex,
                     signal.PresentationTargetCell,
                     signal.Topology,
                     signal.Facing);
+                CaptureVisualOnlyGhost(sequence);
+                _activeByEntityId[signal.ExitedEntityId] = sequence;
             }
         }
 
@@ -95,6 +147,29 @@ namespace Game.Feature.Gameplay.Host
         public bool ShouldHoldDeferredExitCleanup(int entityId)
         {
             return _activeByEntityId.ContainsKey(entityId);
+        }
+
+        public bool ShouldBypassLiveExitOwnership(int entityId)
+        {
+            return _activeByEntityId.ContainsKey(entityId);
+        }
+
+        public bool TryStartDestructionGhostMotion(
+            int entityId,
+            GameplayEntityPose startPose,
+            GameplayEntityPose endPose,
+            float durationSeconds)
+        {
+            if (!_activeByEntityId.TryGetValue(entityId, out var sequence))
+            {
+                return false;
+            }
+
+            sequence.StartGhostMotion(startPose, endPose, durationSeconds);
+            _trackState.LocalMotionTracks.Remove(entityId);
+            _trackState.MotionVisualScaleEntityIds.Remove(entityId);
+            _stateStore.RetainedLocalTargetPoses.Remove(entityId);
+            return true;
         }
 
         public void QueueOrStartMoonBlockGeneratedRequests(
@@ -125,20 +200,14 @@ namespace Game.Feature.Gameplay.Host
                     request.TargetEntityId,
                     request.SpawnTick,
                     request.SpawnInteractionLockTicks);
-                if (_activeByEntityId.TryGetValue(request.TargetEntityId, out var sequence))
-                {
-                    sequence.PendingReappearance = emergenceRequest;
-                    sequence.HasPendingReappearance = true;
-                    continue;
-                }
-
                 emergenceController.QueueRequest(emergenceRequest, currentTickIndex);
             }
         }
 
         public void UpdateSequences(
             MoonBlockEmergencePresentationController emergenceController,
-            int currentTickIndex)
+            int currentTickIndex,
+            float deltaTime = 0f)
         {
             if (emergenceController == null)
             {
@@ -154,56 +223,51 @@ namespace Game.Feature.Gameplay.Host
             foreach (var pair in _activeByEntityId)
             {
                 var sequence = pair.Value;
-                if (!sequence.MotionComplete &&
-                    !HasActiveLocalMotion(sequence.EntityId))
-                {
-                    sequence.MotionComplete = true;
-                }
+                sequence.Advance(deltaTime);
 
-                var vfxState = _resolveDestroyShrinkState(sequence.EntityId, sequence.SequenceId);
-                if (!sequence.ShrinkCloneCaptured &&
-                    IsCloneCapturedState(vfxState))
+                if (sequence.IsTimedOut)
                 {
-                    sequence.ShrinkCloneCaptured = true;
-                    ReleaseSourceOwnershipAfterCloneCaptured(sequence, emergenceController);
-                }
-
-                if (!sequence.ShrinkCloneCaptured &&
-                    sequence.MotionComplete &&
-                    (vfxState == DestroyShrinkVfxSequenceState.None ||
-                     vfxState == DestroyShrinkVfxSequenceState.Failed))
-                {
-                    sequence.ShrinkCloneCaptured = true;
-                    sequence.ShrinkVfxComplete = true;
-                    ReleaseSourceOwnershipAfterCloneCaptured(sequence, emergenceController);
-                }
-
-                if (!sequence.ShrinkVfxComplete &&
-                    (vfxState == DestroyShrinkVfxSequenceState.Completed ||
-                     vfxState == DestroyShrinkVfxSequenceState.Failed))
-                {
-                    sequence.ShrinkVfxComplete = true;
-                }
-
-                if (!sequence.ShrinkVfxComplete)
-                {
+                    _completedEntityIds.Add(sequence.EntityId);
                     continue;
                 }
 
-                if (sequence.HasPendingReappearance)
+                var vfxState = _resolveDestroyShrinkState(sequence.EntityId, sequence.SequenceId);
+                if (IsCloneCapturedState(vfxState))
                 {
-                    emergenceController.QueueRequest(sequence.PendingReappearance, currentTickIndex);
+                    CleanupGhostVisual(sequence);
                 }
 
-                _completedEntityIds.Add(sequence.EntityId);
+                if (sequence.MotionComplete &&
+                    (vfxState == DestroyShrinkVfxSequenceState.None ||
+                     vfxState == DestroyShrinkVfxSequenceState.Failed))
+                {
+                    _completedEntityIds.Add(sequence.EntityId);
+                    continue;
+                }
+
+                if (vfxState == DestroyShrinkVfxSequenceState.Completed ||
+                    vfxState == DestroyShrinkVfxSequenceState.Failed)
+                {
+                    _completedEntityIds.Add(sequence.EntityId);
+                }
             }
 
             for (var i = 0; i < _completedEntityIds.Count; i++)
             {
-                _activeByEntityId.Remove(_completedEntityIds[i]);
+                if (_activeByEntityId.TryGetValue(_completedEntityIds[i], out var sequence))
+                {
+                    CleanupSequence(sequence);
+                    _activeByEntityId.Remove(_completedEntityIds[i]);
+                }
             }
 
             _completedEntityIds.Clear();
+        }
+
+        public void ClearForTopologyTransitionStart(MoonBlockEmergencePresentationController emergenceController, int currentTickIndex)
+        {
+            CleanupAllSequences();
+            emergenceController?.NormalizeReadyAndActive(currentTickIndex);
         }
 
         private static bool IsMoonBlockDestructionCandidate(in TickEntityExitPresentationSignal signal)
@@ -213,6 +277,17 @@ namespace Game.Feature.Gameplay.Host
                    signal.ExitCause == TickEntityExitCause.BoxDestroy &&
                    signal.Timing == EntityExitPresentationTiming.AfterEntityMotion &&
                    signal.HasPresentationTargetCell;
+        }
+
+        private void HandleViewUnregistered(int entityId, GameplayEntityView view)
+        {
+            if (!_activeByEntityId.TryGetValue(entityId, out var sequence))
+            {
+                return;
+            }
+
+            CleanupSequence(sequence);
+            _activeByEntityId.Remove(entityId);
         }
 
         private static bool HasSameTickMoonBlockGeneratedRequest(
@@ -249,36 +324,101 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private bool HasActiveLocalMotion(int entityId)
+        private void CaptureVisualOnlyGhost(ActiveMoonBlockDestructionSequence sequence)
         {
-            return _trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack) &&
-                   motionTrack.HasClips;
+            if (!_stateStore.ViewsByEntityId.TryGetValue(sequence.EntityId, out var view) ||
+                view == null ||
+                view.ModelRoot == null)
+            {
+                return;
+            }
+
+            var ghostRoot = new GameObject($"{GhostRootPrefix}_{sequence.EntityId}_{sequence.SequenceId}");
+            ghostRoot.transform.SetParent(view.transform.parent, worldPositionStays: false);
+            ghostRoot.transform.localPosition = view.transform.localPosition;
+            ghostRoot.transform.localRotation = view.transform.localRotation;
+            ghostRoot.transform.localScale = view.transform.localScale;
+
+            var ghostModelRoot = UnityEngine.Object.Instantiate(
+                view.ModelRoot.gameObject,
+                ghostRoot.transform,
+                worldPositionStays: false);
+            ghostModelRoot.name = GhostModelRootName;
+            ghostModelRoot.transform.localPosition = view.ModelRoot.localPosition;
+            ghostModelRoot.transform.localRotation = view.ModelRoot.localRotation;
+            ghostModelRoot.transform.localScale = view.ModelRoot.localScale;
+            StripGameplayComponents(ghostModelRoot);
+            ghostRoot.SetActive(true);
+            sequence.AttachGhost(ghostRoot.transform, ghostModelRoot.transform);
+            _stateStore.VfxCloneSourceOverridesByKey[sequence.CloneSourceKey] = ghostModelRoot.transform;
         }
 
-        private void ReleaseSourceOwnershipAfterCloneCaptured(
-            ActiveMoonBlockDestructionSequence sequence,
-            MoonBlockEmergencePresentationController emergenceController)
+        private static void StripGameplayComponents(GameObject root)
         {
+            var colliders = root.GetComponentsInChildren<Collider>(includeInactive: true);
+            for (var i = 0; i < colliders.Length; i++)
+            {
+                SafeDestroy(colliders[i]);
+            }
+
+            var rigidbodies = root.GetComponentsInChildren<Rigidbody>(includeInactive: true);
+            for (var i = 0; i < rigidbodies.Length; i++)
+            {
+                SafeDestroy(rigidbodies[i]);
+            }
+
+            var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                SafeDestroy(behaviours[i]);
+            }
+        }
+
+        private void CleanupAllSequences()
+        {
+            foreach (var pair in _activeByEntityId)
+            {
+                CleanupSequence(pair.Value);
+            }
+
+            _activeByEntityId.Clear();
+        }
+
+        private void CleanupSequence(ActiveMoonBlockDestructionSequence sequence)
+        {
+            CleanupGhostVisual(sequence);
             _exitPresentationController.ReleaseDeferredAfterEntityMotionExitOwnership(sequence.EntityId);
             _trackState.LocalMotionTracks.Remove(sequence.EntityId);
             _trackState.MotionVisualScaleEntityIds.Remove(sequence.EntityId);
             _stateStore.RetainedLocalTargetPoses.Remove(sequence.EntityId);
             _stateStore.LastEnemyApplySignaturesByEntityId.Remove(sequence.EntityId);
+        }
 
-            if (!_stateStore.ViewsByEntityId.TryGetValue(sequence.EntityId, out var view) ||
-                view == null)
+        private void CleanupGhostVisual(ActiveMoonBlockDestructionSequence sequence)
+        {
+            _stateStore.VfxCloneSourceOverridesByKey.Remove(sequence.CloneSourceKey);
+            if (sequence.GhostRoot != null)
+            {
+                SafeDestroy(sequence.GhostRoot.gameObject);
+                sequence.ClearGhost();
+            }
+        }
+
+        private static void SafeDestroy(UnityEngine.Object obj)
+        {
+            if (obj == null)
             {
                 return;
             }
 
-            if (_stateStore.CommittedLocalTargetPoses.TryGetValue(sequence.EntityId, out var committedPose))
+            if (Application.isPlaying)
             {
-                view.ApplyLocalPose(committedPose.Position, committedPose.Rotation);
+                UnityEngine.Object.Destroy(obj);
             }
-
-            view.ResetModelRootVisualScale();
-            view.SetVisible(true);
-            emergenceController.PrepareHiddenReady(sequence.EntityId);
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(obj);
+            }
         }
 
         private static bool IsCloneCapturedState(DestroyShrinkVfxSequenceState state)
@@ -318,15 +458,85 @@ namespace Game.Feature.Gameplay.Host
 
             public Direction Facing { get; }
 
-            public bool MotionComplete { get; set; }
+            public GameplayVfxCloneSourceKey CloneSourceKey => new(EntityId, SequenceId);
 
-            public bool ShrinkCloneCaptured { get; set; }
+            public Transform GhostRoot { get; private set; }
 
-            public bool ShrinkVfxComplete { get; set; }
+            private Transform GhostModelRoot { get; set; }
 
-            public bool HasPendingReappearance { get; set; }
+            private GameplayEntityPose MotionStartPose { get; set; }
 
-            public MoonBlockEmergencePresentationRequest PendingReappearance { get; set; }
+            private GameplayEntityPose MotionEndPose { get; set; }
+
+            private float MotionDurationSeconds { get; set; }
+
+            private float MotionElapsedSeconds { get; set; }
+
+            private float SequenceElapsedSeconds { get; set; }
+
+            private bool HasGhostMotion { get; set; }
+
+            public bool MotionComplete { get; private set; }
+
+            public bool IsTimedOut => SequenceElapsedSeconds >= SequenceTimeoutSeconds;
+
+            public void AttachGhost(Transform ghostRoot, Transform ghostModelRoot)
+            {
+                GhostRoot = ghostRoot;
+                GhostModelRoot = ghostModelRoot;
+            }
+
+            public void ClearGhost()
+            {
+                GhostRoot = null;
+                GhostModelRoot = null;
+            }
+
+            public void StartGhostMotion(
+                GameplayEntityPose startPose,
+                GameplayEntityPose endPose,
+                float durationSeconds)
+            {
+                MotionStartPose = startPose;
+                MotionEndPose = endPose;
+                MotionDurationSeconds = Mathf.Max(0.0001f, durationSeconds);
+                MotionElapsedSeconds = 0f;
+                HasGhostMotion = true;
+                MotionComplete = false;
+                ApplyGhostPose(startPose);
+            }
+
+            public void Advance(float deltaTime)
+            {
+                SequenceElapsedSeconds += Mathf.Max(0f, deltaTime);
+                if (!HasGhostMotion || MotionComplete)
+                {
+                    return;
+                }
+
+                MotionElapsedSeconds += Mathf.Max(0f, deltaTime);
+                var progress = Mathf.Clamp01(MotionElapsedSeconds / MotionDurationSeconds);
+                var pose = new GameplayEntityPose(
+                    Vector3.Lerp(MotionStartPose.Position, MotionEndPose.Position, progress),
+                    Quaternion.Slerp(MotionStartPose.Rotation, MotionEndPose.Rotation, progress));
+                ApplyGhostPose(pose);
+                if (progress >= 1f)
+                {
+                    MotionComplete = true;
+                }
+            }
+
+            private void ApplyGhostPose(GameplayEntityPose pose)
+            {
+                if (GhostRoot == null)
+                {
+                    MotionComplete = true;
+                    return;
+                }
+
+                GhostRoot.localPosition = pose.Position;
+                GhostRoot.localRotation = pose.Rotation;
+            }
         }
     }
 }

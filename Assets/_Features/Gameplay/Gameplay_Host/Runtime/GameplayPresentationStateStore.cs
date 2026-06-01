@@ -5,6 +5,50 @@ using Game.Feature.Gameplay.Entities;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public readonly struct GameplayVfxCloneSourceKey : System.IEquatable<GameplayVfxCloneSourceKey>
+    {
+        public GameplayVfxCloneSourceKey(int sourceEntityId, int sequenceId)
+        {
+            SourceEntityId = sourceEntityId;
+            SequenceId = sequenceId;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int SequenceId { get; }
+
+        public bool IsValid => SourceEntityId > 0 && SequenceId != 0;
+
+        public bool Equals(GameplayVfxCloneSourceKey other)
+        {
+            return SourceEntityId == other.SourceEntityId &&
+                   SequenceId == other.SequenceId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is GameplayVfxCloneSourceKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (SourceEntityId * 397) ^ SequenceId;
+            }
+        }
+
+        public static bool operator ==(GameplayVfxCloneSourceKey left, GameplayVfxCloneSourceKey right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(GameplayVfxCloneSourceKey left, GameplayVfxCloneSourceKey right)
+        {
+            return !left.Equals(right);
+        }
+    }
+
     public sealed class GameplayPresentationStateStore
     {
         private readonly Dictionary<int, GameplayEntityPose> _committedLocalTargetPoses = new();
@@ -23,6 +67,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, GameplayEntityPose> _retainedLocalTargetPoses = new();
         private readonly Dictionary<int, TransitionVisibilityState> _transitionVisibilityStates = new();
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
+        private readonly Dictionary<GameplayVfxCloneSourceKey, UnityEngine.Transform> _vfxCloneSourceOverridesByKey = new();
 
         public Dictionary<int, GameplayEntityPose> CommittedLocalTargetPoses => _committedLocalTargetPoses;
 
@@ -59,6 +104,9 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, GameplayEntityView> ViewsByEntityId => _viewsByEntityId;
 
+        public Dictionary<GameplayVfxCloneSourceKey, UnityEngine.Transform> VfxCloneSourceOverridesByKey =>
+            _vfxCloneSourceOverridesByKey;
+
         public void ResetSession(CubeTopologyState topology)
         {
             CommittedTopology = topology;
@@ -77,6 +125,7 @@ namespace Game.Feature.Gameplay.Host
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
             _viewsByEntityId.Clear();
+            _vfxCloneSourceOverridesByKey.Clear();
             _processingEntityIds.Clear();
             _processingEntityIdBuffer.Clear();
             LastEntityPresentationApplyDiagnostics = default;

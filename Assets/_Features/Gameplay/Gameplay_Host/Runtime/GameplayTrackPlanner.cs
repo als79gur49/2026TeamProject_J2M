@@ -774,6 +774,17 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
+                var motionDurationSeconds = ResolveMotionDurationSeconds(presentationData, motion, timingProfile);
+                if (_moonBlockDestructionPresentationController != null &&
+                    _moonBlockDestructionPresentationController.TryStartDestructionGhostMotion(
+                        motion.EntityId,
+                        startLocalPose,
+                        endLocalPose,
+                        motionDurationSeconds))
+                {
+                    continue;
+                }
+
                 if (!_trackState.LocalMotionTracks.TryGetValue(motion.EntityId, out var track))
                 {
                     track = new MotionTrack();
@@ -785,7 +796,7 @@ namespace Game.Feature.Gameplay.Host
                         motion.MotionKind,
                         startLocalPose,
                         endLocalPose,
-                        ResolveMotionDurationSeconds(presentationData, motion, timingProfile),
+                        motionDurationSeconds,
                         IsTopologyTransitionPresentation(presentationData.TopologyMotion),
                         ResolveFlipPeakHeightWorld(
                             presentationData,

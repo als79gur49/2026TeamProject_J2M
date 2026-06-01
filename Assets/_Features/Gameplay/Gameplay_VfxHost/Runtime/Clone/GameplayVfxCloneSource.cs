@@ -25,7 +25,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
     public interface IGameplayVfxCloneSourceProvider
     {
         bool TryResolveCloneSource(
-            int sourceEntityId,
+            GameplayVfxCloneSourceKey key,
             out GameplayVfxCloneSource source);
     }
 
@@ -39,12 +39,21 @@ namespace Game.Feature.Gameplay.Vfx.Host
         }
 
         public bool TryResolveCloneSource(
-            int sourceEntityId,
+            GameplayVfxCloneSourceKey key,
             out GameplayVfxCloneSource source)
         {
             source = default;
-            if (sourceEntityId <= 0 ||
-                !stateStore.ViewsByEntityId.TryGetValue(sourceEntityId, out var view) ||
+            if (key.IsValid &&
+                stateStore.VfxCloneSourceOverridesByKey.TryGetValue(key, out var overrideModelRoot) &&
+                overrideModelRoot != null &&
+                overrideModelRoot.childCount > 0)
+            {
+                source = new GameplayVfxCloneSource(overrideModelRoot);
+                return true;
+            }
+
+            if (key.SourceEntityId <= 0 ||
+                !stateStore.ViewsByEntityId.TryGetValue(key.SourceEntityId, out var view) ||
                 view == null ||
                 view.ModelRoot == null ||
                 view.ModelRoot.childCount <= 0)

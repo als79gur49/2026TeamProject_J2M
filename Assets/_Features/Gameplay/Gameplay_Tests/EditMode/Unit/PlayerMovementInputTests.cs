@@ -782,6 +782,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PlayerLogic_MoveCommand_WhileMoonBlockSpawnLockActive_StillProducesMoveIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+            });
+            worldState.CreateWriteContext().SetBoxInteractionLockState(
+                20,
+                new BoxInteractionLockState(
+                    100,
+                    0,
+                    expiresTickExclusive: 8,
+                    blocksPush: true,
+                    blocksFlip: true,
+                    blocksDestroy: false,
+                    sourceReason: BoxInteractionLockSourceReason.MoonBlockGeneratorSpawn));
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                buffer);
+
+            Assert.That(buffer, Has.Count.EqualTo(1));
+            Assert.That(buffer[0].SourceId, Is.EqualTo(10));
+            Assert.That(buffer[0].Destination, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(buffer[0].CommandKind, Is.EqualTo(MovementCommandKind.Move));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerControlStateLogic_PushOtherBox_WhileMoonBlockSpawnLockActive_StillStartsPush()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            worldState.CreateWriteContext().SetBoxInteractionLockState(
+                20,
+                new BoxInteractionLockState(
+                    100,
+                    0,
+                    expiresTickExclusive: 8,
+                    blocksPush: true,
+                    blocksFlip: true,
+                    blocksDestroy: false,
+                    sourceReason: BoxInteractionLockSourceReason.MoonBlockGeneratorSpawn));
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(30));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerControlStateLogic_PendingPush_TargetLockedBeforeExecute_CancelsAction()
         {
             var worldState = CreateWorldState(new[]

@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Host
 
         public event Action<GameplayEntityView> ViewRegistered;
 
+        public event Action<int, GameplayEntityView> ViewUnregistered;
+
         private void Awake()
         {
             _searchRoot ??= transform;
@@ -85,7 +87,14 @@ namespace Game.Feature.Gameplay.Host
 
         public bool Unregister(int entityId)
         {
-            return _viewsByEntityId.Remove(entityId);
+            if (!_viewsByEntityId.TryGetValue(entityId, out var view))
+            {
+                return false;
+            }
+
+            _viewsByEntityId.Remove(entityId);
+            ViewUnregistered?.Invoke(entityId, view);
+            return true;
         }
     }
 }

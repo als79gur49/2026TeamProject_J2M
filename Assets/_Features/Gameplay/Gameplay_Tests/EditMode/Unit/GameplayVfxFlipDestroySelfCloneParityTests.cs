@@ -33,7 +33,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stateStore.ViewsByEntityId[30] = view;
                 var provider = new GameplayVfxStateStoreCloneSourceProvider(stateStore);
 
-                var resolved = provider.TryResolveCloneSource(30, out var source);
+                var resolved = provider.TryResolveCloneSource(new GameplayVfxCloneSourceKey(30, 1), out var source);
 
                 Assert.That(resolved, Is.True);
                 Assert.That(source.ModelRoot, Is.SameAs(modelRoot));
@@ -41,6 +41,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                Object.DestroyImmediate(viewObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CloneSourceProvider_SequenceOverrideWinsOnlyForMatchingToken()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var viewObject = new GameObject("LiveSourceView");
+            var overrideObject = new GameObject("MoonBlockGhostSource");
+            try
+            {
+                stateStore.ResetSession(new CubeTopologyState(FaceId.Floor));
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(30);
+                var liveModelRoot = view.EnsureModelRoot();
+                var liveChild = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.DestroyImmediate(liveChild.GetComponent<Collider>());
+                liveChild.transform.SetParent(liveModelRoot, worldPositionStays: false);
+
+                var overrideChild = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.DestroyImmediate(overrideChild.GetComponent<Collider>());
+                overrideChild.transform.SetParent(overrideObject.transform, worldPositionStays: false);
+                stateStore.ViewsByEntityId[30] = view;
+                stateStore.VfxCloneSourceOverridesByKey[new GameplayVfxCloneSourceKey(30, 9002)] = overrideObject.transform;
+                var provider = new GameplayVfxStateStoreCloneSourceProvider(stateStore);
+
+                Assert.That(
+                    provider.TryResolveCloneSource(new GameplayVfxCloneSourceKey(30, 9002), out var overrideSource),
+                    Is.True);
+                Assert.That(overrideSource.ModelRoot, Is.SameAs(overrideObject.transform));
+
+                Assert.That(
+                    provider.TryResolveCloneSource(new GameplayVfxCloneSourceKey(30, 9003), out var liveSource),
+                    Is.True);
+                Assert.That(liveSource.ModelRoot, Is.SameAs(liveModelRoot));
+            }
+            finally
+            {
+                Object.DestroyImmediate(overrideObject);
                 Object.DestroyImmediate(viewObject);
             }
         }
@@ -493,7 +534,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 this.modelRoot = modelRoot;
             }
 
-            public bool TryResolveCloneSource(int sourceEntityId, out GameplayVfxCloneSource source)
+            public bool TryResolveCloneSource(GameplayVfxCloneSourceKey key, out GameplayVfxCloneSource source)
             {
                 source = new GameplayVfxCloneSource(modelRoot);
                 return true;
@@ -504,7 +545,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public static readonly MissingCloneSourceProvider Instance = new();
 
-            public bool TryResolveCloneSource(int sourceEntityId, out GameplayVfxCloneSource source)
+            public bool TryResolveCloneSource(GameplayVfxCloneSourceKey key, out GameplayVfxCloneSource source)
             {
                 source = default;
                 return false;

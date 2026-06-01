@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPresentationTrackState _trackState;
         private GameplayTimingProfile _timingProfile;
         private Func<int, bool> _shouldHoldDeferredExitCleanup;
+        private Func<int, bool> _shouldBypassLiveExitOwnership;
 
         public GameplayExitPresentationController(
             GameplayAnimationSyncCoordinator animationSync,
@@ -67,6 +68,11 @@ namespace Game.Feature.Gameplay.Host
         public void SetDeferredExitCleanupHoldPredicate(Func<int, bool> predicate)
         {
             _shouldHoldDeferredExitCleanup = predicate;
+        }
+
+        public void SetLiveExitOwnershipBypassPredicate(Func<int, bool> predicate)
+        {
+            _shouldBypassLiveExitOwnership = predicate;
         }
 
         internal bool HasPendingContactDelayedExit(int entityId)
@@ -144,6 +150,12 @@ namespace Game.Feature.Gameplay.Host
         {
             foreach (var entityId in _exitOwnedEntityIds)
             {
+                if (_shouldBypassLiveExitOwnership != null &&
+                    _shouldBypassLiveExitOwnership(entityId))
+                {
+                    continue;
+                }
+
                 var timing = _exitTimingsByEntityId.TryGetValue(entityId, out var resolvedTiming)
                     ? resolvedTiming
                     : EntityExitPresentationTiming.Immediate;

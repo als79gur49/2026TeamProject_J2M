@@ -91,7 +91,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _currentTickIndex = currentTickIndex;
             _allowImmediateRegisteredStart = false;
-            PruneExpiredPendingRequests(currentTickIndex);
+            NormalizeExpiredPendingRequests(currentTickIndex);
             if (requests == null || requests.Count == 0)
             {
                 return;
@@ -120,7 +120,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _currentTickIndex = currentTickIndex;
             _allowImmediateRegisteredStart = false;
-            PruneExpiredPendingRequests(currentTickIndex);
+            NormalizeExpiredPendingRequests(currentTickIndex);
             if (request.EntityId <= 0)
             {
                 return;
@@ -146,7 +146,7 @@ namespace Game.Feature.Gameplay.Host
         public void StartReadyRequests(int currentTickIndex)
         {
             _currentTickIndex = currentTickIndex;
-            PruneExpiredPendingRequests(currentTickIndex);
+            NormalizeExpiredPendingRequests(currentTickIndex);
             if (_pendingByEntityId.Count == 0)
             {
                 _allowImmediateRegisteredStart = true;
@@ -198,6 +198,18 @@ namespace Game.Feature.Gameplay.Host
                     _activeDrivers.RemoveAt(i);
                 }
             }
+        }
+
+        public void NormalizeReadyAndActive(int currentTickIndex)
+        {
+            _currentTickIndex = currentTickIndex;
+            for (var i = 0; i < _activeDrivers.Count; i++)
+            {
+                _activeDrivers[i]?.NormalizeToFinalState();
+            }
+
+            _activeDrivers.Clear();
+            NormalizeExpiredPendingRequests(currentTickIndex, normalizeAllReady: true);
         }
 
         private void HandleViewRegistered(GameplayEntityView view)
@@ -254,7 +266,7 @@ namespace Game.Feature.Gameplay.Host
             return Mathf.Max(0.0001f, Mathf.Max(profileDurationSeconds, lockDurationSeconds));
         }
 
-        private void PruneExpiredPendingRequests(int currentTickIndex)
+        private void NormalizeExpiredPendingRequests(int currentTickIndex, bool normalizeAllReady = false)
         {
             if (_pendingByEntityId.Count == 0)
             {
@@ -264,10 +276,22 @@ namespace Game.Feature.Gameplay.Host
             _expiredPendingEntityIds.Clear();
             foreach (var entry in _pendingByEntityId)
             {
-                if (currentTickIndex >= entry.Value.ExpiresTickExclusive)
+                if (!normalizeAllReady && currentTickIndex < entry.Value.ExpiresTickExclusive)
                 {
-                    _expiredPendingEntityIds.Add(entry.Key);
+                    continue;
                 }
+
+                if (_viewRegistry == null ||
+                    !_viewRegistry.TryGetView(entry.Key, out var view) ||
+                    view == null)
+                {
+                    continue;
+                }
+
+                var driver = view.GetComponent<MoonBlockEmergencePresentationDriver>() ??
+                             view.gameObject.AddComponent<MoonBlockEmergencePresentationDriver>();
+                driver.NormalizeToFinalState();
+                _expiredPendingEntityIds.Add(entry.Key);
             }
 
             for (var i = 0; i < _expiredPendingEntityIds.Count; i++)

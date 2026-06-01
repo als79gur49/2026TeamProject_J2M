@@ -242,6 +242,9 @@ namespace Game.Feature.Gameplay.Host
         internal int PendingMoonBlockEmergenceRequestCount =>
             _presentationCoordinator.PendingMoonBlockEmergenceRequestCount;
 
+        internal int ActiveMoonBlockDestructionGhostCount =>
+            _presentationCoordinator.ActiveMoonBlockDestructionGhostCount;
+
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             _presentationCoordinator.DebugLastEntityPresentationApplyDiagnostics;
 

@@ -139,6 +139,8 @@ namespace Game.Feature.Gameplay.Host
                 ResolveDestroyShrinkVfxSequenceState);
             _exitPresentationController.SetDeferredExitCleanupHoldPredicate(
                 _moonBlockDestructionPresentationController.ShouldHoldDeferredExitCleanup);
+            _exitPresentationController.SetLiveExitOwnershipBypassPredicate(
+                _moonBlockDestructionPresentationController.ShouldBypassLiveExitOwnership);
             _planner = new GameplayTrackPlanner(
                 _stateStore,
                 _trackState,
@@ -162,7 +164,6 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasBlockingPresentation =>
             _topologyTransitionController.HasActiveBoardRotationTween ||
-            _moonBlockDestructionPresentationController.HasActiveBlockingSequence ||
             _presentationActivityInspector.HasActiveBlockingJumpLandingCompletion();
 
         public bool IsInitialized => _isInitialized;
@@ -204,6 +205,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingMoonBlockEmergenceRequestCount =>
             _moonBlockEmergencePresentationController.PendingRequestCount;
+
+        internal int ActiveMoonBlockDestructionGhostCount =>
+            _moonBlockDestructionPresentationController.ActiveGhostCount;
 
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             _stateStore.LastEntityPresentationApplyDiagnostics;
@@ -339,6 +343,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.Reset();
             _exitPresentationController.Configure(_projector, _timingProfile);
             _exitPresentationController.Reset();
+            _moonBlockDestructionPresentationController.ConfigureViewRegistry(viewBinder.ViewRegistry);
             _moonBlockDestructionPresentationController.ResetSession();
             _audioPresentationController.ResetSession();
             _actionAudioPresentationController.ResetSession();
@@ -488,6 +493,9 @@ namespace Game.Feature.Gameplay.Host
                 _currentEnemyGravityFieldAuraVisualStates);
             if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
             {
+                _moonBlockDestructionPresentationController.ClearForTopologyTransitionStart(
+                    _moonBlockEmergencePresentationController,
+                    result.TickIndex);
                 _topologyTransitionEpoch++;
             }
 
@@ -667,7 +675,8 @@ namespace Game.Feature.Gameplay.Host
             UpdateExtensions(deltaTime);
             _moonBlockDestructionPresentationController.UpdateSequences(
                 _moonBlockEmergencePresentationController,
-                _lastPresentedTickIndex);
+                _lastPresentedTickIndex,
+                deltaTime);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,
@@ -1072,6 +1081,7 @@ namespace Game.Feature.Gameplay.Host
 
         internal void HardCleanupPresentationExtensions()
         {
+            _moonBlockDestructionPresentationController.Dispose();
             _moonBlockEmergencePresentationController.Dispose();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {

@@ -427,7 +427,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             liveSourceSnapshot = VfxRendererInactiveVisualSnapshotSet.Empty;
             if (command.CloneMode == ParameterizedMotionVfxCloneMode.PrefabOnly ||
                 cloneSourceProvider == null ||
-                !cloneSourceProvider.TryResolveCloneSource(command.SourceEntityId, out var source) ||
+                !cloneSourceProvider.TryResolveCloneSource(
+                    new GameplayVfxCloneSourceKey(command.SourceEntityId, command.SequenceId),
+                    out var source) ||
                 source.ModelRoot == null)
             {
                 return false;

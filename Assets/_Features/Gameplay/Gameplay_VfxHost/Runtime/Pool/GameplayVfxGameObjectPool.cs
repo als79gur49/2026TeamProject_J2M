@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
@@ -496,7 +497,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool CanResolveSourceClone(in ParameterizedMotionVfxCommand motionCommand)
         {
             if (cloneSourceProvider == null ||
-                !cloneSourceProvider.TryResolveCloneSource(motionCommand.SourceEntityId, out var source) ||
+                !cloneSourceProvider.TryResolveCloneSource(
+                    new GameplayVfxCloneSourceKey(motionCommand.SourceEntityId, motionCommand.SequenceId),
+                    out var source) ||
                 source.ModelRoot == null)
             {
                 return false;
