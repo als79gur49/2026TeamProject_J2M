@@ -45,6 +45,8 @@ MonoBehaviour:
     PresentationId: secbot
   - EntityId: 111
     PresentationId: secbot
+  - EntityId: 373
+    PresentationId: secbot
   staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
   staticEntityPresentationBindings:
   - EntityId: 31

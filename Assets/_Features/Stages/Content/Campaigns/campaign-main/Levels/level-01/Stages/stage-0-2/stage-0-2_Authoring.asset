@@ -3541,6 +3541,23 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: wall_tutorial
+  - StableGuid: 638ded840b464111b4c031fa91bb5421
+    DisplayName: Enemy 102
+    Kind: 1
+    Cell:
+      face: 0
+      x: 3
+      y: 3
+    Facing: 4
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup: 
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 2d7c6c36902d4db3a4d7119f67d2114c, type: 2}
+    PresentationId: secbot
   tileFeatures:
   - TileId: 1
     Cell:
@@ -4463,4 +4480,8 @@ MonoBehaviour:
     EntityId: 372
     Retired: 0
     LastKnownDisplayName: Wall 343
+  - StableGuid: 638ded840b464111b4c031fa91bb5421
+    EntityId: 373
+    Retired: 0
+    LastKnownDisplayName: Enemy 102
   enforceGeneratedSync: 0
