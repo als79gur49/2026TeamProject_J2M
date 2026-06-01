@@ -1001,7 +1001,7 @@ MonoBehaviour:
     m_Value: 1
   outlineType:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 2
   outlineColor:
     m_OverrideState: 1
     m_Value: {r: 0, g: 0, b: 0, a: 1}
@@ -1030,7 +1030,7 @@ MonoBehaviour:
     m_OverrideState: 1
     m_Value:
       serializedVersion: 2
-      m_Bits: 1
+      m_Bits: 4294967295
   maskDrawingMode:
     m_OverrideState: 1
     m_Value: 0
@@ -1041,17 +1041,17 @@ MonoBehaviour:
     m_OverrideState: 1
     m_Value: 0
   maskIgnoreDepth:
-    m_OverrideState: 1
+    m_OverrideState: 0
     m_Value: 0
   useDepthNormals:
     m_OverrideState: 0
     m_Value: 0
   maskedOutlineThickness:
     m_OverrideState: 1
-    m_Value: 3
+    m_Value: 1
   maskedOutlineSmoothing:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 5
   outlineDrawSides:
     m_OverrideState: 1
     m_Value: 1
@@ -1077,7 +1077,7 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0
   useNoiseOffsets:
-    m_OverrideState: 1
+    m_OverrideState: 0
     m_Value: 0
   noiseScale:
     m_OverrideState: 0
