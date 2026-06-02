@@ -2195,6 +2195,26 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_WallFollower_HandRuleSeek_StableHash()
+        {
+            var firstReplay = RunWallFollowSeekReplaySequence();
+            var secondReplay = RunWallFollowSeekReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
+            Assert.That(firstReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage()
         {
             var firstReplay = RunPassiveContactReplaySequence();
@@ -2746,6 +2766,38 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         new TickInput(6),
                         new TickInput(7),
                         new TickInput(8),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunWallFollowSeekReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)),
+                GameplayTerrainData.Empty);
+            var profile = EnemyAiProfileTestFactory.CreateWallFollower(WallFollowTurnPreference.Left);
+
+            try
+            {
+                return new TickReplayHarness().Run(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    },
+                    new[]
+                    {
+                        new TickInput(1),
+                        new TickInput(2),
+                        new TickInput(3),
                     });
             }
             finally

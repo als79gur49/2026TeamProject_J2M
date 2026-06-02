@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string SunWheelProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset";
         private static readonly SurfaceCell WallFollowSource = new(FaceId.Floor, 1, 0);
-        private static readonly SurfaceCell WallFollowDestination = new(FaceId.Floor, 1, -1);
+        private static readonly SurfaceCell WallFollowDestination = new(FaceId.Floor, 0, 0);
 
         [Test]
         [Category("Extended")]
@@ -69,7 +69,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(new[]
             {
                 CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 1)),
-                CreateWall(91, new SurfaceCell(FaceId.Front, 1, -1)),
+                CreateWall(91, new SurfaceCell(FaceId.Front, WallFollowDestination.x, WallFollowDestination.y)),
                 CreateEnemy(WallFollowSource, Direction.Left),
             });
 
@@ -80,13 +80,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 destination: WallFollowDestination);
 
             Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(WallFollowDestination));
-            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(new SurfaceCell(FaceId.Front, 1, -1), out _), Is.True);
-            AssertNoGhostOrUnitSolidOverlap(worldState, WallFollowDestination, new SurfaceCell(FaceId.Front, 1, -1));
+            Assert.That(
+                worldState.CreateSnapshot().TryGetSolidSemanticAt(
+                    new SurfaceCell(FaceId.Front, WallFollowDestination.x, WallFollowDestination.y),
+                    out _),
+                Is.True);
+            AssertNoGhostOrUnitSolidOverlap(
+                worldState,
+                WallFollowDestination,
+                new SurfaceCell(FaceId.Front, WallFollowDestination.x, WallFollowDestination.y));
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyWallFollow_SunWheelProfile_OffBottomDoesNotCommitWallFollowStep()
+        public void EnemyWallFollow_OffBottom_DoesNotCommitFallback()
         {
             var staleDestination = new SurfaceCell(FaceId.Front, 0, 0);
             var worldState = CreateWorldState(
@@ -310,7 +317,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var source = new SurfaceCell(FaceId.Floor, 1, 1);
             var worldState = CreateWorldState(new[]
             {
-                CreateWall(90, new SurfaceCell(FaceId.Floor, 2, 1)),
+                CreateWall(90, new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateEnemy(source, Direction.Up),
             });
 
@@ -375,7 +382,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void SunWheel_LeftHand_BackBoundaryContextDoesNotReorderRightCandidate()
+        public void SunWheel_LeftHand_HandBackDiagonalPreservesCandidateOrder()
         {
             var source = new SurfaceCell(FaceId.Floor, 1, 1);
             var worldState = CreateWorldState(new[]
@@ -514,7 +521,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void SunWheel_NoTrackableBoundary_PreservesPositionAndFacingAcrossTicks()
+        public void SunWheel_EmptySpace_SeeksForward()
         {
             var source = new SurfaceCell(FaceId.Floor, 1, 1);
             var worldState = CreateWorldState(new[]
@@ -523,15 +530,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var pipeline = CreatePipeline(worldState, LoadSunWheelProfile());
 
-            for (var tickIndex = 1; tickIndex <= 3; tickIndex++)
-            {
-                var tick = pipeline.RunTick(new TickInput(tickIndex));
-                var enemy = GetEntity(worldState, EnemyId);
+            var tick = pipeline.RunTick(new TickInput(1));
 
-                Assert.That(tick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == EnemyId), Is.Empty);
-                Assert.That(enemy.position, Is.EqualTo(source));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
-            }
+            AssertSunWheelIntentDestination(tick, new Vector2Int(1, 2));
         }
 
         private static EnemyAiProfile LoadSunWheelProfile()

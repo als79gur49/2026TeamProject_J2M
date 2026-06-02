@@ -7461,8 +7461,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var enemy = GetEntity(worldState, 40);
 
                 Assert.That(result.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 }));
-                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, -1)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Down));
                 Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             }
             finally

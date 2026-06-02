@@ -2987,8 +2987,7 @@ namespace Game.Feature.Gameplay.Entities
                 _patrolSettings,
                 _tileFeatureDefinitions,
                 out _);
-            if (wallFollowOutcome == EnemyMovementStrategyShared.WallFollowHandRuleOutcome.NoTrackableBoundary ||
-                wallFollowOutcome == EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection ||
+            if (wallFollowOutcome == EnemyMovementStrategyShared.WallFollowHandRuleOutcome.BuiltDirection ||
                 !EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
                     source.facing,
                     _patrolSettings.TurnPreference,
