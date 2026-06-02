@@ -428,15 +428,18 @@ namespace Game.Feature.Gameplay.Loop
         private readonly TileFeatureOperationBatch _operations;
         private readonly FinalizationBatch _entityOperations;
         private readonly IReadOnlyList<TilePresentationEvent> _tileEvents;
+        private readonly IReadOnlyList<string> _eventLogEntries;
 
         public TileEffectResolutionResult(
             TileFeatureOperationBatch operations,
             FinalizationBatch entityOperations = null,
-            IReadOnlyList<TilePresentationEvent> tileEvents = null)
+            IReadOnlyList<TilePresentationEvent> tileEvents = null,
+            IReadOnlyList<string> eventLogEntries = null)
         {
             _operations = operations ?? throw new ArgumentNullException(nameof(operations));
             _entityOperations = entityOperations;
             _tileEvents = tileEvents ?? Array.Empty<TilePresentationEvent>();
+            _eventLogEntries = eventLogEntries ?? Array.Empty<string>();
         }
 
         public static TileEffectResolutionResult Empty => new(new TileFeatureOperationBatch());
@@ -446,6 +449,8 @@ namespace Game.Feature.Gameplay.Loop
         public FinalizationBatch EntityOperations => _entityOperations ?? new FinalizationBatch();
 
         public IReadOnlyList<TilePresentationEvent> TileEvents => _tileEvents ?? Array.Empty<TilePresentationEvent>();
+
+        public IReadOnlyList<string> EventLogEntries => _eventLogEntries ?? Array.Empty<string>();
 
         public bool IsEmpty => Operations.IsEmpty && EntityOperations.Operations.Count == 0 && TileEvents.Count == 0;
     }
@@ -483,7 +488,11 @@ namespace Game.Feature.Gameplay.Loop
             context.Snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
 
             var entityOperations = ResolveDestroyTiles(context, out var tileEvents, out var destroyedBoxIds);
-            entityOperations.MergeFrom(ResolveBarricadeCrushes(context, destroyedBoxIds, tileEvents));
+            entityOperations.MergeFrom(ResolveBarricadeCrushes(
+                context,
+                destroyedBoxIds,
+                tileEvents,
+                out var eventLogEntries));
             entityOperations.MergeFrom(ResolveSlideTiles(context, destroyedBoxIds, tileEvents));
 
             TileFeatureOperationBatch operations = null;
@@ -513,12 +522,14 @@ namespace Game.Feature.Gameplay.Loop
 
             return (operations == null || operations.IsEmpty) &&
                    entityOperations.Operations.Count == 0 &&
-                   tileEvents.Count == 0
+                   tileEvents.Count == 0 &&
+                   eventLogEntries.Count == 0
                 ? TileEffectResolutionResult.Empty
                 : new TileEffectResolutionResult(
                     operations ?? new TileFeatureOperationBatch(),
                     entityOperations,
-                    tileEvents);
+                    tileEvents,
+                    eventLogEntries);
         }
 
         private static bool ShouldLatchButton(
@@ -768,9 +779,11 @@ namespace Game.Feature.Gameplay.Loop
         private static FinalizationBatch ResolveBarricadeCrushes(
             in TileEffectResolutionContext context,
             HashSet<int> destroyedBoxIds,
-            List<TilePresentationEvent> tileEvents)
+            List<TilePresentationEvent> tileEvents,
+            out List<string> eventLogEntries)
         {
             var batch = new FinalizationBatch();
+            eventLogEntries = new List<string>();
             if (context.PreviousSnapshot == null)
             {
                 return batch;
@@ -783,8 +796,34 @@ namespace Game.Feature.Gameplay.Loop
                 var tileFeature = tileFeatures[i];
                 if (tileFeature.Kind != TileFeatureKind.Barricade ||
                     !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
-                    !IsBarricadeActivationTransition(context.PreviousSnapshot, context.Snapshot, tileFeature, definition) ||
-                    !TryGetValidOccupyingBox(context.Snapshot, tileFeature.Cell, out var box) ||
+                    !IsBarricadeEffectiveActivationTransition(
+                        context.PreviousSnapshot,
+                        context.Snapshot,
+                        tileFeature,
+                        definition,
+                        out var currentActivation))
+                {
+                    continue;
+                }
+
+                if (currentActivation.HasBlockingUnit)
+                {
+                    if (ShouldEmitBarricadeActivationDeferred(
+                            context.PreviousSnapshot,
+                            tileFeature,
+                            definition,
+                            currentActivation))
+                    {
+                        eventLogEntries.Add(FormatBarricadeActivationDeferred(
+                            tileFeature,
+                            currentActivation,
+                            context.TickIndex));
+                    }
+
+                    continue;
+                }
+
+                if (!TryGetValidOccupyingBox(context.Snapshot, tileFeature.Cell, out var box) ||
                     (destroyedBoxIds != null && destroyedBoxIds.Contains(box.entityId)))
                 {
                     continue;
@@ -808,12 +847,23 @@ namespace Game.Feature.Gameplay.Loop
             return batch;
         }
 
-        private static bool IsBarricadeActivationTransition(
+        private static bool IsBarricadeEffectiveActivationTransition(
             WorldSnapshot previousSnapshot,
             WorldSnapshot currentSnapshot,
             TileFeatureState currentTileFeature,
-            TileFeatureRuntimeDefinition definition)
+            TileFeatureRuntimeDefinition definition,
+            out BarricadeEffectiveActivationState currentActivation)
         {
+            currentActivation = BarricadeEffectiveActivationPolicy.Evaluate(
+                currentSnapshot,
+                currentSnapshot.Topology,
+                currentTileFeature,
+                definition);
+            if (!currentActivation.TopologyActive)
+            {
+                return false;
+            }
+
             if (!previousSnapshot.TryGetTileFeature(currentTileFeature.TileId, out var previousTileFeature) ||
                 previousTileFeature.Kind != TileFeatureKind.Barricade ||
                 previousTileFeature.Cell != currentTileFeature.Cell)
@@ -821,8 +871,49 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            return !TileFeatureActivationQueries.IsActive(previousTileFeature, definition, previousSnapshot.Topology) &&
-                   TileFeatureActivationQueries.IsActive(currentTileFeature, definition, currentSnapshot.Topology);
+            var previousActivation = BarricadeEffectiveActivationPolicy.Evaluate(
+                previousSnapshot,
+                previousSnapshot.Topology,
+                previousTileFeature,
+                definition);
+
+            return !previousActivation.EffectiveActive &&
+                   (currentActivation.EffectiveActive || currentActivation.HasBlockingUnit);
+        }
+
+        private static bool ShouldEmitBarricadeActivationDeferred(
+            WorldSnapshot previousSnapshot,
+            TileFeatureState currentTileFeature,
+            TileFeatureRuntimeDefinition definition,
+            in BarricadeEffectiveActivationState currentActivation)
+        {
+            if (!previousSnapshot.TryGetTileFeature(currentTileFeature.TileId, out var previousTileFeature) ||
+                previousTileFeature.Kind != TileFeatureKind.Barricade ||
+                previousTileFeature.Cell != currentTileFeature.Cell)
+            {
+                return true;
+            }
+
+            var previousActivation = BarricadeEffectiveActivationPolicy.Evaluate(
+                previousSnapshot,
+                previousSnapshot.Topology,
+                previousTileFeature,
+                definition);
+            return !previousActivation.TopologyActive ||
+                   previousActivation.BlockingUnitId != currentActivation.BlockingUnitId;
+        }
+
+        private static string FormatBarricadeActivationDeferred(
+            TileFeatureState tileFeature,
+            in BarricadeEffectiveActivationState activation,
+            int tickIndex)
+        {
+            return "BarricadeActivationDeferred" +
+                   $"|TileId={tileFeature.TileId}" +
+                   "|Reason=UnitOccupant" +
+                   $"|Cell=({tileFeature.Cell.face},{tileFeature.Cell.x},{tileFeature.Cell.y})" +
+                   $"|BlockingUnitId={activation.BlockingUnitId}" +
+                   $"|Tick={tickIndex}";
         }
 
         private static FinalizationBatch ResolveSlideTiles(

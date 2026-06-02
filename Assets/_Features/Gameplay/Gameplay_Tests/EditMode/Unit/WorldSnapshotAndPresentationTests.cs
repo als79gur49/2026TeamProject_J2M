@@ -2208,6 +2208,199 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BarricadeActivation_DoesNotEmitActivatedEvent_WhileUnitOccupantBlocks()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(100, cell, TileFeatureKind.Barricade, TileFeatureFlags.None);
+            var unit = CreateEntity(10, EntityType.Unit, cell, Direction.Right);
+            var preMovementSnapshot = CreateWorldState(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    new[] { barricade })
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Front),
+                    new[] { barricade })
+                .CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(
+                presentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeActivated),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeActivation_DoesNotShowRaisedVisual_WhileUnitOccupantBlocks()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(100, cell, TileFeatureKind.Barricade, TileFeatureFlags.None);
+            var unit = CreateEntity(10, EntityType.Unit, cell, Direction.Right);
+            var snapshot = CreateWorldState(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Front),
+                    new[] { barricade })
+                .CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    snapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(
+                presentationData.TileFeatureVisualStates.Any(state => state.TileFeatureKind == TileFeatureKind.Barricade),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeActivation_DoesNotPlayPlayerFacingFeedback_WhileUnitOccupantBlocks()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(100, cell, TileFeatureKind.Barricade, TileFeatureFlags.None);
+            var unit = CreateEntity(10, EntityType.Unit, cell, Direction.Right);
+            var preMovementSnapshot = CreateWorldState(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    new[] { barricade })
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    new[] { unit },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Front),
+                    new[] { barricade })
+                .CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TileEvents, Is.Empty);
+            Assert.That(presentationData.TileFeatureVisualStates, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeActivation_ActivatesAfterUnitLeaves_IfTopologyStillActive()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(100, cell, TileFeatureKind.Barricade, TileFeatureFlags.None);
+            var preMovementSnapshot = CreateWorldState(
+                    new[] { CreateEntity(10, EntityType.Unit, cell, Direction.Right) },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Front),
+                    new[] { barricade })
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    Array.Empty<EntityState>(),
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Front),
+                    new[] { barricade })
+                .CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TileEvents.Single().EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeActivated));
+            Assert.That(presentationData.TileFeatureVisualStates.Single().TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BarricadeActivation_DoesNotActivateAfterUnitLeaves_IfTopologyNoLongerActive()
+        {
+            var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+            var barricade = CreateTileFeature(100, cell, TileFeatureKind.Barricade, TileFeatureFlags.None);
+            var preMovementSnapshot = CreateWorldState(
+                    new[] { CreateEntity(10, EntityType.Unit, cell, Direction.Right) },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Front),
+                    new[] { barricade })
+                .CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                    Array.Empty<EntityState>(),
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    new[] { barricade })
+                .CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    }));
+
+            Assert.That(presentationData.TileEvents, Is.Empty);
+            Assert.That(presentationData.TileFeatureVisualStates, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void TickPresentationDataBuilder_BarricadeFrontFaceTransition_EmitsDeactivatedAtPresentationStart()
         {
             var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);

@@ -1594,7 +1594,12 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (tileFeature.Kind == TileFeatureKind.Barricade)
                 {
-                    if (!TileFeatureActivationQueries.IsActive(tileFeature, definition, finalTopology))
+                    var activation = BarricadeEffectiveActivationPolicy.Evaluate(
+                        context.FinalAuthoritativeSnapshot,
+                        finalTopology,
+                        tileFeature,
+                        definition);
+                    if (!activation.EffectiveActive)
                     {
                         continue;
                     }
@@ -1794,17 +1799,29 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                var finalActive = TileFeatureActivationQueries.IsActive(
+                var finalActivation = ResolveTileFeaturePresentationActivation(
+                    context.FinalAuthoritativeSnapshot,
+                    finalTopology,
                     finalTileFeature,
-                    definition,
-                    finalTopology);
-                var previousActive =
-                    context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var previousTileFeature) &&
-                    previousTileFeature.Kind == finalTileFeature.Kind &&
-                    TileFeatureActivationQueries.IsActive(
-                        previousTileFeature,
-                        definition,
-                        previousTopology);
+                    definition);
+                if (finalTileFeature.Kind == TileFeatureKind.Barricade &&
+                    finalActivation.HasBlockingUnit)
+                {
+                    continue;
+                }
+
+                var finalActive = finalActivation.EffectiveActive;
+                var previousActive = false;
+                if (context.PreMovementSnapshot.TryGetTileFeature(finalTileFeature.TileId, out var previousTileFeature) &&
+                    previousTileFeature.Kind == finalTileFeature.Kind)
+                {
+                    previousActive = ResolveTileFeaturePresentationActivation(
+                            context.PreMovementSnapshot,
+                            previousTopology,
+                            previousTileFeature,
+                            definition)
+                        .EffectiveActive;
+                }
 
                 if (previousActive == finalActive ||
                     !TryResolveActivationEventKind(finalTileFeature.Kind, finalActive, out var eventKind))
@@ -1821,6 +1838,22 @@ namespace Game.Feature.Gameplay.Loop
                     finalTileFeature.OwnerEntityId,
                     finalTileFeature.TeamId));
             }
+        }
+
+        private static BarricadeEffectiveActivationState ResolveTileFeaturePresentationActivation(
+            WorldSnapshot snapshot,
+            CubeTopologyState topology,
+            TileFeatureState tileFeature,
+            TileFeatureRuntimeDefinition definition)
+        {
+            if (tileFeature.Kind == TileFeatureKind.Barricade)
+            {
+                return BarricadeEffectiveActivationPolicy.Evaluate(snapshot, topology, tileFeature, definition);
+            }
+
+            return new BarricadeEffectiveActivationState(
+                TileFeatureActivationQueries.IsActive(tileFeature, definition, topology),
+                blockingUnitId: 0);
         }
 
         private static bool IsActivationEventKind(TileFeatureKind kind)

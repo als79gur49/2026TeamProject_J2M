@@ -240,6 +240,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BarricadeActivation_BlocksNewEntrantWhileExistingOccupantCanRemain()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 0);
+            var existingUnit = CreateUnit(10, cell);
+            var entrant = CreateUnit(20, new SurfaceCell(FaceId.Front, 0, 0));
+            var definitions = new[]
+            {
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+            };
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[] { existingUnit, entrant },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    GameplayTimingProfile.CreateDefault(),
+                    new[] { CreateTileFeature(100, cell, TileFeatureKind.Barricade) })
+                .CreateSnapshot();
+
+            var existingBlocked = TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                snapshot,
+                definitions,
+                cell,
+                TileFeatureBlockerSubject.Unit,
+                TileFeatureMovementKind.UnitSettlement,
+                out _,
+                snapshot.Topology,
+                existingUnit.entityId);
+            var entrantBlocked = TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                snapshot,
+                definitions,
+                cell,
+                TileFeatureBlockerSubject.Unit,
+                TileFeatureMovementKind.UnitSettlement,
+                out var blocker,
+                snapshot.Topology,
+                entrant.entityId);
+
+            Assert.That(existingBlocked, Is.False);
+            Assert.That(entrantBlocked, Is.True);
+            Assert.That(blocker.TileId, Is.EqualTo(100));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_ConflictedReservation_ReturnsReservationBlocker()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);

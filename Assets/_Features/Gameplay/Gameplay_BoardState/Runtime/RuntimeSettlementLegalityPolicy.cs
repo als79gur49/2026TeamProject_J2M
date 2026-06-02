@@ -517,7 +517,8 @@ namespace Game.Feature.Gameplay.BoardState
                 TileFeatureBlockerSubject.Unit,
                 TileFeatureMovementKind.UnitSettlement,
                 out tileFeatureBlocker,
-                context.TerminalTopology);
+                context.TerminalTopology,
+                context.Actor.EntityId);
         }
 
         private static bool TryGetImpactFollowThroughTileFeatureSettlementBlocker(

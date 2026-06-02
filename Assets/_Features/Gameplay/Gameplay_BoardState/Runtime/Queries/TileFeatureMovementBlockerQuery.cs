@@ -66,7 +66,8 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell cell,
             TileFeatureBlockerSubject subject,
             TileFeatureMovementKind movementKind,
-            CubeTopologyState? evaluationTopology = null)
+            CubeTopologyState? evaluationTopology = null,
+            int existingOccupantEntityId = 0)
         {
             return TryGetActiveBarricadeBlocker(
                 snapshot,
@@ -75,7 +76,8 @@ namespace Game.Feature.Gameplay.BoardState
                 subject,
                 movementKind,
                 out _,
-                evaluationTopology);
+                evaluationTopology,
+                existingOccupantEntityId);
         }
 
         public static bool TryGetActiveBarricadeBlocker(
@@ -85,7 +87,8 @@ namespace Game.Feature.Gameplay.BoardState
             TileFeatureBlockerSubject subject,
             TileFeatureMovementKind movementKind,
             out TileFeatureState barricade,
-            CubeTopologyState? evaluationTopology = null)
+            CubeTopologyState? evaluationTopology = null,
+            int existingOccupantEntityId = 0)
         {
             if (snapshot == null)
             {
@@ -114,6 +117,16 @@ namespace Game.Feature.Gameplay.BoardState
                 var topology = evaluationTopology ?? snapshot.Topology;
                 if (TileFeatureActivationQueries.IsActive(tileFeature, definition, topology))
                 {
+                    if (subject == TileFeatureBlockerSubject.Unit &&
+                        BarricadeActivationOccupantQuery.IsExistingBlockingUnitAt(
+                            snapshot,
+                            topology,
+                            cell,
+                            existingOccupantEntityId))
+                    {
+                        continue;
+                    }
+
                     barricade = tileFeature;
                     return true;
                 }

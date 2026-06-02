@@ -223,7 +223,8 @@ namespace Game.Feature.Gameplay.BoardState
                 TileFeatureBlockerSubject.Unit,
                 movementKind,
                 out tileFeatureBlocker,
-                context.EvaluationTopology);
+                context.EvaluationTopology,
+                context.Actor.EntityId);
         }
     }
 }

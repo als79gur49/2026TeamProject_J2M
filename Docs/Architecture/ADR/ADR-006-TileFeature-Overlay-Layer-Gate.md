@@ -136,6 +136,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.
 
+- Barricade has three activation views: `topology-active` is `TileFeatureActivationQueries.IsActive(...)` under the evaluated topology, `effective-active` is topology-active without a same-`SurfaceCell` gameplay-visible live Unit occupant, and `presentation-active` is the raised/active visual state emitted only from effective-active.
 - Barricade activation rule is `FrontFaceOnly`.
 - Barricade direction must be `None`.
 - Barricade selector must be `None`.
@@ -144,6 +145,9 @@ Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay
 - Active Barricade blocks Jpeter summon placement and Astreton jump landing settlement through TileFeature legality blockers such as `LegalityBlockerKind.TileFeature`.
 - Barricade does not occupy Unit, Solid, or Projectile layer.
 - Barricade does not invalidate existing Unit occupancy.
+- If a topology-active Barricade has a same-`SurfaceCell` gameplay-visible live Unit occupant, activation is deferred: the Unit is not pushed, killed, ejected, detached, damaged, or otherwise mutated.
+- Unit defer is Barricade-specific and does not change generic TileFeature activation semantics.
+- Deferred Barricade allows the existing blocking Unit occupant to remain, but it still blocks new Unit entrants through the TileFeature blocker path.
 - Projectile movement is not blocked.
 - Active Barricade blocks Push start, Sliding Push continuation, and Flip landing before hostile unit impact on the blocked cell.
 - Active Barricade also blocks impact follow-through settlement as a final legality guard.
@@ -160,12 +164,18 @@ Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay
 Barricade active-transition crush is separate from movement blocking.
 
 - Inactive to active transition may destroy a same-cell valid Box.
-- Active Barricade cells are not scanned every tick.
+- Unit defer has priority over Barricade Box crush. If a same-cell live Unit occupant blocks activation, Box crush is not created for that Barricade in that tick.
+- If the Unit later leaves while the Barricade remains topology-active, Barricade becomes effective-active on that tick and normal activation/crush/presentation may occur once.
+- If the Unit leaves after topology-active is no longer true, Barricade does not activate.
+- Active Barricade cells are not crushed every tick; effective activation may be re-derived from current snapshots to resume after Unit defer clears.
 - Crush uses logical `CubeTopologyState`, not visual progress, presenter state, or camera state.
 - Unit kill/eject and Projectile interaction are not implemented.
 - MoonBlock is a Box, so it may be crushed.
 - If DestroyTile and Barricade attempt to destroy the same box, DestroyTile wins.
 - `BarricadeCrushed` is emitted only when an actual crush operation is created.
+- `BarricadeActivationDeferred` is debug/trace-only. It is not a `TilePresentationEvent`, request, audio cue, HUD notification, or pending visual.
+- Deferred activation state is derived from snapshots and must not be stored in `WorldState`, `TileFeatureFlags`, or determinism hash state.
+- Stage authoring validator must not newly reject Unit + inactive Barricade same-cell authoring; runtime policy owns this case.
 
 `BarricadeBlocked` is sourced from movement blocker facts. `BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`. They must not be merged into a generic BarricadeTriggered event.
 
