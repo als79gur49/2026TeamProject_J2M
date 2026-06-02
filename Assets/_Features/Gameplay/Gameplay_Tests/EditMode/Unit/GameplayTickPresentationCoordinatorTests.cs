@@ -10406,6 +10406,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyPupilVisualController_ForwardCellProjectileRecover_DoesNotSnapToContractedBorder()
+        {
+            var rootObject = new GameObject("EnemyPupilVisualController_ForwardCellProjectileRecover_DoesNotSnapToContractedBorder");
+
+            try
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/3DM/2BlackEye/BE_LS_M1.mat");
+                Assert.That(material, Is.Not.Null);
+
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var renderer = visual.GetComponent<Renderer>();
+                renderer.sharedMaterial = material;
+
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                var controller = rootObject.AddComponent<EnemyPupilVisualController>();
+
+                controller.Advance(0f);
+                var defaultBorder = controller.CurrentBorder;
+                Assert.That(defaultBorder, Is.EqualTo(0.44f).Within(0.0001f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 20,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Attack,
+                    activeActionKind: EnemyActionKind.ForwardCellProjectile,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                controller.Advance(0.9f);
+                var preReleaseBorder = controller.CurrentBorder;
+                Assert.That(preReleaseBorder, Is.GreaterThan(0.22f));
+                Assert.That(preReleaseBorder, Is.LessThan(defaultBorder));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 20,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Recover,
+                    activeActionKind: EnemyActionKind.ForwardCellProjectile,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: true,
+                    startedRecoveryThisTick: true,
+                    tookDamage: false,
+                    didDie: false));
+
+                controller.Advance(0f);
+                var recoverStartBorder = controller.CurrentBorder;
+                Assert.That(recoverStartBorder, Is.EqualTo(preReleaseBorder).Within(0.0001f));
+                Assert.That(recoverStartBorder, Is.GreaterThan(0.22f));
+
+                controller.Advance(0.05f);
+                Assert.That(controller.CurrentBorder, Is.GreaterThan(recoverStartBorder));
+                Assert.That(controller.CurrentBorder, Is.LessThan(defaultBorder));
+
+                controller.Advance(1f);
+                Assert.That(controller.CurrentBorder, Is.EqualTo(defaultBorder).Within(0.0001f));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock);
+                Assert.That(propertyBlock.GetFloat("_Border"), Is.EqualTo(defaultBorder).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyInactiveVisualController_NormalState_PreservesPupilBorderOverride()
         {
             var rootObject = new GameObject("EnemyInactiveVisualController_NormalState_PreservesPupilBorderOverride");

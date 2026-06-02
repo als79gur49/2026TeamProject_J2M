@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -26,6 +27,7 @@ namespace Game.Feature.Gameplay.Host
         private float _phaseDurationSeconds;
         private bool _pendingRecover;
         private float _pendingRecoverDurationSeconds;
+        private float _recoverStartBorder;
         private bool _isGameplayPresentationPaused;
         private bool _signalCountsInitialized;
         private int _lastWindupSignalCount;
@@ -60,6 +62,7 @@ namespace Game.Feature.Gameplay.Host
             _phaseDurationSeconds = 0f;
             _pendingRecover = false;
             _pendingRecoverDurationSeconds = 0f;
+            _recoverStartBorder = 0f;
             _signalCountsInitialized = false;
 
             CacheDependencies();
@@ -230,14 +233,25 @@ namespace Game.Feature.Gameplay.Host
 
             if (attackExecuted)
             {
+                var recoverDurationSeconds = recoveryStarted
+                    ? ResolveDuration(
+                        animatorDriver.CurrentPresentationDurationSeconds,
+                        fallbackRecoverDurationSeconds)
+                    : 0f;
+
+                if (recoveryStarted &&
+                    animatorDriver.CurrentActiveActionKind == EnemyActionKind.ForwardCellProjectile)
+                {
+                    BeginRecover(recoverDurationSeconds);
+                    return;
+                }
+
                 BeginAttackHold();
 
                 if (recoveryStarted)
                 {
                     _pendingRecover = true;
-                    _pendingRecoverDurationSeconds = ResolveDuration(
-                        animatorDriver.CurrentPresentationDurationSeconds,
-                        fallbackRecoverDurationSeconds);
+                    _pendingRecoverDurationSeconds = recoverDurationSeconds;
                 }
 
                 return;
@@ -278,7 +292,7 @@ namespace Game.Feature.Gameplay.Host
 
                     if (_pendingRecover)
                     {
-                        BeginRecover(_pendingRecoverDurationSeconds);
+                        BeginRecover(_pendingRecoverDurationSeconds, attackContractedBorder);
                     }
                     else
                     {
@@ -292,7 +306,7 @@ namespace Game.Feature.Gameplay.Host
                 case PupilPhase.Contracted:
                     if (_pendingRecover)
                     {
-                        BeginRecover(_pendingRecoverDurationSeconds);
+                        BeginRecover(_pendingRecoverDurationSeconds, attackContractedBorder);
                     }
 
                     return;
@@ -371,7 +385,7 @@ namespace Game.Feature.Gameplay.Host
                 {
                     var duration = Mathf.Max(0.0001f, _phaseDurationSeconds);
                     var normalizedTime = Mathf.Clamp01(_phaseElapsedSeconds / duration);
-                    return Mathf.Lerp(attackContractedBorder, baseBorder, EaseOutSine(normalizedTime));
+                    return Mathf.Lerp(_recoverStartBorder, baseBorder, EaseOutSine(normalizedTime));
                 }
 
                 default:
@@ -400,6 +414,7 @@ namespace Game.Feature.Gameplay.Host
             _phaseDurationSeconds = durationSeconds;
             _pendingRecover = false;
             _pendingRecoverDurationSeconds = 0f;
+            _recoverStartBorder = 0f;
         }
 
         private void BeginAttackHold()
@@ -411,9 +426,15 @@ namespace Game.Feature.Gameplay.Host
 
         private void BeginRecover(float durationSeconds)
         {
+            BeginRecover(durationSeconds, CurrentBorder);
+        }
+
+        private void BeginRecover(float durationSeconds, float startBorder)
+        {
             _phase = PupilPhase.Recover;
             _phaseElapsedSeconds = 0f;
             _phaseDurationSeconds = durationSeconds;
+            _recoverStartBorder = startBorder;
             _pendingRecover = false;
             _pendingRecoverDurationSeconds = 0f;
         }
