@@ -1069,7 +1069,8 @@ namespace Game.Feature.Gameplay.Loop
                 impactSpaceContests,
                 movementReservationBook,
                 movementResolutionRecords,
-                impactDispositionRecords);
+                impactDispositionRecords,
+                planPhaseResult.BarricadeBlockFacts);
 
             if (HasImpactDispositionRematerialization(impactDispositionRecords))
             {
@@ -10127,7 +10128,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<Contest> impactSpaceContests,
             MovementReservationBook reservationBook,
             List<ResolutionRecord> resolutionRecords,
-            List<ImpactDispositionResolutionRecord> impactDispositionRecords)
+            List<ImpactDispositionResolutionRecord> impactDispositionRecords,
+            List<BarricadeBlockFact> barricadeBlockFacts)
         {
             if (impactSpaceContests.Count == 0)
             {
@@ -10160,11 +10162,12 @@ namespace Game.Feature.Gameplay.Loop
                                 var impactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                                     new SettlementContext(
                                         attackSnapshot,
-                                        BuildLegalityActorRef(attackSnapshot, payload.SourceActorEntityId, EntityType.Unit),
+                                        BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.SourceEntityId, EntityType.Box),
                                         payload.ImpactReservationPayload.ContingentDestinationCell,
                                         attackSnapshot.Topology,
                                         SpatialState.Anchored,
-                                        reservationStatus),
+                                        reservationStatus,
+                                        _tileFeatureDefinitions),
                                     new ImpactFollowThroughEvidence(
                                         payload.ImpactReservationPayload.AttackSourceEntityId,
                                         payload.ImpactReservationPayload.TargetEntityIds,
@@ -10175,6 +10178,13 @@ namespace Game.Feature.Gameplay.Loop
                                     accepted = true;
                                     dispositionKind = ImpactDispositionKind.FollowThrough;
                                     reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                                }
+                                else
+                                {
+                                    TryAppendImpactFollowThroughBarricadeBlockFact(
+                                        impactLegality,
+                                        payload.ImpactReservationPayload,
+                                        barricadeBlockFacts);
                                 }
                             }
 
@@ -10192,11 +10202,12 @@ namespace Game.Feature.Gameplay.Loop
                             var flipImpactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                                 new SettlementContext(
                                     attackSnapshot,
-                                    BuildLegalityActorRef(attackSnapshot, payload.SourceActorEntityId, EntityType.Unit),
+                                    BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.SourceEntityId, EntityType.Box),
                                     payload.ImpactReservationPayload.ContingentDestinationCell,
                                     attackSnapshot.Topology,
                                     SpatialState.Anchored,
-                                    flipReservationStatus),
+                                    flipReservationStatus,
+                                    _tileFeatureDefinitions),
                                 new ImpactFollowThroughEvidence(
                                     payload.ImpactReservationPayload.AttackSourceEntityId,
                                     payload.ImpactReservationPayload.TargetEntityIds,
@@ -10208,6 +10219,13 @@ namespace Game.Feature.Gameplay.Loop
                                 accepted = true;
                                 dispositionKind = ImpactDispositionKind.FollowThrough;
                                 reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                            }
+                            else
+                            {
+                                TryAppendImpactFollowThroughBarricadeBlockFact(
+                                    flipImpactLegality,
+                                    payload.ImpactReservationPayload,
+                                    barricadeBlockFacts);
                             }
 
                             break;
@@ -10227,6 +10245,37 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 resolutionRecords.Add(CreateResolutionRecord(contest, accepted));
+            }
+        }
+
+        private static void TryAppendImpactFollowThroughBarricadeBlockFact(
+            LegalityResult legality,
+            MovementImpactReservationPayload payload,
+            List<BarricadeBlockFact> barricadeBlockFacts)
+        {
+            if (legality.Verdict != LegalityVerdict.Blocked ||
+                barricadeBlockFacts == null)
+            {
+                return;
+            }
+
+            for (var blockerIndex = 0; blockerIndex < legality.Blockers.Count; blockerIndex++)
+            {
+                var blocker = legality.Blockers[blockerIndex];
+                if (blocker.Kind != LegalityBlockerKind.TileFeature ||
+                    blocker.TileFeatureKind != TileFeatureKind.Barricade ||
+                    blocker.TileId <= 0)
+                {
+                    continue;
+                }
+
+                barricadeBlockFacts.Add(
+                    new BarricadeBlockFact(
+                        blocker.TileId,
+                        legality.Cell,
+                        payload.SourceEntityId,
+                        payload.ContingentFacing));
+                return;
             }
         }
 

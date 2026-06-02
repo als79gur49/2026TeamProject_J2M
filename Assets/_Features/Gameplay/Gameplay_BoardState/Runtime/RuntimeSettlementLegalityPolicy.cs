@@ -369,6 +369,16 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
+            if (TryGetImpactFollowThroughTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                    context.ReservationStatus);
+            }
+
             if (context.OccupancySnapshot.TryGetSolidSemanticAt(context.TerminalCell, out var solidOccupant) &&
                 !ContainsTargetId(evidence.TargetIds, solidOccupant.Entity.entityId))
             {
@@ -408,7 +418,8 @@ namespace Game.Feature.Gameplay.BoardState
             WorldSnapshot attackSnapshot,
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
             MovementImpactReservationPayload payload,
-            ReservationStatus reservationStatus = ReservationStatus.None)
+            ReservationStatus reservationStatus = ReservationStatus.None,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
             if (attackSnapshot == null)
             {
@@ -423,11 +434,12 @@ namespace Game.Feature.Gameplay.BoardState
             return EvaluateImpactFollowThrough(
                 new SettlementContext(
                     attackSnapshot,
-                    BuildActorRef(attackSnapshot, payload.SourceEntityId, EntityType.Unit),
+                    BuildActorRef(attackSnapshot, payload.SourceEntityId, EntityType.Box),
                     payload.ContingentDestinationCell,
                     attackSnapshot.Topology,
                     SpatialState.Anchored,
-                    reservationStatus),
+                    reservationStatus,
+                    tileFeatureDefinitions),
                 new ImpactFollowThroughEvidence(
                     payload.AttackSourceEntityId,
                     payload.TargetEntityIds,
@@ -504,6 +516,20 @@ namespace Game.Feature.Gameplay.BoardState
                 context.TerminalCell,
                 TileFeatureBlockerSubject.Unit,
                 TileFeatureMovementKind.UnitSettlement,
+                out tileFeatureBlocker,
+                context.TerminalTopology);
+        }
+
+        private static bool TryGetImpactFollowThroughTileFeatureSettlementBlocker(
+            SettlementContext context,
+            out TileFeatureState tileFeatureBlocker)
+        {
+            return TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                context.OccupancySnapshot,
+                context.TileFeatureDefinitions,
+                context.TerminalCell,
+                TileFeatureBlockerSubject.Box,
+                TileFeatureMovementKind.ImpactFollowThrough,
                 out tileFeatureBlocker,
                 context.TerminalTopology);
         }

@@ -779,6 +779,39 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 out var stopper);
             if (!destinationResolved)
             {
+                if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                        snapshot,
+                        tileFeatureDefinitions,
+                        stopper.Cell,
+                        TileFeatureBlockerSubject.Box,
+                        TileFeatureMovementKind.PushStart,
+                        out var stopperBarricade))
+                {
+                    AddBarricadeBlockFact(barricadeBlockFacts, stopperBarricade, target.entityId, stepFacing);
+                    if (HasBoxCapability(target, BoxCapabilities.Destroy) &&
+                        !TryGetDestroyBlockingBoxInteractionLock(snapshot, target.entityId, tickIndex, out _))
+                    {
+                        var barricadeDestroyGroup = new ActionGroup(
+                            intent.IntentId,
+                            intent.SourceId,
+                            intent.Priority,
+                            ActionGroupKind.Push);
+                        AddDetachAndMarkForDestroy(barricadeDestroyGroup, target);
+                        buffer.Add(barricadeDestroyGroup);
+                        return;
+                    }
+
+                    rejectedReasons.Add(
+                        BuildBarricadeRejectedReason(
+                            intent.SourceId,
+                            intent.IntentId,
+                            BoxSlideMovementKind.PushStart,
+                            target.entityId,
+                            target.position,
+                            stopper.Cell));
+                    return;
+                }
+
                 if (TryExpandBoxImpact(
                         snapshot,
                         source,
@@ -920,6 +953,45 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     out var destination,
                     out var stopper))
             {
+                if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
+                        snapshot,
+                        tileFeatureDefinitions,
+                        stopper.Cell,
+                        TileFeatureBlockerSubject.Box,
+                        TileFeatureMovementKind.SlidingContinuation,
+                        out var stopperBarricade))
+                {
+                    AddBarricadeBlockFact(barricadeBlockFacts, stopperBarricade, source.entityId, stepFacing);
+                    AddBarricadeBoxSlideStop(
+                        boxSlideStops,
+                        intent.IntentId,
+                        source,
+                        stopperBarricade,
+                        stepFacing,
+                        snapshot.Topology);
+                    rejectedReasons.Add(
+                        BuildBarricadeRejectedReason(
+                            intent.SourceId,
+                            intent.IntentId,
+                            BoxSlideMovementKind.SlidingContinuation,
+                            source.entityId,
+                            source.position,
+                            stopper.Cell));
+
+                    var barricadeStopGroup = new ActionGroup(
+                        intent.IntentId,
+                        intent.SourceId,
+                        intent.Priority,
+                        ActionGroupKind.Stop);
+                    barricadeStopGroup.StateChanges.Add(
+                        new StateChangeAction(
+                            source.entityId,
+                            EntityPhaseState.Idle,
+                            stateTimer: 0));
+                    buffer.Add(barricadeStopGroup);
+                    return;
+                }
+
                 if (TryExpandBoxImpact(
                         snapshot,
                         source,

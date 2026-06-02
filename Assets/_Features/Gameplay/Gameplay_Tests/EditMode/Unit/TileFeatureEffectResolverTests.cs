@@ -3623,6 +3623,369 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PushSlide_BoxFollowThroughOntoDestroyTileAfterEnemyDeath_AppliesDestroyTile()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var slidingBox = CreateBox(
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, destroyCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateTileFeature(100, destroyCell, TileFeatureKind.Destroy) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+            var nextTick = pipeline.RunTick(new TickInput(8));
+
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.PushLike));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=20",
+                    "To=(0,1)",
+                    "Facing=Up"),
+                Is.True);
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.DestroyTileTriggered));
+            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(nextTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 20), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PushSlide_BoxBlockedByEnemyOnDestroyTile_WhenEnemySurvives_DoesNotApplyDestroyTile()
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var slidingBox = CreateBox(
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, destroyCell);
+            enemy.hp = 3;
+            enemy.maxHp = 3;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateTileFeature(100, destroyCell, TileFeatureKind.Destroy) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
+            Assert.That(disposition.TargetDestroyed, Is.False);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.False);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
+            Assert.That(
+                result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered),
+                Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.position, Is.EqualTo(destroyCell));
+            Assert.That(enemyAfter.hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Flip_BoxFollowThroughOntoDestroyTileAfterEnemyDeath_MatchesEmptyLanding()
+        {
+            var enemyLanding = RunFlipOntoDestroyTileScenario(includeEnemy: true);
+            var emptyLanding = RunFlipOntoDestroyTileScenario(includeEnemy: false);
+
+            Assert.That(enemyLanding.Disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(enemyLanding.Disposition.FollowThroughAccepted, Is.True);
+            Assert.That(enemyLanding.FinalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(emptyLanding.FinalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(
+                enemyLanding.Result.PresentationData.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray(),
+                Is.EqualTo(emptyLanding.Result.PresentationData.TileEvents.Select(tileEvent => tileEvent.EventKind).ToArray()));
+            Assert.That(
+                enemyLanding.Result.PresentationData.TileEvents.Count(tileEvent => tileEvent.EventKind == TilePresentationEventKind.DestroyTileTriggered),
+                Is.EqualTo(1));
+            Assert.That(enemyLanding.Result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(enemyLanding.Result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(enemyLanding.Result.EventLog, Does.Contain("CleanupRemoved|E=30"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PushStart_BoxBlockedByEnemyOnActiveBarricade_BarricadeBlocksBeforeImpact()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var enemy = CreateEnemyUnit(30, barricadeCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                    enemy,
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=PushStart"));
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
+            Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));
+            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents[0].Direction, Is.EqualTo(Direction.Right));
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
+            Assert.That(enemyAfter.hp, Is.EqualTo(1));
+            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(enemyAfter.markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SlidingContinuation_BoxBlockedByEnemyOnActiveBarricade_StopsBeforeImpactAndEmitsBarricadeBlocked()
+        {
+            var firstRun = RunSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
+            var secondRun = RunSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
+            var result = firstRun.Result;
+            var finalSnapshot = firstRun.FinalSnapshot;
+
+            Assert.That(result.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=SlidingContinuation"));
+            Assert.That(result.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.BoxSlideStopSignals[0].StopperKind, Is.EqualTo(BoxSlideStopperKind.Barricade));
+            Assert.That(result.PresentationData.BoxSlideStopSignals[0].StopperTileId, Is.EqualTo(100));
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
+            Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));
+            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents[0].Direction, Is.EqualTo(Direction.Up));
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
+            Assert.That(enemyAfter.hp, Is.EqualTo(1));
+            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(enemyAfter.markedForDeath, Is.False);
+            var hashBuilder = new DeterminismHashBuilder();
+            var firstHash = hashBuilder.Build(7, firstRun.FinalSnapshot, CreateTickResultData(firstRun.FinalSnapshot));
+            var secondHash = hashBuilder.Build(7, secondRun.FinalSnapshot, CreateTickResultData(secondRun.FinalSnapshot));
+            Assert.That(firstHash, Is.Not.Empty);
+            Assert.That(secondHash, Is.EqualTo(firstHash));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PushDestroyStart_BoxBlockedByEnemyOnActiveBarricade_UsesDestroyFallbackWithoutImpact()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var enemy = CreateEnemyUnit(30, barricadeCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0), boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
+                    enemy,
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
+            Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));
+            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents[0].Direction, Is.EqualTo(Direction.Right));
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
+            Assert.That(enemyAfter.hp, Is.EqualTo(1));
+            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(enemyAfter.markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PushSlide_BoxFollowThroughOntoButtonAfterEnemyDeath_MatchesSlidingPass_NoLatch()
+        {
+            var buttonCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var slidingBox = CreateBox(
+                20,
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, buttonCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateButton(100, buttonCell) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(buttonCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetTileFeature(100, out var buttonAfter), Is.True);
+            Assert.That(buttonAfter.Flags, Is.EqualTo(TileFeatureFlags.None));
+            Assert.That(
+                result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.ButtonActivated),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PushSlide_BoxFollowThroughOntoSlideTileAfterEnemyDeath_RedirectsFacing()
+        {
+            var slideCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var slidingBox = CreateBox(
+                20,
+                new SurfaceCell(FaceId.Front, 0, 0),
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Right);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, slideCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateTileFeature(100, slideCell, TileFeatureKind.Slide) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(slideCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(boxAfter.facing, Is.EqualTo(Direction.Up));
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.SlideTileRedirected));
+            Assert.That(result.PresentationData.TileEvents[0].Direction, Is.EqualTo(Direction.Up));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Flip_BoxImpactOnSlideTile_WhenEnemyDies_DoesNotRedirect()
+        {
+            var slideCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var enemy = CreateEnemyUnit(30, slideCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Front, 1, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 0, 0), boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+                    enemy,
+                },
+                new[] { CreateTileFeature(100, slideCell, TileFeatureKind.Slide) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, direction: Direction2D.Up, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(0, 0), MovementCommandKind.Flip)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.Flip));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(slideCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.SlideTileRedirected), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ButtonLatch_Pipeline_SlidingBoxPassesThroughButtonDoesNotActivate()
         {
             var buttonCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -4177,6 +4540,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
             using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
             pipeline.RunTick(new TickInput(7, PlayerTickCommand.Move(Direction.Up)));
             return capture.Counts;
+        }
+
+        private static PipelineScenarioRun RunFlipOntoDestroyTileScenario(bool includeEnemy)
+        {
+            var destroyCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var entities = new List<EntityState>
+            {
+                CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 0, 0), boxCapabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+            };
+            if (includeEnemy)
+            {
+                var enemy = CreateEnemyUnit(30, destroyCell);
+                enemy.hp = 1;
+                enemy.maxHp = 1;
+                entities.Add(enemy);
+            }
+
+            var worldState = CreateWorldState(
+                entities,
+                new[] { CreateTileFeature(100, destroyCell, TileFeatureKind.Destroy) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(0, 0), MovementCommandKind.Flip)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .FirstOrDefault(record => record.ImpactSourceEntityId == 20);
+            return new PipelineScenarioRun(result, worldState.CreateSnapshot(), disposition);
+        }
+
+        private static PipelineScenarioRunWithoutDisposition RunSlidingBlockedByEnemyOnBarricadeScenario(int enemyHp)
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var slidingBox = CreateBox(
+                20,
+                new SurfaceCell(FaceId.Front, 0, 0),
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, barricadeCell);
+            enemy.hp = enemyHp;
+            enemy.maxHp = enemyHp;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            return new PipelineScenarioRunWithoutDisposition(result, worldState.CreateSnapshot());
+        }
+
+        private readonly struct PipelineScenarioRunWithoutDisposition
+        {
+            public PipelineScenarioRunWithoutDisposition(
+                TickResult result,
+                WorldSnapshot finalSnapshot)
+            {
+                Result = result;
+                FinalSnapshot = finalSnapshot;
+            }
+
+            public TickResult Result { get; }
+
+            public WorldSnapshot FinalSnapshot { get; }
+        }
+
+        private readonly struct PipelineScenarioRun
+        {
+            public PipelineScenarioRun(
+                TickResult result,
+                WorldSnapshot finalSnapshot,
+                ImpactDispositionResolutionRecord disposition)
+            {
+                Result = result;
+                FinalSnapshot = finalSnapshot;
+                Disposition = disposition;
+            }
+
+            public TickResult Result { get; }
+
+            public WorldSnapshot FinalSnapshot { get; }
+
+            public ImpactDispositionResolutionRecord Disposition { get; }
         }
 
         private static TickPipeline CreatePipeline(

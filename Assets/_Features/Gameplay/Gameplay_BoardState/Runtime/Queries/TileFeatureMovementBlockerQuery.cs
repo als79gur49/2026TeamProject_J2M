@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.BoardState
         FlipLanding = 4,
         UnitPlacement = 5,
         UnitSettlement = 6,
+        ImpactFollowThrough = 7,
     }
 
     internal static class TileFeatureMovementBlockerQuery
@@ -130,7 +131,8 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 TileFeatureBlockerSubject.Box => movementKind == TileFeatureMovementKind.PushStart ||
                                                  movementKind == TileFeatureMovementKind.SlidingContinuation ||
-                                                 movementKind == TileFeatureMovementKind.FlipLanding,
+                                                 movementKind == TileFeatureMovementKind.FlipLanding ||
+                                                 movementKind == TileFeatureMovementKind.ImpactFollowThrough,
                 TileFeatureBlockerSubject.Unit => movementKind == TileFeatureMovementKind.GroundStep ||
                                                   movementKind == TileFeatureMovementKind.Free2DTopologyTransition ||
                                                   movementKind == TileFeatureMovementKind.UnitPlacement ||

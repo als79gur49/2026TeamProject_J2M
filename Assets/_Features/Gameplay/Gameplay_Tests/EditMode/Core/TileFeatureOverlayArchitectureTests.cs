@@ -231,6 +231,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Active Barricade blocks Jpeter summon placement and Astreton jump landing settlement through TileFeature legality blockers such as `LegalityBlockerKind.TileFeature`.",
                 "Barricade does not occupy Unit, Solid, or Projectile layer.",
                 "Barricade does not invalidate existing Unit occupancy.",
+                "Active Barricade blocks Push start, Sliding Push continuation, and Flip landing before hostile unit impact on the blocked cell.",
+                "Active Barricade also blocks impact follow-through settlement as a final legality guard.",
                 "EnemyParticipationPolicy is unchanged; current enemy bottom-face participation remains unchanged.",
                 "`BarricadeBlocked` is sourced from movement blocker facts",
                 "`BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`",

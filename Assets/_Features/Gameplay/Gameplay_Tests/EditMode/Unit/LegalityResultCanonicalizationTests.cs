@@ -267,6 +267,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_ActiveBarricade_ReturnsTileFeatureBlocker()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var box = CreateBox(20, sourceCell);
+            var snapshot = GameplayWorldStateTestFactory.CreateBounded(
+                    new[]
+                    {
+                        box,
+                        CreateUnit(30, destinationCell),
+                    },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(3, 2)),
+                    GameplayTerrainData.Empty,
+                    new CubeTopologyState(FaceId.Floor),
+                    GameplayTimingProfile.CreateDefault(),
+                    new[] { CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade) })
+                .CreateSnapshot();
+
+            var legality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, box),
+                    destinationCell,
+                    snapshot.Topology,
+                    SpatialState.Anchored,
+                    tileFeatureDefinitions: new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly) }),
+                new ImpactFollowThroughEvidence(
+                    attackSourceId: 20,
+                    targetId: 30,
+                    destroyResolutions: new[] { CreateDestroyResolution(sourceId: 20, targetId: 30, accepted: true) }));
+
+            Assert.That(legality.Domain, Is.EqualTo(LegalityDomain.Settlement));
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(legality.Blockers.Count, Is.EqualTo(1));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.TileFeature));
+            Assert.That(legality.Blockers[0].TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(legality.Blockers[0].TileId, Is.EqualTo(100));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void LegalityDiagnosticsFormatter_FormatStableSummary_ExportsStableFieldsOnly()
         {
             var legality = LegalityResult.Blocked(

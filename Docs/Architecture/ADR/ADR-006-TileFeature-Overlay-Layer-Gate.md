@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-04-30
-- Last updated: 2026-05-28
+- Last updated: 2026-06-02
 
 ## Decision
 
@@ -145,7 +145,9 @@ Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay
 - Barricade does not occupy Unit, Solid, or Projectile layer.
 - Barricade does not invalidate existing Unit occupancy.
 - Projectile movement is not blocked.
-- Impact follow-through and topology relocation are not blocked by Barricade unless a separate policy is added later.
+- Active Barricade blocks Push start, Sliding Push continuation, and Flip landing before hostile unit impact on the blocked cell.
+- Active Barricade also blocks impact follow-through settlement as a final legality guard.
+- Topology relocation is not blocked by Barricade unless a separate policy is added later.
 - EnemyParticipationPolicy is unchanged; current enemy bottom-face participation remains unchanged.
 - Active Barricade blocks box push first step, sliding continuation entry, and flip landing entry.
 - Inactive Barricade does not block existing DestroyTile or SlideTile behavior.
