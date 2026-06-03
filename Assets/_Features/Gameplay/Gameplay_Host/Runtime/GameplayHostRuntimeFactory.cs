@@ -167,7 +167,8 @@ namespace Game.Feature.Gameplay.Host
                 boardRoot.transform,
                 tileFeatureVisualRegistry,
                 tileFeaturePoseResolver,
-                tileFeatureVisualPoseSynchronizer);
+                tileFeatureVisualPoseSynchronizer,
+                initialSnapshot);
 
             presenter.Initialize(
                 viewBinder,
@@ -420,7 +421,8 @@ namespace Game.Feature.Gameplay.Host
             Transform parent,
             TileFeatureVisualRegistry registry,
             ISurfaceCellPresentationPoseResolver poseResolver = null,
-            TileFeatureVisualPoseSynchronizer poseSynchronizer = null)
+            TileFeatureVisualPoseSynchronizer poseSynchronizer = null,
+            WorldSnapshot initialSnapshot = null)
         {
             if (bindings == null || bindings.Count == 0)
             {
@@ -469,6 +471,7 @@ namespace Game.Feature.Gameplay.Host
                         tileFeature,
                         tileFeatureDefinitions,
                         initialTopology,
+                        initialSnapshot,
                         out var barricadeActive))
                 {
                     barricadeActiveStateTarget.SetBarricadeActiveImmediate(barricadeActive);
@@ -510,6 +513,7 @@ namespace Game.Feature.Gameplay.Host
             TileFeatureState tileFeature,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             CubeTopologyState initialTopology,
+            WorldSnapshot initialSnapshot,
             out bool active)
         {
             if (tileFeature.Kind != TileFeatureKind.Barricade ||
@@ -519,7 +523,13 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            active = TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
+            active = initialSnapshot != null
+                ? BarricadeEffectiveActivationPolicy.Evaluate(
+                    initialSnapshot,
+                    initialTopology,
+                    tileFeature,
+                    definition).EffectiveActive
+                : TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
             return true;
         }
 

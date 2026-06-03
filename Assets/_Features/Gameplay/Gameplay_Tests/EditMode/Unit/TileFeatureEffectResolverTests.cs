@@ -2682,6 +2682,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void BarricadeEffectiveGameplayState_ActiveWithUnit_ReturnsSuppressedByUnit()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 0);
+            var snapshot = CreateWorldState(
+                    new[] { CreateEnemyUnit(30, cell) },
+                    new[] { CreateTileFeature(100, cell, TileFeatureKind.Barricade) })
+                .CreateSnapshot();
+            var definition = CreateDefinition(
+                100,
+                TileFeatureActivationRule.FrontFaceOnly,
+                selector: TileFeatureBoxSelector.None);
+
+            Assert.That(snapshot.TryGetTileFeature(100, out var barricade), Is.True);
+            var state = BarricadeEffectiveActivationPolicy.Evaluate(
+                snapshot,
+                snapshot.Topology,
+                barricade,
+                definition);
+
+            Assert.That(state.TopologyActive, Is.True);
+            Assert.That(state.EffectiveActive, Is.False);
+            Assert.That(state.GameplayStateKind, Is.EqualTo(BarricadeGameplayStateKind.ActiveSuppressedByUnit));
+            Assert.That(state.BlockingUnitId, Is.EqualTo(30));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureMovementBlockerQuery_ActiveSuppressedBarricadeWithEnemy_DoesNotPreBlockBoxImpact()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 0);
+            var snapshot = CreateWorldState(
+                    new[] { CreateEnemyUnit(30, cell) },
+                    new[] { CreateTileFeature(100, cell, TileFeatureKind.Barricade) })
+                .CreateSnapshot();
+            var definitions = new[]
+            {
+                CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None),
+            };
+
+            var boxBlocked = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
+                snapshot,
+                definitions,
+                cell,
+                TileFeatureBlockerSubject.Box,
+                TileFeatureMovementKind.PushStart);
+            var unitEntrantBlocked = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
+                snapshot,
+                definitions,
+                cell,
+                TileFeatureBlockerSubject.Unit,
+                TileFeatureMovementKind.GroundStep,
+                existingOccupantEntityId: 0);
+            var existingUnitBlocked = TileFeatureMovementBlockerQuery.HasActiveBarricadeBlocker(
+                snapshot,
+                definitions,
+                cell,
+                TileFeatureBlockerSubject.Unit,
+                TileFeatureMovementKind.GroundStep,
+                existingOccupantEntityId: 30);
+
+            Assert.That(boxBlocked, Is.False);
+            Assert.That(unitEntrantBlocked, Is.True);
+            Assert.That(existingUnitBlocked, Is.False);
+        }
+
+        [Test]
         [Category("Core")]
         public void Barricade_PushFirstStepIntoActiveBlocker_RejectsWithBlockedTileEvent()
         {
@@ -2808,7 +2875,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Front, 1, 1)),
                     CreateBox(20, new SurfaceCell(FaceId.Front, 0, 1), boxCapabilities: BoxCapabilities.Flip),
-                    CreateEnemyUnit(30, barricadeCell),
                 },
                 new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
             var pipeline = CreatePipeline(
@@ -2838,11 +2904,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.False);
             Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
             Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-            Assert.That(snapshotAfter.TryGetEntity(30, out var enemyAfter), Is.True);
-            Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
-            Assert.That(enemyAfter.hp, Is.EqualTo(3));
-            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
-            Assert.That(enemyAfter.markedForDeath, Is.False);
         }
 
         [Test]
@@ -2982,7 +3043,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void Barricade_StandingBoxIsNotRetroactivelyDestroyed()
+        public void Barricade_StandingBoxOnAlreadyActiveBarricade_IsCrushed()
         {
             var inactiveCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var inactiveWorldState = CreateWorldState(
@@ -3005,11 +3066,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .RunTick(new TickInput(7));
 
             Assert.That(inactiveResult.PresentationData.TileEvents, Is.Empty);
-            Assert.That(activeResult.PresentationData.TileEvents, Is.Empty);
+            Assert.That(activeResult.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            Assert.That(activeResult.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeCrushed));
+            Assert.That(activeResult.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(30));
             Assert.That(inactiveWorldState.CreateSnapshot().TryGetEntity(20, out var inactiveBox), Is.True);
-            Assert.That(activeWorldState.CreateSnapshot().TryGetEntity(30, out var activeBox), Is.True);
+            Assert.That(activeWorldState.CreateSnapshot().TryGetEntity(30, out _), Is.False);
             Assert.That(inactiveBox.markedForDeath, Is.False);
-            Assert.That(activeBox.markedForDeath, Is.False);
+            Assert.That(activeWorldState.CreateSnapshot().TryGetSolidSemanticAt(activeCell, out _), Is.False);
         }
 
         [Test]
@@ -3232,18 +3295,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BarricadeActivation_ActivatesAfterUnitLeaves_IfTopologyStillActive()
+        public void BarricadeTransition_AfterSuppressingUnitLeaves_CrushesRemainingBox()
         {
             var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
             var box = CreateBox(20, barricadeCell);
-            var previousSnapshot = CreateWorldState(
-                    new[] { CreatePlayerUnit(10, barricadeCell), box },
-                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
-                    topology: new CubeTopologyState(FaceId.Front))
-                .CreateSnapshot();
+            var barricade = CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade);
+            var previousSnapshot = CreateSnapshotWithSeparateUnitAndSolidOccupancy(
+                CreatePlayerUnit(10, barricadeCell),
+                box,
+                barricade,
+                new CubeTopologyState(FaceId.Front));
             var currentSnapshot = CreateWorldState(
                     new[] { box },
-                    new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                    new[] { barricade },
                     topology: new CubeTopologyState(FaceId.Front))
                 .CreateSnapshot();
 
@@ -3286,7 +3350,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BarricadeCrush_NonActivationTransitions_DoNotScanAndDoNotCrush()
+        public void BarricadeTransition_BoxOnAlreadyTopologyActiveBarricade_NoTerminalSolidOccupancy()
         {
             var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
             var definition = CreateDefinition(
@@ -3304,10 +3368,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology: new CubeTopologyState(FaceId.Floor))
                 .CreateSnapshot();
 
-            Assert.That(Resolve(activeSnapshot, activeSnapshot, definition).IsEmpty, Is.True, "active to active");
+            var activeToActive = Resolve(activeSnapshot, activeSnapshot, definition);
+
+            Assert.That(activeToActive.TileEvents, Has.Count.EqualTo(1), "active to active crush event");
+            Assert.That(activeToActive.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeCrushed));
+            Assert.That(activeToActive.TileEvents[0].TargetEntityId, Is.EqualTo(20));
+            Assert.That(activeToActive.EntityOperations.Operations, Has.Count.EqualTo(2));
+            Assert.That(activeToActive.EntityOperations.Operations[0].Kind, Is.EqualTo(FinalizationOperationKind.SetBoardPresence));
+            Assert.That(activeToActive.EntityOperations.Operations[0].BoardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(activeToActive.EntityOperations.Operations[0].Metadata.BoundaryReason, Is.EqualTo("BarricadeCrush"));
+            Assert.That(activeToActive.EntityOperations.Operations[1].Kind, Is.EqualTo(FinalizationOperationKind.MarkDestroy));
+            Assert.That(activeToActive.EntityOperations.Operations[1].Metadata.ExitCauseHint, Is.EqualTo(TickEntityExitCause.BoxDestroy));
             Assert.That(Resolve(inactiveSnapshot, inactiveSnapshot, definition).IsEmpty, Is.True, "inactive to inactive");
             Assert.That(Resolve(inactiveSnapshot, activeSnapshot, definition).IsEmpty, Is.True, "active to inactive");
-            Assert.That(Resolve(activeSnapshot, definition).IsEmpty, Is.True, "missing previous snapshot");
+            Assert.That(Resolve(activeSnapshot, definition).IsEmpty, Is.False, "missing previous snapshot active invariant");
         }
 
         [Test]
@@ -3321,8 +3395,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 selector: TileFeatureBoxSelector.None);
             var cases = new[]
             {
-                new object[] { "Unit", new[] { CreateUnit(20, barricadeCell) }, GameplayTerrainData.Empty },
-                new object[] { "EnemyUnit", new[] { CreateEnemyUnit(21, barricadeCell) }, GameplayTerrainData.Empty },
                 new object[] { "Projectile", new[] { CreateProjectile(22, barricadeCell) }, GameplayTerrainData.Empty },
                 new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(barricadeCell) }) },
                 new object[] { "NonBoxSolid", new[] { CreateSolid(23, barricadeCell) }, GameplayTerrainData.Empty },
@@ -3974,8 +4046,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void PushStart_BoxBlockedByEnemyOnActiveBarricade_BarricadeBlocksBeforeImpact()
+        [Category("Extended")]
+        public void PushStart_EnemyOnSuppressedBarricade_WhenEnemyDies_DestroysEnemyAndBox()
         {
             var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
             var enemy = CreateEnemyUnit(30, barricadeCell);
@@ -4000,16 +4072,129 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var result = pipeline.RunTick(new TickInput(7));
             var finalSnapshot = worldState.CreateSnapshot();
 
-            Assert.That(result.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
-            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
-            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=PushStart"));
-            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
-            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
-            Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));
-            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
-            Assert.That(result.PresentationData.TileEvents[0].Direction, Is.EqualTo(Direction.Right));
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.BarricadeReassertCrush));
+            Assert.That(disposition.BarricadeTileId, Is.EqualTo(100));
+            Assert.That(disposition.BarricadeCell, Is.EqualTo(barricadeCell));
+            Assert.That(disposition.AllTargetsDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("Reason=BarricadeReassertCrush"));
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.None.Contains("BoxSlideBlockedByBarricade"));
+            var crushedEvent = result.PresentationData.TileEvents.Single(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed);
+            Assert.That(crushedEvent.TileId, Is.EqualTo(100));
+            Assert.That(crushedEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.HasAnyUnitAt(barricadeCell), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PushStart_EnemyOnSuppressedBarricade_WhenEnemySurvives_DamagesEnemyAndStopsBox()
+        {
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
+            var enemy = CreateEnemyUnit(30, barricadeCell);
+            enemy.hp = 2;
+            enemy.maxHp = 2;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
+                    enemy,
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
+            Assert.That(disposition.AllTargetsDestroyed, Is.False);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.False);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated"));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
             Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
             Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
+            Assert.That(enemyAfter.hp, Is.EqualTo(1));
+            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(enemyAfter.markedForDeath, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlidingContinuation_EnemyOnSuppressedBarricade_WhenEnemyDies_RemovesBoxFromSourceAndDestination()
+        {
+            var firstRun = RunSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
+            var secondRun = RunSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
+            var result = firstRun.Result;
+            var finalSnapshot = firstRun.FinalSnapshot;
+            var barricadeCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.BarricadeReassertCrush));
+            Assert.That(disposition.BarricadeTileId, Is.EqualTo(100));
+            Assert.That(disposition.BarricadeCell, Is.EqualTo(barricadeCell));
+            Assert.That(disposition.AllTargetsDestroyed, Is.True);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("Reason=BarricadeReassertCrush"));
+            AssertBoxReassertCrushRemovalOps(
+                result.MovementPhaseResult.ResolvedOperations,
+                boxEntityId: 20,
+                barricadeCell);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.None.Contains("BoxSlideBlockedByBarricade"));
+            var crushedEvent = result.PresentationData.TileEvents.Single(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed);
+            Assert.That(crushedEvent.TileId, Is.EqualTo(100));
+            Assert.That(crushedEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.HasAnyUnitAt(barricadeCell), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(new SurfaceCell(FaceId.Front, 0, 0), out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            var hashBuilder = new DeterminismHashBuilder();
+            var firstHash = hashBuilder.Build(7, firstRun.FinalSnapshot, CreateTickResultData(firstRun.FinalSnapshot));
+            var secondHash = hashBuilder.Build(7, secondRun.FinalSnapshot, CreateTickResultData(secondRun.FinalSnapshot));
+            Assert.That(firstHash, Is.Not.Empty);
+            Assert.That(secondHash, Is.EqualTo(firstHash));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlidingContinuation_EnemyOnSuppressedBarricade_WhenEnemySurvives_StopsBoxButDoesNotCrush()
+        {
+            var run = RunSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 2);
+            var result = run.Result;
+            var finalSnapshot = run.FinalSnapshot;
+            var barricadeCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
+            Assert.That(disposition.AllTargetsDestroyed, Is.False);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.False);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated"));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
             Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
             Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
@@ -4019,43 +4204,203 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void SlidingContinuation_BoxBlockedByEnemyOnActiveBarricade_StopsBeforeImpactAndEmitsBarricadeBlocked()
+        [Category("Extended")]
+        public void BottomToFrontSlide_EnemyOnSuppressedFrontBarricade_WhenEnemyDies_RemovesBoxFromSourceAndDestination()
         {
-            var firstRun = RunSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
-            var secondRun = RunSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
-            var result = firstRun.Result;
-            var finalSnapshot = firstRun.FinalSnapshot;
+            var result = RunBottomToFrontSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
+            var finalSnapshot = result.FinalSnapshot;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, TestBounds.MaxInclusive.y);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, TestBounds.MinInclusive.y);
+            var disposition = result.Result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
 
-            Assert.That(result.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
-            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
-            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=SlidingContinuation"));
-            Assert.That(result.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
-            Assert.That(result.PresentationData.BoxSlideStopSignals[0].StopperKind, Is.EqualTo(BoxSlideStopperKind.Barricade));
-            Assert.That(result.PresentationData.BoxSlideStopSignals[0].StopperTileId, Is.EqualTo(100));
-            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
-            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
-            Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));
-            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
-            Assert.That(result.PresentationData.TileEvents[0].Direction, Is.EqualTo(Direction.Up));
-            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
-            Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
-            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
-            Assert.That(enemyAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-            Assert.That(enemyAfter.hp, Is.EqualTo(1));
-            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
-            Assert.That(enemyAfter.markedForDeath, Is.False);
-            var hashBuilder = new DeterminismHashBuilder();
-            var firstHash = hashBuilder.Build(7, firstRun.FinalSnapshot, CreateTickResultData(firstRun.FinalSnapshot));
-            var secondHash = hashBuilder.Build(7, secondRun.FinalSnapshot, CreateTickResultData(secondRun.FinalSnapshot));
-            Assert.That(firstHash, Is.Not.Empty);
-            Assert.That(secondHash, Is.EqualTo(firstHash));
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.PushLike));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.BarricadeReassertCrush));
+            Assert.That(disposition.BarricadeTileId, Is.EqualTo(100));
+            Assert.That(disposition.BarricadeCell, Is.EqualTo(barricadeCell));
+            Assert.That(disposition.AllTargetsDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
+            Assert.That(result.Result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated").And.Contains("At=Front(2,0)"));
+            Assert.That(result.Result.MovementPhaseResult.CommitEvents, Has.Some.Contains("Reason=BarricadeReassertCrush"));
+            AssertBoxReassertCrushRemovalOps(
+                result.Result.MovementPhaseResult.ResolvedOperations,
+                boxEntityId: 20,
+                barricadeCell);
+            Assert.That(result.Result.MovementPhaseResult.RejectedReasons, Has.None.Contains("BoxSlideBlockedByBarricade"));
+            var crushedEvent = result.Result.PresentationData.TileEvents.Single(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed);
+            Assert.That(crushedEvent.TileId, Is.EqualTo(100));
+            Assert.That(crushedEvent.Cell, Is.EqualTo(barricadeCell));
+            Assert.That(crushedEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.Result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.HasAnyUnitAt(barricadeCell), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
         }
 
         [Test]
-        [Category("Core")]
-        public void PushDestroyStart_BoxBlockedByEnemyOnActiveBarricade_UsesDestroyFallbackWithoutImpact()
+        [Category("Extended")]
+        public void Scenario_BottomToFrontSlide_EnemyOnSuppressedFrontBarricade_WhenEnemyDies_SourceCellHasNoBoxAfterCleanup()
+        {
+            var run = RunBottomToFrontSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
+            var finalSnapshot = run.FinalSnapshot;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, TestBounds.MaxInclusive.y);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, TestBounds.MinInclusive.y);
+            var disposition = run.Result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            WriteBottomToFrontScenarioTrace(run, sourceCell, barricadeCell);
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.BarricadeReassertCrush));
+            Assert.That(
+                run.Result.MovementPhaseResult.ImpactDispositionRecords.Any(
+                    record => record.ImpactSourceEntityId == 20 &&
+                              record.DispositionKind == ImpactDispositionKind.Stay),
+                Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(
+                run.Result.MovementPhaseResult.ResolvedOperations.Any(
+                    operation => operation.EntityId == 20 &&
+                                 operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                                 operation.BoardPresence == EntityBoardPresence.Detached),
+                Is.True);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Scenario_BottomToFrontSlide_EnemyOnSuppressedFrontBarricade_WhenEnemySurvives_StopsBoxButDoesNotCrush()
+        {
+            var run = RunBottomToFrontSlidingBlockedByEnemyOnBarricadeScenario(enemyHp: 2);
+            var finalSnapshot = run.FinalSnapshot;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, TestBounds.MaxInclusive.y);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, TestBounds.MinInclusive.y);
+            var disposition = run.Result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
+            Assert.That(disposition.AllTargetsDestroyed, Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(sourceCell));
+            Assert.That(boxAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out var sourceSolid), Is.True);
+            Assert.That(sourceSolid.Entity.entityId, Is.EqualTo(20));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            Assert.That(run.Result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
+            Assert.That(run.Result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+        }
+
+        private static void WriteBottomToFrontScenarioTrace(
+            PipelineScenarioRunWithoutDisposition run,
+            SurfaceCell sourceCell,
+            SurfaceCell barricadeCell)
+        {
+            var finalSnapshot = run.FinalSnapshot;
+
+            TestContext.WriteLine("BottomToFrontTrace.Dispositions");
+            foreach (var record in run.Result.MovementPhaseResult.ImpactDispositionRecords)
+            {
+                TestContext.WriteLine(
+                    $"  Source={record.ImpactSourceEntityId}|Target={record.ImpactTargetEntityId}|Kind={record.DispositionKind}|Policy={record.PolicyKind}|AllTargetsDestroyed={record.AllTargetsDestroyed}|BarricadeTile={record.BarricadeTileId}|BarricadeCell={record.BarricadeCell}|FollowThroughAccepted={record.FollowThroughAccepted}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.MovementDebugEvents");
+            foreach (var entry in run.Result.MovementPhaseResult.DebugEvents)
+            {
+                TestContext.WriteLine($"  {entry}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.MovementCommitEvents");
+            foreach (var entry in run.Result.MovementPhaseResult.CommitEvents)
+            {
+                TestContext.WriteLine($"  {entry}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.MovementRejectedReasons");
+            foreach (var entry in run.Result.MovementPhaseResult.RejectedReasons)
+            {
+                TestContext.WriteLine($"  {entry}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.BoxOperations");
+            foreach (var operation in run.Result.MovementPhaseResult.ResolvedOperations.Where(operation => operation.EntityId == 20))
+            {
+                TestContext.WriteLine(
+                    $"  Seq={operation.Sequence}|Kind={operation.Kind}|BoardPresence={operation.BoardPresence}|Destination={operation.Destination}|ExitCause={operation.Metadata.ExitCauseHint}|DamageSource={operation.Metadata.DamageSourceType}|Boundary={operation.Metadata.BoundaryReason}|PresentationTarget={operation.Metadata.PresentationTargetCell}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.EnemyOperations");
+            foreach (var operation in run.Result.AttackPhaseResult.ResolvedOperations.Where(operation => operation.EntityId == 30))
+            {
+                TestContext.WriteLine(
+                    $"  Seq={operation.Sequence}|Kind={operation.Kind}|BoardPresence={operation.BoardPresence}|ExitCause={operation.Metadata.ExitCauseHint}|DamageSource={operation.Metadata.DamageSourceType}|Boundary={operation.Metadata.BoundaryReason}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.Damage");
+            foreach (var record in run.Result.AttackPhaseResult.DamageResolutions)
+            {
+                TestContext.WriteLine(
+                    $"  Target={record.TargetId}|Amount={record.Amount}|Accepted={record.Accepted}|Reject={record.RejectReason}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.Cleanup");
+            foreach (var entry in run.Result.EventLog.Where(entry => entry.StartsWith("CleanupRemoved|", StringComparison.Ordinal)))
+            {
+                TestContext.WriteLine($"  {entry}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.Presentation");
+            foreach (var tileEvent in run.Result.PresentationData.TileEvents)
+            {
+                TestContext.WriteLine(
+                    $"  TileEvent={tileEvent.EventKind}|Tile={tileEvent.TileId}|Cell={tileEvent.Cell}|Target={tileEvent.TargetEntityId}");
+            }
+
+            foreach (var exitSignal in run.Result.PresentationData.EntityExitSignals)
+            {
+                TestContext.WriteLine(
+                    $"  ExitSignal=E{exitSignal.ExitedEntityId}|Cause={exitSignal.ExitCause}|Source={exitSignal.SourceCell}|Target={exitSignal.PresentationTargetCell}|Timing={exitSignal.Timing}");
+            }
+
+            TestContext.WriteLine("BottomToFrontTrace.Final");
+            if (finalSnapshot.TryGetEntity(20, out var boxAfter))
+            {
+                TestContext.WriteLine(
+                    $"  Box=exists|Cell={boxAfter.position}|Presence={boxAfter.boardPresence}|State={boxAfter.state}|Timer={boxAfter.stateTimer}|Facing={boxAfter.facing}|Hp={boxAfter.hp}|Marked={boxAfter.markedForDeath}");
+            }
+            else
+            {
+                TestContext.WriteLine("  Box=missing");
+            }
+
+            if (finalSnapshot.TryGetEntity(30, out var enemyAfter))
+            {
+                TestContext.WriteLine(
+                    $"  Enemy=exists|Cell={enemyAfter.position}|Presence={enemyAfter.boardPresence}|Hp={enemyAfter.hp}|Marked={enemyAfter.markedForDeath}");
+            }
+            else
+            {
+                TestContext.WriteLine("  Enemy=missing");
+            }
+
+            TestContext.WriteLine(
+                finalSnapshot.TryGetSolidSemanticAt(sourceCell, out var sourceSolid)
+                    ? $"  SourceSolid=E{sourceSolid.Entity.entityId}"
+                    : "  SourceSolid=none");
+            TestContext.WriteLine(
+                finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out var barricadeSolid)
+                    ? $"  DestinationSolid=E{barricadeSolid.Entity.entityId}"
+                    : "  DestinationSolid=none");
+            TestContext.WriteLine(
+                finalSnapshot.HasAnyUnitAt(barricadeCell)
+                    ? "  DestinationUnit=present"
+                    : "  DestinationUnit=none");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PushDestroyStart_EnemyOnSuppressedBarricade_PrioritizesImpactAndReassertCrush()
         {
             var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
             var enemy = CreateEnemyUnit(30, barricadeCell);
@@ -4080,21 +4425,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var result = pipeline.RunTick(new TickInput(7));
             var finalSnapshot = worldState.CreateSnapshot();
 
-            Assert.That(result.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
-            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.BarricadeReassertCrush));
+            Assert.That(disposition.BarricadeTileId, Is.EqualTo(100));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("Reason=BarricadeReassertCrush"));
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
-            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
-            Assert.That(result.PresentationData.TileEvents[0].EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
-            Assert.That(result.PresentationData.TileEvents[0].TileId, Is.EqualTo(100));
-            Assert.That(result.PresentationData.TileEvents[0].TargetEntityId, Is.EqualTo(20));
-            Assert.That(result.PresentationData.TileEvents[0].Direction, Is.EqualTo(Direction.Right));
+            var crushedEvent = result.PresentationData.TileEvents.Single(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed);
+            Assert.That(crushedEvent.TileId, Is.EqualTo(100));
+            Assert.That(crushedEvent.TargetEntityId, Is.EqualTo(20));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=20"));
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
-            Assert.That(enemyAfter.position, Is.EqualTo(barricadeCell));
-            Assert.That(enemyAfter.hp, Is.EqualTo(1));
-            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
-            Assert.That(enemyAfter.markedForDeath, Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.HasAnyUnitAt(barricadeCell), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
         }
 
         [Test]
@@ -4621,7 +4968,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
                 });
 
-            return pipeline.RunTick(new TickInput(7)).DeterminismHash;
+            var result = pipeline.RunTick(new TickInput(7));
+            var snapshot = worldState.CreateSnapshot();
+            return new DeterminismHashBuilder().Build(7, snapshot, CreateTickResultData(snapshot, result.PresentationData, result.EventLog));
         }
 
         private static string RunBarricadeCrushHashScenario(bool crushEnabled)
@@ -4648,7 +4997,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new PlayerLogic(10),
                 });
 
-            return pipeline.RunTick(new TickInput(7, PlayerTickCommand.Move(Direction.Up))).DeterminismHash;
+            var result = pipeline.RunTick(new TickInput(7, PlayerTickCommand.Move(Direction.Up)));
+            var snapshot = worldState.CreateSnapshot();
+            return new DeterminismHashBuilder().Build(7, snapshot, CreateTickResultData(snapshot, result.PresentationData, result.EventLog));
         }
 
         private static SnapshotMaterializationCounts RunDestroyTileBudgetScenario(bool includeDestroyTile)
@@ -4734,7 +5085,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var barricadeCell = new SurfaceCell(FaceId.Front, 1, 1);
             var worldState = CreateWorldState(
-                new[] { CreateBox(20, barricadeCell) },
+                Array.Empty<EntityState>(),
                 new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
             var pipeline = CreatePipeline(
                 worldState,
@@ -4832,6 +5183,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var result = pipeline.RunTick(new TickInput(7));
             return new PipelineScenarioRunWithoutDisposition(result, worldState.CreateSnapshot());
+        }
+
+        private static PipelineScenarioRunWithoutDisposition RunBottomToFrontSlidingBlockedByEnemyOnBarricadeScenario(int enemyHp)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, TestBounds.MaxInclusive.y);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, TestBounds.MinInclusive.y);
+            var slidingBox = CreateBox(
+                20,
+                sourceCell,
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateEnemyUnit(30, barricadeCell);
+            enemy.hp = enemyHp;
+            enemy.maxHp = enemyHp;
+            var worldState = CreateWorldState(
+                new[] { slidingBox, enemy },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                topology: new CubeTopologyState(FaceId.Floor));
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            return new PipelineScenarioRunWithoutDisposition(result, worldState.CreateSnapshot());
+        }
+
+        private static void AssertBoxReassertCrushRemovalOps(
+            IReadOnlyList<FinalizationOperation> operations,
+            int boxEntityId,
+            SurfaceCell barricadeCell)
+        {
+            var boxOperations = operations
+                .Where(operation => operation.EntityId == boxEntityId)
+                .ToArray();
+            var hasDetached = boxOperations.Any(
+                operation => operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                             operation.BoardPresence == EntityBoardPresence.Detached &&
+                             operation.Metadata.BoundaryReason == "BarricadeCrush" &&
+                             operation.Metadata.PresentationTargetCell == barricadeCell);
+            var hasDestroy = boxOperations.Any(
+                operation => operation.Kind == FinalizationOperationKind.MarkDestroy &&
+                             operation.Metadata.BoundaryReason == "BarricadeCrush" &&
+                             operation.Metadata.PresentationTargetCell == barricadeCell);
+
+            Assert.That(hasDetached, Is.True);
+            Assert.That(hasDestroy, Is.True);
+            Assert.That(
+                boxOperations.Any(operation => operation.Kind != FinalizationOperationKind.ApplyStateChange),
+                Is.True);
+            Assert.That(
+                operations.Any(
+                    operation => operation.EntityId == 30 &&
+                                 operation.Metadata.BoundaryReason == "BarricadeCrush"),
+                Is.False);
         }
 
         private readonly struct PipelineScenarioRunWithoutDisposition

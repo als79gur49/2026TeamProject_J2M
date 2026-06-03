@@ -4,6 +4,31 @@ using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    internal enum ImpactFollowThroughSettlementOutcomeKind
+    {
+        Ordinary = 0,
+        BarricadeReassertCrush = 1,
+    }
+
+    internal readonly struct ImpactFollowThroughSettlementEvaluation
+    {
+        public ImpactFollowThroughSettlementEvaluation(
+            LegalityResult legalityResult,
+            ImpactFollowThroughSettlementOutcomeKind outcomeKind,
+            TileFeatureState barricade)
+        {
+            LegalityResult = legalityResult;
+            OutcomeKind = outcomeKind;
+            Barricade = barricade;
+        }
+
+        public LegalityResult LegalityResult { get; }
+
+        public ImpactFollowThroughSettlementOutcomeKind OutcomeKind { get; }
+
+        public TileFeatureState Barricade { get; }
+    }
+
     internal static class RuntimeSettlementLegalityPolicy
     {
         public static LegalityResult EvaluateLandingPlacement(SettlementContext context)
@@ -334,60 +359,95 @@ namespace Game.Feature.Gameplay.BoardState
             SettlementContext context,
             ImpactFollowThroughEvidence evidence)
         {
+            return EvaluateImpactFollowThroughDetailed(context, evidence).LegalityResult;
+        }
+
+        public static ImpactFollowThroughSettlementEvaluation EvaluateImpactFollowThroughDetailed(
+            SettlementContext context,
+            ImpactFollowThroughEvidence evidence)
+        {
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
             var modifiers = ModifierQuery.GetImpactFollowThroughModifiers(evidence);
+            ImpactFollowThroughSettlementEvaluation Ordinary(LegalityResult result)
+            {
+                return new ImpactFollowThroughSettlementEvaluation(
+                    result,
+                    ImpactFollowThroughSettlementOutcomeKind.Ordinary,
+                    default);
+            }
 
             if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
             {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    context.TerminalCell,
-                    context.TerminalTopology,
-                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
-                    context.ReservationStatus);
+                return Ordinary(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                        context.ReservationStatus));
             }
 
             if (!context.OccupancySnapshot.TryGetEntity(context.Actor.EntityId, out _) ||
                 !HasAnyExistingTarget(context.OccupancySnapshot, evidence.TargetIds))
             {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    context.TerminalCell,
-                    context.TerminalTopology,
-                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
-                    context.ReservationStatus);
+                return Ordinary(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                        context.ReservationStatus));
             }
 
             if (!modifiers.Has(LegalityModifierId.AcceptedDestroyVacatesTarget))
             {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    context.TerminalCell,
-                    context.TerminalTopology,
-                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
-                    context.ReservationStatus);
+                return Ordinary(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                        context.ReservationStatus));
+            }
+
+            if (TryGetImpactFollowThroughBarricadeReassertCrush(
+                    context,
+                    evidence,
+                    out var reassertingBarricade))
+            {
+                return new ImpactFollowThroughSettlementEvaluation(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.CreateTileFeature(reassertingBarricade),
+                        context.ReservationStatus),
+                    ImpactFollowThroughSettlementOutcomeKind.BarricadeReassertCrush,
+                    reassertingBarricade);
             }
 
             if (TryGetImpactFollowThroughTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
             {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    context.TerminalCell,
-                    context.TerminalTopology,
-                    RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
-                    context.ReservationStatus);
+                return Ordinary(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.CreateTileFeature(tileFeatureBlocker),
+                        context.ReservationStatus));
             }
 
             if (context.OccupancySnapshot.TryGetSolidSemanticAt(context.TerminalCell, out var solidOccupant) &&
                 !ContainsTargetId(evidence.TargetIds, solidOccupant.Entity.entityId))
             {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    context.TerminalCell,
-                    context.TerminalTopology,
-                    RuntimeLegalityBlockerFactory.Create(solidOccupant.Entity),
-                    context.ReservationStatus);
+                return Ordinary(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.Create(solidOccupant.Entity),
+                        context.ReservationStatus));
             }
 
             if (TryGetSettlementBlockingOccupant(
@@ -399,19 +459,21 @@ namespace Game.Feature.Gameplay.BoardState
                     shouldTreatAsBlockingOccupant: null,
                     out var blockingOccupant))
             {
-                return LegalityResult.Blocked(
+                return Ordinary(
+                    LegalityResult.Blocked(
+                        LegalityDomain.Settlement,
+                        context.TerminalCell,
+                        context.TerminalTopology,
+                        RuntimeLegalityBlockerFactory.Create(blockingOccupant),
+                        context.ReservationStatus));
+            }
+
+            return Ordinary(
+                LegalityResult.Allowed(
                     LegalityDomain.Settlement,
                     context.TerminalCell,
                     context.TerminalTopology,
-                    RuntimeLegalityBlockerFactory.Create(blockingOccupant),
-                    context.ReservationStatus);
-            }
-
-            return LegalityResult.Allowed(
-                LegalityDomain.Settlement,
-                context.TerminalCell,
-                context.TerminalTopology,
-                context.ReservationStatus);
+                    context.ReservationStatus));
         }
 
         public static LegalityResult EvaluateImpactFollowThrough(
@@ -533,6 +595,96 @@ namespace Game.Feature.Gameplay.BoardState
                 TileFeatureMovementKind.ImpactFollowThrough,
                 out tileFeatureBlocker,
                 context.TerminalTopology);
+        }
+
+        private static bool TryGetImpactFollowThroughBarricadeReassertCrush(
+            SettlementContext context,
+            ImpactFollowThroughEvidence evidence,
+            out TileFeatureState barricade)
+        {
+            barricade = default;
+            if (context.Actor.EntityType != EntityType.Box ||
+                context.TileFeatureDefinitions == null ||
+                context.TileFeatureDefinitions.Count == 0)
+            {
+                return false;
+            }
+
+            var tileFeatures = new List<TileFeatureState>();
+            context.OccupancySnapshot.EnumerateTileFeaturesAt(context.TerminalCell, tileFeatures);
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileFeature = tileFeatures[i];
+                if (tileFeature.Kind != TileFeatureKind.Barricade ||
+                    !TryFindTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition))
+                {
+                    continue;
+                }
+
+                var activation = BarricadeEffectiveActivationPolicy.Evaluate(
+                    context.OccupancySnapshot,
+                    context.TerminalTopology,
+                    tileFeature,
+                    definition);
+                if (activation.GameplayStateKind != BarricadeGameplayStateKind.ActiveSuppressedByUnit ||
+                    !ContainsTargetId(evidence.TargetIds, activation.BlockingUnitId) ||
+                    !HasAcceptedImpactDestroy(
+                        evidence.DestroyResolutions,
+                        evidence.AttackSourceId,
+                        activation.BlockingUnitId))
+                {
+                    continue;
+                }
+
+                barricade = tileFeature;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasAcceptedImpactDestroy(
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            int sourceEntityId,
+            int targetEntityId)
+        {
+            if (destroyResolutions == null || targetEntityId <= 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < destroyResolutions.Count; i++)
+            {
+                if (destroyResolutions[i].Accepted &&
+                    destroyResolutions[i].SourceId == sourceEntityId &&
+                    destroyResolutions[i].TargetId == targetEntityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryFindTileFeatureDefinition(
+            IReadOnlyList<TileFeatureRuntimeDefinition> definitions,
+            int tileId,
+            out TileFeatureRuntimeDefinition definition)
+        {
+            if (definitions != null)
+            {
+                for (var i = 0; i < definitions.Count; i++)
+                {
+                    if (definitions[i].TileId == tileId)
+                    {
+                        definition = definitions[i];
+                        return true;
+                    }
+                }
+            }
+
+            definition = default;
+            return false;
         }
 
         private static bool TryGetSettlementBlockingOccupant(

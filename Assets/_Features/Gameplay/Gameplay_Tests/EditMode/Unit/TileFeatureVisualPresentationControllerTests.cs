@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
@@ -1579,6 +1580,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void StageTileFeatureVisualBinding_BarricadeInitialState_SuppressedByUnitStartsLowered()
+        {
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_BarricadeInitialState_SuppressedByUnitStartsLowered));
+            var prefab = new GameObject("BarricadeTileVisualPrefab");
+
+            try
+            {
+                prefab.AddComponent<RecordingBarricadeActiveStateTarget>();
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+                var tileFeatures = new[]
+                {
+                    new TileFeatureState(
+                        100,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        TileFeatureFlags.None,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0,
+                        lifetimeTicks: 0,
+                        charges: 0),
+                };
+                var topology = new CubeTopologyState(FaceId.Front);
+                var initialSnapshot = GameplayWorldStateTestFactory.CreateBounded(
+                        new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 30,
+                                position = cell,
+                                hp = 1,
+                                maxHp = 1,
+                                teamId = 2,
+                                type = EntityType.Unit,
+                                boardPresence = EntityBoardPresence.Occupying,
+                            },
+                        },
+                        new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
+                        Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                        topology,
+                        GameplayTimingProfile.CreateDefault(),
+                        tileFeatures)
+                    .CreateSnapshot();
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, prefab),
+                    },
+                    tileFeatures,
+                    rootObject.transform,
+                    registry,
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    },
+                    initialTopology: topology,
+                    initialSnapshot: initialSnapshot);
+
+                Assert.That(registry.TryGetTileVisual(100, out var target), Is.True);
+                var barricadeTarget = (RecordingBarricadeActiveStateTarget)target;
+                Assert.That(barricadeTarget.ImmediateSyncCount, Is.EqualTo(1));
+                Assert.That(barricadeTarget.LastImmediateActive, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(prefab);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StageTileFeatureVisualBinding_DirectOverrideResolvedBinding_AppliesResolvedLocalPose()
         {
             AssertStageTileFeatureVisualBindingAppliesResolvedLocalPose(
@@ -2145,7 +2221,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TileFeatureVisualRegistry registry,
             ISurfaceCellPresentationPoseResolver poseResolver = null,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
-            CubeTopologyState? initialTopology = null)
+            CubeTopologyState? initialTopology = null,
+            WorldSnapshot initialSnapshot = null)
         {
             var method = typeof(GameplayHostRuntimeFactory).GetMethod(
                 "InstantiateStageTileFeatureVisuals",
@@ -2163,6 +2240,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     registry,
                     poseResolver,
                     null,
+                    initialSnapshot,
                 });
         }
 

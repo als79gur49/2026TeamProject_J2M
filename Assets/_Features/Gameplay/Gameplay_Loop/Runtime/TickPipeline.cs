@@ -7795,7 +7795,8 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var disposition = impactDispositionRecords[i].DispositionKind;
                 if (disposition == ImpactDispositionKind.FollowThrough ||
-                    disposition == ImpactDispositionKind.DestroySelf)
+                    disposition == ImpactDispositionKind.DestroySelf ||
+                    disposition == ImpactDispositionKind.BarricadeReassertCrush)
                 {
                     return true;
                 }
@@ -8678,6 +8679,9 @@ namespace Game.Feature.Gameplay.Loop
                 var hasDestroySelfDisposition = hasImpactDisposition &&
                                                payload.HasImpactReservationPayload &&
                                                impactDisposition.DispositionKind == ImpactDispositionKind.DestroySelf;
+                var hasBarricadeReassertCrushDisposition = hasImpactDisposition &&
+                                                           payload.HasImpactReservationPayload &&
+                                                           impactDisposition.DispositionKind == ImpactDispositionKind.BarricadeReassertCrush;
 
                 if (hasImpactFollowThrough &&
                     payload.ImpactReservationPayload.HasSourceFacing)
@@ -8695,7 +8699,8 @@ namespace Game.Feature.Gameplay.Loop
                         $"FacingCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceFacingEntityId}|Facing={payload.ImpactReservationPayload.SourceFacing}");
                 }
 
-                if (!hasImpactFollowThrough)
+                if (!hasImpactFollowThrough &&
+                    !hasBarricadeReassertCrushDisposition)
                 {
                     for (var stateIndex = 0; stateIndex < payload.StateChangeWrites.Count; stateIndex++)
                     {
@@ -8779,6 +8784,21 @@ namespace Game.Feature.Gameplay.Loop
                         commitEvents.Add(
                             $"StateChanged|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|State={payload.ImpactReservationPayload.ContingentState}|Timer={payload.ImpactReservationPayload.ContingentStateTimer}");
                     }
+                }
+                else if (hasBarricadeReassertCrushDisposition)
+                {
+                    var crushCell = impactDisposition.BarricadeCell.Equals(default(SurfaceCell))
+                        ? payload.ImpactReservationPayload.ContingentDestinationCell
+                        : impactDisposition.BarricadeCell;
+                    BarricadeCrushOperationPolicy.AddBoxRemoval(
+                        batch,
+                        actionPlanId,
+                        payload.ImpactReservationPayload.SourceEntityId,
+                        crushCell);
+                    commitEvents.Add(
+                        $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|Presence={EntityBoardPresence.Detached}");
+                    commitEvents.Add(
+                        $"DestroyMarked|G={actionPlanId}|I={payload.IntentId}|Target={payload.ImpactReservationPayload.SourceEntityId}|Reason=BarricadeReassertCrush|Tile={impactDisposition.BarricadeTileId}");
                 }
                 else
                 {
@@ -10144,6 +10164,8 @@ namespace Game.Feature.Gameplay.Loop
                 var followThroughAccepted = false;
                 var targetDestroyed = false;
                 var dispositionKind = ImpactDispositionKind.Stay;
+                var reassertBarricadeTileId = 0;
+                var reassertBarricadeCell = default(SurfaceCell);
                 if (payloads.TryGetValue(contest.ActionPlanId, out var payload) &&
                     payload.HasImpactReservationPayload)
                 {
@@ -10159,7 +10181,7 @@ namespace Game.Feature.Gameplay.Loop
                             {
                                 followThroughLegalityChecked = true;
                                 var reservationStatus = reservationBook.GetImpactPayloadStatus(payload.ImpactReservationPayload);
-                                var impactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                                var impactEvaluation = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThroughDetailed(
                                     new SettlementContext(
                                         attackSnapshot,
                                         BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.SourceEntityId, EntityType.Box),
@@ -10172,12 +10194,20 @@ namespace Game.Feature.Gameplay.Loop
                                         payload.ImpactReservationPayload.AttackSourceEntityId,
                                         payload.ImpactReservationPayload.TargetEntityIds,
                                         destroyResolutions));
+                                var impactLegality = impactEvaluation.LegalityResult;
                                 followThroughAccepted = impactLegality.Verdict == LegalityVerdict.Allowed;
                                 if (followThroughAccepted)
                                 {
                                     accepted = true;
                                     dispositionKind = ImpactDispositionKind.FollowThrough;
                                     reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                                }
+                                else if (impactEvaluation.OutcomeKind ==
+                                         ImpactFollowThroughSettlementOutcomeKind.BarricadeReassertCrush)
+                                {
+                                    dispositionKind = ImpactDispositionKind.BarricadeReassertCrush;
+                                    reassertBarricadeTileId = impactEvaluation.Barricade.TileId;
+                                    reassertBarricadeCell = impactEvaluation.Barricade.Cell;
                                 }
                                 else
                                 {
@@ -10199,7 +10229,7 @@ namespace Game.Feature.Gameplay.Loop
 
                             followThroughLegalityChecked = true;
                             var flipReservationStatus = reservationBook.GetImpactPayloadStatus(payload.ImpactReservationPayload);
-                            var flipImpactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                            var flipImpactEvaluation = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThroughDetailed(
                                 new SettlementContext(
                                     attackSnapshot,
                                     BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.SourceEntityId, EntityType.Box),
@@ -10213,12 +10243,20 @@ namespace Game.Feature.Gameplay.Loop
                                     payload.ImpactReservationPayload.TargetEntityIds,
                                     destroyResolutions,
                                     ignoreActiveGlideOccupants: true));
+                            var flipImpactLegality = flipImpactEvaluation.LegalityResult;
                             followThroughAccepted = flipImpactLegality.Verdict == LegalityVerdict.Allowed;
                             if (followThroughAccepted)
                             {
                                 accepted = true;
                                 dispositionKind = ImpactDispositionKind.FollowThrough;
                                 reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                            }
+                            else if (flipImpactEvaluation.OutcomeKind ==
+                                     ImpactFollowThroughSettlementOutcomeKind.BarricadeReassertCrush)
+                            {
+                                dispositionKind = ImpactDispositionKind.BarricadeReassertCrush;
+                                reassertBarricadeTileId = flipImpactEvaluation.Barricade.TileId;
+                                reassertBarricadeCell = flipImpactEvaluation.Barricade.Cell;
                             }
                             else
                             {
@@ -10241,7 +10279,9 @@ namespace Game.Feature.Gameplay.Loop
                             dispositionKind,
                             targetDestroyed,
                             followThroughLegalityChecked,
-                            followThroughAccepted));
+                            followThroughAccepted,
+                            reassertBarricadeTileId,
+                            reassertBarricadeCell));
                 }
 
                 resolutionRecords.Add(CreateResolutionRecord(contest, accepted));

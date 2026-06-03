@@ -1478,6 +1478,40 @@ namespace Game.Feature.Gameplay.Loop
                         direction: fact.AttemptedDirection));
             }
 
+            var impactDispositionRecords = context.MovementPhaseResult.ImpactDispositionRecords;
+            for (var i = 0; i < impactDispositionRecords.Count; i++)
+            {
+                var record = impactDispositionRecords[i];
+                if (record.DispositionKind != ImpactDispositionKind.BarricadeReassertCrush ||
+                    record.BarricadeTileId <= 0)
+                {
+                    continue;
+                }
+
+                var sourceEntityId = 0;
+                var ownerEntityId = 0;
+                var teamId = 0;
+                var cell = record.BarricadeCell;
+                if (context.FinalAuthoritativeSnapshot.TryGetTileFeature(record.BarricadeTileId, out var barricade))
+                {
+                    sourceEntityId = barricade.SourceEntityId;
+                    ownerEntityId = barricade.OwnerEntityId;
+                    teamId = barricade.TeamId;
+                    cell = barricade.Cell;
+                }
+
+                tileEvents.Add(
+                    new TilePresentationEvent(
+                        TilePresentationEventKind.BarricadeCrushed,
+                        record.BarricadeTileId,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        sourceEntityId,
+                        ownerEntityId,
+                        teamId,
+                        targetEntityId: record.ImpactSourceEntityId));
+            }
+
             var finalTileFeatures = new List<TileFeatureState>();
             context.FinalAuthoritativeSnapshot.EnumerateTileFeaturesOrdered(finalTileFeatures);
             AddTileFeatureActivationEvents(context, topologyFact, finalTileFeatures, tileEvents);

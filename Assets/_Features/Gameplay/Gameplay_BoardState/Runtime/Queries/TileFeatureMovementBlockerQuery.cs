@@ -115,7 +115,12 @@ namespace Game.Feature.Gameplay.BoardState
                 }
 
                 var topology = evaluationTopology ?? snapshot.Topology;
-                if (TileFeatureActivationQueries.IsActive(tileFeature, definition, topology))
+                var activation = BarricadeEffectiveActivationPolicy.Evaluate(
+                    snapshot,
+                    topology,
+                    tileFeature,
+                    definition);
+                if (activation.TopologyActive)
                 {
                     if (subject == TileFeatureBlockerSubject.Unit &&
                         BarricadeActivationOccupantQuery.IsExistingBlockingUnitAt(
@@ -123,6 +128,12 @@ namespace Game.Feature.Gameplay.BoardState
                             topology,
                             cell,
                             existingOccupantEntityId))
+                    {
+                        continue;
+                    }
+
+                    if (subject == TileFeatureBlockerSubject.Box &&
+                        activation.GameplayStateKind == BarricadeGameplayStateKind.ActiveSuppressedByUnit)
                     {
                         continue;
                     }

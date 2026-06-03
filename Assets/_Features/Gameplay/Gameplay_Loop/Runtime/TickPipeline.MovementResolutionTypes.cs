@@ -110,6 +110,7 @@ namespace Game.Feature.Gameplay.Loop
         Stay = 0,
         FollowThrough = 1,
         DestroySelf = 2,
+        BarricadeReassertCrush = 3,
     }
 
     internal readonly struct ImpactDispositionResolutionRecord
@@ -123,7 +124,9 @@ namespace Game.Feature.Gameplay.Loop
             ImpactDispositionKind dispositionKind,
             bool targetDestroyed,
             bool followThroughLegalityChecked,
-            bool followThroughAccepted)
+            bool followThroughAccepted,
+            int barricadeTileId = 0,
+            SurfaceCell barricadeCell = default)
         {
             ActionPlanId = actionPlanId;
             ImpactSourceEntityId = impactSourceEntityId;
@@ -136,6 +139,8 @@ namespace Game.Feature.Gameplay.Loop
             AllTargetsDestroyed = targetDestroyed;
             FollowThroughLegalityChecked = followThroughLegalityChecked;
             FollowThroughAccepted = followThroughAccepted;
+            BarricadeTileId = barricadeTileId;
+            BarricadeCell = barricadeCell;
         }
 
         public ImpactDispositionResolutionRecord(
@@ -147,7 +152,9 @@ namespace Game.Feature.Gameplay.Loop
             ImpactDispositionKind dispositionKind,
             bool allTargetsDestroyed,
             bool followThroughLegalityChecked,
-            bool followThroughAccepted)
+            bool followThroughAccepted,
+            int barricadeTileId = 0,
+            SurfaceCell barricadeCell = default)
         {
             ActionPlanId = actionPlanId;
             ImpactSourceEntityId = impactSourceEntityId;
@@ -160,6 +167,8 @@ namespace Game.Feature.Gameplay.Loop
             AllTargetsDestroyed = allTargetsDestroyed;
             FollowThroughLegalityChecked = followThroughLegalityChecked;
             FollowThroughAccepted = followThroughAccepted;
+            BarricadeTileId = barricadeTileId;
+            BarricadeCell = barricadeCell;
         }
 
         public int ActionPlanId { get; }
@@ -183,6 +192,10 @@ namespace Game.Feature.Gameplay.Loop
         public bool FollowThroughLegalityChecked { get; }
 
         public bool FollowThroughAccepted { get; }
+
+        public int BarricadeTileId { get; }
+
+        public SurfaceCell BarricadeCell { get; }
     }
 
     internal readonly struct BoardPresenceWritePayload

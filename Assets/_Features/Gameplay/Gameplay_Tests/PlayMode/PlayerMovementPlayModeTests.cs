@@ -1013,6 +1013,112 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator PlayMode_BottomToFrontSlide_EnemyOnSuppressedFrontBarricade_WhenEnemyDies_RemovesBoxView()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 8);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, -8);
+            var slidingBox = CreateBox(20, sourceCell, BoxCapabilities.Push);
+            slidingBox.state = EntityPhaseState.Sliding;
+            slidingBox.stateTimer = 0;
+            slidingBox.facing = Direction.Up;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateUnit(30, barricadeCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            enemy.teamId = 2;
+            enemy.unitRole = UnitRole.Enemy;
+            enemy.aiMode = EnemyAiMode.Chase;
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    slidingBox,
+                    enemy,
+                },
+                initialTileFeatures: new[]
+                {
+                    CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade),
+                },
+                tileFeatureDefinitions: new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                },
+                initialTopology: new CubeTopologyState(FaceId.Floor));
+
+            Assert.That(host.ViewRegistry.TryGetView(20, out var boxView), Is.True);
+            Assert.That(boxView.gameObject.activeSelf, Is.True);
+
+            var result = host.InputHost.RunSingleTick();
+            var finalSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(result, Is.Not.Null);
+            WriteBottomToFrontPlayModeTrace(result, finalSnapshot, sourceCell, barricadeCell, boxView);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.True);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 20 && signal.ExitCause == TickEntityExitCause.BoxDestroy), Is.True);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            Assert.That(boxView.gameObject.activeSelf, Is.False);
+
+            yield return DestroyHost(host);
+        }
+
+        private static void WriteBottomToFrontPlayModeTrace(
+            TickResult result,
+            WorldSnapshot finalSnapshot,
+            SurfaceCell sourceCell,
+            SurfaceCell barricadeCell,
+            GameplayEntityView boxView)
+        {
+            TestContext.WriteLine("BottomToFrontPlayModeTrace.Presentation");
+            foreach (var tileEvent in result.PresentationData.TileEvents)
+            {
+                TestContext.WriteLine(
+                    $"  TileEvent={tileEvent.EventKind}|Tile={tileEvent.TileId}|Cell={tileEvent.Cell}|Target={tileEvent.TargetEntityId}");
+            }
+
+            foreach (var exitSignal in result.PresentationData.EntityExitSignals)
+            {
+                TestContext.WriteLine(
+                    $"  ExitSignal=E{exitSignal.ExitedEntityId}|Cause={exitSignal.ExitCause}|Source={exitSignal.SourceCell}|Target={exitSignal.PresentationTargetCell}|Timing={exitSignal.Timing}");
+            }
+
+            TestContext.WriteLine("BottomToFrontPlayModeTrace.Final");
+            if (finalSnapshot.TryGetEntity(20, out var boxAfter))
+            {
+                TestContext.WriteLine(
+                    $"  Box=exists|Cell={boxAfter.position}|Presence={boxAfter.boardPresence}|State={boxAfter.state}|Timer={boxAfter.stateTimer}|Facing={boxAfter.facing}|Hp={boxAfter.hp}|Marked={boxAfter.markedForDeath}");
+            }
+            else
+            {
+                TestContext.WriteLine("  Box=missing");
+            }
+
+            if (finalSnapshot.TryGetEntity(30, out var enemyAfter))
+            {
+                TestContext.WriteLine(
+                    $"  Enemy=exists|Cell={enemyAfter.position}|Presence={enemyAfter.boardPresence}|Hp={enemyAfter.hp}|Marked={enemyAfter.markedForDeath}");
+            }
+            else
+            {
+                TestContext.WriteLine("  Enemy=missing");
+            }
+
+            TestContext.WriteLine(
+                finalSnapshot.TryGetSolidSemanticAt(sourceCell, out var sourceSolid)
+                    ? $"  SourceSolid=E{sourceSolid.Entity.entityId}"
+                    : "  SourceSolid=none");
+            TestContext.WriteLine(
+                finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out var barricadeSolid)
+                    ? $"  DestinationSolid=E{barricadeSolid.Entity.entityId}"
+                    : "  DestinationSolid=none");
+            TestContext.WriteLine($"  BoxViewActive={boxView.gameObject.activeSelf}");
+        }
+
+        [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_FlipBufferedAtTickBoundary_PrioritizesFlipOverMove()
         {
             var host = CreateHost(new[]
@@ -1523,7 +1629,53 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
             Camera viewCamera = null,
             GameplayEntityView playerViewPrefabOverride = null,
-            GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null)
+            GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null,
+            TileFeatureState[] initialTileFeatures = null,
+            TileFeatureRuntimeDefinition[] tileFeatureDefinitions = null,
+            CubeTopologyState? initialTopology = null)
+        {
+            return CreateHostCore(
+                initialEntities,
+                actions,
+                staticEntityLogics,
+                initialMoveDelaySeconds,
+                repeatedMoveIntervalSeconds,
+                directionChangeConsumesDelay,
+                moveMotionDurationSeconds,
+                itemConsumeEffectDurationSeconds,
+                boxDestroyEffectDurationSeconds,
+                pushPresentationDurationSeconds,
+                flipPresentationDurationSeconds,
+                playerControlTiming,
+                topologyTransitionPostFxProfile,
+                viewCamera,
+                playerViewPrefabOverride,
+                runtimeFeatureFlags,
+                initialTileFeatures,
+                tileFeatureDefinitions,
+                initialTopology);
+        }
+
+        private static GameplaySceneHost CreateHostCore(
+            EntityState[] initialEntities,
+            InputActionAsset actions,
+            IEntityLogic[] staticEntityLogics,
+            float initialMoveDelaySeconds,
+            float repeatedMoveIntervalSeconds,
+            bool directionChangeConsumesDelay,
+            float moveMotionDurationSeconds,
+            float itemConsumeEffectDurationSeconds,
+            float boxDestroyEffectDurationSeconds,
+            float pushPresentationDurationSeconds,
+            float flipPresentationDurationSeconds,
+            PlayerControlTimingSettings playerControlTiming,
+            TopologyTransitionPostFxProfile topologyTransitionPostFxProfile,
+            Camera viewCamera,
+            GameplayEntityView playerViewPrefabOverride,
+            GameplayRuntimeFeatureFlags? runtimeFeatureFlags,
+            TileFeatureState[] initialTileFeatures,
+            TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
+            CubeTopologyState? initialTopology)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1564,6 +1716,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
                 InitialMoveDelaySeconds = initialMoveDelaySeconds,
                 InitialEntities = initialEntities,
+                InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>(),
+                TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>(),
+                InitialTopology = initialTopology ?? new CubeTopologyState(FaceId.Floor),
                 MaxTicksPerFrame = 8,
                 MoveDeadzone = 0.5f,
                 MoveMotionDurationSeconds = moveMotionDurationSeconds,
@@ -1700,6 +1855,37 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 facing = Direction.Right,
                 boxCapabilities = capabilities,
             };
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureFlags flags = TileFeatureFlags.None)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                flags,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static IEnumerator DestroyHost(GameplaySceneHost host, UnityEngine.Object ownedActions = null)

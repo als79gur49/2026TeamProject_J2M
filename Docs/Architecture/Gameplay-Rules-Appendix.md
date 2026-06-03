@@ -11,6 +11,7 @@
   - 다음 칸이 유닛 점유 cell이면 `impact`다.
   - Movement는 impact cell의 targetable unit 전체에 대해 `ImpactReservation`을 만들고, Attack이 same-tick damage를 적용한다.
   - all targets die + landing accepted면 current runtime lethal follow-through formalization으로 same-tick advance를 commit한다.
+  - all targets die + suppressed Barricade occupant cleared면 `BarricadeReassertCrush`로 incoming box를 제거하고 FollowThrough하지 않는다.
   - any target survives면 `Stay`다.
   - all targets die + landing denied면 `Stay`다.
 
@@ -23,6 +24,7 @@
   - landing cell이 유닛 점유 cell이면 `impact`다.
   - current contract에서 flip impact는 impact-result-dependent action uplift다.
   - all targets die + landing accepted면 `FollowThrough`다.
+  - all targets die + suppressed Barricade occupant cleared면 `BarricadeReassertCrush`로 incoming box를 제거하고 FollowThrough하지 않는다.
   - any target survives면 `DestroySelf`다.
   - all targets die + landing denied면 `Stay`다.
   - landing cell이 wall, solid box, terrain, board edge면 `blocked`다.
@@ -37,13 +39,20 @@
 | --- | --- | --- | --- | --- |
 | Push / Sliding Push | any target survives | not asked | `Stay` | current runtime lethal follow-through formalization |
 | Push / Sliding Push | all targets die | landing accepted | `FollowThrough` | current runtime lethal follow-through formalization |
+| Push / Sliding Push | all targets die | suppressed Barricade occupant cleared | `BarricadeReassertCrush` | Barricade immediately reasserts and crushes incoming box |
 | Push / Sliding Push | all targets die | landing denied | `Stay` | current runtime lethal follow-through formalization |
 | Flip | any target survives | not asked | `DestroySelf` | impact-result-dependent action uplift |
 | Flip | all targets die | landing accepted | `FollowThrough` | impact-result-dependent action uplift |
+| Flip | all targets die | suppressed Barricade occupant cleared | `BarricadeReassertCrush` | Barricade immediately reasserts and crushes incoming box |
 | Flip | all targets die | landing denied | `Stay` | current contract decision |
 
 - `Flip lethal but landing denied = Stay` is a current contract decision for the current Push/Flip impact-disposition plan. It is not a generalized impact principle.
 - Transient collision/break is a presentation-only track.
+
+## Barricade Active Solid Invariant
+- This is a tile-effect invariant, not a MovementExpander, SurfaceSlideQueries, or settlement legality rule.
+- A topology-active/effective-active Barricade never allows terminal valid Box Solid occupancy on the same `SurfaceCell`.
+- A same-cell live Unit/enemy suppressor defers Box crush; when that Unit leaves and the Barricade remains topology-active, the remaining Box is crushed even without a new inactive-to-active transition.
 
 ## Traverse vs Settle
 - `Traverse`는 actor가 이동 step 또는 topology transition을 통과할 수 있는지 묻는다.

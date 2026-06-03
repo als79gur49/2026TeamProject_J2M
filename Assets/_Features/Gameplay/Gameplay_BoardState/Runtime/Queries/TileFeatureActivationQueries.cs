@@ -44,6 +44,14 @@ namespace Game.Feature.Gameplay.BoardState
         }
     }
 
+    internal enum BarricadeGameplayStateKind
+    {
+        Inactive = 0,
+        ActiveBlocking = 1,
+        ActiveSuppressedByUnit = 2,
+        ActiveReassertingAfterOccupantCleared = 3,
+    }
+
     internal readonly struct BarricadeEffectiveActivationState
     {
         public BarricadeEffectiveActivationState(
@@ -52,11 +60,18 @@ namespace Game.Feature.Gameplay.BoardState
         {
             TopologyActive = topologyActive;
             BlockingUnitId = blockingUnitId;
+            GameplayStateKind = !topologyActive
+                ? BarricadeGameplayStateKind.Inactive
+                : blockingUnitId > 0
+                    ? BarricadeGameplayStateKind.ActiveSuppressedByUnit
+                    : BarricadeGameplayStateKind.ActiveBlocking;
         }
 
         public bool TopologyActive { get; }
 
         public int BlockingUnitId { get; }
+
+        public BarricadeGameplayStateKind GameplayStateKind { get; }
 
         public bool HasBlockingUnit => BlockingUnitId > 0;
 

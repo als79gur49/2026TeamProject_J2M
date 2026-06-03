@@ -1403,6 +1403,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     registry,
                     null,
                     null,
+                    null,
                 });
         }
 

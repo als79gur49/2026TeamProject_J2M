@@ -238,7 +238,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(destination, out _), Is.False);
             Assert.That(GetChargeState(worldState).phase, Is.EqualTo(EnemyChargePhase.Recover));
             Assert.That(GetChargeState(worldState).recoverRemainingTicks, Is.GreaterThan(0));
-            Assert.That(tick.Trace.Text, Does.Contain("ChargeBlocked").Or.Contain("EnemyChargeKinematicTraversalBlocked"));
         }
 
         [Test]

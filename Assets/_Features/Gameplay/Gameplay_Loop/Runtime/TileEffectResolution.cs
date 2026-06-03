@@ -474,6 +474,58 @@ namespace Game.Feature.Gameplay.Loop
         }
     }
 
+    internal static class BarricadeCrushOperationPolicy
+    {
+        public static FinalizationOperationMetadata CreateMetadata(
+            int tickIndex,
+            int boxEntityId,
+            SurfaceCell contactCell)
+        {
+            return new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.None,
+                sourceActorEntityId: boxEntityId,
+                actionPlanId: tickIndex,
+                exitCauseHint: TickEntityExitCause.BoxDestroy,
+                damageSourceType: DamageSourceType.Environmental,
+                presentationTargetCell: contactCell,
+                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
+                boundaryReason: "BarricadeCrush",
+                hasPresentationTargetCell: true);
+        }
+
+        public static void AddBoxRemoval(
+            FinalizationBatch batch,
+            int tickIndex,
+            int boxEntityId,
+            SurfaceCell contactCell)
+        {
+            if (batch == null)
+            {
+                throw new ArgumentNullException(nameof(batch));
+            }
+
+            var metadata = CreateMetadata(tickIndex, boxEntityId, contactCell);
+            batch.SetBoardPresence(boxEntityId, EntityBoardPresence.Detached, metadata);
+            batch.MarkDestroy(boxEntityId, metadata);
+        }
+
+        public static TilePresentationEvent CreateTileEvent(
+            TileFeatureState tileFeature,
+            int boxEntityId)
+        {
+            return new TilePresentationEvent(
+                TilePresentationEventKind.BarricadeCrushed,
+                tileFeature.TileId,
+                tileFeature.Cell,
+                tileFeature.Kind,
+                tileFeature.SourceEntityId,
+                tileFeature.OwnerEntityId,
+                tileFeature.TeamId,
+                targetEntityId: boxEntityId);
+        }
+    }
+
     internal sealed class TileFeatureEffectResolver : ITileEffectResolver
     {
         public static readonly TileFeatureEffectResolver Instance = new();
@@ -784,10 +836,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             var batch = new FinalizationBatch();
             eventLogEntries = new List<string>();
-            if (context.PreviousSnapshot == null)
-            {
-                return batch;
-            }
 
             var tileFeatures = new List<TileFeatureState>();
             context.Snapshot.EnumerateTileFeaturesOrdered(tileFeatures);
@@ -795,20 +843,31 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var tileFeature = tileFeatures[i];
                 if (tileFeature.Kind != TileFeatureKind.Barricade ||
-                    !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition) ||
-                    !IsBarricadeEffectiveActivationTransition(
-                        context.PreviousSnapshot,
-                        context.Snapshot,
-                        tileFeature,
-                        definition,
-                        out var currentActivation))
+                    !TryFindDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition))
                 {
                     continue;
                 }
 
-                if (currentActivation.HasBlockingUnit)
+                var currentActivation = BarricadeEffectiveActivationPolicy.Evaluate(
+                    context.Snapshot,
+                    context.Snapshot.Topology,
+                    tileFeature,
+                    definition);
+                if (!currentActivation.TopologyActive)
                 {
-                    if (ShouldEmitBarricadeActivationDeferred(
+                    continue;
+                }
+
+                var isActivationTransition = IsBarricadeActivationTransition(
+                    context.PreviousSnapshot,
+                    context.Snapshot,
+                    tileFeature,
+                    definition,
+                    currentActivation);
+                if (IsBarricadeCrushDeferredByUnit(currentActivation))
+                {
+                    if (isActivationTransition &&
+                        ShouldEmitBarricadeActivationDeferred(
                             context.PreviousSnapshot,
                             tileFeature,
                             definition,
@@ -823,43 +882,37 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                if (!TryGetValidOccupyingBox(context.Snapshot, tileFeature.Cell, out var box) ||
-                    (destroyedBoxIds != null && destroyedBoxIds.Contains(box.entityId)))
+                if (!ShouldCrushBoxOnActiveBarricade(
+                        context.Snapshot,
+                        tileFeature,
+                        currentActivation,
+                        destroyedBoxIds,
+                        out var box))
                 {
                     continue;
                 }
 
-                var metadata = CreateBarricadeCrushMetadata(context.TickIndex, box.entityId, tileFeature.Cell);
-                batch.SetBoardPresence(box.entityId, EntityBoardPresence.Detached, metadata);
-                batch.MarkDestroy(box.entityId, metadata);
+                BarricadeCrushOperationPolicy.AddBoxRemoval(
+                    batch,
+                    context.TickIndex,
+                    box.entityId,
+                    tileFeature.Cell);
                 destroyedBoxIds?.Add(box.entityId);
-                tileEvents?.Add(new TilePresentationEvent(
-                    TilePresentationEventKind.BarricadeCrushed,
-                    tileFeature.TileId,
-                    tileFeature.Cell,
-                    tileFeature.Kind,
-                    tileFeature.SourceEntityId,
-                    tileFeature.OwnerEntityId,
-                    tileFeature.TeamId,
-                    targetEntityId: box.entityId));
+                tileEvents?.Add(BarricadeCrushOperationPolicy.CreateTileEvent(tileFeature, box.entityId));
             }
 
             return batch;
         }
 
-        private static bool IsBarricadeEffectiveActivationTransition(
+        private static bool IsBarricadeActivationTransition(
             WorldSnapshot previousSnapshot,
             WorldSnapshot currentSnapshot,
             TileFeatureState currentTileFeature,
             TileFeatureRuntimeDefinition definition,
-            out BarricadeEffectiveActivationState currentActivation)
+            in BarricadeEffectiveActivationState currentActivation)
         {
-            currentActivation = BarricadeEffectiveActivationPolicy.Evaluate(
-                currentSnapshot,
-                currentSnapshot.Topology,
-                currentTileFeature,
-                definition);
-            if (!currentActivation.TopologyActive)
+            if (previousSnapshot == null ||
+                !currentActivation.TopologyActive)
             {
                 return false;
             }
@@ -879,6 +932,32 @@ namespace Game.Feature.Gameplay.Loop
 
             return !previousActivation.EffectiveActive &&
                    (currentActivation.EffectiveActive || currentActivation.HasBlockingUnit);
+        }
+
+        private static bool IsBarricadeCrushDeferredByUnit(
+            in BarricadeEffectiveActivationState currentActivation)
+        {
+            return currentActivation.HasBlockingUnit;
+        }
+
+        private static bool ShouldCrushBoxOnActiveBarricade(
+            WorldSnapshot snapshot,
+            TileFeatureState tileFeature,
+            in BarricadeEffectiveActivationState currentActivation,
+            HashSet<int> destroyedBoxIds,
+            out EntityState box)
+        {
+            box = default;
+            if (!currentActivation.TopologyActive ||
+                !currentActivation.EffectiveActive ||
+                !TryGetValidOccupyingBox(snapshot, tileFeature.Cell, out var occupant) ||
+                (destroyedBoxIds != null && destroyedBoxIds.Contains(occupant.entityId)))
+            {
+                return false;
+            }
+
+            box = occupant;
+            return true;
         }
 
         private static bool ShouldEmitBarricadeActivationDeferred(
@@ -1170,17 +1249,7 @@ namespace Game.Feature.Gameplay.Loop
             int boxEntityId,
             SurfaceCell contactCell)
         {
-            return new FinalizationOperationMetadata(
-                TickPhase.Resolve,
-                ResolvedActionSemanticKind.None,
-                sourceActorEntityId: boxEntityId,
-                actionPlanId: tickIndex,
-                exitCauseHint: TickEntityExitCause.BoxDestroy,
-                damageSourceType: DamageSourceType.Environmental,
-                presentationTargetCell: contactCell,
-                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "BarricadeCrush",
-                hasPresentationTargetCell: true);
+            return BarricadeCrushOperationPolicy.CreateMetadata(tickIndex, boxEntityId, contactCell);
         }
 
         private static FinalizationOperationMetadata CreateSlideTileRedirectMetadata(

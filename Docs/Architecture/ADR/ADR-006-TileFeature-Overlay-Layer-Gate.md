@@ -137,6 +137,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.
 
 - Barricade has three activation views: `topology-active` is `TileFeatureActivationQueries.IsActive(...)` under the evaluated topology, `effective-active` is topology-active without a same-`SurfaceCell` gameplay-visible live Unit occupant, and `presentation-active` is the raised/active visual state emitted only from effective-active.
+- Barricade gameplay state is one of `Inactive`, `ActiveBlocking`, `ActiveSuppressedByUnit`, or transient `ActiveReassertingAfterOccupantCleared`.
 - Barricade activation rule is `FrontFaceOnly`.
 - Barricade direction must be `None`.
 - Barricade selector must be `None`.
@@ -145,29 +146,34 @@ Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay
 - Active Barricade blocks Jpeter summon placement and Astreton jump landing settlement through TileFeature legality blockers such as `LegalityBlockerKind.TileFeature`.
 - Barricade does not occupy Unit, Solid, or Projectile layer.
 - Barricade does not invalidate existing Unit occupancy.
-- If a topology-active Barricade has a same-`SurfaceCell` gameplay-visible live Unit occupant, activation is deferred: the Unit is not pushed, killed, ejected, detached, damaged, or otherwise mutated.
-- Unit defer is Barricade-specific and does not change generic TileFeature activation semantics.
-- Deferred Barricade allows the existing blocking Unit occupant to remain, but it still blocks new Unit entrants through the TileFeature blocker path.
+- If a topology-active Barricade has a same-`SurfaceCell` gameplay-visible live Unit occupant, it enters `ActiveSuppressedByUnit`: raised visual and box pre-impact blocking are suppressed for that existing occupant.
+- Suppressed Barricade allows the existing blocking Unit occupant to remain, but it still blocks new Unit entrants through the TileFeature blocker path.
 - Projectile movement is not blocked.
-- Active Barricade blocks Push start, Sliding Push continuation, and Flip landing before hostile unit impact on the blocked cell.
-- Active Barricade also blocks impact follow-through settlement as a final legality guard.
+- `ActiveBlocking` Barricade blocks Push start, Sliding Push continuation, and Flip landing before hostile unit impact on the blocked cell.
+- `ActiveSuppressedByUnit` allows incoming Push start, Sliding Push continuation, Bottom-to-Front Sliding Push continuation, and Flip landing boxes to create occupant impact before Barricade blocking.
+- If the suppressed occupant survives, ordinary impact outcome closes and the incoming box does not settle on the Barricade cell.
+- If the suppressed occupant is cleared by the impact, Barricade immediately reasserts and crushes the incoming box; the box does not FollowThrough or settle on the Barricade cell.
+- Active Barricade never allows terminal Solid occupancy.
+- `ActiveBlocking` Barricade also blocks impact follow-through settlement as a final legality guard.
 - Topology relocation is not blocked by Barricade unless a separate policy is added later.
 - EnemyParticipationPolicy is unchanged; current enemy bottom-face participation remains unchanged.
-- Active Barricade blocks box push first step, sliding continuation entry, and flip landing entry.
+- `ActiveBlocking` Barricade blocks box push first step, sliding continuation entry, and flip landing entry.
 - Inactive Barricade does not block existing DestroyTile or SlideTile behavior.
 - Inactive Barricade does not block existing flip behavior.
 - Push/Destroy first-step blocked fallback stays the existing first-step semantics.
-- Flip landing blocked by active Barricade does not create hostile unit impact reservation, Unit kill/eject, DestroyTile contact, or SlideTile contact.
+- Flip landing blocked by `ActiveBlocking` Barricade does not create hostile unit impact reservation, Unit kill/eject, DestroyTile contact, or SlideTile contact.
 - Active Barricade + DestroyTile same-cell emits `BarricadeBlocked`, not `DestroyTileTriggered`.
 - Active Barricade + SlideTile same-cell emits `BarricadeBlocked`, not `SlideTileRedirected`.
 
 Barricade active-transition crush is separate from movement blocking.
 
 - Inactive to active transition may destroy a same-cell valid Box.
-- Unit defer has priority over Barricade Box crush. If a same-cell live Unit occupant blocks activation, Box crush is not created for that Barricade in that tick.
-- If the Unit later leaves while the Barricade remains topology-active, Barricade becomes effective-active on that tick and normal activation/crush/presentation may occur once.
+- Unit suppression has priority over Barricade transition Box crush. If a same-cell live Unit occupant suppresses activation, transition Box crush is not created for that Barricade in that tick.
+- Barricade reassert crush after occupant-clearing impact uses the same `SetBoardPresence(Detached) + MarkDestroy` Box removal semantics and `BarricadeCrush` metadata as transition crush.
+- Active solid occupancy invariant enforcement uses the same `BarricadeCrush` removal semantics as transition crush: if a topology-active/effective-active Barricade has a same-cell valid Box Solid occupant and no live Unit suppressor, the Box is crushed even without a new inactive-to-active transition.
+- If the Unit later leaves while the Barricade remains topology-active and a Box remains on the same cell, active solid occupancy invariant enforcement crushes that Box on the next tick.
 - If the Unit leaves after topology-active is no longer true, Barricade does not activate.
-- Active Barricade cells are not crushed every tick; effective activation may be re-derived from current snapshots to resume after Unit defer clears.
+- Active Barricade cells with no valid Box Solid occupant are no-op; effective activation may be re-derived from current snapshots to resume after Unit defer clears.
 - Crush uses logical `CubeTopologyState`, not visual progress, presenter state, or camera state.
 - Unit kill/eject and Projectile interaction are not implemented.
 - MoonBlock is a Box, so it may be crushed.
@@ -177,7 +183,7 @@ Barricade active-transition crush is separate from movement blocking.
 - Deferred activation state is derived from snapshots and must not be stored in `WorldState`, `TileFeatureFlags`, or determinism hash state.
 - Stage authoring validator must not newly reject Unit + inactive Barricade same-cell authoring; runtime policy owns this case.
 
-`BarricadeBlocked` is sourced from movement blocker facts. `BarricadeCrushed` is sourced from `TileFeatureEffectResolver.ResolveBarricadeCrushes`. They must not be merged into a generic BarricadeTriggered event.
+`BarricadeBlocked` is sourced from movement blocker facts. `BarricadeCrushed` is sourced from actual Barricade crush operations, including transition crush and suppressed-occupant reassert crush. They must not be merged into a generic BarricadeTriggered event.
 
 ## Exit Policy
 
@@ -308,7 +314,7 @@ Current `TilePresentationEvent` source matrix:
 - `DestroyTileTriggered`: TileEffectResolver-origin event.
 - `SlideTileRedirected`: TileEffectResolver-origin event.
 - `BarricadeBlocked`: movement blocker fact.
-- `BarricadeCrushed`: TileEffectResolver-origin event.
+- `BarricadeCrushed`: actual Barricade crush operation.
 - `ExitOpened`: objective-derived transition.
 - `ExitEntered`: objective clear tick plus player at active Exit center.
 - `MoonBlockGenerated`: MoonBlockGenerator respawn processor success fact.
