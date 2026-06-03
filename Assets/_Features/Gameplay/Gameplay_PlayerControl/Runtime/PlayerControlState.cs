@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -712,9 +711,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                     out _,
                     out var stopper))
             {
-                var impactTargets = new List<EntityState>();
-                snapshot.EnumerateUnitImpactTargetsAt(stopper.Cell, impactTargets);
-                if (impactTargets.Count > 0)
+                if (TryResolveBoxSlideImpactAtActionStart(snapshot, anchoredPlayer, target, stopper.Cell))
                 {
                     contact = new PlayerActionTarget(target.entityId, inputDirection);
                     return true;
@@ -924,6 +921,22 @@ namespace Game.Feature.Gameplay.PlayerControl
                        out _);
         }
 
+        private static bool TryResolveBoxSlideImpactAtActionStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            SurfaceCell stopperCell)
+        {
+            var sourceTeamId = target.kineticInstigatorTeamId > 0
+                ? target.kineticInstigatorTeamId
+                : source.teamId;
+            return sourceTeamId > 0 &&
+                   snapshot.TryPickHostileUnitImpactTargetAtForBoxSlide(
+                       stopperCell,
+                       sourceTeamId,
+                       out _);
+        }
+
         public static bool CanPendingActionStillExecute(
             WorldSnapshot snapshot,
             in EntityState player,
@@ -981,19 +994,16 @@ namespace Game.Feature.Gameplay.PlayerControl
             int tickIndex,
             bool checkLocks)
         {
-            if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology) ||
-                !IsSameFaceInteraction(player.position, targetCell) ||
-                !snapshot.TryGetSolidSemanticAt(movementTopology, targetCell, out var targetSemantic) ||
-                targetSemantic.Kind != SolidKind.Box)
-            {
-                return false;
-            }
-
-            var target = targetSemantic.Entity;
-            return target.entityId == targetEntityId &&
-                   HasBoxCapability(target, BoxCapabilities.Push) &&
-                   (!checkLocks ||
-                    !TryGetActiveBoxInteractionLock(snapshot, target.entityId, tickIndex, blocksPush: true, out _));
+            return TryResolvePushContactAtAnchor(
+                       snapshot,
+                       player,
+                       player.position,
+                       ResolveDirection(delta),
+                       delta,
+                       tickIndex,
+                       checkLocks,
+                       out var contact) &&
+                   contact.TargetEntityId == targetEntityId;
         }
 
         private static bool CanPendingFlipStillExecute(
@@ -1043,6 +1053,31 @@ namespace Game.Feature.Gameplay.PlayerControl
                     delta = Vector2Int.zero;
                     return false;
             }
+        }
+
+        private static Direction ResolveDirection(Vector2Int delta)
+        {
+            if (delta == Vector2Int.up)
+            {
+                return Direction.Up;
+            }
+
+            if (delta == Vector2Int.right)
+            {
+                return Direction.Right;
+            }
+
+            if (delta == Vector2Int.down)
+            {
+                return Direction.Down;
+            }
+
+            if (delta == Vector2Int.left)
+            {
+                return Direction.Left;
+            }
+
+            return Direction.None;
         }
 
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
