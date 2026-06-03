@@ -2937,6 +2937,137 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void Flip_EnemyOnSuppressedBarricade_WhenEnemySurvives_DestroysSelf()
+        {
+            var run = RunFlipBlockedByEnemyOnBarricadeScenario(enemyHp: 2);
+            var result = run.Result;
+            var finalSnapshot = run.FinalSnapshot;
+            var sourceCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var landingCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.Flip));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.DestroySelf));
+            Assert.That(disposition.AllTargetsDestroyed, Is.False);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.False);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.None.Contains("FlipLandingBlockedByBarricade"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated").And.Contains("At=Front(2,1)"));
+            CollectionAssert.AreEqual(
+                new[] { (SourceId: 20, TargetId: 30, Position: landingCell, Damage: 1) },
+                result.AttackPhaseResult.DrainedImpactReservations
+                    .Select(reservation => (reservation.SourceId, reservation.TargetId, reservation.ImpactCell, reservation.Damage))
+                    .ToArray());
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(
+                    operation => operation.EntityId == 20 &&
+                                 operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                                 operation.BoardPresence == EntityBoardPresence.Detached &&
+                                 operation.Metadata.BoundaryReason == "ImpactDestroySelf"),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(
+                    operation => operation.EntityId == 20 &&
+                                 operation.Kind == FinalizationOperationKind.MarkDestroy &&
+                                 operation.Metadata.BoundaryReason == "ImpactDestroySelf"),
+                Is.True);
+            Assert.That(result.PresentationData.FlipImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.FlipImpactSignals[0].Disposition, Is.EqualTo(FlipImpactPresentationDisposition.DestroySelf));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.position, Is.EqualTo(landingCell));
+            Assert.That(enemyAfter.hp, Is.EqualTo(1));
+            Assert.That(enemyAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(enemyAfter.markedForDeath, Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(landingCell, out _), Is.False);
+            Assert.That(finalSnapshot.HasAnyUnitAt(landingCell), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Flip_EnemyOnSuppressedBarricade_WhenEnemyDies_ReassertCrushesBox()
+        {
+            var run = RunFlipBlockedByEnemyOnBarricadeScenario(enemyHp: 1);
+            var result = run.Result;
+            var finalSnapshot = run.FinalSnapshot;
+            var sourceCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var landingCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords
+                .Single(record => record.ImpactSourceEntityId == 20);
+
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.Flip));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.BarricadeReassertCrush));
+            Assert.That(disposition.BarricadeTileId, Is.EqualTo(100));
+            Assert.That(disposition.BarricadeCell, Is.EqualTo(landingCell));
+            Assert.That(disposition.AllTargetsDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated").And.Contains("At=Front(2,1)"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.Some.Contains("Reason=BarricadeReassertCrush"));
+            AssertBoxReassertCrushRemovalOps(
+                result.MovementPhaseResult.ResolvedOperations,
+                boxEntityId: 20,
+                landingCell);
+            Assert.That(result.PresentationData.FlipImpactSignals, Is.Empty, "BarricadeCrushed is the Flip presentation signal for reassert crush.");
+            var crushedEvent = result.PresentationData.TileEvents.Single(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed);
+            Assert.That(crushedEvent.TileId, Is.EqualTo(100));
+            Assert.That(crushedEvent.Cell, Is.EqualTo(landingCell));
+            Assert.That(crushedEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.HasAnyUnitAt(landingCell), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(landingCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Flip_CrossSurfaceBarricadeCases_AreNotApplicable()
+        {
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, TestBounds.MaxInclusive.y);
+            var targetCell = new SurfaceCell(FaceId.Front, 0, TestBounds.MinInclusive.y);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayerUnit(10, playerCell),
+                    CreateBox(20, targetCell, boxCapabilities: BoxCapabilities.Flip),
+                },
+                new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Barricade) },
+                topology: new CubeTopologyState(FaceId.Floor));
+            // Cross-face Flip is rejected by local geometry before any landing policy exists.
+            // Keep this Barricade inactive so the NOT_APPLICABLE seam test stays separate from
+            // the active-Barricade + Box transition crush invariant.
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(0, TestBounds.MaxInclusive.y + 1), MovementCommandKind.Flip)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=FlipCrossesBoundary"));
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.None.Contains("FlipLandingBlockedByBarricade"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ImpactDispositionRecords, Is.Empty);
+            Assert.That(result.PresentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(10, out var playerAfter), Is.True);
+            Assert.That(playerAfter.position, Is.EqualTo(playerCell));
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(targetCell));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Barricade_InactiveDoesNotBlockPushOrSlide()
         {
             var inactiveCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -4291,6 +4422,117 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(run.Result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
         }
 
+        [Test]
+        [Category("Core")]
+        public void BottomToFrontSlide_IntoFrontBarricade_NoEnemy_BlocksBeforeImpact()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, TestBounds.MaxInclusive.y);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, TestBounds.MinInclusive.y);
+            var slidingBox = CreateBox(
+                20,
+                sourceCell,
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var worldState = CreateWorldState(
+                new[] { slidingBox },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                topology: new CubeTopologyState(FaceId.Floor));
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxSlideBlockedByBarricade").And.Contains("MovementKind=SlidingContinuation"));
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            var blockedEvent = result.PresentationData.TileEvents.Single(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked);
+            Assert.That(blockedEvent.TileId, Is.EqualTo(100));
+            Assert.That(blockedEvent.Cell, Is.EqualTo(barricadeCell));
+            Assert.That(blockedEvent.TargetEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(sourceCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out var sourceSolid), Is.True);
+            Assert.That(sourceSolid.Entity.entityId, Is.EqualTo(20));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BottomToFrontSlide_IntoInactiveFrontBarricade_AllowsNormalSlide()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, TestBounds.MaxInclusive.y);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 2, TestBounds.MinInclusive.y);
+            var slidingBox = CreateBox(
+                20,
+                sourceCell,
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Up);
+            slidingBox.stateTimer = 0;
+            var worldState = CreateWorldState(
+                new[] { slidingBox },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                topology: new CubeTopologyState(FaceId.Floor));
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(barricadeCell));
+            Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out var destinationSolid), Is.True);
+            Assert.That(destinationSolid.Entity.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FrontToBottomSlide_BarricadeDestinationPolicy_IsNotApplicableForActivePolicy()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 2, TestBounds.MinInclusive.y);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 2, TestBounds.MaxInclusive.y);
+            var slidingBox = CreateBox(
+                20,
+                sourceCell,
+                state: EntityPhaseState.Sliding,
+                facing: Direction.Down);
+            slidingBox.stateTimer = 0;
+            var worldState = CreateWorldState(
+                new[] { slidingBox },
+                new[] { CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade) },
+                topology: new CubeTopologyState(FaceId.Front));
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty, "Front-to-Bottom active Barricade policy is NOT_APPLICABLE because Barricade activation is FrontFaceOnly and the destination is Bottom/Floor.");
+            Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
+            Assert.That(boxAfter.position, Is.EqualTo(destinationCell));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(destinationCell, out var destinationSolid), Is.True);
+            Assert.That(destinationSolid.Entity.entityId, Is.EqualTo(20));
+        }
+
         private static void WriteBottomToFrontScenarioTrace(
             PipelineScenarioRunWithoutDisposition run,
             SurfaceCell sourceCell,
@@ -5208,6 +5450,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
                 Array.Empty<IEntityLogic>());
+
+            var result = pipeline.RunTick(new TickInput(7));
+            return new PipelineScenarioRunWithoutDisposition(result, worldState.CreateSnapshot());
+        }
+
+        private static PipelineScenarioRunWithoutDisposition RunFlipBlockedByEnemyOnBarricadeScenario(int enemyHp)
+        {
+            var landingCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var enemy = CreateEnemyUnit(30, landingCell);
+            enemy.hp = enemyHp;
+            enemy.maxHp = enemyHp;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Front, 1, 1)),
+                    CreateBox(20, new SurfaceCell(FaceId.Front, 0, 1), boxCapabilities: BoxCapabilities.Flip),
+                    enemy,
+                },
+                new[] { CreateTileFeature(100, landingCell, TileFeatureKind.Barricade) });
+            var pipeline = CreatePipeline(
+                worldState,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
+                new IEntityLogic[]
+                {
+                    new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(0, 1), MovementCommandKind.Flip)),
+                });
 
             var result = pipeline.RunTick(new TickInput(7));
             return new PipelineScenarioRunWithoutDisposition(result, worldState.CreateSnapshot());
