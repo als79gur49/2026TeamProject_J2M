@@ -6,14 +6,20 @@
 - 관련 코드:
   - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs`
   - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Commit/MovementCommitter.cs`
+  - `Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlState.cs`
 - rule:
+  - Push start precheck와 pending revalidation은 execute-time Push expansion과 같은 BoxSlide hostile impact query vocabulary를 사용한다.
   - push execute tick에서 다음 칸이 비어 있으면 box를 이동 commit한다.
   - 다음 칸이 유닛 점유 cell이면 `impact`다.
   - Movement는 impact cell의 targetable unit 전체에 대해 `ImpactReservation`을 만들고, Attack이 same-tick damage를 적용한다.
+  - Push impact는 simple blocked failure가 아니라 Movement -> Attack handoff contract다.
   - all targets die + landing accepted면 current runtime lethal follow-through formalization으로 same-tick advance를 commit한다.
   - all targets die + suppressed Barricade occupant cleared면 `BarricadeReassertCrush`로 incoming box를 제거하고 FollowThrough하지 않는다.
   - any target survives면 `Stay`다.
   - all targets die + landing denied면 `Stay`다.
+  - `Destroy` capability는 Push first-step blocked fallback이다.
+  - `Destroy` fallback은 sliding continuation blocked path에 재적용하지 않는다.
+  - `BoxSlideShield`와 active Barricade는 PlayerControl이 동일한 contributor/tile-definition context를 받기 전까지 execute-time policy다.
 
 ## Flip
 - 관련 코드:
@@ -23,6 +29,7 @@
   - BoxFlip precheck는 execute-time drift를 막기 위해 BoxFlip landing policy와 hostile impact query를 사용한다.
   - flip execute tick에서 landing cell을 다시 판정한다.
   - landing cell이 유닛 점유 cell이면 `impact`다.
+  - Flip impact는 simple blocked failure가 아니라 Movement -> Attack handoff contract다.
   - current contract에서 flip impact는 impact-result-dependent action uplift다.
   - all targets die + landing accepted면 `FollowThrough`다.
   - all targets die + suppressed Barricade occupant cleared면 `BarricadeReassertCrush`로 incoming box를 제거하고 FollowThrough하지 않는다.
