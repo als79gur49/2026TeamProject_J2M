@@ -374,6 +374,7 @@ namespace Game.Feature.UI.Tests
     {
         private readonly MutableObjectiveQuery _objectiveQuery;
         private readonly MutablePlayerHudQuery _playerHudQuery;
+        private readonly MutableSurfaceButtonRemainderQuery _surfaceButtonRemainderQuery;
         private readonly MutableStageQuery _stageQuery;
         private readonly MutableSessionQuery _sessionQuery;
 
@@ -381,12 +382,14 @@ namespace Game.Feature.UI.Tests
             GameplaySessionReadModel session,
             GameplayPlayerHudReadModel playerHud,
             GameplayObjectiveReadModel objective,
-            GameplayStageReadModel stage = default)
+            GameplayStageReadModel stage = default,
+            IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> surfaceButtonRemainders = null)
         {
             _sessionQuery = new MutableSessionQuery(session);
             _stageQuery = new MutableStageQuery(stage);
             _playerHudQuery = new MutablePlayerHudQuery(playerHud);
             _objectiveQuery = new MutableObjectiveQuery(objective);
+            _surfaceButtonRemainderQuery = new MutableSurfaceButtonRemainderQuery(surfaceButtonRemainders);
         }
 
         public IGameplaySessionQuery Session => _sessionQuery;
@@ -396,6 +399,8 @@ namespace Game.Feature.UI.Tests
         public IGameplayPlayerHudQuery PlayerHud => _playerHudQuery;
 
         public IGameplayObjectiveQuery Objectives => _objectiveQuery;
+
+        public IGameplaySurfaceButtonRemainderQuery SurfaceButtonRemainders => _surfaceButtonRemainderQuery;
 
         public void SetSession(GameplaySessionReadModel session)
         {
@@ -415,6 +420,11 @@ namespace Game.Feature.UI.Tests
         public void SetObjective(GameplayObjectiveReadModel objective)
         {
             _objectiveQuery.Value = objective;
+        }
+
+        public void SetSurfaceButtonRemainders(IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> surfaceButtonRemainders)
+        {
+            _surfaceButtonRemainderQuery.Value = surfaceButtonRemainders;
         }
 
         public static GameplayPlayerHudReadModel CreateDefaultPlayerHud()
@@ -491,6 +501,21 @@ namespace Game.Feature.UI.Tests
             public GameplayObjectiveReadModel Read()
             {
                 return Value;
+            }
+        }
+
+        private sealed class MutableSurfaceButtonRemainderQuery : IGameplaySurfaceButtonRemainderQuery
+        {
+            public MutableSurfaceButtonRemainderQuery(IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> value)
+            {
+                Value = value;
+            }
+
+            public IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> Value { get; set; }
+
+            public IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> Read()
+            {
+                return Value ?? Array.Empty<GameplaySurfaceButtonRemainderReadModel>();
             }
         }
     }

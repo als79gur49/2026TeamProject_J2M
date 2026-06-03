@@ -873,12 +873,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplaySurfaceButtonRemainderQuery_CountsUnactivatedButtonsByFaceAndSelector()
+        {
+            var hostObject = new GameObject("GameplaySurfaceButtonRemainderQuery_CountsUnactivatedButtonsByFaceAndSelector");
+            var normalFloor = CreateTileFeature(101, new SurfaceCell(FaceId.Floor, 0, 0), TileFeatureKind.Button, TileFeatureFlags.None);
+            var moonFloor = CreateTileFeature(102, new SurfaceCell(FaceId.Floor, 1, 0), TileFeatureKind.Button, TileFeatureFlags.None);
+            var activatedFront = CreateTileFeature(103, new SurfaceCell(FaceId.Front, 0, 0), TileFeatureKind.Button, TileFeatureFlags.Activated);
+            var normalBack = CreateTileFeature(104, new SurfaceCell(FaceId.Back, 0, 0), TileFeatureKind.Button, TileFeatureFlags.None);
+            var nonButton = CreateTileFeature(105, new SurfaceCell(FaceId.Ceiling, 0, 0), TileFeatureKind.Slide, TileFeatureFlags.None);
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    initialTileFeatures: new[]
+                    {
+                        normalFloor,
+                        moonFloor,
+                        activatedFront,
+                        normalBack,
+                        nonButton,
+                    },
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(normalFloor.TileId, TileFeatureBoxSelector.AnyPushableBox),
+                        CreateTileFeatureDefinition(moonFloor.TileId, TileFeatureBoxSelector.MoonBlockOnly),
+                        CreateTileFeatureDefinition(activatedFront.TileId, TileFeatureBoxSelector.MoonBlockOnly),
+                        CreateTileFeatureDefinition(normalBack.TileId, TileFeatureBoxSelector.FeatureCell),
+                        CreateTileFeatureDefinition(nonButton.TileId, TileFeatureBoxSelector.None),
+                    }));
+
+                var remainders = host.UiAccess.QueryFacade.SurfaceButtonRemainders.Read();
+
+                Assert.That(remainders, Has.Count.EqualTo(4));
+                Assert.That(remainders[(int)GameplayUiFace.Floor].NormalRemaining, Is.EqualTo(1));
+                Assert.That(remainders[(int)GameplayUiFace.Floor].MoonBlockOnlyRemaining, Is.EqualTo(1));
+                Assert.That(remainders[(int)GameplayUiFace.Front].TotalRemaining, Is.EqualTo(0));
+                Assert.That(remainders[(int)GameplayUiFace.Ceiling].TotalRemaining, Is.EqualTo(0));
+                Assert.That(remainders[(int)GameplayUiFace.Back].NormalRemaining, Is.EqualTo(1));
+                Assert.That(remainders[(int)GameplayUiFace.Back].MoonBlockOnlyRemaining, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySurfaceButtonRemainderQuery_MissingButtonDefinitionThrows()
+        {
+            var hostObject = new GameObject("GameplaySurfaceButtonRemainderQuery_MissingButtonDefinitionThrows");
+            var button = CreateTileFeature(201, new SurfaceCell(FaceId.Floor, 0, 0), TileFeatureKind.Button, TileFeatureFlags.None);
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0)) },
+                    initialTileFeatures: new[] { button },
+                    tileFeatureDefinitions: Array.Empty<TileFeatureRuntimeDefinition>()));
+
+                Assert.Throws<InvalidOperationException>(() => host.UiAccess.QueryFacade.SurfaceButtonRemainders.Read());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
         private static GameplaySceneHostConfiguration CreateConfiguration(
             EntityState[] initialEntities,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             BoardBounds? boardBounds = null,
             PlayerControlTimingSettings playerControlTiming = null,
-            ICampaignChancesReadSource campaignChancesReadSource = null)
+            ICampaignChancesReadSource campaignChancesReadSource = null,
+            TileFeatureState[] initialTileFeatures = null,
+            TileFeatureRuntimeDefinition[] tileFeatureDefinitions = null)
         {
             var configuration = new GameplaySceneHostConfiguration
             {
@@ -886,6 +960,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AutoCreateViews = false,
                 InitialBoardBounds = boardBounds ?? new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                 InitialEntities = initialEntities,
+                InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>(),
+                TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>(),
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
                 ObjectiveRuntimeDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
@@ -894,6 +970,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
             configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
             return configuration;
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind,
+            TileFeatureFlags flags)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                flags,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateTileFeatureDefinition(
+            int tileId,
+            TileFeatureBoxSelector boxSelector)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                TileFeatureActivationRule.Always,
+                Direction2D.None,
+                boxSelector,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static StageObjectiveRuntimeDefinition CreateUiObjectiveDefinition()

@@ -373,7 +373,7 @@ namespace Game.Feature.UI.Tests
                 .OrderBy(name => name)
                 .ToArray();
 
-            Assert.That(propertyNames, Is.EqualTo(new[] { "Objectives", "PlayerHud", "Session", "Stage" }));
+            Assert.That(propertyNames, Is.EqualTo(new[] { "Objectives", "PlayerHud", "Session", "Stage", "SurfaceButtonRemainders" }));
         }
 
         [Test]
