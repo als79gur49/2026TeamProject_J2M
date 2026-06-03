@@ -1126,8 +1126,9 @@ namespace Game.Feature.Gameplay.Entities
 
         private bool ShouldSuppressMovementForEnemyPhase(WorldSnapshot snapshot)
         {
-            return HasPhaseMovementSkill() &&
-                   TryGetEnemyOwnedPhasedState(snapshot, out _);
+            return snapshot != null &&
+                   snapshot.TryGetPhasedState(_entityId, out var phasedState) &&
+                   phasedState.IsActive;
         }
 
         private bool ShouldSuppressMovementForGlide(WorldSnapshot snapshot)
@@ -2548,33 +2549,9 @@ namespace Game.Feature.Gameplay.Entities
                         return default;
                     }
 
-                    if (TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var patrolProposal))
+                    if (TryBuildPatrolMovementIntentOwned(snapshot, source, tickIndex, out var patrolIntent))
                     {
-                        if (patrolProposal.HasDirection &&
-                            EnemyMovementStrategyShared.ResolveDelta(patrolProposal.PlannedDirection) is { } patrolDelta &&
-                            EnemyMovementStrategyShared.TryBuildMoveIntent(
-                                snapshot,
-                                source,
-                                _commonSettings,
-                                patrolDelta,
-                                _tileFeatureDefinitions,
-                                out var patrolIntent))
-                        {
-                            return CreateGroundLocomotionResolution(snapshot, source, patrolIntent);
-                        }
-
-                        return default;
-                    }
-
-                    if (_patrolStrategy.TryBuildMovementIntent(
-                            snapshot,
-                            source,
-                            _commonSettings,
-                            _patrolSettings,
-                            _tileFeatureDefinitions,
-                            out var fallbackPatrolIntent))
-                    {
-                        return CreateGroundLocomotionResolution(snapshot, source, fallbackPatrolIntent);
+                        return CreateGroundLocomotionResolution(snapshot, source, patrolIntent);
                     }
 
                     return default;
@@ -2591,13 +2568,7 @@ namespace Game.Feature.Gameplay.Entities
                             EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, _movementSkillCapability)))
                     {
                         if (IsActiveGlide(snapshot, source) &&
-                            _patrolStrategy.TryBuildMovementIntent(
-                                snapshot,
-                                source,
-                                _commonSettings,
-                                _patrolSettings,
-                                _tileFeatureDefinitions,
-                                out var glideFallbackIntent))
+                            TryBuildPatrolMovementIntentOwned(snapshot, source, tickIndex, out var glideFallbackIntent))
                         {
                             return CreateGroundLocomotionResolution(snapshot, source, glideFallbackIntent);
                         }
@@ -2658,6 +2629,45 @@ namespace Game.Feature.Gameplay.Entities
                 default:
                     return default;
             }
+        }
+
+        private bool TryBuildPatrolMovementIntentOwned(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex,
+            out RawMovementIntent intent)
+        {
+            intent = default;
+            if (TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var patrolProposal))
+            {
+                var patrolDelta = EnemyMovementStrategyShared.ResolveDelta(patrolProposal.PlannedDirection);
+                if (!patrolProposal.HasDirection ||
+                    !patrolDelta.HasValue)
+                {
+                    return false;
+                }
+
+                return EnemyMovementStrategyShared.TryBuildMoveIntent(
+                    snapshot,
+                    source,
+                    _commonSettings,
+                    patrolDelta.Value,
+                    _tileFeatureDefinitions,
+                    out intent);
+            }
+
+            if (_patrolStrategy is RandomWalkPatrolStrategy)
+            {
+                return false;
+            }
+
+            return _patrolStrategy.TryBuildMovementIntent(
+                snapshot,
+                source,
+                _commonSettings,
+                _patrolSettings,
+                _tileFeatureDefinitions,
+                out intent);
         }
 
         private bool TryBuildWindupMeleeSimulationApproachIntent(

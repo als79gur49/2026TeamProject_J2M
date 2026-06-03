@@ -176,6 +176,7 @@ namespace Game.Feature.Gameplay.Entities
             Kind = kind;
             Settings = settings;
             Strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+            Validate(nameof(EnemyPatrolRuntime));
         }
 
         public PatrolStrategyKind Kind { get; }
@@ -183,6 +184,33 @@ namespace Game.Feature.Gameplay.Entities
         public PatrolSettings Settings { get; }
 
         public IPatrolStrategy Strategy { get; }
+
+        public void Validate(string paramName)
+        {
+            if (Strategy == null)
+            {
+                throw new ArgumentException("Enemy patrol runtime requires a non-null strategy.", paramName);
+            }
+
+            var strategyKind = Strategy switch
+            {
+                ForwardPatrolStrategy _ => PatrolStrategyKind.Forward,
+                WallFollowPatrolStrategy _ => PatrolStrategyKind.WallFollow,
+                StationaryPatrolStrategy _ => PatrolStrategyKind.Stationary,
+                RandomWalkPatrolStrategy _ => PatrolStrategyKind.RandomWalk,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(Strategy),
+                    Strategy,
+                    "Unknown patrol strategy implementation."),
+            };
+
+            if (Kind != strategyKind)
+            {
+                throw new ArgumentException(
+                    $"Enemy patrol runtime kind '{Kind}' must match strategy implementation '{strategyKind}'.",
+                    paramName);
+            }
+        }
     }
 
     public readonly struct EnemyDetectionRuntime
@@ -269,6 +297,7 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Enemy brain runtime requires non-null strategy slots.", paramName);
             }
 
+            Patrol.Validate(paramName);
             Detection.Validate(paramName);
             Chase.Validate(paramName);
         }

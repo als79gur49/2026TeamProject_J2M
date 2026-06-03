@@ -289,9 +289,9 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void NebulousEnemyActiveSameCell_OneSidedFlipBox_PlayerAndEnemyKeepSeparateMovementIntentSources()
+        public void NebulousEnemyActiveSameCell_OneSidedFlipBox_PlayerFlipSourceDoesNotResumeEnemyGroundLocomotion()
         {
-            // Same-cell Nebulous coverage protects movement intent source separation.
+            // Same-cell Nebulous coverage protects movement intent source separation and phased baseline suppression.
             // Landing-cell active glide BoxFlip policy is covered in PlayerFlipActiveGlideLandingCoreTests.
             var playerCell = new SurfaceCell(FaceId.Floor, 2, 1);
             var worldState = CreateWorldState(new[]
@@ -315,14 +315,13 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(startResult.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
             Assert.That(startResult.PresentationData.PlayerActionSignals[0].EntityId, Is.EqualTo(10));
-            Assert.That(executeResult.MovementPhaseResult.RawIntents, Has.Count.EqualTo(2));
             Assert.That(
                 executeResult.MovementPhaseResult.RawIntents,
                 Has.Exactly(1).Matches<RawMovementIntent>(
                     intent => intent.SourceId == 10 && intent.CommandKind == MovementCommandKind.Flip));
             Assert.That(
                 executeResult.MovementPhaseResult.RawIntents,
-                Has.Exactly(1).Matches<RawMovementIntent>(
+                Has.None.Matches<RawMovementIntent>(
                     intent => intent.SourceId == 5 && intent.CommandKind == MovementCommandKind.Move));
             Assert.That(executeResult.MovementPhaseResult.RejectedReasons, Has.None.Contains("Source=10"));
         }
