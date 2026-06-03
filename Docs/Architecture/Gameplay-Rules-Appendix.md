@@ -20,6 +20,7 @@
   - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Expansion/MovementExpander.cs`
   - `Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs`
 - rule:
+  - BoxFlip precheck는 execute-time drift를 막기 위해 BoxFlip landing policy와 hostile impact query를 사용한다.
   - flip execute tick에서 landing cell을 다시 판정한다.
   - landing cell이 유닛 점유 cell이면 `impact`다.
   - current contract에서 flip impact는 impact-result-dependent action uplift다.

@@ -899,6 +899,11 @@ namespace Game.Feature.Gameplay.BoardState
             return TryPickHostileUnitImpactTargetAtForBoxSlide(_topology, cell, sourceTeamId, out entity);
         }
 
+        public bool TryPickHostileUnitImpactTargetAtForBoxFlip(SurfaceCell cell, int sourceTeamId, out EntityState entity)
+        {
+            return TryPickHostileUnitImpactTargetAtForBoxFlip(_topology, cell, sourceTeamId, out entity);
+        }
+
         public bool TryPickImpactTargetAt(Vector2Int cell, int sourceTeamId, out EntityState entity)
         {
             return TryPickImpactTargetAt(CreateDefaultQueryCell(cell), sourceTeamId, out entity);
@@ -1765,6 +1770,27 @@ namespace Game.Feature.Gameplay.BoardState
         }
 
         internal bool TryPickHostileUnitImpactTargetAtForBoxSlide(
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int sourceTeamId,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryPickHostileUnitImpactTargetAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                _enemyJumpStatesByEntityId,
+                _enemyGlideStatesByEntityId,
+                _phasedStatesByEntityId,
+                topology,
+                cell,
+                sourceTeamId,
+                skipActiveGlideTargets: true,
+                allowGlideTargetsOverSolid: true,
+                out entity);
+        }
+
+        internal bool TryPickHostileUnitImpactTargetAtForBoxFlip(
             CubeTopologyState topology,
             SurfaceCell cell,
             int sourceTeamId,

@@ -739,7 +739,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             anchoredPlayer.position = currentAnchor;
             if (!snapshot.TryResolveLocalFlipCells(anchoredPlayer.position, delta, out var targetCell, out var landingCell) ||
                 !TryResolveFlippableBoxTarget(snapshot, targetCell, out var entity) ||
-                IsFlipLandingBlockedAtActionStart(snapshot, entity, landingCell))
+                IsFlipLandingBlockedAtActionStart(snapshot, anchoredPlayer, entity, landingCell))
             {
                 target = default;
                 return false;
@@ -829,7 +829,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             anchoredPlayer.position = currentAnchor;
             if (!snapshot.TryResolveLocalFlipCells(anchoredPlayer.position, delta, out var targetCell, out var landingCell) ||
                 !TryResolveFlippableBoxTarget(snapshot, targetCell, out var entity) ||
-                !IsFlipLandingBlockedAtActionStart(snapshot, entity, landingCell) ||
+                !IsFlipLandingBlockedAtActionStart(snapshot, anchoredPlayer, entity, landingCell) ||
                 TryGetActiveBoxInteractionLock(snapshot, entity.entityId, tickIndex, blocksPush: false, out _))
             {
                 target = default;
@@ -859,20 +859,25 @@ namespace Game.Feature.Gameplay.PlayerControl
 
         private static bool IsFlipLandingBlockedAtActionStart(
             WorldSnapshot snapshot,
+            in EntityState source,
             in EntityState target,
             SurfaceCell landingCell)
         {
-            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateBoxFlipLandingPlacement(
                 new SettlementContext(
                     snapshot,
                     StateQuery.BuildActorRef(snapshot, target),
                     landingCell,
                     snapshot.Topology,
                     SpatialState.Anchored));
-            return IsActionStartBlockingFlipLanding(landingLegality);
+            return IsActionStartBlockingFlipLanding(snapshot, source, target, landingLegality);
         }
 
-        private static bool IsActionStartBlockingFlipLanding(in LegalityResult legality)
+        private static bool IsActionStartBlockingFlipLanding(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            in LegalityResult legality)
         {
             if (legality.Verdict != LegalityVerdict.Blocked)
             {
@@ -887,11 +892,36 @@ namespace Game.Feature.Gameplay.PlayerControl
                     case LegalityBlockerKind.BoardEdge:
                     case LegalityBlockerKind.Terrain:
                     case LegalityBlockerKind.Solid:
+                    case LegalityBlockerKind.Reservation:
+                    case LegalityBlockerKind.TileFeature:
                         return true;
+
+                    case LegalityBlockerKind.Unit:
+                        return !TryResolveBoxFlipImpactAtActionStart(
+                            snapshot,
+                            source,
+                            target,
+                            legality.Cell);
                 }
             }
 
             return false;
+        }
+
+        private static bool TryResolveBoxFlipImpactAtActionStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            SurfaceCell landingCell)
+        {
+            var sourceTeamId = target.kineticInstigatorTeamId > 0
+                ? target.kineticInstigatorTeamId
+                : source.teamId;
+            return sourceTeamId > 0 &&
+                   snapshot.TryPickHostileUnitImpactTargetAtForBoxFlip(
+                       landingCell,
+                       sourceTeamId,
+                       out _);
         }
 
         public static bool CanPendingActionStillExecute(
@@ -984,7 +1014,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             var target = targetSemantic.Entity;
             return target.entityId == targetEntityId &&
                    HasBoxCapability(target, BoxCapabilities.Flip) &&
-                   !IsFlipLandingBlockedAtActionStart(snapshot, target, landingCell) &&
+                   !IsFlipLandingBlockedAtActionStart(snapshot, player, target, landingCell) &&
                    (!checkLocks ||
                     !TryGetActiveBoxInteractionLock(snapshot, target.entityId, tickIndex, blocksPush: false, out _));
         }
