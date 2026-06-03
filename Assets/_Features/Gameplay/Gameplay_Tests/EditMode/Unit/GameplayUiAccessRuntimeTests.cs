@@ -908,7 +908,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var remainders = host.UiAccess.QueryFacade.SurfaceButtonRemainders.Read();
 
-                Assert.That(remainders, Has.Count.EqualTo(4));
+                Assert.That(remainders, Has.Count.EqualTo(Enum.GetValues(typeof(GameplayUiFace)).Length));
                 Assert.That(remainders[(int)GameplayUiFace.Floor].NormalRemaining, Is.EqualTo(1));
                 Assert.That(remainders[(int)GameplayUiFace.Floor].MoonBlockOnlyRemaining, Is.EqualTo(1));
                 Assert.That(remainders[(int)GameplayUiFace.Front].TotalRemaining, Is.EqualTo(0));

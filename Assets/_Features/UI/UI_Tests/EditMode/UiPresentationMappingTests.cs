@@ -214,7 +214,9 @@ namespace Game.Feature.UI.Tests
                         new UISurfaceButtonRemainderInput(GameplayUiFace.Back, 0, 3),
                     }));
 
-            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders.Count, Is.EqualTo(4));
+            Assert.That(
+                result.Snapshot.SurfaceBelt.ButtonRemainders.Count,
+                Is.EqualTo(SurfaceBeltSlotMapping.SurfaceCount));
             Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[0].TotalRemaining, Is.EqualTo(0));
             Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[1].SlotIndex, Is.EqualTo(1));
             Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[1].NormalRemaining, Is.EqualTo(2));
@@ -226,7 +228,9 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SurfaceBeltSnapshot_Empty_ProvidesFourZeroButtonRemainders()
         {
-            Assert.That(SurfaceBeltSnapshot.Empty.ButtonRemainders.Count, Is.EqualTo(4));
+            Assert.That(
+                SurfaceBeltSnapshot.Empty.ButtonRemainders.Count,
+                Is.EqualTo(SurfaceBeltSlotMapping.SurfaceCount));
             Assert.That(SurfaceBeltSnapshot.Empty.ButtonRemainders.All(remainder => remainder.TotalRemaining == 0), Is.True);
         }
 
