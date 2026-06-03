@@ -593,6 +593,7 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(SurfaceBeltViewModel),
                 typeof(SurfaceBeltCellViewModel),
+                typeof(SurfaceBeltButtonRemainderViewModel),
             };
 
             foreach (var modelType in modelTypes)

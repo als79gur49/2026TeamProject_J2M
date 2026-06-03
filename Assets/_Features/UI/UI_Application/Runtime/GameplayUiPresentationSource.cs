@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
@@ -164,6 +165,7 @@ namespace Game.Feature.UI.Application
             var stage = _queryFacade.Stage.Read();
             var objective = _queryFacade.Objectives.Read();
             var playerHud = _queryFacade.PlayerHud.Read();
+            var surfaceButtonRemainders = _queryFacade.SurfaceButtonRemainders.Read();
             var player = frame.HasValue && frame.Value.Player.HasValue
                 ? frame.Value.Player.Value
                 : default;
@@ -207,7 +209,29 @@ namespace Game.Feature.UI.Application
                 stage.DisplayName,
                 objective,
                 frame.HasValue ? frame.Value.Topology : null,
-                playerHud.ChanceAudioPolicy);
+                playerHud.ChanceAudioPolicy,
+                MapSurfaceButtonRemainders(surfaceButtonRemainders));
+        }
+
+        private static UISurfaceButtonRemainderInput[] MapSurfaceButtonRemainders(
+            IReadOnlyList<GameplaySurfaceButtonRemainderReadModel> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return Array.Empty<UISurfaceButtonRemainderInput>();
+            }
+
+            var result = new UISurfaceButtonRemainderInput[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                var item = source[i];
+                result[i] = new UISurfaceButtonRemainderInput(
+                    item.Face,
+                    item.NormalRemaining,
+                    item.MoonBlockOnlyRemaining);
+            }
+
+            return result;
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

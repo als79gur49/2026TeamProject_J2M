@@ -20,6 +20,13 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class HUDControllerTests
     {
+        private const string SurfaceBeltButtonBadgeGroupPrefabPath =
+            "Assets/_Features/UI/UI_HUD/Prefabs/SurfaceBeltButtonBadgeGroup.prefab";
+        private const string SurfaceBeltCellPrefabPath =
+            "Assets/_Features/UI/UI_HUD/Prefabs/SurfaceBeltCell.prefab";
+        private const string SurfaceBeltCenterCellPrefabPath =
+            "Assets/_Features/UI/UI_HUD/Prefabs/SurfaceBeltCenterCell.prefab";
+
         [Test]
         public void HUDController_AttachView_BindsChildViewModels()
         {
@@ -338,6 +345,52 @@ namespace Game.Feature.UI.Tests
                 AssertOwnedBy(beltContent, maskRoot);
                 Assert.That(maskRoot.GetComponent<RectMask2D>(), Is.Not.Null);
                 Assert.That(beltView.Cells.Length, Is.EqualTo(7));
+                var visibleBadgeGroupCount = 0;
+                foreach (var badgeGroup in beltView.GetComponentsInChildren<SurfaceBeltButtonBadgeGroupView>(true))
+                {
+                    var badgeGroupRect = ((RectTransform)badgeGroup.transform).rect;
+                    Assert.That(badgeGroupRect.width, Is.EqualTo(38.0f).Within(0.1f));
+                    Assert.That(badgeGroupRect.height, Is.EqualTo(26.0f).Within(0.1f));
+
+                    var badgeViews = badgeGroup.GetComponentsInChildren<SurfaceBeltButtonBadgeView>(true);
+                    Assert.That(badgeViews.Length, Is.EqualTo(2));
+                    var activeBadgeCount = 0;
+                    foreach (var badgeView in badgeViews)
+                    {
+                        if (!badgeView.gameObject.activeInHierarchy)
+                        {
+                            continue;
+                        }
+
+                        activeBadgeCount++;
+                        var badgeRect = ((RectTransform)badgeView.transform).rect;
+                        Assert.That(badgeRect.width, Is.EqualTo(38.0f).Within(0.1f));
+                        Assert.That(badgeRect.height, Is.EqualTo(13.0f).Within(0.1f));
+
+                        var badgeFrame = (RectTransform)badgeView.transform.Find("BadgeFrame");
+                        Assert.That(badgeFrame, Is.Not.Null);
+                        Assert.That(badgeFrame.rect.width, Is.EqualTo(13.0f).Within(0.1f));
+                        Assert.That(badgeFrame.rect.height, Is.EqualTo(13.0f).Within(0.1f));
+
+                        var badgeImage = (RectTransform)badgeFrame.Find("BadgeImage");
+                        Assert.That(badgeImage, Is.Not.Null);
+                        Assert.That(badgeImage.rect.width, Is.EqualTo(13.0f).Within(0.1f));
+                        Assert.That(badgeImage.rect.height, Is.EqualTo(13.0f).Within(0.1f));
+
+                        var countText = (RectTransform)badgeView.transform.Find("CountText");
+                        Assert.That(countText, Is.Not.Null);
+                        Assert.That(countText.rect.width, Is.EqualTo(25.0f).Within(0.1f));
+                        Assert.That(countText.rect.height, Is.EqualTo(13.0f).Within(0.1f));
+                    }
+
+                    if (activeBadgeCount > 0)
+                    {
+                        Assert.That(activeBadgeCount, Is.EqualTo(2));
+                        visibleBadgeGroupCount++;
+                    }
+                }
+
+                Assert.That(visibleBadgeGroupCount, Is.GreaterThan(0));
             }
             finally
             {
@@ -389,6 +442,164 @@ namespace Game.Feature.UI.Tests
             Assert.That(maskRoot.GetComponent<RectMask2D>(), Is.Not.Null);
             AssertSerializedArrayCount(serializedSurfaceBeltIndicator, "_cells", 7);
             AssertSerializedReferenceIsAssigned(serializedSurfaceBeltIndicator, "_styleProfile");
+            AssertSerializedReferenceIsAssigned(serializedSurfaceBeltIndicator, "_buttonBadgeStyleProfile");
+            var buttonBadgeStyleProfile = GetSerializedReference<SurfaceBeltButtonBadgeStyleProfile>(
+                serializedSurfaceBeltIndicator,
+                "_buttonBadgeStyleProfile");
+            Assert.That(buttonBadgeStyleProfile.TryValidate(out _), Is.True);
+
+            var badgeGroups = serializedSurfaceBeltIndicator.GetComponentsInChildren<SurfaceBeltButtonBadgeGroupView>(true);
+            Assert.That(badgeGroups.Length, Is.EqualTo(7));
+            var surfaceBeltCellPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SurfaceBeltCellPrefabPath);
+            var surfaceBeltCenterCellPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SurfaceBeltCenterCellPrefabPath);
+            var buttonBadgeGroupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SurfaceBeltButtonBadgeGroupPrefabPath);
+            Assert.That(surfaceBeltCellPrefab, Is.Not.Null);
+            Assert.That(surfaceBeltCenterCellPrefab, Is.Not.Null);
+            Assert.That(buttonBadgeGroupPrefab, Is.Not.Null);
+            Assert.That(PrefabUtility.GetPrefabAssetType(surfaceBeltCellPrefab), Is.EqualTo(PrefabAssetType.Regular));
+            Assert.That(PrefabUtility.GetPrefabAssetType(surfaceBeltCenterCellPrefab), Is.EqualTo(PrefabAssetType.Variant));
+            AssertCellPrefabContainsButtonBadgeGroupPrefab(surfaceBeltCellPrefab);
+            AssertCellPrefabContainsButtonBadgeGroupPrefab(surfaceBeltCenterCellPrefab);
+            var expectedCellY = new[] { -81.6667f, -55.6667f, -29.6667f, 0.0f, 29.6667f, 55.6667f, 81.6667f };
+            for (var i = 0; i < serializedSurfaceBeltIndicator.Cells.Length; i++)
+            {
+                var cell = serializedSurfaceBeltIndicator.Cells[i];
+                AssertSerializedReferenceIsAssigned(cell, "_buttonBadgeGroup");
+                AssertOwnedBy(cell.transform, beltContent);
+                Assert.That(
+                    PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(cell.gameObject),
+                    Is.EqualTo(i == 3 ? SurfaceBeltCenterCellPrefabPath : SurfaceBeltCellPrefabPath));
+
+                var cellRect = (RectTransform)cell.transform;
+                AssertVector2Within(cellRect.anchoredPosition, new Vector2(-20.0f, expectedCellY[i]));
+                AssertVector2Within(
+                    cellRect.sizeDelta,
+                    i == 3 ? new Vector2(114.6667f, 33.3333f) : new Vector2(114.6667f, 26.0f));
+
+                var rowLayout = cell.GetComponent<HorizontalLayoutGroup>();
+                Assert.That(rowLayout, Is.Not.Null);
+                Assert.That(rowLayout.childAlignment, Is.EqualTo(TextAnchor.MiddleLeft));
+                Assert.That(rowLayout.spacing, Is.EqualTo(2.0f).Within(0.01f));
+                Assert.That(rowLayout.childControlWidth, Is.True);
+                Assert.That(rowLayout.childControlHeight, Is.False);
+                Assert.That(rowLayout.childForceExpandWidth, Is.False);
+                Assert.That(rowLayout.childForceExpandHeight, Is.False);
+
+                var rowLayoutElement = cell.GetComponent<LayoutElement>();
+                Assert.That(rowLayoutElement, Is.Not.Null);
+                Assert.That(rowLayoutElement.preferredWidth, Is.EqualTo(114.6667f).Within(0.01f));
+                Assert.That(rowLayoutElement.preferredHeight, Is.EqualTo(i == 3 ? 33.3333f : 26.0f).Within(0.01f));
+
+                var badgeGroup = GetSerializedReference<SurfaceBeltButtonBadgeGroupView>(cell, "_buttonBadgeGroup");
+                Assert.That(badgeGroup.transform.GetSiblingIndex(), Is.EqualTo(0));
+                Assert.That(cell.transform.GetChild(0), Is.SameAs(badgeGroup.transform));
+
+                var cellVisualAnchor = cell.transform.Find("CellVisualAnchor") as RectTransform;
+                Assert.That(cellVisualAnchor, Is.Not.Null);
+                Assert.That(cellVisualAnchor.GetSiblingIndex(), Is.EqualTo(1));
+                Assert.That(cell.transform.GetChild(1), Is.SameAs(cellVisualAnchor));
+                var cellVisualAnchorLayout = cellVisualAnchor.GetComponent<LayoutElement>();
+                Assert.That(cellVisualAnchorLayout, Is.Not.Null);
+                Assert.That(cellVisualAnchorLayout.preferredWidth, Is.EqualTo(74.6667f).Within(0.01f));
+                Assert.That(cellVisualAnchorLayout.preferredHeight, Is.EqualTo(i == 3 ? 33.3333f : 26.0f).Within(0.01f));
+
+                var cellVisual = cellVisualAnchor.Find("CellVisual") as RectTransform;
+                Assert.That(cellVisual, Is.Not.Null);
+                AssertVector2Within(
+                    cellVisual.sizeDelta,
+                    i == 3 ? new Vector2(74.6667f, 33.3333f) : new Vector2(60.0f, 26.0f));
+
+                var cellVisualLayout = cellVisual.GetComponent<LayoutElement>();
+                Assert.That(cellVisualLayout, Is.Not.Null);
+                Assert.That(cellVisualLayout.preferredWidth, Is.EqualTo(i == 3 ? 74.6667f : 60.0f).Within(0.01f));
+                Assert.That(cellVisualLayout.preferredHeight, Is.EqualTo(i == 3 ? 33.3333f : 26.0f).Within(0.01f));
+                AssertSerializedReference(cell, "_background", cellVisual.GetComponent<Image>());
+                Assert.That(cellVisual.GetComponent<Shadow>(), Is.Null);
+                Assert.That(cellVisual.Find("Effect"), Is.Not.Null);
+                Assert.That(cellVisual.Find("Outline"), Is.Not.Null);
+                Assert.That(cellVisual.Find("Outline").GetComponent<Image>(), Is.Not.Null);
+            }
+
+            foreach (var badgeGroup in badgeGroups)
+            {
+                AssertSerializedReferenceIsAssigned(badgeGroup, "_normalBadge");
+                AssertSerializedReferenceIsAssigned(badgeGroup, "_moonBlockOnlyBadge");
+                AssertPrivateFieldDoesNotExist<SurfaceBeltButtonBadgeGroupView>("_root");
+                AssertOwnedBy(badgeGroup.transform, serializedSurfaceBeltIndicator.BeltContent);
+                Assert.That(badgeGroup.gameObject.activeSelf, Is.True);
+
+                var badgeLayout = badgeGroup.GetComponent<LayoutElement>();
+                Assert.That(badgeLayout, Is.Not.Null);
+                Assert.That(badgeLayout.minWidth, Is.EqualTo(38.0f).Within(0.01f));
+                Assert.That(badgeLayout.preferredWidth, Is.EqualTo(38.0f).Within(0.01f));
+                Assert.That(badgeLayout.minHeight, Is.EqualTo(26.0f).Within(0.01f));
+                Assert.That(badgeLayout.preferredHeight, Is.EqualTo(26.0f).Within(0.01f));
+
+                Assert.That(badgeGroup.transform.Find("BadgeVisibilityRoot"), Is.Null);
+                var groupLayout = badgeGroup.GetComponent<VerticalLayoutGroup>();
+                Assert.That(groupLayout, Is.Not.Null);
+                Assert.That(groupLayout.childAlignment, Is.EqualTo(TextAnchor.UpperLeft));
+                Assert.That(groupLayout.spacing, Is.EqualTo(0.0f).Within(0.01f));
+                Assert.That(groupLayout.childControlWidth, Is.True);
+                Assert.That(groupLayout.childControlHeight, Is.False);
+                Assert.That(groupLayout.childForceExpandWidth, Is.True);
+                Assert.That(groupLayout.childForceExpandHeight, Is.False);
+
+                var badgeViews = badgeGroup.GetComponentsInChildren<SurfaceBeltButtonBadgeView>(true);
+                Assert.That(badgeViews.Length, Is.EqualTo(2));
+                foreach (var badgeView in badgeViews)
+                {
+                    AssertSerializedReferenceIsAssigned(badgeView, "_background");
+                    AssertSerializedReferenceIsAssigned(badgeView, "_countText");
+                    AssertPrivateFieldDoesNotExist<SurfaceBeltButtonBadgeView>("_root");
+                    AssertPrivateFieldDoesNotExist<SurfaceBeltButtonBadgeView>("_outline");
+                    Assert.That(badgeView.GetComponent<Image>(), Is.Null);
+                    Assert.That(badgeView.GetComponent<Outline>(), Is.Null);
+                    Assert.That(badgeView.GetComponent<LayoutElement>(), Is.Null);
+                    var badgeViewRect = (RectTransform)badgeView.transform;
+                    AssertVector2Within(badgeViewRect.sizeDelta, new Vector2(0.0f, 13.0f));
+                    Assert.That(badgeView.transform.Find("BadgeImage"), Is.Null);
+
+                    var badgeRootLayout = badgeView.GetComponent<HorizontalLayoutGroup>();
+                    Assert.That(badgeRootLayout, Is.Not.Null);
+                    Assert.That(badgeRootLayout.childControlWidth, Is.True);
+                    Assert.That(badgeRootLayout.childControlHeight, Is.True);
+                    Assert.That(badgeRootLayout.childForceExpandWidth, Is.False);
+                    Assert.That(badgeRootLayout.childForceExpandHeight, Is.False);
+
+                    var badgeFrame = badgeView.transform.Find("BadgeFrame") as RectTransform;
+                    Assert.That(badgeFrame, Is.Not.Null);
+                    AssertVector2Within(badgeFrame.sizeDelta, Vector2.zero);
+                    Assert.That(badgeFrame.GetComponent<Image>(), Is.Not.Null);
+                    var frameLayout = badgeFrame.GetComponent<LayoutElement>();
+                    Assert.That(frameLayout, Is.Not.Null);
+                    Assert.That(frameLayout.minWidth, Is.EqualTo(13.0f).Within(0.01f));
+                    Assert.That(frameLayout.minHeight, Is.EqualTo(13.0f).Within(0.01f));
+                    Assert.That(frameLayout.preferredWidth, Is.EqualTo(13.0f).Within(0.01f));
+                    Assert.That(frameLayout.preferredHeight, Is.EqualTo(13.0f).Within(0.01f));
+
+                    var badgeImage = badgeFrame.Find("BadgeImage") as RectTransform;
+                    Assert.That(badgeImage, Is.Not.Null);
+                    AssertVector2Within(badgeImage.sizeDelta, Vector2.zero);
+                    Assert.That(badgeImage.GetComponent<Image>(), Is.Not.Null);
+                    Assert.That(badgeImage.GetComponent<LayoutElement>(), Is.Null);
+
+                    var countText = badgeView.transform.Find("CountText") as RectTransform;
+                    Assert.That(countText, Is.Not.Null);
+                    AssertVector2Within(countText.sizeDelta, Vector2.zero);
+                    var countLayout = countText.GetComponent<LayoutElement>();
+                    Assert.That(countLayout, Is.Not.Null);
+                    Assert.That(countLayout.minWidth, Is.EqualTo(25.0f).Within(0.01f));
+                    Assert.That(countLayout.minHeight, Is.EqualTo(13.0f).Within(0.01f));
+                    Assert.That(countLayout.preferredWidth, Is.EqualTo(25.0f).Within(0.01f));
+                    Assert.That(countLayout.preferredHeight, Is.EqualTo(13.0f).Within(0.01f));
+                    AssertSerializedReference(
+                        badgeView,
+                        "_background",
+                        badgeImage.GetComponent<Image>());
+                }
+            }
+
             Assert.That(hudPrefab.GetComponentsInChildren<SurfaceCubeMapView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<RawImage>(true), Is.Empty);
         }
@@ -405,14 +616,14 @@ namespace Game.Feature.UI.Tests
             var centerArrow = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_centerArrow");
             var cells = surfaceBeltIndicator.Cells;
 
-            AssertVector2Within(indicatorRoot.sizeDelta, new Vector2(146.6667f, 160.0f));
+            AssertVector2Within(indicatorRoot.sizeDelta, new Vector2(160.0f, 160.0f));
             Assert.That(indicatorLayout, Is.Not.Null);
-            Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(146.6667f).Within(0.01f));
+            Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(160.0f).Within(0.01f));
             Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(160.0f).Within(0.01f));
-            AssertVector2Within(maskRoot.sizeDelta, new Vector2(82.6667f, 141.3333f));
-            AssertVector2Within(maskRoot.anchoredPosition, new Vector2(-32.0f, 0.0f));
+            AssertVector2Within(maskRoot.sizeDelta, new Vector2(0.0f, 141.3333f));
+            AssertVector2Within(maskRoot.anchoredPosition, new Vector2(0.0f, 0.0f));
             AssertVector2Within(beltContent.sizeDelta, new Vector2(82.6667f, 193.3333f));
-            AssertVector2Within(centerArrow.anchoredPosition, new Vector2(30.0f, 0.0f));
+            AssertVector2Within(centerArrow.anchoredPosition, new Vector2(48.0f, 0.0f));
             AssertVector2Within(centerArrow.sizeDelta, new Vector2(48.0f, 48.0f));
             Assert.That(Mathf.DeltaAngle(90.0f, centerArrow.localEulerAngles.z), Is.EqualTo(0.0f).Within(0.01f));
             Assert.That(centerArrow.anchoredPosition.x, Is.GreaterThan(maskRoot.anchoredPosition.x));
@@ -422,33 +633,70 @@ namespace Game.Feature.UI.Tests
             var below = (RectTransform)cells[2].transform;
             var center = (RectTransform)cells[3].transform;
             var above = (RectTransform)cells[4].transform;
-            var expectedCellPositions = new[] { -83.6667f, -57.6667f, -31.6667f, 0.0f, 31.6667f, 57.6667f, 83.6667f };
+            var expectedCellPositions = new[] { -81.6667f, -55.6667f, -29.6667f, 0.0f, 29.6667f, 55.6667f, 81.6667f };
+            var maskHalfWidth = indicatorRoot.sizeDelta.x * 0.5f;
 
             Assert.That(center.localScale, Is.EqualTo(Vector3.one));
-            AssertVector2Within(center.sizeDelta, new Vector2(74.6667f, 33.3333f));
-            Assert.That(center.sizeDelta.x, Is.GreaterThan(below.sizeDelta.x));
-            Assert.That(center.sizeDelta.y, Is.GreaterThan(below.sizeDelta.y));
+            AssertVector2Within(center.sizeDelta, new Vector2(114.6667f, 33.3333f));
+            AssertVector2Within(below.sizeDelta, new Vector2(114.6667f, 26.0f));
             AssertVector2Within(above.sizeDelta, below.sizeDelta);
+            Assert.That(center.sizeDelta.y, Is.GreaterThan(below.sizeDelta.y));
 
             for (var i = 0; i < cells.Length; i++)
             {
                 var cell = (RectTransform)cells[i].transform;
-                AssertVector2Within(cell.anchoredPosition, new Vector2(0.0f, expectedCellPositions[i]));
+                AssertVector2Within(cell.anchoredPosition, new Vector2(-20.0f, expectedCellPositions[i]));
                 AssertVector2Within(
                     cell.sizeDelta,
-                    i == 3 ? new Vector2(74.6667f, 33.3333f) : new Vector2(58.6667f, 26.0f));
+                    i == 3 ? new Vector2(114.6667f, 33.3333f) : new Vector2(114.6667f, 26.0f));
+                Assert.That(
+                    cell.anchoredPosition.x - (cell.sizeDelta.x * 0.5f),
+                    Is.GreaterThanOrEqualTo(-maskHalfWidth - 0.01f),
+                    $"{cell.name} should stay within the SurfaceBelt mask left edge.");
+                Assert.That(
+                    cell.anchoredPosition.x + (cell.sizeDelta.x * 0.5f),
+                    Is.LessThanOrEqualTo(maskHalfWidth + 0.01f),
+                    $"{cell.name} should stay within the SurfaceBelt mask right edge.");
+
+                var badgeGroup = (RectTransform)cell.Find("ButtonBadgeGroup");
+                Assert.That(badgeGroup, Is.Not.Null);
+                var badgeGroupLayout = badgeGroup.GetComponent<LayoutElement>();
+                Assert.That(badgeGroupLayout, Is.Not.Null);
+                Assert.That(badgeGroupLayout.preferredWidth, Is.EqualTo(38.0f).Within(0.01f));
+                Assert.That(badgeGroupLayout.preferredHeight, Is.EqualTo(26.0f).Within(0.01f));
+
+                var cellVisualAnchor = (RectTransform)cell.Find("CellVisualAnchor");
+                Assert.That(cellVisualAnchor, Is.Not.Null);
+                var cellVisualAnchorLayout = cellVisualAnchor.GetComponent<LayoutElement>();
+                Assert.That(cellVisualAnchorLayout, Is.Not.Null);
+                Assert.That(cellVisualAnchorLayout.preferredWidth, Is.EqualTo(74.6667f).Within(0.01f));
+                Assert.That(cellVisualAnchorLayout.preferredHeight, Is.EqualTo(i == 3 ? 33.3333f : 26.0f).Within(0.01f));
+
+                var cellVisual = (RectTransform)cellVisualAnchor.Find("CellVisual");
+                Assert.That(cellVisual, Is.Not.Null);
+                AssertVector2Within(
+                    cellVisual.sizeDelta,
+                    i == 3 ? new Vector2(74.6667f, 33.3333f) : new Vector2(60.0f, 26.0f));
             }
 
             for (var i = 0; i < cells.Length - 1; i++)
             {
                 var current = (RectTransform)cells[i].transform;
                 var next = (RectTransform)cells[i + 1].transform;
-                var visualGap = GetAuthoredVisualBottom(next) - GetAuthoredVisualTop(current);
+                var currentBadgeGroup = (RectTransform)current.Find("ButtonBadgeGroup");
+                var nextBadgeGroup = (RectTransform)next.Find("ButtonBadgeGroup");
+                Assert.That(current.anchoredPosition.x + currentBadgeGroup.anchoredPosition.x, Is.EqualTo(next.anchoredPosition.x + nextBadgeGroup.anchoredPosition.x).Within(0.01f));
+
+                var currentVisual = (RectTransform)current.Find("CellVisualAnchor/CellVisual");
+                var nextVisual = (RectTransform)next.Find("CellVisualAnchor/CellVisual");
+                var visualGap =
+                    next.anchoredPosition.y + GetAuthoredVisualBottom(nextVisual) -
+                    (current.anchoredPosition.y + GetAuthoredVisualTop(currentVisual));
 
                 Assert.That(
                     visualGap,
-                    Is.EqualTo(0.0f).Within(0.01f),
-                    $"{current.name} should touch {next.name} without overlap or authored spacing.");
+                    Is.GreaterThanOrEqualTo(-0.01f).And.LessThanOrEqualTo(0.01f),
+                    $"{current.name} should not overlap {next.name}, and authored spacing should remain closed.");
             }
         }
 
@@ -2282,6 +2530,15 @@ namespace Game.Feature.UI.Tests
             Assert.That(child.IsChildOf(owner), Is.True, $"{child.name} should be under {owner.name}.");
         }
 
+        private static void AssertCellPrefabContainsButtonBadgeGroupPrefab(GameObject cellPrefab)
+        {
+            var badgeGroup = cellPrefab.GetComponentInChildren<SurfaceBeltButtonBadgeGroupView>(true);
+            Assert.That(badgeGroup, Is.Not.Null, $"{cellPrefab.name} should contain a button badge group.");
+            Assert.That(
+                PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(badgeGroup.gameObject),
+                Is.EqualTo(SurfaceBeltButtonBadgeGroupPrefabPath));
+        }
+
         private static void AssertCubeMapPreviewHasRenderableLayoutContract(SurfaceCubeMapView cubeMapView)
         {
             Assert.That(cubeMapView, Is.Not.Null);
@@ -2320,11 +2577,11 @@ namespace Game.Feature.UI.Tests
 
         private static float GetAuthoredVisualHalfWidth(RectTransform rectTransform)
         {
-            var halfWidth = rectTransform.sizeDelta.x * Mathf.Abs(rectTransform.localScale.x) * 0.5f;
-            var outline = rectTransform.GetComponent<Outline>();
-            if (outline != null && outline.enabled)
+            var halfWidth = GetAuthoredVisualSize(rectTransform).x * Mathf.Abs(rectTransform.localScale.x) * 0.5f;
+            var shadow = rectTransform.GetComponent<Shadow>();
+            if (shadow != null && shadow.enabled)
             {
-                halfWidth += Mathf.Abs(outline.effectDistance.x) * Mathf.Abs(rectTransform.localScale.x);
+                halfWidth += Mathf.Abs(shadow.effectDistance.x) * Mathf.Abs(rectTransform.localScale.x);
             }
 
             return halfWidth;
@@ -2342,14 +2599,30 @@ namespace Game.Feature.UI.Tests
 
         private static float GetAuthoredVisualHalfHeight(RectTransform rectTransform)
         {
-            var halfHeight = rectTransform.sizeDelta.y * Mathf.Abs(rectTransform.localScale.y) * 0.5f;
-            var outline = rectTransform.GetComponent<Outline>();
-            if (outline != null && outline.enabled)
+            var halfHeight = GetAuthoredVisualSize(rectTransform).y * Mathf.Abs(rectTransform.localScale.y) * 0.5f;
+            var shadow = rectTransform.GetComponent<Shadow>();
+            if (shadow != null && shadow.enabled)
             {
-                halfHeight += Mathf.Abs(outline.effectDistance.y) * Mathf.Abs(rectTransform.localScale.y);
+                halfHeight += Mathf.Abs(shadow.effectDistance.y) * Mathf.Abs(rectTransform.localScale.y);
             }
 
             return halfHeight;
+        }
+
+        private static Vector2 GetAuthoredVisualSize(RectTransform rectTransform)
+        {
+            if (rectTransform.sizeDelta != Vector2.zero)
+            {
+                return rectTransform.sizeDelta;
+            }
+
+            var layoutElement = rectTransform.GetComponent<LayoutElement>();
+            if (layoutElement != null && layoutElement.preferredWidth >= 0.0f && layoutElement.preferredHeight >= 0.0f)
+            {
+                return new Vector2(layoutElement.preferredWidth, layoutElement.preferredHeight);
+            }
+
+            return rectTransform.sizeDelta;
         }
 
         private static float GetAuthoredVisualBottom(RectTransform rectTransform)
@@ -2391,6 +2664,14 @@ namespace Game.Feature.UI.Tests
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, fieldName);
             return (TValue)field.GetValue(target);
+        }
+
+        private static void AssertPrivateFieldDoesNotExist<TTarget>(string fieldName)
+        {
+            var field = typeof(TTarget).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Null, $"{typeof(TTarget).Name} should not define {fieldName}.");
         }
 
         private static void SetPrivateField<TValue>(object target, string fieldName, TValue value)

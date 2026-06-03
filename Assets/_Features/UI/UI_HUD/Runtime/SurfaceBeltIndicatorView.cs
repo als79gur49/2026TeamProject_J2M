@@ -21,6 +21,7 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private SurfaceBeltCellView[] _cells;
         [SerializeField] private RectTransform _centerArrow;
         [SerializeField] private SurfaceBeltStyleProfile _styleProfile;
+        [SerializeField] private SurfaceBeltButtonBadgeStyleProfile _buttonBadgeStyleProfile;
         [SerializeField] private float _animationDurationSeconds = 0.18f;
         [SerializeField] private Ease _animationEase = Ease.OutQuad;
         [SerializeField] private float _centerArrowNudgePixels = 8.0f;
@@ -53,6 +54,8 @@ namespace Game.Feature.UI.HUD
 
         public SurfaceBeltStyleProfile StyleProfile => _styleProfile;
 
+        public SurfaceBeltButtonBadgeStyleProfile ButtonBadgeStyleProfile => _buttonBadgeStyleProfile;
+
         public void Bind(SurfaceBeltViewModel viewModel)
         {
             if (_viewModel != null)
@@ -76,6 +79,7 @@ namespace Game.Feature.UI.HUD
             RequireReference(_beltContent, nameof(_beltContent));
             RequireReference(_centerArrow, nameof(_centerArrow));
             RequireReference(_styleProfile, nameof(_styleProfile));
+            RequireReference(_buttonBadgeStyleProfile, nameof(_buttonBadgeStyleProfile));
 
             if (_maskRoot.GetComponent<RectMask2D>() == null)
             {
@@ -89,6 +93,11 @@ namespace Game.Feature.UI.HUD
             }
 
             if (!_styleProfile.TryValidate(out var validationMessage))
+            {
+                throw new InvalidOperationException(validationMessage);
+            }
+
+            if (!_buttonBadgeStyleProfile.TryValidate(out validationMessage))
             {
                 throw new InvalidOperationException(validationMessage);
             }
@@ -290,7 +299,11 @@ namespace Game.Feature.UI.HUD
 
             for (var i = 0; i < _cells.Length; i++)
             {
-                _cells[i].Bind(cells[i], _styleProfile);
+                _cells[i].Bind(
+                    cells[i],
+                    _styleProfile,
+                    _viewModel.GetButtonRemainderForSlot(cells[i].SlotIndex),
+                    _buttonBadgeStyleProfile);
             }
         }
 

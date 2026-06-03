@@ -201,6 +201,36 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIStateMapper_ReduceRefresh_MapsSurfaceButtonRemaindersIntoSurfaceBeltSnapshot()
+        {
+            var mapper = new UIStateMapper();
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    surfaceButtonRemainders: new[]
+                    {
+                        new UISurfaceButtonRemainderInput(GameplayUiFace.Front, 2, 1),
+                        new UISurfaceButtonRemainderInput(GameplayUiFace.Back, 0, 3),
+                    }));
+
+            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders.Count, Is.EqualTo(4));
+            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[0].TotalRemaining, Is.EqualTo(0));
+            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[1].SlotIndex, Is.EqualTo(1));
+            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[1].NormalRemaining, Is.EqualTo(2));
+            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[1].MoonBlockOnlyRemaining, Is.EqualTo(1));
+            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[3].NormalRemaining, Is.EqualTo(0));
+            Assert.That(result.Snapshot.SurfaceBelt.ButtonRemainders[3].MoonBlockOnlyRemaining, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void SurfaceBeltSnapshot_Empty_ProvidesFourZeroButtonRemainders()
+        {
+            Assert.That(SurfaceBeltSnapshot.Empty.ButtonRemainders.Count, Is.EqualTo(4));
+            Assert.That(SurfaceBeltSnapshot.Empty.ButtonRemainders.All(remainder => remainder.TotalRemaining == 0), Is.True);
+        }
+
+        [Test]
         public void UIStateMapper_ReduceRefresh_MapsMinimalRecoveryCooldownSlice()
         {
             var mapper = new UIStateMapper();
@@ -574,6 +604,31 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiPresentationSource_RefreshMapsSurfaceButtonRemaindersFromQuery()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false),
+                surfaceButtonRemainders: new[]
+                {
+                    new GameplaySurfaceButtonRemainderReadModel(GameplayUiFace.Ceiling, 4, 1),
+                });
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Floor),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.SurfaceBelt.ButtonRemainders[2].NormalRemaining, Is.EqualTo(4));
+            Assert.That(source.CurrentSnapshot.SurfaceBelt.ButtonRemainders[2].MoonBlockOnlyRemaining, Is.EqualTo(1));
+        }
+
+        [Test]
         public void GameplayUiPresentationSource_RefreshMapsStageFromStageQuery()
         {
             var stageId = StageId.CreateOrThrow("stage-1-1");
@@ -713,7 +768,8 @@ namespace Game.Feature.UI.Tests
             string stageDisplayName = "",
             GameplayObjectiveReadModel objective = default,
             GameplayTopologyPresentationSlice? topologyPresentation = null,
-            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default,
+            IReadOnlyList<UISurfaceButtonRemainderInput> surfaceButtonRemainders = null)
         {
             return new UIStateRefreshInput(
                 tickIndex,
@@ -742,7 +798,8 @@ namespace Game.Feature.UI.Tests
                 stageDisplayName: stageDisplayName,
                 objective: objective,
                 topologyPresentation: topologyPresentation,
-                chanceAudioPolicy: chanceAudioPolicy);
+                chanceAudioPolicy: chanceAudioPolicy,
+                surfaceButtonRemainders: surfaceButtonRemainders);
         }
 
         private static GameplayObjectiveReadModel CreateObjectiveReadModel(bool isSatisfied)
