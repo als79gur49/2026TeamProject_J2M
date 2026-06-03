@@ -1019,27 +1019,6 @@ namespace Game.Feature.Gameplay.Host
                 interpolationActive,
                 reason);
             _stateStore.LastKinematicTrackBuildDiagnostics.Add(diagnostic);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            UnityEngine.Debug.Log(
-                "[KinematicTrackBuild]" +
-                $"Tick={diagnostic.TickIndex}" +
-                $"|Entity={diagnostic.EntityId}" +
-                $"|OperationId={diagnostic.OperationId}" +
-                $"|TrackCreated={(diagnostic.TrackCreated ? 1 : 0)}" +
-                $"|TrackKind={diagnostic.TrackKind}" +
-                $"|AnchorBefore={diagnostic.AnchorBefore}" +
-                $"|AnchorAfter={diagnostic.AnchorAfter}" +
-                $"|LocalOffsetBefore={diagnostic.LocalOffsetBefore}" +
-                $"|LocalOffsetAfter={diagnostic.LocalOffsetAfter}" +
-                $"|DirectionKind={diagnostic.DirectionKind}" +
-                $"|FacingPolicy={diagnostic.FacingPolicy}" +
-                $"|KinematicDirection={diagnostic.KinematicDirection}" +
-                $"|PoseFacing={diagnostic.PoseFacing}" +
-                $"|ShouldUpdateFacing={(diagnostic.ShouldUpdateFacing ? 1 : 0)}" +
-                $"|Duration={diagnostic.DurationSeconds}" +
-                $"|InterpolationActive={(diagnostic.InterpolationActive ? 1 : 0)}" +
-                $"|Reason={diagnostic.Reason}");
-#endif
         }
 
         private void RecordKinematicTrackRebase(
@@ -1063,21 +1042,6 @@ namespace Game.Feature.Gameplay.Host
                 destinationPose.Position,
                 reason);
             _stateStore.LastKinematicTrackRebaseDiagnostics.Add(diagnostic);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            UnityEngine.Debug.Log(
-                "[KinematicTrackRebase]" +
-                $"Tick={diagnostic.TickIndex}" +
-                $"|Entity={diagnostic.EntityId}" +
-                $"|OperationId={diagnostic.OperationId}" +
-                $"|SourceAnchor={diagnostic.SourceAnchor}" +
-                $"|DestinationAnchor={diagnostic.DestinationAnchor}" +
-                $"|SourceLocalOffset={diagnostic.SourceLocalOffset}" +
-                $"|DestinationLocalOffset={diagnostic.DestinationLocalOffset}" +
-                $"|RemainingSeconds={diagnostic.RemainingSeconds}" +
-                $"|RebasedSourcePosition={diagnostic.RebasedSourcePosition}" +
-                $"|DestinationPosition={diagnostic.DestinationPosition}" +
-                $"|Reason={diagnostic.Reason}");
-#endif
         }
 
         private void RefreshPlayerDeathHoldTracks(TickPresentationData presentationData)

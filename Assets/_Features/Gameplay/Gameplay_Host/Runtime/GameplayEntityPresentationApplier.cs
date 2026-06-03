@@ -949,28 +949,6 @@ namespace Game.Feature.Gameplay.Host
                 teleportApplied,
                 reason);
             _stateStore.LastKinematicViewApplyDiagnostics.Add(diagnostic);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            UnityEngine.Debug.Log(
-                "[KinematicViewApply]" +
-                $"Tick={diagnostic.TickIndex}" +
-                $"|Frame={diagnostic.FrameIndex}" +
-                $"|Entity={diagnostic.EntityId}" +
-                $"|OperationId={diagnostic.OperationId}" +
-                $"|TrackActive={(diagnostic.TrackActive ? 1 : 0)}" +
-                $"|CurrentVisualPosition={diagnostic.CurrentVisualPosition}" +
-                $"|TargetVisualPosition={diagnostic.TargetVisualPosition}" +
-                $"|CurrentLocalOffset={diagnostic.CurrentLocalOffset}" +
-                $"|TargetLocalOffset={diagnostic.TargetLocalOffset}" +
-                $"|KinematicDirection={diagnostic.KinematicDirection}" +
-                $"|AuthoritativeFacing={diagnostic.AuthoritativeFacing}" +
-                $"|PoseFacing={diagnostic.PoseFacing}" +
-                $"|CurrentVisualYaw={diagnostic.CurrentVisualYaw}" +
-                $"|TargetVisualYaw={diagnostic.TargetVisualYaw}" +
-                $"|Policy={diagnostic.Policy}" +
-                $"|Mismatch={(diagnostic.Mismatch ? 1 : 0)}" +
-                $"|TeleportApplied={(diagnostic.TeleportApplied ? 1 : 0)}" +
-                $"|Reason={diagnostic.Reason}");
-#endif
         }
 
         private void CleanupCompletedOriginalViewMotionTracks()
