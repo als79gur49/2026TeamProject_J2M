@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
@@ -1065,6 +1066,117 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return DestroyHost(host);
         }
 
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator PlayMode_SameFaceSlide_EnemyOnSuppressedBarricade_WhenEnemyDies_RemovesBoxView()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var barricadeCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var slidingBox = CreateBox(20, sourceCell, BoxCapabilities.Push);
+            slidingBox.state = EntityPhaseState.Sliding;
+            slidingBox.stateTimer = 0;
+            slidingBox.facing = Direction.Up;
+            slidingBox.kineticInstigatorEntityId = 10;
+            slidingBox.kineticInstigatorTeamId = 1;
+            var enemy = CreateUnit(30, barricadeCell);
+            enemy.hp = 1;
+            enemy.maxHp = 1;
+            enemy.teamId = 2;
+            enemy.unitRole = UnitRole.Enemy;
+            enemy.aiMode = EnemyAiMode.Chase;
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 3, 3)),
+                    slidingBox,
+                    enemy,
+                },
+                initialTileFeatures: new[]
+                {
+                    CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade),
+                },
+                tileFeatureDefinitions: new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                },
+                initialTopology: new CubeTopologyState(FaceId.Floor));
+
+            Assert.That(host.ViewRegistry.TryGetView(20, out var boxView), Is.True);
+            Assert.That(host.ViewRegistry.TryGetView(30, out var enemyView), Is.True);
+
+            var result = host.InputHost.RunSingleTick();
+            var finalSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.True);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 20 && signal.ExitCause == TickEntityExitCause.BoxDestroy), Is.True);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
+            Assert.That(boxView.gameObject.activeSelf, Is.False);
+            Assert.That(enemyView.gameObject.activeSelf, Is.False);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator PlayMode_Flip_EnemyOnSuppressedBarricade_WhenEnemyDies_RemovesBoxViewAndShowsCrush()
+        {
+            var host = CreateFlipSuppressedBarricadeHost(enemyHp: 1);
+            var landingCell = new SurfaceCell(FaceId.Front, 2, 1);
+            Assert.That(host.ViewRegistry.TryGetView(20, out var boxView), Is.True);
+            Assert.That(host.ViewRegistry.TryGetView(30, out var enemyView), Is.True);
+
+            var result = host.InputHost.RunSingleTick();
+            var finalSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.True);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(result.PresentationData.EntityExitSignals.Any(signal => signal.ExitedEntityId == 20 && signal.ExitCause == TickEntityExitCause.BoxDestroy), Is.True);
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(new SurfaceCell(FaceId.Front, 0, 1), out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(landingCell, out _), Is.False);
+            Assert.That(boxView.gameObject.activeSelf, Is.False);
+            Assert.That(enemyView.gameObject.activeSelf, Is.False);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator PlayMode_Flip_EnemyOnSuppressedBarricade_WhenEnemySurvives_DestroysSelfViewAccordingToFlipContract()
+        {
+            var host = CreateFlipSuppressedBarricadeHost(enemyHp: 2);
+            var landingCell = new SurfaceCell(FaceId.Front, 2, 1);
+            Assert.That(host.ViewRegistry.TryGetView(20, out var boxView), Is.True);
+            Assert.That(host.ViewRegistry.TryGetView(30, out var enemyView), Is.True);
+
+            var result = host.InputHost.RunSingleTick();
+            var finalSnapshot = CaptureAuthoritativeSnapshot(host);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeCrushed), Is.False);
+            Assert.That(result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
+            Assert.That(result.PresentationData.FlipImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.FlipImpactSignals[0].Disposition, Is.EqualTo(FlipImpactPresentationDisposition.DestroySelf));
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(finalSnapshot.TryGetEntity(30, out var enemyAfter), Is.True);
+            Assert.That(enemyAfter.position, Is.EqualTo(landingCell));
+            Assert.That(enemyAfter.hp, Is.EqualTo(1));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(new SurfaceCell(FaceId.Front, 0, 1), out _), Is.False);
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(landingCell, out _), Is.False);
+            Assert.That(boxView.gameObject.activeSelf, Is.False);
+            Assert.That(enemyView.gameObject.activeSelf, Is.True);
+
+            yield return DestroyHost(host);
+        }
+
         private static void WriteBottomToFrontPlayModeTrace(
             TickResult result,
             WorldSnapshot finalSnapshot,
@@ -1888,6 +2000,38 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 presentationKey: string.Empty);
         }
 
+        private static GameplaySceneHost CreateFlipSuppressedBarricadeHost(int enemyHp)
+        {
+            var landingCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var enemy = CreateUnit(30, landingCell);
+            enemy.hp = enemyHp;
+            enemy.maxHp = enemyHp;
+            enemy.teamId = 2;
+            enemy.unitRole = UnitRole.Enemy;
+            enemy.aiMode = EnemyAiMode.Chase;
+            return CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 4, 4)),
+                    CreateUnit(entityId: 11, position: new SurfaceCell(FaceId.Front, 1, 1)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 1), capabilities: BoxCapabilities.Flip),
+                    enemy,
+                },
+                initialTileFeatures: new[]
+                {
+                    CreateTileFeature(100, landingCell, TileFeatureKind.Barricade),
+                },
+                tileFeatureDefinitions: new[]
+                {
+                    CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                },
+                staticEntityLogics: new IEntityLogic[]
+                {
+                    new PlayModeScriptedMovementLogic(new RawMovementIntent(11, 100, new Vector2Int(0, 1), MovementCommandKind.Flip)),
+                },
+                initialTopology: new CubeTopologyState(FaceId.Floor));
+        }
+
         private static IEnumerator DestroyHost(GameplaySceneHost host, UnityEngine.Object ownedActions = null)
         {
             if (host != null)
@@ -2224,6 +2368,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     buffer.Add(RawAttackIntent.CreateFireProjectile(_sourceId, _priority));
                 }
+            }
+        }
+
+        private sealed class PlayModeScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly RawMovementIntent _movementIntent;
+
+            public PlayModeScriptedMovementLogic(RawMovementIntent movementIntent)
+            {
+                _movementIntent = movementIntent;
+            }
+
+            public int ControlledEntityId => _movementIntent.SourceId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                buffer.Add(_movementIntent);
             }
         }
 
