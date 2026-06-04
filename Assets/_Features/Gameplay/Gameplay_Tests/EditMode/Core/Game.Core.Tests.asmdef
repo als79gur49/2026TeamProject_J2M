@@ -3,8 +3,12 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests.Core",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.ActionAudio",
+    "Game.Feature.Gameplay.Audio",
     "Game.Feature.Gameplay.Host",
+    "Game.Feature.Flow.Audio",
     "Game.Feature.Stages",
+    "Game.Shared.Audio",
     "Game.TestSupport.Pure"
   ],
   "includePlatforms": [
