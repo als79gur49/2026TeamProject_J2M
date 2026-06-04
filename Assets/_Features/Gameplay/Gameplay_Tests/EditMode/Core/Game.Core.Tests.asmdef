@@ -3,6 +3,8 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests.Core",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Host",
+    "Game.Feature.Stages",
     "Game.TestSupport.Pure"
   ],
   "includePlatforms": [
