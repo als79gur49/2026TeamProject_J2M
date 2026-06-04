@@ -22,7 +22,7 @@ MonoBehaviour:
       candidatePattern: 0
       requireNoUnitAtSpawnCell: 1
       requireNoSolidAtSpawnCell: 1
-      summonedArchetype: {fileID: 0}
+      summonedArchetype: {fileID: 11400000, guid: 8da265900dc94540a0e150fa08ff4c7f, type: 2}
       overrideHp: 0
       hpOverride: 1
       windupSeconds: 1

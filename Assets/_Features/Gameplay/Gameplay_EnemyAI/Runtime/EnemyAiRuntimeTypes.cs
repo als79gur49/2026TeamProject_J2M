@@ -159,11 +159,37 @@ namespace Game.Feature.Gameplay.Entities
         {
             Kind = kind;
             Resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+            Validate(nameof(EnemyStateResolverRuntime));
         }
 
         public EnemyAiStateResolverKind Kind { get; }
 
         public IEnemyAiStateResolver Resolver { get; }
+
+        public void Validate(string paramName)
+        {
+            if (Resolver == null)
+            {
+                throw new ArgumentException("Enemy state resolver runtime requires a non-null resolver.", paramName);
+            }
+
+            var resolverKind = Resolver switch
+            {
+                DefaultEnemyAiStateResolver _ => EnemyAiStateResolverKind.Default,
+                ChargingEnemyAiStateResolver _ => EnemyAiStateResolverKind.Charge,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(Resolver),
+                    Resolver,
+                    "Unknown enemy state resolver implementation."),
+            };
+
+            if (Kind != resolverKind)
+            {
+                throw new ArgumentException(
+                    $"Enemy state resolver runtime kind '{Kind}' must match resolver implementation '{resolverKind}' ({Resolver.GetType().Name}).",
+                    paramName);
+            }
+        }
     }
 
     public readonly struct EnemyPatrolRuntime
@@ -223,6 +249,7 @@ namespace Game.Feature.Gameplay.Entities
             Kind = kind;
             Settings = settings;
             Strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+            Validate(nameof(EnemyDetectionRuntime));
         }
 
         public DetectionStrategyKind Kind { get; }
@@ -233,6 +260,29 @@ namespace Game.Feature.Gameplay.Entities
 
         public void Validate(string paramName)
         {
+            if (Strategy == null)
+            {
+                throw new ArgumentException("Enemy detection runtime requires a non-null strategy.", paramName);
+            }
+
+            var strategyKind = Strategy switch
+            {
+                NoDetectionStrategy _ => DetectionStrategyKind.None,
+                NearestOpponentDetectionStrategy _ => DetectionStrategyKind.NearestOpponent,
+                CrossLineOfSightOpponentDetectionStrategy _ => DetectionStrategyKind.CrossLineOfSightOpponent,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(Strategy),
+                    Strategy,
+                    "Unknown detection strategy implementation."),
+            };
+
+            if (Kind != strategyKind)
+            {
+                throw new ArgumentException(
+                    $"Enemy detection runtime kind '{Kind}' must match strategy implementation '{strategyKind}' ({Strategy.GetType().Name}).",
+                    paramName);
+            }
+
             if (Kind != DetectionStrategyKind.None)
             {
                 Settings.Validate(paramName);
@@ -250,6 +300,7 @@ namespace Game.Feature.Gameplay.Entities
             Kind = kind;
             Settings = settings;
             Strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+            Validate(nameof(EnemyChaseRuntime));
         }
 
         public ChaseStrategyKind Kind { get; }
@@ -260,6 +311,27 @@ namespace Game.Feature.Gameplay.Entities
 
         public void Validate(string paramName)
         {
+            if (Strategy == null)
+            {
+                throw new ArgumentException("Enemy chase runtime requires a non-null strategy.", paramName);
+            }
+
+            var strategyKind = Strategy switch
+            {
+                AxisPriorityChaseStrategy _ => ChaseStrategyKind.AxisPriority,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(Strategy),
+                    Strategy,
+                    "Unknown chase strategy implementation."),
+            };
+
+            if (Kind != strategyKind)
+            {
+                throw new ArgumentException(
+                    $"Enemy chase runtime kind '{Kind}' must match strategy implementation '{strategyKind}' ({Strategy.GetType().Name}).",
+                    paramName);
+            }
+
             Settings.Validate(paramName);
         }
     }
@@ -297,6 +369,7 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Enemy brain runtime requires non-null strategy slots.", paramName);
             }
 
+            StateResolver.Validate(paramName);
             Patrol.Validate(paramName);
             Detection.Validate(paramName);
             Chase.Validate(paramName);
@@ -358,6 +431,44 @@ namespace Game.Feature.Gameplay.Entities
 
         public override void Validate(string paramName)
         {
+            if (AttackDecisionStrategy == null)
+            {
+                throw new ArgumentException("Enemy combat capability runtime requires a non-null attack decision strategy.", paramName);
+            }
+
+            var strategyKind = AttackDecisionStrategy switch
+            {
+                MeleeAttackDecisionStrategy _ => AttackDecisionStrategyKind.Melee,
+                WindupForwardCellProjectileAttackDecisionStrategy _ => AttackDecisionStrategyKind.WindupForwardCellProjectile,
+                ContactSameCellAttackDecisionStrategy _ => AttackDecisionStrategyKind.ContactSameCell,
+                NoAttackDecisionStrategy _ => AttackDecisionStrategyKind.None,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(AttackDecisionStrategy),
+                    AttackDecisionStrategy,
+                    "Unknown combat attack decision strategy implementation."),
+            };
+
+            if (strategyKind == AttackDecisionStrategyKind.None)
+            {
+                throw new ArgumentException(
+                    "Combat capability runtime requires a concrete attack decision strategy implementation.",
+                    paramName);
+            }
+
+            if (strategyKind == AttackDecisionStrategyKind.ContactSameCell)
+            {
+                throw new ArgumentException(
+                    "ContactSameCell must compile as passive contact, not as a combat capability.",
+                    paramName);
+            }
+
+            if (Kind != strategyKind)
+            {
+                throw new ArgumentException(
+                    $"Enemy combat capability runtime kind '{Kind}' must match attack decision strategy implementation '{strategyKind}' ({AttackDecisionStrategy.GetType().Name}).",
+                    paramName);
+            }
+
             AttackDecisionSettings.Validate(paramName);
             AttackTimingSettings.Validate(paramName);
             WindupMeleeSettings.Validate(paramName);
@@ -513,6 +624,18 @@ namespace Game.Feature.Gameplay.Entities
 
         public override void Validate(string paramName)
         {
+            if (AttackDecisionStrategy == null)
+            {
+                throw new ArgumentException("Enemy passive contact runtime requires a non-null attack decision strategy.", paramName);
+            }
+
+            if (AttackDecisionStrategy is not ContactSameCellAttackDecisionStrategy)
+            {
+                throw new ArgumentException(
+                    $"Enemy passive contact runtime kind '{Kind}' must match attack decision strategy implementation '{AttackDecisionStrategy.GetType().Name}'.",
+                    paramName);
+            }
+
             AttackDecisionSettings.Validate(paramName);
         }
     }
