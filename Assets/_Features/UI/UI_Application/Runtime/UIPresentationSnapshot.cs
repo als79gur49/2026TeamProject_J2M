@@ -172,6 +172,46 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public readonly struct SurfaceBeltButtonRemainderSnapshot : IEquatable<SurfaceBeltButtonRemainderSnapshot>
+    {
+        public SurfaceBeltButtonRemainderSnapshot(
+            int slotIndex,
+            int normalRemaining,
+            int moonBlockOnlyRemaining)
+        {
+            SlotIndex = SurfaceBeltSlotMapping.WrapSlot(slotIndex);
+            NormalRemaining = normalRemaining > 0 ? normalRemaining : 0;
+            MoonBlockOnlyRemaining = moonBlockOnlyRemaining > 0 ? moonBlockOnlyRemaining : 0;
+        }
+
+        public int SlotIndex { get; }
+
+        public int NormalRemaining { get; }
+
+        public int MoonBlockOnlyRemaining { get; }
+
+        public int TotalRemaining => NormalRemaining + MoonBlockOnlyRemaining;
+
+        public bool HasAnyRemaining => TotalRemaining > 0;
+
+        public bool Equals(SurfaceBeltButtonRemainderSnapshot other)
+        {
+            return SlotIndex == other.SlotIndex &&
+                   NormalRemaining == other.NormalRemaining &&
+                   MoonBlockOnlyRemaining == other.MoonBlockOnlyRemaining;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is SurfaceBeltButtonRemainderSnapshot other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(SlotIndex, NormalRemaining, MoonBlockOnlyRemaining);
+        }
+    }
+
     public readonly struct SurfaceBeltSnapshot : IEquatable<SurfaceBeltSnapshot>
     {
         public static readonly SurfaceBeltSnapshot Empty = FromTopology(
@@ -185,7 +225,8 @@ namespace Game.Feature.UI.Application
             int destinationSlotIndex,
             SurfaceBeltDirection direction,
             bool isTransitioning,
-            int transitionSequenceId)
+            int transitionSequenceId,
+            IReadOnlyList<SurfaceBeltButtonRemainderSnapshot> buttonRemainders = null)
         {
             CurrentSlotIndex = SurfaceBeltSlotMapping.WrapSlot(currentSlotIndex);
             SourceSlotIndex = SurfaceBeltSlotMapping.WrapSlot(sourceSlotIndex);
@@ -193,6 +234,7 @@ namespace Game.Feature.UI.Application
             Direction = direction;
             IsTransitioning = isTransitioning;
             TransitionSequenceId = isTransitioning ? Math.Max(0, transitionSequenceId) : 0;
+            ButtonRemainders = CopyButtonRemainders(buttonRemainders);
         }
 
         public int CurrentSlotIndex { get; }
@@ -207,13 +249,16 @@ namespace Game.Feature.UI.Application
 
         public int TransitionSequenceId { get; }
 
+        public IReadOnlyList<SurfaceBeltButtonRemainderSnapshot> ButtonRemainders { get; }
+
         public static SurfaceBeltSnapshot FromTopology(
             GameplayUiTopology topology,
             bool isTransitioning,
             int transitionSequenceId,
             GameplayUiTopology? sourceTopology = null,
             GameplayUiTopology? destinationTopology = null,
-            SurfaceBeltDirection direction = SurfaceBeltDirection.None)
+            SurfaceBeltDirection direction = SurfaceBeltDirection.None,
+            IReadOnlyList<SurfaceBeltButtonRemainderSnapshot> buttonRemainders = null)
         {
             var current = ToSlotIndex(topology);
             var source = sourceTopology.HasValue ? ToSlotIndex(sourceTopology.Value) : current;
@@ -224,7 +269,8 @@ namespace Game.Feature.UI.Application
                 destination,
                 isTransitioning ? direction : SurfaceBeltDirection.None,
                 isTransitioning,
-                transitionSequenceId);
+                transitionSequenceId,
+                buttonRemainders);
         }
 
         public static int ToSlotIndex(GameplayUiTopology topology)
@@ -239,7 +285,8 @@ namespace Game.Feature.UI.Application
                    DestinationSlotIndex == other.DestinationSlotIndex &&
                    Direction == other.Direction &&
                    IsTransitioning == other.IsTransitioning &&
-                   TransitionSequenceId == other.TransitionSequenceId;
+                   TransitionSequenceId == other.TransitionSequenceId &&
+                   ButtonRemaindersEqual(ButtonRemainders, other.ButtonRemainders);
         }
 
         public override bool Equals(object obj)
@@ -255,7 +302,83 @@ namespace Game.Feature.UI.Application
                 DestinationSlotIndex,
                 Direction,
                 IsTransitioning,
-                TransitionSequenceId);
+                TransitionSequenceId,
+                BuildButtonRemaindersHash(ButtonRemainders));
+        }
+
+        public static SurfaceBeltButtonRemainderSnapshot[] CreateEmptyButtonRemainders()
+        {
+            var result = new SurfaceBeltButtonRemainderSnapshot[SurfaceBeltSlotMapping.SurfaceCount];
+            for (var i = 0; i < result.Length; i++)
+            {
+                result[i] = new SurfaceBeltButtonRemainderSnapshot(i, 0, 0);
+            }
+
+            return result;
+        }
+
+        private static SurfaceBeltButtonRemainderSnapshot[] CopyButtonRemainders(
+            IReadOnlyList<SurfaceBeltButtonRemainderSnapshot> source)
+        {
+            var copy = CreateEmptyButtonRemainders();
+            if (source == null)
+            {
+                return copy;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var item = source[i];
+                var slot = SurfaceBeltSlotMapping.WrapSlot(item.SlotIndex);
+                copy[slot] = new SurfaceBeltButtonRemainderSnapshot(
+                    slot,
+                    item.NormalRemaining,
+                    item.MoonBlockOnlyRemaining);
+            }
+
+            return copy;
+        }
+
+        private static bool ButtonRemaindersEqual(
+            IReadOnlyList<SurfaceBeltButtonRemainderSnapshot> left,
+            IReadOnlyList<SurfaceBeltButtonRemainderSnapshot> right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null || left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (!left[i].Equals(right[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static int BuildButtonRemaindersHash(
+            IReadOnlyList<SurfaceBeltButtonRemainderSnapshot> remainders)
+        {
+            var hash = 17;
+            if (remainders == null)
+            {
+                return hash;
+            }
+
+            for (var i = 0; i < remainders.Count; i++)
+            {
+                hash = (hash * 397) ^ remainders[i].GetHashCode();
+            }
+
+            return hash;
         }
     }
 

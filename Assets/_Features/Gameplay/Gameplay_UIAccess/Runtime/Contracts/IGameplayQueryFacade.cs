@@ -11,5 +11,7 @@ namespace Game.Feature.Gameplay.UIAccess.Contracts
         IGameplayPlayerHudQuery PlayerHud { get; }
 
         IGameplayObjectiveQuery Objectives { get; }
+
+        IGameplaySurfaceButtonRemainderQuery SurfaceButtonRemainders { get; }
     }
 }

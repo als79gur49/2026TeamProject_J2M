@@ -38,7 +38,8 @@ namespace Game.Feature.UI.Application
             string stageDisplayName = null,
             GameplayObjectiveReadModel objective = default,
             GameplayTopologyPresentationSlice? topologyPresentation = null,
-            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default,
+            IReadOnlyList<UISurfaceButtonRemainderInput> surfaceButtonRemainders = null)
             : this(
                 tickIndex,
                 shouldUpdateTickIndex,
@@ -68,7 +69,8 @@ namespace Game.Feature.UI.Application
                 stageDisplayName,
                 objective,
                 topologyPresentation,
-                chanceAudioPolicy)
+                chanceAudioPolicy,
+                surfaceButtonRemainders)
         {
         }
 
@@ -101,7 +103,8 @@ namespace Game.Feature.UI.Application
             string stageDisplayName = null,
             GameplayObjectiveReadModel objective = default,
             GameplayTopologyPresentationSlice? topologyPresentation = null,
-            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default)
+            GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default,
+            IReadOnlyList<UISurfaceButtonRemainderInput> surfaceButtonRemainders = null)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -136,6 +139,7 @@ namespace Game.Feature.UI.Application
             Objective = objective;
             TopologyPresentation = topologyPresentation;
             RecoveryCooldown = recoveryCooldown;
+            SurfaceButtonRemainders = CopySurfaceButtonRemainders(surfaceButtonRemainders);
         }
 
         public int TickIndex { get; }
@@ -195,6 +199,57 @@ namespace Game.Feature.UI.Application
         public GameplayTopologyPresentationSlice? TopologyPresentation { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
+
+        public IReadOnlyList<UISurfaceButtonRemainderInput> SurfaceButtonRemainders { get; }
+
+        private static UISurfaceButtonRemainderInput[] CopySurfaceButtonRemainders(
+            IReadOnlyList<UISurfaceButtonRemainderInput> source)
+        {
+            var copy = CreateEmptySurfaceButtonRemainders();
+            if (source == null)
+            {
+                return copy;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var item = source[i];
+                var slot = SurfaceBeltSlotMapping.WrapSlot((int)item.Face);
+                copy[slot] = item;
+            }
+
+            return copy;
+        }
+
+        private static UISurfaceButtonRemainderInput[] CreateEmptySurfaceButtonRemainders()
+        {
+            return new[]
+            {
+                new UISurfaceButtonRemainderInput(GameplayUiFace.Floor, 0, 0),
+                new UISurfaceButtonRemainderInput(GameplayUiFace.Front, 0, 0),
+                new UISurfaceButtonRemainderInput(GameplayUiFace.Ceiling, 0, 0),
+                new UISurfaceButtonRemainderInput(GameplayUiFace.Back, 0, 0),
+            };
+        }
+    }
+
+    public readonly struct UISurfaceButtonRemainderInput
+    {
+        public UISurfaceButtonRemainderInput(
+            GameplayUiFace face,
+            int normalRemaining,
+            int moonBlockOnlyRemaining)
+        {
+            Face = face;
+            NormalRemaining = normalRemaining > 0 ? normalRemaining : 0;
+            MoonBlockOnlyRemaining = moonBlockOnlyRemaining > 0 ? moonBlockOnlyRemaining : 0;
+        }
+
+        public GameplayUiFace Face { get; }
+
+        public int NormalRemaining { get; }
+
+        public int MoonBlockOnlyRemaining { get; }
     }
 
     public readonly struct UIStateReductionResult
@@ -414,7 +469,8 @@ namespace Game.Feature.UI.Application
                         SurfaceBeltSnapshot.FromTopology(
                             snapshot.Tick.FinalTopology,
                             snapshot.Tick.IsTopologyTransitionActive,
-                            snapshot.SurfaceBelt.TransitionSequenceId),
+                            snapshot.SurfaceBelt.TransitionSequenceId,
+                            buttonRemainders: snapshot.SurfaceBelt.ButtonRemainders),
                         snapshot.Player,
                         snapshot.Notifications);
 
@@ -530,13 +586,37 @@ namespace Game.Feature.UI.Application
                         direction),
                     topology.SourceTopology,
                     topology.DestinationTopology,
-                    direction);
+                    direction,
+                    BuildSurfaceBeltButtonRemainders(refreshInput.SurfaceButtonRemainders));
             }
 
             return SurfaceBeltSnapshot.FromTopology(
                 tick.FinalTopology,
                 refreshInput.IsTopologyTransitionActive,
-                0);
+                0,
+                buttonRemainders: BuildSurfaceBeltButtonRemainders(refreshInput.SurfaceButtonRemainders));
+        }
+
+        private static SurfaceBeltButtonRemainderSnapshot[] BuildSurfaceBeltButtonRemainders(
+            IReadOnlyList<UISurfaceButtonRemainderInput> source)
+        {
+            var remainders = SurfaceBeltSnapshot.CreateEmptyButtonRemainders();
+            if (source == null)
+            {
+                return remainders;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var item = source[i];
+                var slot = SurfaceBeltSlotMapping.WrapSlot((int)item.Face);
+                remainders[slot] = new SurfaceBeltButtonRemainderSnapshot(
+                    slot,
+                    item.NormalRemaining,
+                    item.MoonBlockOnlyRemaining);
+            }
+
+            return remainders;
         }
 
         private static SurfaceBeltDirection MapSurfaceBeltDirection(GameplayUiRotationKind rotationKind)

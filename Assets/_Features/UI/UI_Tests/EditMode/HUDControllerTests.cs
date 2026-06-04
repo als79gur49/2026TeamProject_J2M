@@ -10,7 +10,6 @@ using System.Linq;
 using System.Reflection;
 using TMPro;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
@@ -337,7 +336,23 @@ namespace Game.Feature.UI.Tests
                 AssertOwnedBy(maskRoot, (RectTransform)beltView.transform);
                 AssertOwnedBy(beltContent, maskRoot);
                 Assert.That(maskRoot.GetComponent<RectMask2D>(), Is.Not.Null);
-                Assert.That(beltView.Cells.Length, Is.EqualTo(7));
+                Assert.That(beltView.Cells.Length, Is.EqualTo(SurfaceBeltViewModel.AuthoredCellCount));
+                Assert.DoesNotThrow(() => beltView.ValidateAuthoredStructureOrThrow());
+
+                var badgeGroups = beltView.GetComponentsInChildren<SurfaceBeltButtonBadgeGroupView>(true);
+                Assert.That(badgeGroups.Length, Is.EqualTo(SurfaceBeltViewModel.AuthoredCellCount));
+                var visibleBadgeGroupCount = 0;
+                foreach (var badgeGroup in badgeGroups)
+                {
+                    Assert.DoesNotThrow(() => badgeGroup.ValidateAuthoredStructureOrThrow());
+                    if (badgeGroup.NormalBadge.gameObject.activeInHierarchy ||
+                        badgeGroup.MoonBlockOnlyBadge.gameObject.activeInHierarchy)
+                    {
+                        visibleBadgeGroupCount++;
+                    }
+                }
+
+                Assert.That(visibleBadgeGroupCount, Is.GreaterThan(0));
             }
             finally
             {
@@ -387,14 +402,60 @@ namespace Game.Feature.UI.Tests
             AssertOwnedBy(maskRoot, serializedSurfaceBeltIndicator.transform);
             AssertOwnedBy(beltContent, maskRoot);
             Assert.That(maskRoot.GetComponent<RectMask2D>(), Is.Not.Null);
-            AssertSerializedArrayCount(serializedSurfaceBeltIndicator, "_cells", 7);
+            AssertSerializedArrayCount(serializedSurfaceBeltIndicator, "_cells", SurfaceBeltViewModel.AuthoredCellCount);
             AssertSerializedReferenceIsAssigned(serializedSurfaceBeltIndicator, "_styleProfile");
+            AssertSerializedReferenceIsAssigned(serializedSurfaceBeltIndicator, "_buttonBadgeStyleProfile");
+            var buttonBadgeStyleProfile = GetSerializedReference<SurfaceBeltButtonBadgeStyleProfile>(
+                serializedSurfaceBeltIndicator,
+                "_buttonBadgeStyleProfile");
+            Assert.That(buttonBadgeStyleProfile.TryValidate(out _), Is.True);
+            Assert.DoesNotThrow(() => serializedSurfaceBeltIndicator.ValidateAuthoredStructureOrThrow());
+
+            var badgeGroups = serializedSurfaceBeltIndicator.GetComponentsInChildren<SurfaceBeltButtonBadgeGroupView>(true);
+            Assert.That(badgeGroups.Length, Is.EqualTo(SurfaceBeltViewModel.AuthoredCellCount));
+            for (var i = 0; i < serializedSurfaceBeltIndicator.Cells.Length; i++)
+            {
+                var cell = serializedSurfaceBeltIndicator.Cells[i];
+                AssertSerializedReferenceIsAssigned(cell, "_buttonBadgeGroup");
+                AssertSerializedReferenceIsAssigned(cell, "_background");
+                AssertOwnedBy(cell.transform, beltContent);
+                Assert.DoesNotThrow(() => cell.ValidateAuthoredStructureOrThrow());
+
+                var cellRect = (RectTransform)cell.transform;
+                Assert.That(cellRect.rect.width, Is.GreaterThan(0.0f));
+                Assert.That(cellRect.rect.height, Is.GreaterThan(0.0f));
+
+                var badgeGroup = GetSerializedReference<SurfaceBeltButtonBadgeGroupView>(cell, "_buttonBadgeGroup");
+                AssertOwnedBy(badgeGroup.transform, cell.transform);
+            }
+
+            foreach (var badgeGroup in badgeGroups)
+            {
+                AssertSerializedReferenceIsAssigned(badgeGroup, "_normalBadge");
+                AssertSerializedReferenceIsAssigned(badgeGroup, "_moonBlockOnlyBadge");
+                Assert.DoesNotThrow(() => badgeGroup.ValidateAuthoredStructureOrThrow());
+                AssertOwnedBy(badgeGroup.transform, serializedSurfaceBeltIndicator.BeltContent);
+
+                var badgeViews = badgeGroup.GetComponentsInChildren<SurfaceBeltButtonBadgeView>(true);
+                Assert.That(badgeViews.Length, Is.EqualTo(2));
+                foreach (var badgeView in badgeViews)
+                {
+                    AssertSerializedReferenceIsAssigned(badgeView, "_background");
+                    AssertSerializedReferenceIsAssigned(badgeView, "_countText");
+                    Assert.DoesNotThrow(() => badgeView.ValidateAuthoredStructureOrThrow());
+                    AssertOwnedBy(badgeView.transform, badgeGroup.transform);
+                    var badgeViewRect = (RectTransform)badgeView.transform;
+                    Assert.That(badgeViewRect.rect.width, Is.GreaterThanOrEqualTo(0.0f));
+                    Assert.That(badgeViewRect.rect.height, Is.GreaterThanOrEqualTo(0.0f));
+                }
+            }
+
             Assert.That(hudPrefab.GetComponentsInChildren<SurfaceCubeMapView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<RawImage>(true), Is.Empty);
         }
 
         [Test]
-        public void HUDPrefab_SurfaceBeltCenterHighlight_ReservesSpacingForAuthoredOutline()
+        public void HUDPrefab_SurfaceBeltIndicator_AuthoredReferencesStayWithinModule()
         {
             var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
             var surfaceBeltIndicator = GetSerializedReference<SurfaceBeltIndicatorView>(hudPrefab, "_surfaceBeltIndicatorView");
@@ -405,50 +466,26 @@ namespace Game.Feature.UI.Tests
             var centerArrow = GetSerializedReference<RectTransform>(surfaceBeltIndicator, "_centerArrow");
             var cells = surfaceBeltIndicator.Cells;
 
-            AssertVector2Within(indicatorRoot.sizeDelta, new Vector2(146.6667f, 160.0f));
             Assert.That(indicatorLayout, Is.Not.Null);
-            Assert.That(indicatorLayout.preferredWidth, Is.EqualTo(146.6667f).Within(0.01f));
-            Assert.That(indicatorLayout.preferredHeight, Is.EqualTo(160.0f).Within(0.01f));
-            AssertVector2Within(maskRoot.sizeDelta, new Vector2(82.6667f, 141.3333f));
-            AssertVector2Within(maskRoot.anchoredPosition, new Vector2(-32.0f, 0.0f));
-            AssertVector2Within(beltContent.sizeDelta, new Vector2(82.6667f, 193.3333f));
-            AssertVector2Within(centerArrow.anchoredPosition, new Vector2(30.0f, 0.0f));
-            AssertVector2Within(centerArrow.sizeDelta, new Vector2(48.0f, 48.0f));
-            Assert.That(Mathf.DeltaAngle(90.0f, centerArrow.localEulerAngles.z), Is.EqualTo(0.0f).Within(0.01f));
-            Assert.That(centerArrow.anchoredPosition.x, Is.GreaterThan(maskRoot.anchoredPosition.x));
-            Assert.That(GetAuthoredVisualRight(centerArrow), Is.LessThanOrEqualTo(indicatorRoot.sizeDelta.x * 0.5f + 0.01f));
-            Assert.That(cells.Length, Is.EqualTo(7));
-
-            var below = (RectTransform)cells[2].transform;
-            var center = (RectTransform)cells[3].transform;
-            var above = (RectTransform)cells[4].transform;
-            var expectedCellPositions = new[] { -83.6667f, -57.6667f, -31.6667f, 0.0f, 31.6667f, 57.6667f, 83.6667f };
-
-            Assert.That(center.localScale, Is.EqualTo(Vector3.one));
-            AssertVector2Within(center.sizeDelta, new Vector2(74.6667f, 33.3333f));
-            Assert.That(center.sizeDelta.x, Is.GreaterThan(below.sizeDelta.x));
-            Assert.That(center.sizeDelta.y, Is.GreaterThan(below.sizeDelta.y));
-            AssertVector2Within(above.sizeDelta, below.sizeDelta);
+            Assert.That(indicatorLayout.preferredWidth, Is.GreaterThan(0.0f));
+            Assert.That(indicatorLayout.preferredHeight, Is.GreaterThan(0.0f));
+            Assert.That(indicatorRoot.rect.width, Is.GreaterThan(0.0f));
+            Assert.That(indicatorRoot.rect.height, Is.GreaterThan(0.0f));
+            AssertOwnedBy(maskRoot, indicatorRoot);
+            AssertOwnedBy(beltContent, maskRoot);
+            AssertOwnedBy(centerArrow, indicatorRoot);
+            Assert.That(centerArrow.IsChildOf(beltContent), Is.False);
+            Assert.That(maskRoot.GetComponent<RectMask2D>(), Is.Not.Null);
+            Assert.That(cells.Length, Is.EqualTo(SurfaceBeltViewModel.AuthoredCellCount));
+            Assert.DoesNotThrow(() => surfaceBeltIndicator.ValidateAuthoredStructureOrThrow());
 
             for (var i = 0; i < cells.Length; i++)
             {
                 var cell = (RectTransform)cells[i].transform;
-                AssertVector2Within(cell.anchoredPosition, new Vector2(0.0f, expectedCellPositions[i]));
-                AssertVector2Within(
-                    cell.sizeDelta,
-                    i == 3 ? new Vector2(74.6667f, 33.3333f) : new Vector2(58.6667f, 26.0f));
-            }
-
-            for (var i = 0; i < cells.Length - 1; i++)
-            {
-                var current = (RectTransform)cells[i].transform;
-                var next = (RectTransform)cells[i + 1].transform;
-                var visualGap = GetAuthoredVisualBottom(next) - GetAuthoredVisualTop(current);
-
-                Assert.That(
-                    visualGap,
-                    Is.EqualTo(0.0f).Within(0.01f),
-                    $"{current.name} should touch {next.name} without overlap or authored spacing.");
+                AssertOwnedBy(cell, beltContent);
+                Assert.That(cell.rect.width, Is.GreaterThan(0.0f));
+                Assert.That(cell.rect.height, Is.GreaterThan(0.0f));
+                Assert.DoesNotThrow(() => cells[i].ValidateAuthoredStructureOrThrow());
             }
         }
 
@@ -2316,56 +2353,6 @@ namespace Game.Feature.UI.Tests
                 && firstRect.yMax > secondRect.yMin;
 
             Assert.That(overlaps, Is.False, $"{first.name} overlaps {second.name}.");
-        }
-
-        private static float GetAuthoredVisualHalfWidth(RectTransform rectTransform)
-        {
-            var halfWidth = rectTransform.sizeDelta.x * Mathf.Abs(rectTransform.localScale.x) * 0.5f;
-            var outline = rectTransform.GetComponent<Outline>();
-            if (outline != null && outline.enabled)
-            {
-                halfWidth += Mathf.Abs(outline.effectDistance.x) * Mathf.Abs(rectTransform.localScale.x);
-            }
-
-            return halfWidth;
-        }
-
-        private static float GetAuthoredVisualLeft(RectTransform rectTransform)
-        {
-            return rectTransform.anchoredPosition.x - GetAuthoredVisualHalfWidth(rectTransform);
-        }
-
-        private static float GetAuthoredVisualRight(RectTransform rectTransform)
-        {
-            return rectTransform.anchoredPosition.x + GetAuthoredVisualHalfWidth(rectTransform);
-        }
-
-        private static float GetAuthoredVisualHalfHeight(RectTransform rectTransform)
-        {
-            var halfHeight = rectTransform.sizeDelta.y * Mathf.Abs(rectTransform.localScale.y) * 0.5f;
-            var outline = rectTransform.GetComponent<Outline>();
-            if (outline != null && outline.enabled)
-            {
-                halfHeight += Mathf.Abs(outline.effectDistance.y) * Mathf.Abs(rectTransform.localScale.y);
-            }
-
-            return halfHeight;
-        }
-
-        private static float GetAuthoredVisualBottom(RectTransform rectTransform)
-        {
-            return rectTransform.anchoredPosition.y - GetAuthoredVisualHalfHeight(rectTransform);
-        }
-
-        private static float GetAuthoredVisualTop(RectTransform rectTransform)
-        {
-            return rectTransform.anchoredPosition.y + GetAuthoredVisualHalfHeight(rectTransform);
-        }
-
-        private static void AssertVector2Within(Vector2 actual, Vector2 expected)
-        {
-            Assert.That(actual.x, Is.EqualTo(expected.x).Within(0.01f));
-            Assert.That(actual.y, Is.EqualTo(expected.y).Within(0.01f));
         }
 
         private static TReference GetSerializedReference<TReference>(

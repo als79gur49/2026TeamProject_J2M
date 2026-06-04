@@ -8,10 +8,13 @@ namespace Game.Feature.UI.HUD
     {
         [SerializeField] private Image _background;
         [SerializeField] private Image _slotTintEffectImage;
+        [SerializeField] private SurfaceBeltButtonBadgeGroupView _buttonBadgeGroup;
 
         public void Bind(
             SurfaceBeltCellViewModel viewModel,
-            SurfaceBeltStyleProfile styleProfile)
+            SurfaceBeltStyleProfile styleProfile,
+            SurfaceBeltButtonRemainderViewModel buttonRemainder,
+            SurfaceBeltButtonBadgeStyleProfile buttonBadgeStyleProfile)
         {
             ValidateAuthoredStructureOrThrow();
             if (styleProfile == null)
@@ -31,11 +34,18 @@ namespace Game.Feature.UI.HUD
                 effectColor.a = _slotTintEffectImage.color.a;
                 _slotTintEffectImage.color = effectColor;
             }
+
+            _buttonBadgeGroup.Bind(
+                buttonRemainder,
+                buttonBadgeStyleProfile,
+                viewModel.ShowButtonBadge);
         }
 
         public void ValidateAuthoredStructureOrThrow()
         {
             RequireReference(_background, nameof(_background));
+            RequireReference(_buttonBadgeGroup, nameof(_buttonBadgeGroup));
+            _buttonBadgeGroup.ValidateAuthoredStructureOrThrow();
         }
 
         private static void RequireReference(UnityEngine.Object value, string fieldName)

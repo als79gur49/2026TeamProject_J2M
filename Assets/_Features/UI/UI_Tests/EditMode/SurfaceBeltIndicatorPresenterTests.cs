@@ -15,15 +15,24 @@ namespace Game.Feature.UI.Tests
             var presenter = new SurfaceBeltIndicatorPresenter();
 
             presenter.Apply(new SurfaceBeltSnapshot(
-                currentSlotIndex: 3,
-                sourceSlotIndex: 3,
-                destinationSlotIndex: 3,
+                currentSlotIndex: SurfaceBeltSlotMapping.SurfaceCount - 1,
+                sourceSlotIndex: SurfaceBeltSlotMapping.SurfaceCount - 1,
+                destinationSlotIndex: SurfaceBeltSlotMapping.SurfaceCount - 1,
                 SurfaceBeltDirection.None,
                 isTransitioning: false,
                 transitionSequenceId: 0));
 
-            Assert.That(presenter.ViewModel.Cells, Has.Length.EqualTo(7));
-            Assert.That(presenter.ViewModel.Cells.Select(cell => cell.Offset).ToArray(), Is.EqualTo(new[] { -3, -2, -1, 0, 1, 2, 3 }));
+            var firstOffset = -(SurfaceBeltViewModel.AuthoredCellCount / 2);
+            var expectedOffsets = Enumerable.Range(firstOffset, SurfaceBeltViewModel.AuthoredCellCount).ToArray();
+            var expectedButtonBadgeVisibility = presenter.ViewModel.Cells
+                .Select(cell => cell.Offset >= -1 && cell.Offset < SurfaceBeltSlotMapping.SurfaceCount - 1)
+                .ToArray();
+
+            Assert.That(presenter.ViewModel.Cells, Has.Length.EqualTo(SurfaceBeltViewModel.AuthoredCellCount));
+            Assert.That(presenter.ViewModel.Cells.Select(cell => cell.Offset).ToArray(), Is.EqualTo(expectedOffsets));
+            Assert.That(
+                presenter.ViewModel.Cells.Select(cell => cell.ShowButtonBadge).ToArray(),
+                Is.EqualTo(expectedButtonBadgeVisibility));
             Assert.That(presenter.ViewModel.Cells.Count(cell => cell.IsCurrent), Is.EqualTo(1));
             Assert.That(presenter.ViewModel.Cells.Single(cell => cell.IsCurrent).Offset, Is.EqualTo(0));
         }
@@ -59,6 +68,62 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.TransitionSequenceId, Is.EqualTo(3101));
             Assert.That(presenter.ViewModel.CenterSlotIndex, Is.EqualTo(3));
             Assert.That(presenter.ViewModel.DestinationSlotIndex, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Apply_PreservesButtonRemaindersBySlot()
+        {
+            var presenter = new SurfaceBeltIndicatorPresenter();
+
+            presenter.Apply(new SurfaceBeltSnapshot(
+                currentSlotIndex: 0,
+                sourceSlotIndex: 0,
+                destinationSlotIndex: 0,
+                SurfaceBeltDirection.None,
+                isTransitioning: false,
+                transitionSequenceId: 0,
+                new[]
+                {
+                    new SurfaceBeltButtonRemainderSnapshot(0, 1, 0),
+                    new SurfaceBeltButtonRemainderSnapshot(1, 0, 2),
+                    new SurfaceBeltButtonRemainderSnapshot(2, 3, 4),
+                    new SurfaceBeltButtonRemainderSnapshot(3, 0, 0),
+                }));
+
+            Assert.That(presenter.ViewModel.ButtonRemainders, Has.Length.EqualTo(SurfaceBeltSlotMapping.SurfaceCount));
+            Assert.That(presenter.ViewModel.ButtonRemainders[0].NormalRemaining, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.ButtonRemainders[1].MoonBlockOnlyRemaining, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.ButtonRemainders[2].NormalRemaining, Is.EqualTo(3));
+            Assert.That(presenter.ViewModel.ButtonRemainders[2].MoonBlockOnlyRemaining, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void SetState_RaisesChangedOnlyWhenButtonRemaindersChange()
+        {
+            var viewModel = new SurfaceBeltViewModel();
+            var changeCount = 0;
+            viewModel.Changed += () => changeCount++;
+            var cells = SurfaceBeltSlotMapping.BuildCells(0);
+            var firstRemainders = new[]
+            {
+                new SurfaceBeltButtonRemainderViewModel(0, 1, 0),
+                new SurfaceBeltButtonRemainderViewModel(1, 0, 0),
+                new SurfaceBeltButtonRemainderViewModel(2, 0, 0),
+                new SurfaceBeltButtonRemainderViewModel(3, 0, 0),
+            };
+            var secondRemainders = new[]
+            {
+                new SurfaceBeltButtonRemainderViewModel(0, 1, 0),
+                new SurfaceBeltButtonRemainderViewModel(1, 0, 2),
+                new SurfaceBeltButtonRemainderViewModel(2, 0, 0),
+                new SurfaceBeltButtonRemainderViewModel(3, 0, 0),
+            };
+
+            viewModel.SetState(true, 0, 0, 0, SurfaceBeltDirection.None, false, 0, cells, firstRemainders);
+            viewModel.SetState(true, 0, 0, 0, SurfaceBeltDirection.None, false, 0, cells, firstRemainders);
+            viewModel.SetState(true, 0, 0, 0, SurfaceBeltDirection.None, false, 0, cells, secondRemainders);
+
+            Assert.That(changeCount, Is.EqualTo(2));
         }
 
         private static Type GetMemberType(MemberInfo member)

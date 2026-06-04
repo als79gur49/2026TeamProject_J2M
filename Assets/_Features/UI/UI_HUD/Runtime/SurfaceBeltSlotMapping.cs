@@ -48,7 +48,8 @@ namespace Game.Feature.UI.HUD
                 cells[i] = new SurfaceBeltCellViewModel(
                     WrapSlot(center + offset),
                     offset,
-                    offset == 0);
+                    offset == 0,
+                    offset >= -1 && offset <= 2);
             }
 
             return cells;
