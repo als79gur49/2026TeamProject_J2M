@@ -9,6 +9,8 @@ DOTNET_PATH="${DOTNET_PATH:-/mnt/c/Program Files/dotnet/dotnet.exe}"
 PROJECT_PATH_WSL="$SCRIPT_DIR"
 PROJECT_PATH_WIN="${PROJECT_PATH_WIN:-}"
 DRY_RUN=0
+TEST_FILTER=""
+FILTERED_TOTAL=0
 
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
@@ -174,6 +176,10 @@ print_config() {
     echo "RESULT_DIR=$RESULT_DIR"
 }
 
+print_usage() {
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|ui|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+}
+
 print_shell_command() {
     printf '  '
     printf '%q ' "$@"
@@ -182,6 +188,7 @@ print_shell_command() {
 
 validate_xml() {
     local xml_path="$1"
+    local allow_empty="${2:-0}"
     local total_tests
 
     if [ ! -f "$xml_path" ] || [ ! -s "$xml_path" ]; then
@@ -200,10 +207,20 @@ validate_xml() {
     }
 
     total_tests="$(grep -o 'total="[0-9]*"' "$xml_path" | grep -o '[0-9]*' | head -n 1)"
-    if [ -z "$total_tests" ] || [ "$total_tests" -eq 0 ]; then
+    if [ -z "$total_tests" ]; then
+        echo "ERROR: Missing test count"
+        return 1
+    fi
+
+    if [ "$total_tests" -eq 0 ] && [ "$allow_empty" -ne 1 ]; then
         echo "ERROR: No tests executed (total=0)"
         return 1
     fi
+}
+
+get_xml_total() {
+    local xml_path="$1"
+    grep -o 'total="[0-9]*"' "$xml_path" | grep -o '[0-9]*' | head -n 1
 }
 
 run_dotnet_build() {
@@ -409,37 +426,42 @@ run_unity_stage() {
     local log_path_win
     local xml_path_win
     local exit_code
+    local allow_empty=0
+    local total_tests
+    local -a unity_command
 
     log_path_win="$(wslpath -w "$log_path")"
     xml_path_win="$(wslpath -w "$xml_path")"
+    if [ -n "$TEST_FILTER" ]; then
+        allow_empty=1
+    fi
+
+    unity_command=(
+        timeout --kill-after=10 300
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$log_path_win"
+        -executeMethod "$execute_method"
+        -codexSelection "$selection"
+        -codexResultPath "$xml_path_win"
+    )
+
+    if [ -n "$TEST_FILTER" ]; then
+        unity_command+=(-codexTestFilter "$TEST_FILTER")
+    fi
 
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "Would run Unity $stage_label:"
-        print_shell_command \
-            timeout --kill-after=10 300 \
-            "$UNITY_PATH" \
-            -batchmode \
-            -nographics \
-            -projectPath "$PROJECT_PATH_WIN" \
-            -logFile "$log_path_win" \
-            -executeMethod "$execute_method" \
-            -codexSelection "$selection" \
-            -codexResultPath "$xml_path_win"
+        print_shell_command "${unity_command[@]}"
         return 0
     fi
 
     rm -f "$xml_path"
     echo "Running Unity $stage_label..."
 
-    if timeout --kill-after=10 300 \
-        "$UNITY_PATH" \
-        -batchmode \
-        -nographics \
-        -projectPath "$PROJECT_PATH_WIN" \
-        -logFile "$log_path_win" \
-        -executeMethod "$execute_method" \
-        -codexSelection "$selection" \
-        -codexResultPath "$xml_path_win"
+    if "${unity_command[@]}"
     then
         exit_code=0
     else
@@ -451,11 +473,16 @@ run_unity_stage() {
         return "$exit_code"
     fi
 
-    if ! validate_xml "$xml_path"; then
+    if ! validate_xml "$xml_path" "$allow_empty"; then
         if [ "$exit_code" -ne 0 ]; then
             return "$exit_code"
         fi
         return 1
+    fi
+
+    if [ -n "$TEST_FILTER" ]; then
+        total_tests="$(get_xml_total "$xml_path")"
+        FILTERED_TOTAL=$((FILTERED_TOTAL + total_tests))
     fi
 
     if ! summarize_stage_result "$stage_key" "$xml_path" "$exit_code"; then
@@ -528,8 +555,62 @@ run_unity_integration_fuzz() {
     run_unity_stage "integration-fuzz" "integration-fuzz-editmode" "integration-fuzz (EditMode)" "EditMode" "$UNITY_INTEGRATION_FUZZ_EDITMODE_LOG" "$UNITY_INTEGRATION_FUZZ_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
 }
 
+parse_arguments() {
+    if [ "${1:-}" = "--print-config" ]; then
+        if [ "$#" -ne 1 ]; then
+            print_usage
+            exit 1
+        fi
+        RUN_MODE="--print-config"
+        return
+    fi
+
+    if [ "${1:-}" = "--dry-run" ]; then
+        DRY_RUN=1
+        shift
+    fi
+
+    RUN_MODE="${1:-}"
+    if [ -z "$RUN_MODE" ]; then
+        print_usage
+        exit 1
+    fi
+    shift
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --filter|--test-filter)
+                local filter_arg="$1"
+                shift
+                if [ "$#" -eq 0 ] || [ -z "${1:-}" ]; then
+                    echo "ERROR: $filter_arg requires a non-empty test filter."
+                    print_usage
+                    exit 1
+                fi
+                TEST_FILTER="$1"
+                shift
+                ;;
+            *)
+                echo "ERROR: Unsupported argument: $1"
+                print_usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
+require_filtered_tests_if_needed() {
+    if [ -n "$TEST_FILTER" ] && [ "$DRY_RUN" -eq 0 ] && [ "$FILTERED_TOTAL" -eq 0 ]; then
+        echo "ERROR: Test filter matched no tests in lane '$RUN_MODE': $TEST_FILTER"
+        exit 1
+    fi
+}
+
 main() {
-    local mode="${1:-}"
+    local mode
+
+    parse_arguments "$@"
+    mode="$RUN_MODE"
 
     require_command wslpath
     initialize_project_paths
@@ -540,13 +621,10 @@ main() {
         return 0
     fi
 
-    if [ "$mode" = "--dry-run" ]; then
-        DRY_RUN=1
-        shift
-        mode="${1:-}"
-    fi
-
     print_environment_summary
+    if [ -n "$TEST_FILTER" ]; then
+        echo "Test filter: $TEST_FILTER"
+    fi
 
     if [ "$DRY_RUN" -eq 0 ]; then
         require_command timeout
@@ -591,10 +669,12 @@ main() {
             run_unity_integration_fuzz
             ;;
         *)
-            echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|ui|full|--integration-simulation|--integration-replay|--integration-fuzz]"
+            print_usage
             exit 1
             ;;
     esac
+
+    require_filtered_tests_if_needed
 
     if [ "$DRY_RUN" -eq 0 ]; then
         echo "ALL TESTS PASSED"
