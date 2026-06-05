@@ -13,9 +13,9 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `654 total / 0 failed`
+- Current Unity UI EditMode: `649 total / 0 failed`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
-- Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; this Phase 1 still does not promote any UI deletion candidate to `Safe`
+- Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
@@ -41,7 +41,9 @@
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
   - current rerun: `155 total / 0 failed`
   - delta: `+91` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, and manual smoke-plan governance
-- Removed tests: none expected for Stage 9; if any are removed, the replacement guard must be named here explicitly.
+- Removed tests:
+  - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
+  - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
 - Renamed / merged / split tests:
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
 - Replaced weak guards:
@@ -114,8 +116,8 @@
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
-- ActionBar currently exists as `ActionBarPresenter`, `ActionBarView`, and `ActionBarViewModel`, and `GameplayHudRoot.prefab` retains an inactive `ActionBar` child with authored `ActionBarView` references
-- ActionBar is not currently runtime-bound through `HUDRootView` or `HUDController`, so it is `Needs Product Decision` rather than a canonical runtime-bound HUD member; deletion or wiring recovery belongs in a separate PR
+- canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`
+- ActionBar retired proof residue was removed from runtime types, tests, and `GameplayHudRoot.prefab`; no HUD responsibility was moved into PlayerStatus, notification, screen stack, or gameplay command ownership
 - popup legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored popup creation path beneath `PopupLayer` via a fixed-shape popup-only catalog
 - popup prefab views remain visual/local only; popup callbacks, timers, and animation completions do not own lifecycle, stack mutation, or dismissibility policy
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy

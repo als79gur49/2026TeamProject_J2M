@@ -193,7 +193,6 @@ namespace Game.Feature.UI.Tests
                 AssertSceneContainsNoSerializedComponent<UiArchitectureDiagnosticsOverlayView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<HUDRootView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<PlayerStatusView>(rootObjects);
-                AssertSceneContainsNoSerializedComponent<ActionBarView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<ScreenLayerView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<PopupLayerView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<GlobalAudioFlowRoot>(rootObjects);

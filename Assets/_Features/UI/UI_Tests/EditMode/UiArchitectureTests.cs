@@ -170,7 +170,6 @@ namespace Game.Feature.UI.Tests
                 typeof(StageInfoPresenter).Assembly,
                 typeof(ObjectiveHudPresenter).Assembly,
                 typeof(PlayerStatusPresenter).Assembly,
-                typeof(ActionBarPresenter).Assembly,
                 typeof(ObjectiveStatusScreenPresenter).Assembly,
                 typeof(SettingsScreenPresenter).Assembly,
                 typeof(StageResultScreenPresenter).Assembly,
@@ -270,7 +269,6 @@ namespace Game.Feature.UI.Tests
                 typeof(StageInfoPresenter),
                 typeof(ObjectiveHudPresenter),
                 typeof(PlayerStatusPresenter),
-                typeof(ActionBarPresenter),
                 typeof(ObjectiveStatusPresenter),
                 typeof(SettingsScreenPresenter),
             };
@@ -427,7 +425,6 @@ namespace Game.Feature.UI.Tests
                 typeof(UIFlowCoordinator),
                 typeof(ObjectiveHudViewModel),
                 typeof(PlayerStatusViewModel),
-                typeof(ActionBarViewModel),
             };
 
             foreach (var forbiddenType in forbiddenTypes)
@@ -547,7 +544,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ChancePanelPresenter),
                 typeof(SurfaceBeltIndicatorPresenter),
                 typeof(PlayerStatusPresenter),
-                typeof(ActionBarPresenter),
             };
             var forbiddenTypes = new[]
             {
@@ -577,7 +573,6 @@ namespace Game.Feature.UI.Tests
             AssertViewBindSignature(typeof(ChancePanelView), typeof(ChancePanelViewModel));
             AssertViewBindSignature(typeof(SurfaceBeltIndicatorView), typeof(SurfaceBeltViewModel));
             AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
-            AssertViewBindSignature(typeof(ActionBarView), typeof(ActionBarViewModel));
         }
 
         [Test]
@@ -618,7 +613,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
                 typeof(PlayerStatusView),
-                typeof(ActionBarView),
             };
 
             foreach (var hudViewType in hudViewTypes)
@@ -641,7 +635,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
                 typeof(PlayerStatusView),
-                typeof(ActionBarView),
             };
             var forbiddenTypes = new[]
             {

@@ -32,10 +32,8 @@ Archive documents that still mention `pushContactTicks`, contact accumulation, o
 - A new Push after recovery requires a fresh button press.
 
 ## HUD Contract
-- HUD readiness now separates:
+- Mapped readiness data remains available:
   - `CanStartAnyActionThisTick`
   - `HasExplicitPushCandidateInCurrentDirection`
-- Push slot states are:
-  - disabled when actions cannot start
-  - ready when actions can start but no push candidate is armed
-  - armed when actions can start and the current direction resolves to a valid push candidate
+- Push/Flip readiness, recovery, and outcome mapping remain unchanged.
+- There is currently no HUD ActionBar consumer for this mapped readiness data.

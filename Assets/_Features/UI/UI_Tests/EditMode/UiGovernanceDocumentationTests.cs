@@ -48,13 +48,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
             Assert.That(guide, Does.Contain("green on 2026-06-06 KST"));
             Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(guide, Does.Contain("Unity UI EditMode `654 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `649 total / 0 failed`"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
             Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
             Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeGroupView"));
             Assert.That(guide, Does.Contain("EnemyTargetEligibilityResult"));
             Assert.That(guide, Does.Contain("PendingEnemyBlockedReaction"));
-            Assert.That(guide, Does.Contain("no UI deletion candidate is promoted to `Safe`"));
+            Assert.That(guide, Does.Contain("UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change."));
             Assert.That(guide, Does.Not.Contain("46 total / 0 failed"));
         }
 
@@ -78,10 +78,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
             Assert.That(guidelines, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
             Assert.That(guidelines, Does.Contain("`Needs Migration / dev-only policy` candidate, not a deletion candidate."));
-            Assert.That(guidelines, Does.Contain("ActionBar must not be treated as a canonical runtime-bound HUD member"));
+            Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
+            Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
             Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
             Assert.That(guidelines, Does.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));
-            Assert.That(guidelines, Does.Contain("This Phase 1 drift correction does not promote any UI deletion candidate to `Safe`."));
+            Assert.That(guidelines, Does.Contain("This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership."));
             Assert.That(
                 guidelines,
                 Does.Contain("PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested and ObjectiveRequested keep gameplay paused, open their destination screen, and return back to a fresh PausePopup."));
@@ -97,20 +98,20 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(baseline, Does.Contain("Current Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `654 total / 0 failed`"));
+            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `649 total / 0 failed`"));
             Assert.That(baseline, Does.Contain("Prior 2차 UI canonical correction report red reason"));
             Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
             Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeGroupView"));
             Assert.That(baseline, Does.Contain("EnemyTargetEligibilityResult"));
             Assert.That(baseline, Does.Contain("PendingEnemyBlockedReaction"));
-            Assert.That(baseline, Does.Contain("this Phase 1 still does not promote any UI deletion candidate to `Safe`"));
+            Assert.That(baseline, Does.Contain("retired HUD proof residue was removed after product option B was selected"));
             Assert.That(baseline, Does.Contain("Help is also not a current gameplay screen"));
             Assert.That(baseline, Does.Contain("current canonical `ScreenId` values are `None`, `Gameplay`, `ObjectiveStatus`, `Settings`, `StageResult`, `LevelFailed`, and `GameClear`"));
             Assert.That(baseline, Does.Contain("`StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens"));
             Assert.That(baseline, Does.Contain("current canonical `PopupId` values are `None`, `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, `Reward`, and `DemoStageControl`"));
             Assert.That(baseline, Does.Contain("`DemoStageControl` is a factory/runtime/hotkey/dev-path popup and not a gameplay popup catalog entry"));
             Assert.That(baseline, Does.Contain("`Reward` and `Confirm` remain protected canonical popup paths"));
-            Assert.That(baseline, Does.Contain("ActionBar is not currently runtime-bound through `HUDRootView` or `HUDController`, so it is `Needs Product Decision`"));
+            Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, `StageNavigationRequest`, and diagnostics overlay"));
             Assert.That(baseline, Does.Not.Contain("HelpScreen remains"));
             Assert.That(baseline, Does.Not.Contain("InventoryScreen remains"));

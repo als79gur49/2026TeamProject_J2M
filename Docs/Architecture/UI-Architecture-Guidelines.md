@@ -362,16 +362,15 @@ Popup classification notes:
 
 HUD classification notes:
 
-- `ActionBarPresenter`, `ActionBarView`, and `ActionBarViewModel` currently exist.
-- `GameplayHudRoot.prefab` currently contains an inactive `ActionBar` child with an authored `ActionBarView`.
-- `HUDRootView` and `HUDController` do not currently runtime-bind `ActionBarView`.
-- ActionBar must not be treated as a canonical runtime-bound HUD member until a separate product decision chooses either wiring recovery or removal. This document records it as `Needs Product Decision`.
+- Current canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`.
+- ActionBar was removed as retired HUD proof residue after product option B selected deletion instead of wiring recovery.
+- This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
 
 Deletion protection notes:
 
 - Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
 - Diagnostics overlay is also not a deletion-safe item in this phase. Production/dev-only policy remains a separate decision.
-- This Phase 1 drift correction does not promote any UI deletion candidate to `Safe`. Deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
+- Future UI deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
 
 Policy rules:
 
