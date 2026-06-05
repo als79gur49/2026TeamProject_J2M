@@ -237,30 +237,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_BoxAndItemFlags_AreIndependent()
+        public void ProductionRuntime_RetainedBoxAndItemFlags_DoNotAlterCanonicalPlanning()
         {
-            AssertFlagCombinationPlans(boxEnabled: true, itemEnabled: false, expectedRequests: 1);
-            AssertFlagCombinationPlans(boxEnabled: false, itemEnabled: true, expectedRequests: 1);
-            AssertFlagCombinationPlans(boxEnabled: true, itemEnabled: true, expectedRequests: 2);
-            AssertFlagCombinationPlans(boxEnabled: false, itemEnabled: false, expectedRequests: 0);
+            AssertFlagCombinationPlans(boxEnabled: true, itemEnabled: false);
+            AssertFlagCombinationPlans(boxEnabled: false, itemEnabled: true);
+            AssertFlagCombinationPlans(boxEnabled: true, itemEnabled: true);
+            AssertFlagCombinationPlans(boxEnabled: false, itemEnabled: false);
         }
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_BoxDestroyFlagOnMissingBinding_DiagnosticOnly()
+        public void ProductionRuntime_BoxDestroyRetainedFlagsOff_MissingBindingsAreDiagnosticOnly()
         {
             var owner = new GameObject("BoxDestroyMissingBinding");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
                 runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
 
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -283,8 +283,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -314,7 +314,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingSourceViewCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingPrefabCount, Is.Zero);
                 Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
@@ -405,11 +406,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_BoxDestroyFlagOff_DoesNotUseOldExitFallbackAndKeepsCleanup()
+        public void Coordinator_BoxDestroyRetainedFlagOff_UsesCanonicalPathAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("BoxDestroyFlagOff");
             try
             {
+                var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
+                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
+                scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateBox(20, scenario.BoxCell) },
                     scenario.Topology);
@@ -418,6 +423,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
             }
@@ -470,7 +478,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_SmokeOnShrinkOff_UsesSmokeOnlyAndNoOldExitEffect()
+        public void Coordinator_RetainedShrinkFlagOff_StillPlansCanonicalShrinkAndNoOldExitEffect()
         {
             var scenario = CreatePresenterScenario("SmokeOnShrinkOff");
             var vfxPrefab = new GameObject("SmokeOnShrinkOff_VfxPrefab");
@@ -493,7 +501,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(20, out var boxView), Is.True);
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
@@ -653,7 +662,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void Coordinator_ShrinkOnSmokeOff_UsesShrinkOnlyAndSuppressesOldExitEffect()
+        public void Coordinator_RetainedSmokeFlagOff_StillPlansCanonicalSmokeAndSuppressesOldExitEffect()
         {
             var scenario = CreatePresenterScenario("ShrinkOnSmokeOff");
             var commonHost = new GameObject("ShrinkOnSmokeOff_CommonHost");
@@ -677,8 +686,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(20, TickEntityExitCause.BoxDestroy, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingSourceViewCount, Is.Zero);
                 Assert.That(runtime.MissingPrefabCount, Is.Zero);
                 Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
@@ -722,7 +732,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_ItemConsumeFlagOff_DoesNotUseOldFallbackAndKeepsCleanup()
+        public void Coordinator_ItemConsumeRetainedFlagOff_UsesCanonicalPathAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("ItemConsumeFlagOff");
             try
@@ -738,7 +748,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(new[] { CreateExitSignal(21, TickEntityExitCause.ItemConsume, scenario.BoxCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(scenario.Registry.TryGetView(21, out var itemView), Is.True);
                 Assert.That(itemView.gameObject.activeSelf, Is.False);
@@ -751,7 +762,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_EnemyDeathOldPath_NotRestoredByBoxItemFlags()
+        public void Coordinator_EnemyDeathOldPath_NotRestoredByRetainedBoxItemFlags()
         {
             var scenario = CreatePresenterScenario("EnemyDeathNotSuppressed");
             try
@@ -773,7 +784,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
             }
             finally
             {
@@ -909,7 +921,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.Anchor.Topology, Is.EqualTo(topology));
         }
 
-        private static void AssertFlagCombinationPlans(bool boxEnabled, bool itemEnabled, int expectedRequests)
+        private static void AssertFlagCombinationPlans(bool boxEnabled, bool itemEnabled)
         {
             var owner = new GameObject("BoxExitFlagCombination");
             var prefab = new GameObject("BoxExitFlagCombinationPrefab");
@@ -931,8 +943,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateExitSignal(20, TickEntityExitCause.BoxDestroy),
                     CreateExitSignal(21, TickEntityExitCause.ItemConsume)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
-                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(expectedRequests));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(3));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
             }
             finally
             {
@@ -964,8 +977,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, exitCause)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                var expectedPlannedRequestCount = cue == BoxVfxCue.DestroySmoke ? 2 : 1;
+                var expectedMissingBindingCount = cue == BoxVfxCue.DestroySmoke ? 1 : 0;
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedPlannedRequestCount));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(expectedMissingBindingCount));
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }

@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
 
-        private static readonly FlagInfo[] VfxFlags =
+        private static readonly FlagInfo[] MigrationFlags =
         {
             new(
                 "EnableGameplayVfxDamageBurstMigration",
@@ -41,23 +41,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "EnableGameplayVfxItemConsumeBurstMigration",
                 "enableGameplayVfxItemConsumeBurstMigration"),
             new(
-                "EnableEnemyJumpLandingDustVfx",
-                "enableEnemyJumpLandingDustVfx"),
-            new(
-                "EnableGameplayVfxBoxSlideTrail",
-                "enableGameplayVfxBoxSlideTrail"),
-            new(
-                "EnableGameplayVfxBoxSlideSolidStop",
-                "enableGameplayVfxBoxSlideSolidStop"),
-            new(
                 "EnableGameplayVfxImpactTransientBreakMigration",
                 "enableGameplayVfxImpactTransientBreakMigration"),
             new(
                 "EnableGameplayVfxOutOfBoundsExitMigration",
                 "enableGameplayVfxOutOfBoundsExitMigration"),
-            new(
-                "EnableEnemyJumpTargetVfx",
-                "enableEnemyJumpTargetVfx"),
             new(
                 "EnableGameplayVfxUtilityWindupMigration",
                 "enableGameplayVfxUtilityWindupMigration"),
@@ -82,45 +70,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             new(
                 "EnableGameplayVfxFlipDestroySelfMotionMigration",
                 "enableGameplayVfxFlipDestroySelfMotionMigration"),
-            new(
-                "EnableGameplayVfxFlipImpactStayTrail",
-                "enableGameplayVfxFlipImpactStayTrail"),
-            new(
-                "EnableGameplayVfxGlideWindTrail",
-                "enableGameplayVfxGlideWindTrail"),
-            new(
-                "EnableGameplayVfxChargeBoosterTrail",
-                "enableGameplayVfxChargeBoosterTrail"),
-            new(
-                "EnableGameplayVfxEnemyUtilityCooldownAura",
-                "enableGameplayVfxEnemyUtilityCooldownAura"),
-            new(
-                "EnableGameplayVfxTileFeatureLane",
-                "enableGameplayVfxTileFeatureLane"),
-            new(
-                "EnableGameplayVfxGravityFieldEvents",
-                "enableGameplayVfxGravityFieldEvents"),
-            new(
-                "EnableGameplayVfxGravityFieldContinuous",
-                "enableGameplayVfxGravityFieldContinuous"),
-            new(
-                "EnableGameplayVfxGravityFieldLockedTarget",
-                "enableGameplayVfxGravityFieldLockedTarget"),
         };
 
         [Test]
         [Category("Extended")]
-        public void RuntimeDefaults_AllCurrentVfxFlagsAreDefaultOn()
+        public void RuntimeDefaults_RetainedMigrationFlagsAreDefaultOn()
         {
             var owner = new GameObject("GameplayVfxFlagRolloutDefaults");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                foreach (var flag in VfxFlags)
+                foreach (var flag in MigrationFlags)
                 {
                     var property = typeof(GameplayVfxProductionRuntime).GetProperty(flag.PropertyName);
-                    Assert.That(property, Is.Not.Null, $"{flag.PropertyName} must remain a public VFX enable flag.");
+                    Assert.That(property, Is.Not.Null, $"{flag.PropertyName} must remain during Phase 3A serialized residue cleanup deferral.");
                     Assert.That(property.GetValue(runtime), Is.True, $"{flag.PropertyName} must default true.");
                 }
             }
@@ -146,29 +110,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("SuppressLegacy"));
 
             var document = ReadRepoFile(GovernancePath);
-            Assert.That(document, Does.Contain("flag off disables that VFX and does not restore old presenter fallback"));
+            Assert.That(document, Does.Contain("canonical Gameplay VFX runtime path"));
         }
 
         [Test]
         [Category("Extended")]
-        public void ShowcaseScene_FlagsAreExplicit()
+        public void SerializedMigrationFieldResidue_RemainsSceneOnlyUntilPhase3B()
         {
-            var combinedScene = ReadRepoFile(CombinedGameplayShowcaseScenePath);
-            Assert.That(combinedScene, Does.Contain("enableEnemyJumpTargetVfx: 1"));
-            Assert.That(combinedScene, Does.Contain("enableEnemyJumpLandingDustVfx: 1"));
-
-            var uiAudioScene = ReadRepoFile(UIAudioScenePath);
-            foreach (var flag in VfxFlags)
+            var sceneTexts = new[]
             {
-                Assert.That(uiAudioScene, Does.Contain($"{flag.SerializedFieldName}: 1"), $"{flag.PropertyName} must be explicit in UIAudioScene review override.");
-            }
+                ReadRepoFile(CombinedGameplayShowcaseScenePath),
+                ReadRepoFile(UIAudioScenePath),
+                ReadRepoFile(TutorialScenePath),
+            };
 
-            var tutorialScene = ReadRepoFile(TutorialScenePath);
-            foreach (var flag in VfxFlags)
+            foreach (var flag in MigrationFlags)
             {
-                Assert.That(tutorialScene, Does.Contain($"{flag.SerializedFieldName}: 0"), $"{flag.PropertyName} must be explicit off in TutorialScene.");
-                Assert.That(tutorialScene, Does.Not.Contain($"{flag.SerializedFieldName}: 1"), $"{flag.PropertyName} must not be on in TutorialScene.");
+                Assert.That(
+                    sceneTexts.Any(text => text.Contains(flag.SerializedFieldName, StringComparison.Ordinal)),
+                    Is.True,
+                    $"{flag.PropertyName} serialized scene residue keeps field deletion blocked until Phase 3B.");
             }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeSource_MigrationFieldsAreCompatibilityResidueNotCueGates()
+        {
+            var runtimeSource = ReadRepoFile(RuntimePath);
+
+            Assert.That(runtimeSource, Does.Contain("Phase 3A: retained only for Unity scene serialization compatibility"));
+            Assert.That(runtimeSource, Does.Contain("IsCanonicalMigratedCue"));
+            Assert.That(runtimeSource, Does.Contain("CanonicalMigratedGameplayVfxEnabled"));
+            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxDamageBurstMigration && cueId"));
+            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxEnemyDeathMotionMigration &&"));
+            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxFlipDestroySelfMotionMigration &&"));
+            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxImpactTransientBreakMigration &&"));
+            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxOutOfBoundsExitMigration &&"));
         }
 
         [Test]

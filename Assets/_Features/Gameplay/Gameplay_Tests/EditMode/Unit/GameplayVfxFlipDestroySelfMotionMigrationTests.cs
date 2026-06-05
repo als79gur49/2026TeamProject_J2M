@@ -228,7 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlipDestroySelfMotionFlagOff_DisablesMotionVfxWithoutFallback()
+        public void FlipDestroySelfMotionRetainedFlagOff_StillUsesCanonicalVfxWithoutFallback()
         {
             var source = ReadRepoFile(ExitControllerPath);
             var owner = new GameObject("FlipDestroySelfFlagOff");
@@ -238,7 +238,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(source, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
             }
@@ -333,6 +334,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.False);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
             }
             finally
             {
@@ -380,7 +382,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StayBranch_Unaffected()
+        public void StayBranch_DoesNotPlanDestroySelfMotionCommand()
         {
             var owner = new GameObject("FlipDestroySelfStayUnaffected");
             try
@@ -391,8 +393,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
-                Assert.That(runtime.IsRuntimeInitialized, Is.False);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
             {

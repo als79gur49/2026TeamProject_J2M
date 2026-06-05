@@ -125,12 +125,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_PlayerAndEnemyDamageFlags_AreIndependent()
+        public void ProductionRuntime_RetainedDamageFlags_DoNotAlterCanonicalPlanning()
         {
-            AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: false, expectedRequests: 1);
-            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: true, expectedRequests: 1);
+            AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: false, expectedRequests: 2);
+            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: true, expectedRequests: 2);
             AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: true, expectedRequests: 2);
-            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: false, expectedRequests: 0);
+            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: false, expectedRequests: 2);
         }
 
         [Test]

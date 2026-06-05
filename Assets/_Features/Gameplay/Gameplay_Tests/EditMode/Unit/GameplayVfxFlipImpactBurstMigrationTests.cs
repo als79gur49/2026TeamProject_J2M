@@ -202,7 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void FlagOff_DropsFlipImpactBurstRequest()
+        public void RetainedFlagOff_StillPlansFlipImpactBurstRequest()
         {
             var owner = new GameObject("FlipImpactBurstFlagOff");
             try
@@ -212,8 +212,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
-                Assert.That(runtime.IsRuntimeInitialized, Is.False);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.IsRuntimeInitialized, Is.True);
             }
             finally
             {
@@ -585,7 +585,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally

@@ -141,7 +141,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_FlagOff_DoesNotPlanOrInitialize()
+        public void ProductionRuntime_RetainedFlagOff_StillPlansCanonicalCue()
         {
             var owner = new GameObject("UtilityWindupFlagOff");
             try
@@ -155,8 +155,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateSummonWindupWarningSignal(40, new SurfaceCell(FaceId.Floor, 0, 0), new CubeTopologyState(FaceId.Floor)),
                     })));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
-                Assert.That(runtime.IsRuntimeInitialized, Is.False);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.IsRuntimeInitialized, Is.True);
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -195,7 +196,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_FlagOff_DoesNotUseLegacyFallback()
+        public void Coordinator_RetainedFlagOff_UsesCanonicalPathWithoutLegacyFallback()
         {
             var scenario = CreateCoordinatorScenario("UtilityWindupLegacyFlagOff");
             try
@@ -213,7 +214,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         summonWindupWarnings: new[] { CreateSummonWindupWarningSignal(40, scenario.SourceCell, scenario.Topology) })));
 
                 Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "SummonWindupWarning_40"), Is.Zero);
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally

@@ -211,38 +211,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_ShieldFlags_AreIndependent()
+        public void ProductionRuntime_RetainedShieldFlags_DoNotAlterCanonicalPlanning()
         {
-            AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: false, expectedRequests: 1);
-            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: true, expectedRequests: 1);
+            AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: false, expectedRequests: 2);
+            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: true, expectedRequests: 2);
             AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: true, expectedRequests: 2);
-            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: false, expectedRequests: 0);
+            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: false, expectedRequests: 2);
         }
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_WindupFlag_IsIndependentFromActiveAndBlockFlags()
+        public void ProductionRuntime_RetainedWindupFlag_DoesNotAlterCanonicalPlanning()
         {
             AssertFlagCombinationPlans(
                 activeEnabled: false,
                 blockEnabled: false,
                 windupEnabled: true,
-                expectedRequests: 1);
+                expectedRequests: 3);
             AssertFlagCombinationPlans(
                 activeEnabled: true,
                 blockEnabled: false,
                 windupEnabled: true,
-                expectedRequests: 2);
+                expectedRequests: 3);
             AssertFlagCombinationPlans(
                 activeEnabled: false,
                 blockEnabled: true,
                 windupEnabled: true,
-                expectedRequests: 2);
+                expectedRequests: 3);
             AssertFlagCombinationPlans(
                 activeEnabled: true,
                 blockEnabled: true,
                 windupEnabled: false,
-                expectedRequests: 2);
+                expectedRequests: 3);
         }
 
         [Test]
@@ -417,7 +417,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_FlagOff_DoesNotUseLegacyActiveOrBlockFallback()
+        public void Coordinator_RetainedFlagOff_UsesCanonicalPathWithoutLegacyFallback()
         {
             var scenario = CreateCoordinatorScenario("FrontFaceShieldLegacyFlagOff");
             try
@@ -441,7 +441,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldActiveLoop_40"), Is.Zero);
                 Assert.That(CountDescendantsByNamePrefix(scenario.Root.transform, "FrontFaceShieldBlockBurst_40_20"), Is.Zero);
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
             }
             finally
             {

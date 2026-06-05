@@ -198,10 +198,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_DamageMigrationFlagOff_DoesNotUseOldFallback()
+        public void Coordinator_DamageWithoutVfxRuntime_DoesNotUseOldFallback()
         {
-            var rootObject = new GameObject("Coordinator_DamageMigrationFlagOff");
-            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("DamageMigrationFlagOff_PlayerPrefab");
+            var rootObject = new GameObject("Coordinator_DamageWithoutVfxRuntime");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("DamageWithoutVfxRuntime_PlayerPrefab");
 
             try
             {

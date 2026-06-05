@@ -96,8 +96,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("must not read WorldState"));
             Assert.That(document, Does.Contain("must not call WorldState.CreateSnapshot"));
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
-            Assert.That(document, Does.Contain("flag off means that VFX is off"));
-            Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
+            Assert.That(document, Does.Contain("canonical Gameplay VFX runtime path"));
+            Assert.That(document, Does.Contain("do not select an old path"));
             Assert.That(document, Does.Contain("### PrefabOnly"));
             Assert.That(document, Does.Contain("### SourceCloneMotion"));
             Assert.That(document, Does.Contain("### PrefabWithSourceClone"));

@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ImpactTransientBreak_FlagOff_DisablesVfxWithoutFallback()
+        public void ImpactTransientBreak_RetainedFlagOff_StillUsesCanonicalVfxWithoutFallback()
         {
             var owner = new GameObject("ImpactTransientFlagOff");
             try
@@ -126,7 +126,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<TickEntityExitPresentationSignal>(),
                     new[] { CreateImpactSignal(30) }));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 AssertExitControllerOldImpactPathDisabled();
             }
@@ -196,7 +197,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void OutOfBoundsExit_FlagOff_DisablesVfxWithoutFallback()
+        public void OutOfBoundsExit_RetainedFlagOff_StillUsesCanonicalVfxWithoutFallback()
         {
             var owner = new GameObject("OutOfBoundsFlagOff");
             try
@@ -208,7 +209,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { CreateExitSignal(30, TickEntityExitCause.OutOfBounds) },
                     Array.Empty<TickImpactTransientPresentationSignal>()));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 AssertExitControllerOldOutOfBoundsPathDisabled();
             }

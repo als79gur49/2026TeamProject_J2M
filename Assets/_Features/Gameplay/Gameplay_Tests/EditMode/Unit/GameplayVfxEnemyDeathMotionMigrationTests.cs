@@ -239,7 +239,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyDeathMotionFlagOff_DisablesMotionVfxWithoutFallback()
+        public void EnemyDeathMotionRetainedFlagOff_StillUsesCanonicalVfxWithoutFallback()
         {
             var owner = new GameObject("EnemyDeathMotionFlagOffNoFallback");
             try
@@ -250,6 +250,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.Killed)));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
