@@ -330,6 +330,49 @@ Definitions:
 - `HUD`
   - Persistent layer.
 
+Current canonical identity lists:
+
+- `ScreenId`
+  - `None`
+  - `Gameplay`
+  - `ObjectiveStatus`
+  - `Settings`
+  - `StageResult`
+  - `LevelFailed`
+  - `GameClear`
+- `PopupId`
+  - `None`
+  - `Pause`
+  - `ObjectiveInfo`
+  - `Confirm`
+  - `Tooltip`
+  - `Reward`
+  - `DemoStageControl`
+
+Screen classification notes:
+
+- `Gameplay` is the logical gameplay root. It has no gameplay-screen prefab catalog entry.
+- `StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens.
+- `Help` and `Inventory` are not current gameplay screens. Any old reference that described them as canonical gameplay screens is documentation drift or historical context only.
+
+Popup classification notes:
+
+- `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` are canonical gameplay popup catalog entries.
+- `DemoStageControl` is not a gameplay popup catalog entry. It is created through the factory/runtime/hotkey/dev path and remains a `Needs Migration / dev-only policy` candidate, not a deletion candidate.
+
+HUD classification notes:
+
+- `ActionBarPresenter`, `ActionBarView`, and `ActionBarViewModel` currently exist.
+- `GameplayHudRoot.prefab` currently contains an inactive `ActionBar` child with an authored `ActionBarView`.
+- `HUDRootView` and `HUDController` do not currently runtime-bind `ActionBarView`.
+- ActionBar must not be treated as a canonical runtime-bound HUD member until a separate product decision chooses either wiring recovery or removal. This document records it as `Needs Product Decision`.
+
+Deletion protection notes:
+
+- Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
+- Diagnostics overlay is also not a deletion-safe item in this phase. Production/dev-only policy remains a separate decision.
+- This Phase 1 drift correction does not promote any UI deletion candidate to `Safe`. Deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
+
 Policy rules:
 
 - `Non-Negotiable` Screen and popup do not share a mixed stack.

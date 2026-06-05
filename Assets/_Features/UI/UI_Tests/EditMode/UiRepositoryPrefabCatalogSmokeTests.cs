@@ -107,7 +107,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayHudRoot_RequiredViewsPresent()
+        public void GameplayHudRoot_RequiredBoundViewsPresent_AndActionBarRemainsInactiveProductDecision()
         {
             var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
             var instance = UnityEngine.Object.Instantiate(hudPrefab);
@@ -119,7 +119,10 @@ namespace Game.Feature.UI.Tests
                 Assert.That(instance.ObjectiveHudView, Is.Not.Null);
                 Assert.That(instance.ChancePanelView, Is.Not.Null);
                 Assert.That(instance.SurfaceBeltIndicatorView, Is.Not.Null);
-                Assert.That(instance.GetComponentInChildren<ActionBarView>(true), Is.Not.Null);
+
+                var actionBarView = instance.GetComponentInChildren<ActionBarView>(true);
+                Assert.That(actionBarView, Is.Not.Null);
+                Assert.That(actionBarView.gameObject.activeSelf, Is.False);
             }
             finally
             {

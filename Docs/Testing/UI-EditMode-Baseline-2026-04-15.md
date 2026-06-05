@@ -9,8 +9,13 @@
 - Result note: future updates to `## Result` and `## Companion Smoke Check` must not be bumped without updating the structural delta below.
 
 ## Result
-- Status: green
-- Unity UI EditMode: `155 total / 0 failed`
+- Pinned Stage 9 status: green
+- Pinned Unity UI EditMode: `155 total / 0 failed`
+- Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
+- Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
+- Current Unity UI EditMode: `654 total / 0 failed`
+- Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
+- Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; this Phase 1 still does not promote any UI deletion candidate to `Safe`
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
@@ -99,26 +104,34 @@
 - popup stack identity, topmost ownership, close ordering, and popup-first back handling remain centralized in `PopupController` and `UIFlowCoordinator`
 - screen runtime ownership remains centralized in `ScreenController` with deterministic show/push/replace/pop/pop-to/clear semantics
 - `UIFlowCoordinator` remains routing, popup-first-back, and cross-layer sequencing only
-- Stage 8 inventory decomposition remains representative rather than contractual:
+- Historical Stage 8 inventory decomposition remains representative rather than contractual and is not a current gameplay screen:
   - root presenter stays bounded to source items plus canonical selection
   - child presenters stay mesh-free and responsibility-specific
   - no popup/flow ownership or global child input-bag convenience is added to the action child
+- Help is also not a current gameplay screen; any older Help-as-screen wording is documentation drift or historical context only
 - Stage 9 diagnostics remain read-only, bounded, editor/development-only, and non-reusable as runtime state aggregation
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
+- ActionBar currently exists as `ActionBarPresenter`, `ActionBarView`, and `ActionBarViewModel`, and `GameplayHudRoot.prefab` retains an inactive `ActionBar` child with authored `ActionBarView` references
+- ActionBar is not currently runtime-bound through `HUDRootView` or `HUDController`, so it is `Needs Product Decision` rather than a canonical runtime-bound HUD member; deletion or wiring recovery belongs in a separate PR
 - popup legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored popup creation path beneath `PopupLayer` via a fixed-shape popup-only catalog
 - popup prefab views remain visual/local only; popup callbacks, timers, and animation completions do not own lifecycle, stack mutation, or dismissibility policy
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
 - screen legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored screen creation path beneath `ScreenLayer` via a fixed-shape screen-only catalog
 - the screen catalog remains fixed-shape and screen-only and does not widen into a variant/theme/child-section registry
 - screen prefab authoring is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so the logical gameplay root, `StageResultScreen`, and `SettingsScreen` cannot distort the general screen model
+- current canonical `ScreenId` values are `None`, `Gameplay`, `ObjectiveStatus`, `Settings`, `StageResult`, `LevelFailed`, and `GameClear`
 - `ScreenId.Gameplay` remains gameplay-root-adjacent with no visible screen prefab/view and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
-- `StageResultScreen` remains a runtime-owned terminal special case; its continue action stays intent-only and does not locally decide root replacement policy
+- `StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens; their actions stay intent-only and do not locally decide root replacement policy
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
+- current canonical `PopupId` values are `None`, `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, `Reward`, and `DemoStageControl`
+- `DemoStageControl` is a factory/runtime/hotkey/dev-path popup and not a gameplay popup catalog entry; classify it as `Needs Migration / dev-only policy`, not as a deletion candidate
+- `Reward` and `Confirm` remain protected canonical popup paths
+- protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, `StageNavigationRequest`, and diagnostics overlay pending a separate production/dev-only policy decision
 - no Stage 4–8 contract is widened merely for test/debug convenience
 
 ## Companion Smoke Check
