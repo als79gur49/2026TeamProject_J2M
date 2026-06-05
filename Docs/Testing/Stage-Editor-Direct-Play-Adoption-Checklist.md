@@ -1,36 +1,35 @@
 # Stage Editor Direct-Play Adoption Checklist
 
-이 문서는 stage-backed scene의 launcher-only direct-play 운영 정착 checklist다. runtime fallback을 부활시키지 않고, UX/tooling/documentation으로 friction을 완화하는 데만 사용한다.
+이 문서는 stage-backed gameplay shell의 launcher-only direct-play 운영 정착 checklist다. runtime fallback을 부활시키지 않고, UX/tooling/documentation으로 friction을 완화하는 데만 사용한다.
 
 ## Supported Menu Parity
 
 - exact menu path:
-  - `Tools/Stages/Direct Play/Launch Current Scene`
-  - `Tools/Stages/Direct Play/Replay Last Stage-Backed Scene`
-- supported scene menu labels:
+  - `Tools/Stages/Direct Play/Launch Stage...`
+  - `Tools/Stages/Direct Play/Replay Last Stage`
+- supported stage menu labels:
   - `Combined Gameplay Showcase`
   - `Tutorial Scene`
-  - `UI Audio Scene`
-- onboarding 문서, smoke checklist, bug reproduction note는 위 exact menu path와 exact scene labels를 그대로 사용한다.
+- onboarding 문서, smoke checklist, bug reproduction note는 위 exact menu path와 exact stage labels를 그대로 사용한다.
 
 ## Onboarding Checklist
 
-- saved stage-backed scene을 연다.
-- plain Play가 아니라 `Tools/Stages/Direct Play/Launch Current Scene`를 사용한다.
-- 같은 editor session에서 반복 재현은 `Replay Last Stage-Backed Scene`를 우선 사용한다.
+- `Tools/Stages/Direct Play/Launch Stage...`에서 stage id를 선택한다.
+- launcher가 `UIAudioScene` canonical gameplay shell을 열고 launch context를 주입하는지 확인한다.
+- 같은 editor session에서 반복 재현은 `Replay Last Stage`를 우선 사용한다.
 - plain Play는 supported workflow가 아니라 unsupported reference case로만 기록한다.
 
 ## Smoke Checklist
 
 - direct-play smoke/manual flow는 launcher 경유로만 기록한다.
 - plain Play를 눌렀다면 warning/fail-fast guidance만 기록하고 success evidence로 취급하지 않는다.
-- supported stage-backed scene coverage는 direct-play catalog `100%`여야 한다.
-- smoke note는 current scene label, used menu path, observed warning/fail-fast, result를 함께 적는다.
+- supported stage id coverage는 direct-play catalog `100%`여야 한다.
+- smoke note는 stage label, canonical shell, used menu path, observed warning/fail-fast, result를 함께 적는다.
 
 ## Smoke Cycle Standard
 
 - Lane B smoke evidence는 `cycle note` 단위로 남긴다.
-- 한 cycle note는 same revision, same checkpoint window, same executor session에서 수행한 stage-backed scene `3`건을 함께 기록한다.
+- 한 cycle note는 same revision, same checkpoint window, same executor session에서 수행한 supported stage `2`건을 함께 기록한다.
 - cycle header는 아래 필드를 모두 포함한다.
   - `revision`
   - `cycle id`
@@ -39,8 +38,9 @@
   - `date window`
   - `catalog coverage check result`
   - `plain Play workflow classification`
-- scene evidence row는 아래 필드를 모두 포함한다.
-  - `scene name`
+- stage evidence row는 아래 필드를 모두 포함한다.
+  - `stage label`
+  - `canonical shell`
   - `exact menu path`
   - `executor`
   - `execution date/time`
@@ -48,13 +48,12 @@
   - `observed warning/fail-fast`
   - `plain Play attempted`
   - `notes`
-- `scene name`은 exact scene label만 사용한다.
+- `stage label`은 exact stage label만 사용한다.
   - `Combined Gameplay Showcase`
   - `Tutorial Scene`
-  - `UI Audio Scene`
 - `exact menu path`는 아래 둘 중 하나만 허용한다.
-  - `Tools/Stages/Direct Play/Launch Current Scene`
-  - `Tools/Stages/Direct Play/Replay Last Stage-Backed Scene`
+  - `Tools/Stages/Direct Play/Launch Stage...`
+  - `Tools/Stages/Direct Play/Replay Last Stage`
 - `launch result`는 `Pass`, `Fail`, `Inconclusive`만 사용한다.
 - `plain Play attempted`는 `No` 또는 `Yes-unsupported reference only`만 사용한다.
 
@@ -103,12 +102,12 @@
 - onboarding 문서와 menu entry 일치
 - smoke checklist가 launcher-only workflow를 명시
 - plain Play unsupported 경고 문구가 고정
-- `Cycle 1` 3-scene smoke note
+- `Cycle 1` 2-stage smoke note
 - validator/test/doc alignment proof
 
 ## Hard Enforcement Evidence
 
-- `Cycle 2` 3-scene smoke note
+- `Cycle 2` 2-stage smoke note
 - 두 번 연속 smoke/report cycle에서 launcher bypass를 정상 workflow로 기록한 사례 `0`
 - direct-play 관련 open issue 중 fallback 요구 `0`
 - stage-backed manual smoke note가 모두 launcher path를 명시
@@ -145,7 +144,7 @@
 
 - 허용 완화책:
   - menu shortcut discoverability
-  - `Replay Last Stage-Backed Scene`
+  - `Replay Last Stage`
   - onboarding examples
   - smoke checklist 개선
 - 금지:

@@ -96,7 +96,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         sceneName: "StageRuntimeContentResolverTests")));
 
             Assert.That(exception, Is.Not.Null);
-            StringAssert.Contains("Tools/Stages/Direct Play/Launch Current Scene", exception.Message);
+            StringAssert.Contains("Tools/Stages/Direct Play/Launch Stage", exception.Message);
         }
 
         [Test]

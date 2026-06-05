@@ -310,12 +310,12 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
-            if (!directPlayCatalog.TryResolveScenePath(scenePath, out _))
+            if (!directPlayCatalog.IsCanonicalShellScenePath(scenePath))
             {
                 report.Add(
                     ResolveProductionSceneContractSeverity(options),
                     "scene.direct-play.catalog.missing",
-                    $"Production scene '{scenePath}' is not registered in '{StageEditorDirectPlayCatalog.DefaultAssetPath}'.",
+                    $"Production scene '{scenePath}' is not the canonical gameplay shell in '{StageEditorDirectPlayCatalog.DefaultAssetPath}'.",
                     directPlayCatalog,
                     StageEditorDirectPlayCatalog.DefaultAssetPath,
                     options.Timing);
@@ -383,9 +383,7 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
-            if (directPlayCatalog == null ||
-                !directPlayCatalog.TryResolveScenePath(scenePath, out var stageId) ||
-                !stageId.IsValid)
+            if (directPlayCatalog == null || !directPlayCatalog.IsCanonicalShellScenePath(scenePath))
             {
                 return;
             }
@@ -396,9 +394,10 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
-            if (!cameraTopologyPresetPathByStageId.TryGetValue(stageId, out var expectedPresetPath))
+            var shellKey = StageId.CreateOrThrow("canonical-shell");
+            if (!cameraTopologyPresetPathByStageId.TryGetValue(shellKey, out var expectedPresetPath))
             {
-                cameraTopologyPresetPathByStageId[stageId] = presetPath;
+                cameraTopologyPresetPathByStageId[shellKey] = presetPath;
                 return;
             }
 
@@ -408,7 +407,7 @@ namespace Game.Feature.Stages.Editor
                     report,
                     productionSeverity,
                     "scene.camera-topology.stage-preset.mismatch",
-                    $"Production scene '{scenePath}' resolves StageId '{stageId.Value}' but references camera topology preset '{presetPath}' instead of shared stage preset '{expectedPresetPath}'.",
+                    $"Production scene '{scenePath}' references camera topology preset '{presetPath}' instead of canonical shell preset '{expectedPresetPath}'.",
                     authoring,
                     scenePath,
                     options);

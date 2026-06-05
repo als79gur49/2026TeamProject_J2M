@@ -11,8 +11,6 @@ namespace Game.Feature.Stages.Editor
     {
         private const string CombinedStageId = "combined-gameplay-showcase";
         private const string TutorialStageId = "tutorial-scene";
-        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string ReportDirectory = "Temp/StageCampaignMainSmoke";
 
@@ -316,9 +314,13 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
-            RequireSceneMapping(directPlayCatalog, CombinedScenePath, CombinedStageId, errors);
-            RequireSceneMapping(directPlayCatalog, TutorialScenePath, TutorialStageId, errors);
-            RequireSceneMapping(directPlayCatalog, UiAudioScenePath, TutorialStageId, errors);
+            if (!directPlayCatalog.IsCanonicalShellScenePath(UiAudioScenePath))
+            {
+                errors.Add($"Direct-play catalog canonical shell must be '{UiAudioScenePath}'.");
+            }
+
+            RequireSupportedStage(directPlayCatalog, CombinedStageId, errors);
+            RequireSupportedStage(directPlayCatalog, TutorialStageId, errors);
         }
 
         private static void ValidateForbiddenFolders(List<string> errors, List<string> facts)
@@ -462,22 +464,14 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private static void RequireSceneMapping(
+        private static void RequireSupportedStage(
             StageEditorDirectPlayCatalog catalog,
-            string scenePath,
             string expectedStageId,
             List<string> errors)
         {
-            if (!catalog.TryResolveScenePath(scenePath, out var stageId))
+            if (!catalog.HasSupportedStageId(StageId.CreateOrThrow(expectedStageId)))
             {
-                errors.Add($"Direct-play catalog has no mapping for '{scenePath}'.");
-                return;
-            }
-
-            if (!string.Equals(stageId.Value, expectedStageId, StringComparison.Ordinal))
-            {
-                errors.Add(
-                    $"Direct-play catalog maps '{scenePath}' to '{stageId.Value}', expected '{expectedStageId}'.");
+                errors.Add($"Direct-play catalog does not list supported StageId '{expectedStageId}'.");
             }
         }
 

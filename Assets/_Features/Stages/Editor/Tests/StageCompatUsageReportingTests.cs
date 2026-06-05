@@ -235,7 +235,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("StageLoadRequest.CreateLaunchContextOnly"));
             Assert.That(contract, Does.Contain("StageEditorDirectPlayCatalog"));
             Assert.That(contract, Does.Contain("StageEditorDirectPlayLauncher"));
-            Assert.That(contract, Does.Contain("Launch Current Scene"));
+            Assert.That(contract, Does.Contain("Launch Stage"));
             Assert.That(contract, Does.Contain("`defaultStageId` runtime fallback는 제거됐다."));
             Assert.That(contract, Does.Not.Contain("CreateEditorDirectPlayFallback"));
         }
@@ -246,7 +246,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var contract = ReadRepoFile(DirectPlayContractPath);
             var checklist = ReadRepoFile(DirectPlayChecklistPath);
 
-            Assert.That(contract, Does.Contain("enabled stage-backed scene direct-play catalog coverage `100%`"));
+            Assert.That(contract, Does.Contain("canonical gameplay shell direct-play catalog coverage `100%`"));
             Assert.That(contract, Does.Contain("workflow compliance"));
             Assert.That(contract, Does.Contain("warning consistency"));
             Assert.That(contract, Does.Contain("onboarding parity"));
@@ -258,11 +258,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("checkpoint window"));
             Assert.That(contract, Does.Contain("Counter Summary"));
             Assert.That(contract, Does.Contain("same executor + governance reviewer co-sign"));
-            Assert.That(checklist, Does.Contain("Tools/Stages/Direct Play/Launch Current Scene"));
-            Assert.That(checklist, Does.Contain("Replay Last Stage-Backed Scene"));
+            Assert.That(checklist, Does.Contain("Tools/Stages/Direct Play/Launch Stage..."));
+            Assert.That(checklist, Does.Contain("Replay Last Stage"));
             Assert.That(checklist, Does.Contain("Combined Gameplay Showcase"));
             Assert.That(checklist, Does.Contain("Tutorial Scene"));
-            Assert.That(checklist, Does.Contain("UI Audio Scene"));
             Assert.That(checklist, Does.Contain("Cycle 1"));
             Assert.That(checklist, Does.Contain("Cycle 2"));
             Assert.That(checklist, Does.Contain("Counter Summary"));

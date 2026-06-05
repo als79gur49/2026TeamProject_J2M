@@ -6,9 +6,8 @@ using UnityEngine;
 namespace Game.Feature.Stages.Editor
 {
     [Serializable]
-    public struct StageEditorDirectPlayCatalogEntry
+    public struct StageEditorDirectPlayStageEntry
     {
-        public string ScenePath;
         public StageId StageId;
     }
 
@@ -19,40 +18,44 @@ namespace Game.Feature.Stages.Editor
     {
         public const string DefaultAssetPath = "Assets/_Features/Stages/Editor/StageEditorDirectPlayCatalog.asset";
 
-        [SerializeField] private StageEditorDirectPlayCatalogEntry[] entries = Array.Empty<StageEditorDirectPlayCatalogEntry>();
+        [SerializeField] private string canonicalShellScenePath = "Assets/Scenes/UIAudioScene.unity";
+        [SerializeField] private StageEditorDirectPlayStageEntry[] supportedStages = Array.Empty<StageEditorDirectPlayStageEntry>();
 
-        public IReadOnlyList<StageEditorDirectPlayCatalogEntry> Entries => entries ?? Array.Empty<StageEditorDirectPlayCatalogEntry>();
+        public string CanonicalShellScenePath => NormalizeScenePath(canonicalShellScenePath);
 
-        public void SetEntries(StageEditorDirectPlayCatalogEntry[] value)
+        public IReadOnlyList<StageEditorDirectPlayStageEntry> SupportedStages =>
+            supportedStages ?? Array.Empty<StageEditorDirectPlayStageEntry>();
+
+        public void Configure(string shellScenePath, StageEditorDirectPlayStageEntry[] stages)
         {
-            entries = value ?? Array.Empty<StageEditorDirectPlayCatalogEntry>();
+            canonicalShellScenePath = NormalizeScenePath(shellScenePath);
+            supportedStages = stages ?? Array.Empty<StageEditorDirectPlayStageEntry>();
         }
 
-        public bool TryResolveScenePath(string scenePath, out StageId stageId)
+        public bool IsCanonicalShellScenePath(string scenePath)
         {
-            var normalizedScenePath = NormalizeScenePath(scenePath);
-            for (var i = 0; i < Entries.Count; i++)
-            {
-                var entry = Entries[i];
-                if (!entry.StageId.IsValid)
-                {
-                    continue;
-                }
+            return string.Equals(
+                NormalizeScenePath(scenePath),
+                CanonicalShellScenePath,
+                StringComparison.Ordinal);
+        }
 
-                if (string.Equals(NormalizeScenePath(entry.ScenePath), normalizedScenePath, StringComparison.Ordinal))
+        public bool HasSupportedStageId(StageId stageId)
+        {
+            if (!stageId.IsValid)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < SupportedStages.Count; i++)
+            {
+                if (SupportedStages[i].StageId.Equals(stageId))
                 {
-                    stageId = entry.StageId;
                     return true;
                 }
             }
 
-            stageId = StageId.None;
             return false;
-        }
-
-        public bool HasScenePath(string scenePath)
-        {
-            return TryResolveScenePath(scenePath, out _);
         }
 
         public static StageEditorDirectPlayCatalog LoadDefault()

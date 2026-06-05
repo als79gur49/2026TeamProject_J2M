@@ -265,7 +265,7 @@ namespace Game.Feature.Stages.Editor
 
             var hasDefaultStageIdResidue = HasSerializedDefaultStageIdResidue(scenePath);
             var hasDirectPlayCatalogCoverage = installerCount == 0 ||
-                                               (directPlayCatalog != null && directPlayCatalog.HasScenePath(scenePath));
+                                               (directPlayCatalog != null && directPlayCatalog.IsCanonicalShellScenePath(scenePath));
 
             return new StageBuildSceneInventoryItem(
                 scenePath,
