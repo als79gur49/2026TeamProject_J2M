@@ -135,6 +135,7 @@ Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage
 - null prefab is invalid and reports `MissingPrefab`.
 - particle/contact visual prefabs are actual visual prefabs, not placeholders.
 - `BoxDestroySmokeVfx.prefab`, `FlipImpactBurstVfx.prefab`, and `BoxSlideSolidStopVfx.prefab` are deletion-protected actual visual examples.
+- sample-only particle prefabs must not be kept in the production VFX tree.
 
 ### Cleanup Rules
 
@@ -181,7 +182,6 @@ Default cue map references are through binding assets, not direct prefab GUIDs.
 | `Gameplay_Vfx/Prefabs/TileFeature_ExitOpenedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | exit visual |
 | `Gameplay_Vfx/Prefabs/TileFeature_MoonBlockButtonActivatedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | button visual |
 | `Gameplay_Vfx/Prefabs/TileFeature_SlideTileRedirectedVfx.prefab` | ActualVisualPrefab | yes | via binding | particle | keep | slide-tile redirect visual |
-| `Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab` | ActualVisualPrefab | no | no | particle | document; do not delete in P2-1 | unreferenced visual asset needs separate owner review |
 
 ### TileFeature EntranceSpawn Lifetime Policy
 
@@ -525,9 +525,9 @@ Feature flag:
 
 Visual parity:
 
-- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FlipDestroySelfMotion_Impact.mat`
 - default host binding uses `SourceCloneMotion`; cue prefab is null and the common empty host provides the pooled host.
-- source-view mesh clone/material parity is the primary runtime path
+- source-view mesh clone/material parity is the primary runtime path.
+- orphan material authoring from earlier visual parity experiments was removed and is not canonical.
 
 Boundaries:
 
@@ -718,12 +718,12 @@ Non-goals:
 
 ## JumperLandingTarget V1 Visual Tuning
 
-`EnemyVfxCue.JumperLandingTarget` now has a first shared production marker asset:
+`EnemyVfxCue.JumperLandingTarget` uses the shared Gameplay VFX request/binding lane:
 
 - prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/JumperLandingTargetVfx.prefab`
-- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_JumperLandingTarget_RedOrange.mat`
 - binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingTarget_Binding.asset`
 - host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
+- orphan marker material authoring was removed and is not canonical.
 
 V1 policy:
 
@@ -784,10 +784,10 @@ Lifecycle:
 Binding:
 
 - prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/JumperLandingDustVfx.prefab`
-- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_JumperLandingDust_SoftDust.mat`
 - binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingDust_Binding.asset`
 - host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
 - v1 production registration is host default only; enemy presentation-local profiles still override when they explicitly contain the dust cue.
+- orphan dust material authoring was removed and is not canonical.
 
 V1 policy:
 
@@ -869,8 +869,8 @@ Source fact and suppression:
 
 Default binding:
 
-- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDamageBurst_Red.mat`
 - default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- orphan damage-burst material authoring was removed and is not canonical.
 - missing binding remains diagnostic/no-op with no legacy transient presenter fallback.
 
 Duplicate-prevention tests for this slice cover flag filtering, missing binding diagnostic/no-op, source profile precedence, host fallback, no authority/snapshot materialization, and checked presenter files not directly referencing `EnemyVfxCue.Damage`.
@@ -913,12 +913,10 @@ BoxDestroy composite combinations:
 Default bindings:
 
 - destroy smoke prefab: `Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxDestroySmokeVfx.prefab`
-- destroy smoke material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxDestroySmoke_SoftGray.mat`
 - destroy smoke binding: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/BoxDestroySmoke_Binding.asset`
-- destroy shrink material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_BoxDestroyShrink_Fade.mat`
-- item consume material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_ItemConsumeBurst_Gold.mat`
 - host default map: `Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset`
 - destroy shrink and item consume default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- orphan box-exit material authoring was removed and is not canonical.
 
 Excluded from this slice:
 
@@ -949,8 +947,8 @@ Migration flag and bypass:
 
 Default binding:
 
-- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyDeathBurst_DarkRed.mat`
 - default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- orphan enemy death burst material authoring was removed and is not canonical.
 
 Visual parity:
 
@@ -1039,8 +1037,8 @@ Migration flag and bypass:
 
 Default binding:
 
-- material: `Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_EnemyUtilityWindupTelegraph_Amber.mat`
 - default host prefab/binding authoring was removed in the non-particle authoring cleanup.
+- orphan utility windup material authoring was removed and is not canonical.
 
 Boundaries:
 
@@ -1190,6 +1188,8 @@ Entity anchors use live host entity presentation or last-known host presentation
 `MotionTrack`, `BoardLocal`, and `Screen` anchors are future unless implemented with tests. MotionTrack actual support is a future slice.
 
 Topology transition policy for v1 is committed/fallback topology only. General VFX remains non-blocking, topology transition remains the special blocking presentation lane, and transition-aware VFX anchors are future unless explicitly supported with tests. `QueuedUntilTopologyTransitionEnd` scheduling is not implemented in this gate.
+
+Topology bridge, post-fx, and camera-shake helpers are topology visual presentation helpers, not Gameplay VFX orphan assets. They must be governed through topology presentation policy instead of VFX sample cleanup.
 
 ## Anchor Resolver Ownership
 

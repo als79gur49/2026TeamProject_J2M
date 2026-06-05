@@ -131,7 +131,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("`GameplayVfxCommonEmptyHost.prefab` is deletion-protected"));
             Assert.That(document, Does.Contain("`EnemyDeathMotionVfx.prefab` is a fallback visual and must not be deleted"));
             Assert.That(document, Does.Contain("particle/contact visual prefabs are actual visual prefabs, not placeholders"));
-            Assert.That(document, Does.Contain("`Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab`"));
+            Assert.That(document, Does.Contain("sample-only particle prefabs must not be kept in the production VFX tree"));
         }
 
         [Test]
