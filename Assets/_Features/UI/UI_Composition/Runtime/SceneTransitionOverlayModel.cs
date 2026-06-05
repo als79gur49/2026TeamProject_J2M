@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
-    internal readonly struct SceneTransitionOverlayViewModel
+    internal readonly struct SceneTransitionOverlayModel
     {
         public readonly StageTransitionKind TransitionKind;
         public readonly TransitionOverlayKind OverlayKind;
@@ -18,7 +18,7 @@ namespace Game.Feature.UI.Composition
         public readonly int TotalChances;
         public readonly int DeathCount;
 
-        public SceneTransitionOverlayViewModel(
+        public SceneTransitionOverlayModel(
             TransitionOverlayKind overlayKind,
             string title,
             string message,
@@ -46,7 +46,7 @@ namespace Game.Feature.UI.Composition
         {
         }
 
-        public SceneTransitionOverlayViewModel(
+        public SceneTransitionOverlayModel(
             StageTransitionKind transitionKind,
             TransitionOverlayKind overlayKind,
             string title,

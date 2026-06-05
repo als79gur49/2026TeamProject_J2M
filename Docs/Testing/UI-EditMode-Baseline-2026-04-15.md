@@ -13,7 +13,7 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `648 total / 0 failed`
+- Current Unity UI EditMode: `645 total / 0 failed`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -37,14 +37,16 @@
   - screen prefab migration guards proving the installer mounts one fixed-shape screen-only catalog, the screen factory instantiates one canonical authored prefab per screen id under `ScreenLayer`, and screen legacy builder symbols are absent from code and docs
   - screen checkpoint guards proving the simple-shell, terminal-screen, and complex-screen checkpoints stay mechanically inspectable instead of hiding risk inside one broad migration phase
   - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, or gameplay-access shortcuts
+  - transition overlay shell/content catalog guards proving scene transitions use the canonical shell asset and authored catalog, with missing setup reported as a defect
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `155 total / 0 failed`
-  - delta: `+91` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, and manual smoke-plan governance
+  - current rerun: `645 total / 0 failed`
+  - delta: `+581` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, and manual smoke-plan governance
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
   - Diagnostics overlay behavior tests were removed with the unused runtime feature.
+  - Obsolete transition overlay component, old prefab, and recovery-route behavior tests were removed after the canonical shell/content catalog route became the only supported path.
 - Renamed / merged / split tests:
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
 - Replaced weak guards:
@@ -52,6 +54,7 @@
   - ad hoc “UI test count” bookkeeping is replaced with structural delta, guard evolution, and warning interpretation
   - legacy overlay-dependent stage-clear assumptions are replaced with canonical Stage 7 terminal-screen coverage and scene-bootstrap contract coverage
   - diagnostics read-only boundary checks are replaced with absence guards for removed runtime surface
+  - transition overlay recovery-route protection is replaced with canonical shell/content catalog setup-defect guards
 - Obsolete guards:
   - none removed by default
   - if a guard becomes obsolete, record which stronger guard now protects the same seam
@@ -115,6 +118,7 @@
 - UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level with `HudLayer`, `ScreenLayer`, and `PopupLayer`
+- scene transition overlay runtime uses the canonical shell asset and authored content catalog only; missing shell/catalog setup is surfaced as a defect instead of rebuilding UI at runtime
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
 - canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`

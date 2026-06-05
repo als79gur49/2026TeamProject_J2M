@@ -17,15 +17,13 @@ namespace Game.Feature.UI.Tests
         {
             using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("Manual");
             using var levelFailed = ContentHandle.Create<LevelFailedRestartOverlayContentView>("LevelFailed");
+            using var catalog = CatalogHandle.Create(
+                Entry(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, manual.View),
+                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, levelFailed.View));
             var resolver = new SceneTransitionOverlayContentResolver();
             var model = Model(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart);
 
-            var resolved = resolver.Resolve(
-                model,
-                null,
-                transitionKind => transitionKind == StageTransitionKind.LevelFailedRestart ? levelFailed.View : null,
-                overlayKind => overlayKind == TransitionOverlayKind.Restart ? manual.View : null,
-                () => manual.View);
+            var resolved = resolver.Resolve(model, catalog.Catalog);
 
             Assert.That(resolved, Is.SameAs(levelFailed.View));
         }
@@ -35,20 +33,17 @@ namespace Game.Feature.UI.Tests
         {
             using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("Manual");
             using var levelFailed = ContentHandle.Create<LevelFailedRestartOverlayContentView>("LevelFailed");
+            using var catalog = CatalogHandle.Create(
+                Entry(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, manual.View),
+                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, levelFailed.View));
             var resolver = new SceneTransitionOverlayContentResolver();
 
             var manualResolved = resolver.Resolve(
                 Model(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart),
-                null,
-                transitionKind => transitionKind == StageTransitionKind.StageRetryManual ? manual.View : levelFailed.View,
-                null,
-                null);
+                catalog.Catalog);
             var levelFailedResolved = resolver.Resolve(
                 Model(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart),
-                null,
-                transitionKind => transitionKind == StageTransitionKind.LevelFailedRestart ? levelFailed.View : manual.View,
-                null,
-                null);
+                catalog.Catalog);
 
             Assert.That(manualResolved, Is.SameAs(manual.View));
             Assert.That(levelFailedResolved, Is.SameAs(levelFailed.View));
@@ -59,14 +54,13 @@ namespace Game.Feature.UI.Tests
         public void SceneTransitionOverlayContentResolver_FallsBackToOverlayKind()
         {
             using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("Manual");
+            using var catalog = CatalogHandle.Create(
+                Entry(StageTransitionKind.Unknown, TransitionOverlayKind.Restart, manual.View));
             var resolver = new SceneTransitionOverlayContentResolver();
 
             var resolved = resolver.Resolve(
                 Model(StageTransitionKind.Unknown, TransitionOverlayKind.Restart),
-                null,
-                _ => null,
-                overlayKind => overlayKind == TransitionOverlayKind.Restart ? manual.View : null,
-                null);
+                catalog.Catalog);
 
             Assert.That(resolved, Is.SameAs(manual.View));
         }
@@ -113,10 +107,20 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SceneTransitionOverlayShell_MountContentWithoutCatalogPrefabReportsSetupDefect()
+        {
+            using var shell = ShellHandle.Create();
+
+            var exception = Assert.Throws<InvalidOperationException>(() => shell.View.MountContent(null));
+
+            Assert.That(exception.Message, Does.Contain("catalog-authored content prefab"));
+        }
+
+        [Test]
         public void ChanceLostOverlayContent_BindsTmpTexts()
         {
             using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
-            var model = new SceneTransitionOverlayViewModel(
+            var model = new SceneTransitionOverlayModel(
                 StageTransitionKind.DeathRetryChanceLost,
                 TransitionOverlayKind.ChanceLost,
                 "Chance Lost",
@@ -152,7 +156,7 @@ namespace Game.Feature.UI.Tests
             var authoredFilledIconColor = filledIcon.color;
             var authoredFilledIconMaterial = filledIcon.material;
 
-            view.Bind(new SceneTransitionOverlayViewModel(
+            view.Bind(new SceneTransitionOverlayModel(
                 StageTransitionKind.DeathRetryChanceLost,
                 TransitionOverlayKind.ChanceLost,
                 "Chance Lost",
@@ -220,7 +224,7 @@ namespace Game.Feature.UI.Tests
             using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
             var view = (ChanceLostOverlayContentView)content.View;
 
-            view.Bind(new SceneTransitionOverlayViewModel(
+            view.Bind(new SceneTransitionOverlayModel(
                 StageTransitionKind.DeathRetryChanceLost,
                 TransitionOverlayKind.ChanceLost,
                 "Chance Lost",
@@ -261,11 +265,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(shell.View.CollectValidationIssues(), Has.Some.Contains("EventSystem"));
         }
 
-        private static SceneTransitionOverlayViewModel Model(
+        private static SceneTransitionOverlayModel Model(
             StageTransitionKind transitionKind,
             TransitionOverlayKind overlayKind)
         {
-            return new SceneTransitionOverlayViewModel(
+            return new SceneTransitionOverlayModel(
                 transitionKind,
                 overlayKind,
                 "Title",
@@ -366,6 +370,64 @@ namespace Game.Feature.UI.Tests
             Assert.That(shardCount, Is.EqualTo(9));
             Assert.That(bottomShardCount, Is.GreaterThanOrEqualTo(3));
             Assert.That(sideShardCount, Is.GreaterThanOrEqualTo(5));
+        }
+
+        private static CatalogEntrySpec Entry(
+            StageTransitionKind transitionKind,
+            TransitionOverlayKind overlayKind,
+            SceneTransitionOverlayContentView prefab)
+        {
+            return new CatalogEntrySpec(transitionKind, overlayKind, prefab);
+        }
+
+        private readonly struct CatalogEntrySpec
+        {
+            public CatalogEntrySpec(
+                StageTransitionKind transitionKind,
+                TransitionOverlayKind overlayKind,
+                SceneTransitionOverlayContentView prefab)
+            {
+                TransitionKind = transitionKind;
+                OverlayKind = overlayKind;
+                Prefab = prefab;
+            }
+
+            public StageTransitionKind TransitionKind { get; }
+            public TransitionOverlayKind OverlayKind { get; }
+            public SceneTransitionOverlayContentView Prefab { get; }
+        }
+
+        private sealed class CatalogHandle : IDisposable
+        {
+            private CatalogHandle(SceneTransitionOverlayContentCatalog catalog)
+            {
+                Catalog = catalog;
+            }
+
+            public SceneTransitionOverlayContentCatalog Catalog { get; }
+
+            public static CatalogHandle Create(params CatalogEntrySpec[] specs)
+            {
+                var catalog = ScriptableObject.CreateInstance<SceneTransitionOverlayContentCatalog>();
+                var serialized = new SerializedObject(catalog);
+                var entries = serialized.FindProperty("_entries");
+                entries.arraySize = specs.Length;
+                for (var i = 0; i < specs.Length; i++)
+                {
+                    var entry = entries.GetArrayElementAtIndex(i);
+                    entry.FindPropertyRelative("_transitionKind").enumValueIndex = (int)specs[i].TransitionKind;
+                    entry.FindPropertyRelative("_fallbackOverlayKind").enumValueIndex = (int)specs[i].OverlayKind;
+                    entry.FindPropertyRelative("_contentPrefab").objectReferenceValue = specs[i].Prefab;
+                }
+
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                return new CatalogHandle(catalog);
+            }
+
+            public void Dispose()
+            {
+                UnityEngine.Object.DestroyImmediate(Catalog);
+            }
         }
 
         private sealed class ShellHandle : IDisposable

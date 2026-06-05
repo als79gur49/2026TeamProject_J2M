@@ -20,7 +20,7 @@ namespace Game.Feature.UI.Composition
 
         private bool _showProgress;
 
-        public virtual void Bind(SceneTransitionOverlayViewModel model)
+        public virtual void Bind(SceneTransitionOverlayModel model)
         {
             _showProgress = model.ShowProgress;
             SetText(_titleText, model.Title);

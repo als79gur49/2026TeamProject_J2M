@@ -48,7 +48,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
             Assert.That(guide, Does.Contain("green on 2026-06-06 KST"));
             Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(guide, Does.Contain("Unity UI EditMode `648 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `645 total / 0 failed`"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
             Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
             Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeGroupView"));
@@ -106,7 +106,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(baseline, Does.Contain("Current Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `648 total / 0 failed`"));
+            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `645 total / 0 failed`"));
             Assert.That(baseline, Does.Contain("Prior 2차 UI canonical correction report red reason"));
             Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
             Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeGroupView"));

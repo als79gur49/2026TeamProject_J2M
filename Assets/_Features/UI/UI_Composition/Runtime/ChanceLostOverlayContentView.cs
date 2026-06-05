@@ -98,14 +98,14 @@ namespace Game.Feature.UI.Composition
         private readonly List<SlotState> _slotStates = new();
         private readonly List<RectTransform> _resolvedSlots = new();
         private Sequence _lostChanceSequence;
-        private SceneTransitionOverlayViewModel _boundModel;
+        private SceneTransitionOverlayModel _boundModel;
         private TextVisualState _previousChanceTextState;
         private TextVisualState _currentChanceTextState;
         private Shader _allIn1UiMaskShader;
         private bool _hasBoundModel;
         private bool _hasResolvedAllIn1UiMaskShader;
 
-        public override void Bind(SceneTransitionOverlayViewModel model)
+        public override void Bind(SceneTransitionOverlayModel model)
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
@@ -194,7 +194,7 @@ namespace Game.Feature.UI.Composition
             SetText(_deathCountText, string.Empty);
         }
 
-        private void ApplyChanceSlotState(SceneTransitionOverlayViewModel model)
+        private void ApplyChanceSlotState(SceneTransitionOverlayModel model)
         {
             var slots = ResolveChanceSlots();
             if (slots.Count == 0)

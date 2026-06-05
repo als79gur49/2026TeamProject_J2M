@@ -4,7 +4,7 @@ namespace Game.Feature.UI.Composition
     {
         void ShowBlockerOnly(bool blockInput);
         ISceneTransitionOverlayContentView MountContent(SceneTransitionOverlayContentView contentPrefab);
-        void ShowContent(SceneTransitionOverlayViewModel model, ISceneTransitionOverlayContentView content);
+        void ShowContent(SceneTransitionOverlayModel model, ISceneTransitionOverlayContentView content);
         void SetProgress(float progress01);
         void HideVisual();
         void HideAll();

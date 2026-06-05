@@ -1,4 +1,3 @@
-using System;
 using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Composition
@@ -6,22 +5,13 @@ namespace Game.Feature.UI.Composition
     internal sealed class SceneTransitionOverlayContentResolver
     {
         public SceneTransitionOverlayContentView Resolve(
-            SceneTransitionOverlayViewModel model,
-            SceneTransitionOverlayContentCatalog catalog,
-            Func<StageTransitionKind, SceneTransitionOverlayContentView> transitionKindFallback = null,
-            Func<TransitionOverlayKind, SceneTransitionOverlayContentView> overlayKindFallback = null,
-            Func<SceneTransitionOverlayContentView> genericFallback = null)
+            SceneTransitionOverlayModel model,
+            SceneTransitionOverlayContentCatalog catalog)
         {
             var transitionMatch = FindByTransitionKind(catalog, model.TransitionKind);
             if (transitionMatch != null)
             {
                 return transitionMatch;
-            }
-
-            var transitionFallback = transitionKindFallback?.Invoke(model.TransitionKind);
-            if (transitionFallback != null)
-            {
-                return transitionFallback;
             }
 
             var overlayMatch = FindByOverlayKind(catalog, model.OverlayKind);
@@ -30,15 +20,7 @@ namespace Game.Feature.UI.Composition
                 return overlayMatch;
             }
 
-            var overlayFallback = overlayKindFallback?.Invoke(model.OverlayKind);
-            if (overlayFallback != null)
-            {
-                return overlayFallback;
-            }
-
-            return catalog != null && catalog.GenericFallbackPrefab != null
-                ? catalog.GenericFallbackPrefab
-                : genericFallback?.Invoke();
+            return catalog?.GenericFallbackPrefab;
         }
 
         private static SceneTransitionOverlayContentView FindByTransitionKind(
