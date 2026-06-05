@@ -7,10 +7,10 @@
 - exact menu path:
   - `Tools/Stages/Direct Play/Launch Stage...`
   - `Tools/Stages/Direct Play/Replay Last Stage`
-- supported stage menu labels:
-  - `Combined Gameplay Showcase`
-  - `Tutorial Scene`
-- onboarding 문서, smoke checklist, bug reproduction note는 위 exact menu path와 exact stage labels를 그대로 사용한다.
+- supported stage id quick-launch entries:
+  - `combined-gameplay-showcase`
+  - `tutorial-scene`
+- onboarding 문서, smoke checklist, bug reproduction note는 위 exact menu path와 exact stage ids를 그대로 사용한다.
 
 ## Onboarding Checklist
 
@@ -24,7 +24,7 @@
 - direct-play smoke/manual flow는 launcher 경유로만 기록한다.
 - plain Play를 눌렀다면 warning/fail-fast guidance만 기록하고 success evidence로 취급하지 않는다.
 - supported stage id coverage는 direct-play catalog `100%`여야 한다.
-- smoke note는 stage label, canonical shell, used menu path, observed warning/fail-fast, result를 함께 적는다.
+- smoke note는 stage id, canonical shell, used menu path, observed warning/fail-fast, result를 함께 적는다.
 
 ## Smoke Cycle Standard
 
@@ -39,7 +39,7 @@
   - `catalog coverage check result`
   - `plain Play workflow classification`
 - stage evidence row는 아래 필드를 모두 포함한다.
-  - `stage label`
+  - `stage id`
   - `canonical shell`
   - `exact menu path`
   - `executor`
@@ -48,9 +48,9 @@
   - `observed warning/fail-fast`
   - `plain Play attempted`
   - `notes`
-- `stage label`은 exact stage label만 사용한다.
-  - `Combined Gameplay Showcase`
-  - `Tutorial Scene`
+- `stage id`는 exact stage id만 사용한다.
+  - `combined-gameplay-showcase`
+  - `tutorial-scene`
 - `exact menu path`는 아래 둘 중 하나만 허용한다.
   - `Tools/Stages/Direct Play/Launch Stage...`
   - `Tools/Stages/Direct Play/Replay Last Stage`

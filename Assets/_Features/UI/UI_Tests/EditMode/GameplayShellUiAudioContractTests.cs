@@ -18,7 +18,7 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
-    public sealed class TutorialSceneUiContractTests
+    public sealed class GameplayShellUiAudioContractTests
     {
         private const string GameplayAudioMapAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";

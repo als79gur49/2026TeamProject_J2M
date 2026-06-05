@@ -12,13 +12,13 @@
 - `catalog coverage check result`
 - `plain Play workflow classification`
 
-## Scene Evidence Table
+## Stage Evidence Table
 
-| scene name | exact menu path | executor | execution date/time | launch result | observed warning/fail-fast | plain Play attempted | notes |
+| stage id | exact menu path | executor | execution date/time | launch result | observed warning/fail-fast | plain Play attempted | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `Combined Gameplay Showcase` | `Tools/Stages/Direct Play/Launch Current Scene` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
-| `Tutorial Scene` | `Tools/Stages/Direct Play/Launch Current Scene` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
-| `UI Audio Scene` | `Tools/Stages/Direct Play/Launch Current Scene` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
+| `combined-gameplay-showcase` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
+| `tutorial-scene` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
+| `<stage id>` | `Tools/Stages/Direct Play/Replay Last Stage` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
 
 ## Counter Summary
 

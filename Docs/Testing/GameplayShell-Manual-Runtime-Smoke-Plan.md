@@ -1,14 +1,14 @@
-# TutorialScene Manual Runtime Smoke Plan
+# Gameplay Shell Manual Runtime Smoke Plan
 
 ## 1. Overall Evaluation
-- This smoke is now a real-scene runtime validation in the `UIAudioScene` canonical gameplay shell with `tutorial-scene` supplied through launch context.
+- This smoke is now a canonical shell runtime validation in `UIAudioScene` with `tutorial-scene` supplied through launch context.
 - It protects the frozen Stage 1-9 UI architecture by validating canonical runtime composition, representative runtime ownership, and terminal stage-clear routing under actual scene conditions.
 - It complements automated tests rather than replacing them.
 - It must stay architecture-focused and time-bounded. It is not a general gameplay QA pass and it must not drift into exploratory playtesting.
 - Claims about startup resolution flash, fullscreen/window correctness, and preview-window behavior require real-build manual validation; editor-only execution is insufficient evidence for those display-specific behaviors.
 
 ## 2. Preserved Strengths
-- Preserve the real-scene runtime focus in `TutorialScene` rather than converting this into an EditMode-only or architecture-redesign task.
+- Preserve the canonical gameplay shell runtime focus in `UIAudioScene` with a primed stage id rather than converting this into an EditMode-only or architecture-redesign task.
 - Preserve the validation targets that lower-level tests are weaker at proving: runtime layer placement, hierarchy truth, input/raycast behavior, modal feel, representative screen transitions, and terminal flow.
 - Preserve `PausePopup` as the modal representative popup case.
 - Preserve `TooltipPopup` as the intended non-modal representative popup case.
@@ -16,7 +16,7 @@
 - Preserve diagnostics as dev-only, read-only, and secondary to the main runtime ownership checks.
 
 ## 3. Remaining Execution Risks
-- The `SettingsScreen` tooltip info icon can regress into a broken or missing authored affordance even though `TutorialScene` now expects a real player-facing tooltip path.
+- The `SettingsScreen` tooltip info icon can regress into a broken or missing authored affordance even though the gameplay shell smoke now expects a real player-facing tooltip path.
 - Stage-clear validation can expand into an unbounded gameplay session if it is not explicitly time-boxed and classified carefully.
 - Diagnostics can consume too much attention if checked before the higher-risk ownership paths.
 - The highest-risk runtime subset can be crowded out unless it is executed first in a fixed order.
@@ -52,15 +52,15 @@
 
 ## 6. Tooltip Path Classification Rules
 - `TooltipPopup` remains the intended non-modal representative popup case.
-- `TutorialScene` is now explicitly expected to expose `TooltipPopup` through the SettingsScreen tooltip info icon beside the tooltip toggle row.
-- This `SettingsScreen` tooltip entry point is the current `TutorialScene` choice only. It must not be treated as the universal tooltip affordance pattern; future tooltip expansion requires separate plan/review.
+- The gameplay shell smoke is now explicitly expected to expose `TooltipPopup` through the SettingsScreen tooltip info icon beside the tooltip toggle row.
+- This `SettingsScreen` tooltip entry point is the current gameplay shell choice only. It must not be treated as the universal tooltip affordance pattern; future tooltip expansion requires separate plan/review.
 - Valid tooltip outcome:
   - `Reachable and valid`: the `SettingsScreen` tooltip info icon opens `TooltipPopup` under `PopupLayer`, it remains non-modal, it stays tooltip-scale, and first back closes the tooltip before second back closes `SettingsScreen`.
 - Classify as `Runtime integration or placement issue` when:
   - the `SettingsScreen` tooltip info icon is missing, non-functional, or routes through a non-canonical popup path
   - the tooltip opens but uses the wrong layer, dimming, lower-layer blocking, or screen-like content scale
 - Escalate tooltip coverage to blocker only when:
-  - the canonical `SettingsScreen` tooltip path is missing or broken in `TutorialScene`
+  - the canonical `SettingsScreen` tooltip path is missing or broken in the gameplay shell
   - the tooltip path violates popup ownership, layering, dimming, lower-layer blocking, or bounded tooltip semantics
   - a legacy or duplicate popup path appears
 - Do not add scene-local helpers, alternate bootstrap objects, or artificial debug triggers to satisfy tooltip coverage.
@@ -110,10 +110,10 @@
 
 ## 10. Freeze Gate
 - The manual runtime smoke is only freezeable if the high-risk runtime subset is executed first and validated before lower-priority checks consume time.
-- Tooltip representative coverage is acceptable only if the `SettingsScreen` tooltip info icon reaches `TooltipPopup` on the canonical path in `TutorialScene`.
+- Tooltip representative coverage is acceptable only if the `SettingsScreen` tooltip info icon reaches `TooltipPopup` on the canonical gameplay shell path.
 - Stage-clear validation remains mandatory, but it must stay operationally bounded. If the result is `Inconclusive/manual follow-up needed`, that is not an architecture verdict, but the manual runtime freeze gate remains open until terminal flow is proven.
 - Diagnostics must remain secondary, dev-only, read-only, and non-owning.
-- The `SettingsScreen` tooltip affordance must remain bounded. It is the current `TutorialScene` choice, not a universal tooltip rule for every screen.
-- Click-only open and center anchoring remain current-task defaults for this `TutorialScene` affordance, not universal architecture laws.
+- The `SettingsScreen` tooltip affordance must remain bounded. It is the current gameplay shell choice, not a universal tooltip rule for every screen.
+- Click-only open and center anchoring remain current-task defaults for this gameplay shell affordance, not universal architecture laws.
 - Structural regressions, runtime integration issues, scene-affordance gaps, inconclusive bounded outcomes, and pure presentation/tuning issues must remain clearly separated.
 - The smoke is acceptable only if it stays architecture-focused and time-bounded rather than expanding into open-ended scene playtesting.

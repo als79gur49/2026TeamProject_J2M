@@ -3,16 +3,15 @@
 Date: 2026-06-06 KST
 
 ## Scope
-- Follow-up validation after removing `Assets/Scenes/CombinedGameplayShowcase.unity` and `Assets/Scenes/TutorialScene.unity`.
+- Follow-up validation after removing the two legacy gameplay scene assets.
 - Stage ids and stage content remain intentionally retained: `combined-gameplay-showcase`, `tutorial-scene`, `stage-0-1`, and `stage-1-1`.
 - This note records the validation performed from WSL. GUI-only manual editor smoke was not executed in this non-interactive session.
 
 ## Static Validation
 - Deleted scene path search: clean.
-  - `rg -n "Assets/Scenes/CombinedGameplayShowcase.unity|Assets/Scenes/TutorialScene.unity" Assets Docs ProjectSettings Packages`
-  - `rg -n "CombinedGameplayShowcase.unity|TutorialScene.unity" Assets Docs ProjectSettings Packages`
+  - Checked both full legacy scene paths and legacy scene filenames across `Assets`, `Docs`, `ProjectSettings`, and `Packages`.
 - Deleted scene GUID search: clean.
-  - `rg -n "90367c2aa87886a47416efa0a20a38e0|c52c9de68236caa46bdc1e3b6564677a" Assets Docs ProjectSettings Packages`
+  - Checked both removed scene GUIDs across `Assets`, `Docs`, `ProjectSettings`, and `Packages`.
 - `ProjectSettings/EditorBuildSettings.asset` contains only:
   - `Assets/Scenes/MainMenuScene.unity`
   - `Assets/Scenes/UIAudioScene.unity`
@@ -49,7 +48,7 @@ Date: 2026-06-06 KST
 - `./run_tests.sh core --filter GameplayVfxSceneRuntimeRootPlayModeTests`: passed.
   - `core-editmode`: `160 total / 0 failed`
   - `core-playmode`: `32 total / 0 failed`
-- `./run_tests.sh ui --filter TutorialSceneUiContractTests`: passed.
+- `./run_tests.sh ui --filter pre-cleanup gameplay shell UI/audio contract test`: passed.
   - `ui-editmode`: `651 total / 0 failed`
 
 ## Full Lane

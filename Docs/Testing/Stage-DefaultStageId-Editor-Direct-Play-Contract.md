@@ -48,12 +48,12 @@
 - `onboarding parity`
   - onboarding 문서, smoke checklist, menu entry, supported stage list는 같은 stage 세트와 같은 용어를 사용해야 한다.
 
-## Supported Stage Labels
+## Supported Stage Ids
 
-- `Combined Gameplay Showcase`
-- `Tutorial Scene`
+- `combined-gameplay-showcase`
+- `tutorial-scene`
 
-위 exact stage labels는 onboarding parity와 smoke note에 그대로 사용한다.
+위 exact stage ids는 onboarding parity와 smoke note에 그대로 사용한다.
 
 ## Soft Adoption
 

@@ -50,7 +50,7 @@ namespace Game.Feature.Stages.Editor
             LaunchStage(stageId, EditorDirectPlayMode.NonCampaign, SaveSlotStore.DefaultRemainingChances);
         }
 
-        [MenuItem("Tools/Stages/Direct Play/Supported Stages/Combined Gameplay Showcase")]
+        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/combined-gameplay-showcase")]
         public static void LaunchCombinedGameplayShowcase()
         {
             LaunchStage(
@@ -59,7 +59,7 @@ namespace Game.Feature.Stages.Editor
                 SaveSlotStore.DefaultRemainingChances);
         }
 
-        [MenuItem("Tools/Stages/Direct Play/Supported Stages/Tutorial Scene")]
+        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/tutorial-scene")]
         public static void LaunchTutorialScene()
         {
             LaunchStage(

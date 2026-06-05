@@ -260,8 +260,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("same executor + governance reviewer co-sign"));
             Assert.That(checklist, Does.Contain("Tools/Stages/Direct Play/Launch Stage..."));
             Assert.That(checklist, Does.Contain("Replay Last Stage"));
-            Assert.That(checklist, Does.Contain("Combined Gameplay Showcase"));
-            Assert.That(checklist, Does.Contain("Tutorial Scene"));
+            Assert.That(checklist, Does.Contain("combined-gameplay-showcase"));
+            Assert.That(checklist, Does.Contain("tutorial-scene"));
             Assert.That(checklist, Does.Contain("Cycle 1"));
             Assert.That(checklist, Does.Contain("Cycle 2"));
             Assert.That(checklist, Does.Contain("Counter Summary"));
@@ -319,7 +319,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void DirectPlayCycleTemplate_RecordsRequiredSceneFields_AndCounterSummary()
+        public void DirectPlayCycleTemplate_RecordsRequiredStageIdFields_AndCounterSummary()
         {
             var template = ReadRepoFile(DirectPlayCycleTemplatePath);
 
@@ -329,7 +329,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(template, Does.Contain("editor session identifier"));
             Assert.That(template, Does.Contain("catalog coverage check result"));
             Assert.That(template, Does.Contain("plain Play workflow classification"));
-            Assert.That(template, Does.Contain("scene name"));
+            Assert.That(template, Does.Contain("stage id"));
             Assert.That(template, Does.Contain("exact menu path"));
             Assert.That(template, Does.Contain("execution date/time"));
             Assert.That(template, Does.Contain("launch result"));
