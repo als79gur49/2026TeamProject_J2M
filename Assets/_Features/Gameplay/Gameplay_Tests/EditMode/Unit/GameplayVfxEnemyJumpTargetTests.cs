@@ -25,8 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperLandingTarget_Binding.asset";
         private const string JumperJumpStartBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/JumperJumpStart_Binding.asset";
-        private const string CombinedGameplayShowcaseScenePath =
-            "Assets/Scenes/CombinedGameplayShowcase.unity";
+        private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string GameplayVfxProductionRuntimeScriptGuid = "77f98ca183bf441ba81f70f521126c17";
         private const string GameplayVfxRuntimeInstallerScriptGuid = "d35824c2bc2045a4b5fc027c8f7561a4";
         private const string HostDefaultCueMapGuid = "3ed23d03c1c440cb9a1441a4b18c46e5";
@@ -1293,9 +1292,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CombinedGameplayShowcase_WiresJumperLandingTargetVfxRuntime()
+        public void UiAudioScene_WiresJumperLandingTargetVfxRuntime()
         {
-            var sceneText = File.ReadAllText(CombinedGameplayShowcaseScenePath);
+            var sceneText = File.ReadAllText(UiAudioScenePath);
             var productionRuntimeBlock = ReadSceneComponentBlock(
                 sceneText,
                 "Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime");

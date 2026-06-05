@@ -744,7 +744,7 @@ Visual tuning:
 - small prefab-local surface lift to avoid floor z-fighting
 - no audio, collider, dynamic Rigidbody, NavMeshAgent, or gameplay-affecting script
 
-The host connection for manual verification is limited to `Assets/Scenes/CombinedGameplayShowcase.unity`, where `GameplayVfxProductionRuntime` is attached to the existing host object with `EnableEnemyJumpTargetVfx` enabled and the host default cue map assigned.
+The host connection for manual verification uses the `UIAudioScene` canonical gameplay shell, where `GameplayVfxProductionRuntime` is attached to the existing host object with `EnableEnemyJumpTargetVfx` enabled and the host default cue map assigned.
 
 Future work remains out of scope for this slice: persistent telegraph desired state, jump execute/cancel/death/retarget stop logic, prefab-local jumper profile ownership, stage/tile/terrain VFX, and existing presenter migration.
 
@@ -1474,9 +1474,9 @@ High-risk parameterized motion and clone/source-view VFX required manual parity 
 
 Scene-local overrides are separate from runtime defaults:
 
-- `Assets/Scenes/CombinedGameplayShowcase.unity` is a jump VFX visual review scene override with `EnableEnemyJumpTargetVfx` and `EnableEnemyJumpLandingDustVfx` on; Tier 3 flags use runtime default-on for broad VFX review unless explicitly added for rollback review.
+- `UIAudioScene` is the canonical gameplay shell and visual review shell with `EnableEnemyJumpTargetVfx` and `EnableEnemyJumpLandingDustVfx` on; Tier 3 flags use runtime default-on for broad VFX review unless explicitly added for rollback review.
 - `Assets/Scenes/UIAudioScene.unity` is an explicit visual review scene override with all current Gameplay VFX flags on; this is not production default policy and covers documented high-risk flag combinations for review only.
-- `Assets/Scenes/TutorialScene.unity` remains production-safe/off for Gameplay VFX flags through explicit scene-local false overrides.
+- Stage-specific production VFX policy must be expressed through stage/runtime presentation profile assets, not through deleted scene-local false overrides.
 
 Enemy death legacy fallback is finalized. Suppress compatibility gates were removed. `EnableGameplayVfxEnemyDeathBurstMigration` controls only `EnemyVfxCue.Death`, and `EnableGameplayVfxEnemyDeathMotionMigration` controls only `EnemyVfxCue.DeathMotion`. Both enemy death Tier 3 flags are runtime default-on after the Tier 3 rollout batch. Burst + Motion simultaneous output remains visually monitored. The supported combinations are:
 

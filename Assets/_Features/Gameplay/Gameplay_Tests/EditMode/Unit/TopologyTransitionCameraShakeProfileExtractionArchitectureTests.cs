@@ -41,8 +41,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] ExpectedSerializedHolders =
         {
-            "Assets/Scenes/CombinedGameplayShowcase.unity",
-            "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
             StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset",
             StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset",
@@ -311,9 +309,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static string ResolveExpectedPresetAssetPath(string scenePath)
         {
-            return scenePath == "Assets/Scenes/CombinedGameplayShowcase.unity"
-                ? StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset"
-                : StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
+            return StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
         }
 
         private static bool ContainsCameraShakeProfileHolder(string relativePath)
