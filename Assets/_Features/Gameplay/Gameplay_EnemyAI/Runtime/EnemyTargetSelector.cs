@@ -85,12 +85,28 @@ namespace Game.Feature.Gameplay.Entities
             out EntityState target,
             EnemyDetectionQueryOptions options = default)
         {
+            return TryFindTarget(snapshot, source, settings, out target, out _, options);
+        }
+
+        internal bool TryFindTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in DetectionSettings settings,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result,
+            EnemyDetectionQueryOptions options = default)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
             target = default;
+            result = EnemyTargetEligibilityResult.Reject(
+                source.entityId,
+                0,
+                EnemyTargetEligibilityPurpose.FreshAcquire,
+                EnemyTargetEligibilityRejectReason.TargetMissing);
             return false;
         }
     }
@@ -106,6 +122,17 @@ namespace Game.Feature.Gameplay.Entities
             out EntityState target,
             EnemyDetectionQueryOptions options = default)
         {
+            return TryFindTarget(snapshot, source, settings, out target, out _, options);
+        }
+
+        internal bool TryFindTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in DetectionSettings settings,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result,
+            EnemyDetectionQueryOptions options = default)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -119,25 +146,50 @@ namespace Game.Feature.Gameplay.Entities
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
             var bestDistance = int.MaxValue;
+            result = default;
             for (var i = 0; i < orderedEntities.Count; i++)
             {
                 var candidate = orderedEntities[i];
-                if (!EnemyDetectionTargetRules.IsValidTarget(snapshot, source, candidate, settings))
+                var candidateResult = EnemyDetectionTargetRules.EvaluateFreshAcquire(snapshot, source, candidate, settings);
+                if (!candidateResult.Eligible)
                 {
+                    EnemyDetectionTargetRules.CaptureRejectResult(candidateResult, ref result);
                     continue;
                 }
 
                 var distance = GetPlanarDistance(source.position, candidate.position, settings.RequireSameFace);
                 if (!distance.HasValue || distance.Value > settings.SenseRange || distance.Value >= bestDistance)
                 {
+                    EnemyDetectionTargetRules.CaptureRejectResult(
+                        EnemyTargetEligibilityResult.Reject(
+                            source.entityId,
+                            candidate.entityId,
+                            EnemyTargetEligibilityPurpose.FreshAcquire,
+                            EnemyTargetEligibilityRejectReason.OutOfRange),
+                        ref result);
                     continue;
                 }
 
                 bestDistance = distance.Value;
                 target = candidate;
+                result = candidateResult;
             }
 
-            return bestDistance != int.MaxValue;
+            if (bestDistance != int.MaxValue)
+            {
+                return true;
+            }
+
+            if (result.RejectReason == EnemyTargetEligibilityRejectReason.None)
+            {
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    0,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.TargetMissing);
+            }
+
+            return false;
         }
 
         private static int? GetPlanarDistance(
@@ -167,6 +219,17 @@ namespace Game.Feature.Gameplay.Entities
             out EntityState target,
             EnemyDetectionQueryOptions options = default)
         {
+            return TryFindTarget(snapshot, source, settings, out target, out _, options);
+        }
+
+        internal bool TryFindTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in DetectionSettings settings,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result,
+            EnemyDetectionQueryOptions options = default)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -180,6 +243,7 @@ namespace Game.Feature.Gameplay.Entities
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
             var bestDistance = int.MaxValue;
+            result = default;
             for (var i = 0; i < orderedEntities.Count; i++)
             {
                 var candidate = orderedEntities[i];
@@ -189,17 +253,34 @@ namespace Game.Feature.Gameplay.Entities
                         candidate,
                         settings,
                         options.SolidBlockerPolicy,
-                        out var distance) ||
+                        out var distance,
+                        out var candidateResult) ||
                     distance >= bestDistance)
                 {
+                    EnemyDetectionTargetRules.CaptureRejectResult(candidateResult, ref result);
                     continue;
                 }
 
                 bestDistance = distance;
                 target = candidate;
+                result = candidateResult;
             }
 
-            return bestDistance != int.MaxValue;
+            if (bestDistance != int.MaxValue)
+            {
+                return true;
+            }
+
+            if (result.RejectReason == EnemyTargetEligibilityRejectReason.None)
+            {
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    0,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.TargetMissing);
+            }
+
+            return false;
         }
 
         internal static bool TryValidateSpecificTarget(
@@ -226,6 +307,7 @@ namespace Game.Feature.Gameplay.Entities
                     candidate,
                     settings,
                     options.SolidBlockerPolicy,
+                    out _,
                     out _))
             {
                 return false;
@@ -241,10 +323,12 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState candidate,
             in DetectionSettings settings,
             LineOfSightSolidBlockerPolicy solidBlockerPolicy,
-            out int distance)
+            out int distance,
+            out EnemyTargetEligibilityResult result)
         {
             distance = 0;
-            if (!EnemyDetectionTargetRules.IsValidTarget(snapshot, source, candidate, settings))
+            result = EnemyDetectionTargetRules.EvaluateFreshAcquire(snapshot, source, candidate, settings);
+            if (!result.Eligible)
             {
                 return false;
             }
@@ -253,6 +337,11 @@ namespace Game.Feature.Gameplay.Entities
             var targetCell = candidate.position;
             if (targetCell.face != sourceCell.face)
             {
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    candidate.entityId,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.OutOfRange);
                 return false;
             }
 
@@ -260,13 +349,37 @@ namespace Game.Feature.Gameplay.Entities
             var dy = targetCell.y - sourceCell.y;
             if (dx != 0 && dy != 0)
             {
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    candidate.entityId,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.OutOfRange);
                 return false;
             }
 
             distance = Math.Abs(dx) + Math.Abs(dy);
-            return distance <= settings.SenseRange &&
-                   (solidBlockerPolicy == LineOfSightSolidBlockerPolicy.IgnoreSolid ||
-                    !IsLineOfSightBlocked(snapshot, sourceCell, targetCell));
+            if (distance > settings.SenseRange)
+            {
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    candidate.entityId,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.OutOfRange);
+                return false;
+            }
+
+            if (solidBlockerPolicy != LineOfSightSolidBlockerPolicy.IgnoreSolid &&
+                IsLineOfSightBlocked(snapshot, sourceCell, targetCell))
+            {
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    candidate.entityId,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.BlockedByProfileRule);
+                return false;
+            }
+
+            return true;
         }
 
         private static bool IsLineOfSightBlocked(
@@ -308,22 +421,113 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState candidate,
             in DetectionSettings settings)
         {
-            if (candidate.entityId == source.entityId ||
-                candidate.type != EntityType.Unit ||
-                candidate.teamId == source.teamId ||
-                candidate.hp <= 0)
+            return EvaluateFreshAcquire(snapshot, source, candidate, settings).Eligible;
+        }
+
+        public static EnemyTargetEligibilityResult EvaluateFreshAcquire(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState candidate,
+            in DetectionSettings settings)
+        {
+            return EnemyTargetEligibilityPolicy.EvaluateFreshAcquire(snapshot, source, candidate, settings);
+        }
+
+        internal static void CaptureRejectResult(
+            in EnemyTargetEligibilityResult candidateResult,
+            ref EnemyTargetEligibilityResult result)
+        {
+            if (candidateResult.Eligible)
             {
+                return;
+            }
+
+            if (candidateResult.RejectReason == EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState ||
+                result.RejectReason == EnemyTargetEligibilityRejectReason.None)
+            {
+                result = candidateResult;
+            }
+        }
+    }
+
+    internal static class EnemyTargetSelector
+    {
+        public static bool TryAcquireFreshTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            IDetectionStrategy detectionStrategy,
+            in DetectionSettings settings,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result,
+            EnemyDetectionQueryOptions options = default)
+        {
+            if (detectionStrategy is NearestOpponentDetectionStrategy nearest)
+            {
+                return nearest.TryFindTarget(snapshot, source, settings, out target, out result, options);
+            }
+
+            if (detectionStrategy is CrossLineOfSightOpponentDetectionStrategy crossLineOfSight)
+            {
+                return crossLineOfSight.TryFindTarget(snapshot, source, settings, out target, out result, options);
+            }
+
+            var found = detectionStrategy.TryFindTarget(snapshot, source, settings, out target, options);
+            result = found
+                ? EnemyTargetEligibilityPolicy.EvaluateFreshAcquire(snapshot, source, target, settings)
+                : EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    0,
+                    EnemyTargetEligibilityPurpose.FreshAcquire,
+                    EnemyTargetEligibilityRejectReason.TargetMissing);
+            return found;
+        }
+
+        public static bool TryRetainLockedTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int lockedTargetEntityId,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result)
+        {
+            target = default;
+            if (lockedTargetEntityId <= 0 ||
+                !snapshot.TryGetEntity(lockedTargetEntityId, out target))
+            {
+                result = EnemyTargetEligibilityResult.Reject(
+                    source.entityId,
+                    lockedTargetEntityId,
+                    EnemyTargetEligibilityPurpose.RetainLockedTarget,
+                    EnemyTargetEligibilityRejectReason.TargetMissing);
                 return false;
             }
 
-            if (candidate.markedForDeath)
+            result = EnemyTargetEligibilityPolicy.EvaluateRetainLockedTarget(snapshot, source, target);
+            if (!result.Eligible)
             {
-                return settings.CanTargetMarkedForDeath &&
-                       candidate.boardPresence == EntityBoardPresence.Occupying &&
-                       snapshot.Topology.IsFaceActive(candidate.position.face);
+                target = default;
+                return false;
             }
 
-            return snapshot.CanBeTargetedForNewSelection(candidate.entityId);
+            return true;
+        }
+
+        public static bool TryFindLocalEngagementTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
+            List<EntityState> buffer,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result)
+        {
+            return EnemyLocalContactPolicy.TryFindLocalEngagementTarget(
+                snapshot,
+                source,
+                combatCapability,
+                passiveContactCapability,
+                buffer,
+                out target,
+                out result);
         }
     }
 }

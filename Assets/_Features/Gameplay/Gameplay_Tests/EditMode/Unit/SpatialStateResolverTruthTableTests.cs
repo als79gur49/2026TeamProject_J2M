@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -14,7 +15,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class SpatialStateResolverTruthTableTests
     {
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void Resolve_OccupyingWithoutJump_OnActiveFace_ReturnsAnchoredVisible()
         {
             var resolved = SpatialStateResolver.Resolve(
@@ -642,6 +643,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
                 },
                 nonTestCurrentTerminalCellReferences);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyTargetEligibilityArchitectureBoundaries_AreConstrained()
+        {
+            var enemyAiFreshTargetabilityReferences = FilterNonTestFiles(FindFilesContainingToken("CanBeTargetedForNewSelection("))
+                .Where(path => path.Contains("/Gameplay_EnemyAI/", StringComparison.Ordinal))
+                .ToArray();
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyTargetEligibilityPolicy.cs"),
+                },
+                enemyAiFreshTargetabilityReferences,
+                "EnemyAI must call fresh targetability only through EnemyTargetEligibilityPolicy.EvaluateFreshAcquire.");
+
+            var boardStateEnemyEligibilityReferences = FilterNonTestFiles(FindFilesContainingAnyToken(
+                    "EnemyTargetEligibilityPurpose",
+                    "EnemyTargetEligibilityPolicy",
+                    "EnemyLocalContactPolicy"))
+                .Where(path => path.Contains("/Gameplay_BoardState/", StringComparison.Ordinal))
+                .ToArray();
+            Assert.That(
+                boardStateEnemyEligibilityReferences,
+                Is.Empty,
+                "BoardState must not reference EnemyAI-local eligibility policy or purpose types.");
         }
 
         [Test]

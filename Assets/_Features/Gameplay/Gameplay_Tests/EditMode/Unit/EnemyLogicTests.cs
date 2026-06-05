@@ -305,7 +305,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void EnemyLogic_ImplementsMovementAndAttackContracts()
         {
             var logic = new EnemyLogic(entityId: 40);
@@ -316,7 +316,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void EnemyLogic_InvalidConfig_ThrowsArgumentException()
         {
             var exception = Assert.Throws<ArgumentException>(() => new EnemyLogic(entityId: 40, default(EnemyAiRuntimeDefinition)));
@@ -325,7 +325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void EnemyLogic_PatrolMode_ProducesForwardMovementIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -346,7 +346,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void EnemyLogic_PatrolMode_BottomFaceBoundary_DoesNotProduceMovementIntent()
         {
             var worldState = CreateWorldState(
@@ -1848,6 +1848,249 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDoesNotGenerateOrdinaryMovementFallbackWhenLocalEngagementHeld()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, CreateDefaultMeleeProfile());
+            var movementBuffer = new List<RawMovementIntent>();
+            var debugEvents = new List<string>();
+            ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+
+            logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), movementBuffer);
+            ((IMovementEntityDebugLogic)logic).CollectMovementDebugEvents(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                movementBuffer,
+                debugEvents);
+
+            Assert.That(movementBuffer.Where(intent => intent.SourceId == 40), Is.Empty);
+            Assert.That(debugEvents, Has.Some.Contains("OrdinaryMovementSuppressedByLocalEngagement"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyDoesNotTransitionToPatrolWhenSameCellPlayerFlipWindupPhases()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, CreateDefaultMeleeProfile());
+            var transitions = new List<string>();
+            ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+
+            ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                EnemyAiTransitionStage.BeforeMovement,
+                worldState.CreateWriteContext(),
+                transitions);
+
+            var enemy = GetEntity(worldState, 40);
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(transitions, Has.Some.Contains("Reason=LocalEngagementHeldSameCell"));
+            Assert.That(transitions, Has.None.Contains("To=Patrol"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PassiveContactStillUsesSharedLocalContactCandidate()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateStationaryPassiveContact();
+            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var attackBuffer = new List<RawAttackIntent>();
+            ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+
+            try
+            {
+                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), attackBuffer);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, TargetId: 10, SourceKind: AttackSourceKind.PassiveContact),
+                    },
+                    attackBuffer.Select(intent => (intent.SourceId, intent.TargetId, intent.SourceKind)).ToArray());
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TruePatrolOnlyProfileDoesNotGainLocalHoldUnlessExplicitlyAllowed()
+        {
+            var profile = CreateForwardPatrolOnlyProfile(new PatrolSettings(PatrolBlockedMovementResponse.Stop));
+            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 2)));
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var movementBuffer = new List<RawMovementIntent>();
+            var attackBuffer = new List<RawAttackIntent>();
+            ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), movementBuffer);
+                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), attackBuffer);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, Destination: new Vector2Int(3, 1), Command: MovementCommandKind.Move),
+                    },
+                    movementBuffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+                Assert.That(attackBuffer, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PhaseThroughExplicitMovementNotSuppressedByLocalEngagement()
+        {
+            var profile = CreatePhaseThroughEnemyProfile();
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: sourceCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 20, teamId: 1, position: lockedTargetCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+            var logic = new EnemyLogic(entityId: 40, profile);
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                CreateExecutableMeleeActionState(
+                    sourceCell,
+                    targetEntityId: 20,
+                    direction: Direction.Right,
+                    startTick: 1,
+                    executeTick: 5));
+            ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 5));
+
+            try
+            {
+                var updates = CommitPreMovementState(logic, worldState, tickIndex: 5);
+
+                Assert.That(updates, Has.Some.Contains("PhaseEnter|Entity=40"));
+                Assert.That(updates, Has.Some.Contains("Rule=LockedTargetCrossThrough"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void JumpAndChargeProgressionNotSuppressedByLocalEngagement()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var jumpProfile = CreateJumpEnemyProfile();
+            var jumpWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var jumpLogic = new EnemyLogic(entityId: 40, jumpProfile);
+            jumpWorldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                CreateEnemyJumpState(
+                    EnemyJumpPhase.Windup,
+                    sourceCell: sharedCell,
+                    lockedTargetCell: new SurfaceCell(FaceId.Floor, 2, 0),
+                    landingTick: 5));
+            ((IPhasedStateCommitContext)jumpWorldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 5));
+
+            var chargeProfile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
+            var chargeWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var chargeLogic = new EnemyLogic(entityId: 40, chargeProfile);
+            chargeWorldState.CreateWriteContext().SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 1,
+                    lockedDirection = Direction.Right,
+                    windupEndTick = 1,
+                    remainingActiveSteps = 1,
+                    recoverRemainingTicks = 0,
+                });
+            ((IPhasedStateCommitContext)chargeWorldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 5));
+            var chargeMovementBuffer = new List<RawMovementIntent>();
+
+            try
+            {
+                var jumpUpdates = CommitPreMovementState(jumpLogic, jumpWorldState, tickIndex: 5);
+                chargeLogic.CollectMovementIntents(chargeWorldState.CreateSnapshot(), new TickInput(5), chargeMovementBuffer);
+
+                Assert.That(jumpUpdates, Has.Some.Contains("EnemyJumpStateUpdated|E=40|Label=Takeoff"));
+                Assert.That(jumpWorldState.CreateSnapshot().TryGetEnemyJumpState(40, out var jumpState), Is.True);
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Move),
+                    },
+                    chargeMovementBuffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+            }
+            finally
+            {
+                DestroyProfile(jumpProfile);
+                DestroyProfile(chargeProfile);
             }
         }
 
@@ -7061,6 +7304,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 JumpTimingSettings = EnemyJumpTimingAuthoringSettings.FromRuntimeSettings(
                     new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+            });
+        }
+
+        private static EnemyAiProfile CreatePhaseThroughEnemyProfile()
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee,
+                MovementSkillStrategyKind = MovementSkillStrategyKind.PhaseThroughLockedTarget,
             });
         }
 

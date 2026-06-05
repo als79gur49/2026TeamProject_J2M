@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly DetectionSettings _detectionSettings;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly EnemyCombatCapabilityRuntime _combatCapability;
+        private readonly List<EntityState> _sharedCellUnits = new();
         private IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions = Array.Empty<TileFeatureRuntimeDefinition>();
 
         public EnemyActionStateLogic(int entityId)
@@ -193,9 +194,8 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         source,
                         workingAction,
-                        _combatCapability.AttackDecisionStrategy,
+                        _combatCapability,
                         _detectionSettings,
-                        _combatCapability.AttackDecisionSettings,
                         out _))
                 {
                     if (source.facing != workingAction.direction)
@@ -215,9 +215,8 @@ namespace Game.Feature.Gameplay.Entities
                     snapshot,
                     source,
                     _detectionStrategy,
-                    _combatCapability.AttackDecisionStrategy,
+                    _combatCapability,
                     _detectionSettings,
-                    _combatCapability.AttackDecisionSettings,
                     out var target,
                     out var direction))
             {
@@ -393,7 +392,10 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot,
                 source,
                 _detectionStrategy,
-                _detectionSettings);
+                _detectionSettings,
+                _combatCapability,
+                passiveContactCapability: null,
+                _sharedCellUnits);
 
             if (fallbackMode != source.aiMode ||
                 source.aiStateTimer != 0)
@@ -596,6 +598,56 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
+            in DetectionSettings detectionSettings,
+            out EntityState target,
+            out Direction direction)
+        {
+            target = default;
+            direction = source.facing;
+
+            if (!EnemyTargetSelector.TryAcquireFreshTarget(
+                    snapshot,
+                    source,
+                    detectionStrategy,
+                    detectionSettings,
+                    out target,
+                    out _) ||
+                !EnemyTargetEligibilityPolicy.EvaluateCombatActionValidate(snapshot, source, target, combatCapability).Eligible)
+            {
+                target = default;
+                return false;
+            }
+
+            direction = ResolveFacing(source, target);
+            return true;
+        }
+
+        public static bool TryResolveLockedTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyActionRuntimeState actionState,
+            EnemyCombatCapabilityRuntime combatCapability,
+            in DetectionSettings detectionSettings,
+            out EntityState target)
+        {
+            target = default;
+
+            if (!snapshot.TryGetEntity(actionState.lockedTargetEntityId, out target) ||
+                !IsValidLockedTargetForCurrentAction(snapshot, source, target, detectionSettings) ||
+                !EnemyTargetEligibilityPolicy.EvaluateCombatActionValidate(snapshot, source, target, combatCapability).Eligible)
+            {
+                target = default;
+                return false;
+            }
+
+            return true;
+        }
+
+        public static bool TryResolveStartAction(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            IDetectionStrategy detectionStrategy,
             IAttackDecisionStrategy attackDecisionStrategy,
             in DetectionSettings detectionSettings,
             in AttackDecisionSettings attackDecisionSettings,
@@ -605,7 +657,13 @@ namespace Game.Feature.Gameplay.Entities
             target = default;
             direction = source.facing;
 
-            if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out target) ||
+            if (!EnemyTargetSelector.TryAcquireFreshTarget(
+                    snapshot,
+                    source,
+                    detectionStrategy,
+                    detectionSettings,
+                    out target,
+                    out _) ||
                 !attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings))
             {
                 target = default;
@@ -642,9 +700,51 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
+            in DetectionSettings detectionSettings,
+            EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
+            List<EntityState> sharedCellUnits)
+        {
+            if (EnemyTargetSelector.TryAcquireFreshTarget(
+                    snapshot,
+                    source,
+                    detectionStrategy,
+                    detectionSettings,
+                    out _,
+                    out _))
+            {
+                return EnemyAiMode.Chase;
+            }
+
+            if (sharedCellUnits != null &&
+                EnemyTargetSelector.TryFindLocalEngagementTarget(
+                    snapshot,
+                    source,
+                    combatCapability,
+                    passiveContactCapability,
+                    sharedCellUnits,
+                    out _,
+                    out _))
+            {
+                return EnemyAiMode.Chase;
+            }
+
+            return EnemyAiMode.Patrol;
+        }
+
+        public static EnemyAiMode ResolveFallbackAiMode(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            IDetectionStrategy detectionStrategy,
             in DetectionSettings detectionSettings)
         {
-            return detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out _)
+            return EnemyTargetSelector.TryAcquireFreshTarget(
+                    snapshot,
+                    source,
+                    detectionStrategy,
+                    detectionSettings,
+                    out _,
+                    out _)
                 ? EnemyAiMode.Chase
                 : EnemyAiMode.Patrol;
         }

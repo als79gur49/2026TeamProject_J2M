@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
@@ -27,7 +28,7 @@ namespace Game.Feature.Gameplay.Entities
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions);
     }
 
-    public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding, ITileFeatureDefinitionContextReceiver
+    public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IMovementEntityDebugLogic, IAttackEntityLogic, IEntityLogicSourceBinding, ITileFeatureDefinitionContextReceiver
     {
         private readonly struct GroundLocomotionResolution
         {
@@ -170,6 +171,7 @@ namespace Game.Feature.Gameplay.Entities
                 stage,
                 _detectionStrategy,
                 _combatCapability,
+                _passiveContactCapability,
                 _movementSkillCapability,
                 _commonSettings,
                 _chargeTimingSettings,
@@ -397,6 +399,33 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
+        public void CollectMovementDebugEvents(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IReadOnlyList<RawMovementIntent> rawIntents,
+            List<string> debugEvents)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (debugEvents == null)
+            {
+                throw new ArgumentNullException(nameof(debugEvents));
+            }
+
+            if (!TryGetControllableEnemy(snapshot, out var source) ||
+                HasRawMovementIntentForSource(rawIntents, source.entityId) ||
+                !ShouldSuppressOrdinaryMovementForLocalEngagement(snapshot, source))
+            {
+                return;
+            }
+
+            debugEvents.Add(
+                $"OrdinaryMovementSuppressedByLocalEngagement|E={source.entityId}|Mode={source.aiMode}|Reason=OrdinaryMovementSuppressedByLocalEngagement");
+        }
+
         public void CollectAttackIntents(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -431,9 +460,8 @@ namespace Game.Feature.Gameplay.Entities
                     snapshot,
                     source,
                     actionState,
-                    _combatCapability.AttackDecisionStrategy,
+                    _combatCapability,
                     _detectionSettings,
-                    _combatCapability.AttackDecisionSettings,
                     out var combatTarget) &&
                 WindupMeleeCombatPoseQueries.CanExecuteHitFromLockedCombatAnchor(
                     snapshot,
@@ -1117,9 +1145,8 @@ namespace Game.Feature.Gameplay.Entities
                 snapshot,
                 source,
                 actionState,
-                _combatCapability.AttackDecisionStrategy,
+                _combatCapability,
                 _detectionSettings,
-                _combatCapability.AttackDecisionSettings,
                 out _,
                 out _);
         }
@@ -1370,26 +1397,13 @@ namespace Game.Feature.Gameplay.Entities
             out EntityState target)
         {
             target = default;
-            _sharedCellUnits.Clear();
-            snapshot.EnumerateUnitsAt(source.position, _sharedCellUnits);
-
-            for (var i = 0; i < _sharedCellUnits.Count; i++)
-            {
-                var candidate = _sharedCellUnits[i];
-                if (candidate.entityId == source.entityId ||
-                    candidate.teamId == source.teamId ||
-                    !EntityRolePolicy.IsPlayerUnit(candidate) ||
-                    candidate.hp <= 0 ||
-                    candidate.markedForDeath)
-                {
-                    continue;
-                }
-
-                target = candidate;
-                return true;
-            }
-
-            return false;
+            return EnemyLocalContactPolicy.TryFindPassiveContactCandidate(
+                snapshot,
+                source,
+                _passiveContactCapability,
+                _sharedCellUnits,
+                out target,
+                out _);
         }
 
         private bool TryGetControllableEnemy(WorldSnapshot snapshot, out EntityState source)
@@ -2148,6 +2162,46 @@ namespace Game.Feature.Gameplay.Entities
                    TryResolvePassiveContactTarget(snapshot, source, out _);
         }
 
+        private bool ShouldSuppressOrdinaryMovementForLocalEngagement(
+            WorldSnapshot snapshot,
+            in EntityState source)
+        {
+            if (source.aiMode != EnemyAiMode.Patrol &&
+                source.aiMode != EnemyAiMode.Chase)
+            {
+                return false;
+            }
+
+            return EnemyTargetSelector.TryFindLocalEngagementTarget(
+                snapshot,
+                source,
+                _combatCapability,
+                _passiveContactCapability,
+                _sharedCellUnits,
+                out _,
+                out _);
+        }
+
+        private static bool HasRawMovementIntentForSource(
+            IReadOnlyList<RawMovementIntent> rawIntents,
+            int sourceEntityId)
+        {
+            if (rawIntents == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < rawIntents.Count; i++)
+            {
+                if (rawIntents[i].SourceId == sourceEntityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private bool CommitJumpState(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -2544,6 +2598,11 @@ namespace Game.Feature.Gameplay.Entities
             switch (source.aiMode)
             {
                 case EnemyAiMode.Patrol:
+                    if (ShouldSuppressOrdinaryMovementForLocalEngagement(snapshot, source))
+                    {
+                        return default;
+                    }
+
                     if (ShouldHoldWallFollowForSameCellPassiveContact(snapshot, source))
                     {
                         return default;
@@ -2557,6 +2616,11 @@ namespace Game.Feature.Gameplay.Entities
                     return default;
 
                 case EnemyAiMode.Chase:
+                    if (ShouldSuppressOrdinaryMovementForLocalEngagement(snapshot, source))
+                    {
+                        return default;
+                    }
+
                     var excludedChaseDirection = TryGetChaseBlockedDirectionToAvoid(tickIndex, out var blockedDirectionToAvoid)
                         ? blockedDirectionToAvoid
                         : (Direction?)null;
@@ -3155,9 +3219,8 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             in EnemyActionRuntimeState actionState,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings,
             out EntityState lockedTarget,
             out SurfaceCell terminalCell)
         {
@@ -3169,9 +3232,8 @@ namespace Game.Feature.Gameplay.Entities
                        snapshot,
                        source,
                        actionState,
-                       attackDecisionStrategy,
+                       combatCapability,
                        detectionSettings,
-                       attackDecisionSettings,
                        out lockedTarget) &&
                    TryResolveCurrentTerminalCell(source, lockedTarget, actionState.direction, out terminalCell);
         }
@@ -3239,6 +3301,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
@@ -3263,10 +3326,10 @@ namespace Game.Feature.Gameplay.Entities
             switch (stage)
             {
                 case EnemyAiTransitionStage.BeforeMovement:
-                    return ResolveBeforeMovement(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings, tileFeatureDefinitions);
+                    return ResolveBeforeMovement(snapshot, source, tickIndex, detectionStrategy, combatCapability, passiveContactCapability, movementSkillCapability, commonSettings, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiTransitionStage.BeforeAttack:
-                    return ResolveBeforeAttack(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, commonSettings, detectionSettings, tileFeatureDefinitions);
+                    return ResolveBeforeAttack(snapshot, source, tickIndex, detectionStrategy, combatCapability, passiveContactCapability, movementSkillCapability, commonSettings, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiTransitionStage.AfterAttack:
                     return ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings);
@@ -3282,6 +3345,7 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in DetectionSettings detectionSettings,
@@ -3302,6 +3366,7 @@ namespace Game.Feature.Gameplay.Entities
                         tickIndex,
                         detectionStrategy,
                         combatCapability,
+                        passiveContactCapability,
                         movementSkillCapability,
                         detectionSettings,
                         tileFeatureDefinitions,
@@ -3339,6 +3404,7 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in DetectionSettings detectionSettings,
@@ -3354,6 +3420,7 @@ namespace Game.Feature.Gameplay.Entities
                         tickIndex,
                         detectionStrategy,
                         combatCapability,
+                        passiveContactCapability,
                         movementSkillCapability,
                         detectionSettings,
                         tileFeatureDefinitions,
@@ -3395,6 +3462,7 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
@@ -3419,28 +3487,69 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         source,
                         actionState,
-                        combatCapability.AttackDecisionStrategy,
+                        combatCapability,
                         detectionSettings,
-                        combatCapability.AttackDecisionSettings,
+                        out var retainedLockedTarget))
+                {
+                    var retainReason = EnemyTargetEligibilityPolicy
+                        .EvaluateFreshAcquire(snapshot, source, retainedLockedTarget, detectionSettings)
+                        .RejectReason == EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState
+                        ? "LockedTargetRetainedDespiteFreshSuppression"
+                        : "LockedTargetInRange";
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, retainReason, actionState.direction);
+                }
+
+                if (TryResolveLocalEngagementHold(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        passiveContactCapability,
+                        out _,
                         out _))
                 {
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedTargetInRange", actionState.direction);
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        "PatrolFallbackDeniedByLocalEngagement");
                 }
 
                 return new EnemyAiTransitionDecision(
-                    EnemyActionStateTargeting.ResolveFallbackAiMode(snapshot, source, detectionStrategy, detectionSettings),
+                    EnemyActionStateTargeting.ResolveFallbackAiMode(
+                        snapshot,
+                        source,
+                        detectionStrategy,
+                        detectionSettings,
+                        combatCapability,
+                        passiveContactCapability,
+                        new List<EntityState>()),
                     0,
                     "LockedTargetLost");
             }
 
-            if (!detectionStrategy.TryFindTarget(
+            if (!EnemyTargetSelector.TryAcquireFreshTarget(
                     snapshot,
                     source,
+                    detectionStrategy,
                     detectionSettings,
                     out var target,
+                    out var freshAcquireResult,
                     EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
             {
-                return new EnemyAiTransitionDecision(patrolFallback, 0, "NoTarget");
+                if (TryResolveLocalEngagementHold(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        passiveContactCapability,
+                        out _,
+                        out var localHoldResult))
+                {
+                    return new EnemyAiTransitionDecision(
+                        source.aiMode == EnemyAiMode.Patrol ? EnemyAiMode.Chase : source.aiMode,
+                        0,
+                        BuildNoTargetHoldReason(freshAcquireResult, localHoldResult));
+                }
+
+                return new EnemyAiTransitionDecision(patrolFallback, 0, BuildNoTargetReason(freshAcquireResult));
             }
 
             if (combatCapability != null &&
@@ -3476,6 +3585,45 @@ namespace Game.Feature.Gameplay.Entities
             return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
         }
 
+        private static bool TryResolveLocalEngagementHold(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result)
+        {
+            return EnemyTargetSelector.TryFindLocalEngagementTarget(
+                snapshot,
+                source,
+                combatCapability,
+                passiveContactCapability,
+                new List<EntityState>(),
+                out target,
+                out result);
+        }
+
+        private static string BuildNoTargetReason(in EnemyTargetEligibilityResult freshAcquireResult)
+        {
+            return freshAcquireResult.RejectReason == EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState
+                ? "FreshTargetSuppressedBySpatialState"
+                : "NoTarget";
+        }
+
+        private static string BuildNoTargetHoldReason(
+            in EnemyTargetEligibilityResult freshAcquireResult,
+            in EnemyTargetEligibilityResult localHoldResult)
+        {
+            if (localHoldResult.AcceptReason == EnemyTargetEligibilityAcceptReason.SameCellLocalEngagement)
+            {
+                return freshAcquireResult.RejectReason == EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState
+                    ? "LocalEngagementHeldSameCell"
+                    : "PatrolFallbackDeniedByLocalEngagement";
+            }
+
+            return "PatrolFallbackDeniedByLocalEngagement";
+        }
+
         private static EnemyAiTransitionDecision Keep(in EntityState source, string reason)
         {
             return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, reason);
@@ -3509,6 +3657,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
             in EnemyChargeTimingSettings chargeTimingSettings,
@@ -3538,6 +3687,7 @@ namespace Game.Feature.Gameplay.Entities
                     tickIndex,
                     detectionStrategy,
                     combatCapability,
+                    passiveContactCapability,
                     movementSkillCapability,
                     chargeTimingSettings,
                     detectionSettings,
@@ -3548,6 +3698,7 @@ namespace Game.Feature.Gameplay.Entities
                     tickIndex,
                     detectionStrategy,
                     combatCapability,
+                    passiveContactCapability,
                     movementSkillCapability,
                     detectionSettings,
                     tileFeatureDefinitions),
@@ -3600,6 +3751,7 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
@@ -3612,20 +3764,36 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "Disabled");
 
                 case EnemyAiMode.Patrol:
-                    if (detectionStrategy.TryFindTarget(
+                    if (EnemyTargetSelector.TryAcquireFreshTarget(
                             snapshot,
                             source,
+                            detectionStrategy,
                             detectionSettings,
                             out _,
+                            out var patrolFreshResult,
                             EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
                     }
 
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
+                    if (TryResolveLocalEngagementHold(
+                            snapshot,
+                            source,
+                            combatCapability,
+                            passiveContactCapability,
+                            out _,
+                            out var patrolLocalHoldResult))
+                    {
+                        return new EnemyAiTransitionDecision(
+                            EnemyAiMode.Chase,
+                            0,
+                            BuildNoTargetHoldReason(patrolFreshResult, patrolLocalHoldResult));
+                    }
+
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, BuildNoTargetReason(patrolFreshResult));
 
                 case EnemyAiMode.Chase:
-                    return ResolveChase(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
+                    return ResolveChase(snapshot, source, tickIndex, detectionStrategy, combatCapability, passiveContactCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiMode.Charge:
                     return ResolveChargeBeforeMovement(
@@ -3634,12 +3802,13 @@ namespace Game.Feature.Gameplay.Entities
                         tickIndex,
                         detectionStrategy,
                         combatCapability,
+                        passiveContactCapability,
                         chargeTimingSettings,
                         detectionSettings,
                         tileFeatureDefinitions);
 
                 case EnemyAiMode.Attack:
-                    return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
+                    return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, passiveContactCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
 
                 case EnemyAiMode.Recover:
                     if (IsChargeOwnedRecover(snapshot, source.entityId, out var chargeRecoverState))
@@ -3649,7 +3818,7 @@ namespace Game.Feature.Gameplay.Entities
                             return new EnemyAiTransitionDecision(EnemyAiMode.Recover, 0, "ChargeRecoverTick");
                         }
 
-                        return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeRecoverComplete");
+                        return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, passiveContactCapability, detectionSettings, "ChargeRecoverComplete");
                     }
 
                     var genericRecoverCountdown = GetGenericRecoverCountdown(snapshot, source);
@@ -3658,14 +3827,33 @@ namespace Game.Feature.Gameplay.Entities
                         return new EnemyAiTransitionDecision(EnemyAiMode.Recover, genericRecoverCountdown - 1, "RecoverTick");
                     }
 
-                    return detectionStrategy.TryFindTarget(
+                    if (EnemyTargetSelector.TryAcquireFreshTarget(
                             snapshot,
                             source,
+                            detectionStrategy,
                             detectionSettings,
                             out _,
-                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability))
-                        ? new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "RecoverComplete")
-                        : new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "RecoverCompleteNoTarget");
+                            out var recoverFreshResult,
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
+                    {
+                        return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "RecoverComplete");
+                    }
+
+                    if (TryResolveLocalEngagementHold(
+                            snapshot,
+                            source,
+                            combatCapability,
+                            passiveContactCapability,
+                            out _,
+                            out var recoverLocalHoldResult))
+                    {
+                        return new EnemyAiTransitionDecision(
+                            EnemyAiMode.Chase,
+                            0,
+                            BuildNoTargetHoldReason(recoverFreshResult, recoverLocalHoldResult));
+                    }
+
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "RecoverCompleteNoTarget");
 
                 default:
                     return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "UnhandledBeforeMovement");
@@ -3678,6 +3866,7 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
@@ -3706,7 +3895,7 @@ namespace Game.Feature.Gameplay.Entities
 
             if (source.aiMode == EnemyAiMode.Chase || source.aiMode == EnemyAiMode.Attack)
             {
-                return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
+                return ResolveAttackOrFallback(snapshot, source, tickIndex, detectionStrategy, combatCapability, passiveContactCapability, movementSkillCapability, detectionSettings, tileFeatureDefinitions);
             }
 
             return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoBeforeAttackTransition");
@@ -3718,18 +3907,35 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
-            if (!detectionStrategy.TryFindTarget(
+            if (!EnemyTargetSelector.TryAcquireFreshTarget(
                     snapshot,
                     source,
+                    detectionStrategy,
                     detectionSettings,
                     out var target,
+                    out var freshAcquireResult,
                     EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
             {
-                return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
+                if (TryResolveLocalEngagementHold(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        passiveContactCapability,
+                        out _,
+                        out var localHoldResult))
+                {
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        BuildNoTargetHoldReason(freshAcquireResult, localHoldResult));
+                }
+
+                return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, BuildNoTargetReason(freshAcquireResult));
             }
 
             if (combatCapability != null &&
@@ -3782,6 +3988,7 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
@@ -3805,28 +4012,69 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         source,
                         actionState,
-                        combatCapability.AttackDecisionStrategy,
+                        combatCapability,
                         detectionSettings,
-                        combatCapability.AttackDecisionSettings,
+                        out var retainedLockedTarget))
+                {
+                    var retainReason = EnemyTargetEligibilityPolicy
+                        .EvaluateFreshAcquire(snapshot, source, retainedLockedTarget, detectionSettings)
+                        .RejectReason == EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState
+                        ? "LockedTargetRetainedDespiteFreshSuppression"
+                        : "LockedTargetInRange";
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, retainReason, actionState.direction);
+                }
+
+                if (TryResolveLocalEngagementHold(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        passiveContactCapability,
+                        out _,
                         out _))
                 {
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedTargetInRange", actionState.direction);
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        "PatrolFallbackDeniedByLocalEngagement");
                 }
 
                 return new EnemyAiTransitionDecision(
-                    EnemyActionStateTargeting.ResolveFallbackAiMode(snapshot, source, detectionStrategy, detectionSettings),
+                    EnemyActionStateTargeting.ResolveFallbackAiMode(
+                        snapshot,
+                        source,
+                        detectionStrategy,
+                        detectionSettings,
+                        combatCapability,
+                        passiveContactCapability,
+                        new List<EntityState>()),
                     0,
                     "LockedTargetLost");
             }
 
-            if (!detectionStrategy.TryFindTarget(
+            if (!EnemyTargetSelector.TryAcquireFreshTarget(
                     snapshot,
                     source,
+                    detectionStrategy,
                     detectionSettings,
                     out var target,
+                    out var attackFreshResult,
                     EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
             {
-                return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
+                if (TryResolveLocalEngagementHold(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        passiveContactCapability,
+                        out _,
+                        out var attackLocalHoldResult))
+                {
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        BuildNoTargetHoldReason(attackFreshResult, attackLocalHoldResult));
+                }
+
+                return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, BuildNoTargetReason(attackFreshResult));
             }
 
             if (combatCapability != null &&
@@ -3867,11 +4115,29 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             in DetectionSettings detectionSettings,
             string reason)
         {
-            if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
+            if (!EnemyTargetSelector.TryAcquireFreshTarget(
+                    snapshot,
+                    source,
+                    detectionStrategy,
+                    detectionSettings,
+                    out var target,
+                    out var freshResult))
             {
+                if (TryResolveLocalEngagementHold(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        passiveContactCapability,
+                        out _,
+                        out _))
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "PatrolFallbackDeniedByLocalEngagement");
+                }
+
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, reason);
             }
 
@@ -3881,12 +4147,52 @@ namespace Game.Feature.Gameplay.Entities
                 : new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, reason);
         }
 
+        private static bool TryResolveLocalEngagementHold(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
+            out EntityState target,
+            out EnemyTargetEligibilityResult result)
+        {
+            return EnemyTargetSelector.TryFindLocalEngagementTarget(
+                snapshot,
+                source,
+                combatCapability,
+                passiveContactCapability,
+                new List<EntityState>(),
+                out target,
+                out result);
+        }
+
+        private static string BuildNoTargetReason(in EnemyTargetEligibilityResult freshAcquireResult)
+        {
+            return freshAcquireResult.RejectReason == EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState
+                ? "FreshTargetSuppressedBySpatialState"
+                : "NoTarget";
+        }
+
+        private static string BuildNoTargetHoldReason(
+            in EnemyTargetEligibilityResult freshAcquireResult,
+            in EnemyTargetEligibilityResult localHoldResult)
+        {
+            if (localHoldResult.AcceptReason == EnemyTargetEligibilityAcceptReason.SameCellLocalEngagement)
+            {
+                return freshAcquireResult.RejectReason == EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState
+                    ? "LocalEngagementHeldSameCell"
+                    : "PatrolFallbackDeniedByLocalEngagement";
+            }
+
+            return "PatrolFallbackDeniedByLocalEngagement";
+        }
+
         private static EnemyAiTransitionDecision ResolveChargeBeforeMovement(
             WorldSnapshot snapshot,
             in EntityState source,
             int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
@@ -3916,6 +4222,7 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             detectionStrategy,
                             combatCapability,
+                            passiveContactCapability,
                             chargeTimingSettings,
                             detectionSettings,
                             "ChargeBlocked");
@@ -3949,6 +4256,7 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             detectionStrategy,
                             combatCapability,
+                            passiveContactCapability,
                             chargeTimingSettings,
                             detectionSettings,
                             "ChargeComplete");
@@ -3970,6 +4278,7 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             detectionStrategy,
                             combatCapability,
+                            passiveContactCapability,
                             chargeTimingSettings,
                             detectionSettings,
                             "ChargeBlocked");
@@ -3983,7 +4292,7 @@ namespace Game.Feature.Gameplay.Entities
                         return new EnemyAiTransitionDecision(EnemyAiMode.Recover, 0, "ChargeRecoverTick");
                     }
 
-                    return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeRecoverComplete");
+                    return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, passiveContactCapability, detectionSettings, "ChargeRecoverComplete");
 
                 default:
                     return new EnemyAiTransitionDecision(source.aiMode, 0, "UnhandledChargePhase");
@@ -3995,13 +4304,14 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             string reason)
         {
             if (chargeTimingSettings.RecoverTicks == 0)
             {
-                return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, reason);
+                return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, passiveContactCapability, detectionSettings, reason);
             }
 
             return new EnemyAiTransitionDecision(

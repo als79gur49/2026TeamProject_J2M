@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class ModifierCapabilityGeneralizationTests
     {
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void RuntimeTraversalLegalityPolicy_EvaluateDestination_LivePhasedActor_IgnoresUnitBlocker()
         {
             var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void RuntimeTraversalLegalityPolicy_EvaluateDestination_LivePhasedActor_IgnoresSolidBlocker()
         {
             var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -72,7 +72,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void GameplayEntityQueryPolicy_LivePhasedState_SuppressesTargetSelection_ButNotGameplayQueries()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -179,6 +179,112 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     out var lockedTarget),
                 Is.True);
             Assert.That(lockedTarget.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PhasedVisiblePlayerIsNotFreshAcquireButIsLocalEngagement()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, sharedCell, teamId: 2, aiMode: EnemyAiMode.Chase),
+                    CreateUnit(20, sharedCell, teamId: 1),
+                });
+            WritePhasedState(worldState, 20, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+            Assert.That(snapshot.TryGetEntity(20, out var target), Is.True);
+
+            var fresh = EnemyTargetEligibilityPolicy.EvaluateFreshAcquire(
+                snapshot,
+                source,
+                target,
+                DetectionSettings.CreateDefaultMelee());
+            var localHold = EnemyTargetEligibilityPolicy.EvaluateLocalEngagementHold(
+                snapshot,
+                source,
+                target,
+                CreateDefaultCombatCapability(),
+                CreatePassiveContactCapability());
+            var passiveCandidate = EnemyTargetEligibilityPolicy.EvaluatePassiveContactCandidate(
+                snapshot,
+                source,
+                target,
+                CreatePassiveContactCapability());
+
+            Assert.That(fresh.Eligible, Is.False);
+            Assert.That(fresh.RejectReason, Is.EqualTo(EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState));
+            Assert.That(localHold.Eligible, Is.True);
+            Assert.That(localHold.AcceptReason, Is.EqualTo(EnemyTargetEligibilityAcceptReason.SameCellLocalEngagement));
+            Assert.That(passiveCandidate.Eligible, Is.True);
+            Assert.That(passiveCandidate.AcceptReason, Is.EqualTo(EnemyTargetEligibilityAcceptReason.PassiveContactCandidate));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void LockedTargetRetentionDoesNotUseFreshAcquireEligibility()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, sharedCell, teamId: 2, aiMode: EnemyAiMode.Attack),
+                    CreateUnit(20, sharedCell, teamId: 1),
+                });
+            WritePhasedState(worldState, 20, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+            Assert.That(snapshot.TryGetEntity(20, out var target), Is.True);
+
+            var fresh = EnemyTargetEligibilityPolicy.EvaluateFreshAcquire(
+                snapshot,
+                source,
+                target,
+                DetectionSettings.CreateDefaultMelee());
+            var retained = EnemyTargetEligibilityPolicy.EvaluateRetainLockedTarget(
+                snapshot,
+                source,
+                target);
+
+            Assert.That(fresh.Eligible, Is.False);
+            Assert.That(fresh.RejectReason, Is.EqualTo(EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState));
+            Assert.That(retained.Eligible, Is.True);
+            Assert.That(retained.AcceptReason, Is.EqualTo(EnemyTargetEligibilityAcceptReason.LockedTargetRetained));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FreshTargetSuppressionStillWorksForNonContactPhasedPlayer()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 2, aiMode: EnemyAiMode.Chase),
+                    CreateUnit(20, new SurfaceCell(FaceId.Floor, 2, 0), teamId: 1),
+                });
+            WritePhasedState(worldState, 20, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+            Assert.That(snapshot.TryGetEntity(20, out var target), Is.True);
+
+            var fresh = EnemyTargetEligibilityPolicy.EvaluateFreshAcquire(
+                snapshot,
+                source,
+                target,
+                DetectionSettings.CreateDefaultMelee());
+            var localHold = EnemyTargetEligibilityPolicy.EvaluateLocalEngagementHold(
+                snapshot,
+                source,
+                target,
+                CreateDefaultCombatCapability(),
+                passiveContactCapability: null);
+
+            Assert.That(fresh.Eligible, Is.False);
+            Assert.That(fresh.RejectReason, Is.EqualTo(EnemyTargetEligibilityRejectReason.FreshSelectionSuppressedBySpatialState));
+            Assert.That(localHold.Eligible, Is.False);
+            Assert.That(localHold.RejectReason, Is.EqualTo(EnemyTargetEligibilityRejectReason.TargetNotSameCell));
         }
 
         [Test]
@@ -658,7 +764,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return logic;
         }
 
-        private static EntityState CreateUnit(int entityId, SurfaceCell position, int teamId)
+        private static EntityState CreateUnit(
+            int entityId,
+            SurfaceCell position,
+            int teamId,
+            EnemyAiMode aiMode = EnemyAiMode.None)
         {
             return new EntityState
             {
@@ -671,7 +781,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
+                aiMode = aiMode,
             };
+        }
+
+        private static EnemyCombatCapabilityRuntime CreateDefaultCombatCapability()
+        {
+            return new EnemyCombatCapabilityRuntime(
+                AttackDecisionStrategyKind.Melee,
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                MeleeAttackDecisionStrategy.Instance);
+        }
+
+        private static EnemyPassiveContactCapabilityRuntime CreatePassiveContactCapability()
+        {
+            return new EnemyPassiveContactCapabilityRuntime(
+                AttackDecisionStrategyKind.ContactSameCell,
+                AttackDecisionSettings.CreateDefaultMelee(),
+                ContactSameCellAttackDecisionStrategy.Instance);
         }
 
         private static EntityState CreateBox(
