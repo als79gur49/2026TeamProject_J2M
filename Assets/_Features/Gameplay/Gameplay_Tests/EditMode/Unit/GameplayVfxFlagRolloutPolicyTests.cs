@@ -19,9 +19,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string WorldSnapshotPath = "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldSnapshot.cs";
         private const string TickPresentationDataPath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs";
-        private const string CombinedGameplayShowcaseScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
 
         private static readonly FlagInfo[] MigrationFlags =
         {
@@ -115,21 +112,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SerializedMigrationFieldResidue_RemainsSceneOnlyUntilPhase3B()
+        public void RuntimePolicy_DoesNotRequireRawScenePathFixturesForMigrationResidue()
         {
-            var sceneTexts = new[]
-            {
-                ReadRepoFile(CombinedGameplayShowcaseScenePath),
-                ReadRepoFile(UIAudioScenePath),
-                ReadRepoFile(TutorialScenePath),
-            };
+            var document = ReadRepoFile(GovernancePath);
+            Assert.That(document, Does.Contain("UIAudioScene shell plus StageId/profile ownership"));
+            Assert.That(document, Does.Contain("Raw scene-path VFX policy fixtures are deprecated"));
 
             foreach (var flag in MigrationFlags)
             {
                 Assert.That(
-                    sceneTexts.Any(text => text.Contains(flag.SerializedFieldName, StringComparison.Ordinal)),
-                    Is.True,
-                    $"{flag.PropertyName} serialized scene residue keeps field deletion blocked until Phase 3B.");
+                    typeof(GameplayVfxProductionRuntime).GetProperty(flag.PropertyName),
+                    Is.Not.Null,
+                    $"{flag.PropertyName} remains only as serialized compatibility surface until Phase 3B field cleanup.");
             }
         }
 

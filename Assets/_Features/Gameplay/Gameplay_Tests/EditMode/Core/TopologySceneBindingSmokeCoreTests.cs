@@ -15,8 +15,6 @@ namespace Game.Feature.Gameplay.Tests.Core
     {
         private static readonly string[] ProductionScenePaths =
         {
-            "Assets/Scenes/CombinedGameplayShowcase.unity",
-            "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
         };
 

@@ -746,7 +746,7 @@ Visual tuning:
 - small prefab-local surface lift to avoid floor z-fighting
 - no audio, collider, dynamic Rigidbody, NavMeshAgent, or gameplay-affecting script
 
-The host connection for manual verification is limited to `Assets/Scenes/CombinedGameplayShowcase.unity`, where `GameplayVfxProductionRuntime` is attached to the existing host object with `EnableEnemyJumpTargetVfx` enabled and the host default cue map assigned.
+The host connection for manual verification uses the canonical `Assets/Scenes/UIAudioScene.unity` gameplay shell with the selected `StageId` primed through `StageLaunchContextStore`. `GameplayVfxProductionRuntime` remains attached to the existing host object with `EnableEnemyJumpTargetVfx` enabled and the host default cue map assigned.
 
 Future work remains out of scope for this slice: persistent telegraph desired state, jump execute/cancel/death/retarget stop logic, prefab-local jumper profile ownership, stage/tile/terrain VFX, and existing presenter migration.
 
@@ -1459,7 +1459,7 @@ Authority and carrier boundaries remain unchanged: no `TickPipeline`, `WorldStat
 
 Every current migrated Gameplay VFX cue has completed final runtime rollout. The canonical Gameplay VFX runtime path is the production runtime, default cue map, binding policy, runtime root, pool/lifecycle, and common empty host path. Runtime selection for migrated cues is default-only and no longer branches on `EnableGameplayVfx*Migration` values.
 
-The retained `EnableGameplayVfx*Migration` serialized fields are Phase 3A compatibility residue only. Serialized scene values may remain in `CombinedGameplayShowcase.unity`, `UIAudioScene.unity`, and `TutorialScene.unity`, but they do not select an old path and do not disable the canonical migrated cue path. Field deletion is deferred to Phase 3B after scene/prefab YAML residue is zero and scene policy has moved to shell/profile/StageId ownership.
+The retained `EnableGameplayVfx*Migration` serialized fields are Phase 3A compatibility residue only. Serialized scene values may remain in `CombinedGameplayShowcase.unity`, `UIAudioScene.unity`, and `TutorialScene.unity`, but they do not select an old path and do not disable the canonical migrated cue path. Field deletion is deferred to Phase 3B after scene/prefab YAML residue is zero and scene policy has moved to UIAudioScene shell plus StageId/profile ownership.
 
 Migration flags no longer own playback policy. When a migrated cue's binding, prefab, anchor, source pose, or target context is missing, the canonical path reports diagnostic/no-op and does not fall back to an old presenter path.
 
@@ -1467,11 +1467,13 @@ Augmentation flags do not own legacy fallback or suppress gates. They may add Ga
 
 High-risk parameterized motion and clone/source-view VFX required manual parity approval before default-on rollout. `EnemyVfxCue.Death`, `EnemyVfxCue.DeathMotion`, and `BoxVfxCue.FlipDestroySelfMotion` are approved in the Tier 3 rollout batch. Their old presenter fallbacks are finalized and removed; retained serialized migration fields no longer control runtime playback.
 
+UIAudioScene shell plus StageId/profile ownership is the active VFX scene policy boundary. Raw scene-path VFX policy fixtures are deprecated.
+
 Scene-local serialized residue is separate from runtime policy:
 
 - `Assets/Scenes/CombinedGameplayShowcase.unity` and `Assets/Scenes/UIAudioScene.unity` still serialize legacy migration field values from review-era authoring.
 - `Assets/Scenes/TutorialScene.unity` still serializes false migration field values from the old production-safe/off fixture policy.
-- These scene-path fixture policies are deprecated for migrated cues. Phase 3B should move policy checks to the UIAudioScene shell plus StageId/profile ownership before hard field cleanup.
+- These scene-path fixture policies are deprecated for migrated cues. Phase 3B should verify remaining serialized residue before hard field cleanup; policy checks must stay on the UIAudioScene shell plus StageId/profile ownership.
 
 Enemy death legacy fallback is finalized. Suppress compatibility gates were removed. `EnemyVfxCue.Death` and `EnemyVfxCue.DeathMotion` are canonical Gameplay VFX runtime cues. Burst + Motion simultaneous output remains visually monitored. The supported runtime output is:
 

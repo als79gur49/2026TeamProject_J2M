@@ -907,8 +907,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] ScenePaths =
         {
-            "Assets/Scenes/CombinedGameplayShowcase.unity",
-            "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
         };
 
@@ -1083,7 +1081,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CanonicalShowcaseScenes_MoveCameraTopologyFields_ToCoLocatedAuthoringBlock()
+        public void GameplayShellScene_MovesCameraTopologyFields_ToCoLocatedAuthoringBlock()
         {
             foreach (var scenePath in ScenePaths)
             {
@@ -1124,21 +1122,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CanonicalShowcaseScenes_UsePresetModeAndExpectedPresetReferences()
+        public void GameplayShellScene_UsesPresetModeAndExpectedPresetReference()
         {
-            var combinedPresetGuid = AssetDatabase.AssetPathToGUID(CombinedGameplayShowcasePresetAssetPath);
             var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialScenePresetAssetPath);
 
             foreach (var scenePath in ScenePaths)
             {
                 var authoringBlock = ReadSceneComponentBlock(ReadRepoFile(scenePath), GameplayCameraTopologyAuthoringMarker);
                 var baselineAuthoringPolicyBlock = ReadSerializedBlock(authoringBlock, "baselineAuthoringPolicy", 2);
-                var expectedPresetGuid = scenePath == "Assets/Scenes/CombinedGameplayShowcase.unity"
-                    ? combinedPresetGuid
-                    : tutorialPresetGuid;
 
                 Assert.That(ReadSerializedIntValue(authoringBlock, "sourceMode"), Is.EqualTo((int)GameplayCameraTopologySourceMode.Preset));
-                Assert.That(ReadSerializedObjectGuid(authoringBlock, "preset"), Is.EqualTo(expectedPresetGuid));
+                Assert.That(ReadSerializedObjectGuid(authoringBlock, "preset"), Is.EqualTo(tutorialPresetGuid));
                 Assert.That(ReadSerializedIntValue(baselineAuthoringPolicyBlock, "UseAuthoredSceneCameraPose"), Is.EqualTo(1));
                 Assert.That(ReadSerializedIntValue(baselineAuthoringPolicyBlock, "UseAuthoredSceneCameraLens"), Is.EqualTo(1));
             }
@@ -1146,17 +1140,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void TutorialStageScenes_ShareCameraTopologyPresetReference()
+        public void GameplayShellScene_UsesTutorialCameraTopologyPresetReference()
         {
-            var tutorialBlock = ReadSceneComponentBlock(ReadRepoFile("Assets/Scenes/TutorialScene.unity"), GameplayCameraTopologyAuthoringMarker);
             var uiAudioBlock = ReadSceneComponentBlock(ReadRepoFile("Assets/Scenes/UIAudioScene.unity"), GameplayCameraTopologyAuthoringMarker);
-            var combinedBlock = ReadSceneComponentBlock(ReadRepoFile("Assets/Scenes/CombinedGameplayShowcase.unity"), GameplayCameraTopologyAuthoringMarker);
-            var tutorialPresetGuid = ReadSerializedObjectGuid(tutorialBlock, "preset");
             var uiAudioPresetGuid = ReadSerializedObjectGuid(uiAudioBlock, "preset");
-            var combinedPresetGuid = ReadSerializedObjectGuid(combinedBlock, "preset");
+            var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialScenePresetAssetPath);
 
-            Assert.That(tutorialPresetGuid, Is.EqualTo(uiAudioPresetGuid));
-            Assert.That(combinedPresetGuid, Is.Not.EqualTo(tutorialPresetGuid));
+            Assert.That(uiAudioPresetGuid, Is.EqualTo(tutorialPresetGuid));
         }
 
         [Test]
@@ -1328,8 +1318,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return scenePath switch
             {
-                "Assets/Scenes/CombinedGameplayShowcase.unity" => StageId.CreateOrThrow("combined-gameplay-showcase"),
-                "Assets/Scenes/TutorialScene.unity" => StageId.CreateOrThrow("tutorial-scene"),
                 "Assets/Scenes/UIAudioScene.unity" => StageId.CreateOrThrow("stage-1-1"),
                 _ => StageId.None,
             };

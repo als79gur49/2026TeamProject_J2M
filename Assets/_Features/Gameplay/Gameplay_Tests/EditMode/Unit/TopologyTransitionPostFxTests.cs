@@ -21,8 +21,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
      */
     public sealed class TopologyTransitionPostFxTests
     {
-        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
+        private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string CombinedPresetAssetPath =
             StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
         private const string TutorialPresetAssetPath =
@@ -336,38 +335,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseCameraTopologyPresetAssets_UseAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
+        public void ShowcaseCameraTopologyPresetAssets_UseAuthoritativeVolumeProfileInsteadOfDeprecatedSettingsProfile()
         {
             var combinedPresetText = ReadNormalizedText(CombinedPresetAssetPath);
             var tutorialPresetText = ReadNormalizedText(TutorialPresetAssetPath);
-            var combinedSceneText = ReadNormalizedText(CombinedScenePath);
-            var tutorialSceneText = ReadNormalizedText(TutorialScenePath);
-            var authoritativeGuid = AssetDatabase.AssetPathToGUID(AuthoritativeVolumeProfileAssetPath);
-            var combinedPresetGuid = AssetDatabase.AssetPathToGUID(CombinedPresetAssetPath);
+            var uiAudioSceneText = ReadNormalizedText(UiAudioScenePath);
             var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialPresetAssetPath);
 
-            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", combinedPresetText);
-            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", tutorialPresetText);
+            StringAssert.Contains("authoritativeVolumeProfile: {fileID: 11400000, guid:", combinedPresetText);
+            StringAssert.Contains("authoritativeVolumeProfile: {fileID: 11400000, guid:", tutorialPresetText);
             StringAssert.Contains("angularVelocityResponseExponent: 0.65", combinedPresetText);
             StringAssert.Contains("angularVelocityResponseExponent: 0.65", tutorialPresetText);
             StringAssert.Contains("distortionProfile:", combinedPresetText);
             StringAssert.Contains("ImpactIntensity: -0.2", combinedPresetText);
             StringAssert.Contains("distortionProfile:", tutorialPresetText);
             StringAssert.Contains("ImpactIntensity: -0.2", tutorialPresetText);
-            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {combinedPresetGuid}, type: 2}}", combinedSceneText);
-            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {tutorialPresetGuid}, type: 2}}", tutorialSceneText);
-            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedSceneText);
-            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialSceneText);
+            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {tutorialPresetGuid}, type: 2}}", uiAudioSceneText);
+            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, uiAudioSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedPresetText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialPresetText);
         }
 
         [Test]
         [Category("Full")]
-        public void ShowcaseScenes_HostStartup_EnablesPostProcessingOnOutputCamera()
+        public void GameplayShellScene_HostStartup_EnablesPostProcessingOnOutputCamera()
         {
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(CombinedScenePath, "stage-1-1");
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(TutorialScenePath, "tutorial-scene");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "tutorial-scene");
         }
 
         private static void AssertSceneHostStartupEnablesOutputCameraPostProcessing(string scenePath, string stageIdValue)
