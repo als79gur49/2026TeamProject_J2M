@@ -15,18 +15,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 {
     public sealed class GameplayVfxSceneRuntimeRootPlayModeTests
     {
-        private const string CombinedGameplayShowcaseScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string RuntimeRootPath = "GameplayVfxRuntimeRoot";
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator CombinedGameplayShowcase_DirectPlayTick_CreatesGameplayVfxRuntimeRoot()
+        public IEnumerator UIAudioSceneCombinedGameplayStage_DirectPlayTick_CreatesGameplayVfxRuntimeRoot()
         {
             yield return AssertSceneTickCreatesRuntimeRoot(
-                CombinedGameplayShowcaseScenePath,
-                StageId.CreateOrThrow("stage-1-1"));
+                UIAudioScenePath,
+                StageId.CreateOrThrow("combined-gameplay-showcase"));
         }
 
         [UnityTest]
@@ -73,19 +71,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator CombinedGameplayShowcase_InitialBootstrap_ConfiguresVfxMapBeforeFirstTick()
+        public IEnumerator UIAudioSceneCombinedGameplayStage_InitialBootstrap_ConfiguresVfxMapBeforeFirstTick()
         {
             try
             {
-                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-1-1"));
+                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("combined-gameplay-showcase"));
                 EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("stage-1-1")));
-                yield return LoadScene(CombinedGameplayShowcaseScenePath);
+                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("combined-gameplay-showcase")));
+                yield return LoadScene(UIAudioScenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();
-                Assert.That(host, Is.Not.Null, $"{CombinedGameplayShowcaseScenePath} must create a GameplaySceneHost.");
+                Assert.That(host, Is.Not.Null, $"{UIAudioScenePath} must create a GameplaySceneHost.");
                 var runtime = host.GetComponent<GameplayVfxProductionRuntime>();
-                Assert.That(runtime, Is.Not.Null, $"{CombinedGameplayShowcaseScenePath} must include a GameplayVfxProductionRuntime.");
+                Assert.That(runtime, Is.Not.Null, $"{UIAudioScenePath} must include a GameplayVfxProductionRuntime.");
 
                 Assert.That(runtime.IsHostDefaultMapConfigured, Is.True);
                 Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
@@ -101,22 +99,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator TutorialScene_InitialBootstrap_KeepsTileFeatureVfxLaneDisabled()
+        public IEnumerator UIAudioSceneTutorialStage_InitialBootstrap_UsesCanonicalShellVfxRuntime()
         {
             try
             {
                 StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("tutorial-scene"));
                 EditorDirectPlayContextStore.SetCurrent(
                     EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("tutorial-scene")));
-                yield return LoadScene(TutorialScenePath);
+                yield return LoadScene(UIAudioScenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();
-                Assert.That(host, Is.Not.Null, $"{TutorialScenePath} must create a GameplaySceneHost.");
+                Assert.That(host, Is.Not.Null, $"{UIAudioScenePath} must create a GameplaySceneHost.");
                 var runtime = host.GetComponent<GameplayVfxProductionRuntime>();
-                Assert.That(runtime, Is.Not.Null, $"{TutorialScenePath} must include a GameplayVfxProductionRuntime.");
+                Assert.That(runtime, Is.Not.Null, $"{UIAudioScenePath} must include a GameplayVfxProductionRuntime.");
 
-                Assert.That(runtime.EnableGameplayVfxTileFeatureLane, Is.False);
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.IsHostDefaultMapConfigured, Is.True);
                 Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
                 Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);
                 Assert.That(runtime.MissingBindingCount, Is.Zero);

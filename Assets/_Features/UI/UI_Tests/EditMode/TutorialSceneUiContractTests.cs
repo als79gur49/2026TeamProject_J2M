@@ -24,19 +24,7 @@ namespace Game.Feature.UI.Tests
             "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
-        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
-
-        [Test]
-        [Category("Extended")]
-        public void TutorialScene_UsesSingleCanonicalBootstrapPath_WithoutSerializedUiResidue()
-        {
-            AssertCanonicalBootstrapScene(
-                TutorialScenePath,
-                "TutorialSceneBootstrapRoot",
-                GameplayAudioMapAssetPath);
-        }
 
         [Test]
         [Category("Extended")]
@@ -81,16 +69,6 @@ namespace Game.Feature.UI.Tests
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void CombinedGameplayShowcaseScene_UsesCoLocatedUiAudioDisplayBootstrap_OnCanonicalBootstrapRoot()
-        {
-            AssertCanonicalBootstrapScene(
-                CombinedScenePath,
-                "Box Slide Test Scene",
-                GameplayAudioMapAssetPath);
         }
 
         private static void AssertCanonicalBootstrapScene(

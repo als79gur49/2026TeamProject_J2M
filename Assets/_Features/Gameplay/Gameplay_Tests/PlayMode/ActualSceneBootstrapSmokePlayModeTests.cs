@@ -19,8 +19,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     public sealed class ActualSceneBootstrapSmokePlayModeTests
     {
         private const int FirstTickSmokeCount = 5;
-        private const string CombinedGameplayShowcaseScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
 
         [UnityTearDown]
@@ -33,19 +31,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_CombinedGameplayShowcase_FirstFiveTicks_NoException()
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneCombinedGameplayStage_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
-                CombinedGameplayShowcaseScenePath,
-                StageId.CreateOrThrow("stage-1-1"));
+                UIAudioScenePath,
+                StageId.CreateOrThrow("combined-gameplay-showcase"));
         }
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_TutorialScene_FirstFiveTicks_NoException()
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneTutorialStage_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
-                TutorialScenePath,
+                UIAudioScenePath,
                 StageId.CreateOrThrow("tutorial-scene"));
         }
 
