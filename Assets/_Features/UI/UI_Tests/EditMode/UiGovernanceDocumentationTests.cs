@@ -41,7 +41,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("UI hardening"));
             Assert.That(guide, Does.Contain("PlayMode escalation triggers"));
             Assert.That(guide, Does.Contain("UI-EditMode-Baseline-2026-04-15.md"));
-            Assert.That(guide, Does.Contain("TutorialScene-Manual-Runtime-Smoke-Plan.md"));
+            Assert.That(guide, Does.Contain("GameplayShell-Manual-Runtime-Smoke-Plan.md"));
             Assert.That(guide, Does.Contain("Display-Settings-Build-Validation-Checklist.md"));
             Assert.That(guide, Does.Contain("targeted display architecture validated"));
             Assert.That(guide, Does.Contain("real-build manual display validation completed"));
@@ -73,11 +73,11 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TutorialSceneManualRuntimeSmokePlan_PreservesBoundedArchitectureFocusedSections()
+        public void GameplayShellManualRuntimeSmokePlan_PreservesBoundedArchitectureFocusedSections()
         {
-            var smokePlan = ReadRepoFile("Docs/Testing/TutorialScene-Manual-Runtime-Smoke-Plan.md");
+            var smokePlan = ReadRepoFile("Docs/Testing/GameplayShell-Manual-Runtime-Smoke-Plan.md");
 
-            Assert.That(smokePlan, Does.Contain("# TutorialScene Manual Runtime Smoke Plan"));
+            Assert.That(smokePlan, Does.Contain("# Gameplay Shell Manual Runtime Smoke Plan"));
             Assert.That(smokePlan, Does.Contain("## 1. Overall Evaluation"));
             Assert.That(smokePlan, Does.Contain("## 2. Preserved Strengths"));
             Assert.That(smokePlan, Does.Contain("## 3. Remaining Execution Risks"));
@@ -95,6 +95,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokePlan, Does.Contain("StageResultScreen"));
             Assert.That(smokePlan, Does.Contain("TooltipPopup"));
             Assert.That(smokePlan, Does.Contain("SettingsScreen tooltip info icon"));
+            Assert.That(smokePlan, Does.Contain("Assets/Scenes/UIAudioScene.unity"));
+            Assert.That(smokePlan, Does.Contain("StageLaunchContextStore"));
+            Assert.That(smokePlan, Does.Contain("selected `StageId`"));
             Assert.That(smokePlan, Does.Contain("future tooltip expansion requires separate plan/review"));
             Assert.That(smokePlan, Does.Contain("Inconclusive/manual follow-up needed"));
             Assert.That(smokePlan, Does.Contain("up to 3 deliberate attempts"));
