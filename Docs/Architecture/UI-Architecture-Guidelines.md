@@ -358,7 +358,9 @@ Screen classification notes:
 Popup classification notes:
 
 - `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` are canonical gameplay popup catalog entries.
-- `DemoStageControl` is not a gameplay popup catalog entry. It is created through the factory/runtime/hotkey/dev path and remains a `Needs Migration / dev-only policy` candidate, not a deletion candidate.
+- `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
+- `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.
+- Future public-release hiding or disabling for `DemoStageControl` must be controlled by a separate product/build configuration decision, not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate.
 
 HUD classification notes:
 

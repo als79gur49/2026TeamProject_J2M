@@ -77,7 +77,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
             Assert.That(guidelines, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
             Assert.That(guidelines, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
-            Assert.That(guidelines, Does.Contain("`Needs Migration / dev-only policy` candidate, not a deletion candidate."));
+            Assert.That(guidelines, Does.Contain("catalog-less runtime assist popup created through the factory/runtime/hotkey path"));
+            Assert.That(guidelines, Does.Contain("build-included tester/demo/showcase assist feature"));
+            Assert.That(guidelines, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
+            Assert.That(guidelines, Does.Contain("not a deletion candidate and is not a dev-only compile exclusion target"));
+            Assert.That(guidelines, Does.Contain("separate product/build configuration decision"));
+            Assert.That(guidelines, Does.Contain("not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
+            AssertDemoStageControlStalePolicyPhrasesAreAbsent(guidelines);
             Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
             Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
@@ -109,10 +115,16 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("current canonical `ScreenId` values are `None`, `Gameplay`, `ObjectiveStatus`, `Settings`, `StageResult`, `LevelFailed`, and `GameClear`"));
             Assert.That(baseline, Does.Contain("`StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens"));
             Assert.That(baseline, Does.Contain("current canonical `PopupId` values are `None`, `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, `Reward`, and `DemoStageControl`"));
-            Assert.That(baseline, Does.Contain("`DemoStageControl` is a factory/runtime/hotkey/dev-path popup and not a gameplay popup catalog entry"));
+            Assert.That(baseline, Does.Contain("`DemoStageControl` is a catalog-less runtime assist popup created through the factory/runtime/hotkey path and not a gameplay popup catalog entry"));
+            Assert.That(baseline, Does.Contain("`DemoStageControl` is a build-included tester/demo/showcase assist feature"));
+            Assert.That(baseline, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
+            Assert.That(baseline, Does.Contain("it is not a deletion candidate or dev-only compile exclusion target"));
+            Assert.That(baseline, Does.Contain("future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision"));
+            Assert.That(baseline, Does.Contain("not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
             Assert.That(baseline, Does.Contain("`Reward` and `Confirm` remain protected canonical popup paths"));
             Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, `StageNavigationRequest`, and diagnostics overlay"));
+            AssertDemoStageControlStalePolicyPhrasesAreAbsent(baseline);
             Assert.That(baseline, Does.Not.Contain("HelpScreen remains"));
             Assert.That(baseline, Does.Not.Contain("InventoryScreen remains"));
         }
@@ -245,6 +257,15 @@ namespace Game.Feature.UI.Tests
         private static string ReadRepoFile(string relativePath)
         {
             return File.ReadAllText(GetRepoPath(relativePath));
+        }
+
+        private static void AssertDemoStageControlStalePolicyPhrasesAreAbsent(string content)
+        {
+            Assert.That(content, Does.Not.Contain("Needs Migration / dev-only policy"));
+            Assert.That(content, Does.Not.Contain("dev-only popup"));
+            Assert.That(content, Does.Not.Contain("production-disabled candidate"));
+            Assert.That(content, Does.Not.Contain("DEVELOPMENT_BUILD gate candidate"));
+            Assert.That(content, Does.Not.Contain("factory/runtime/hotkey/dev-path"));
         }
     }
 }
