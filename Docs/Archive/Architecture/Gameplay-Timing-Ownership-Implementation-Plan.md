@@ -325,7 +325,7 @@ entity motion presentation override
 
 수정 대상 예시:
 
-- `Assets/Scenes/CombinedGameplayShowcase.unity`
+- legacy combined gameplay showcase scene asset
 - `Assets/Scenes/BoxInteractionShowcase.unity`
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Entity_View_PlayerAnimationTest.prefab`
 - player test prefab utility
@@ -346,8 +346,8 @@ entity motion presentation override
 진행 상태:
 
 - 2026-04-04 구현 완료
-- `CombinedGameplayShowcase.unity`, `BoxInteractionShowcase.unity`, `CubeSurfaceTraversalShowcase.unity`의 installer serialization을 `playerControlTiming` 기준으로 migration했다.
-- `CombinedGameplayShowcase.unity`는 기존 `playerMoveCooldownSeconds = 0.5` 값을 `PlayerControlTimingSettings.MoveCooldownSeconds`로 이전하고, legacy fallback field는 `-1` sentinel로 정리했다.
+- legacy combined gameplay showcase, box interaction showcase, and cube surface traversal showcase scene installer serialization을 `playerControlTiming` 기준으로 migration했다.
+- legacy combined gameplay showcase scene은 기존 `playerMoveCooldownSeconds = 0.5` 값을 `PlayerControlTimingSettings.MoveCooldownSeconds`로 이전하고, legacy fallback field는 `-1` sentinel로 정리했다.
 - `BoxInteractionShowcase.unity`와 `CubeSurfaceTraversalShowcase.unity`는 `MoveCooldownSeconds = -1`로 repeated move fallback 의도를 자산에 명시하도록 정리했다.
 - `CubeSurfaceTraversalShowcase.unity`는 더 이상 `initialMoveDelayTicks`, `repeatedMoveIntervalTicks`, `tickIntervalSeconds` 같은 구형 tick-era serialized field를 사용하지 않는다.
 - `GameplayShowcaseAssetMigrationTests`를 추가해 showcase scene / player test prefab이 새 timing ownership 자산 구조를 계속 유지하는지 guard한다.

@@ -260,7 +260,7 @@ PlayerSettings:
   shaderPrecisionModel: 0
   clonedFromGUID: 3c72c65a16f0acb438eed22b8b16c24a
   templatePackageId: com.unity.template.urp-blank@17.1.0
-  templateDefaultScene: Assets/Scenes/CombinedGameplayShowcase.unity
+  templateDefaultScene: Assets/Scenes/UIAudioScene.unity
   useCustomMainManifest: 0
   useCustomLauncherManifest: 0
   useCustomMainGradleTemplate: 0
@@ -842,7 +842,7 @@ PlayerSettings:
     PS4: DOTWEEN
     PS5: DOTWEEN
     QNX: DOTWEEN
-    Standalone: DOTWEEN;GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
+    Standalone: DOTWEEN
     VisionOS: DOTWEEN
     WebGL: DOTWEEN
     Windows Store Apps: DOTWEEN

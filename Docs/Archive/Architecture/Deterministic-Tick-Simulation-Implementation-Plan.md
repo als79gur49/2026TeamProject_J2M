@@ -2461,7 +2461,7 @@ PlayMode test 목적:
 
 현재 showcase 검증 경로(v2):
 
-- `Assets/Scenes/CombinedGameplayShowcase.unity`에는 `CombinedGameplayShowcaseInstaller`가 배치된다.
+- legacy combined gameplay showcase scene에는 `CombinedGameplayShowcaseInstaller`가 배치된다.
 - installer는 inspector로 직렬화된 `Assets/InputSystem_Actions.inputactions` reference를 사용한다.
 - installer가 `GameplaySceneHost`를 초기화하고 showcase world / presenter / auto-created view를 구성한다.
 - `Player/Move(Vector2)`는 `Assets/InputSystem_Actions.inputactions`의 `Player/Move`를 사용한다.

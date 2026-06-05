@@ -78,10 +78,7 @@ Generated: 2026-05-09
 
 ## Reference Repairs
 - `CampaignMain_StageCatalog` now contains 11 campaign stage entries, including `tutorial-scene`.
-- `StageEditorDirectPlayCatalog` maps:
-  - `Assets/Scenes/CombinedGameplayShowcase.unity` -> `combined-gameplay-showcase`
-  - `Assets/Scenes/TutorialScene.unity` -> `tutorial-scene`
-  - `Assets/Scenes/UIAudioScene.unity` -> `tutorial-scene`
+- `StageEditorDirectPlayCatalog` declares `Assets/Scenes/UIAudioScene.unity` as the canonical gameplay shell and supports quick-launch stage ids including `combined-gameplay-showcase` and `tutorial-scene`.
 - `StageRuntimeContentResolver` smoke checked launch-context resolution for `combined-gameplay-showcase` and `tutorial-scene`.
 
 ## Addressables
@@ -122,7 +119,7 @@ Generated: 2026-05-09
   - `StageAuthoringExitGoalHelperCommandTests` now creates its test `StageContentEntry` under `StageContentPaths.CampaignLevel01StagesRoot` and cleans up only the generated per-test stage folder plus generated condition asset.
   - The shared-condition rejection test now uses a valid Campaign owner path before validating shared-condition ownership.
   - `CombinedGameplayShowcaseInstallerTests` now launches `combined-gameplay-showcase`, matching `StageEditorDirectPlayCatalog`, and seeds deterministic Campaign temp slot/direct-play launch state.
-  - `GameplayCameraTopologyAuthoringExtractionArchitectureTests` now maps scene paths to direct-play stage ids before building configuration: `CombinedGameplayShowcase.unity` -> `combined-gameplay-showcase`, `TutorialScene.unity` -> `tutorial-scene`, and `UIAudioScene.unity` -> `tutorial-scene`.
+  - `GameplayCameraTopologyAuthoringExtractionArchitectureTests` now validates the canonical shell scene and stage topology preset assets separately before building configuration.
 - Production code changes: none. Campaign owner-path validation, direct-play mapping, active-slot validation, `StageDefinition` bootstrap policy, and `defaultStageId` removal remain unchanged.
 - Asset/reference changes: no runtime stage, gameplay, Campaign structure, or scene asset references were changed. Only the Full EditMode known-failure baseline JSON was rebuilt.
 - Newly passing target classes:

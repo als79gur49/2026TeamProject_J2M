@@ -387,7 +387,7 @@ public readonly struct TickEnemyActionPresentationSignal
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`는 `enemyAnimationTimingOverrides` serialized surface와 wrapper view factory를 추가해 `entityId 52` floor striker에만 `EnemyAnimationTimingAuthoring`와 fallback `Animator`를 붙이도록 연결했다.
 - 이 경로는 현재 showcase가 enemy prefab 대신 runtime primitive enemy view를 쓰는 구조를 유지하면서도, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs`에는 auto-attach를 강제하지 않는 방향을 그대로 보존한다.
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CombinedGameplayShowcaseInstallerTests.cs`에 wind-up demo enemy only attach 회귀와 showcase presenter integration 회귀를 추가해 live driver가 `0.35s` wind-up, `0.5s` recover, `0.08s` crossfade override를 실제로 소비하는지 고정했다.
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`, `Assets/Scenes/CombinedGameplayShowcase.unity`를 갱신해 showcase scene이 `entityId 52` timing override를 실제로 serialize하는 contract까지 고정했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`와 legacy combined gameplay showcase scene asset을 갱신해 showcase scene이 `entityId 52` timing override를 실제로 serialize하는 contract까지 고정했다.
 - 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공 기준으로 확인했다. `dotnet.exe test Game.Feature.Gameplay.Tests.csproj -c Debug --no-build --filter FullyQualifiedName~CombinedGameplayShowcaseInstallerTests`는 이번 환경에서도 콘솔 출력과 신규 결과 파일을 남기지 않아 직접 EditMode 실행 결과는 후속 Unity runner 확인이 필요하다.
 
 별도 트랙:
@@ -436,7 +436,7 @@ public readonly struct TickEnemyActionPresentationSignal
 
 검토 대상:
 
-- `Assets/Scenes/CombinedGameplayShowcase.unity`
+- legacy combined gameplay showcase scene asset
 - 적군 view factory 경로
 - 필요 시 attacking enemy sample profile
 
@@ -456,7 +456,7 @@ public readonly struct TickEnemyActionPresentationSignal
 - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyAi_WindupMelee.asset`를 추가해 기본 melee resolver에 `attackTimingSettings.windupSeconds = 2 / 60`를 주는 showcase 전용 wind-up profile을 만들었다.
 - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52` floor striker를 `(Floor, 2, 2)`에 추가해 기존 charger lane을 막지 않으면서 시작 구역 근처에서 wind-up -> execute -> recover presentation을 볼 수 있게 했다.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`는 floor striker용 serialized `enemyAnimationTimingOverrides`와 showcase 전용 wrapper view factory를 추가해 실제 scene runtime path에서 `EnemyAnimationTimingAuthoring`와 fallback `Animator`가 연결되도록 확장했고, overlay highlight에도 tuned wind-up / recover timing 의도를 반영했다.
-- `Assets/Scenes/CombinedGameplayShowcase.unity`는 `entityId 52`용 `0.35s / 0.5s / 0.08s` timing override를 serialize하도록 갱신돼 scene asset 자체가 showcase authoring 연결 상태를 보존한다.
+- legacy combined gameplay showcase scene asset은 `entityId 52`용 `0.35s / 0.5s / 0.08s` timing override를 serialize하도록 갱신돼 scene asset 자체가 showcase authoring 연결 상태를 보존한다.
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CombinedGameplayShowcaseInstallerTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageRuntimeBuilderTests.cs`를 통해 third enemy variant, wind-up profile override, showcase timing authoring attach, scene serialization contract를 함께 고정했다.
 - 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공 기준으로 확인했다. `dotnet.exe test`는 이번 환경에서도 콘솔 출력과 신규 결과 파일을 남기지 않아 직접 EditMode 실행 결과는 후속 Unity runner 확인이 필요하다.
 
@@ -695,7 +695,7 @@ StageSpawnDefinition
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs`는 stage binding과 `EnemyPresentationCatalog`를 host configuration으로 넘기고, binding이 있을 때만 prefab dictionary를 fail-fast 해석하도록 확장했다.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyViewPrefabRequirements.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayBoxCapabilityLabelViewFactory.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcasePlayerPrefabViewFactory.cs`는 catalog-bound enemy prefab instantiate, prefab root validation, renderer가 없는 debug/hybrid prefab용 primitive visual fallback을 지원하도록 갱신했다.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`는 기존 `enemyAnimationTimingOverrides` hardcoding을 제거하고 `EnemyPresentationCatalog enemyPresentationCatalog` scene reference 기반으로 showcase enemy presentation을 조립하도록 바꿨다.
-- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52`의 `EnemyPresentationId = windup_melee_showcase`를 추가했고, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyView_WindupMelee.prefab`, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyPresentationCatalog_CombinedGameplayShowcase.asset`, `Assets/Scenes/CombinedGameplayShowcase.unity`를 함께 갱신해 timing override 숫자를 prefab authoring으로 이동시켰다.
+- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52`의 `EnemyPresentationId = windup_melee_showcase`를 추가했고, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyView_WindupMelee.prefab`, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyPresentationCatalog_CombinedGameplayShowcase.asset`, legacy combined gameplay showcase scene asset을 함께 갱신해 timing override 숫자를 prefab authoring으로 이동시켰다.
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageRuntimeBuilderTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CombinedGameplayShowcaseInstallerTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayTimingOwnershipTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`에 binding build, host fail-fast, catalog-bound prefab hookup, showcase scene serialization 회귀 테스트를 추가 및 갱신했다.
 - 검증은 Unity `6000.3.11f1` batchmode project load/script compilation 성공과 `cmd.exe /c dotnet build 2026TeamProject_J2M.sln -c Debug` 통과로 확인했다. Unity `-runTests`는 현재 환경에서 이번에도 결과 XML을 남기지 않아 targeted EditMode 실행 결과는 별도 후속 확인이 필요하다.
 

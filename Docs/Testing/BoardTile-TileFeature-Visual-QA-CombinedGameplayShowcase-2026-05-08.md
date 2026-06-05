@@ -140,7 +140,7 @@ Automated runtime scene load smoke was attempted with:
 `GameplayVfxSceneRuntimeRootPlayModeTests.CombinedGameplayShowcase_DirectPlayTick_CreatesGameplayVfxRuntimeRoot`.
 
 Result: failed on the existing Full-category VFX runtime-root assertion:
-`Assets/Scenes/CombinedGameplayShowcase.unity must attach the VFX runtime as a tick presentation extension.`
+`UIAudioScene` must attach the VFX runtime as a tick presentation extension when launched with the `combined-gameplay-showcase` stage id.
 
 The scene did load in PlayMode before the assertion. Because UI/VFX playback system changes are explicitly out of scope, this was recorded as a remaining scene setup issue rather than fixed in this pass. Manual visual inspection of alignment, layering, event animation counters, and scene reload persistence is still required in an interactive Unity editor.
 
