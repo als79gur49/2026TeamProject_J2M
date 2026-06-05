@@ -13,12 +13,6 @@ MonoBehaviour:
   m_Name: StageEditorDirectPlayCatalog
   m_EditorClassIdentifier: 
   entries:
-  - ScenePath: Assets/Scenes/CombinedGameplayShowcase.unity
-    StageId:
-      value: combined-gameplay-showcase
-  - ScenePath: Assets/Scenes/TutorialScene.unity
-    StageId:
-      value: tutorial-scene
   - ScenePath: Assets/Scenes/UIAudioScene.unity
     StageId:
       value: stage-1-1

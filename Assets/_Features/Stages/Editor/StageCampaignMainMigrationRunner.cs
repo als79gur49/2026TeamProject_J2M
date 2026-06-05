@@ -601,8 +601,6 @@ namespace Game.Feature.Stages.Editor
 
             var entries = new[]
             {
-                CreateDirectPlayEntry("Assets/Scenes/CombinedGameplayShowcase.unity", "combined-gameplay-showcase"),
-                CreateDirectPlayEntry("Assets/Scenes/TutorialScene.unity", "tutorial-scene"),
                 CreateDirectPlayEntry("Assets/Scenes/UIAudioScene.unity", "stage-1-1"),
             };
 
@@ -614,7 +612,7 @@ namespace Game.Feature.Stages.Editor
             directPlayCatalog.SetEntries(entries);
             EditorUtility.SetDirty(directPlayCatalog);
             report.ReferenceRepairs.Add(
-                "Updated StageEditorDirectPlayCatalog scene mappings for CombinedGameplayShowcase, TutorialScene, and UIAudioScene.");
+                "Updated StageEditorDirectPlayCatalog scene mapping for the UIAudioScene gameplay shell.");
         }
 
         private static StageEditorDirectPlayCatalogEntry CreateDirectPlayEntry(string scenePath, string stageId)

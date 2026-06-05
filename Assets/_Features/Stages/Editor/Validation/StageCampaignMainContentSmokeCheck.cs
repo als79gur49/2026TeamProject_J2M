@@ -11,8 +11,8 @@ namespace Game.Feature.Stages.Editor
     {
         private const string CombinedStageId = "combined-gameplay-showcase";
         private const string TutorialStageId = "tutorial-scene";
-        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
+        private static readonly string CombinedScenePath = BuildScenePath("CombinedGameplayShowcase");
+        private static readonly string TutorialScenePath = BuildScenePath("TutorialScene");
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string ReportDirectory = "Temp/StageCampaignMainSmoke";
 
@@ -316,9 +316,14 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
-            RequireSceneMapping(directPlayCatalog, CombinedScenePath, CombinedStageId, errors);
-            RequireSceneMapping(directPlayCatalog, TutorialScenePath, TutorialStageId, errors);
-            RequireSceneMapping(directPlayCatalog, UiAudioScenePath, TutorialStageId, errors);
+            RequireNoSceneMapping(directPlayCatalog, CombinedScenePath, errors);
+            RequireNoSceneMapping(directPlayCatalog, TutorialScenePath, errors);
+            RequireSceneMapping(directPlayCatalog, UiAudioScenePath, "stage-1-1", errors);
+        }
+
+        private static string BuildScenePath(string sceneName)
+        {
+            return $"Assets/Scenes/{sceneName}.unity";
         }
 
         private static void ValidateForbiddenFolders(List<string> errors, List<string> facts)
@@ -478,6 +483,18 @@ namespace Game.Feature.Stages.Editor
             {
                 errors.Add(
                     $"Direct-play catalog maps '{scenePath}' to '{stageId.Value}', expected '{expectedStageId}'.");
+            }
+        }
+
+        private static void RequireNoSceneMapping(
+            StageEditorDirectPlayCatalog catalog,
+            string scenePath,
+            List<string> errors)
+        {
+            if (catalog.TryResolveScenePath(scenePath, out var stageId))
+            {
+                errors.Add(
+                    $"Direct-play catalog must not map raw scene fixture '{scenePath}' to StageId '{stageId.Value}'. Use the gameplay shell scene plus StageId launch context.");
             }
         }
 

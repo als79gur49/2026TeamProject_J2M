@@ -12,9 +12,10 @@ namespace Game.Feature.Stages.Editor
     public static class StageEditorDirectPlayLauncher
     {
         private const string LastScenePathSessionKey = "Game.Feature.Stages.LastEditorDirectPlayScenePath";
-        private const string CombinedGameplayShowcaseScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
+        private const string CombinedGameplayShowcaseStageId = "combined-gameplay-showcase";
+        private const string TutorialSceneStageId = "tutorial-scene";
+        private const string DefaultUiAudioSceneStageId = "stage-1-1";
 
         static StageEditorDirectPlayLauncher()
         {
@@ -48,19 +49,28 @@ namespace Game.Feature.Stages.Editor
         [MenuItem("Tools/Stages/Direct Play/Supported Scenes/Combined Gameplay Showcase")]
         public static void LaunchCombinedGameplayShowcase()
         {
-            LaunchScene(CombinedGameplayShowcaseScenePath);
+            LaunchStage(
+                StageId.CreateOrThrow(CombinedGameplayShowcaseStageId),
+                EditorDirectPlayMode.NonCampaign,
+                SaveSlotStore.DefaultRemainingChances);
         }
 
         [MenuItem("Tools/Stages/Direct Play/Supported Scenes/Tutorial Scene")]
         public static void LaunchTutorialScene()
         {
-            LaunchScene(TutorialScenePath);
+            LaunchStage(
+                StageId.CreateOrThrow(TutorialSceneStageId),
+                EditorDirectPlayMode.NonCampaign,
+                SaveSlotStore.DefaultRemainingChances);
         }
 
         [MenuItem("Tools/Stages/Direct Play/Supported Scenes/UI Audio Scene")]
         public static void LaunchUiAudioScene()
         {
-            LaunchScene(UiAudioScenePath);
+            LaunchStage(
+                StageId.CreateOrThrow(DefaultUiAudioSceneStageId),
+                EditorDirectPlayMode.NonCampaign,
+                SaveSlotStore.DefaultRemainingChances);
         }
 
         public static StageId PrimePendingLaunchForScene(string scenePath)
@@ -79,6 +89,37 @@ namespace Game.Feature.Stages.Editor
             if (catalog == null || !catalog.TryResolveScenePath(scenePath, out stageId))
             {
                 stageId = StageId.None;
+                return false;
+            }
+
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
+            RememberLastLaunch(scenePath);
+            return true;
+        }
+
+        public static StageId PrimePendingLaunchForStage(StageId stageId)
+        {
+            if (!TryPrimePendingLaunchForStage(stageId, out _))
+            {
+                throw new InvalidOperationException("Direct Play requires a valid StageId and configured gameplay shell scene path.");
+            }
+
+            return stageId;
+        }
+
+        public static bool TryPrimePendingLaunchForStage(StageId stageId, out string scenePath)
+        {
+            scenePath = string.Empty;
+            if (!stageId.IsValid)
+            {
+                return false;
+            }
+
+            var routeConfig = LoadRouteConfigOrThrow();
+            scenePath = routeConfig.GameplayShellScenePath;
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
                 return false;
             }
 
