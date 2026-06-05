@@ -48,7 +48,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
             Assert.That(guide, Does.Contain("green on 2026-06-06 KST"));
             Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(guide, Does.Contain("Unity UI EditMode `649 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `648 total / 0 failed`"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
             Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
             Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeGroupView"));
@@ -87,7 +87,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
             Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
-            Assert.That(guidelines, Does.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));
+            Assert.That(guidelines, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision."));
+            Assert.That(guidelines, Does.Contain("Canonical runtime UI must not include a diagnostics overlay, `DiagnosticsLayer`, or F3/F4 diagnostics input path."));
+            Assert.That(guidelines, Does.Not.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));
             Assert.That(guidelines, Does.Contain("This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership."));
             Assert.That(
                 guidelines,
@@ -104,7 +106,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(baseline, Does.Contain("Current Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `649 total / 0 failed`"));
+            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `648 total / 0 failed`"));
             Assert.That(baseline, Does.Contain("Prior 2차 UI canonical correction report red reason"));
             Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
             Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeGroupView"));
@@ -123,7 +125,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
             Assert.That(baseline, Does.Contain("`Reward` and `Confirm` remain protected canonical popup paths"));
             Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
-            Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, `StageNavigationRequest`, and diagnostics overlay"));
+            Assert.That(baseline, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path"));
+            Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`"));
+            Assert.That(baseline, Does.Not.Contain("diagnostics overlay pending a separate production/dev-only policy decision"));
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(baseline);
             Assert.That(baseline, Does.Not.Contain("HelpScreen remains"));
             Assert.That(baseline, Does.Not.Contain("InventoryScreen remains"));
@@ -142,7 +146,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokePlan, Does.Contain("## 5. High-Risk Runtime Flow Rules"));
             Assert.That(smokePlan, Does.Contain("## 6. Tooltip Path Classification Rules"));
             Assert.That(smokePlan, Does.Contain("## 7. Stage-Clear Validation Rules"));
-            Assert.That(smokePlan, Does.Contain("## 8. Diagnostics Priority Rules"));
+            Assert.That(smokePlan, Does.Contain("## 8. Removed Diagnostics Overlay Rules"));
             Assert.That(smokePlan, Does.Contain("## 9. Evidence and Failure Classification Rules"));
             Assert.That(smokePlan, Does.Contain("## 10. Freeze Gate"));
             Assert.That(smokePlan, Does.Contain("Tier 1"));
@@ -156,7 +160,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokePlan, Does.Contain("Inconclusive/manual follow-up needed"));
             Assert.That(smokePlan, Does.Contain("up to 3 deliberate attempts"));
             Assert.That(smokePlan, Does.Contain("up to 10 focused minutes"));
-            Assert.That(smokePlan, Does.Contain("Diagnostics remain secondary"));
+            Assert.That(smokePlan, Does.Contain("Diagnostics overlay is a removed unused runtime feature"));
+            Assert.That(smokePlan, Does.Contain("Manual smoke should not attempt F3/F4 diagnostics overlay interaction."));
             Assert.That(smokePlan, Does.Contain("architecture-focused"));
             Assert.That(smokePlan, Does.Contain("Do not add scene-local helpers"));
             Assert.That(smokePlan, Does.Contain("artificial debug triggers"));

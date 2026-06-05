@@ -13,7 +13,7 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `649 total / 0 failed`
+- Current Unity UI EditMode: `648 total / 0 failed`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -24,32 +24,34 @@
 - Added tests:
   - controller/coordinator public-surface freeze tests for `UIFlowCoordinator`, `ScreenController`, `PopupController`, and `UIBlockPolicy`
   - deterministic controller/policy guards for `PopTo`, runtime action relay, close-all ordering, backdrop routing, and older-frame refresh behavior
-  - diagnostics boundary tests proving the Stage 9 overlay remains read-only, bounded, and opt-in for drill-down details
+  - diagnostics overlay residue absence guards proving the removed runtime feature does not remain in production UI code, installer hotkeys, or the canonical root shell
   - governance documentation tests for baseline structure, stale wording removal, PlayMode escalation-marker enforcement, and `TutorialScene` manual runtime smoke-plan governance
   - structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
   - `TutorialScene` scene contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
   - canonical stage-clear integration guard proving gameplay host + installer flow transitions into the Stage 7 `StageResult` screen without relying on the legacy overlay path
   - canonical root-shell prefab structure guards proving the runtime shell contains only infrastructure children and no serialized feature views
   - HUD prefab migration guards proving the installer mounts one authored HUD prefab under `HudLayer`, the shell remains HUD-markup free, and the legacy HUD builder symbols are absent from code and docs
-  - HUD view boundary guards proving HUD views no longer expose runtime `Configure(...)` entrypoints and stay free of flow/gameplay-access/diagnostics dependencies
+  - HUD view boundary guards proving HUD views no longer expose runtime `Configure(...)` entrypoints and stay free of flow/gameplay-access dependencies
   - popup prefab migration guards proving the installer mounts one fixed-shape popup catalog, the popup factory instantiates one canonical authored prefab per popup kind under `PopupLayer`, and popup legacy builder symbols are absent from code and docs
   - per-kind popup prefab contract and boundary guards proving `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` stay visual/local only, tooltip keeps bounded anchor/clamp behavior, and popup callbacks/timers do not acquire lifecycle ownership
   - screen prefab migration guards proving the installer mounts one fixed-shape screen-only catalog, the screen factory instantiates one canonical authored prefab per screen id under `ScreenLayer`, and screen legacy builder symbols are absent from code and docs
   - screen checkpoint guards proving the simple-shell, terminal-screen, and complex-screen checkpoints stay mechanically inspectable instead of hiding risk inside one broad migration phase
-  - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, gameplay-access, or diagnostics shortcuts
+  - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, or gameplay-access shortcuts
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
   - current rerun: `155 total / 0 failed`
-  - delta: `+91` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, and manual smoke-plan governance
+  - delta: `+91` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, and manual smoke-plan governance
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
+  - Diagnostics overlay behavior tests were removed with the unused runtime feature.
 - Renamed / merged / split tests:
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
 - Replaced weak guards:
   - Stage 5-only freeze language is replaced with Stage 4–8 seam-preservation language
   - ad hoc “UI test count” bookkeeping is replaced with structural delta, guard evolution, and warning interpretation
   - legacy overlay-dependent stage-clear assumptions are replaced with canonical Stage 7 terminal-screen coverage and scene-bootstrap contract coverage
+  - diagnostics read-only boundary checks are replaced with absence guards for removed runtime surface
 - Obsolete guards:
   - none removed by default
   - if a guard becomes obsolete, record which stronger guard now protects the same seam
@@ -85,7 +87,6 @@
 - Escalation triggers:
   - runtime-only input routing that depends on the real play loop
   - scene lifecycle ordering or activation timing that materially changes screen/popup/HUD ownership behavior
-  - diagnostics visibility/toggle behavior that depends on runtime-only execution
   - domain reload or play-loop behavior that invalidates an EditMode-only result
 - Non-triggers:
   - mapper/policy/controller tests
@@ -94,7 +95,7 @@
   - EditMode-composed UI hierarchy checks that can be driven directly
 - PlayMode escalation status:
   - no additional UI PlayMode tests were added in Stage 9
-  - EditMode remained sufficient for mapper/policy/controller hardening, diagnostics toggles, and UI hierarchy ownership verification
+  - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
 
 ## Covered Freeze Evidence
 - architectural seams are guarded by tests, not only by convention
@@ -111,9 +112,9 @@
   - child presenters stay mesh-free and responsibility-specific
   - no popup/flow ownership or global child input-bag convenience is added to the action child
 - Help is also not a current gameplay screen; any older Help-as-screen wording is documentation drift or historical context only
-- Stage 9 diagnostics remain read-only, bounded, editor/development-only, and non-reusable as runtime state aggregation
+- UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
-- canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level
+- canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level with `HudLayer`, `ScreenLayer`, and `PopupLayer`
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
 - canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`
@@ -135,7 +136,7 @@
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing; it is not a deletion candidate or dev-only compile exclusion target
 - future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision, not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate
 - `Reward` and `Confirm` remain protected canonical popup paths
-- protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, `StageNavigationRequest`, and diagnostics overlay pending a separate production/dev-only policy decision
+- protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`
 - no Stage 4–8 contract is widened merely for test/debug convenience
 
 ## Companion Smoke Check

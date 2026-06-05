@@ -95,7 +95,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(rootView.HudLayer, Is.Not.Null);
                 Assert.That(rootView.ScreenLayer, Is.Not.Null);
                 Assert.That(rootView.PopupLayer, Is.Not.Null);
-                Assert.That(rootView.DiagnosticsLayer, Is.Not.Null);
+                Assert.That(instance.transform.Find("DiagnosticsLayer"), Is.Null);
                 Assert.That(rootView.ScreenLayerView, Is.Not.Null);
                 Assert.That(rootView.PopupLayerView, Is.Not.Null);
             }

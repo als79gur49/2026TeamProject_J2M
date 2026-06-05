@@ -182,7 +182,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     AssetDatabase.GetAssetPath(stageCatalogProvider.objectReferenceValue),
                     Is.EqualTo(StageCatalogProviderAssetPath));
-                Assert.That(ReadSceneText(scenePath), Does.Not.Contain("defaultStageId:"));
+                var sceneText = ReadSceneText(scenePath);
+                Assert.That(sceneText, Does.Not.Contain("defaultStageId:"));
+                Assert.That(sceneText, Does.Not.Contain("UiArchitectureDiagnostics"));
+                Assert.That(sceneText, Does.Not.Contain("DiagnosticsLayer"));
+                Assert.That(sceneText, Does.Not.Contain("UiDiagnostics"));
+                Assert.That(sceneText, Does.Not.Contain("4f1df27cab6e4a7a8f6fcf0f86960af1"));
                 Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
                 AssertSceneContainsNoSerializedComponent<Canvas>(rootObjects);
@@ -190,7 +195,6 @@ namespace Game.Feature.UI.Tests
                 AssertSceneContainsNoSerializedComponent<EventSystem>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<StandaloneInputModule>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<GameplayUiCanvasRootView>(rootObjects);
-                AssertSceneContainsNoSerializedComponent<UiArchitectureDiagnosticsOverlayView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<HUDRootView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<PlayerStatusView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<ScreenLayerView>(rootObjects);

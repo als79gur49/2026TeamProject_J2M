@@ -1,111 +1,62 @@
-using Game.Feature.UI.Composition;
-using Game.Feature.UI.Flow;
+using System.IO;
+using System.Linq;
 using NUnit.Framework;
-using UnityEngine;
-using UnityEngine.EventSystems;
 
 namespace Game.Feature.UI.Tests
 {
     public sealed class UiDiagnosticsTests
     {
-        [Test]
-        public void GameplayUiFlowInstaller_DiagnosticsOverlay_TogglesRemainReadOnly()
+        private static readonly string[] DiagnosticsResidueTokens =
         {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_DiagnosticsOverlay_TogglesRemainReadOnly");
+            "UiArchitectureDiagnostics",
+            "DiagnosticsOverlay",
+            "DiagnosticsLayer",
+            "UiDiagnostics",
+            "WasF3PressedThisFrame",
+            "WasF4PressedThisFrame",
+            "f3Key",
+            "f4Key",
+        };
 
-            try
+        [Test]
+        public void ProductionUiRuntime_DiagnosticsOverlayResidue_IsAbsent()
+        {
+            var runtimeDirectory = GetRepoPath("Assets/_Features/UI");
+            var productionSources = Directory.GetFiles(runtimeDirectory, "*.cs", SearchOption.AllDirectories)
+                .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}UI_Tests{Path.DirectorySeparatorChar}"))
+                .OrderBy(path => path)
+                .ToArray();
+
+            foreach (var sourcePath in productionSources)
             {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                var overlay = rootObject.GetComponentInChildren<UiArchitectureDiagnosticsOverlayView>(true);
-                Assert.That(overlay, Is.Not.Null);
-                Assert.That(overlay.IsSupported, Is.True);
-
-                var beforeSnapshot = installer.PresentationSource.CurrentSnapshot;
-                var beforeBlockSnapshot = installer.Coordinator.CurrentBlockSnapshot;
-                var beforeScreenId = installer.ScreenController.CurrentScreenId;
-                var beforeBackStackCount = installer.ScreenController.BackStackCount;
-                var beforePopupCount = installer.PopupController.PopupCount;
-                var beforeHudReadOnly = installer.HudController.IsGameplayReadOnly;
-
-                overlay.ToggleVisibility();
-                overlay.ToggleExpanded();
-
-                Assert.That(installer.PresentationSource.CurrentSnapshot, Is.EqualTo(beforeSnapshot));
-                Assert.That(installer.Coordinator.CurrentBlockSnapshot, Is.EqualTo(beforeBlockSnapshot));
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(beforeScreenId));
-                Assert.That(installer.ScreenController.BackStackCount, Is.EqualTo(beforeBackStackCount));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(beforePopupCount));
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.EqualTo(beforeHudReadOnly));
-                Assert.That(overlay.IsOverlayVisible, Is.True);
-                Assert.That(overlay.IsExpanded, Is.True);
-            }
-            finally
-            {
-                DestroySupportObjects(rootObject);
+                var source = File.ReadAllText(sourcePath);
+                foreach (var token in DiagnosticsResidueTokens)
+                {
+                    Assert.That(source, Does.Not.Contain(token), sourcePath);
+                }
             }
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_DiagnosticsOverlay_SummaryIsBoundedAndDetailsAreOptIn()
+        public void GameplayUiCanvasRootShell_DiagnosticsLayerAndOverlayScript_AreAbsent()
         {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_DiagnosticsOverlay_SummaryIsBoundedAndDetailsAreOptIn");
+            var prefab = ReadRepoFile("Assets/_Features/UI/UI_Composition/Resources/UI/GameplayUiCanvasRootShell.prefab");
 
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-                var overlay = rootObject.GetComponentInChildren<UiArchitectureDiagnosticsOverlayView>(true);
-
-                Assert.That(overlay, Is.Not.Null);
-                overlay.ToggleVisibility();
-
-                Assert.That(overlay.IsOverlayVisible, Is.True);
-                Assert.That(overlay.IsDetailsVisible, Is.False);
-                Assert.That(overlay.SummaryText, Does.Contain("Screen:"));
-                Assert.That(overlay.SummaryText, Does.Contain("Back Stack:"));
-                Assert.That(overlay.SummaryText, Does.Contain("Popup:"));
-                Assert.That(overlay.SummaryText, Does.Contain("Popup Depth:"));
-                Assert.That(overlay.SummaryText, Does.Contain("Dismissibility:"));
-                Assert.That(overlay.SummaryText, Does.Contain("HUD:"));
-                Assert.That(overlay.SummaryText, Does.Contain("Block Source:"));
-                Assert.That(overlay.SummaryText, Does.Contain("Mapped Tick:"));
-                Assert.That(overlay.SummaryText, Does.Contain("Latest Event:"));
-                Assert.That(overlay.SummaryText, Does.Not.Contain("Screen Instance:"));
-                Assert.That(overlay.SummaryText, Does.Not.Contain("Popup Policy:"));
-                Assert.That(overlay.SummaryText, Does.Not.Contain("Recent Events:"));
-                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-
-                overlay.ToggleExpanded();
-
-                Assert.That(overlay.IsDetailsVisible, Is.True);
-                Assert.That(overlay.DetailText, Does.Contain("Screen Instance:"));
-                Assert.That(overlay.DetailText, Does.Contain("Top Popup Instance:"));
-                Assert.That(overlay.DetailText, Does.Contain("Popup Policy:"));
-                Assert.That(overlay.DetailText, Does.Contain("Recent Events:"));
-            }
-            finally
-            {
-                DestroySupportObjects(rootObject);
-            }
+            Assert.That(prefab, Does.Not.Contain("DiagnosticsLayer"));
+            Assert.That(prefab, Does.Not.Contain("UiDiagnosticsOverlay"));
+            Assert.That(prefab, Does.Not.Contain("UiArchitectureDiagnosticsOverlayView"));
+            Assert.That(prefab, Does.Not.Contain("4f1df27cab6e4a7a8f6fcf0f86960af1"));
+            Assert.That(prefab, Does.Not.Contain("6cbda0f3d43c4a6b8c17121c5227f1d0"));
         }
 
-        private static void DestroySupportObjects(GameObject rootObject)
+        private static string GetRepoPath(string relativePath)
         {
-            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
-            if (eventSystem != null)
-            {
-                Object.DestroyImmediate(eventSystem.gameObject);
-            }
+            return Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
+        }
 
-            if (rootObject != null)
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+        private static string ReadRepoFile(string relativePath)
+        {
+            return File.ReadAllText(GetRepoPath(relativePath));
         }
     }
 }

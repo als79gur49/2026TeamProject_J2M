@@ -14,7 +14,7 @@
 - 이 섹션의 baseline row는 pinned snapshot reference다. 서로 다른 날짜 artifact를 한 validation claim으로 합산하는 근거가 아니다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `649 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `648 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-06 KST 현재 재실행에서는 재현되지 않았다.
@@ -31,7 +31,7 @@
 - The baseline rows in this section are pinned snapshot references. They are not permission to merge artifacts from different dates into one validation claim.
 - The current baseline is:
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `649 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `648 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-06 KST rerun.
@@ -297,7 +297,6 @@
 - 허용 trigger:
   - real play loop가 필요한 runtime-only input routing
   - screen/popup/HUD ownership에 영향을 주는 scene lifecycle ordering / activation timing
-  - runtime-only execution에 의존하는 diagnostics visibility / toggle behavior
   - EditMode 결과를 무효화할 수 있는 domain reload / play-loop behavior
 - 허용되지 않는 trigger:
   - “PlayMode에서 한번 보면 좋겠다”
@@ -308,7 +307,6 @@
 - Allowed triggers:
   - runtime-only input routing that depends on the real play loop
   - scene lifecycle ordering or activation timing that materially affects screen/popup/HUD ownership
-  - diagnostics visibility or toggle behavior that depends on runtime-only execution
   - domain reload or play-loop behavior that can invalidate an EditMode-only result
 - Disallowed trigger:
   - “it would be nice to see it in PlayMode”
