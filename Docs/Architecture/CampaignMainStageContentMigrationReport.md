@@ -232,7 +232,7 @@ The historical inventory below was captured before Phase 1.1 fixture stabilizati
   - `GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush`: expected false, actual true.
   - `GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh`: expected at least 1, actual 0.
   - `GameplayUiAccess_PresentationFeed_MapsPlayerSlice_ForHeldMove`: expected true, actual false.
-- `GameplayVfxTileFeatureGravityFieldMigrationTests` (1):
+- `GameplayVfxTileFeatureGravityFieldRuntimeTests` (1):
   - `Coordinator_DoesNotReferencePr28VisualControllersOrVfxController`: forbidden `TileFeatureVisualPresentationController` reference remains present.
 - `GameplayViewProjectionTests` (13):
   - `EnemyAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields`: inspector field set mismatch.

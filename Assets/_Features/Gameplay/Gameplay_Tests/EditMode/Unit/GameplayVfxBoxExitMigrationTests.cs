@@ -225,9 +225,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxBoxDestroySmokeMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxBoxDestroyShrinkMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxItemConsumeBurstMigration, Is.True);
             }
             finally
             {
@@ -253,8 +250,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
 
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
 
@@ -277,8 +272,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, TickEntityExitCause.BoxDestroy)));
 
@@ -306,8 +299,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 shrinkBinding = CreateBinding(null, BoxVfxCue.DestroyShrink);
                 cueMap = CreateCueMap(shrinkBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureCommonEmptyHostPrefab(commonHost);
 
@@ -335,7 +326,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxItemConsumeBurstMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateExitSignal(21, TickEntityExitCause.ItemConsume)));
 
@@ -356,8 +346,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             AssertFlagOnWithBindingPlaysOneInstance(
                 TickEntityExitCause.BoxDestroy,
-                BoxVfxCue.DestroySmoke,
-                runtime => runtime.EnableGameplayVfxBoxDestroySmokeMigration = true);
+                BoxVfxCue.DestroySmoke);
         }
 
         [Test]
@@ -366,8 +355,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             AssertFlagOnWithBindingPlaysOneInstance(
                 TickEntityExitCause.ItemConsume,
-                BoxVfxCue.ItemConsume,
-                runtime => runtime.EnableGameplayVfxItemConsumeBurstMigration = true);
+                BoxVfxCue.ItemConsume);
         }
 
         [Test]
@@ -383,7 +371,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, BoxVfxCue.DestroySmoke);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 SnapshotMaterializationCounts counts;
@@ -412,8 +399,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateBox(20, scenario.BoxCell) },
@@ -450,10 +435,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 shrinkBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroyShrink);
                 cueMap = CreateCueMap(smokeBinding, shrinkBinding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
@@ -489,8 +470,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
                 cueMap = CreateCueMap(smokeBinding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
@@ -527,8 +506,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
                 cueMap = CreateCueMap(smokeBinding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
 
@@ -602,8 +579,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 smokeBinding = CreateBinding(vfxPrefab, BoxVfxCue.DestroySmoke);
                 cueMap = CreateCueMap(smokeBinding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
 
@@ -673,8 +648,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 shrinkBinding = CreateBinding(null, BoxVfxCue.DestroyShrink);
                 cueMap = CreateCueMap(shrinkBinding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = false;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureCommonEmptyHostPrefab(commonHost);
                 scenario.Presenter.AttachPresentationExtension(runtime);
@@ -708,7 +681,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxItemConsumeBurstMigration = true;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateBox(21, scenario.BoxCell) },
@@ -738,7 +710,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxItemConsumeBurstMigration = false;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateBox(21, scenario.BoxCell) },
@@ -768,10 +739,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
-                runtime.EnableGameplayVfxItemConsumeBurstMigration = true;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateEnemyUnit(40, scenario.BoxCell) },
@@ -934,9 +901,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 itemBinding = CreateBinding(prefab, BoxVfxCue.ItemConsume);
                 cueMap = CreateCueMap(smokeBinding, itemBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = boxEnabled;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
-                runtime.EnableGameplayVfxItemConsumeBurstMigration = itemEnabled;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext(
@@ -955,8 +919,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertFlagOnWithBindingPlaysOneInstance(
             TickEntityExitCause exitCause,
-            BoxVfxCue cue,
-            Action<GameplayVfxProductionRuntime> enableFlag)
+            BoxVfxCue cue)
         {
             var owner = new GameObject($"BoxExit_{cue}_Enabled");
             var prefab = new GameObject($"BoxExit_{cue}_Prefab");
@@ -967,12 +930,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, cue);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                if (cue == BoxVfxCue.DestroySmoke)
-                {
-                    runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
-                }
-
-                enableFlag(runtime);
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext(CreateExitSignal(20, exitCause)));

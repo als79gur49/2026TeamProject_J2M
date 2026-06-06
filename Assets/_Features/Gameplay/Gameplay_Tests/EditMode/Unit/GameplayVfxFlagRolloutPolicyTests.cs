@@ -4,8 +4,6 @@ using System.Linq;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
-using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -22,74 +20,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string TickPresentationDataPath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs";
 
-        private static readonly FlagInfo[] MigrationFlags =
+        private static readonly string[] FormerMigrationCueNames =
         {
-            new(
-                "EnableGameplayVfxDamageBurstMigration",
-                "enableGameplayVfxDamageBurstMigration"),
-            new(
-                "EnableGameplayVfxEnemyDamageBurstMigration",
-                "enableGameplayVfxEnemyDamageBurstMigration"),
-            new(
-                "EnableGameplayVfxBoxDestroySmokeMigration",
-                "enableGameplayVfxBoxDestroySmokeMigration"),
-            new(
-                "EnableGameplayVfxBoxDestroyShrinkMigration",
-                "enableGameplayVfxBoxDestroyShrinkMigration"),
-            new(
-                "EnableGameplayVfxItemConsumeBurstMigration",
-                "enableGameplayVfxItemConsumeBurstMigration"),
-            new(
-                "EnableGameplayVfxImpactTransientBreakMigration",
-                "enableGameplayVfxImpactTransientBreakMigration"),
-            new(
-                "EnableGameplayVfxOutOfBoundsExitMigration",
-                "enableGameplayVfxOutOfBoundsExitMigration"),
-            new(
-                "EnableGameplayVfxUtilityWindupMigration",
-                "enableGameplayVfxUtilityWindupMigration"),
-            new(
-                "EnableGameplayVfxFrontFaceShieldActiveMigration",
-                "enableGameplayVfxFrontFaceShieldActiveMigration"),
-            new(
-                "EnableGameplayVfxFrontFaceShieldBlockMigration",
-                "enableGameplayVfxFrontFaceShieldBlockMigration"),
-            new(
-                "EnableGameplayVfxFrontFaceShieldWindupMigration",
-                "enableGameplayVfxFrontFaceShieldWindupMigration"),
-            new(
-                "EnableGameplayVfxFlipImpactBurstMigration",
-                "enableGameplayVfxFlipImpactBurstMigration"),
-            new(
-                "EnableGameplayVfxEnemyDeathBurstMigration",
-                "enableGameplayVfxEnemyDeathBurstMigration"),
-            new(
-                "EnableGameplayVfxEnemyDeathMotionMigration",
-                "enableGameplayVfxEnemyDeathMotionMigration"),
-            new(
-                "EnableGameplayVfxFlipDestroySelfMotionMigration",
-                "enableGameplayVfxFlipDestroySelfMotionMigration"),
+            "DamageBurst",
+            "EnemyDamageBurst",
+            "BoxDestroySmoke",
+            "BoxDestroyShrink",
+            "ItemConsumeBurst",
+            "ImpactTransientBreak",
+            "OutOfBoundsExit",
+            "UtilityWindup",
+            "FrontFaceShieldActive",
+            "FrontFaceShieldBlock",
+            "FrontFaceShieldWindup",
+            "FlipImpactBurst",
+            "EnemyDeathBurst",
+            "EnemyDeathMotion",
+            "FlipDestroySelfMotion",
+        };
+
+        private static readonly string[] ScenePaths =
+        {
+            ScenePath("UIAudioScene"),
+            ScenePath("CombinedGameplayShowcase"),
+            ScenePath("TutorialScene"),
         };
 
         [Test]
         [Category("Extended")]
-        public void RuntimeDefaults_RetainedMigrationFlagsAreDefaultOn()
+        public void RuntimeSurface_FormerMigrationFlagsAreDeleted()
         {
-            var owner = new GameObject("GameplayVfxFlagRolloutDefaults");
-            try
-            {
-                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+            var runtimeProperties = typeof(GameplayVfxProductionRuntime)
+                .GetProperties()
+                .Select(property => property.Name)
+                .ToArray();
+            var runtimeSource = ReadRepoFile(RuntimePath);
 
-                foreach (var flag in MigrationFlags)
-                {
-                    var property = typeof(GameplayVfxProductionRuntime).GetProperty(flag.PropertyName);
-                    Assert.That(property, Is.Not.Null, $"{flag.PropertyName} must remain during Phase 3A serialized residue cleanup deferral.");
-                    Assert.That(property.GetValue(runtime), Is.True, $"{flag.PropertyName} must default true.");
-                }
-            }
-            finally
+            foreach (var cueName in FormerMigrationCueNames)
             {
-                Object.DestroyImmediate(owner);
+                Assert.That(runtimeProperties, Does.Not.Contain(PropertyNameFor(cueName)), cueName);
+                Assert.That(runtimeSource, Does.Not.Contain(SerializedFieldNameFor(cueName)), cueName);
             }
         }
 
@@ -114,35 +84,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RuntimePolicy_DoesNotRequireRawScenePathFixturesForMigrationResidue()
+        public void RuntimePolicy_DoesNotRequireRawScenePathFixturesForFormerMigrationResidue()
         {
             var document = ReadRepoFile(GovernancePath);
             Assert.That(document, Does.Contain("UIAudioScene shell plus StageId/profile ownership"));
             Assert.That(document, Does.Contain("Raw scene-path VFX policy fixtures are deprecated"));
+        }
 
-            foreach (var flag in MigrationFlags)
+        [Test]
+        [Category("Extended")]
+        public void RuntimeSource_FormerMigrationFieldsAreDeletedAndCanonicalCueGateRemains()
+        {
+            var runtimeSource = ReadRepoFile(RuntimePath);
+
+            Assert.That(runtimeSource, Does.Contain("IsCanonicalMigratedCue"));
+            Assert.That(runtimeSource, Does.Contain("CanonicalMigratedGameplayVfxEnabled"));
+            foreach (var cueName in FormerMigrationCueNames)
             {
-                Assert.That(
-                    typeof(GameplayVfxProductionRuntime).GetProperty(flag.PropertyName),
-                    Is.Not.Null,
-                    $"{flag.PropertyName} remains only as serialized compatibility surface until Phase 3B field cleanup.");
+                Assert.That(runtimeSource, Does.Not.Contain(PropertyNameFor(cueName)), cueName);
+                Assert.That(runtimeSource, Does.Not.Contain(SerializedFieldNameFor(cueName)), cueName);
             }
         }
 
         [Test]
         [Category("Extended")]
-        public void RuntimeSource_MigrationFieldsAreCompatibilityResidueNotCueGates()
+        public void SceneYaml_FormerMigrationResidueIsDeleted()
         {
-            var runtimeSource = ReadRepoFile(RuntimePath);
-
-            Assert.That(runtimeSource, Does.Contain("Phase 3A: retained only for Unity scene serialization compatibility"));
-            Assert.That(runtimeSource, Does.Contain("IsCanonicalMigratedCue"));
-            Assert.That(runtimeSource, Does.Contain("CanonicalMigratedGameplayVfxEnabled"));
-            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxDamageBurstMigration && cueId"));
-            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxEnemyDeathMotionMigration &&"));
-            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxFlipDestroySelfMotionMigration &&"));
-            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxImpactTransientBreakMigration &&"));
-            Assert.That(runtimeSource, Does.Not.Contain("enableGameplayVfxOutOfBoundsExitMigration &&"));
+            foreach (var scenePath in ScenePaths)
+            {
+                var sceneYaml = ReadRepoFile(scenePath);
+                foreach (var cueName in FormerMigrationCueNames)
+                {
+                    Assert.That(sceneYaml, Does.Not.Contain(SerializedFieldNameFor(cueName)), $"{scenePath}: {cueName}");
+                }
+            }
         }
 
         [Test]
@@ -167,19 +142,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return File.ReadAllText(path);
         }
 
-        private readonly struct FlagInfo
+        private static string ScenePath(string sceneName)
         {
-            public FlagInfo(
-                string propertyName,
-                string serializedFieldName)
-            {
-                PropertyName = propertyName;
-                SerializedFieldName = serializedFieldName;
-            }
+            return Path.Combine("Assets", "Scenes", sceneName + ".unity").Replace('\\', '/');
+        }
 
-            public string PropertyName { get; }
+        private static string PropertyNameFor(string cueName)
+        {
+            return string.Concat("Enable", "Gameplay", "Vfx", cueName, "Migration");
+        }
 
-            public string SerializedFieldName { get; }
+        private static string SerializedFieldNameFor(string cueName)
+        {
+            return string.Concat("enable", "Gameplay", "Vfx", cueName, "Migration");
         }
     }
 }

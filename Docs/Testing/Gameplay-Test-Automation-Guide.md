@@ -445,6 +445,7 @@ WSL CLI
   - `core --filter X`는 lane-preserving이다. broad `core` lane에 포함되는 테스트 중 `X`와 매치되는 테스트만 실행하며, category 또는 gate 범위를 풀지 않는다.
   - filtered run에서는 일부 Unity stage가 `0`개를 실행할 수 있다. shell은 전체 core lane 합산 match가 `0`일 때만 fail-fast한다.
   - fixture 전체 실행이 필요한 PlayMode 테스트는 `full --filter X`로 실행한다. 예: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
+  - topology post-fx/bridge fixture evidence는 `core --filter`가 아니라 `full --filter`로 기록한다. 예: `./run_tests.sh full --filter TopologyTransitionPostFxTests`, `./run_tests.sh full --filter TopologyVisualBridgeVisibilityControllerTests`.
   - broad core evidence와 fixture-wide targeted evidence는 서로 다른 claim으로 보고해야 한다.
 
 #### 종료 코드
@@ -495,6 +496,7 @@ WSL CLI
   - `core --filter X` is lane-preserving. It runs only tests matching `X` inside the broad `core` lane and does not remove category or gate scope.
   - A filtered run may execute `0` tests in some Unity stages. The shell fails fast only when the aggregate match count across the core lane is `0`.
   - Use `full --filter X` when the full PlayMode fixture is the intended evidence. Example: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
+  - Record topology post-fx/bridge fixture evidence with `full --filter`, not `core --filter`. Examples: `./run_tests.sh full --filter TopologyTransitionPostFxTests`, `./run_tests.sh full --filter TopologyVisualBridgeVisibilityControllerTests`.
   - Broad core evidence and fixture-wide targeted evidence must be reported as separate claims.
 
 #### Exit codes

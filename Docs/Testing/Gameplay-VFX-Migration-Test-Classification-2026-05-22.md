@@ -85,18 +85,18 @@ The cleanup target is narrower:
 | `GameplayVfxForwardCellProjectileTests.cs` | 2 | Keep/Fix | Current projectile/forward-cell VFX behavior. Some assertions may need materialization before comparing LINQ iterators. |
 | `GameplayVfxFlagRolloutPolicyTests.cs` | 0 | Consolidate | Useful during rollout, but all current flags are default-on. Keep one canonical flag policy guard and remove cue-by-cue rollout table duplication later. |
 | `GameplayVfxLegacyOldPathCleanupTests.cs` | 0 | Consolidate | Keep old-fallback absence as a single architectural guard. Remove phrase-heavy and duplicated cue-specific cleanup assertions after rename/coverage consolidation. |
-| `GameplayVfxPlayerDamageMigrationTests.cs` | 0 | Rewrite/Rename | Player damage VFX is now canonical. Binding fixture failures are resolved; rename remains useful later. |
-| `GameplayVfxEnemyDamageMigrationTests.cs` | 0 | Rewrite/Rename | Removed-default-authoring tests remain; synthetic default-host playback checks were pruned, and missing-binding diagnostics now provide source visibility context. |
-| `GameplayVfxEnemyDeathMigrationTests.cs` | 0 | Rewrite/Rename | Removed synthetic default-host death playback and snapshot-count checks; default authoring removal and no-old-path coverage remain. |
-| `GameplayVfxEnemyDeathMotionMigrationTests.cs` | 0 | Rewrite/Rename | Passing but still named as migration. Rename to death motion runtime/parameterized motion tests. |
-| `GameplayVfxBoxExitMigrationTests.cs` | 0 | Rewrite/Rename | Box destroy/item consume VFX are canonical. Binding-composition fixture failures are resolved; rename can happen in a later no-behavior-change slice. |
-| `GameplayVfxFlipDestroySelfMotionMigrationTests.cs` | 2 | Rewrite/Rename | Composition failures are gone. Remaining failures are flag/off behavior and coexistence count drift. |
-| `GameplayVfxFlipImpactBurstMigrationTests.cs` | 1 | Rewrite/Rename | Composition failures are gone. Remaining failure is duplicate guard expectation drift. |
+| `GameplayVfxPlayerDamageCanonicalTests.cs` | 0 | Rewrite/Rename | Player damage VFX is now canonical. Binding fixture failures are resolved; rename remains useful later. |
+| `GameplayVfxEnemyDamageCanonicalTests.cs` | 0 | Rewrite/Rename | Removed-default-authoring tests remain; synthetic default-host playback checks were pruned, and missing-binding diagnostics now provide source visibility context. |
+| `GameplayVfxEnemyDeathCanonicalTests.cs` | 0 | Rewrite/Rename | Removed synthetic default-host death playback and snapshot-count checks; default authoring removal and no-old-path coverage remain. |
+| `GameplayVfxEnemyDeathMotionCanonicalTests.cs` | 0 | Rewrite/Rename | Passing but still named as migration. Rename to death motion runtime/parameterized motion tests. |
+| `GameplayVfxBoxExitCanonicalTests.cs` | 0 | Rewrite/Rename | Box destroy/item consume VFX are canonical. Binding-composition fixture failures are resolved; rename can happen in a later no-behavior-change slice. |
+| `GameplayVfxFlipDestroySelfMotionCanonicalTests.cs` | 2 | Rewrite/Rename | Composition failures are gone. Remaining failures are flag/off behavior and coexistence count drift. |
+| `GameplayVfxFlipImpactBurstCanonicalTests.cs` | 1 | Rewrite/Rename | Composition failures are gone. Remaining failure is duplicate guard expectation drift. |
 | `GameplayVfxFlipImpactMotionTrackGateTests.cs` | 0 | Consolidate | Gate language is still useful only until MotionTrack ownership is fully canonicalized. Merge into architecture/MotionTrack tests when renamed. |
-| `GameplayVfxFrontFaceShieldMigrationTests.cs` | 0 | Rewrite/Rename | Pruned synthetic active/block/windup playback and source-profile override checks for removed default authoring; missing-binding diagnostics now pass source visibility context. |
-| `GameplayVfxReservedHookMigrationTests.cs` | 0 | Rewrite/Rename | Reserved hook binding fixture failure is resolved. Rename remains useful later. |
-| `GameplayVfxTileFeatureGravityFieldMigrationTests.cs` | 2 | Rewrite/Rename | TileFeature/GravityField VFX lane is current behavior. Keep topology completion and PR28 controller absence checks, but avoid stale legacy symbol phrasing. |
-| `GameplayVfxUtilityWindupMigrationTests.cs` | 0 | Rewrite/Rename | Pruned synthetic persistent lifecycle/profile checks for removed default authoring; missing-binding diagnostics now pass source visibility context. |
+| `GameplayVfxFrontFaceShieldCanonicalTests.cs` | 0 | Rewrite/Rename | Pruned synthetic active/block/windup playback and source-profile override checks for removed default authoring; missing-binding diagnostics now pass source visibility context. |
+| `GameplayVfxReservedHookCanonicalTests.cs` | 0 | Rewrite/Rename | Reserved hook binding fixture failure is resolved. Rename remains useful later. |
+| `GameplayVfxTileFeatureGravityFieldRuntimeTests.cs` | 2 | Rewrite/Rename | TileFeature/GravityField VFX lane is current behavior. Keep topology completion and PR28 controller absence checks, but avoid stale legacy symbol phrasing. |
+| `GameplayVfxUtilityWindupCanonicalTests.cs` | 0 | Rewrite/Rename | Pruned synthetic persistent lifecycle/profile checks for removed default authoring; missing-binding diagnostics now pass source visibility context. |
 
 ## Delete Candidates
 

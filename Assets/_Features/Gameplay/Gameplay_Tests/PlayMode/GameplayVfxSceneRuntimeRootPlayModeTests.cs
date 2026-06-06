@@ -115,8 +115,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var runtime = host.GetComponent<GameplayVfxProductionRuntime>();
                 Assert.That(runtime, Is.Not.Null, $"{UIAudioScenePath} must include a GameplayVfxProductionRuntime.");
 
-                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.True);
                 Assert.That(runtime.EnableGameplayVfxTileFeatureLane, Is.True);
                 Assert.That(runtime.MapNotConfiguredCount, Is.Zero);
                 Assert.That(runtime.InitialRequestSkippedBecauseMapNotConfiguredCount, Is.Zero);

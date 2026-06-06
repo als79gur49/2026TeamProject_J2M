@@ -71,7 +71,7 @@ Failure count 변화:
 | 9 | `Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh` | `GameplayUiAccessRuntimeTests` | `GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh` | UI | E. RuntimeBehaviorRegression | expected previous committed HUD state count `>= 1`, actual `0` | transient query / refresh ordering drift | UnrelatedBaseline | Gameplay UIAccess | High | NeedsOwnerDecision; UI runtime owner |
 | 10 | `Game.Feature.Gameplay.Tests.Unit.GameplayUiAccessRuntimeTests.GameplayUiAccess_PresentationFeed_MapsPlayerSlice_ForHeldMove` | `GameplayUiAccessRuntimeTests` | `GameplayUiAccess_PresentationFeed_MapsPlayerSlice_ForHeldMove` | UI | E. RuntimeBehaviorRegression | expected mapped player slice `True`, actual `False` | presentation feed player slice mapping drift | UnrelatedBaseline | Gameplay UIAccess | High | NeedsOwnerDecision; UI runtime owner |
 | 11 | `Game.Feature.Gameplay.Tests.Unit.GameplayVfxArchitectureTests.CoreSource_DoesNotReferenceSnapshotOrProductionRuntimeTypes` | `GameplayVfxArchitectureTests` | `CoreSource_DoesNotReferenceSnapshotOrProductionRuntimeTypes` | Gameplay VFX | B. ArchitectureGuardExpectationStale | source contains forbidden `GameObject` token | `GameplayVfxLifetimeTrace.cs` in VFX runtime references `GameObject`, `Renderer`, `ParticleSystem`; file predates current diff | PossiblyRelated | Gameplay VFX architecture | Medium | NeedsSmallTargetedFix; decide whether trace file is core or host/runtime boundary |
-| 12 | `Game.Feature.Gameplay.Tests.Unit.GameplayVfxTileFeatureGravityFieldMigrationTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` | `GameplayVfxTileFeatureGravityFieldMigrationTests` | `Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` | Gameplay VFX | C. DefaultCueMapExpectationStale | expected `EntranceSpawn` default lifetime `0.6f`, actual `5.0f` | default cue map changed in recent VFX range; `TileFeature_EntranceSpawn_Binding.asset` itself was not changed | PossiblyRelated | Gameplay VFX / TileFeature VFX | Medium | NeedsSmallTargetedFix only after owner confirms intended lifetime policy |
+| 12 | `Game.Feature.Gameplay.Tests.Unit.GameplayVfxTileFeatureGravityFieldRuntimeTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` | `GameplayVfxTileFeatureGravityFieldRuntimeTests` | `Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` | Gameplay VFX | C. DefaultCueMapExpectationStale | expected `EntranceSpawn` default lifetime `0.6f`, actual `5.0f` | default cue map changed in recent VFX range; `TileFeature_EntranceSpawn_Binding.asset` itself was not changed | PossiblyRelated | Gameplay VFX / TileFeature VFX | Medium | NeedsSmallTargetedFix only after owner confirms intended lifetime policy |
 | 13 | `Game.Feature.Gameplay.Tests.Unit.LegalityResultCanonicalizationTests.RuntimeTraversalLegalityPolicy_EvaluateDestination_WithRotation_ExportsTopologyUpdateRequirement` | `LegalityResultCanonicalizationTests` | `RuntimeTraversalLegalityPolicy_EvaluateDestination_WithRotation_ExportsTopologyUpdateRequirement` | Topology | E. RuntimeBehaviorRegression | expected `Allowed`, actual `Blocked` | traversal/topology legality result drift | UnrelatedBaseline | Topology / legality | High | NeedsOwnerDecision; topology legality targeted pass |
 | 14 | `Game.Feature.Gameplay.Tests.Unit.ReservationReadModelContractTests.MovementReservationBook_CellReservationInfo_DistinguishesUnitSharedSettlementCompatibility` | `ReservationReadModelContractTests` | `MovementReservationBook_CellReservationInfo_DistinguishesUnitSharedSettlementCompatibility` | Gameplay Core | E. RuntimeBehaviorRegression | expected blocker `Unit`, actual `None` | reservation read model compatibility drift | UnrelatedBaseline | Occupancy / reservation | High | NeedsOwnerDecision; occupancy owner |
 | 15 | `Game.Feature.Gameplay.Tests.Unit.TileFeatureAudioRuntimeTests.TileFeatureAudioPresentationController_BarricadeBindings_PlayDuplicatesWhenPresent` | `TileFeatureAudioRuntimeTests` | `TileFeatureAudioPresentationController_BarricadeBindings_PlayDuplicatesWhenPresent` | Audio | G. IndependentBroadBaseline | expected same `Sfx_False_Def` instance, got different same-named instance | audio binding identity/fixture drift | UnrelatedBaseline | TileFeature audio | DoNotFixInThisPass | DoNotTouchInP2_4; audio owner |
@@ -127,13 +127,13 @@ Failure:
 - 후속 targeted 작업에서 `GameplayVfxLifetimeTrace`가 VFX core source에 남아도 되는 diagnostic utility인지, host/runtime 쪽으로 이동해야 하는 production Unity dependency인지 결정한다.
 - 단순 allowlist 추가는 마지막 수단이다.
 
-## 상세 분석: GameplayVfxTileFeatureGravityFieldMigrationTests
+## 상세 분석: GameplayVfxTileFeatureGravityFieldRuntimeTests
 
 Failure:
 
-- `Game.Feature.Gameplay.Tests.Unit.GameplayVfxTileFeatureGravityFieldMigrationTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings`
+- `Game.Feature.Gameplay.Tests.Unit.GameplayVfxTileFeatureGravityFieldRuntimeTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings`
 - message: expected `0.600000024f`, actual `5.0f`
-- key stack: `GameplayVfxTileFeatureGravityFieldMigrationTests.cs`
+- key stack: `GameplayVfxTileFeatureGravityFieldRuntimeTests.cs`
 
 확인 결과:
 
@@ -171,7 +171,7 @@ Failure:
 | item | reason | next action |
 |---|---|---|
 | `GameplayVfxArchitectureTests.CoreSource_DoesNotReferenceSnapshotOrProductionRuntimeTypes` | architecture guard boundary or file placement decision needed | decide trace utility boundary; then move file or adjust guard |
-| `GameplayVfxTileFeatureGravityFieldMigrationTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` | default cue expectation vs actual binding policy mismatch | confirm intended `EntranceSpawn` lifetime and split stale migration assertion |
+| `GameplayVfxTileFeatureGravityFieldRuntimeTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` | default cue expectation vs actual binding policy mismatch | confirm intended `EntranceSpawn` lifetime and split stale migration assertion |
 | `FinalizeNoRecheckArchitectureTests.TickPipeline_CleanupRespawnDirectWritePath_IsDocumentedAndBounded` | architecture guard expected count stale or new path undocumented | audit third path and update code/doc/test consistently |
 | `StageAuthoringArchitectureBoundaryTests.StageResultUi_DoesNotDependOnStageRuntimeBuildResult` | boundary guard found UI dependency | remove dependency if violation; otherwise update boundary contract |
 
@@ -297,7 +297,7 @@ VFX regression evidence from the same full EditMode XML:
 
 Remaining TODO after P2-5:
 
-- VFX/TileFeature owner: `GameplayVfxTileFeatureGravityFieldMigrationTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` / `TileFeature_EntranceSpawn_Binding.asset` lifetime policy targeted pass.
+- VFX/TileFeature owner: `GameplayVfxTileFeatureGravityFieldRuntimeTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings` / `TileFeature_EntranceSpawn_Binding.asset` lifetime policy targeted pass.
 - TileFeature owner: investigate enemy death exit payload loss in destroy-tile pipeline before calling it baseline.
 - Remaining full baseline failures stay assigned to their P2-4 owner areas.
 
@@ -305,7 +305,7 @@ Remaining TODO after P2-5:
 
 P2-6 resolved the stale `EntranceSpawn` lifetime expectation in:
 
-- `Game.Feature.Gameplay.Tests.Unit.GameplayVfxTileFeatureGravityFieldMigrationTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings`
+- `Game.Feature.Gameplay.Tests.Unit.GameplayVfxTileFeatureGravityFieldRuntimeTests.Authoring_DefaultCueMapContainsExitSliderAndRemainingGravityBindings`
 
 판정:
 

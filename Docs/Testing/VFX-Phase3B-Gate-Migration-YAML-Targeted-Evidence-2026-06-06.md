@@ -1,12 +1,13 @@
 # VFX Phase 3B-Gate Migration YAML + Targeted Evidence 정리 보고서
 
 ## 1. 결론
-- migration YAML residue 상태: `UIAudioScene`, `CombinedGameplayShowcase`, `TutorialScene`에 `EnableGameplayVfx*Migration` scene YAML residue가 15개씩, 총 45개 남아 있다.
-- field deletion 가능 여부: 이번 작업에서는 삭제하지 않았다. `GameplayVfxProductionRuntime`의 serialized field/property 선언이 남아 있는 동안 scene YAML 단독 삭제는 stable cleanup gate가 아니므로, Phase 3B field/property deletion과 세 scene reserialization을 같은 cleanup package로 처리해야 한다.
+- migration YAML residue 상태: Phase 3B cleanup에서 `UIAudioScene`, `CombinedGameplayShowcase`, `TutorialScene`의 former migration YAML residue 45개를 Unity reserialization으로 제거했다.
+- field deletion 상태: `GameplayVfxProductionRuntime`의 former serialized migration field/property declarations는 삭제 완료됐다. scene YAML 단독 삭제가 아니라 declaration deletion과 세 scene reserialization을 같은 cleanup package로 처리했다.
 - test filter 정책: `core --filter X`는 lane-preserving으로 확정했다. broad `core` lane의 assembly/category/gate scope를 유지한 상태에서 `X`만 매치한다.
 - PlayerMovementPlayModeTests 상태: `core --filter PlayerMovementPlayModeTests`는 core subset 13개 pass. `full --filter PlayerMovementPlayModeTests`는 fixture-wide 42개 중 15개 fail.
-- Phase 3B 진행 가능 여부: field/property deletion 자체는 아직 보류. 다음 Phase 3B cleanup commit에서 정확한 삭제 대상과 scene reserialize 대상은 확정됐다.
-- 보류: `EnableGameplayVfx*Migration` field/property declaration deletion, migration YAML removal, legacy naming consolidation, raw showcase/tutorial scene deletion.
+- topology evidence 상태: `TopologyTransitionPostFxTests`와 `TopologyVisualBridgeVisibilityControllerTests`는 `core --filter` evidence가 아니라 `full --filter` fixture evidence로 기록한다.
+- Phase 3B 진행 상태: field/property deletion과 scene reserialization cleanup 완료. raw showcase/tutorial scene deletion은 여전히 별도 phase로 보류한다.
+- 보류: legacy naming consolidation, raw showcase/tutorial scene deletion.
 - 남은 위험: fixture-wide PlayerMovement red는 topology/player-movement targeted risk로 별도 추적해야 하며 broad core/ui green과 혼동하면 안 된다.
 
 ## 2. Baseline
@@ -15,7 +16,7 @@
 | `git status --short --branch` | pass | 시작 시 clean, branch ahead 22 |
 | `git diff --stat` | pass | 시작 시 empty |
 | `git diff --name-status` | pass | 시작 시 empty |
-| `./run_tests.sh core` | pass | core EditMode 160, core feature gate EditMode 52, core PlayMode 34 |
+| `./run_tests.sh core` | pass | core EditMode 160, core feature gate EditMode 53, core PlayMode 34 |
 | `./run_tests.sh ui` | pass | ui EditMode 651 |
 
 ## 3. Test Runner Filter Policy
@@ -35,28 +36,36 @@
 ## 5. Migration YAML Residue Inventory
 | Scene | Field count | Fields | Runtime read 여부 | Cleanup 가능 여부 |
 | --- | ---: | --- | --- | --- |
-| `Assets/Scenes/UIAudioScene.unity` | 15 | all `enableGameplayVfx*Migration`, value `1` | canonical migrated cue path does not branch on these values | Phase 3B field deletion + scene reserialize에서 cleanup |
-| `Assets/Scenes/CombinedGameplayShowcase.unity` | 15 | all `enableGameplayVfx*Migration`, value `1` | canonical migrated cue path does not branch on these values | Phase 3B field deletion + scene reserialize에서 cleanup |
-| `Assets/Scenes/TutorialScene.unity` | 15 | all `enableGameplayVfx*Migration`, value `0` | canonical migrated cue path does not branch on these values | Phase 3B field deletion + scene reserialize에서 cleanup |
+| `Assets/Scenes/UIAudioScene.unity` | 15 -> 0 | former serialized Gameplay VFX migration field names removed | canonical migrated cue path never branched on these values | cleaned by Phase 3B field deletion + scene reserialize |
+| `Assets/Scenes/CombinedGameplayShowcase.unity` | 15 -> 0 | former serialized Gameplay VFX migration field names removed | canonical migrated cue path never branched on these values | cleaned by Phase 3B field deletion + scene reserialize |
+| `Assets/Scenes/TutorialScene.unity` | 15 -> 0 | former serialized Gameplay VFX migration field names removed | canonical migrated cue path never branched on these values | cleaned by Phase 3B field deletion + scene reserialize |
 
-All three scene residues are on `Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime` (`m_Script` guid `77f98ca183bf441ba81f70f521126c17`) under GameObject fileID `1179627480`.
+The former residues were on `Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime` (`m_Script` guid `77f98ca183bf441ba81f70f521126c17`) under GameObject fileID `1179627480`.
+
+Scene reserialization note:
+
+| Scene | migration residue | live serialized field backfill | 판정 |
+| --- | --- | --- | --- |
+| `Assets/Scenes/UIAudioScene.unity` | 15 -> 0 | none in this diff | clean migration residue removal |
+| `Assets/Scenes/CombinedGameplayShowcase.unity` | 15 -> 0 | `_demoStageControlSettings`, `enableGameplayVfxEnemyAttackCooldownFollow`, `enableGameplayVfxForwardCellProjectile`, `commonEmptyHostPrefab` | acceptable Unity live-field backfill, not migration residue |
+| `Assets/Scenes/TutorialScene.unity` | 15 -> 0 | `_demoStageControlSettings`, `enableGameplayVfxEnemyAttackCooldownFollow`, `commonEmptyHostPrefab` | acceptable Unity live-field backfill, not migration residue |
 
 ## 6. Cleanup 조치
 | 파일 | 조치 | 이유 | reserialize 여부 | 검증 |
 | --- | --- | --- | --- | --- |
 | `run_tests.sh` | core lane에 `core-feature-gate` EditMode stage 추가 | lane-preserving filter 유지 상태에서 Phase 3B gate tests를 broad core evidence에 포함 | n/a | broad core pass |
 | `Assets/_Tools/Editor/TestRunnerCliBootstrap.cs` | `core-feature-gate` selection과 `Phase3BGate` category 추가, filtered core scope 보존 | `core --filter X`가 fixture-wide로 확장되지 않게 함 | n/a | dry-run 및 targeted pass |
-| VFX/Stage targeted tests | `Core` + `Phase3BGate` category 추가 | VFX/Stage gate tests를 broad core feature gate에 명시 편입 | n/a | broad core feature gate 52 pass |
-| Scene YAML | 수정하지 않음 | field declaration이 남은 상태의 YAML 단독 삭제는 stable cleanup이 아님 | no | inventory 확정, scene bootstrap targeted pass |
+| VFX/Stage targeted tests | `Core` + `Phase3BGate` category 추가 | VFX/Stage gate tests를 broad core feature gate에 명시 편입 | n/a | broad core feature gate 53 pass |
+| Scene YAML | three active scenes reserialized | deleted declarations must remove stale YAML through Unity serialization | yes | residue search 0 after cleanup |
 | `Docs/Architecture/Gameplay-VFX-Governance.md` | Phase 3B-Gate residue와 PlayerMovement red 분리 정책 추가 | 외부 검토용 gate 판단 근거 기록 | n/a | docs diff reviewed |
 | `Docs/Testing/Gameplay-Test-Automation-Guide.md` | filter/lane policy 문서화 | core targeted와 full fixture evidence 혼동 방지 | n/a | docs diff reviewed |
 
 ## 7. Phase 3B Field Deletion Gate
 | 조건 | 결과 | 비고 |
 | --- | --- | --- |
-| runtime branch residue 0 | pass | migrated cue path is canonical default-only; compatibility fields still declared |
+| runtime branch residue 0 | pass | migrated cue path is canonical default-only; former compatibility fields deleted |
 | prefab residue 0 | pass | migration residue search found no prefab YAML residue |
-| scene residue 0 또는 cleanup 대상 확정 | pass with deferral | scene residue 45개 target 확정, deletion commit에서 reserialize 필요 |
+| scene residue 0 | pass | scene residue 45개 removed by declaration deletion + reserialize |
 | active raw scene path 0 | pass | `Assets ProjectSettings Packages` direct path search has no active raw scene path reference |
 | targeted tests reliable | pass | lane-preserving targeted tests green |
 | broad core/ui green | pass | broad `core` and `ui` passed on this revision |
@@ -84,25 +93,30 @@ All three scene residues are on `Game.Feature.Gameplay.Vfx.Host.GameplayVfxProdu
 | `git diff --check` | pass | n/a | touched |
 | `./run_tests.sh --dry-run core --filter GameplayVfxFlagRolloutPolicyTests` | pass | n/a | touched |
 | `./run_tests.sh --dry-run core --filter PlayerMovementPlayModeTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter GameplayVfxFlagRolloutPolicyTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter GameplayVfxSceneRuntimeRootPlayModeTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter GameplayVfxBindingPolicyTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter StageDefaultStageIdPolicyTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter StageSceneBootstrapValidatorTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter ActualSceneBootstrapSmokePlayModeTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter SaveSlotValidationAndDirectPlayTests` | pass | n/a | touched |
-| `./run_tests.sh ui --filter GameplayShellUiAudioContractTests` | pass | n/a | touched |
-| `./run_tests.sh core --filter PlayerMovementPlayModeTests` | pass | n/a | core subset |
+| `./run_tests.sh core --filter GameplayVfxFlagRolloutPolicyTests` | pass | 6 core feature EditMode, 0 failed | touched |
+| `./run_tests.sh core --filter GameplayVfxSceneRuntimeRootPlayModeTests` | pass | 5 core PlayMode, 0 failed | touched |
+| `./run_tests.sh core --filter GameplayVfxBindingPolicyTests` | pass | 26 core feature EditMode, 0 failed | touched |
+| `./run_tests.sh core --filter StageDefaultStageIdPolicyTests` | pass | 9 core feature EditMode, 0 failed | touched |
+| `./run_tests.sh core --filter StageSceneBootstrapValidatorTests` | pass | 1 core feature EditMode, 0 failed | touched |
+| `./run_tests.sh core --filter ActualSceneBootstrapSmokePlayModeTests` | pass | 3 core PlayMode, 0 failed | touched |
+| `./run_tests.sh core --filter SaveSlotValidationAndDirectPlayTests` | pass | 11 core feature EditMode, 0 failed | touched |
+| `./run_tests.sh ui --filter GameplayShellUiAudioContractTests` | pass | 2 UI EditMode, 0 failed | touched |
+| `./run_tests.sh full --filter TopologyTransitionPostFxTests` | pass | 6 full EditMode, 0 failed | topology fixture evidence / full-filter only |
+| `./run_tests.sh full --filter TopologyVisualBridgeVisibilityControllerTests` | pass | 8 full EditMode, 0 failed | topology fixture evidence / full-filter only |
+| `./run_tests.sh full --filter GameplayVfxEnemyDeathMotionPrefabWithSourceCloneTests` | pass | 20 full EditMode, 0 failed | VFX full targeted |
+| `./run_tests.sh full --filter GameplayVfxFlipDestroySelfSourceCloneMotionTests` | pass | 34 full EditMode, 0 failed | VFX full targeted |
+| `./run_tests.sh full --filter GameplayVfxFrontFaceShieldCanonicalTests` | pass | 19 full EditMode, 0 failed | VFX full targeted |
+| `./run_tests.sh full --filter GameplayVfxUtilityWindupCanonicalTests` | pass | 18 full EditMode, 0 failed | VFX full targeted |
+| `./run_tests.sh core --filter PlayerMovementPlayModeTests` | pass | 13 core PlayMode, 0 failed | core subset |
 | `./run_tests.sh full --filter PlayerMovementPlayModeTests` | fail | fixture-wide PlayerMovement/topology/input timing failures, 15/42 failed | existing isolated/full fixture red |
 | `./run_tests.sh core` | pass | n/a | broad baseline |
 | `./run_tests.sh ui` | pass | n/a | broad baseline |
 
 ## 11. 다음 단계
 Gate 통과 시:
-- Phase 3B: `EnableGameplayVfx*Migration` field/property declaration deletion.
-- `UIAudioScene`, `CombinedGameplayShowcase`, `TutorialScene` scene reserialization cleanup.
-- tests/docs update.
-- final `rg` validation for migration residue 0 in active runtime/scene cleanup scope.
+- Phase 4: LegacyEnemyDeath naming cleanup.
+- 이후: exit-specific command builder naming/consolidation.
+- 이후: DefaultGameplay visibility policy resolve 일원화.
 
 Gate 미통과 시:
 - fixture-wide PlayerMovement red는 topology/player-movement owner lane에서 해결한다.

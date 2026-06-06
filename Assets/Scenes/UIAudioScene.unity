@@ -1012,15 +1012,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Vfx.ProductionRuntime::Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime
   enableEnemyJumpTargetVfx: 1
   enableEnemyJumpLandingDustVfx: 1
-  enableGameplayVfxDamageBurstMigration: 1
-  enableGameplayVfxEnemyDamageBurstMigration: 1
-  enableGameplayVfxEnemyDeathBurstMigration: 1
-  enableGameplayVfxEnemyDeathMotionMigration: 1
-  enableGameplayVfxBoxDestroySmokeMigration: 1
-  enableGameplayVfxBoxDestroyShrinkMigration: 1
-  enableGameplayVfxItemConsumeBurstMigration: 1
-  enableGameplayVfxFlipImpactBurstMigration: 1
-  enableGameplayVfxFlipDestroySelfMotionMigration: 1
   enableGameplayVfxFlipImpactStayTrail: 1
   enableGameplayVfxGlideWindTrail: 1
   enableGameplayVfxChargeBoosterTrail: 1
@@ -1028,12 +1019,6 @@ MonoBehaviour:
   enableGameplayVfxEnemyAttackCooldownFollow: 1
   enableGameplayVfxBoxSlideTrail: 1
   enableGameplayVfxBoxSlideSolidStop: 1
-  enableGameplayVfxImpactTransientBreakMigration: 1
-  enableGameplayVfxOutOfBoundsExitMigration: 1
-  enableGameplayVfxUtilityWindupMigration: 1
-  enableGameplayVfxFrontFaceShieldActiveMigration: 1
-  enableGameplayVfxFrontFaceShieldBlockMigration: 1
-  enableGameplayVfxFrontFaceShieldWindupMigration: 1
   enableGameplayVfxTileFeatureLane: 1
   enableGameplayVfxGravityFieldEvents: 1
   enableGameplayVfxGravityFieldContinuous: 1

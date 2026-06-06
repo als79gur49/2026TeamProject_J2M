@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxEnemyDeathMigrationTests
+    public sealed class GameplayVfxEnemyDeathCanonicalTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -116,8 +116,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxEnemyDeathBurstMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.True);
             }
             finally
             {
@@ -133,8 +131,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.Killed)));
 
@@ -188,9 +184,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(vfxPrefab, GameplayVfxCueId.From(EnemyVfxCue.Death), 0.35f, 0.25f, 8);
                 cueMap = CreateCueMap(binding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
@@ -225,8 +218,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[]
@@ -260,10 +251,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = true;
-                runtime.EnableGameplayVfxItemConsumeBurstMigration = true;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[]
@@ -451,12 +438,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 itemBinding = CreateBinding(prefab, GameplayVfxCueId.From(BoxVfxCue.ItemConsume), 0.18f, 0.20f, 8);
                 cueMap = CreateCueMap(deathBinding, damageBinding, boxBinding, itemBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = deathEnabled;
-                runtime.EnableGameplayVfxEnemyDamageBurstMigration = enemyDamageEnabled;
-                runtime.EnableGameplayVfxBoxDestroySmokeMigration = boxEnabled;
-                runtime.EnableGameplayVfxBoxDestroyShrinkMigration = false;
-                runtime.EnableGameplayVfxItemConsumeBurstMigration = itemEnabled;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext(
@@ -768,7 +749,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Destroy()
             {
-                GameplayVfxEnemyDeathMigrationTests.Destroy(Root);
+                GameplayVfxEnemyDeathCanonicalTests.Destroy(Root);
             }
         }
 

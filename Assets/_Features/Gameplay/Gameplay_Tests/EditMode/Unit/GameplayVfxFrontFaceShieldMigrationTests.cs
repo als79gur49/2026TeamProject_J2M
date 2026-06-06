@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxFrontFaceShieldMigrationTests
+    public sealed class GameplayVfxFrontFaceShieldCanonicalTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -199,9 +199,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldActiveMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldBlockMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxFrontFaceShieldWindupMigration, Is.True);
             }
             finally
             {
@@ -213,10 +210,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ProductionRuntime_RetainedShieldFlags_DoNotAlterCanonicalPlanning()
         {
-            AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: false, expectedRequests: 2);
-            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: true, expectedRequests: 2);
-            AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: true, expectedRequests: 2);
-            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: false, expectedRequests: 2);
+            AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: false, expectedRequests: 3);
+            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: true, expectedRequests: 3);
+            AssertFlagCombinationPlans(activeEnabled: true, blockEnabled: true, expectedRequests: 3);
+            AssertFlagCombinationPlans(activeEnabled: false, blockEnabled: false, expectedRequests: 3);
         }
 
         [Test]
@@ -254,7 +251,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var activeRuntime = activeOwner.AddComponent<GameplayVfxProductionRuntime>();
-                activeRuntime.EnableGameplayVfxFrontFaceShieldActiveMigration = true;
                 var activeView = AddSourceView(activeOwner);
                 activeRuntime.Present(CreateExtensionContext(CreatePresentationData(
                     activeSignals: new[]
@@ -263,7 +259,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }), sourceView: activeView));
 
                 var blockRuntime = blockOwner.AddComponent<GameplayVfxProductionRuntime>();
-                blockRuntime.EnableGameplayVfxFrontFaceShieldBlockMigration = true;
                 blockRuntime.Present(CreateExtensionContext(CreatePresentationData(
                     blockSignals: new[]
                     {
@@ -279,7 +274,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 try
                 {
                     var windupRuntime = windupOwner.AddComponent<GameplayVfxProductionRuntime>();
-                    windupRuntime.EnableGameplayVfxFrontFaceShieldWindupMigration = true;
                     var windupView = AddSourceView(windupOwner);
                     windupRuntime.Present(CreateExtensionContext(CreatePresentationData(
                         windupSignals: new[]
@@ -392,7 +386,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = true;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 
@@ -423,8 +416,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = false;
-                runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = false;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 
@@ -547,9 +538,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFrontFaceShieldActiveMigration = activeEnabled;
-                runtime.EnableGameplayVfxFrontFaceShieldBlockMigration = blockEnabled;
-                runtime.EnableGameplayVfxFrontFaceShieldWindupMigration = windupEnabled;
                 var sourceView = AddSourceView(owner);
                 runtime.Present(CreateExtensionContext(CreatePresentationData(
                     activeSignals: new[]
@@ -984,7 +972,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Destroy()
             {
-                GameplayVfxFrontFaceShieldMigrationTests.Destroy(EnemyPrefab, Root);
+                GameplayVfxFrontFaceShieldCanonicalTests.Destroy(EnemyPrefab, Root);
             }
         }
     }

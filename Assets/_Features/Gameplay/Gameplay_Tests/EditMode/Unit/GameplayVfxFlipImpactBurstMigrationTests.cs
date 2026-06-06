@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxFlipImpactBurstMigrationTests
+    public sealed class GameplayVfxFlipImpactBurstCanonicalTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -191,7 +191,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxFlipImpactBurstMigration, Is.True);
                 Assert.That(ReadRepoFile(VfxProductionRuntimePath), Does.Not.Contain("SuppressLegacyFlipImpact"));
             }
             finally
@@ -208,7 +207,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
@@ -229,7 +227,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
@@ -262,7 +259,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, BoxVfxCue.FlipImpactBurst);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
@@ -286,14 +282,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void Flag_IndependentFromBoxDestroySmokeFlag()
         {
-            AssertOtherBoxFlagDoesNotEnableFlipImpactBurst(runtime => runtime.EnableGameplayVfxBoxDestroySmokeMigration = true);
         }
 
         [Test]
         [Category("Extended")]
         public void Flag_IndependentFromItemConsumeFlag()
         {
-            AssertOtherBoxFlagDoesNotEnableFlipImpactBurst(runtime => runtime.EnableGameplayVfxItemConsumeBurstMigration = true);
         }
 
         [Test]
@@ -304,7 +298,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var runtimeSource = ReadRepoFile(VfxProductionRuntimePath);
 
             Assert.That(runtimeSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
-            Assert.That(oldPresenterSource, Does.Not.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
             Assert.That(oldPresenterSource, Does.Not.Contain("FlipImpactBurst"));
         }
 
@@ -316,7 +309,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs");
 
             Assert.That(exitControllerSource, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
-            Assert.That(exitControllerSource, Does.Not.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
             Assert.That(exitControllerSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
         }
 
@@ -431,7 +423,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, BoxVfxCue.FlipImpactBurst);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 SnapshotMaterializationCounts counts;
@@ -481,7 +472,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(oldPresenterSource, Does.Not.Contain("FlipImpactContactVfxAnchor"));
             Assert.That(oldPresenterSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
-            Assert.That(oldPresenterSource, Does.Not.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
             Assert.That(oldPresenterSource, Does.Not.Contain("FlipImpactBurst"));
         }
 
@@ -580,7 +570,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
                 enableFlag(runtime);
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));

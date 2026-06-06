@@ -21,7 +21,7 @@ using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxTileFeatureGravityFieldMigrationTests
+    public sealed class GameplayVfxTileFeatureGravityFieldRuntimeTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";

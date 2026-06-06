@@ -600,6 +600,11 @@ MonoBehaviour:
   _uiAudioCueMap: {fileID: 11400000, guid: f22f968bc51249c19c72dc545d349f23, type: 2}
   _routeConfig: {fileID: 0}
   _slotCinematicDefinition: {fileID: 11400000, guid: 8729fd4ab5964d5695e76381ad9fd3cf, type: 2}
+  _demoStageControlSettings:
+    Enabled: 1
+    OpenKey: 0
+    AllowLockedStageSelection: 1
+    ShowHotkeyHint: 0
   _installOnStart: 1
 --- !u!114 &1179627485
 MonoBehaviour:
@@ -721,32 +726,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Vfx.ProductionRuntime::Game.Feature.Gameplay.Vfx.Host.GameplayVfxProductionRuntime
   enableEnemyJumpTargetVfx: 1
   enableEnemyJumpLandingDustVfx: 1
-  enableGameplayVfxDamageBurstMigration: 1
-  enableGameplayVfxEnemyDamageBurstMigration: 1
-  enableGameplayVfxEnemyDeathBurstMigration: 1
-  enableGameplayVfxEnemyDeathMotionMigration: 1
-  enableGameplayVfxBoxDestroySmokeMigration: 1
-  enableGameplayVfxBoxDestroyShrinkMigration: 1
-  enableGameplayVfxItemConsumeBurstMigration: 1
-  enableGameplayVfxFlipImpactBurstMigration: 1
-  enableGameplayVfxFlipDestroySelfMotionMigration: 1
   enableGameplayVfxFlipImpactStayTrail: 1
   enableGameplayVfxGlideWindTrail: 1
   enableGameplayVfxChargeBoosterTrail: 1
   enableGameplayVfxEnemyUtilityCooldownAura: 1
+  enableGameplayVfxEnemyAttackCooldownFollow: 1
   enableGameplayVfxBoxSlideTrail: 1
   enableGameplayVfxBoxSlideSolidStop: 1
-  enableGameplayVfxImpactTransientBreakMigration: 1
-  enableGameplayVfxOutOfBoundsExitMigration: 1
-  enableGameplayVfxUtilityWindupMigration: 1
-  enableGameplayVfxFrontFaceShieldActiveMigration: 1
-  enableGameplayVfxFrontFaceShieldBlockMigration: 1
-  enableGameplayVfxFrontFaceShieldWindupMigration: 1
   enableGameplayVfxTileFeatureLane: 1
   enableGameplayVfxGravityFieldEvents: 1
   enableGameplayVfxGravityFieldContinuous: 1
   enableGameplayVfxGravityFieldLockedTarget: 1
+  enableGameplayVfxForwardCellProjectile: 1
   familyProfiles: []
+  commonEmptyHostPrefab: {fileID: 0}
 --- !u!114 &1179627490
 MonoBehaviour:
   m_ObjectHideFlags: 0

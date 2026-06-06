@@ -120,7 +120,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxImpactTransientBreakMigration = false;
 
                 runtime.Present(CreateExtensionContext(
                     Array.Empty<TickEntityExitPresentationSignal>(),
@@ -203,7 +202,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxOutOfBoundsExitMigration = false;
 
                 runtime.Present(CreateExtensionContext(
                     new[] { CreateExitSignal(30, TickEntityExitCause.OutOfBounds) },

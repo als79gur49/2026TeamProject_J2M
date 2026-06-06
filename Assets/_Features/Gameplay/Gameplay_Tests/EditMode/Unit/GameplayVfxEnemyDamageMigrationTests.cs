@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class GameplayVfxEnemyDamageMigrationTests
+    public sealed class GameplayVfxEnemyDamageCanonicalTests
     {
         private const string HostDefaultCueMapPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Maps/GameplayVfxHostDefaultCueMap.asset";
@@ -88,8 +88,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxEnemyDamageBurstMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.True);
             }
             finally
             {
@@ -105,8 +103,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxDamageBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDamageBurstMigration = true;
 
                 var enemyView = AddSourceView(owner);
 
@@ -315,8 +311,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxDamageBurstMigration = playerDamageEnabled;
-                runtime.EnableGameplayVfxEnemyDamageBurstMigration = enemyDamageEnabled;
 
                 var enemyView = AddSourceView(owner);
                 runtime.Present(CreateExtensionContext(includePlayerDamage: true, enemyView: enemyView));

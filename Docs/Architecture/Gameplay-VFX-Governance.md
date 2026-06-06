@@ -330,8 +330,8 @@ Anchor and lifecycle:
 
 Feature flag:
 
-- `EnableGameplayVfxFlipImpactBurstMigration`
-- retained serialized compatibility field after Phase 3A
+- `former FlipImpactBurst migration field`
+- historical Phase 3A serialized compatibility field, deleted in Phase 3B
 - runtime selection is canonical and no longer branches on this value
 - the Gameplay VFX lane owns the contact burst request
 
@@ -516,8 +516,8 @@ Timing contract:
 
 Feature flag:
 
-- `EnableGameplayVfxFlipDestroySelfMotionMigration`
-- retained serialized compatibility field after Phase 3A
+- `former FlipDestroySelfMotion migration field`
+- historical Phase 3A serialized compatibility field, deleted in Phase 3B
 - runtime selection is canonical and no longer branches on this value
 - `BoxVfxCue.FlipDestroySelfMotion` playback has no old clone/arc/fade fallback
 - suppress compatibility gates were removed in Legacy Surface Simplification; no old fallback switch remains
@@ -620,10 +620,10 @@ Cues and lifecycle:
 
 Feature flags:
 
-- `EnableGameplayVfxFrontFaceShieldActiveMigration`
-- `EnableGameplayVfxFrontFaceShieldBlockMigration`
-- `EnableGameplayVfxFrontFaceShieldWindupMigration`
-- retained serialized compatibility fields after Phase 3A.
+- `former FrontFaceShieldActive migration field`
+- `former FrontFaceShieldBlock migration field`
+- `former FrontFaceShieldWindup migration field`
+- historical Phase 3A serialized compatibility fields, deleted in Phase 3B.
 - runtime selection is canonical and no longer branches on these values.
 
 Old presenter bypass:
@@ -826,12 +826,12 @@ Ownership:
 - new path: `PlayerVfxRequestPlanner` emits one `PlayerVfxCue.Damage` request for a non-fatal `TookDamageThisTick` signal.
 - old path: Player damage direct hit prefab fallback.
 - suppress compatibility gates were removed in Legacy Surface Simplification.
-- retained production field: `GameplayVfxProductionRuntime.EnableGameplayVfxDamageBurstMigration`.
+- historical production compatibility field: `former production damage burst migration field`, deleted in Phase 3B.
 
 Flag policy:
 
 - default true after the Tier 1/2 rollout batch means the Gameplay VFX lane owns playback.
-- after Phase 3A, retained `EnableGameplayVfxDamageBurstMigration` values do not disable `PlayerVfxCue.Damage` and do not restore the old presenter hit prefab.
+- after Phase 3A, `former DamageBurst migration field` values did not disable `PlayerVfxCue.Damage` and did not restore the old presenter hit prefab; Phase 3B removed the field.
 - old presenter path is skipped regardless of the retained field value.
 - missing binding is diagnostic/no-op; it must not fall back to the old presenter path.
 
@@ -851,12 +851,12 @@ Ownership:
 - new path: `EnemyVfxRequestPlanner` emits one `EnemyVfxCue.Damage` request for a non-fatal `TookDamageThisTick` signal.
 - current old visual response: `EnemyAnimatorDriver` consumes the mapped enemy damage state and fires the Hit animation trigger.
 - bypass: no old transient presenter bypass is added for enemy damage in this slice because current source has no enemy transient hit burst presenter path.
-- retained production field: `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDamageBurstMigration`.
+- historical production compatibility field: `former production enemy damage burst migration field`, deleted in Phase 3B.
 
 Flag policy:
 
-- after Phase 3A, the Gameplay VFX lane owns the enemy damage burst regardless of the retained migration field value.
-- player damage and enemy damage retained fields are independent serialized compatibility residue.
+- after Phase 3A, the Gameplay VFX lane owns the enemy damage burst regardless of former migration field values.
+- player damage and enemy damage former fields were independent serialized compatibility residue until Phase 3B deletion.
 - missing binding is diagnostic/no-op; it must not fall back to a legacy transient presenter path.
 - rollback is no longer a runtime flag flip; it requires a reviewed code/config change.
 
@@ -893,7 +893,7 @@ Ownership:
 
 Migration flags and bypass:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxBoxDestroySmokeMigration`, `EnableGameplayVfxBoxDestroyShrinkMigration`, and `EnableGameplayVfxItemConsumeBurstMigration` are retained serialized compatibility fields after Phase 3A.
+- `former BoxDestroySmoke migration field`, `former BoxDestroyShrink migration field`, and `former ItemConsumeBurst migration field` were historical Phase 3A serialized compatibility fields and were deleted in Phase 3B.
 - runtime selection is canonical and no longer branches on these values.
 - after legacy old path cleanup, old BoxDestroy shrink/fade playback is always skipped.
 - after legacy old path cleanup, old item consume playback is always skipped.
@@ -937,7 +937,7 @@ Ownership:
 
 Migration flag and bypass:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDeathBurstMigration` is a retained serialized compatibility field after Phase 3A.
+- `former production enemy death burst migration field` was a historical Phase 3A serialized compatibility field and was deleted in Phase 3B.
 - runtime selection is canonical and no longer branches on this value.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; view visibility and state cleanup are not bypassed.
 - missing burst binding is diagnostic/no-op and does not restore old enemy death clone/arc/fade playback.
@@ -985,10 +985,10 @@ Legacy motion spec locked for parity:
 
 Runtime policy:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDeathMotionMigration` is a retained serialized compatibility field after Phase 3A.
+- `former production enemy death motion migration field` was a historical Phase 3A serialized compatibility field and was deleted in Phase 3B.
 - runtime selection is canonical and no longer branches on this value.
 - suppress compatibility gates were removed in Legacy Surface Simplification; no enemy death old fallback switch remains.
-- retained `EnableGameplayVfxEnemyDeathBurstMigration` and `EnableGameplayVfxEnemyDeathMotionMigration` values do not alter canonical death playback.
+- former `EnemyDeathBurst` and `EnemyDeathMotion` migration field values did not alter canonical death playback and are no longer active serialized inputs after Phase 3B.
 - canonical enemy death playback plans `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death` when the source fact is present.
 - missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback.
 - missing source clone uses the fallback prefab through `PrefabWithSourceClone`.
@@ -1022,13 +1022,13 @@ Ownership:
 
 Migration flag and bypass:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxUtilityWindupMigration` is a retained serialized compatibility field after Phase 3A.
+- `former production utility windup migration field` was a historical Phase 3A serialized compatibility field and was deleted in Phase 3B.
 - runtime selection is canonical and no longer branches on this value.
 - after legacy old path cleanup, old `GameplayUtilityWindupVfxPresenter` summon warning spawning is always skipped.
 - suppress compatibility gates were removed in Legacy Surface Simplification.
 - the coordinator still calls a cleanup-only empty refresh so legacy summon warning instances cannot linger.
 - missing binding is diagnostic/no-op and must not fall back to the old presenter.
-- retained `EnableGameplayVfxUtilityWindupMigration` values do not disable `EnemyVfxCue.UtilityWindup` and do not restore old warning spawning.
+- former `UtilityWindup` migration field values did not disable `EnemyVfxCue.UtilityWindup` and did not restore old warning spawning.
 
 Default binding:
 
@@ -1354,8 +1354,8 @@ Duplicate relationship:
 
 Flag and fallback:
 
-- flag: `EnableGameplayVfxImpactTransientBreakMigration`
-- retained serialized compatibility field after Phase 3A
+- flag: `former ImpactTransientBreak migration field`
+- historical Phase 3A serialized compatibility field, deleted in Phase 3B
 - runtime selection is canonical and no longer branches on this value
 - old `GameplayTransientEffectPresenter.PlayImpactBreakEffect` playback surface is removed
 - missing binding, source view, common host, anchor, source pose, or impact pose is diagnostic/no-op
@@ -1392,8 +1392,8 @@ Playback:
 
 Flag and fallback:
 
-- flag: `EnableGameplayVfxOutOfBoundsExitMigration`
-- retained serialized compatibility field after Phase 3A
+- flag: `former OutOfBoundsExit migration field`
+- historical Phase 3A serialized compatibility field, deleted in Phase 3B
 - runtime selection is canonical and no longer branches on this value
 - old `GameplayExitPresentationController.PlayExitEffect` playback surface is removed for OutOfBounds
 - missing binding, source view, common host, anchor, or source pose is diagnostic/no-op
@@ -1457,31 +1457,26 @@ Authority and carrier boundaries remain unchanged: no `TickPipeline`, `WorldStat
 
 ## Gameplay VFX Flag Rollout Policy
 
-Every current migrated Gameplay VFX cue has completed final runtime rollout. The canonical Gameplay VFX runtime path is the production runtime, default cue map, binding policy, runtime root, pool/lifecycle, and common empty host path. Runtime selection for migrated cues is default-only and no longer branches on `EnableGameplayVfx*Migration` values.
+Every current migrated Gameplay VFX cue has completed final runtime rollout. The canonical Gameplay VFX runtime path is the production runtime, default cue map, binding policy, runtime root, pool/lifecycle, and common empty host path. Runtime selection for migrated cues is default-only and no longer branches on `former Gameplay VFX migration compatibility fields` values.
 
-The retained `EnableGameplayVfx*Migration` serialized fields are Phase 3A compatibility residue only. Serialized scene values may remain in `CombinedGameplayShowcase.unity`, `UIAudioScene.unity`, and `TutorialScene.unity`, but they do not select an old path and do not disable the canonical migrated cue path. Field deletion is deferred to Phase 3B after scene/prefab YAML residue is zero and scene policy has moved to UIAudioScene shell plus StageId/profile ownership.
+The former serialized migration compatibility fields were retained through Phase 3A for scene serialization compatibility and were deleted in Phase 3B. `CombinedGameplayShowcase.unity`, `UIAudioScene.unity`, and `TutorialScene.unity` were reserialized with those declarations absent, so the old scene-local serialized values are no longer present and cannot act as behavior input.
 
 Migration flags no longer own playback policy. When a migrated cue's binding, prefab, anchor, source pose, or target context is missing, the canonical path reports diagnostic/no-op and does not fall back to an old presenter path.
+Former migration values do not select an old path.
 
 Augmentation flags do not own legacy fallback or suppress gates. They may add Gameplay VFX lane playback alongside existing presentation behavior, but missing binding remains diagnostic/no-op and must not create a new old-path ownership rule. `EnableGameplayVfxBoxSlideTrail`, enemy damage burst, and enemy jump cue flags have no legacy suppress gate.
 
-High-risk parameterized motion and clone/source-view VFX required manual parity approval before default-on rollout. `EnemyVfxCue.Death`, `EnemyVfxCue.DeathMotion`, and `BoxVfxCue.FlipDestroySelfMotion` are approved in the Tier 3 rollout batch. Their old presenter fallbacks are finalized and removed; retained serialized migration fields no longer control runtime playback.
+High-risk parameterized motion and clone/source-view VFX required manual parity approval before default-on rollout. `EnemyVfxCue.Death`, `EnemyVfxCue.DeathMotion`, and `BoxVfxCue.FlipDestroySelfMotion` are approved in the Tier 3 rollout batch. Their old presenter fallbacks are finalized and removed; former serialized migration fields were deleted in Phase 3B and no longer control runtime playback.
 
 UIAudioScene shell plus StageId/profile ownership is the active VFX scene policy boundary. Raw scene-path VFX policy fixtures are deprecated.
 
-Scene-local serialized residue is separate from runtime policy:
+Phase 3B cleanup removed the remaining scene-local serialized residue:
 
-- `Assets/Scenes/CombinedGameplayShowcase.unity` and `Assets/Scenes/UIAudioScene.unity` still serialize legacy migration field values from review-era authoring.
-- `Assets/Scenes/TutorialScene.unity` still serializes false migration field values from the old production-safe/off fixture policy.
-- These scene-path fixture policies are deprecated for migrated cues. Phase 3B should verify remaining serialized residue before hard field cleanup; policy checks must stay on the UIAudioScene shell plus StageId/profile ownership.
+- `Assets/Scenes/UIAudioScene.unity`: 15 former serialized migration entries removed by Unity reserialization.
+- `Assets/Scenes/CombinedGameplayShowcase.unity`: 15 former serialized migration entries removed by Unity reserialization.
+- `Assets/Scenes/TutorialScene.unity`: 15 former serialized migration entries removed by Unity reserialization.
 
-Phase 3B-Gate inventory fixes the remaining migration YAML residue as exactly 45 scene-local entries:
-
-- `Assets/Scenes/UIAudioScene.unity`: 15 `EnableGameplayVfx*Migration` serialized fields, all true.
-- `Assets/Scenes/CombinedGameplayShowcase.unity`: 15 `EnableGameplayVfx*Migration` serialized fields, all true.
-- `Assets/Scenes/TutorialScene.unity`: 15 `EnableGameplayVfx*Migration` serialized fields, all false.
-
-These entries are not active feature flags and do not change canonical migrated cue playback. Because `GameplayVfxProductionRuntime` still declares the serialized compatibility fields, standalone YAML deletion is not the stable cleanup gate. Phase 3B field deletion must remove the field/property declarations and reserialize these three scenes in the same cleanup package, then require migration residue search results to be zero.
+These entries were not active feature flags and never changed canonical migrated cue playback after Phase 3A. Phase 3B completed the stable cleanup gate by removing the field/property declarations and reserializing all three scenes in the same cleanup package. `CombinedGameplayShowcase.unity` and `TutorialScene.unity` also received Unity live serialized field backfill during that reserialization; those backfilled live fields are not migration residue. Active policy checks remain on the UIAudioScene shell plus StageId/profile ownership, not raw showcase/tutorial scene paths. Raw showcase/tutorial scene deletion remains deferred to a separate phase.
 
 Phase 3B-Gate test evidence must keep broad `core` / `ui` claims separate from fixture-wide PlayMode diagnostics. `PlayerMovementPlayModeTests` contains topology transition, post-fx, camera shake, and input-lock coverage outside Gameplay VFX migration cleanup. A fixture-wide red in that class is a separately tracked topology/player-movement risk unless the same revision also changes that touched cluster or fails the lane-preserving core subset. Topology bridge, post-fx, and camera shake assets remain outside VFX cleanup scope.
 
@@ -1492,43 +1487,43 @@ Enemy death legacy fallback is finalized. Suppress compatibility gates were remo
 
 FlipDestroySelf legacy fallback is finalized. Suppress compatibility gates were removed. `BoxVfxCue.FlipDestroySelfMotion` is a canonical Gameplay VFX runtime cue with no old clone/fade fallback.
 
-Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playback is disabled. `BoxVfxCue.DestroySmoke` and `BoxVfxCue.DestroyShrink` are canonical Gameplay VFX runtime cues; retained serialized migration fields do not own smoke/shrink suppression.
+Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playback is disabled. `BoxVfxCue.DestroySmoke` and `BoxVfxCue.DestroyShrink` are canonical Gameplay VFX runtime cues; former serialized migration fields were deleted in Phase 3B and do not own smoke/shrink suppression.
 
 TileFeature and GravityField visual migration is VFX-lane only. `GameplayTickPresentationCoordinator` must not own `TileFeatureVisualPresentationController`, `GravityFieldVisualPresentationController`, visual registries, or direct VFX controller references for these lanes. TileFeature visuals are planned from `TickPresentationData.TileEvents` by `TileFeatureVfxRequestPlanner`; direction-bearing slide and barricade events encode direction in cue identity, and unsupported directions produce no request. GravityField one-shot activation/expiry events are request-planned by `GravityFieldVfxRequestPlanner`. GravityField continuous area and locked-target visuals are persistent VFX requests reconciled inside `GameplayVfxProductionRuntime`, so missing state in the next presentation tick clears the previous persistent desire through the VFX controller. There is no coordinator fallback for TileFeature or GravityField visual lanes. Turning off `EnableGameplayVfxTileFeatureLane`, `EnableGameplayVfxGravityFieldEvents`, `EnableGameplayVfxGravityFieldContinuous`, or `EnableGameplayVfxGravityFieldLockedTarget` disables only that new VFX lane and does not restore PR #28 direct visual controllers.
 
 TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, they must remain in an audio-specific path and must not be merged into Gameplay VFX planner/runtime ownership.
 
-Rows whose field names end in `Migration` are retained serialized residue after Phase 3A, not active runtime feature flags. Non-migration enable flags remain live review/authoring policy switches.
+Rows marked as former migration fields are deleted Phase 3B compatibility surfaces, not active runtime feature flags. Non-migration enable flags remain live review/authoring policy switches.
 
 | Flag | Cue | Type | Actual Default | Tier | Candidate | Approval Gate |
 |---|---|---|---|---|---|---|
-| `EnableGameplayVfxDamageBurstMigration` | `PlayerVfxCue.Damage` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxEnemyDamageBurstMigration` | `EnemyVfxCue.Damage` | Augmentation-style VFX lane | True | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxBoxDestroySmokeMigration` | `BoxVfxCue.DestroySmoke` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxBoxDestroyShrinkMigration` | `BoxVfxCue.DestroyShrink` | Migration / parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `former DamageBurst migration field` | `PlayerVfxCue.Damage` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `former EnemyDamageBurst migration field` | `EnemyVfxCue.Damage` | Augmentation-style VFX lane | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `former BoxDestroySmoke migration field` | `BoxVfxCue.DestroySmoke` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| `former BoxDestroyShrink migration field` | `BoxVfxCue.DestroyShrink` | Migration / parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `former ItemConsumeBurst migration field` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.BoxSlideFollowLoop` | Augmentation / attached follower | True | Tier 1 | Yes | targeted attached-follow regression + visual spot check |
 | `EnableGameplayVfxBoxSlideSolidStop` | `BoxVfxCue.BoxSlideSolidStop` | Augmentation / signal-owned boundary VFX | True | Tier 1 | Yes | targeted planner/runtime regression + visual spot check |
-| `EnableGameplayVfxImpactTransientBreakMigration` | `BoxVfxCue.ImpactTransientBreak` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
-| `EnableGameplayVfxOutOfBoundsExitMigration` | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
+| `former ImpactTransientBreak migration field` | `BoxVfxCue.ImpactTransientBreak` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
+| `former OutOfBoundsExit migration field` | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Augmentation | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxUtilityWindupMigration` | `EnemyVfxCue.UtilityWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldActiveMigration` | `EnemyVfxCue.FrontFaceShieldActive` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldBlockMigration` | `EnemyVfxCue.FrontFaceShieldBlock` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldWindupMigration` | `EnemyVfxCue.FrontFaceShieldWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFlipImpactBurstMigration` | `BoxVfxCue.FlipImpactBurst` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxEnemyDeathBurstMigration` | `EnemyVfxCue.Death` | Migration burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
-| `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
-| `EnableGameplayVfxFlipDestroySelfMotionMigration` | `BoxVfxCue.FlipDestroySelfMotion` | Migration / parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
+| `former UtilityWindup migration field` | `EnemyVfxCue.UtilityWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `former FrontFaceShieldActive migration field` | `EnemyVfxCue.FrontFaceShieldActive` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `former FrontFaceShieldBlock migration field` | `EnemyVfxCue.FrontFaceShieldBlock` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `former FrontFaceShieldWindup migration field` | `EnemyVfxCue.FrontFaceShieldWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `former FlipImpactBurst migration field` | `BoxVfxCue.FlipImpactBurst` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| `former EnemyDeathBurst migration field` | `EnemyVfxCue.Death` | Migration burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
+| `former EnemyDeathMotion migration field` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
+| `former FlipDestroySelfMotion migration field` | `BoxVfxCue.FlipDestroySelfMotion` | Migration / parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
 | `EnableGameplayVfxFlipImpactStayTrail` | `BoxVfxCue.FlipImpactStayTrail` | Augmentation / MotionTrack-attached VFX | True | Tier 1 | Yes | targeted MotionTrack-following tests + visual spot check |
 | `EnableGameplayVfxGlideWindTrail` | `EnemyVfxCue.GlideWindTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxChargeBoosterTrail` | `EnemyVfxCue.ChargeBoosterTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxEnemyUtilityCooldownAura` | `EnemyVfxCue.UtilityCooldownAura` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
-| `EnableGameplayVfxTileFeatureLane` | `TileFeatureVfxCue.*` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
-| `EnableGameplayVfxGravityFieldEvents` | `GravityFieldVfxCue.ChargeStarted / GravityFieldVfxCue.ActiveStarted` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
-| `EnableGameplayVfxGravityFieldContinuous` | `GravityFieldVfxCue.ChargingArea / GravityFieldVfxCue.ActiveArea` | Migration / persistent state adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual state visual spot check |
-| `EnableGameplayVfxGravityFieldLockedTarget` | `GravityFieldVfxCue.LockedTarget` | Migration / persistent target adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual target visual spot check |
+| `EnableGameplayVfxTileFeatureLane` | `TileFeatureVfxCue.*` | VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
+| `EnableGameplayVfxGravityFieldEvents` | `GravityFieldVfxCue.ChargeStarted / GravityFieldVfxCue.ActiveStarted` | VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
+| `EnableGameplayVfxGravityFieldContinuous` | `GravityFieldVfxCue.ChargingArea / GravityFieldVfxCue.ActiveArea` | persistent state adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual state visual spot check |
+| `EnableGameplayVfxGravityFieldLockedTarget` | `GravityFieldVfxCue.LockedTarget` | persistent target adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual target visual spot check |
 
 ## Binding Asset Ownership
 
