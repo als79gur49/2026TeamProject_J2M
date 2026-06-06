@@ -103,6 +103,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PresentationOnlyUsage_GenericGameplayCue_ClassifiesMisuseCandidate()
+        {
+            var request = CreateActiveFaceCellRequest(GameplayVfxCueId.From(PlayerVfxCue.Damage));
+            var resolvedPolicy = GameplayVfxVisibilityPolicy.ResolveFinalPolicy(
+                request,
+                hasBindingPolicy: true,
+                policy: CreatePolicy(
+                    request.CueId,
+                    visibilityMode: GameplayVfxVisibilityMode.PresentationOnly));
+
+            var diagnostic = GameplayVfxVisibilityPolicy.ClassifyPresentationOnlyUsage(
+                request,
+                resolvedPolicy);
+
+            Assert.That(diagnostic.Kind, Is.EqualTo(GameplayVfxPresentationOnlyUsageKind.MisuseCandidate));
+            Assert.That(diagnostic.CueId, Is.EqualTo(request.CueId));
+            Assert.That(diagnostic.Source, Is.EqualTo(GameplayVfxVisibilityPolicySource.BindingRuntimePolicy));
+            Assert.That(diagnostic.IsMisuseCandidate, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationOnlyUsage_TopologyHelperContext_ClassifiesAllowedTopologyHelper()
+        {
+            var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail);
+            var request = new GameplayVfxRequest(
+                1,
+                1,
+                1,
+                cueId,
+                VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    new CubeTopologyState(FaceId.Floor),
+                    VfxAnchorSlot.CellCenter),
+                VfxTimingKind.QueuedUntilTopologyTransitionEnd,
+                topologyStopMode: GameplayVfxTopologyStopMode.TopologyHelperExempt,
+                topologySpawnMode: GameplayVfxTopologySpawnMode.TopologyHelperExempt);
+            var resolvedPolicy = GameplayVfxVisibilityPolicy.ResolveFinalPolicy(
+                request,
+                hasBindingPolicy: true,
+                policy: CreatePolicy(
+                    cueId,
+                    visibilityMode: GameplayVfxVisibilityMode.PresentationOnly));
+
+            var diagnostic = GameplayVfxVisibilityPolicy.ClassifyPresentationOnlyUsage(
+                request,
+                resolvedPolicy);
+
+            Assert.That(diagnostic.Kind, Is.EqualTo(GameplayVfxPresentationOnlyUsageKind.AllowedTopologyHelper));
+            Assert.That(diagnostic.CueId, Is.EqualTo(cueId));
+            Assert.That(diagnostic.IsMisuseCandidate, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlannerVisibility_UsesBindingVisibilityMode_NotDefaultGameplay()
         {
             var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
@@ -158,6 +213,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     visibilityMode: GameplayVfxVisibilityMode.PresentationOnly)));
 
             Assert.That(plan.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_PresentationOnlyCue_ReportsMisuseCandidateDiagnostic()
+        {
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+
+            var plan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new SinglePolicyResolver(CreatePolicy(
+                    request.CueId,
+                    visibilityMode: GameplayVfxVisibilityMode.PresentationOnly)),
+                out List<GameplayVfxPresentationOnlyUsageDiagnostic> presentationOnlyDiagnostics);
+
+            Assert.That(plan.Requests, Has.Count.EqualTo(1));
+            Assert.That(presentationOnlyDiagnostics, Has.Count.EqualTo(1));
+            Assert.That(
+                presentationOnlyDiagnostics[0].Kind,
+                Is.EqualTo(GameplayVfxPresentationOnlyUsageKind.MisuseCandidate));
+            Assert.That(presentationOnlyDiagnostics[0].CueId, Is.EqualTo(request.CueId));
         }
 
         [Test]
@@ -229,11 +305,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var bindingPlan = FilterByPlanningVisibility(
                 new GameplayVfxRequestPlan(new[] { request }),
                 new SinglePolicyResolver(CreatePolicy(request.CueId)),
-                out var bindingPolicies);
+                out List<GameplayVfxResolvedVisibilityPolicy> bindingPolicies);
             var fallbackPlan = FilterByPlanningVisibility(
                 new GameplayVfxRequestPlan(new[] { request }),
                 new MissingPolicyResolver(),
-                out var fallbackPolicies);
+                out List<GameplayVfxResolvedVisibilityPolicy> fallbackPolicies);
 
             Assert.That(bindingPlan.Requests, Has.Count.EqualTo(1));
             Assert.That(fallbackPlan.Requests, Has.Count.EqualTo(1));
@@ -363,6 +439,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(result.Messages.Any(message =>
                     message.Code == "VFX_BINDING_PRESENTATION_ONLY_REQUIRES_ALLOWLIST"), Is.False);
+            }
+            finally
+            {
+                DestroyBindingAsset(binding);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationOnlyBinding_LegacyNameMarker_ReportsWarning()
+        {
+            var binding = CreateBindingAsset(
+                "PresentationOnly_PlayerDamage_Binding",
+                GameplayVfxFamily.Player,
+                (int)PlayerVfxCue.Damage,
+                GameplayVfxVisibilityMode.PresentationOnly);
+            try
+            {
+                var result = binding.ValidateAuthoring();
+
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_PRESENTATION_ONLY_REQUIRES_ALLOWLIST"), Is.False);
+                Assert.That(result.Messages.Any(message =>
+                    message.Code == "VFX_BINDING_PRESENTATION_ONLY_LEGACY_NAME_MARKER" &&
+                    message.Severity == VfxAuthoringValidationSeverity.Warning), Is.True);
             }
             finally
             {
@@ -671,7 +772,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     plan,
                     resolver,
                     default(GameplayVfxVisibilityContext),
-                    new Action<GameplayVfxResolvedVisibilityPolicy>(capturedPolicies.Add),
+                    new Action<GameplayVfxRequest, GameplayVfxResolvedVisibilityPolicy>(
+                        (_, resolvedPolicy) => capturedPolicies.Add(resolvedPolicy)),
+                });
+        }
+
+        private static GameplayVfxRequestPlan FilterByPlanningVisibility(
+            GameplayVfxRequestPlan plan,
+            IVfxBindingResolver resolver,
+            out List<GameplayVfxPresentationOnlyUsageDiagnostic> presentationOnlyDiagnostics)
+        {
+            presentationOnlyDiagnostics = new List<GameplayVfxPresentationOnlyUsageDiagnostic>();
+            var capturedDiagnostics = presentationOnlyDiagnostics;
+            var method = typeof(GameplayVfxProductionRuntime)
+                .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+                .Single(candidate =>
+                    candidate.Name == "FilterByPlanningVisibility" &&
+                    candidate.GetParameters().Length == 4);
+            Assert.That(method, Is.Not.Null);
+            return (GameplayVfxRequestPlan)method.Invoke(
+                null,
+                new object[]
+                {
+                    plan,
+                    resolver,
+                    default(GameplayVfxVisibilityContext),
+                    new Action<GameplayVfxRequest, GameplayVfxResolvedVisibilityPolicy>(
+                        (request, resolvedPolicy) =>
+                        {
+                            var diagnostic = GameplayVfxVisibilityPolicy.ClassifyPresentationOnlyUsage(
+                                request,
+                                resolvedPolicy);
+                            if (diagnostic.IsPresentationOnly)
+                            {
+                                capturedDiagnostics.Add(diagnostic);
+                            }
+                        }),
                 });
         }
 

@@ -468,6 +468,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
             AssertActiveCarrierKeys(fixture.Runtime, 4000001);
+            Assert.That(fixture.Runtime.ForwardCellProjectilePresentationOnlyMisuseCandidateCount, Is.GreaterThan(0));
+            Assert.That(fixture.Runtime.ForwardCellProjectilePresentationOnlyAllowedTopologyHelperCount, Is.Zero);
+            Assert.That(
+                fixture.Runtime.LastForwardCellProjectilePresentationOnlyUsageDiagnostic.Kind,
+                Is.EqualTo(GameplayVfxPresentationOnlyUsageKind.MisuseCandidate));
         }
 
         [Test]

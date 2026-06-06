@@ -228,6 +228,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     fixture.Controller.LastResolvedVisibilityPolicy.VisibilityMode,
                     Is.EqualTo(GameplayVfxVisibilityMode.VisibleSurfaceAllowed));
+                Assert.That(fixture.Controller.PresentationOnlyMisuseCandidateCount, Is.Zero);
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void AttachedFollower_PresentationOnlyBinding_ReportsMisuseCandidateWithoutBlockingStart()
+        {
+            var fixture = CreateFixture(visibilityMode: GameplayVfxVisibilityMode.PresentationOnly);
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Controller.PresentationOnlyMisuseCandidateCount, Is.GreaterThan(0));
+                Assert.That(fixture.Controller.PresentationOnlyAllowedTopologyHelperCount, Is.Zero);
+                Assert.That(
+                    fixture.Controller.LastPresentationOnlyUsageDiagnostic.Kind,
+                    Is.EqualTo(GameplayVfxPresentationOnlyUsageKind.MisuseCandidate));
             }
             finally
             {

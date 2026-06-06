@@ -48,9 +48,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public GameplayVfxResolvedVisibilityPolicy LastResolvedVisibilityPolicy { get; private set; }
 
+        public GameplayVfxPresentationOnlyUsageDiagnostic LastPresentationOnlyUsageDiagnostic { get; private set; }
+
         public int VisibilityBindingResolvedCount { get; private set; }
 
         public int VisibilityFallbackDefaultCount { get; private set; }
+
+        public int PresentationOnlyAllowedTopologyHelperCount { get; private set; }
+
+        public int PresentationOnlyMisuseCandidateCount { get; private set; }
 
         public void Refresh(
             int tickIndex,
@@ -810,7 +816,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             in GameplayVfxVisibilityContext visibilityContext)
         {
             var resolvedPolicy = GameplayVfxVisibilityPolicy.ResolveBindingRuntimePolicy(request, policy);
-            RecordVisibilityResolve(resolvedPolicy);
+            RecordVisibilityResolve(request, resolvedPolicy);
             return GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
                 request,
                 resolvedPolicy,
@@ -827,7 +833,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 request,
                 hasBindingPolicy,
                 policy);
-            RecordVisibilityResolve(resolvedPolicy);
+            RecordVisibilityResolve(request, resolvedPolicy);
             return GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
                 request,
                 resolvedPolicy,
@@ -837,11 +843,16 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private void ResetVisibilityResolveDiagnostics()
         {
             LastResolvedVisibilityPolicy = default;
+            LastPresentationOnlyUsageDiagnostic = default;
             VisibilityBindingResolvedCount = 0;
             VisibilityFallbackDefaultCount = 0;
+            PresentationOnlyAllowedTopologyHelperCount = 0;
+            PresentationOnlyMisuseCandidateCount = 0;
         }
 
-        private void RecordVisibilityResolve(GameplayVfxResolvedVisibilityPolicy resolvedPolicy)
+        private void RecordVisibilityResolve(
+            in GameplayVfxRequest request,
+            GameplayVfxResolvedVisibilityPolicy resolvedPolicy)
         {
             LastResolvedVisibilityPolicy = resolvedPolicy;
             if (resolvedPolicy.Source == GameplayVfxVisibilityPolicySource.BindingRuntimePolicy)
@@ -851,6 +862,24 @@ namespace Game.Feature.Gameplay.Vfx.Host
             else if (resolvedPolicy.Source == GameplayVfxVisibilityPolicySource.FallbackDefaultGameplay)
             {
                 VisibilityFallbackDefaultCount++;
+            }
+
+            var presentationOnlyUsage = GameplayVfxVisibilityPolicy.ClassifyPresentationOnlyUsage(
+                request,
+                resolvedPolicy);
+            if (!presentationOnlyUsage.IsPresentationOnly)
+            {
+                return;
+            }
+
+            LastPresentationOnlyUsageDiagnostic = presentationOnlyUsage;
+            if (presentationOnlyUsage.Kind == GameplayVfxPresentationOnlyUsageKind.AllowedTopologyHelper)
+            {
+                PresentationOnlyAllowedTopologyHelperCount++;
+            }
+            else if (presentationOnlyUsage.Kind == GameplayVfxPresentationOnlyUsageKind.MisuseCandidate)
+            {
+                PresentationOnlyMisuseCandidateCount++;
             }
         }
 

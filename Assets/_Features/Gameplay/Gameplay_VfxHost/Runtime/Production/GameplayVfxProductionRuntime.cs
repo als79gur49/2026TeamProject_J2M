@@ -84,7 +84,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int enemyDeathMotionMissingAnchorCount;
         private int planningVisibilityBindingResolvedCount;
         private int planningVisibilityFallbackDefaultCount;
+        private int planningPresentationOnlyAllowedTopologyHelperCount;
+        private int planningPresentationOnlyMisuseCandidateCount;
         private GameplayVfxResolvedVisibilityPolicy lastPlanningResolvedVisibilityPolicy;
+        private GameplayVfxPresentationOnlyUsageDiagnostic lastPlanningPresentationOnlyUsageDiagnostic;
         private int mapNotConfiguredCount;
         private int initialRequestSkippedBecauseMapNotConfiguredCount;
         private int lastInitialPlannedRequestCount;
@@ -336,6 +339,24 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int PlanningVisibilityFallbackDefaultCount =>
             planningVisibilityFallbackDefaultCount;
+
+        public int PlanningPresentationOnlyAllowedTopologyHelperCount =>
+            planningPresentationOnlyAllowedTopologyHelperCount;
+
+        public int PlanningPresentationOnlyMisuseCandidateCount =>
+            planningPresentationOnlyMisuseCandidateCount;
+
+        public GameplayVfxPresentationOnlyUsageDiagnostic LastPlanningPresentationOnlyUsageDiagnostic =>
+            lastPlanningPresentationOnlyUsageDiagnostic;
+
+        public int ForwardCellProjectilePresentationOnlyAllowedTopologyHelperCount =>
+            forwardCellProjectileVfxController.PresentationOnlyAllowedTopologyHelperCount;
+
+        public int ForwardCellProjectilePresentationOnlyMisuseCandidateCount =>
+            forwardCellProjectileVfxController.PresentationOnlyMisuseCandidateCount;
+
+        public GameplayVfxPresentationOnlyUsageDiagnostic LastForwardCellProjectilePresentationOnlyUsageDiagnostic =>
+            forwardCellProjectileVfxController.LastPresentationOnlyUsageDiagnostic;
 
         internal int ActiveForwardCellProjectileMarkerCount =>
             forwardCellProjectileVfxController.ActiveMarkerCount;
@@ -1468,7 +1489,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxRequestPlan plan,
             IVfxBindingResolver bindingResolver,
             in GameplayVfxVisibilityContext visibilityContext,
-            Action<GameplayVfxResolvedVisibilityPolicy> recordResolvedPolicy)
+            Action<GameplayVfxRequest, GameplayVfxResolvedVisibilityPolicy> recordResolvedPolicy)
         {
             if (plan == null || plan.Requests.Count == 0)
             {
@@ -1486,7 +1507,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     request,
                     hasBindingPolicy,
                     policy);
-                recordResolvedPolicy?.Invoke(resolvedPolicy);
+                recordResolvedPolicy?.Invoke(request, resolvedPolicy);
                 var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
                     request,
                     resolvedPolicy,
@@ -1508,9 +1529,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             planningVisibilityBindingResolvedCount = 0;
             planningVisibilityFallbackDefaultCount = 0;
             lastPlanningResolvedVisibilityPolicy = default;
+            planningPresentationOnlyAllowedTopologyHelperCount = 0;
+            planningPresentationOnlyMisuseCandidateCount = 0;
+            lastPlanningPresentationOnlyUsageDiagnostic = default;
         }
 
-        private void RecordPlanningVisibilityPolicy(GameplayVfxResolvedVisibilityPolicy resolvedPolicy)
+        private void RecordPlanningVisibilityPolicy(
+            GameplayVfxRequest request,
+            GameplayVfxResolvedVisibilityPolicy resolvedPolicy)
         {
             lastPlanningResolvedVisibilityPolicy = resolvedPolicy;
             if (resolvedPolicy.Source == GameplayVfxVisibilityPolicySource.BindingRuntimePolicy)
@@ -1520,6 +1546,24 @@ namespace Game.Feature.Gameplay.Vfx.Host
             else if (resolvedPolicy.Source == GameplayVfxVisibilityPolicySource.FallbackDefaultGameplay)
             {
                 planningVisibilityFallbackDefaultCount++;
+            }
+
+            var presentationOnlyUsage = GameplayVfxVisibilityPolicy.ClassifyPresentationOnlyUsage(
+                request,
+                resolvedPolicy);
+            if (!presentationOnlyUsage.IsPresentationOnly)
+            {
+                return;
+            }
+
+            lastPlanningPresentationOnlyUsageDiagnostic = presentationOnlyUsage;
+            if (presentationOnlyUsage.Kind == GameplayVfxPresentationOnlyUsageKind.AllowedTopologyHelper)
+            {
+                planningPresentationOnlyAllowedTopologyHelperCount++;
+            }
+            else if (presentationOnlyUsage.Kind == GameplayVfxPresentationOnlyUsageKind.MisuseCandidate)
+            {
+                planningPresentationOnlyMisuseCandidateCount++;
             }
         }
 

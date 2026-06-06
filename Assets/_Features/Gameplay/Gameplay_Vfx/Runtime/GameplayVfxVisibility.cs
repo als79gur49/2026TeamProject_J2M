@@ -45,6 +45,36 @@ namespace Game.Feature.Gameplay.Vfx
         FallbackDefaultGameplay = 2,
     }
 
+    public enum GameplayVfxPresentationOnlyUsageKind
+    {
+        None = 0,
+        AllowedTopologyHelper = 1,
+        MisuseCandidate = 2,
+    }
+
+    public readonly struct GameplayVfxPresentationOnlyUsageDiagnostic
+    {
+        public GameplayVfxPresentationOnlyUsageDiagnostic(
+            GameplayVfxPresentationOnlyUsageKind kind,
+            GameplayVfxCueId cueId,
+            GameplayVfxVisibilityPolicySource source)
+        {
+            Kind = kind;
+            CueId = cueId;
+            Source = source;
+        }
+
+        public GameplayVfxPresentationOnlyUsageKind Kind { get; }
+
+        public GameplayVfxCueId CueId { get; }
+
+        public GameplayVfxVisibilityPolicySource Source { get; }
+
+        public bool IsPresentationOnly => Kind != GameplayVfxPresentationOnlyUsageKind.None;
+
+        public bool IsMisuseCandidate => Kind == GameplayVfxPresentationOnlyUsageKind.MisuseCandidate;
+    }
+
     public readonly struct GameplayVfxResolvedVisibilityPolicy
     {
         public GameplayVfxResolvedVisibilityPolicy(
@@ -272,6 +302,29 @@ namespace Game.Feature.Gameplay.Vfx
             return hasBindingPolicy
                 ? ResolveBindingRuntimePolicy(request, policy)
                 : ResolveFallbackDefaultGameplay(request);
+        }
+
+        public static GameplayVfxPresentationOnlyUsageDiagnostic ClassifyPresentationOnlyUsage(
+            in GameplayVfxRequest request,
+            in GameplayVfxResolvedVisibilityPolicy resolvedPolicy)
+        {
+            if (resolvedPolicy.VisibilityMode != GameplayVfxVisibilityMode.PresentationOnly)
+            {
+                return default;
+            }
+
+            var allowedTopologyHelper =
+                GameplayVfxTopologyHelperExemptionPolicy.IsTopologyHelperCue(request.CueId) &&
+                (request.TopologyStopMode == GameplayVfxTopologyStopMode.TopologyHelperExempt ||
+                 request.TopologySpawnMode == GameplayVfxTopologySpawnMode.TopologyHelperExempt ||
+                 request.Timing == VfxTimingKind.QueuedUntilTopologyTransitionEnd);
+
+            return new GameplayVfxPresentationOnlyUsageDiagnostic(
+                allowedTopologyHelper
+                    ? GameplayVfxPresentationOnlyUsageKind.AllowedTopologyHelper
+                    : GameplayVfxPresentationOnlyUsageKind.MisuseCandidate,
+                request.CueId,
+                resolvedPolicy.Source);
         }
 
         private static GameplayVfxResolvedVisibilityPolicy Resolve(

@@ -50,7 +50,7 @@ Gameplay VFX visibility resolves from authored binding runtime policy first. `Vf
 
 `DefaultGameplay` remains the explicit missing-binding fallback for planning-time visibility decisions. It is not a deletion target and is distinct from an authored binding whose visibility mode is also `DefaultGameplay`. Diagnostics may expose the final resolved visibility mode and whether it came from `BindingRuntimePolicy` or `FallbackDefaultGameplay`.
 
-`PresentationOnly` remains a strong presentation bypass. Phase 6B does not add allowlist enforcement, fail-fast behavior, or new bypass permissions. Existing authoring diagnostics and topology/helper preservation remain in force; stricter `PresentationOnly` hardening is a follow-up phase.
+`PresentationOnly` remains a strong presentation bypass and is not a generic gameplay cue escape hatch. Phase 6C adds diagnostics-only misuse classification for `PresentationOnly` requests so ordinary gameplay cues can be inventoried without changing playback behavior. Topology helper contexts remain allowlisted, legacy asset-name markers remain compatibility diagnostics, and production runtime fail-fast remains deferred until a later behavior-sensitive phase.
 
 `VisibleSurfaceAllowed` and `InactiveFaceExplicitlyAllowed` keep their existing behavior. Do not collapse visible-surface projection, inactive-face opt-in, and ordinary gameplay visibility into a single generic boolean.
 
