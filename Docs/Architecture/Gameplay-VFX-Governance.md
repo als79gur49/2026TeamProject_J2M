@@ -73,7 +73,7 @@ The non-particle Gameplay VFX prefab authoring was removed for mesh-only or empt
 
 Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage, EnemyDeath, UtilityWindup, FrontFaceShield active/block/windup, ItemConsume, FlipImpactStayTrail, JumperWindupLoop, GravityField ChargeStarted/ActiveStarted/ChargingArea, EnemyGravityFieldAura ActiveStarted/WindupArea, and TileFeature BarricadeActiveLoop.
 
-`BoxDestroyShrink`, `FlipDestroySelfMotion`, `ImpactTransientBreak`, and OutOfBounds exit now keep host-default bindings as `SourceCloneMotion` cues with null cue prefabs and common empty host fallback.
+`BoxDestroyShrink`, `FlipDestroySelfMotion`, `ImpactTransientBreak`, and OutOfBounds exit now keep host-default bindings as `SourceCloneMotion` cues with null cue prefabs and common empty host fallback. `EntityExitBoxDestroyShrinkVfxCommandBuilder` and `EntityExitOutOfBoundsVfxCommandBuilder` are current `TickEntityExitPresentationSignal` consumers; the cue, binding, and prefab vocabulary remains unchanged.
 
 `EnemyDeathMotionVfx`, `EnemyDeathMotion_Binding.asset`, `TileFeatureDestroyLaserActiveRedVfx`, and `TileFeatureDestroyLaserActive_Red_Binding.asset` remain authored.
 

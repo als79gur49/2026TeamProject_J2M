@@ -1668,13 +1668,13 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                if (!OutOfBoundsExitVfxCommandBuilder.IsOutOfBoundsExitCandidate(signal) ||
-                    !OutOfBoundsExitVfxCommandBuilder.TryResolveCue(signal, out var cueId))
+                if (!EntityExitOutOfBoundsVfxCommandBuilder.IsOutOfBoundsExitCandidate(signal) ||
+                    !EntityExitOutOfBoundsVfxCommandBuilder.TryResolveCue(signal, out var cueId))
                 {
                     continue;
                 }
 
-                if (!OutOfBoundsExitVfxCommandBuilder.TryBuild(
+                if (!EntityExitOutOfBoundsVfxCommandBuilder.TryBuild(
                         context.Result.TickIndex,
                         signal,
                         cueId,
@@ -2067,14 +2067,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                if (!BoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) ||
+                if (!EntityExitBoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) ||
                     signal.Timing == EntityExitPresentationTiming.AfterEntityMotion ||
-                    BoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
+                    EntityExitBoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
                 {
                     continue;
                 }
 
-                if (!BoxDestroyShrinkVfxCommandBuilder.TryBuild(
+                if (!EntityExitBoxDestroyShrinkVfxCommandBuilder.TryBuild(
                         context.Result.TickIndex,
                         signal,
                         context.TimingProfile,
@@ -2106,9 +2106,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                if (!BoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) ||
+                if (!EntityExitBoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) ||
                     signal.Timing != EntityExitPresentationTiming.AfterEntityMotion ||
-                    BoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
+                    EntityExitBoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
                 {
                     continue;
                 }
@@ -2216,7 +2216,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var trackState = new GameplayPresentationTrackState();
             var poseResolver = new GameplayPoseResolver(configuredStateStore, trackState);
-            if (!BoxDestroyShrinkVfxCommandBuilder.TryBuild(
+            if (!EntityExitBoxDestroyShrinkVfxCommandBuilder.TryBuild(
                     delayed.TickIndex,
                     delayed.Signal,
                     delayed.TimingProfile,
@@ -2322,7 +2322,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         {
             var sequenceId = signal.PresentationSeed != 0
                 ? signal.PresentationSeed
-                : BoxDestroyShrinkVfxCommandBuilder.ComputeSequenceId(tickIndex, signal);
+                : EntityExitBoxDestroyShrinkVfxCommandBuilder.ComputeSequenceId(tickIndex, signal);
             return new DestroyShrinkVfxSequenceKey(signal.ExitedEntityId, sequenceId);
         }
 
@@ -2552,8 +2552,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                if (BoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) &&
-                    !BoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
+                if (EntityExitBoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) &&
+                    !EntityExitBoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
                 {
                     return true;
                 }
@@ -2574,8 +2574,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 var signal = signals[i];
                 if (signal.Timing == EntityExitPresentationTiming.AfterEntityMotion &&
-                    BoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) &&
-                    !BoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
+                    EntityExitBoxDestroyShrinkVfxCommandBuilder.IsBoxDestroyExitCandidate(signal) &&
+                    !EntityExitBoxDestroyShrinkVfxCommandBuilder.IsDuplicateOwnedExit(presentationData, signal.ExitedEntityId))
                 {
                     return true;
                 }
@@ -2613,7 +2613,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var signals = presentationData.EntityExitSignals;
             for (var i = 0; i < signals.Count; i++)
             {
-                if (OutOfBoundsExitVfxCommandBuilder.IsOutOfBoundsExitCandidate(signals[i]))
+                if (EntityExitOutOfBoundsVfxCommandBuilder.IsOutOfBoundsExitCandidate(signals[i]))
                 {
                     return true;
                 }
