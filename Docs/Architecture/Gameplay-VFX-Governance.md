@@ -1475,6 +1475,16 @@ Scene-local serialized residue is separate from runtime policy:
 - `Assets/Scenes/TutorialScene.unity` still serializes false migration field values from the old production-safe/off fixture policy.
 - These scene-path fixture policies are deprecated for migrated cues. Phase 3B should verify remaining serialized residue before hard field cleanup; policy checks must stay on the UIAudioScene shell plus StageId/profile ownership.
 
+Phase 3B-Gate inventory fixes the remaining migration YAML residue as exactly 45 scene-local entries:
+
+- `Assets/Scenes/UIAudioScene.unity`: 15 `EnableGameplayVfx*Migration` serialized fields, all true.
+- `Assets/Scenes/CombinedGameplayShowcase.unity`: 15 `EnableGameplayVfx*Migration` serialized fields, all true.
+- `Assets/Scenes/TutorialScene.unity`: 15 `EnableGameplayVfx*Migration` serialized fields, all false.
+
+These entries are not active feature flags and do not change canonical migrated cue playback. Because `GameplayVfxProductionRuntime` still declares the serialized compatibility fields, standalone YAML deletion is not the stable cleanup gate. Phase 3B field deletion must remove the field/property declarations and reserialize these three scenes in the same cleanup package, then require migration residue search results to be zero.
+
+Phase 3B-Gate test evidence must keep broad `core` / `ui` claims separate from fixture-wide PlayMode diagnostics. `PlayerMovementPlayModeTests` contains topology transition, post-fx, camera shake, and input-lock coverage outside Gameplay VFX migration cleanup. A fixture-wide red in that class is a separately tracked topology/player-movement risk unless the same revision also changes that touched cluster or fails the lane-preserving core subset. Topology bridge, post-fx, and camera shake assets remain outside VFX cleanup scope.
+
 Enemy death legacy fallback is finalized. Suppress compatibility gates were removed. `EnemyVfxCue.Death` and `EnemyVfxCue.DeathMotion` are canonical Gameplay VFX runtime cues. Burst + Motion simultaneous output remains visually monitored. The supported runtime output is:
 
 - `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death` when both facts are present and bindings resolve.
