@@ -163,7 +163,6 @@ namespace Game.Feature.Stages
                     report);
 
                 ValidatePresentationCatalogIntegrity(entry, options, report);
-                ValidateLegacyPresentationIds(entry, options, report);
                 ValidateObjectiveDisplay(entry, options, report);
                 ValidateEvaluationDefinition(entry, options, report);
                 ValidateRewardDefinition(entry, aliasTable, options, report);
@@ -2583,42 +2582,6 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        private static void ValidateLegacyPresentationIds(
-            StageContentEntry entry,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            if (!options.EnforceCanonicalLegacyPresentationBridgeWarnings ||
-                entry.GameplayDefinition == null)
-            {
-                return;
-            }
-
-            var spawns = entry.GameplayDefinition.Spawns;
-            var hasLegacyPresentationIds = false;
-            for (var i = 0; i < spawns.Length; i++)
-            {
-                if (!string.IsNullOrWhiteSpace(spawns[i].PresentationId))
-                {
-                    hasLegacyPresentationIds = true;
-                    break;
-                }
-            }
-
-            if (!hasLegacyPresentationIds)
-            {
-                return;
-            }
-
-            report.Add(
-                ResolveLegacyPresentationIdSeverity(options),
-                "presentation.legacy-fallback.non-empty",
-                $"Gameplay StageDefinition '{entry.GameplayDefinition.name}' still contains legacy PresentationId authoring. StagePresentationDefinition is the canonical source of truth.",
-                entry.GameplayDefinition,
-                GetAssetPath(entry.GameplayDefinition, options),
-                options.Timing);
-        }
-
         private static void ValidateEvaluationDefinition(
             StageContentEntry entry,
             StageCatalogValidationOptions options,
@@ -3113,13 +3076,6 @@ namespace Game.Feature.Stages
         }
 
         private static StageValidationSeverity ResolveGameplayPathSeverity(StageCatalogValidationOptions options)
-        {
-            return options.Phase >= StageValidationPhase.Phase5_Hardening
-                ? StageValidationSeverity.Error
-                : StageValidationSeverity.Warning;
-        }
-
-        private static StageValidationSeverity ResolveLegacyPresentationIdSeverity(StageCatalogValidationOptions options)
         {
             return options.Phase >= StageValidationPhase.Phase5_Hardening
                 ? StageValidationSeverity.Error

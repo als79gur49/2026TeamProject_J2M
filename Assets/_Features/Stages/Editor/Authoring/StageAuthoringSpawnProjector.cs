@@ -157,7 +157,6 @@ namespace Game.Feature.Stages.Editor
                     EnemyAiMode = placement.EnemyAiMode,
                     EnemyAiStateTimer = placement.EnemyAiStateTimer,
                     EnemyAiProfile = placement.EnemyAiProfileOverride,
-                    PresentationId = string.Empty,
                     UnitStackGroup = Normalize(placement.UnitStackGroup),
                 };
 

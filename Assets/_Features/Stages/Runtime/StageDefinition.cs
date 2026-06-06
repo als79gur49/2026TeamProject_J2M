@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Game.Feature.Stages
 {
@@ -37,9 +36,6 @@ namespace Game.Feature.Stages
         public EnemyAiMode EnemyAiMode;
         public int EnemyAiStateTimer;
         public EnemyAiProfile EnemyAiProfile;
-        [Tooltip("Legacy presentation binding compatibility field. StagePresentationDefinition is the source of truth after migration.")]
-        [FormerlySerializedAs("EnemyPresentationId")]
-        public string PresentationId;
         public string UnitStackGroup;
     }
 

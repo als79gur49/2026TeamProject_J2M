@@ -520,63 +520,6 @@ namespace Game.Feature.Stages
             return instructions;
         }
 
-        internal static EnemyPresentationBinding[] BuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)
-        {
-            var bindings = new List<EnemyPresentationBinding>();
-
-            for (var i = 0; i < spawns.Count; i++)
-            {
-                var spawn = spawns[i];
-                if (spawn.Kind != StageSpawnKind.Enemy)
-                {
-                    continue;
-                }
-
-                var presentationId = NormalizePresentationId(spawn.PresentationId);
-                if (string.IsNullOrEmpty(presentationId))
-                {
-                    continue;
-                }
-
-                bindings.Add(new EnemyPresentationBinding
-                {
-                    EntityId = spawn.EntityId,
-                    PresentationId = presentationId,
-                });
-            }
-
-            return StagePresentationBindingNormalizer.NormalizeEnemyBindings(bindings);
-        }
-
-        internal static StaticEntityPresentationBinding[] BuildStaticBindings(IReadOnlyList<StageSpawnDefinition> spawns)
-        {
-            var bindings = new List<StaticEntityPresentationBinding>();
-
-            for (var i = 0; i < spawns.Count; i++)
-            {
-                var spawn = spawns[i];
-                if (spawn.Kind != StageSpawnKind.Box &&
-                    spawn.Kind != StageSpawnKind.Wall)
-                {
-                    continue;
-                }
-
-                var presentationId = NormalizePresentationId(spawn.PresentationId);
-                if (string.IsNullOrEmpty(presentationId))
-                {
-                    continue;
-                }
-
-                bindings.Add(new StaticEntityPresentationBinding
-                {
-                    EntityId = spawn.EntityId,
-                    PresentationId = presentationId,
-                });
-            }
-
-            return StagePresentationBindingNormalizer.NormalizeStaticEntityBindings(bindings);
-        }
-
         private static IReadOnlyList<TileFeaturePresentationResolvedBinding> ResolveTileFeatureBindings(
             IReadOnlyList<TileFeaturePresentationBinding> source)
         {

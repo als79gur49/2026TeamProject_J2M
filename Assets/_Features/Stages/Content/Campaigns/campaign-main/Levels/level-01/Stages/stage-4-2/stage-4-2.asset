@@ -31,7 +31,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   boxSpawns:
   - EntityId: 2
@@ -48,7 +47,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 3
     Kind: 2
@@ -64,7 +62,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 4
     Kind: 2
@@ -80,7 +77,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 5
     Kind: 2
@@ -96,7 +92,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 6
     Kind: 2
@@ -112,7 +107,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 7
     Kind: 2
@@ -128,7 +122,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 8
     Kind: 2
@@ -144,7 +137,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 9
     Kind: 2
@@ -160,7 +152,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 10
     Kind: 2
@@ -176,7 +167,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 11
     Kind: 2
@@ -192,7 +182,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 12
     Kind: 2
@@ -208,7 +197,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 13
     Kind: 2
@@ -224,7 +212,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 14
     Kind: 2
@@ -240,7 +227,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 15
     Kind: 2
@@ -256,7 +242,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 16
     Kind: 2
@@ -272,7 +257,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 17
     Kind: 2
@@ -288,7 +272,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 18
     Kind: 2
@@ -304,7 +287,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 19
     Kind: 2
@@ -320,7 +302,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 20
     Kind: 2
@@ -336,7 +317,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 21
     Kind: 2
@@ -352,7 +332,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 22
     Kind: 2
@@ -368,7 +347,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 23
     Kind: 2
@@ -384,7 +362,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 24
     Kind: 2
@@ -400,7 +377,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 25
     Kind: 2
@@ -416,7 +392,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 30
     Kind: 2
@@ -432,7 +407,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 31
     Kind: 2
@@ -448,7 +422,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 32
     Kind: 2
@@ -464,7 +437,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 33
     Kind: 2
@@ -480,7 +452,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 34
     Kind: 2
@@ -496,7 +467,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 35
     Kind: 2
@@ -512,7 +482,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 36
     Kind: 2
@@ -528,7 +497,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 37
     Kind: 2
@@ -544,7 +512,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 38
     Kind: 2
@@ -560,7 +527,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 39
     Kind: 2
@@ -576,7 +542,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 42
     Kind: 2
@@ -592,7 +557,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 43
     Kind: 2
@@ -608,7 +572,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 44
     Kind: 2
@@ -624,7 +587,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 45
     Kind: 2
@@ -640,7 +602,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 46
     Kind: 2
@@ -656,7 +617,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 47
     Kind: 2
@@ -672,7 +632,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 48
     Kind: 2
@@ -688,7 +647,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 49
     Kind: 2
@@ -704,7 +662,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 50
     Kind: 2
@@ -720,7 +677,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 51
     Kind: 2
@@ -736,7 +692,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 52
     Kind: 2
@@ -752,7 +707,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 53
     Kind: 2
@@ -768,7 +722,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 54
     Kind: 2
@@ -784,7 +737,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 72
     Kind: 2
@@ -800,7 +752,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 73
     Kind: 2
@@ -816,7 +767,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 75
     Kind: 2
@@ -832,7 +782,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 76
     Kind: 2
@@ -848,7 +797,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 77
     Kind: 2
@@ -864,7 +812,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 78
     Kind: 2
@@ -880,7 +827,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 79
     Kind: 2
@@ -896,7 +842,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 80
     Kind: 2
@@ -912,7 +857,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 81
     Kind: 2
@@ -928,7 +872,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 82
     Kind: 2
@@ -944,7 +887,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 83
     Kind: 2
@@ -960,7 +902,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 86
     Kind: 2
@@ -976,7 +917,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 87
     Kind: 2
@@ -992,7 +932,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 88
     Kind: 2
@@ -1008,7 +947,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 89
     Kind: 2
@@ -1024,7 +962,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 90
     Kind: 2
@@ -1040,7 +977,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 91
     Kind: 2
@@ -1056,7 +992,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 92
     Kind: 2
@@ -1072,7 +1007,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 93
     Kind: 2
@@ -1088,7 +1022,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 94
     Kind: 2
@@ -1104,7 +1037,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 95
     Kind: 2
@@ -1120,7 +1052,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 96
     Kind: 2
@@ -1136,7 +1067,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 97
     Kind: 2
@@ -1152,7 +1082,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 98
     Kind: 2
@@ -1168,7 +1097,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 99
     Kind: 2
@@ -1184,7 +1112,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 100
     Kind: 2
@@ -1200,7 +1127,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 101
     Kind: 2
@@ -1216,7 +1142,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 102
     Kind: 2
@@ -1232,7 +1157,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 103
     Kind: 2
@@ -1248,7 +1172,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 112
     Kind: 2
@@ -1264,7 +1187,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 113
     Kind: 2
@@ -1280,7 +1202,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 114
     Kind: 2
@@ -1296,7 +1217,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 115
     Kind: 2
@@ -1312,7 +1232,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 116
     Kind: 2
@@ -1328,7 +1247,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 117
     Kind: 2
@@ -1344,7 +1262,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 118
     Kind: 2
@@ -1360,7 +1277,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 119
     Kind: 2
@@ -1376,7 +1292,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 120
     Kind: 2
@@ -1392,7 +1307,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 121
     Kind: 2
@@ -1408,7 +1322,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 122
     Kind: 2
@@ -1424,7 +1337,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 123
     Kind: 2
@@ -1440,7 +1352,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 124
     Kind: 2
@@ -1456,7 +1367,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 125
     Kind: 2
@@ -1472,7 +1382,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 126
     Kind: 2
@@ -1488,7 +1397,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 127
     Kind: 2
@@ -1504,7 +1412,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 128
     Kind: 2
@@ -1520,7 +1427,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 129
     Kind: 2
@@ -1536,7 +1442,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 130
     Kind: 2
@@ -1552,7 +1457,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 131
     Kind: 2
@@ -1568,7 +1472,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 132
     Kind: 2
@@ -1584,7 +1487,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 133
     Kind: 2
@@ -1600,7 +1502,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 134
     Kind: 2
@@ -1616,7 +1517,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 141
     Kind: 2
@@ -1632,7 +1532,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 142
     Kind: 2
@@ -1648,7 +1547,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 152
     Kind: 2
@@ -1664,7 +1562,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   enemySpawns:
   - EntityId: 55
@@ -1681,7 +1578,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 56
     Kind: 1
@@ -1697,7 +1593,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 57
     Kind: 1
@@ -1713,7 +1608,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 58
     Kind: 1
@@ -1729,7 +1623,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 59
     Kind: 1
@@ -1745,7 +1638,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 60
     Kind: 1
@@ -1761,7 +1653,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 84
     Kind: 1
@@ -1777,7 +1668,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 85
     Kind: 1
@@ -1793,7 +1683,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 143
     Kind: 1
@@ -1809,7 +1698,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 144
     Kind: 1
@@ -1825,7 +1713,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 145
     Kind: 1
@@ -1841,7 +1728,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 146
     Kind: 1
@@ -1857,7 +1743,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 147
     Kind: 1
@@ -1873,7 +1758,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 148
     Kind: 1
@@ -1889,7 +1773,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 149
     Kind: 1
@@ -1905,7 +1788,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8fdb5400ceb74592aa5dea3cbb2cf2a8, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 150
     Kind: 1
@@ -1921,7 +1803,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 151
     Kind: 1
@@ -1937,7 +1818,6 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: 
     UnitStackGroup: 
   wallSpawns:
   - EntityId: 27
@@ -1954,7 +1834,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 28
     Kind: 3
@@ -1970,7 +1849,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 29
     Kind: 3
@@ -1986,7 +1864,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 40
     Kind: 3
@@ -2002,7 +1879,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 41
     Kind: 3
@@ -2018,7 +1894,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 61
     Kind: 3
@@ -2034,7 +1909,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 62
     Kind: 3
@@ -2050,7 +1924,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 63
     Kind: 3
@@ -2066,7 +1939,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 64
     Kind: 3
@@ -2082,7 +1954,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 65
     Kind: 3
@@ -2098,7 +1969,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 66
     Kind: 3
@@ -2114,7 +1984,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 67
     Kind: 3
@@ -2130,7 +1999,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 68
     Kind: 3
@@ -2146,7 +2014,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 69
     Kind: 3
@@ -2162,7 +2029,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 70
     Kind: 3
@@ -2178,7 +2044,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 71
     Kind: 3
@@ -2194,7 +2059,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 104
     Kind: 3
@@ -2210,7 +2074,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 105
     Kind: 3
@@ -2226,7 +2089,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 106
     Kind: 3
@@ -2242,7 +2104,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 107
     Kind: 3
@@ -2258,7 +2119,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 108
     Kind: 3
@@ -2274,7 +2134,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 109
     Kind: 3
@@ -2290,7 +2149,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 110
     Kind: 3
@@ -2306,7 +2164,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 111
     Kind: 3
@@ -2322,7 +2179,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 135
     Kind: 3
@@ -2338,7 +2194,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 136
     Kind: 3
@@ -2354,7 +2209,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 137
     Kind: 3
@@ -2370,7 +2224,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 138
     Kind: 3
@@ -2386,7 +2239,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 139
     Kind: 3
@@ -2402,7 +2254,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   - EntityId: 140
     Kind: 3
@@ -2418,7 +2269,6 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: 
     UnitStackGroup: 
   zones:
   - ZoneId: zone

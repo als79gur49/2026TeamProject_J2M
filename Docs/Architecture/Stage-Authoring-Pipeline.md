@@ -71,8 +71,8 @@ Generated sync validation uses normalized semantic snapshots, not raw Unity
 serialized object equality. `StageDefinition` drift is checked against gameplay
 runtime fields consumed by `StageDefinitionValidator` and `StageRuntimeBuilder`:
 board, initial bottom face, entity spawns, zones, and objective entries.
-Generated spawn array order is normalized and legacy
-`StageSpawnDefinition.PresentationId` is not gameplay drift.
+Generated spawn array order is normalized. Presentation identity is checked
+through `StagePresentationDefinition` bindings, not through gameplay spawn fields.
 `StageCatalogValidator` closes this path through
 `StageAuthoringProjection` and `StageAuthoringDriftComparer`; previous coarse
 generated-output comparison helpers are not part of the validation contract.
